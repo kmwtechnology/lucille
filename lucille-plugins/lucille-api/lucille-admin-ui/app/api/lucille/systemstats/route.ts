@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = "force-static";
+
+export  function generateStaticParams() {
+  // If you have specific run IDs that should be pre-rendered at build time,
+  // you can fetch them here and return them as an array of objects.
+  // For example: return [{ runId: 'run1' }, { runId: 'run2' }];
+  // For now, returning an empty array means no specific instances of this dynamic API route
+  // will be pre-rendered as separate JSON files during the build.
+  return [];
+}
+
+
 export async function GET(_req: NextRequest) {
   try {
     const lucilleRes = await fetch(`${process.env.LUCILLE_API_URL || 'http://localhost:8080'}/v1/systemstats`, {

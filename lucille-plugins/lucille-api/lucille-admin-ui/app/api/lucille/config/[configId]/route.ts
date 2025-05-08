@@ -1,3 +1,14 @@
+export const dynamic = "force-static";
+
+export function generateStaticParams() {
+  // If you have specific configIds that should be pre-rendered at build time,
+  // you can fetch them here and return them as an array of objects.
+  // For example: return [{ configId: 'id1' }, { configId: 'id2' }];
+  // For now, returning an empty array means no specific instances of this dynamic route
+  // will be pre-rendered as separate JSON files during the build.
+  return [];
+}
+
 import { getConfig } from '../../../../../lib/api/lucille';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -29,11 +40,10 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(
   request: NextRequest,
-  context: { params: { configId: string } }
+  { params }: { params: { configId: string } }
 ) {
-  const { params } = await context;
   const { configId } = params;
-
+  
   const { ok, status, data } = await getConfig(configId);
 
   if (!ok) {

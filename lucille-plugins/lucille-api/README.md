@@ -95,3 +95,11 @@ This setup ensures reliable Dropwizard integration testing and avoids logger con
 Any functionality exposed by the Admin API should be mirrored by an internal API in lucille-core which handles all of the logic.
 Currently, this internal API class is the `RunnerManager`, but future expansions could require more classes. Business logic should
 not go in the `lucille-api` module and should all be contained within `lucille-core`.
+
+
+
+```bash
+mvn package -DskipTests -pl lucille-core,lucille-plugins/lucille-api -am
+
+mvn package -DskipTests -pl lucille-plugins/lucille-api -am
+```

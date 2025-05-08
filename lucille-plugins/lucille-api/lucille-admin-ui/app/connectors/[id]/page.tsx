@@ -9,6 +9,15 @@ type Props = {
   }
 }
 
+export  function generateStaticParams() {
+  // If you have specific connector IDs that should be pre-rendered at build time,
+  // you can fetch them here and return them as an array of objects.
+  // For example: return [{ id: 'connector1' }, { id: 'connector2' }];
+  // For now, returning an empty array means no specific instances of this dynamic page
+  // will be pre-rendered as separate HTML files during the build.
+  return [];
+}
+
 export default function ConnectorDetailPage({ params }: Props) {
   return (
     <div className="p-8">

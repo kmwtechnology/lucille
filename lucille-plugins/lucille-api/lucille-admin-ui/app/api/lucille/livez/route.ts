@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+export const dynamic = "force-static";
+
 export async function GET(_req: NextRequest) {
   // Proxy to /v1/livez
   // Next.js API routes use NextRequest/NextResponse in app dir
