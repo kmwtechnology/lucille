@@ -66,6 +66,7 @@ public class QueryOpensearch extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
   private static final ObjectMapper mapper = new ObjectMapper();
+  private static final HttpClient httpClient = HttpClient.newHttpClient();
 
   private final URI searchURI;
 
@@ -75,8 +76,6 @@ public class QueryOpensearch extends Stage {
   private final List<String> optionalParamNames;
   private final JsonPointer opensearchResponsePath;
   private final String destinationField;
-
-  private final HttpClient httpClient;
 
   private JsonNode searchTemplateJson;
 
@@ -106,8 +105,6 @@ public class QueryOpensearch extends Stage {
     }
 
     this.destinationField = ConfigUtils.getOrDefault(config, "destinationField", "response");
-
-    httpClient = HttpClient.newHttpClient();
   }
 
   @Override

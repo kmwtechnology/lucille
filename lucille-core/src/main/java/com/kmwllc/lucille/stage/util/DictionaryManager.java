@@ -10,6 +10,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,9 +40,9 @@ public class DictionaryManager {
 
   // a map of dictionary names to dictionary instances
   // a dictionary is named according to its CSV path plus a suffix indicating whether case is ignored
-  private static final HashMap<String, Map<String, String[]>> dictionaries = new HashMap<>();
+  private static final HashMap<String, Map<String, List<String>>> dictionaries = new HashMap<>();
 
-  private static final String[] PRESENT = new String[0];
+  private static final List<String> PRESENT = List.of();
 
   // Private constructor to prevent instantiation.
   private DictionaryManager() {
@@ -73,14 +74,14 @@ public class DictionaryManager {
    * made into a ConcurrentHashMap or being passed through Collections.synchronizedMap()).
    *
    */
-  public static synchronized Map<String, String[]> getDictionary(String path, boolean ignoreCase, boolean setOnly, Config config) throws StageException {
+  public static synchronized Map<String, List<String>> getDictionary(String path, boolean ignoreCase, boolean setOnly, Config config) throws StageException {
     String key = path + "_IGNORECASE=" + ignoreCase + "_SETONLY=" + setOnly;
     if (dictionaries.containsKey(key)) {
       return dictionaries.get(key);
     }
 
     try {
-      HashMap<String, String[]> dictionary = buildHashMap(path, ignoreCase, setOnly, config);
+      HashMap<String, List<String>> dictionary = buildHashMap(path, ignoreCase, setOnly, config);
 
       // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
       // This unmodifiable Map may be shared across Stage instances running in different threads;
@@ -91,7 +92,7 @@ public class DictionaryManager {
       // Since our map is never be modified, we assume the need for synchronization does not apply.
       // Instead of returning an unmodifiable Map, we could create a ConcurrentHashMap here, but that seems to be
       // overkill given that the desired behavior is read-only.
-      Map<String, String[]> unmodifiableDictionary = Collections.unmodifiableMap(dictionary);
+      Map<String, List<String>> unmodifiableDictionary = Collections.unmodifiableMap(dictionary);
       dictionaries.put(key, unmodifiableDictionary);
       return unmodifiableDictionary;
     } catch (IOException e) {
@@ -105,7 +106,7 @@ public class DictionaryManager {
    * @param dictPath  the path of the dictionary file
    * @return the populated HashMap
    */
-  private static HashMap<String, String[]> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config config) throws IOException {
+  private static HashMap<String, List<String>> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config config) throws IOException {
     FileContentFetcher fetcher = new FileContentFetcher(config);
     fetcher.startup();
 
@@ -114,7 +115,7 @@ public class DictionaryManager {
       // for files with >= 1K lines we observed a 10% time reduction in time to populate the HashMap when the
       // initial capacity was set, even accounting for the overhead of the extra pass over the file to count the lines
       int lineCount = fetcher.countLines(dictPath);
-      HashMap<String, String[]> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
+      HashMap<String, List<String>> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
 
       // For each line of the dictionary file, add a keyword/payload pair
       String[] line;
@@ -142,15 +143,16 @@ public class DictionaryManager {
         String word = line[0].trim();
 
         // TODO : Add log messages for when encoding errors occur so that they can be fixed
-        String[] value;
+        List<String> value;
         if (line.length == 1) {
-          value = setOnly ? PRESENT : new String[]{word};
+          // List.of() is not modifiable.
+          value = setOnly ? PRESENT : List.of(word);
         } else if (setOnly) {
           throw new IOException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
               Arrays.toString(line), reader.getLinesRead()));
         } else {
-          // Handle multiple payload values here.
-          value = Arrays.stream(Arrays.copyOfRange(line, 1, line.length)).map(String::trim).toArray(String[]::new);
+          // Handle multiple payload values here - list is also not modifiable.
+          value = Arrays.stream(Arrays.copyOfRange(line, 1, line.length)).map(String::trim).toList();
         }
         // Add the word and its payload(s) to the dictionary
         dict.put(ignoreCase ? word.toLowerCase() : word, value);

@@ -57,10 +57,9 @@ public class DictionaryLookup extends Stage {
   private final boolean setOnly;
   private final boolean ignoreMissingSource;
 
-  private Map<String, String[]> dict;
+  private Map<String, List<String>> dict;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  // Dummy value to indicate that a key is present in the HashMap
 
   public DictionaryLookup(Config config) throws StageException {
     super(config, Spec.stage().withRequiredProperties("source", "dest", "dict_path")
@@ -136,7 +135,7 @@ public class DictionaryLookup extends Stage {
           }
           if (dict.containsKey(value)) {
             if (usePayloads) {
-              outputValues.addAll(Arrays.asList(dict.get(value)));
+              outputValues.addAll(dict.get(value));
             } else {
               outputValues.add(value);
             }
