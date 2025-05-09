@@ -216,7 +216,7 @@ public class JsonDoclet implements Doclet {
     public static void main(String[] args) throws Exception {
         // Default settings
         String sourcePath = "src/main/java";
-        String subpackages = "com.kmwllc.lucille.stage";
+        String subpackages = "com.kmwllc.lucille.connector";
         String outputFile = "target/javadocs.json";
 
         // Build javadoc tool args

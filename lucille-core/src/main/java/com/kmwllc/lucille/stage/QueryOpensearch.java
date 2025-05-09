@@ -67,15 +67,72 @@ public class QueryOpensearch extends Stage {
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
   private static final ObjectMapper mapper = new ObjectMapper();
 
+  /**
+   * Configuration class for the QueryOpensearch stage.
+   * This class encapsulates all the settings that can be configured for the QueryOpensearch stage,
+   * providing type safety, centralized validation, and clear documentation for each parameter.
+   */
   public static class QueryOpensearchConfig {
+    /**
+     * The base URL of the OpenSearch instance (e.g., "http://localhost:9200").
+     * This is a required parameter and must be specified in the 'opensearch.url' path in the configuration.
+     */
     private String opensearchUrl;
+    /**
+     * The name of the OpenSearch index to query.
+     * This is a required parameter and must be specified in the 'opensearch.index' path in the configuration.
+     */
     private String opensearchIndex;
+    /**
+     * The name/ID of a pre-existing search template stored in the OpenSearch cluster.
+     * If specified, {@code searchTemplateStr} must not be specified.
+     * Optional: If not provided, {@code searchTemplateStr} must be provided.
+     */
     private String templateName;
+    /**
+     * A string representation of the OpenSearch query template to use.
+     * The parameter names defined in this template should match field names in the processed Documents.
+     * This template will <b>not</b> be saved to the OpenSearch cluster.
+     * If specified, {@code templateName} must not be specified.
+     * Optional: If not provided, {@code templateName} must be provided.
+     */
     private String searchTemplateStr;
+    /**
+     * A list of field names from the input Document that are required for the search template.
+     * If any of these fields are missing from a Document, the query will not be executed for that Document,
+     * and an error will be logged and recorded on the Document.
+     * This list should typically include all parameters in your search template that do not have default values.
+     * Defaults to an empty list.
+     */
     private List<String> requiredParamNames = List.of();
+    /**
+     * A list of field names from the input Document that are optional for the search template.
+     * If these fields are present in a Document, their values will be used as parameters in the search query.
+     * If they are missing, OpenSearch will use the default values defined in the template (if any).
+     * This list should typically include parameters in your search template that have default values.
+     * Defaults to an empty list.
+     */
     private List<String> optionalParamNames = List.of();
+    /**
+     * The string representation of the JsonPointer path to extract a specific field from the OpenSearch response.
+     * (e.g., "/hits/hits/0/_source/my_field").
+     * If null or empty, the entire OpenSearch response JSON will be used.
+     * This value is compiled into {@code opensearchResponsePath}.
+     * Defaults to null, meaning the entire response is taken.
+     */
     private String opensearchResponsePathStr;
+    /**
+     * The compiled JsonPointer used to extract a specific field from the OpenSearch response JSON.
+     * This is derived from {@code opensearchResponsePathStr} during validation.
+     * If {@code opensearchResponsePathStr} is null or empty, this will be {@code JsonPointer.empty()},
+     * indicating that the entire response should be used.
+     */
     private JsonPointer opensearchResponsePath;
+    /**
+     * The name of the field in the Lucille Document where the extracted OpenSearch response (or a part of it)
+     * will be stored.
+     * Defaults to "response".
+     */
     private String destinationField = "response";
 
     public void apply(Config config) {
