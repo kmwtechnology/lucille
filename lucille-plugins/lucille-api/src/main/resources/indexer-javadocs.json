@@ -1,0 +1,285 @@
+[
+  {
+    "className": "com.kmwllc.lucille.indexer.OpenSearchIndexer",
+    "packageName": "com.kmwllc.lucille.indexer",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "validateConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "closeConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.indexer.CSVIndexer",
+    "packageName": "com.kmwllc.lucille.indexer",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "validateConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "closeConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "description": "An indexer that stores documents in a CSV file.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.indexer.SolrIndexer",
+    "packageName": "com.kmwllc.lucille.indexer",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "validateConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "closeConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.indexer.NopIndexer",
+    "packageName": "com.kmwllc.lucille.indexer",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "validateConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "closeConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "description": "The NopIndexer performs no operations and does not send documents to any index. It is intended to be used for testing or\n validating that a pipeline is properly configured without ingesting content.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.indexer.IndexerFactory",
+    "packageName": "com.kmwllc.lucille.indexer",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "fromConfig",
+        "parameterTypes": [
+          "com.typesafe.config.Config",
+          "com.kmwllc.lucille.message.IndexerMessenger",
+          "boolean",
+          "java.lang.String",
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "config",
+          "messenger",
+          "bypass",
+          "metricsPrefix",
+          "localRunId"
+        ],
+        "description": "Instantiates an Indexer from the designated Config."
+      },
+      {
+        "methodName": "fromConfig",
+        "parameterTypes": [
+          "com.typesafe.config.Config",
+          "com.kmwllc.lucille.message.IndexerMessenger",
+          "boolean",
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "config",
+          "messenger",
+          "bypass",
+          "metricsPrefix"
+        ],
+        "description": "Instantiates an Indexer from the designated Config, without a localRunId."
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.indexer.SolrDocRequests",
+    "packageName": "com.kmwllc.lucille.indexer",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "addDocForAddUpdate",
+        "parameterTypes": [
+          "org.apache.solr.common.SolrInputDocument",
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "doc",
+          "id"
+        ]
+      },
+      {
+        "methodName": "addIdForDeletion",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "id"
+        ]
+      },
+      {
+        "methodName": "addDeleteByFieldValue",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "deleteByField",
+          "deleteByValue"
+        ]
+      },
+      {
+        "methodName": "containsIdForAddUpdate",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "id"
+        ]
+      },
+      {
+        "methodName": "containsIdForDeletion",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "id"
+        ]
+      },
+      {
+        "methodName": "containsAnyDeleteByField",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "resetAddUpdates",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "resetDeletes",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getAddUpdateDocs",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getDeleteIds",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getValuesToDeleteByField",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "description": "Maintains the list of Solr Add and Update requests that are built up as a SolrIndexer processes a\n batch. Allows the calling code (typically a SolrIndexer instance) to keep track of the document\n ids within a batch and check for collisions. Maintains separate list of documents to delete\n based on the configured delete marker on incoming documents, these are held in a list of ids for documents\n that can be deleted directly by the ID or a map of field names to field values for documents that have to\n be deleted with a terms query.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.indexer.ElasticsearchIndexer",
+    "packageName": "com.kmwllc.lucille.indexer",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "validateConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "closeConnection",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.indexer.ElasticsearchIndexer.ElasticJoinData",
+    "packageName": "com.kmwllc.lucille.indexer.ElasticsearchIndexer",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "populateJoinData",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      },
+      {
+        "methodName": "fromConfig",
+        "parameterTypes": [
+          "com.typesafe.config.Config"
+        ],
+        "parameterNames": [
+          "config"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.indexer.ElasticsearchIndexer.ElasticJoinData",
+    "packageName": "com.kmwllc.lucille.indexer.ElasticsearchIndexer",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "populateJoinData",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      },
+      {
+        "methodName": "fromConfig",
+        "parameterTypes": [
+          "com.typesafe.config.Config"
+        ],
+        "parameterNames": [
+          "config"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  }
+]
