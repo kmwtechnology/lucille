@@ -60,7 +60,6 @@ public class DictionaryLookup extends Stage {
   private Map<String, List<String>> dict;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  // Dummy value to indicate that a key is present in the HashMap
 
   public DictionaryLookup(Config config) throws StageException {
     super(config, Spec.stage().withRequiredProperties("source", "dest", "dict_path")
