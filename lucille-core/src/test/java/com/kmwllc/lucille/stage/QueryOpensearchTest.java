@@ -16,8 +16,11 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List; // Added import for List
 import org.junit.Test;
+import org.mockito.ArgumentMatchers; // Added import for ArgumentMatchers
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 

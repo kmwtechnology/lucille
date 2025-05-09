@@ -67,78 +67,119 @@ public class QueryOpensearch extends Stage {
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
   private static final ObjectMapper mapper = new ObjectMapper();
 
-  private final URI searchURI;
+  public static class QueryOpensearchConfig {
+    private String opensearchUrl;
+    private String opensearchIndex;
+    private String templateName;
+    private String searchTemplateStr;
+    private List<String> requiredParamNames = List.of();
+    private List<String> optionalParamNames = List.of();
+    private String opensearchResponsePathStr;
+    private JsonPointer opensearchResponsePath;
+    private String destinationField = "response";
 
-  private final String templateName;
-  private final String searchTemplateStr;
-  private final List<String> requiredParamNames;
-  private final List<String> optionalParamNames;
-  private final JsonPointer opensearchResponsePath;
-  private final String destinationField;
+    public void apply(Config config) {
+      Config opensearchConfig = config.getConfig("opensearch");
+      opensearchUrl = opensearchConfig.getString("url");
+      opensearchIndex = opensearchConfig.getString("index");
+      templateName = ConfigUtils.getOrDefault(config, "templateName", null);
+      searchTemplateStr = ConfigUtils.getOrDefault(config, "searchTemplate", null);
+      requiredParamNames = ConfigUtils.getOrDefault(config, "requiredParamNames", requiredParamNames);
+      optionalParamNames = ConfigUtils.getOrDefault(config, "optionalParamNames", optionalParamNames);
+      opensearchResponsePathStr = ConfigUtils.getOrDefault(config, "opensearchResponsePath", null);
+      destinationField = ConfigUtils.getOrDefault(config, "destinationField", destinationField);
+    }
 
+    public void validate() throws StageException {
+      if ((templateName == null) == (searchTemplateStr == null)) {
+        throw new StageException("You must specify templateName or searchTemplate, but not both.");
+      }
+      if (opensearchUrl == null || opensearchUrl.isBlank()) {
+        throw new StageException("Opensearch URL cannot be null or empty.");
+      }
+      if (opensearchIndex == null || opensearchIndex.isBlank()) {
+        throw new StageException("Opensearch index cannot be null or empty.");
+      }
+      if (opensearchResponsePathStr != null) {
+        try {
+          opensearchResponsePath = JsonPointer.compile(opensearchResponsePathStr);
+        } catch (IllegalArgumentException e) {
+          throw new StageException("Invalid opensearchResponsePath: " + opensearchResponsePathStr, e);
+        }
+      } else {
+        opensearchResponsePath = JsonPointer.empty();
+      }
+    }
+
+    public URI getSearchURI() {
+      return URI.create(opensearchUrl + "/" + opensearchIndex + "/_search/template");
+    }
+
+    public String getTemplateName() {
+      return templateName;
+    }
+
+    public String getSearchTemplateStr() {
+      return searchTemplateStr;
+    }
+
+    public List<String> getRequiredParamNames() {
+      return requiredParamNames;
+    }
+
+    public List<String> getOptionalParamNames() {
+      return optionalParamNames;
+    }
+
+    public JsonPointer getOpensearchResponsePath() {
+      return opensearchResponsePath;
+    }
+
+    public String getDestinationField() {
+      return destinationField;
+    }
+  }
+
+  private final QueryOpensearchConfig params;
   private final HttpClient httpClient;
-
   private JsonNode searchTemplateJson;
 
-  public QueryOpensearch(Config config) {
+  public QueryOpensearch(Config config) throws StageException {
     super(config, Spec.stage()
         .withRequiredParents(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
         .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
             "optionalParamNames", "opensearchResponsePath", "destinationField"));
 
-    this.searchURI = getTemplateSearchURI(config);
-
-    this.templateName = ConfigUtils.getOrDefault(config, "templateName", null);
-    this.searchTemplateStr = ConfigUtils.getOrDefault(config, "searchTemplate", null);
-
-    // XNOR - cannot both be null, cannot both be specified.
-    if ((templateName == null) == (searchTemplateStr == null)) {
-      throw new IllegalArgumentException("You must specify templateName or searchTemplate.");
-    }
-
-    this.requiredParamNames = ConfigUtils.getOrDefault(config, "requiredParamNames", List.of());
-    this.optionalParamNames = ConfigUtils.getOrDefault(config, "optionalParamNames", List.of());
-
-    if (config.hasPath("opensearchResponsePath")) {
-      this.opensearchResponsePath = JsonPointer.compile(config.getString("opensearchResponsePath"));
-    } else {
-      this.opensearchResponsePath = JsonPointer.empty();
-    }
-
-    this.destinationField = ConfigUtils.getOrDefault(config, "destinationField", "response");
+    this.params = new QueryOpensearchConfig();
+    this.params.apply(config);
+    this.params.validate();
 
     httpClient = HttpClient.newHttpClient();
   }
 
   @Override
   public void start() throws StageException {
-    // Get JSON for the search template, if it was specified.
-    if (searchTemplateStr == null) {
+    if (params.getSearchTemplateStr() == null) {
       return;
     }
 
     try {
-      searchTemplateJson = mapper.readTree(searchTemplateStr);
+      searchTemplateJson = mapper.readTree(params.getSearchTemplateStr());
     } catch (JsonProcessingException e) {
       throw new StageException("Error building JSON from the searchTemplate provided.", e);
     }
   }
-
-  // TODO: If we require Java 21 we could add a call to httpClient.close().
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     ObjectNode requestJson;
 
     if (searchTemplateJson != null) {
-      // 1. Use an existing search template. Need the json for the template, will populate it with "params" for this document.
-      requestJson = (ObjectNode) searchTemplateJson;
+      requestJson = (ObjectNode) searchTemplateJson.deepCopy();
     } else {
-      // 2. Lookup by an existing template. Populate the "id" field. Will populate it with "params" for this document.
-      requestJson = mapper.createObjectNode().put("id", templateName);
+      requestJson = mapper.createObjectNode().put("id", params.getTemplateName());
     }
 
-    // If there is an exception (a missing required params?) then log a warning, put an error, and return.
     try {
       populateJsonWithParams(doc, requestJson);
     } catch (NoSuchFieldException e) {
@@ -147,9 +188,8 @@ public class QueryOpensearch extends Stage {
       return null;
     }
 
-    // Building the actual request and then executing it
     HttpRequest httpRequest = HttpRequest.newBuilder()
-        .uri(searchURI)
+        .uri(params.getSearchURI())
         .header("Content-Type", "application/json")
         .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString()))
         .build();
@@ -163,20 +203,15 @@ public class QueryOpensearch extends Stage {
       throw new StageException("Error occurred sending the Opensearch query / getting JSON.", e);
     }
 
-    JsonNode responseFieldNode = responseNode.at(opensearchResponsePath);
-    doc.setField(destinationField, responseFieldNode);
+    JsonNode responseFieldNode = responseNode.at(params.getOpensearchResponsePath());
+    doc.setField(params.getDestinationField(), responseFieldNode);
     return null;
   }
 
-  /**
-   * Adds a "params" node to the root of the given JSON, populated with the required / optional param names present on the given Document.
-   * Throws a NoSuchFieldException if a "requiredParam" is not present on the given document.
-   * (package access so we can test, make sure we are getting the appropriate objects)
-   */
   void populateJsonWithParams(Document doc, ObjectNode json) throws NoSuchFieldException {
     ObjectNode paramsNode = mapper.createObjectNode();
 
-    for (String requiredParamName : requiredParamNames) {
+    for (String requiredParamName : params.getRequiredParamNames()) {
       if (!doc.has(requiredParamName)) {
         throw new NoSuchFieldException("Field " + requiredParamName + " is required, but missing from Document " + doc.getId() + ".");
       }
@@ -184,7 +219,7 @@ public class QueryOpensearch extends Stage {
       paramsNode.set(requiredParamName, doc.getJson(requiredParamName));
     }
 
-    for (String optionalParamName : optionalParamNames) {
+    for (String optionalParamName : params.getOptionalParamNames()) {
       if (doc.has(optionalParamName)) {
         paramsNode.set(optionalParamName, doc.getJson(optionalParamName));
       }
@@ -200,4 +235,5 @@ public class QueryOpensearch extends Stage {
     String uriString = config.getString("opensearch.url") + "/" + config.getString("opensearch.index") + "/_search/template";
     return URI.create(uriString);
   }
+
 }
