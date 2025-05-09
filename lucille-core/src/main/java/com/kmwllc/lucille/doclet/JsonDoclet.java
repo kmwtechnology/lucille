@@ -11,13 +11,14 @@ import com.kmwllc.lucille.util.ClassUtils.MethodDescriptor;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 import java.io.Writer;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +31,8 @@ import jdk.javadoc.doclet.DocletEnvironment;
 import jdk.javadoc.doclet.Reporter;
 
 /**
- * A modern JDK-9+ Doclet that generates a JSON file of ClassDescriptor and MethodDescriptor
+ * A modern JDK-9+ Doclet that generates a JSON file of ClassDescriptor and MethodDescriptor.
+ * This doclet extracts documentation from source code structure rather than loading runtime classes.
  */
 public class JsonDoclet implements Doclet {
     private Reporter reporter;
@@ -54,6 +56,100 @@ public class JsonDoclet implements Doclet {
     public SourceVersion getSupportedSourceVersion() {
         return SourceVersion.latest();
     }
+    
+    /**
+     * Creates a ClassDescriptor for a TypeElement without loading the class.
+     * 
+     * @param type The TypeElement to process
+     * @param env The DocletEnvironment
+     * @return A ClassDescriptor for the type
+     */
+    private ClassDescriptor createClassDescriptorFromType(TypeElement type, DocletEnvironment env) {
+        if (type.getKind() != ElementKind.CLASS && type.getKind() != ElementKind.ENUM) {
+            return null;
+        }
+        
+        String className = type.getQualifiedName().toString();
+        String simpleClassName = type.getSimpleName().toString();
+        
+        List<MethodDescriptor> methodDescriptors = new ArrayList<>();
+        
+        // Process methods
+        for (Element member : type.getEnclosedElements()) {
+            if (member instanceof ExecutableElement && member.getKind() == ElementKind.METHOD) {
+                ExecutableElement method = (ExecutableElement) member;
+                
+                // Only process public methods
+                if (!method.getModifiers().contains(Modifier.PUBLIC)) {
+                    continue;
+                }
+                
+                String methodName = method.getSimpleName().toString();
+                
+                // Get parameter names for documentation
+                List<String> paramNames = method.getParameters().stream()
+                    .map(p -> p.getSimpleName().toString())
+                    .collect(Collectors.toList());
+                
+                // Get parameter types
+                List<String> paramTypes = method.getParameters().stream()
+                    .map(p -> p.asType().toString())
+                    .collect(Collectors.toList());
+                
+                // Create a MethodDescriptor without using reflection
+                MethodDescriptor methodDesc = new MethodDescriptor(methodName, paramNames, paramTypes);
+                
+                // Add doc comment if available
+                String docComment = env.getElementUtils().getDocComment(method);
+                if (docComment != null) {
+                    methodDesc.setDescription(docComment.trim());
+                }
+                
+                methodDescriptors.add(methodDesc);
+            }
+        }
+        
+        // Create ClassDescriptor without loading the class
+        ClassDescriptor classDesc = new ClassDescriptor(className, simpleClassName, methodDescriptors);
+        
+        // Add class-level documentation
+        String classDocComment = env.getElementUtils().getDocComment(type);
+        if (classDocComment != null) {
+            classDesc.setDescription(classDocComment.trim());
+        }
+        
+        // Process field documentation for potential configuration properties
+        processFieldDocumentation(type, env, classDesc);
+        
+        return classDesc;
+    }
+    
+    /**
+     * Process field documentation for a type element and add it to the class descriptor.
+     * This is especially useful for configuration fields.
+     * 
+     * @param type The type element
+     * @param env The doclet environment
+     * @param classDesc The class descriptor to augment
+     */
+    private void processFieldDocumentation(TypeElement type, DocletEnvironment env, ClassDescriptor classDesc) {
+        Map<String, String> fieldDocs = new HashMap<>();
+        
+        for (Element member : type.getEnclosedElements()) {
+            if (member.getKind() == ElementKind.FIELD) {
+                String fieldName = member.getSimpleName().toString();
+                String docComment = env.getElementUtils().getDocComment(member);
+                
+                if (docComment != null && !docComment.trim().isEmpty()) {
+                    fieldDocs.put(fieldName, docComment.trim());
+                }
+            }
+        }
+        
+        if (!fieldDocs.isEmpty()) {
+            classDesc.setFieldDocs(fieldDocs);
+        }
+    }
 
     @Override
     public boolean run(DocletEnvironment env) {
@@ -61,48 +157,41 @@ public class JsonDoclet implements Doclet {
 
         for (Element e : env.getIncludedElements()) {
             if (!(e instanceof TypeElement)) continue;
-            TypeElement type = (TypeElement) e;
-            if (type.getKind() != ElementKind.CLASS && type.getKind() != ElementKind.ENUM) continue;
-
-            try {
-                Class<?> runtimeClass = Class.forName(type.getQualifiedName().toString());
-                // Build method descriptors with parameter names
-                List<MethodDescriptor> methodDescriptors = new ArrayList<>();
-                for (Element member : type.getEnclosedElements()) {
-                    if (member instanceof ExecutableElement) {
-                        ExecutableElement exec = (ExecutableElement) member;
-                        if (exec.getKind() != ElementKind.METHOD) continue;
-                        List<String> paramTypes = exec.getParameters().stream()
-                                .map(p -> p.asType().toString())
-                                .collect(Collectors.toList());
-                        List<String> paramNames = exec.getParameters().stream()
-                                .map(p -> p.getSimpleName().toString())
-                                .collect(Collectors.toList());
-                        Method method = null;
-                        try {
-                            method = runtimeClass.getDeclaredMethod(exec.getSimpleName().toString(),
-                                    exec.getParameters().stream().map(p -> {
-                                        try {
-                                            return Class.forName(p.asType().toString());
-                                        } catch (Exception ex) {
-                                            return Object.class;
-                                        }
-                                    }).toArray(Class[]::new));
-                        } catch (Exception ex) {
-                            continue;
+            TypeElement topLevelType = (TypeElement) e;
+            
+            // Process the top-level class itself
+            ClassDescriptor topLevelDesc = createClassDescriptorFromType(topLevelType, env);
+            if (topLevelDesc != null) {
+                descriptors.add(topLevelDesc);
+            }
+            
+            // Process public static inner classes - especially looking for Config classes
+            for (Element enclosedElement : topLevelType.getEnclosedElements()) {
+                if (enclosedElement instanceof TypeElement) {
+                    TypeElement innerType = (TypeElement) enclosedElement;
+                    Set<Modifier> modifiers = innerType.getModifiers();
+                    
+                    // Check if it's a public static inner class/enum
+                    if ((innerType.getKind() == ElementKind.CLASS || innerType.getKind() == ElementKind.ENUM) &&
+                        modifiers.contains(Modifier.PUBLIC) && 
+                        modifiers.contains(Modifier.STATIC)) {
+                        
+                        // Check if it follows the naming convention: OuterClassNameConfig
+                        String outerName = topLevelType.getSimpleName().toString();
+                        String innerName = innerType.getSimpleName().toString();
+                        boolean isConfigClass = innerName.equals(outerName + "Config");
+                        
+                        ClassDescriptor innerDesc = createClassDescriptorFromType(innerType, env);
+                        if (innerDesc != null) {
+                            // Mark this as a configuration class if it follows the naming convention
+                            if (isConfigClass) {
+                                innerDesc.setIsConfigClass(true);
+                                innerDesc.setConfigForClass(topLevelType.getQualifiedName().toString());
+                            }
+                            descriptors.add(innerDesc);
                         }
-                        MethodDescriptor md = new MethodDescriptor(method, paramNames);
-                        md.setDescription(env.getElementUtils().getDocComment(exec));
-                        methodDescriptors.add(md);
                     }
                 }
-                // Use a constructor or reflection to set the methods field directly
-                ClassDescriptor cd = new ClassDescriptor(runtimeClass, methodDescriptors);
-                cd.setDescription(env.getElementUtils().getDocComment(type));
-                descriptors.add(cd);
-            } catch (Exception ex) {
-                reporter.print(Diagnostic.Kind.WARNING, "Failed to process "
-                    + e + ": " + ex.getMessage());
             }
         }
 
@@ -113,12 +202,11 @@ public class JsonDoclet implements Doclet {
                 Gson gson = new GsonBuilder().setPrettyPrinting().create();
                 gson.toJson(descriptors, new TypeToken<List<ClassDescriptor>>(){}.getType(), w);
             }
+            return true;
         } catch (Exception e) {
             reporter.print(Diagnostic.Kind.ERROR, "Error writing javadocs.json: " + e.getMessage());
             return false;
         }
-
-        return true;
     }
 
     /**
@@ -126,7 +214,7 @@ public class JsonDoclet implements Doclet {
      * Uses sensible defaults for source path, package, and output file.
      */
     public static void main(String[] args) throws Exception {
-        // Defaults
+        // Default settings
         String sourcePath = "src/main/java";
         String subpackages = "com.kmwllc.lucille.stage";
         String outputFile = "target/javadocs.json";
@@ -138,7 +226,7 @@ public class JsonDoclet implements Doclet {
             "-subpackages", subpackages
         };
 
-        // Use ToolProvider to invoke javadoc (Java 9+)
+        // Use ToolProvider to invoke javadoc
         javax.tools.Tool javadocTool = javax.tools.ToolProvider.getSystemDocumentationTool();
         if (javadocTool == null) {
             System.err.println("Javadoc tool not found. Make sure you are using a JDK, not a JRE.");
@@ -153,25 +241,3 @@ public class JsonDoclet implements Doclet {
         }
     }
 }
-
-// -----------------------------------------------------------------------------
-// Maven POM snippet for maven-javadoc-plugin (in <build><plugins>)
-// -----------------------------------------------------------------------------
-/**
-<plugin>
-  <groupId>org.apache.maven.plugins</groupId>
-  <artifactId>maven-javadoc-plugin</artifactId>
-  <version>3.4.0</version>
-  <configuration>
-    <doclet>com.kmwllc.lucille.doclet.JsonDoclet</doclet>
-    <docletArtifact>
-      <groupId>com.kmwllc.lucille</groupId>
-      <artifactId>lucille-core</artifactId>
-      <version>${project.version}</version>
-    </docletArtifact>
-    <additionalJOptions>
-      <additionalJOption>-Xdoclint:none</additionalJOption>
-    </additionalJOptions>
-  </configuration>
-</plugin>
-*/
