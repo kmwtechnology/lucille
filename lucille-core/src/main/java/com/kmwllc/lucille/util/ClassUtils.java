@@ -6,17 +6,13 @@ import io.github.classgraph.ClassInfo;
 import io.github.classgraph.ScanResult;
 
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Modifier;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Utility for scanning the classpath and finding subclasses
@@ -54,6 +50,22 @@ public class ClassUtils {
                     .map(Class::getName)
                     .collect(Collectors.toList());
             this.returnType = method.getReturnType().getName();
+            this.parameterNames = parameterNames;
+        }
+
+        /**
+         * Constructs a MethodDescriptor without requiring a Method instance.
+         * Useful for doclets that don't want to load classes.
+         *
+         * @param methodName the name of the method
+         * @param parameterNames the names of the parameters
+         * @param parameterTypes the types of the parameters as strings
+         */
+        public MethodDescriptor(String methodName, List<String> parameterNames, List<String> parameterTypes) {
+            this.declaringClass = null; // Will be populated when added to a ClassDescriptor
+            this.methodName = methodName;
+            this.parameterTypes = parameterTypes;
+            this.returnType = null; // May be populated later
             this.parameterNames = parameterNames;
         }
 
@@ -122,6 +134,9 @@ public class ClassUtils {
         private final boolean isAbstract;
         private final List<MethodDescriptor> methods;
         private String description; // Optional field for description
+        private Map<String, String> fieldDocs; // Field name to documentation mapping
+        private boolean isConfigClass; // Whether this is a configuration class
+        private String configForClass; // The class this config is for (if applicable)
 
         /**
          * Constructs a ClassDescriptor from a java.lang.Class.
@@ -162,6 +177,24 @@ public class ClassUtils {
             this.methods = methods;
         }
 
+        /**
+         * Constructs a ClassDescriptor without loading the class, using string information.
+         * 
+         * @param className The fully qualified name of the class
+         * @param simpleClassName The simple name of the class
+         * @param methods The list of methods for this class
+         */
+        public ClassDescriptor(String className, String simpleClassName, List<MethodDescriptor> methods) {
+            this.className = className;
+            // Extract package from className
+            this.packageName = className.contains(".") ? 
+                className.substring(0, className.lastIndexOf('.')) : "";
+            this.superClassName = null; // May be populated later
+            this.interfaceNames = new ArrayList<>(); // May be populated later
+            this.isAbstract = false; // Default assumption, may be changed later
+            this.methods = methods;
+        }
+
         public void setDescription(String description) {
             this.description = description;
         }
@@ -192,6 +225,60 @@ public class ClassUtils {
 
         public List<MethodDescriptor> getMethods() {
             return methods;
+        }
+
+        /**
+         * Sets documentation for fields in this class.
+         * 
+         * @param fieldDocs Map from field names to their documentation
+         */
+        public void setFieldDocs(Map<String, String> fieldDocs) {
+            this.fieldDocs = fieldDocs;
+        }
+
+        /**
+         * Get the field documentation map.
+         * 
+         * @return Map from field names to their documentation
+         */
+        public Map<String, String> getFieldDocs() {
+            return fieldDocs;
+        }
+
+        /**
+         * Mark this class as a configuration class.
+         * 
+         * @param isConfigClass True if this is a configuration class
+         */
+        public void setIsConfigClass(boolean isConfigClass) {
+            this.isConfigClass = isConfigClass;
+        }
+
+        /**
+         * Check if this is a configuration class.
+         * 
+         * @return True if this is a configuration class
+         */
+        public boolean isConfigClass() {
+            return isConfigClass;
+        }
+
+        /**
+         * Set the class this config is for.
+         * 
+         * @param configForClass The fully qualified name of the class this config is for
+         */
+        public void setConfigForClass(String configForClass) {
+            this.configForClass = configForClass;
+        }
+
+        /**
+         * Get the class this config is for.
+         * 
+         * @return The fully qualified name of the class this config is for
+         */
+        public String getConfigForClass() {
+            return configForClass;
         }
 
         @Override
