@@ -19,11 +19,14 @@ import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 import java.io.Writer;
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 
 import jdk.javadoc.doclet.Doclet;
@@ -36,6 +39,9 @@ import jdk.javadoc.doclet.Reporter;
  */
 public class JsonDoclet implements Doclet {
     private Reporter reporter;
+    private String outputFile = "javadocs.json"; // Default output file
+    private String outputPath = "target"; // Default output directory
+    private boolean helpWanted = false;
 
     @Override
     public void init(java.util.Locale locale, jdk.javadoc.doclet.Reporter reporter) {
@@ -49,7 +55,122 @@ public class JsonDoclet implements Doclet {
 
     @Override
     public Set<? extends Option> getSupportedOptions() {
-        return Set.of();
+        return Set.of(
+            // Option for output file name
+            new Option() {
+                @Override
+                public int getArgumentCount() {
+                    return 1;
+                }
+
+                @Override
+                public String getDescription() {
+                    return "Output file name (default: javadocs.json)";
+                }
+
+                @Override
+                public Kind getKind() {
+                    return Kind.STANDARD;
+                }
+
+                @Override
+                public List<String> getNames() {
+                    return List.of("-o", "--output");
+                }
+
+                @Override
+                public String getParameters() {
+                    return "FILE";
+                }
+
+                @Override
+                public boolean process(String option, List<String> arguments) {
+                    outputFile = arguments.get(0);
+                    return true;
+                }
+            },
+            // Option for output directory
+            new Option() {
+                @Override
+                public int getArgumentCount() {
+                    return 1;
+                }
+
+                @Override
+                public String getDescription() {
+                    return "Output directory (default: target)";
+                }
+
+                @Override
+                public Kind getKind() {
+                    return Kind.STANDARD;
+                }
+
+                @Override
+                public List<String> getNames() {
+                    return List.of("-d", "--directory");
+                }
+
+                @Override
+                public String getParameters() {
+                    return "DIR";
+                }
+
+                @Override
+                public boolean process(String option, List<String> arguments) {
+                    outputPath = arguments.get(0);
+                    return true;
+                }
+            },
+            // Help option
+            new Option() {
+                @Override
+                public int getArgumentCount() {
+                    return 0;
+                }
+
+                @Override
+                public String getDescription() {
+                    return "Display help information";
+                }
+
+                @Override
+                public Kind getKind() {
+                    return Kind.STANDARD;
+                }
+
+                @Override
+                public List<String> getNames() {
+                    return List.of("-h", "--help");
+                }
+
+                @Override
+                public String getParameters() {
+                    return "";
+                }
+
+                @Override
+                public boolean process(String option, List<String> arguments) {
+                    helpWanted = true;
+                    printHelp();
+                    return true;
+                }
+            }
+        );
+    }
+
+    private void printHelp() {
+        System.out.println("JsonDoclet: Generates JSON documentation for Java classes");
+        System.out.println("Usage: javadoc -doclet com.kmwllc.lucille.doclet.JsonDoclet [options]");
+        System.out.println();
+        System.out.println("Options:");
+        System.out.println("  -o, --output FILE      Output file name (default: javadocs.json)");
+        System.out.println("  -d, --directory DIR    Output directory (default: target)");
+        System.out.println("  -h, --help             Display this help message");
+        System.out.println();
+        System.out.println("Standard javadoc options:");
+        System.out.println("  -sourcepath PATH       Source path for Java files");
+        System.out.println("  -subpackages PACKAGES  Process the specified packages");
     }
 
     @Override
@@ -153,6 +274,10 @@ public class JsonDoclet implements Doclet {
 
     @Override
     public boolean run(DocletEnvironment env) {
+        if (helpWanted) {
+            return false; // Exit cleanly after showing help
+        }
+        
         List<ClassDescriptor> descriptors = new ArrayList<>();
 
         for (Element e : env.getIncludedElements()) {
@@ -196,45 +321,96 @@ public class JsonDoclet implements Doclet {
         }
 
         try {
-            javax.tools.JavaFileManager fileManager = javax.tools.ToolProvider.getSystemJavaCompiler().getStandardFileManager(null, null, null);
-            FileObject file = fileManager.getFileForOutput(StandardLocation.CLASS_OUTPUT, "", "javadocs.json", null);
-            try (Writer w = file.openWriter()) {
-                Gson gson = new GsonBuilder().setPrettyPrinting().create();
-                gson.toJson(descriptors, new TypeToken<List<ClassDescriptor>>(){}.getType(), w);
+            // Ensure output directory exists
+            File outputDir = new File(outputPath);
+            if (!outputDir.exists()) {
+                outputDir.mkdirs();
             }
+            
+            File outputJsonFile = new File(outputDir, outputFile);
+            reporter.print(Diagnostic.Kind.NOTE, "Writing JSON documentation to " + outputJsonFile.getAbsolutePath());
+            
+            // Use standard Java file writing instead of JavaFileManager
+            try (Writer writer = new java.io.FileWriter(outputJsonFile)) {
+                Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                gson.toJson(descriptors, writer);
+            }
+            
             return true;
         } catch (Exception e) {
-            reporter.print(Diagnostic.Kind.ERROR, "Error writing javadocs.json: " + e.getMessage());
+            reporter.print(Diagnostic.Kind.ERROR, "Error writing javadocs: " + e.getMessage());
             return false;
         }
     }
 
     /**
      * Main method to run JsonDoclet as a standalone application.
-     * Uses sensible defaults for source path, package, and output file.
+     * Uses command-line arguments to configure the doclet or defaults to sensible defaults.
      */
     public static void main(String[] args) throws Exception {
         // Default settings
         String sourcePath = "src/main/java";
-        String subpackages = "com.kmwllc.lucille.connector";
-        String outputFile = "target/javadocs.json";
+        String subpackages = "com.kmwllc.lucille.stage";
+        String outputFile = "javadocs.json";
+        String outputDir = "target";
+        
+        // Parse arguments for help flag
+        if (Arrays.asList(args).contains("-h") || Arrays.asList(args).contains("--help")) {
+            System.out.println("JsonDoclet: Generate JSON documentation from Javadoc");
+            System.out.println("Usage: java -cp <classpath> com.kmwllc.lucille.doclet.JsonDoclet [options]");
+            System.out.println();
+            System.out.println("Options:");
+            System.out.println("  -sp, --sourcepath <path>    Source path (default: src/main/java)");
+            System.out.println("  -sb, --subpackages <pkgs>   Subpackages to process (default: com.kmwllc.lucille.stage)");
+            System.out.println("  -o, --output <file>         Output file name (default: javadocs.json)");
+            System.out.println("  -d, --directory <dir>       Output directory (default: target)");
+            System.out.println("  -h, --help                  Display this help message");
+            System.exit(0);
+        }
+        
+        // Process command line arguments
+        for (int i = 0; i < args.length - 1; i++) {
+            if (args[i].equals("-sp") || args[i].equals("--sourcepath")) {
+                sourcePath = args[i + 1];
+                i++; // Skip the next argument since we've processed it
+            } else if (args[i].equals("-sb") || args[i].equals("--subpackages")) {
+                subpackages = args[i + 1];
+                i++; // Skip the next argument
+            } else if (args[i].equals("-o") || args[i].equals("--output")) {
+                outputFile = args[i + 1];
+                i++; // Skip the next argument
+            } else if (args[i].equals("-d") || args[i].equals("--directory")) {
+                outputDir = args[i + 1];
+                i++; // Skip the next argument
+            }
+        }
 
         // Build javadoc tool args
-        String[] javadocArgs = new String[] {
-            "-doclet", JsonDoclet.class.getName(),
-            "-sourcepath", sourcePath,
-            "-subpackages", subpackages
-        };
-
+        List<String> javadocArgs = new ArrayList<>();
+        javadocArgs.add("-doclet");
+        javadocArgs.add(JsonDoclet.class.getName());
+        javadocArgs.add("-sourcepath");
+        javadocArgs.add(sourcePath);
+        javadocArgs.add("-subpackages");
+        javadocArgs.add(subpackages);
+        javadocArgs.add("-o");
+        javadocArgs.add(outputFile);
+        javadocArgs.add("-d");
+        javadocArgs.add(outputDir);
+        
         // Use ToolProvider to invoke javadoc
         javax.tools.Tool javadocTool = javax.tools.ToolProvider.getSystemDocumentationTool();
         if (javadocTool == null) {
             System.err.println("Javadoc tool not found. Make sure you are using a JDK, not a JRE.");
             System.exit(1);
         }
-        int result = javadocTool.run(null, System.out, System.err, javadocArgs);
+        
+        System.out.println("Running JsonDoclet with args: " + String.join(" ", javadocArgs));
+        int result = javadocTool.run(null, System.out, System.err, 
+            javadocArgs.toArray(new String[0]));
+        
         if (result == 0) {
-            System.out.println("javadocs.json generated at: " + outputFile);
+            System.out.println("JSON documentation generated successfully.");
         } else {
             System.err.println("Javadoc execution failed with exit code: " + result);
             System.exit(result);
