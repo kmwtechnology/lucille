@@ -32,8 +32,12 @@ public class LocalStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "src/test/resources/StorageClientTest/testPublishFilesDefault"
+    ));
+
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", ConfigFactory.empty(), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, "file_");
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
 
@@ -66,12 +70,16 @@ public class LocalStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "src/test/resources/StorageClientTest/testPublishFilesDefault",
+        "filterOptions", Map.of(
+            "includes", List.of(".*[a-c]\\.json$"),
+            "excludes", List.of(".*subdir1.*$")
+        )
+    ));
+
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    Map<String, Object> filterOptionsMap = Map.of(
-        "includes", List.of(".*[a-c]\\.json$"),
-        "excludes", List.of(".*subdir1.*$")
-    );
-    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_", ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+    TraversalParams params = new TraversalParams(connectorConfig, "file_");
     localStorageClient.init();
 
     localStorageClient.traverse(publisher, params);
@@ -104,8 +112,12 @@ public class LocalStorageClientTest {
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
 
-    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/a.json"),
-        "file_", ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "src/test/resources/StorageClientTest/testPublishFilesDefault/a.json",
+        "fileOptions", Map.of(GET_FILE_CONTENT, false)
+    ));
+
+    TraversalParams params = new TraversalParams(connectorConfig, "file_");
 
     localStorageClient.init();
 
@@ -121,11 +133,14 @@ public class LocalStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "src/test/resources/StorageClientTest/testPublishFilesDefault/",
+        "fileHandlers", Map.of("json", Map.of()),
+        "filterOptions", Map.of("excludes", List.of(".*\\.DS_Store$"))
+    ));
+
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of(".*\\.DS_Store$"));
-    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testPublishFilesDefault/"), "file_",
-        ConfigFactory.parseMap(Map.of("json", Map.of())),
-        ConfigFactory.parseMap(filterOptionsMap));
+    TraversalParams params = new TraversalParams(connectorConfig, "file_");
 
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
@@ -179,17 +194,21 @@ public class LocalStorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "src/test/resources/StorageClientTest/testCompressedAndArchived",
+        "fileHandlers", Map.of(
+            "json", Map.of(),
+            "csv", Map.of()
+        ),
+        "fileOptions", Map.of(
+            "handleArchivedFiles", true,
+            "handleCompressedFiles", true
+        ),
+        "filterOptions", Map.of("excludes", List.of(".*\\.DS_Store$"))
+    ));
+
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of(".*\\.DS_Store$"));
-    TraversalParams params = new TraversalParams(new URI("src/test/resources/StorageClientTest/testCompressedAndArchived"), "",
-        ConfigFactory.parseMap(
-            Map.of(
-                "json", Map.of(),
-                "csv", Map.of(),
-                "handleArchivedFiles", true,
-                "handleCompressedFiles", true
-            )),
-        ConfigFactory.parseMap(filterOptionsMap));
+    TraversalParams params = new TraversalParams(connectorConfig, "");
 
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
@@ -278,15 +297,15 @@ public class LocalStorageClientTest {
     File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "temp/defaults.csv",
+        "fileOptions", Map.of("moveToAfterProcessing", "success")
+    ));
+
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(new URI("temp/defaults.csv"), "",
-        ConfigFactory.parseMap(
-            Map.of(
-                "moveToAfterProcessing", "success"
-            )),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, "");
 
     localStorageClient.init();
 
@@ -318,17 +337,17 @@ public class LocalStorageClientTest {
     File copy = new File("src/test/resources/FileConnectorTest/faulty.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "temp/faulty.csv",
+        "fileOptions", Map.of("moveToErrorFolder", "error"),
+        "fileHandlers", Map.of("csv", Map.of())
+    ));
+
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     // localStorageClient that handles csv files
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(new URI("temp/faulty.csv"), "",
-        ConfigFactory.parseMap(
-            Map.of(
-                "csv", Map.of(),
-                "moveToErrorFolder", "error"
-            )),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, "");
 
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
@@ -368,11 +387,15 @@ public class LocalStorageClientTest {
   public void testAbsolutePath() throws Exception {
     Path defaultAbsolutePath = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault").toAbsolutePath();
 
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", defaultAbsolutePath.toString()
+    ));
+
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(URI.create(defaultAbsolutePath.toString()), "file_", ConfigFactory.empty(), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, "file_");
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
 
@@ -381,7 +404,11 @@ public class LocalStorageClientTest {
 
   @Test
   public void testCutoff() throws Exception {
-    URI defaultURI = URI.create("src/test/resources/StorageClientTest/modifiedDateFiles");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "src/test/resources/StorageClientTest/modifiedDateFiles",
+        // Only including files modified in the last 10 hours
+        "filterOptions", Map.of("modificationCutoff", "10h")
+    ));
 
     File oldFile = new File("src/test/resources/StorageClientTest/modifiedDateFiles/old.txt");
     File alsoOldFile = new File("src/test/resources/StorageClientTest/modifiedDateFiles/subDir/alsoOld.txt");
@@ -398,9 +425,7 @@ public class LocalStorageClientTest {
     LocalStorageClient localStorageClient = new LocalStorageClient();
     localStorageClient.init();
 
-    // Only including files modified in the last 10 hours
-    Config filterOptions = ConfigFactory.parseMap(Map.of("modificationCutoff", "10h"));
-    TraversalParams params = new TraversalParams(defaultURI, "", ConfigFactory.empty(), filterOptions);
+    TraversalParams params = new TraversalParams(connectorConfig, "");
     localStorageClient.traverse(publisher, params);
     // only "new file" should be published - others are BEFORE the cutoff.
     assertEquals(1, publisher.numPublished());

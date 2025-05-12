@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
  *    https://accountName.blob.core.windows.net/containerName/prefix/
  *  filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.
  *  fileOptions (Map, Optional): Options for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.
+ *  fileHandlers (Map, Optional): Options for extracting additional Documents from files of a certain type. Example of fileHandlers below.
  *  gcp (Map, Optional): options for handling GoogleCloud files. See example below.
  *  s3 (Map, Optional): options for handling S3 files. See example below.
  *  azure (Map, Optional): options for handling Azure files. See example below.
@@ -46,9 +47,12 @@ import org.slf4j.LoggerFactory;
  *  handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. Recurring not supported.Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing.The file path field of decompressed file will be in the format of "{path/to/compressed/compressedFileName.gz}:{compressedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler
  *  moveToAfterProcessing (string, Optional): path to move files to after processing, currently only supported for local file system
  *  moveToErrorFolder (string, Optional): path to move files to if an error occurs during processing, currently only supported for local file system
- *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
- *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
- *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
+ *
+ * FileHandlers:
+ *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler.
+ *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.
+ *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler.
+ * Include your custom FileHandler implementations here (if any). Remember to include the <code>class</code> in their Configuration.
  *
  * <br> gcp:
  * "pathToServiceKey" : "path/To/Service/Key.json"
@@ -107,35 +111,25 @@ public class FileConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
-  private final String pathToStorage;
-  private final Config fileOptions;
-  private final Config filterOptions;
-  private StorageClient storageClient;
-  private final URI storageURI;
+  private final TraversalParams params;
+  private final StorageClient storageClient;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config, Spec.connector()
         .withRequiredProperties("pathToStorage")
         .withOptionalParents(
             Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
-            Spec.parent("fileOptions")
-                .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
-                    "moveToErrorFolder")
-                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
-            GCP_PARENT_SPEC,
-            AZURE_PARENT_SPEC,
-            S3_PARENT_SPEC
-        ));
+            Spec.parent("fileOptions").withOptionalProperties("getFileContent", "handleArchivedFiles",
+                "handleCompressedFiles", "moveToAfterProcessing", "moveToErrorFolder"),
+            GCP_PARENT_SPEC, AZURE_PARENT_SPEC, S3_PARENT_SPEC)
+        .withOptionalParentNames("fileHandlers"));
 
-    this.pathToStorage = config.getString("pathToStorage");
-    this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
-    this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
+    this.params = new TraversalParams(config, getDocIdPrefix());
 
     try {
-      this.storageURI = new URI(pathToStorage);
-      log.debug("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
-    } catch (URISyntaxException e) {
-      throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
+      this.storageClient = StorageClient.create(params.getURI(), config);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while creating storage client.", e);
     }
 
     if (CLOUD_STORAGE_CLIENT_KEYS.stream().filter(config::hasPath).count() > 1) {
@@ -146,14 +140,7 @@ public class FileConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      storageClient = StorageClient.create(storageURI, config);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while creating storage client.", e);
-    }
-
-    try {
       storageClient.init();
-      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), fileOptions, filterOptions);
       storageClient.traverse(publisher, params);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while initializing client or publishing files.", e);

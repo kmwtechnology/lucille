@@ -26,7 +26,7 @@ public class JsonFileHandlerTest {
   public void testProcessFileUsingPath() throws Exception {
     // testing prefix as well
     Config config = ConfigFactory.parseMap(Map.of("json", Map.of("docIdPrefix", "PREFIX")));
-    FileHandler jsonHandler = FileHandler.create("jsonl", config);
+    FileHandler jsonHandler = FileHandler.create("json", config);
 
     String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
     File file = new File(filePath);
@@ -56,7 +56,7 @@ public class JsonFileHandlerTest {
   @Test
   public void testProcessFileUsingBytes() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("json", Map.of("docIdPrefix", "PREFIX")));
-    FileHandler jsonHandler = FileHandler.create("jsonl", config);
+    FileHandler jsonHandler = FileHandler.create("json", config);
 
     String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
     File file = new File(filePath);
@@ -87,7 +87,7 @@ public class JsonFileHandlerTest {
   public void testProcessAndPublishFileSuccessful() throws Exception {
     // testing prefix as well
     Config config = ConfigFactory.parseMap(Map.of("json", Map.of("docIdPrefix", "PREFIX")));
-    FileHandler jsonHandler = FileHandler.create("jsonl", config);
+    FileHandler jsonHandler = FileHandler.create("json", config);
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
@@ -117,7 +117,7 @@ public class JsonFileHandlerTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
-    FileHandler spyJsonHandler = spy(FileHandler.create("jsonl", config));
+    FileHandler spyJsonHandler = spy(FileHandler.create("json", config));
     String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
     File file = new File(filePath);
     FileInputStream stream = new FileInputStream(file);

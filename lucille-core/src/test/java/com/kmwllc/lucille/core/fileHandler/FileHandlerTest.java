@@ -1,10 +1,7 @@
 package com.kmwllc.lucille.core.fileHandler;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
@@ -27,44 +24,36 @@ public class FileHandlerTest {
     // test xml without required configs
     assertThrows(ConfigException.class, () -> FileHandler.create("xml", ConfigFactory.parseMap(Map.of("xml", Map.of()))));
     // test json
-    Config jsonConfig = ConfigFactory.parseMap(Map.of("jsonl", Map.of()));
+    Config jsonConfig = ConfigFactory.parseMap(Map.of("json", Map.of()));
     FileHandler jsonHandler = FileHandler.create("json", jsonConfig);
     assertInstanceOf(JsonFileHandler.class, jsonHandler);
     // test jsonl
     jsonConfig = ConfigFactory.parseMap(Map.of("json", Map.of()));
-    jsonHandler = FileHandler.create("jsonl", jsonConfig);
+    jsonHandler = FileHandler.create("json", jsonConfig);
     assertInstanceOf(JsonFileHandler.class, jsonHandler);
     // test unsupported file type
-    assertThrows(UnsupportedOperationException.class, () -> FileHandler.create("unsupported", ConfigFactory.parseMap(Map.of())));
+    assertThrows(ConfigException.class, () -> FileHandler.create("unsupported", ConfigFactory.parseMap(Map.of())));
+
+    Config customHandler = ConfigFactory.parseMap(Map.of(
+        "txt", Map.of(
+            "class", "com.jakesq24.fileHandler.TextFileHandler",
+            "docIdPrefix", "text-handled"
+        )));
+    // reflective error will occur... this TextFileHandler isn't anywhere.
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("txt", customHandler));
+
+    // A bit weird, but an easy way to make sure reflection works
+    Config withCSVOnOtherType = ConfigFactory.parseMap(Map.of(
+        "tsv", Map.of(
+            "class", "com.kmwllc.lucille.core.fileHandler.CSVFileHandler",
+            "useTabs", true
+        )));
+    assertInstanceOf(CSVFileHandler.class, FileHandler.create("tsv", withCSVOnOtherType));
   }
 
 
   @Test
-  public void testSupportAndContainFileType() {
-    // json file
-    String jsonExtension = "json";
-    assertTrue(FileHandler.supportAndContainFileType(jsonExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
-    assertTrue(FileHandler.supportAndContainFileType(jsonExtension, ConfigFactory.parseMap(Map.of("jsonl", "content"))));
-    assertTrue(
-        FileHandler.supportAndContainFileType(jsonExtension, ConfigFactory.parseMap(Map.of("json", "content", "jsonl", "content"))));
-    assertFalse(FileHandler.supportAndContainFileType(jsonExtension, ConfigFactory.parseMap(Map.of("csv", "content"))));
-    // jsonl file
-    String jsonlExtension = "jsonl";
-    assertTrue(FileHandler.supportAndContainFileType(jsonlExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
-    assertTrue(FileHandler.supportAndContainFileType(jsonlExtension, ConfigFactory.parseMap(Map.of("jsonl", "content"))));
-    assertTrue(
-        FileHandler.supportAndContainFileType(jsonlExtension, ConfigFactory.parseMap(Map.of("json", "content", "jsonl", "content"))));
-    assertFalse(FileHandler.supportAndContainFileType(jsonlExtension, ConfigFactory.parseMap(Map.of("csv", "content"))));
-    // csv file
-    String csvExtension = "csv";
-    assertTrue(FileHandler.supportAndContainFileType(csvExtension, ConfigFactory.parseMap(Map.of("csv", "content"))));
-    assertFalse(FileHandler.supportAndContainFileType(csvExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
-    // xml file
-    String xmlExtension = "xml";
-    assertTrue(FileHandler.supportAndContainFileType(xmlExtension, ConfigFactory.parseMap(Map.of("xml", "content"))));
-    assertFalse(FileHandler.supportAndContainFileType(xmlExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
+  public void testCreateFromConfig() {
 
-    // test unsupported file type
-    assertFalse(FileHandler.supportAndContainFileType("unsupported", ConfigFactory.parseMap(Map.of("unsupported", "content"))));
   }
 }

@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
  */
 public class CSVFileHandler extends BaseFileHandler {
 
+  // TODO: It's okay for now, but eventually, will have to include "class" as a property
   public static final ParentSpec PARENT_SPEC = Spec.parent("csv")
       .withOptionalProperties("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "idFields", "docIdFormat",
           "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms");
