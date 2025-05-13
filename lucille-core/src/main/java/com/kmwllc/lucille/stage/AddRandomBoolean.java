@@ -32,6 +32,7 @@ public class AddRandomBoolean extends Stage {
     }
 
     public void validate() throws StageException {
+      super.validate();
       // Call super.validate(); if BaseStageConfig implements it
       if (percentTrue > 100 || percentTrue < 0) {
         throw new StageException("Invalid value for percent_true. Must be between 0 and 100 inclusive.");
@@ -51,6 +52,7 @@ public class AddRandomBoolean extends Stage {
 
     config = new AddRandomBooleanConfig();
     config.apply(configIn);
+    config.validate();
 
     if (config.percentTrue > 100 || config.percentTrue < 0) {
       throw new StageException("Invalid value for percent_true. Must be greater than 0 and less than 100.");

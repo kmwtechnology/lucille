@@ -169,8 +169,8 @@ public class JsonDoclet implements Doclet {
         System.out.println("  -h, --help             Display this help message");
         System.out.println();
         System.out.println("Standard javadoc options:");
-        System.out.println("  -sourcepath PATH       Source path for Java files");
-        System.out.println("  -subpackages PACKAGES  Process the specified packages");
+        System.out.println("  -sourcepath PATH[,PATH...]  Source path(s) for Java files, comma-delimited");
+        System.out.println("  -subpackages PKG[,PKG...]   Process the specified package(s), comma-delimited");
     }
 
     @Override
@@ -360,11 +360,11 @@ public class JsonDoclet implements Doclet {
             System.out.println("Usage: java -cp <classpath> com.kmwllc.lucille.doclet.JsonDoclet [options]");
             System.out.println();
             System.out.println("Options:");
-            System.out.println("  -sp, --sourcepath <path>    Source path (default: src/main/java)");
-            System.out.println("  -sb, --subpackages <pkgs>   Subpackages to process (default: com.kmwllc.lucille.stage)");
-            System.out.println("  -o, --output <file>         Output file name (default: javadocs.json)");
-            System.out.println("  -d, --directory <dir>       Output directory (default: target)");
-            System.out.println("  -h, --help                  Display this help message");
+            System.out.println("  -sp, --sourcepath <paths>    Source path(s), comma-delimited (default: src/main/java)");
+            System.out.println("  -sb, --subpackages <pkgs>    Subpackages to process, comma-delimited (default: com.kmwllc.lucille.stage)");
+            System.out.println("  -o, --output <file>          Output file name (default: javadocs.json)");
+            System.out.println("  -d, --directory <dir>        Output directory (default: target)");
+            System.out.println("  -h, --help                   Display this help message");
             System.exit(0);
         }
         
@@ -385,14 +385,36 @@ public class JsonDoclet implements Doclet {
             }
         }
 
-        // Build javadoc tool args
+        // Build javadoc tool args, handling multiple sourcepaths and subpackages
         List<String> javadocArgs = new ArrayList<>();
         javadocArgs.add("-doclet");
         javadocArgs.add(JsonDoclet.class.getName());
-        javadocArgs.add("-sourcepath");
-        javadocArgs.add(sourcePath);
-        javadocArgs.add("-subpackages");
-        javadocArgs.add(subpackages);
+        
+        // Handle multiple sourcepaths (comma-separated)
+        if (sourcePath.contains(",")) {
+            // For sourcepath with multiple paths, javadoc requires either:
+            // 1. Multiple -sourcepath arguments (one for each path)
+            // 2. A single -sourcepath with OS-specific path separator
+            String pathSeparator = System.getProperty("path.separator"); // ":" on Unix/Linux/Mac, ";" on Windows
+            javadocArgs.add("-sourcepath");
+            javadocArgs.add(sourcePath.replace(",", pathSeparator));
+        } else {
+            javadocArgs.add("-sourcepath");
+            javadocArgs.add(sourcePath);
+        }
+        
+        // Handle multiple subpackages (comma-separated)
+        if (subpackages.contains(",")) {
+            // For subpackages, we need to add a separate -subpackages argument for each package
+            for (String pkg : subpackages.split(",")) {
+                javadocArgs.add("-subpackages");
+                javadocArgs.add(pkg.trim());
+            }
+        } else {
+            javadocArgs.add("-subpackages");
+            javadocArgs.add(subpackages);
+        }
+        
         javadocArgs.add("-o");
         javadocArgs.add(outputFile);
         javadocArgs.add("-d");
