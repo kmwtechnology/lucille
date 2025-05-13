@@ -72,7 +72,7 @@ public class QueryOpensearch extends Stage {
    * This class encapsulates all the settings that can be configured for the QueryOpensearch stage,
    * providing type safety, centralized validation, and clear documentation for each parameter.
    */
-  public static class QueryOpensearchConfig {
+  public static class QueryOpensearchConfig extends BaseStageConfig {
     /**
      * The base URL of the OpenSearch instance (e.g., "http://localhost:9200").
      * This is a required parameter and must be specified in the 'opensearch.url' path in the configuration.
@@ -148,6 +148,7 @@ public class QueryOpensearch extends Stage {
     }
 
     public void validate() throws StageException {
+      super.validate();
       if ((templateName == null) == (searchTemplateStr == null)) {
         throw new StageException("You must specify templateName or searchTemplate, but not both.");
       }
