@@ -3,14 +3,12 @@ package com.kmwllc.lucille.core.fileHandler;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValue;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Each implementation of the FileHandler handles a specific file type and is able to process the file and return an Iterator
@@ -43,13 +41,19 @@ public interface FileHandler {
 
   /**
    * Returns a Map from the given Config, creating FileHandlers that can be constructed from the given config, mapped
-   * to their corresponding file extensions. If json is included, jsonl will be as well (and vice versa) - both will map
-   * to the same JSONFileHandler in the Config. The returned map is not modifiable.
+   * to their corresponding file extensions. The returned map is not modifiable.
+   *
+   * <br> <b>Note:</b> If <code>json</code> config is included, but <code>jsonl</code> is not (or vice versa), both extensions will
+   * map to the same JSONFileHandler in the Config. If both are included, however, they will map to unique JSONFileHandlers,
+   * created using their respective Configs.
+   *
+   * <br> <b>Note:</b> Configs mapped to <code>csv</code>, <code>xml</code>, <code>json</code>, and <code>jsonl</code> will
+   * <i>always</i> result in <code>CSVFileHandler</code>, <code>XMLFileHandler</code>, or <code>JSONFileHandler</code>, respectively,
+   * regardless of whether a custom <code>class</code> is specified in the Config!
    *
    * @param fileHandlersConfig The Config under key "fileHandlers" which potentially contains Configs for various FileHandlers.
-   *
    * @return A map of file extensions to their respective file handlers, creating as many as could be built from the
-   * provided config. If JSON is included in the fileHandlersConfig, JSONL will be supported in the returned Map as well.
+   * provided config.
    */
   static Map<String, FileHandler> createFromConfig(Config fileHandlersConfig) {
     Map<String, FileHandler> handlerMap = new HashMap<>();
@@ -59,9 +63,11 @@ public interface FileHandler {
       handlerMap.put(fileExtension, handler);
     }
 
-    if (handlerMap.containsKey("json")) {
+    // only "adding" the other if it wasn't specified in the Config. Allows JSON / JSONL to be handled differently,
+    // if need be...
+    if (handlerMap.containsKey("json") && !handlerMap.containsKey("jsonl")) {
       handlerMap.put("jsonl", handlerMap.get("json"));
-    } else if (handlerMap.containsKey("jsonl")) {
+    } else if (handlerMap.containsKey("jsonl") && !handlerMap.containsKey("json")) {
       handlerMap.put("json", handlerMap.get("jsonl"));
     }
 
@@ -78,7 +84,6 @@ public interface FileHandler {
    * @return A FileHandler to process files with the given extension.
    * @throws UnsupportedOperationException If you try to create a FileHandler for an unsupported file type.
    */
-  // TODO: Should take in just the "fileHandlers" Config.
   static FileHandler create(String fileExtension, Config fileHandlersConfig) {
     Config fileExtensionConfig = fileHandlersConfig.getConfig(fileExtension);
 

@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.core.fileHandler;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -51,9 +54,41 @@ public class FileHandlerTest {
     assertInstanceOf(CSVFileHandler.class, FileHandler.create("tsv", withCSVOnOtherType));
   }
 
-
   @Test
   public void testCreateFromConfig() {
+    Map<String, FileHandler> result = FileHandler.createFromConfig(ConfigFactory.empty());
+    assertTrue(result.isEmpty());
 
+    result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/csv_only.conf"));
+    assertEquals(1, result.size());
+    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+
+    result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/all_three.conf"));
+    assertEquals(4, result.size());
+    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+    assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
+    // small detail... when you only specify one (json, jsonl), they are the *same* JSONFileHandler.
+    assertEquals(result.get("json"), result.get("jsonl"));
+    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
+
+    result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/csv_on_other_type.conf"));
+    assertEquals(5, result.size());
+    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+    assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
+    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
+    assertInstanceOf(CSVFileHandler.class, result.get("tsv"));
+
+    result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/jsonAndJsonl.conf"));
+    assertEquals(2, result.size());
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+    assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
+    // small detail... when you explicitly specify both, each is its own unique JSONFileHandler... in case you want to
+    // handle one differently than the other.
+    assertNotEquals(result.get("json"), result.get("jsonl"));
+
+    Config missingCustom = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/missing_custom.conf");
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.createFromConfig(missingCustom));
   }
 }
