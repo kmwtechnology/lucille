@@ -217,6 +217,99 @@
     "isConfigClass": false
   },
   {
+    "className": "com.kmwllc.lucille.connector.SequenceConnector.SequenceConnectorConfig",
+    "packageName": "com.kmwllc.lucille.connector.SequenceConnector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "apply",
+        "parameterTypes": [
+          "com.typesafe.config.Config"
+        ],
+        "parameterNames": [
+          "config"
+        ],
+        "description": "Applies configuration values from the provided {@link Config} object.\n\n @param config the configuration object containing parameters"
+      },
+      {
+        "methodName": "validate",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Validates the configuration parameters to ensure they are within acceptable ranges.\n\n @throws Exception if any parameter is invalid"
+      },
+      {
+        "methodName": "getNumDocs",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Returns the total number of documents to generate.\n\n @return the number of documents"
+      },
+      {
+        "methodName": "getStartWith",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Returns the starting integer value for document IDs.\n\n @return the starting value for document IDs"
+      }
+    ],
+    "description": "Configuration class for {@link SequenceConnector}.\n \u003cp\u003e\n Holds parameters for generating a sequence of blank documents, including:\n \u003cul\u003e\n   \u003cli\u003e\u003cb\u003enumDocs\u003c/b\u003e: The total number of documents to generate.\u003c/li\u003e\n   \u003cli\u003e\u003cb\u003estartWith\u003c/b\u003e: The starting integer value for document IDs.\u003c/li\u003e\n \u003c/ul\u003e\n \u003cp\u003e\n Provides methods to apply configuration from a {@link Config} object,\n validate parameter values, and access the configured values.",
+    "fieldDocs": {
+      "numDocs": "The total number of documents to generate. Must be greater than or equal to 0.\n Default value is 100.",
+      "startWith": "The starting integer value for document IDs. Must be greater than or equal to 0.\n Default value is 0."
+    },
+    "isConfigClass": true,
+    "configForClass": "com.kmwllc.lucille.connector.SequenceConnector"
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.SequenceConnector.SequenceConnectorConfig",
+    "packageName": "com.kmwllc.lucille.connector.SequenceConnector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "apply",
+        "parameterTypes": [
+          "com.typesafe.config.Config"
+        ],
+        "parameterNames": [
+          "config"
+        ],
+        "description": "Applies configuration values from the provided {@link Config} object.\n\n @param config the configuration object containing parameters"
+      },
+      {
+        "methodName": "validate",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Validates the configuration parameters to ensure they are within acceptable ranges.\n\n @throws Exception if any parameter is invalid"
+      },
+      {
+        "methodName": "getNumDocs",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Returns the total number of documents to generate.\n\n @return the number of documents"
+      },
+      {
+        "methodName": "getStartWith",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Returns the starting integer value for document IDs.\n\n @return the starting value for document IDs"
+      }
+    ],
+    "description": "Configuration class for {@link SequenceConnector}.\n \u003cp\u003e\n Holds parameters for generating a sequence of blank documents, including:\n \u003cul\u003e\n   \u003cli\u003e\u003cb\u003enumDocs\u003c/b\u003e: The total number of documents to generate.\u003c/li\u003e\n   \u003cli\u003e\u003cb\u003estartWith\u003c/b\u003e: The starting integer value for document IDs.\u003c/li\u003e\n \u003c/ul\u003e\n \u003cp\u003e\n Provides methods to apply configuration from a {@link Config} object,\n validate parameter values, and access the configured values.",
+    "fieldDocs": {
+      "numDocs": "The total number of documents to generate. Must be greater than or equal to 0.\n Default value is 100.",
+      "startWith": "The starting integer value for document IDs. Must be greater than or equal to 0.\n Default value is 0."
+    },
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.BaseConnectorConfig",
+    "packageName": "com.kmwllc.lucille.connector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [],
+    "isConfigClass": false
+  },
+  {
     "className": "com.kmwllc.lucille.connector.jdbc.DatabaseConnector",
     "packageName": "com.kmwllc.lucille.connector.jdbc",
     "interfaceNames": [],

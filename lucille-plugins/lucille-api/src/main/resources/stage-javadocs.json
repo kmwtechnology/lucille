@@ -759,17 +759,7 @@
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "apply",
-        "parameterTypes": [
-          "com.typesafe.config.Config"
-        ],
-        "parameterNames": [
-          "config"
-        ]
-      }
-    ],
+    "methods": [],
     "isConfigClass": false
   },
   {

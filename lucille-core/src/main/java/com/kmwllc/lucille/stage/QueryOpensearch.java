@@ -147,7 +147,7 @@ public class QueryOpensearch extends Stage {
       destinationField = ConfigUtils.getOrDefault(config, "destinationField", destinationField);
     }
 
-    public void validate() throws StageException {
+    public void validate() throws Exception {
       super.validate();
       if ((templateName == null) == (searchTemplateStr == null)) {
         throw new StageException("You must specify templateName or searchTemplate, but not both.");
@@ -202,7 +202,7 @@ public class QueryOpensearch extends Stage {
   private final HttpClient httpClient;
   private JsonNode searchTemplateJson;
 
-  public QueryOpensearch(Config config) throws StageException {
+  public QueryOpensearch(Config config) throws Exception {
     super(config, Spec.stage()
         .withRequiredParents(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
         .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
