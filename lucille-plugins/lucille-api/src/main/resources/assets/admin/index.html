@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lucille Admin</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #fafbfc; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 60px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 32px; }
+    h1 { color: #333; }
+    p { color: #555; }
+    .logo { width: 80px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img class="logo" src="https://raw.githubusercontent.com/kmwtechnology/lucille/main/logo.png" alt="Lucille Logo" />
+    <h1>Lucille Admin Panel</h1>
+    <p>Welcome to the admin interface for Lucille API. Add your admin controls here.</p>
+    <button id="check-api">Check API Liveness</button>
+    <div id="api-result" style="margin-top:20px;"></div>
+  </div>
+  <script>
+    document.getElementById('check-api').addEventListener('click', async function() {
+      const resultDiv = document.getElementById('api-result');
+      resultDiv.textContent = 'Checking API...';
+      try {
+        const response = await fetch('/v1/livez');
+        if (response.ok) {
+          resultDiv.textContent = 'API is LIVE!';
+        } else {
+          resultDiv.textContent = `API check failed: HTTP ${response.status}`;
+        }
+      } catch (err) {
+        resultDiv.textContent = 'Error contacting API: ' + err;
+      }
+    });
+  </script>
+</body>
+</html>

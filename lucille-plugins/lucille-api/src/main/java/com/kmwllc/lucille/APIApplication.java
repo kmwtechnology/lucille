@@ -21,6 +21,7 @@ import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
 import io.federecio.dropwizard.swagger.SwaggerBundle;
 import io.federecio.dropwizard.swagger.SwaggerBundleConfiguration;
+import io.dropwizard.assets.AssetsBundle;
 import jdk.jfr.Experimental;
 
 /**
@@ -83,6 +84,9 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
         return configuration.swaggerBundleConfiguration;
       }
     });
+
+    // Serve /admin from src/main/resources/assets/admin
+    bootstrap.addBundle(new AssetsBundle("/assets/admin/", "/admin", "index.html"));
   }
 
   /**
@@ -115,6 +119,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     } else {
       log.info("Authentication is disabled.");
     }
+
 
     // Register our 3 Resources
     AuthHandler authHandler = new AuthHandler(authEnabled);
