@@ -6,6 +6,8 @@ import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
 import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
+import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.Spec.ParentSpec;
 import com.typesafe.config.Config;
 import java.util.Base64;
 import nl.altindag.ssl.SSLFactory;
@@ -18,6 +20,11 @@ import java.net.URI;
  * Utility methods for communicating with Elasticsearch.
  */
 public class ElasticsearchUtils {
+
+  public static ParentSpec ELASTICSEARCH_PARENT_SPEC = Spec.parent("elasticsearch")
+      .withRequiredProperties("index", "url")
+      .withOptionalProperties("parentName", "acceptInvalidCert")
+      .withOptionalParentNames("join");
 
   public static ElasticsearchClient getElasticsearchOfficialClient(Config config) {
     URI hostUri = URI.create(getElasticsearchUrl(config));
