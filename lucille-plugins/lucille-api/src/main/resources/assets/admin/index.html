@@ -14,11 +14,13 @@
 </head>
 <body>
   <div class="container">
-    <img class="logo" src="https://raw.githubusercontent.com/kmwtechnology/lucille/main/logo.png" alt="Lucille Logo" />
     <h1>Lucille Admin Panel</h1>
     <p>Welcome to the admin interface for Lucille API. Add your admin controls here.</p>
     <button id="check-api">Check API Liveness</button>
     <div id="api-result" style="margin-top:20px;"></div>
+    <hr style="margin: 32px 0;">
+    <button id="show-stats">Show System Stats</button>
+    <div id="stats-result" style="margin-top:20px;"></div>
   </div>
   <script>
     document.getElementById('check-api').addEventListener('click', async function() {
@@ -35,6 +37,45 @@
         resultDiv.textContent = 'Error contacting API: ' + err;
       }
     });
+
+    document.getElementById('show-stats').addEventListener('click', async function() {
+      const statsDiv = document.getElementById('stats-result');
+      statsDiv.textContent = 'Loading system stats...';
+      try {
+        const response = await fetch('/v1/systemstats');
+        if (response.ok) {
+          const stats = await response.json();
+          statsDiv.innerHTML = renderStats(stats);
+        } else {
+          statsDiv.textContent = `Failed to fetch stats: HTTP ${response.status}`;
+        }
+      } catch (err) {
+        statsDiv.textContent = 'Error fetching stats: ' + err;
+      }
+    });
+
+    function renderStats(stats) {
+      if (!stats || typeof stats !== 'object') {
+        return '<em>No stats data received.</em>';
+      }
+      let html = '<h3>System Stats</h3>' + renderObject(stats);
+      return html;
+    }
+
+    function renderObject(obj) {
+      let html = '<table style="width:100%;border-collapse:collapse;">';
+      for (const [key, value] of Object.entries(obj)) {
+        html += '<tr><td style="padding:4px 8px;border-bottom:1px solid #eee;"><strong>' + key + '</strong></td><td style="padding:4px 8px;border-bottom:1px solid #eee;">';
+        if (typeof value === 'object' && value !== null) {
+          html += renderObject(value);
+        } else {
+          html += value;
+        }
+        html += '</td></tr>';
+      }
+      html += '</table>';
+      return html;
+    }
   </script>
 </body>
 </html>
