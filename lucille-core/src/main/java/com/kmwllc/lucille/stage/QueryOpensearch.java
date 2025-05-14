@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.BaseConfigException;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -147,8 +148,12 @@ public class QueryOpensearch extends Stage {
       destinationField = ConfigUtils.getOrDefault(config, "destinationField", destinationField);
     }
 
-    public void validate() throws Exception {
-      super.validate();
+    public void validate() throws StageException {
+      try {
+        super.validate();
+      } catch (BaseConfigException e) {
+        throw new StageException(e);
+      }
       if ((templateName == null) == (searchTemplateStr == null)) {
         throw new StageException("You must specify templateName or searchTemplate, but not both.");
       }

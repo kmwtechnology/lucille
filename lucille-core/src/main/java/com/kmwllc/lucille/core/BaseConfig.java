@@ -16,7 +16,8 @@ public class BaseConfig {
     }
 
     // TODO - add validation - classname and name are not required?
-    public void validate() throws Exception {
+    public void validate() throws BaseConfigException /* throws Exception - I think it should be valid to throw from BaseConfig - but that means
+    we should have a inheritance chain of exceptions where IndexerException extends BaseException, etc. */ {
 //        if (name == null || className == null) {
 //            throw new StageException("name and className must be specified");
 //        }

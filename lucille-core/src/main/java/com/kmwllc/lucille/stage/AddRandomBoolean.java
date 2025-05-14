@@ -9,6 +9,7 @@ import com.typesafe.config.Config;
 
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
+import com.kmwllc.lucille.core.BaseConfigException;
 
 /**
  * Adds random Booleans to documents given parameters.
@@ -31,8 +32,12 @@ public class AddRandomBoolean extends Stage {
       percentTrue = ConfigUtils.getOrDefault(config, "percent_true", percentTrue);
     }
 
-    public void validate() throws Exception {
-      super.validate();
+    public void validate() throws StageException {
+      try {
+        super.validate();
+      } catch (BaseConfigException e) {
+        throw new StageException(e);
+      }
       if (percentTrue > 100 || percentTrue < 0) {
         throw new StageException("Invalid value for percent_true. Must be between 0 and 100 inclusive.");
       }

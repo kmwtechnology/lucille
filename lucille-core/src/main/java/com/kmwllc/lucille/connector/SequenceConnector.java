@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Spec;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.kmwllc.lucille.core.BaseConfigException;
 
 /**
  * Connector implementation that produces blank documents given amount to produce
@@ -56,8 +57,12 @@ public class SequenceConnector extends AbstractConnector {
      *
      * @throws Exception if any parameter is invalid
      */
-    public void validate() throws Exception { 
-      super.validate();
+    public void validate() throws ConnectorException { 
+      try {
+        super.validate();
+      } catch (BaseConfigException e) {
+        throw new ConnectorException(e);
+      }
       if (numDocs < 0) {
         throw new ConnectorException("Invalid value for numDocs. Must be greater than or equal to 0.");
       }

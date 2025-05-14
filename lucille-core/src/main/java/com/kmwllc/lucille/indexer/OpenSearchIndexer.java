@@ -33,55 +33,168 @@ import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.kmwllc.lucille.core.BaseIndexerConfig;
+import com.kmwllc.lucille.core.BaseConfigException;
+
 public class OpenSearchIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
   private final OpenSearchClient client;
-  private final String index;
 
-  private final String routingField;
+  /**
+   * Configuration class for {@link OpenSearchIndexer}.
+   * <p>
+   * Holds parameters for connecting to and configuring the OpenSearch indexer, including:
+   * <ul>
+   *   <li><b>index</b>: The name of the OpenSearch index to write to (required).</li>
+   *   <li><b>url</b>: The OpenSearch endpoint URL (required).</li>
+   *   <li><b>routingField</b>: The document field to use for routing (optional).</li>
+   *   <li><b>update</b>: Whether to use the partial update API (optional, default: false).</li>
+   *   <li><b>versionType</b>: The versioning strategy for documents (optional).</li>
+   *   <li><b>acceptInvalidCert</b>: Whether to accept invalid SSL certificates (optional).</li>
+   * </ul>
+   * Provides methods to apply configuration from a {@link Config} object,
+   * validate parameter values, and access the configured values.
+   */
+  public static class OpenSearchIndexerConfig extends BaseIndexerConfig {
+    /**
+     * The name of the OpenSearch index to write to. Required.
+     */
+    private String index;
+    /**
+     * The OpenSearch endpoint URL. Required.
+     */
+    private String url;
+    /**
+     * The document field to use for routing. Optional.
+     */
+    private String routingField = null;
+    /**
+     * Whether to use the partial update API when sending documents. Optional, defaults to false.
+     */
+    private boolean update = false;
+    /**
+     * The versioning strategy for documents (e.g., "internal", "external"). Optional.
+     */
+    private VersionType versionType = null;
+    /**
+     * Whether to accept invalid SSL certificates. Optional.
+     */
+    private boolean acceptInvalidCert = false;
 
-  private final VersionType versionType;
+    /**
+     * Applies configuration values from the provided {@link Config} object.
+     *
+     * @param params the configuration object containing parameters
+     */
+    public void apply(Config params) {
+      super.apply(params);
+      // index = params.getString("index");
+      index = OpenSearchUtils.getOpenSearchIndex(params);
 
-  //flag for using partial update API when sending documents to opensearch
-  private final boolean update;
+      url = OpenSearchUtils.getOpenSearchUrl(params);
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+      if (params.hasPath("indexer.routingField")) {
+        routingField = params.getString("indexer.routingField");
+      }
+      if (params.hasPath("opensearch.update")) {
+        update = params.getBoolean("opensearch.update");
+      }
+      if (params.hasPath("indexer.versionType")) {
+        versionType = VersionType.valueOf(params.getString("indexer.versionType"));
+      }
+      if (params.hasPath("acceptInvalidCert")) {
+        acceptInvalidCert = params.getBoolean("acceptInvalidCert");
+      }
+    }
+
+    /**
+     * Validates the configuration parameters to ensure they are within acceptable ranges.
+     *
+     * @throws Exception if any parameter is invalid
+     */
+    public void validate() throws IndexerException {
+      try {
+        super.validate();
+      } catch (BaseConfigException e) {
+        throw new IndexerException(e);
+      }
+      if (index == null || index.isEmpty()) {
+        throw new IllegalArgumentException("index is required for OpenSearchIndexer");
+      }
+      if (url == null || url.isEmpty()) {
+        throw new IllegalArgumentException("url is required for OpenSearchIndexer");
+      }
+    }
+
+    /**
+     * @return the OpenSearch index name
+     */
+    public String getIndex() { return index; }
+    /**
+     * @return the OpenSearch endpoint URL
+     */
+    public String getUrl() { return url; }
+    /**
+     * @return the routing field name, or null if not set
+     */
+    public String getRoutingField() { return routingField; }
+    /**
+     * @return true if partial update API should be used
+     */
+    public boolean isUpdate() { return update; }
+    /**
+     * @return the versioning strategy, or null if not set
+     */
+    public VersionType getVersionType() { return versionType; }
+    /**
+     * @return true if invalid SSL certificates should be accepted
+     */
+    public boolean isAcceptInvalidCert() { return acceptInvalidCert; }
+  }
+  
+  private OpenSearchIndexerConfig config;
+
+  public OpenSearchIndexer(Config params, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) throws IndexerException {
+    super(params, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("index", "url")
         .withOptionalProperties("update", "acceptInvalidCert"));
+
+      config = new OpenSearchIndexerConfig();
+      config.apply(params);
+      config.validate();
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
     }
     this.client = client;
-    this.index = OpenSearchUtils.getOpenSearchIndex(config);
-    this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
-    this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
-    this.versionType =
-        config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
+    // this.index = OpenSearchUtils.getOpenSearchIndex(params);
+    this.config.routingField = params.hasPath("indexer.routingField") ? params.getString("indexer.routingField") : null;
+    this.config.update = params.hasPath("opensearch.update") ? params.getBoolean("opensearch.update") : false;
+    this.config.versionType =
+        params.hasPath("indexer.versionType") ? VersionType.valueOf(params.getString("indexer.versionType")) : null;
   }
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
+  public OpenSearchIndexer(Config params, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
+    this(params, messenger, getClient(params, bypass), metricsPrefix, localRunId);
   }
 
   // Convenience Constructors
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix) {
-    this(config, messenger, client, metricsPrefix, null);
+  public OpenSearchIndexer(Config params, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix) throws IndexerException {
+    this(params, messenger, client, metricsPrefix, null);
   }
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
+  public OpenSearchIndexer(Config params, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
+    this(params, messenger, getClient(params, bypass), metricsPrefix, null);
   }
 
   @Override
   protected String getIndexerConfigKey() { return "opensearch"; }
 
-  private static OpenSearchClient getClient(Config config, boolean bypass) {
-    return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
+  private static OpenSearchClient getClient(Config params, boolean bypass) {
+    return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(params);
   }
 
   @Override
@@ -164,7 +277,7 @@ public class OpenSearchIndexer extends Indexer {
     for (String id : idsToDelete) {
       br.operations(op -> op
           .delete(d -> d
-              .index(index)
+              .index(config.index)
               .id(id)
           )
       );
@@ -233,7 +346,7 @@ public class OpenSearchIndexer extends Indexer {
     boolQuery.minimumShouldMatch("1");
 
     DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest.Builder()
-        .index(index)
+        .index(config.index)
         .query(q -> q.bool(boolQuery.build()))
         .build();
     DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
@@ -278,31 +391,31 @@ public class OpenSearchIndexer extends Indexer {
 
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
-      Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
+      Long versionNum = (config.versionType == VersionType.External || config.versionType == VersionType.ExternalGte)
           ? ((KafkaDocument) doc).getOffset()
           : null;
 
-      if (update) {
+      if (config.update) {
         br.operations(op -> op
             .update((up) -> {
-              up.index(index).id(docId);
-              if (routingField != null) {
-                up.routing(doc.getString(routingField));
+              up.index(config.index).id(docId);
+              if (config.routingField != null) {
+                up.routing(doc.getString(config.routingField));
               }
               if (versionNum != null) {
-                up.versionType(versionType).version(versionNum);
+                up.versionType(config.versionType).version(versionNum);
               }
               return up.document(indexerDoc);
             }));
       } else {
         br.operations(op -> op
             .index((up) -> {
-              up.index(index).id(docId);
-              if (routingField != null) {
-                up.routing(doc.getString(routingField));
+              up.index(config.index).id(docId);
+              if (config.routingField != null) {
+                up.routing(doc.getString(config.routingField));
               }
               if (versionNum != null) {
-                up.versionType(versionType).version(versionNum);
+                up.versionType(config.versionType).version(versionNum);
               }
               return up.document(indexerDoc);
             }));
