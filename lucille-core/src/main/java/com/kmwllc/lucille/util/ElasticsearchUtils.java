@@ -24,6 +24,7 @@ public class ElasticsearchUtils {
 
     // needed to allow for local testing of HTTPS
     SSLFactory.Builder sslFactoryBuilder = SSLFactory.builder();
+
     boolean allowInvalidCert = getAllowInvalidCert(config);
     if (allowInvalidCert) {
       sslFactoryBuilder
@@ -44,13 +45,6 @@ public class ElasticsearchUtils {
       String creds = Base64.getEncoder().encodeToString(userInfo.getBytes());
       builder.setDefaultHeaders(new Header[] { new BasicHeader("Authorization", "Basic " + creds) });
     }
-
-    /*
-    RestClient restClient = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultCredentialsProvider(provider)
-            .setSSLContext(sslFactory.getSslContext())
-            .setSSLHostnameVerifier(sslFactory.getHostnameVerifier())).build();
-     */
 
     Rest5Client client = builder.build();
     ElasticsearchTransport transport = new Rest5ClientTransport(client, new JacksonJsonpMapper());
