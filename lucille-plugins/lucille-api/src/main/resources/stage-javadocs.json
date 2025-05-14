@@ -1800,5 +1800,46 @@
     ],
     "description": "A method of chunking contents.",
     "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.tika.stage.TextExtractor",
+    "packageName": "com.kmwllc.lucille.tika.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "stop",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      },
+      {
+        "methodName": "parseInputStream",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document",
+          "java.io.InputStream"
+        ],
+        "parameterNames": [
+          "doc",
+          "inputStream"
+        ],
+        "description": "Parses given input stream, close it, and adds the text data and metadata to given document"
+      }
+    ],
+    "description": "This stage uses Apache Tika to perform text and metadata extraction\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n text_field (String, Optional) : name of destination field for parsed data to be placed\n file_path_field (String, Optional) : name of field from which file path can be extracted, if file_path_field\n and byte_array_field both not provided, stage will do nothing\n byte_array_field (String, Optional) : name of field from which byte array data can be extracted\n tika_config_path (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser\n metadata_prefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing\n text_content_limit (Integer, Optional) : limits how large the content of the returned text can be\n metadata_whitelist (StringList, Optional) : list of metadata names that are to be included in document\n metadata_blacklist (StringList, Optional) : list of metadata names that are not to be included in document\n\n s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.\n azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.\n gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.",
+    "isConfigClass": false
   }
 ]
