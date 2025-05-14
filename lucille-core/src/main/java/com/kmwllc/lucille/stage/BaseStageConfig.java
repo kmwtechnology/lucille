@@ -19,7 +19,7 @@ public class BaseStageConfig extends BaseConfig {
         conditionPolicy = ConfigUtils.getOrDefault(config, "conditionPolicy", null);
     }
 
-    // TODO - add validation
+    // TODO - add validation - classname and name are not required?
     public void validate() throws StageException {
 //        if (name == null || className == null) {
 //            throw new StageException("name and className must be specified");
