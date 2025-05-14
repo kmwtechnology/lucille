@@ -55,7 +55,7 @@ public class SequenceConnector extends AbstractConnector {
     /**
      * Validates the configuration parameters to ensure they are within acceptable ranges.
      *
-     * @throws Exception if any parameter is invalid
+     * @throws ConnectorException if any parameter is invalid
      */
     public void validate() throws ConnectorException { 
       try {

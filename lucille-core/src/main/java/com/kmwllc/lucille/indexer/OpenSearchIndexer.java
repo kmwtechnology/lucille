@@ -112,7 +112,7 @@ public class OpenSearchIndexer extends Indexer {
     /**
      * Validates the configuration parameters to ensure they are within acceptable ranges.
      *
-     * @throws Exception if any parameter is invalid
+     * @throws IndexerException if any parameter is invalid
      */
     public void validate() throws IndexerException {
       try {
