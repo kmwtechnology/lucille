@@ -21,9 +21,9 @@ public class BaseStageConfig extends BaseConfig {
 
     // TODO - add validation
     public void validate() throws StageException {
-        if (name == null || className == null) {
-            throw new StageException("name and className must be specified");
-        }
+//        if (name == null || className == null) {
+//            throw new StageException("name and className must be specified");
+//        }
     }
 
     public String getName() {
