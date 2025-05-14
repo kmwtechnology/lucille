@@ -36,7 +36,7 @@ public class SequenceConnector extends AbstractConnector {
      * The starting integer value for document IDs. Must be greater than or equal to 0.
      * Default value is 0.
      */
-    private int startWith = 0;
+    private Integer startWith = 0;
 
     /**
      * Applies configuration values from the provided {@link Config} object.
@@ -46,7 +46,9 @@ public class SequenceConnector extends AbstractConnector {
     public void apply(Config config) {
       super.apply(config);
       numDocs = config.getLong("numDocs");
-      startWith = config.getInt("startWith");
+      if (config.hasPath("startWith")) { 
+        startWith = config.getInt("startWith");
+      }
     }
 
     /**
@@ -58,9 +60,6 @@ public class SequenceConnector extends AbstractConnector {
       super.validate();
       if (numDocs < 0) {
         throw new ConnectorException("Invalid value for numDocs. Must be greater than or equal to 0.");
-      }
-      if (startWith < 0) {
-        throw new ConnectorException("Invalid value for startWith. Must be greater than or equal to 0.");
       }
     }
 
