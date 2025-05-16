@@ -25,13 +25,14 @@ import org.slf4j.LoggerFactory;
  * <br> Config Parameters:
  * <ul>
  *   <li>docIdPrefix (string, Optional): prefix to add to the docId when not handled by a file handler, defaults to empty string. To configure docIdPrefix for CSV, JSON or XML files, configure it in its respective file handler config in fileOptions</li>
- *   <li>pathToStorage (string): path to storage, can be local file system or cloud bucket/container.</li>
- *   <ul>
- *     <li>/path/to/storage/in/local/filesystem</li>
- *     <li>gs://bucket-name/folder/</li>
- *     <li>s3://bucket-name/folder/</li>
- *     <li>https://accountName.blob.core.windows.net/containerName/prefix/</li>
- *   </ul>
+ *   <li>pathToStorage (string): path to storage, can be local file system or cloud bucket/container. Examples:
+ *    <ul>
+ *       <li>/path/to/storage/in/local/filesystem</li>
+ *       <li>gs://bucket-name/folder/</li>
+ *       <li>s3://bucket-name/folder/</li>
+ *      <li>https://accountName.blob.core.windows.net/containerName/prefix/</li>
+ *    </ul>
+ *   </li>
  *   <li>filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.</li>
  *   <li>fileOptions (Map, Optional): Options for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.</li>
  *   <li>gcp (Map, Optional): options for handling GoogleCloud files. See example below.</li>
