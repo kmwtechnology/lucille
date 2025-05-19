@@ -21,34 +21,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Database Connector - This connector can run a select statement and return the rows
- * from the database as documents which are published to a topic for processing.
- * If "otherSQLs" are set, the sql and otherSQLs must all be ordered by their join key
- * and the otherJoinFields must be populated.  If those parameters are populated
- * this connector will run the otherSQL statements in parallel and flatten the rows from
- * the otherSQL statements onto the Document as a child document
- * <p>
- * Note: currently this connector with otherSQL statements only supports integers as a
- * join key.
+ * Database Connector - This connector can run a <code>SELECT</code> statement and return the rows from the database as published Documents.
+ * If <code>otherSQLs</code> is set, the <code>sql</code> and <code>otherSQLs</code> must all be ordered by their join key, and
+ * <code>otherJoinFields</code> must be populated. If those parameters are populated, this connector will run the <code>otherSQL</code>
+ * statements in parallel, flattening the rows from the <code>otherSQL</code> statements onto the Document as a child document.
+ * <p> <b>Note:</b> With <code>otherSQL</code> statements, the Connector only supports integer join keys.
  *
- * Config Parameters:
- * - driver (String) : Driver used for creating a connection to database
- * - connectionString (String) : used for establishing a connection to the right database
- * - jdbcUser (String) : username to access database
- * - jdbcPassword (String) : password to access database
- * - sql (String) : SQL statement to query the database.
- * - idField (String) : column name used for id in the database
- * - fetchSize (Integer, Optional): returns the desired resultSet size if set
- * - preSQL (String, Optional): SQL statement that returns nothing. Performed before sql is executed.
- *    e.g. INSERT, DELETE, UPDATE, SQL DDL statement.
- * - postSQL (String, Optional): SQL statement that returns nothing. Performed after sql is executed.
- *    e.g. INSERT, DELETE, UPDATE, SQL DDL statement.
- * - otherSQLs (List&lt;String&gt;, Optional): list of SQL statements to query and retrieve another result set of size fetchSize if set.
- *    For joining result sets.
- * - otherJoinFields (String, Optional, required if otherSQL is provided) : join field used for other result sets retrieved from otherSQLs
- * - ignoreColumns (List&lt;String&gt;, Optional) : list of columns to ignore when populating Lucille document from sql result set.
- * - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1
- * - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds
+ * <p> Config Parameters:
+ * <ul>
+ *   <li>driver (String): Driver used for creating a connection to database</li>
+ *   <li>connectionString (String): used for establishing a connection to the right database</li>
+ *   <li>jdbcUser (String): username to access database</li>
+ *   <li>jdbcPassword (String): password to access database</li>
+ *   <li>sql (String): SQL statement to query the database.</li>
+ *   <li>idField (String): column name used for id in the database</li>
+ *   <li>fetchSize (Integer, Optional): returns the desired resultSet size if set</li>
+ *   <li>preSQL (String, Optional): SQL statement that returns nothing. Performed before sql is executed. e.g. INSERT, DELETE, UPDATE, SQL DDL statement.</li>
+ *   <li>postSQL (String, Optional): SQL statement that returns nothing. Performed after sql is executed. e.g. INSERT, DELETE, UPDATE, SQL DDL statement.</li>
+ *   <li>otherSQLs (List&lt;String&gt;, Optional): list of SQL statements to query and retrieve another result set of size fetchSize if set. For joining result sets.</li>
+ *   <li>otherJoinFields (String, Optional): join field used for other result sets retrieved from otherSQLs. <b>Required if otherSQL is provided.</b></li>
+ *   <li>ignoreColumns (List&lt;String&gt;, Optional): list of columns to ignore when populating Lucille document from sql result set.</li>
+ *   <li>connectionRetries (Integer, Optional): number of retries allowed to connect to database, defaults to 1</li>
+ *   <li>connectionRetryPause (Integer, Optional): duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds</li>
+ * </ul>
  *
  * @author kwatters
  */
