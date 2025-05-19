@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  *    </ul>
  *   </li>
  *   <li>filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.</li>
- *   <li>fileOptions (Map, Optional): Options for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.</li>
+ *   <li>fileOptions (Map, Optional): configuratino for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.</li>
  *   <li>gcp (Map, Optional): options for handling GoogleCloud files. See example below.</li>
  *   <li>s3 (Map, Optional): options for handling S3 files. See example below.</li>
  *   <li>azure (Map, Optional): options for handling Azure files. See example below.</li>
@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
  *
  * <br>
  *
- * <code>FilterOptions</code>:
+ * <code>filterOptions</code>:
  * <ul>
  *   <li>includes (list of strings, Optional): list of regex patterns to include files.</li>
  *   <li>excludes (list of strings, Optional): list of regex patterns to exclude files.</li>
@@ -52,7 +52,7 @@ import org.slf4j.LoggerFactory;
  * See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
  * <br> Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
  *
- * <p> <code>FileOptions</code>:
+ * <p> <code>fileOptions</code>:
  * <ul>
  *   <li>getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.</li>
  *   <li>handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. Recurring not supported. Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing. The file path field of extracted file will be in the format of "{path/to/archive/archive.zip}:{extractedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler</li>
