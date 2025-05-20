@@ -31,8 +31,8 @@ import java.util.concurrent.ThreadLocalRandom;
  *  given datapath or from random numbers
  * <p> <b>min_num_of_terms</b> (Integer, Optional) : minimum number of terms to be in the field, defaults to 1
  * <p> <b>max_num_of_terms</b> (Integer, Optional) : maximum number of terms to be in the field, defaults to 1
- * TODO: Rewrite after understanding this a bit more.
- * <p> <b>is_nested</b> (bool, Optional) : setting for structure of field, default or nested
+ * <p> <b>is_nested</b> (bool, Optional) : When enabled, the generated data will be output as a JSON array of objects, with
+ * each object holding the data in <code>"data"</code>.
  * <p> <b>concatenate</b> (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple
  *  values, defaults to false.
  *
