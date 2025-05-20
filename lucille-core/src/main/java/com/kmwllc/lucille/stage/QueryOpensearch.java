@@ -67,7 +67,6 @@ public class QueryOpensearch extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
   private static final ObjectMapper mapper = new ObjectMapper();
-  private static final HttpClient httpClient = HttpClient.newHttpClient();
 
   /**
    * Configuration class for the QueryOpensearch stage.
