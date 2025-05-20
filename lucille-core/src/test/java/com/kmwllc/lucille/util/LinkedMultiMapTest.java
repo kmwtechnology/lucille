@@ -5,7 +5,6 @@ import static org.junit.Assert.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.connector.storageclient.LocalStorageClient;
 import java.time.Instant;
 import java.util.*;
 import org.junit.Before;
