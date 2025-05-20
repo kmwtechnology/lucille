@@ -22,6 +22,10 @@ import io.dropwizard.core.setup.Environment;
 import io.federecio.dropwizard.swagger.SwaggerBundle;
 import io.federecio.dropwizard.swagger.SwaggerBundleConfiguration;
 import io.dropwizard.assets.AssetsBundle;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.FilterRegistration;
+import org.eclipse.jetty.servlets.CrossOriginFilter;
+import java.util.EnumSet;
 import jdk.jfr.Experimental;
 
 /**
@@ -85,8 +89,9 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
       }
     });
 
-    // Serve /admin from src/main/resources/assets/admin
+    // Serve the admin UI and static assets
     bootstrap.addBundle(new AssetsBundle("/assets/admin/", "/admin", "index.html"));
+    bootstrap.addBundle(new AssetsBundle("/assets/admin/_next/", "/_next", null, "next-assets"));
   }
 
   /**
@@ -131,6 +136,14 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
     // Register SystemStatsResource
     env.jersey().register(new SystemStatsResource());
+    
+    // Enable CORS support with wildcard (*) origins
+    final FilterRegistration.Dynamic cors = env.servlets().addFilter("CORS", CrossOriginFilter.class);
+    cors.setInitParameter(CrossOriginFilter.ALLOWED_ORIGINS_PARAM, "*");
+    cors.setInitParameter(CrossOriginFilter.ALLOWED_HEADERS_PARAM, "X-Requested-With,Content-Type,Accept,Origin,Authorization");
+    cors.setInitParameter(CrossOriginFilter.ALLOWED_METHODS_PARAM, "OPTIONS,GET,PUT,POST,DELETE,HEAD");
+    cors.setInitParameter(CrossOriginFilter.ALLOW_CREDENTIALS_PARAM, "true");
+    cors.addMappingForUrlPatterns(EnumSet.allOf(DispatcherType.class), true, "/*");
   }
 
   /**
