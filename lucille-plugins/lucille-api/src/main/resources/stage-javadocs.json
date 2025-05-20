@@ -165,495 +165,7 @@
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.ParseDate",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Parses dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it\n will not be passed through to the destination field.\n Config Parameters:\n \u003cp\u003e\n - source (List\u0026lt;String\u0026gt;) : List of source field names.\n - dest (List\u0026lt;String\u0026gt;) : List of destination field names. You can either supply the same number of source and destination fields\n for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n - formatters (List\u0026lt;Function\u0026gt;) : List of formatter classes to be used for parsing dates. Formatters must implement\n the Function\u0026lt;String, LocalDate\u0026gt; Interface.\n - format_strs (List\u0026lt;String\u0026gt;, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.\n - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n - time_zone_id (String, Optional) : The time zone ID to use when parsing dates. Defaults to the system default. \u003ca href\u003d\"https://docs.oracle.com/javase/7/docs/api/java/util/TimeZone.html\"\u003eSee here for more info about time zone ids\u003c/a\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ApplyJSONata",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Applies a given Jsonata expression to extract information from a Document\u0027s field or to transform a Document entirely.\n Applying a transformation to an entire document is an experimental feature and should be used with caution.\n\n See \u003ca href\u003d\"https://github.com/dashjoin/jsonata-java\"\u003ehere\u003c/a\u003e for Jsonata implementation.\n\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003esource\u003c/b\u003e (String, Optional) : The field to use for input. Defaults to applying your expression the entire Document and mutating the entire\n Document in place. Logs warning and skips document if this transformation fails, mutates reserved fields, or returns a non-object (primitive or array).\n \u003cp\u003e \u003cb\u003edestination\u003c/b\u003e (String, Optional) : The destination field into which the json response should be placed. Defaults to mutating the source\n field. Has no effect if source is not specified.\n \u003cp\u003e \u003cb\u003eexpression\u003c/b\u003e (String) : The Jsonata expression you want to apply to each Document.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.Contains",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Checks if any of the given fields contain any of the given values and tags the given\n output field with the value.\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e - contains (List\u0026lt;String\u0026gt;) : A list of values to search for\n \u003cp\u003e - output (String) : The field to tag if a match is found\n \u003cp\u003e - value (String) : The value to tag the output field with\n \u003cp\u003e - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.\n \u003cp\u003e - fields (List\u0026lt;String\u0026gt;) : The fields to be searched",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.RemoveDiacritics",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Removes diacritics and accents from String fields.\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n \u003cp\u003e\n \u003cb\u003esource\u003c/b\u003e (String) : Name of source field.\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003edestination\u003c/b\u003e (String, Optional) : Name of field where transformed string is put. If not provided the string is mutated in place.\n \u003c/p\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.FetchFileContent",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "stop",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "A stage for getting a file\u0027s contents (array of bytes) using a FileContentFetcher.\n\n filePathField (String, Optional): The document field that contains the file path. Defaults to \"file_path\". No processing will\n take place on documents that do not have this field.\n fileContentField (String, Optional): The document field to write the contents to. Defaults to \"file_content\".\n This stage will overwrite any contents associated with this field.\n\n s3 (Map, Optional): Add if you will be fetching contents from S3 files. See FileConnector for the appropriate arguments to provide.\n azure (Map, Optional): Add if you will be fetching contents from Azure files. See FileConnector for the appropriate arguments to provide.\n gcp (Map, Optional): Add if you will be fetching contents from Google cloud. See FileConnector for the appropriate arguments to provide.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ApplyFileHandlers",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "stop",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "\u003cp\u003e Using a file path found on a Document, applies file handlers to create children documents, as appropriate, using the file\u0027s content.\n\n \u003cp\u003e filePathField (String, Optional): Specify the field in your documents which will has the file path you want to apply handlers to.\n No processing will occur on documents without this field, even if they have the fileContentField present. Defaults to \"file_path\".\n\n \u003cp\u003e fileContentField (String, Optional): Specify the field in your documents which has the file\u0027s contents as an array of bytes.\n When processing a document with a path to a supported file type, the handler will process the array of bytes found in this field,\n if present, before having the FileContentFetcher to open an InputStream for the file\u0027s contents. Defaults to \"file_content\".\n\n \u003cp\u003e handlerOptions (Map): Specifies which file types should be handled / processed by this stage. Valid options include:\n \u003cp\u003e   csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler\n \u003cp\u003e   json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler\n\n \u003cp\u003e \u003cb\u003eNote:\u003c/b\u003e handlerOptions should contain at least one of the above entries, otherwise, an Exception is thrown.\n \u003cp\u003e \u003cb\u003eNote:\u003c/b\u003e XML is not supported.\n\n \u003cp\u003e gcp (Map, Optional): options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.\n See FileConnector for necessary arguments.\n\n \u003cp\u003e s3 (Map, Optional): options for handling S3 files. Include if you are going to process documents with the filePathField set to an S3 URI.\n See FileConnector for necessary arguments.\n\n \u003cp\u003e azure (Map, Optional): options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.\n See FileConnector for necessary arguments.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.Timestamp",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Adds a timestamp into a given field.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003edest_field (String) : The field to place the timestamp into.\u003c/li\u003e\n \u003c/ul\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.AddRandomString",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Adds random Strings to a document field given parameters. Note that when randomly selecting multiple values\n from an integer range or from file contents, duplicates are possible -- this stage does not currently guarantee\n that all random terms added to a field will be distinct.\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003einputDataPath\u003c/b\u003e (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,\n  defaults to numeric data based on range size (0 -\u0026gt; rangeSize - 1). Note that duplicate entries will not be removed.\n \u003cp\u003e \u003cb\u003efieldName\u003c/b\u003e (String, Optional) : Field name of field where data is placed, defaults to \"data\"\n \u003cp\u003e \u003cb\u003erangeSize\u003c/b\u003e (int, Optional) : size of the subset of datapoints to be grabbed either from\n  given datapath or from random numbers\n \u003cp\u003e \u003cb\u003eminNumOfTerms\u003c/b\u003e (Integer, Optional) : minimum number of terms to be in the field, defaults to 1\n \u003cp\u003e \u003cb\u003emaxNumOfTerms\u003c/b\u003e (Integer, Optional) : maximum number of terms to be in the field, defaults to 1\n \u003cp\u003e \u003cb\u003eisNested\u003c/b\u003e (bool, Optional) : setting for structure of field, default or nested\n \u003cp\u003e \u003cb\u003econcatenate\u003c/b\u003e (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple\n  values, defaults to false",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.DeleteFields",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Deletes a list of given fields from each document it processes.\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e fields (List\u0026lt;String\u0026gt;) : The list of fields to be deleted.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.SplitFieldValues",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Splits a field based off a delimiter and places the separated values into a given output field.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003einputField (String) : The field to split on.\u003c/li\u003e\n \u003cli\u003eoutputField (String) : The field to place the separated values into.\u003c/li\u003e\n \u003cli\u003edelimiter (String) : The String to split the field by.\u003c/li\u003e\n \u003cli\u003etrimWhitespace (Boolean) : True if separated values should trim whitespace, false otherwise.\u003c/li\u003e\n \u003c/ul\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.MatchQuery",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.SetStaticValues",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Sets the value of given fields to a mapped value.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003estatic_values (Map\u0026lt;String, Object\u0026gt;) : A mapping from the field to the value.\u003c/li\u003e\n \u003cli\u003eupdateMode (UpdateMode) : The update mode to use when updating the fields.\u003c/li\u003e\n \u003c/ul\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.CollapseChildrenDocuments",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "\u003cp\u003e This stage will iterate over the children documents that are attached to the current document.\n The fields to copy from the children document will be copied to multi-valued fields on the parent document.\n\n \u003cp\u003e If dropChildren is set to true, the children documents will be dropped from the\n parent before letting the parent document continue down the pipeline.\n\n \u003cp\u003e Config Parameters:\n \u003cp\u003e \u003cb\u003efieldsToCopy\u003c/b\u003e (List\u0026lt;String\u0026gt;): The fields you want to copy from a child document to the parent document.\n \u003cp\u003e \u003cb\u003edropChildren\u003c/b\u003e (Boolean): Whether you want to drop the children Documents from their parents after processing.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.Length",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Determines the length of a field and places the value into a specified field.\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n fieldMapping (Map\u0026lt;String, String\u0026gt;) : A mapping of the field to check the size of to the name of the field to place the length into.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.CreateChildrenStage",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Creates a designated number of children documents.\n \u003cbr\u003e This stage is intended for use in testing only.\n \u003cbr\u003e It is included in the main source tree so that it can be used in manual tests run against an artifact\n that excludes the test tree.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ParseJson",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Parses a JSON string and sets fields on the processed document according to the configured mapping using\n JsonPath expressions.\n\n @see \u003ca href\u003d\"https://github.com/json-path/JsonPath\"\u003eJsonPath\u003c/a\u003e\n Config Parameters\n \u003cp\u003e\n - src (String) : The field containing the JSON string to be parsed.\n - sourceIsBase64: When set to true, indicates that the source field is base64 encoded. In this case the stage will decode\n the field value before parsing.\n - jsonFieldPaths (Map\u0026lt;String, Object\u0026gt;) : Defines the mapping from JsonPath expressions\n to the destination fields in the processed document.\n \u003c/p\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ComputeFieldSize",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ],
-        "description": "{@inheritDoc}\n Here it processes document by computing and adding the correct field. \n @throws StageException If {@link ComputeFieldSize#source} does not exist in document\n @throws NullPointerException If {@link ComputeFieldSize#source} is not a byte array in document"
-      }
-    ],
-    "description": "Computes size of given byte array field and puts that size in a field on the Document.\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003esource\u003c/b\u003e (String) : The field containing the byte array\n \u003cp\u003e \u003cb\u003edestination\u003c/b\u003e (String) : The name of the field which will be added to store the size. Will overwrite value if field already\n exists",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.DropValues",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Removes all occurrences of a given value from the source fields. Field values are not removed if\n they contain a blacklisted value, only if it is an exact match between the two Strings.\n Config Parameters:\n\n   - source (List\u0026lt;String\u0026gt;) : List of source field names.\n   - values (List\u0026lt;String\u0026gt;) : The values to be blacklisted and removed from the source fields.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.DropDocument",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "A stage that drops all documents that pass through it. Intended to use with the conditional framework.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.Base64Decode",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "A Stage for decoding base64 data strings and outputting them as arrays of bytes on a document.\n \u003cbr\u003e\n Params:\n \u003cp\u003e \u003cb\u003einput_field\u003c/b\u003e (String): The field containing base64 data Strings you want to decode.\n \u003cp\u003e \u003cb\u003eoutput_field\u003c/b\u003e (String): The field you want to place the decoded data (arrays of bytes) into.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.OpenAIEmbed",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "This stage uses openAI embedding services to embed a text field in a Lucille document or its children document(s). Will truncate\n to token limit before sending request. Retrieves API key from config.\n\n Config Parameters:\n - source (String) : field of which the embedding Stage will retrieve content from\n - dest (String, Optional) : name of the field that will hold the embeddings, defaults to \"embeddings\"\n - embed_document (Boolean) : Embeds the document\u0027s source if set to true.\n - embed_children (Boolean): Embeds the document\u0027s children source if set to true.\n - api_key (String) : API key used for OpenAI requests\n - model_name (String, Optional) : the name of the OpenAI embedding model to use, set default to text-embedding-3-small\n    1. text-embedding-3-small\n    2. text-embedding-3-large\n    3. text-embedding-ada-002\n    more details: \u003ca href\u003d\"https://platform.openai.com/docs/guides/embeddings/embedding-models\"\u003e...\u003c/a\u003e\n - dimensions (Integer, Optional) : number of dimensions the resulting embedding should have. Only supported in text-embedding-3\n and later models. Default set to null, which will call the model\u0027s default dimensions.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.AddRandomDate",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Adds random Dates to documents given parameters.\n\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n \u003cp\u003e\n \u003cb\u003efield_name\u003c/b\u003e (String, Optional) : Field name of field where data is placed. Defaults to \"data\"\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003erange_start_date\u003c/b\u003e (String, Optional) : Date string in ISO format (2024-12-18) representing the start of the range for\n generating random dates. Defaults to the start of Epoch time, 1970-1-1\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003erange_end_date\u003c/b\u003e (String, Optional) : Date string in ISO format (2024-12-18) representing the end of the range for\n generating random dates. Defaults to today\u0027s date/time.\n \u003c/p\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.XPathExtractor",
+    "className": "com.kmwllc.lucille.stage.RenameFields",
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
@@ -662,7 +174,7 @@
         "methodName": "start",
         "parameterTypes": [],
         "parameterNames": [],
-        "description": "@throws StageException if XPath expression cannot be compiled."
+        "description": "@throws StageException if the field mapping is empty."
       },
       {
         "methodName": "processDocument",
@@ -674,11 +186,11 @@
         ]
       }
     ],
-    "description": "Extracts values out of XML document fields using XPath expressions.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003efieldMapping (Map\u0026lt;String, List\u0026lt;String\u0026gt;\u0026gt;) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.\u003c/li\u003e\n \u003cli\u003exmlField (String) : The name of the document field which contains the XML field: defaults to \"xml\".\u003c/li\u003e\n \u003c/ul\u003e",
+    "description": "Renames a given set of source fields to a given set of destination fields. You must specify the same\n number of source and destination fields.\n\n Config Parameters:\n\n   - fieldMapping (Map\u0026lt;String, String\u0026gt;) : A 1-1 mapping of original field names to new field names.\n   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n       Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.CopyFields",
+    "className": "com.kmwllc.lucille.stage.TruncateField",
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
@@ -698,273 +210,7 @@
         ]
       }
     ],
-    "description": "Copies values from a given set of source fields to a given set of destination fields. If the same number\n of fields are supplied for both sources and destinations, the fields will be copied from source_1 to dest_1 and\n source_2 to dest_2. If either source or dest has only one field value, and the other has several, all the\n fields will be copied to/from the same field.\n\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e - source (List\u0026lt;String\u0026gt;) : list of source field names\n \u003cp\u003e - dest (List\u0026lt;String\u0026gt;) : list of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n \u003cp\u003e - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ExtractEntities",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "stop",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Stage for performing dictionary based entity extraction on a given field, using terms from a given dictionary file.\n The dictionary file should have a term on each line, and can support providing payloads with the syntax \"term, payload\".\n If any occurrences are found, they will be extracted and their associated payloads will be appended to the destination\n field.\n\n Config Parameters:\n\n   - source (List\u0026lt;String\u0026gt;) : list of source field names\n   - dest (List\u0026lt;String\u0026gt;) : list of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with \"classpath:\" the classpath\n       will be searched for the file. Otherwise, the local file system will be searched.\n   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.\n   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n   - ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.\n   - only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be\n       candidates for matching.  Defaults to false.\n   - stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit.  Defaults to false.\n   - only_whole_words (Boolean, Optional) : Determines whether this matcher will trigger for matches contained within\n       other text. ie \"OMAN\" in \"rOMAN\".  Defaults to false.\n   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the\n       longer, left most match should be kept.  Defaults to true.\n\n   - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.\n   - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.\n   - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.DetectLanguage",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Detects the language of the text in each supplied source field and outputs the language abbreviation associated with the text to\n the language_field.\n\n \u003cp\u003e Config Parameters:\n \u003cp\u003e - source (List\u0026lt;String\u0026gt;) : List of source field names.\n \u003cp\u003e - language_field (String) : The field you want detected languages to be placed into.\n \u003cp\u003e - language_confidence_field (String) : The field you want the confidence value to be placed into.\n \u003cp\u003e - min_length (Integer, Optional) : The min length of Strings to be considered for language detection. Shorter Strings will be ignored. Defaults to 50.\n \u003cp\u003e - max_length (Integer, Optional) : The max length of Strings to be considered for language detection. Longer Strings will be truncated. Defaults to 10,000.\n \u003cp\u003e - min_probability (Double, Optional) : The min probability for a language result to be considered valid. Results below this threshold\n will be ignored. Defaults to 0.95.\n \u003cp\u003e - update_mode (String, Optional) : The methodology by which you want document fields to be updated. See {@link UpdateMode}.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.BaseStageConfig",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [],
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.Concatenate",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Replaces wildcards in a given format String with the value for the given field. To declare a wildcard,\n surround the name of the field with \u0027{}\u0027. EX: \"{city}, {state}, {country}\" -\u0026gt; \"Boston, MA, USA\".\n \u003cbr\u003e \u003cb\u003eNOTE:\u003c/b\u003e If a given field is multivalued, this Stage will substitute the first value for every wildcard.\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e  - dest (String) : Destination field. This Stage only supports supplying a single destination field.\n \u003cp\u003e  - format_string (String) : The format String, which will have field values substituted into its placeholders.\n \u003cp\u003e  - default_inputs (Map\u0026lt;String, String\u0026gt;, Optional) : Mapping of input fields to a default value. You do not have to\n   supply a default for every input field. If a default is not provided, the default behavior will be to leave the\n   wildcard for the field in place. Defaults to an empty Map.\n \u003cp\u003e  - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n       Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.Print",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      },
-      {
-        "methodName": "stop",
-        "parameterTypes": [],
-        "parameterNames": []
-      }
-    ],
-    "description": "Logs all received documents in JSON format and/or writes them to a designated file.\n \u003cp\u003e\n Config Parameters -\n \u003cp\u003e\n - shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.\n - outputFile (String, Optional) : A file to append the documents to (will be created if it doesn\u0027t already exist).\n - excludeFields (String list, Optional) : A list of fields to exclude from the output.\n - overwriteFile (Boolean, Optional) : Whether the output file should overwritten if it already exists. Defaults to true.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ApplyRegex",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Extracts text based on a given regular expression. You can supply a comma\n separated list of fields to apply the text extraction to multiple fields. Extracted values are added to the field on\n top of the existing field value.\n \u003cbr\u003e\n Config Parameters:\n\u003cbr\u003e\n   - source (List\u0026lt;String\u0026gt;) : List of source field names.\n   \u003cbr\u003e\n   - dest (List\u0026lt;String\u0026gt;) : List of destination field names. You can either supply the same number of source and destination fields.\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n   \u003cbr\u003e\n   - regex (String) : A regex expression to find matches for. Matches will be extracted and placed in the destination fields.\n     If the regex includes capturing groups, the value of the first group will be used.\n   \u003cbr\u003e\n   - update_mode (String. Optional) : Determines how writing will be handling if the destination field is already populated.\n   \u003cbr\u003e\n     Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n   - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.\n   \u003cbr\u003e\n   - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.\n   \u003cbr\u003e\n   - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.\n   \u003cbr\u003e\n   - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.QueryDatabase",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      },
-      {
-        "methodName": "stop",
-        "parameterTypes": [],
-        "parameterNames": []
-      }
-    ],
-    "description": "This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.\n This stage should try and reconnect to the database in the future.\n\n Config Parameters:\n - driver (String) : Driver used for creating a connection to database\n - connectionString (String) : used for establishing a connection to the right database\n - jdbcUser (String) : username to access database\n - jdbcPassword (String) : password to access database\n - sql (String, Optional) : SQL statement that would be requested to the database. Allow for \"?\" character for keyFields configuration\n - keyFields (List\u0026lt;String\u0026gt;) : Strings to replace ? in the statement made in sql\n   e.g. keyFields : [\"123\"]\n        sql: SELECT name FROM meal WHERE id \u003d ?\n - inputTypes (List\u0026lt;String\u0026gt;) : Each input type of each of the keyField\n - fieldMapping (Map\u0026lt;String, String\u0026gt;) : map of columns retrieved from result set to the name of the field in the Lucille document\n   it will populate with.\n - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1\n - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ReplacePatterns",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Replaces any of the given Patterns found in the source fields with a given replacement String.\n \u003cbr\u003e\n Config Parameters:\n \u003cbr\u003e\n - source (List\u0026lt;String\u0026gt;) : List of source field names.\n \u003cbr\u003e\n - dest (List\u0026lt;String\u0026gt;) : List of destination field names. You can either supply the same number of source and destination fields\n for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n \u003cbr\u003e\n - regex (List\u0026lt;String\u0026gt;) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.\n \u003cbr\u003e\n - replacement (String, Optional) : The String to replace regex matches with. If null, pattern replacement will only take place if\n a replacement_field is specified and set to a String in a document.\n \u003cbr\u003e\n - replacement_field (String, Optional): Specify a field in the document that is set to a String. If non-null, replacements of a\n pattern within a document will use the string set to the replacement_field, if present. Otherwise, we fall back onto replacement:\n If it is not null, patterns are replaced with it; if it is null, no replacement takes place.\n \u003cbr\u003e\n - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n \u003cbr\u003e\n - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.\n \u003cbr\u003e\n - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.\n \u003cbr\u003e\n - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.\n \u003cbr\u003e\n - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.HashFieldValueToBucket",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "This stage will use the java object hash code modulus the number of buckets as specified in the buckets parameter, \n the resulting label will be placed in the dest field.\n \n \u003cbr/\u003e\n Config Parameters -\n \u003cbr/\u003e\n \u003cp\u003e\n \u003cb\u003efield_name\u003c/b\u003e (String, Required) : Field that will be used as the input for the hashing function.\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003edest\u003c/b\u003e (String, Required) : Field that will contain the hash bucket label.\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003ebuckets\u003c/b\u003e (List of String, Required) : list of buckets for the hash function.\n \u003c/p\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.StageFactory",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "of",
-        "parameterTypes": [
-          "java.lang.Class\u003c? extends com.kmwllc.lucille.core.Stage\u003e"
-        ],
-        "parameterNames": [
-          "stageClass"
-        ],
-        "description": "Creates a StageFactory that returns instances of the designated Stage subclass."
-      },
-      {
-        "methodName": "get",
-        "parameterTypes": [],
-        "parameterNames": [],
-        "description": "Creates a new instance of the stage with an empty config, starts it, and returns it."
-      },
-      {
-        "methodName": "get",
-        "parameterTypes": [
-          "java.lang.String"
-        ],
-        "parameterNames": [
-          "configResourceName"
-        ],
-        "description": "Creates a new instance of the stage with a Config loaded from the given resource path, starts it, and returns it."
-      },
-      {
-        "methodName": "get",
-        "parameterTypes": [
-          "java.util.Map"
-        ],
-        "parameterNames": [
-          "map"
-        ],
-        "description": "Creates a new instance of the stage with a Config built from the provided Map, starts it, and returns it."
-      },
-      {
-        "methodName": "get",
-        "parameterTypes": [
-          "com.typesafe.config.Config"
-        ],
-        "parameterNames": [
-          "config"
-        ],
-        "description": "Creates a new instance of the stage with the designated Config, starts it, and returns it."
-      }
-    ],
-    "description": "Utility for instantiating stages from with a test. Provide various get methods that handle the\n details of acquiring a Config, creating a stage instance with the Config, and then starting\n the stage. The stage is returned in a \"ready to use\" condition.\n\n Moved to lucille-core main from test seeing that we want lucille-plugins (e.g. tika) to be able to use StageFactory\n for testing.",
+    "description": "Truncates a string field to a given number of characters. Can be inplace or return the result to a \n seperate field\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n \u003cp\u003e\n \u003cb\u003esource\u003c/b\u003e (String) : The field to be truncated. If this is not a string it is still parsed as a string to generate a result.\n If a document does not have the field it will be skipped. If the fields contents cannot be interpreted as a String the document is also \n skipped and this is logged as a warning.\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003emax_size\u003c/b\u003e (int) : The maximum number of characters to truncate the input to. If this is negative a StageException \n is thrown. \n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003edestination\u003c/b\u003e (String, Optional) : The field where the truncated data should be placed. If this is not provided the \n operation is done inplace. If this field already exists it is overwritten.\n \u003c/p\u003e",
     "isConfigClass": false
   },
   {
@@ -997,7 +243,7 @@
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.DictionaryLookup",
+    "className": "com.kmwllc.lucille.stage.RemoveDuplicateValues",
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
@@ -1017,87 +263,7 @@
         ]
       }
     ],
-    "description": "\u003cp\u003e Finds exact matches for given input values and extracts the payloads for each match to a given destination field.\n The dictionary file should have a term on each line, and can support providing payloads with\n the syntax \"term, payload\". If any occurrences are found, they will be extracted and their associated payloads will\n be appended to the destination field.\n\n \u003cp\u003e Can also be used as a Set lookup by setting the set_only parameter to true. In this case, the destination field will\n be set to true if all values in the source field are present in the dictionary.\n\n \u003cp\u003e Config Parameters:\n \u003cp\u003e  - source (List\u0026lt;String\u0026gt;) : list of source field names\n \u003cp\u003e  - dest (List\u0026lt;String\u0026gt;) : list of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n \u003cp\u003e  - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with \"classpath:\" the classpath\n       will be searched for the file. Otherwise, the local file system will be searched.\n \u003cp\u003e  - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.\n \u003cp\u003e  - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n \u003cp\u003e  - set_only (Boolean, Optional) : If true, the destination field will be set to true if all values in the source field\n      are present in the dictionary.\n \u003cp\u003e  - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field\n      will be set to true if the source field is missing. Defaults to false.\n\n \u003cp\u003e  - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.\n \u003cp\u003e  - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.\n \u003cp\u003e  - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ParseFloats",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.EmitNestedChildren",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "This stage emits attached children documents, removing them from the parent document. Will skip document if no children are found.\n\n Config Parameters:\n \u003cp\u003e - drop_parent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false\n \u003cp\u003e - fields_to_copy (Map\u0026lt;String, String\u0026gt;, Optional): map of fields to copy from parent to children. It\u0027s a map of the source field name to the destination field name.\n \u003cp\u003e - update_mode (String, Optional): The methodology by which you want to update fields, particularly for updating\n multivalued fields on children documents. See {@link UpdateMode} for more information.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ExtractFirstCharacter",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Extracts the first character from each of the given input fields and set the associated output field\n to contain the character. If the character is not alphanumeric, then \u0027nonaplha\u0027 will be placed in the destination field.\n\n Config Parameters -\n\n   - fieldMapping (Map\u0026lt;String, String\u0026gt;) : A mapping of source-\u0026gt;destination fields\n   - replacement (String, Optional) : The String to place in the output field if the first character is not a letter.\n     If \"SKIP\" is supplied, the output field will not be set to anything. Defaults to \"nonalpha\".",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.AddRandomDouble",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Adds random Dates to documents given parameters.\n\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003efield_name\u003c/b\u003e (String, Optional) : Field name of field where data is placed. Defaults to \"data\"\n \u003cp\u003e \u003cb\u003erange_start\u003c/b\u003e (Double, Optional) : Double representing the start of the range for generating random doubles. Defaults to 0.0.\n \u003cp\u003e \u003cb\u003erange_end\u003c/b\u003e (Double, Optional) : Double representing the end of the range for generating random doubles. Defaults to 1M (1000000.0).",
+    "description": "Removes duplicate values from the given list of fields.\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n fieldMapping (Map\u0026lt;String, Object\u0026gt;) : A mapping of fields to remove duplicates from and the field to output the result to.",
     "isConfigClass": false
   },
   {
@@ -1120,7 +286,7 @@
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.ChunkText",
+    "className": "com.kmwllc.lucille.stage.DetectLanguage",
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
@@ -1138,54 +304,33 @@
         "parameterNames": [
           "doc"
         ]
-      },
-      {
-        "methodName": "splitBySize",
-        "parameterTypes": [
-          "java.lang.String",
-          "int"
-        ],
-        "parameterNames": [
-          "input",
-          "chunkSize"
-        ],
-        "description": "Splits the given String input into chunks, using the given chunkSize.\n @param input The String you want to chunk up.\n @param chunkSize The desired size of your chunks.\n @return The chunked String as an array of individual Strings."
       }
     ],
-    "description": "NOTE: This stage produces documents with ATTACHED children containing the chunks. To have children documents emitted as separate\n documents, use the emitNestedChildren stage. An example of this can be seen below.\n\n Retrieves text from a Lucille document field, then breaks it into chunks, with each chunk added as a child document attached to\n the current document.\n Order of processing chunks: chunking method -\u003e cleaning -\u003e pre-merge processing -\u003e merge -\u003e overlap -\u003e character limiting\n\n Config Parameters:\n \u003cp\u003e - source (String) : field of which Chunking Stage will chunk the text.\n \u003cp\u003e - dest (String, optional): the name of the field that will hold the chunk contents in the children documents.\n   Defaults to \"chunk\".\n \u003cp\u003e - chunking_method (Type Enum, optional) : how to split contents in source. Defaults to Sentence chunking.\n \u003cp\u003e 1. fixed chunking (\"fixed\"): split by variable lengthToSplit\n \u003cp\u003e 2. paragraph chunking (\"paragraph\"): split by 2 consecutive line break sequence (\\n, \\r, \\r\\n) with optional whitespaces between,\n     e.g. \\n\\n \\n \\n\n \u003cp\u003e 3. sentence chunking (\"sentence\"): use openNLP sentence model for splitting\n \u003cp\u003e 4. custom chunking (\"custom\"): regex option in config required, used to split content\n \u003cp\u003e - regex (String, only for custom chunking): regEx that will be used to split chunks\n \u003cp\u003e - length_to_split (Integer, only for fixed chunking): length of characters of each initial chunk before processing\n \u003cp\u003e - pre_merge_min_chunk_len (Integer, optional): removes and append chunk to the neighboring chunk if below given number of characters,\n    defaults appending to next chunk.\n \u003cp\u003e - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping\n \u003cp\u003e - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.\n    defaults to 1, keeping the chunks as they were after splitting.\n    e.g. chunks_to_merge: 2 -\u003e { chunk1/chunk2, chunk3/chunk4, chunk5/chunk6}\n \u003cp\u003e - overlap_percentage (Integer, optional) : adds on neighboring chunk\u0027s content based on percentage of current chunk, defaults to 0\n \u003cp\u003e - chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk\n    e.g. chunks_to_overlap: 1 -\u003e { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}\n         chunks_to_overlap: 2 -\u003e { chunk1/chunk2/chunk3, chunk2/chunk3/chunk4, chunk3/chunk4/chunk5}\n \u003cp\u003e - character_limit (Integer, optional) : hard limit number of characters in the final chunk. Truncate rest. Performed after\n   merging and overlapping if they are set.\n\n \u003cp\u003e  - child document fields:\n \u003cp\u003e       - \"id\" : the child id, in the format of \"parent_id-chunk_number\"\n \u003cp\u003e       - \"parent_id\" : id of parent Document\n \u003cp\u003e       - \"offset\" : number of character offset from start of document\n \u003cp\u003e       - \"length\" : number of characters in this chunk\n \u003cp\u003e       - \"chunk_number\" : chunk number\n \u003cp\u003e       - \"total_chunks\" : total chunk number produced from parent document\n \u003cp\u003e       - \"chunk\" : the chunk contents. field name can be changed with config option \"dest\"\n\n  e.g. of paragraph chunking configuration, with a minimum size of 50 characters per chunk, followed by emitting the children\n       documents\n  {\n   class: \"com.kmwllc.lucille.stage.ChunkText\"\n   source: \"text\"\n   chunking_method: \"paragraph\"\n   pre_merge_min_chunk_len: 50\n   clean_chunks: true\n  },\n  {\n    class: \"com.kmwllc.lucille.stage.EmitNestedChildren\"\n    drop_parent : true # drop parent document if you do not want it to be indexed\n  }\n\n  e.g. of sentence chunking configuration with 5 sentences per chunk and 1 sentence of overlap, with a limit of 2000 characters\n  {\n   source: \"text\"\n   chunking_method: \"sentence\"\n   chunks_to_merge: 5\n   chunks_to_overlap: 1\n   clean_chunks: true\n   character_limit: 2000\n  }",
+    "description": "Detects the language of the text in each supplied source field and outputs the language abbreviation associated with the text to\n the language_field.\n\n \u003cp\u003e Config Parameters:\n \u003cp\u003e - source (List\u0026lt;String\u0026gt;) : List of source field names.\n \u003cp\u003e - language_field (String) : The field you want detected languages to be placed into.\n \u003cp\u003e - language_confidence_field (String) : The field you want the confidence value to be placed into.\n \u003cp\u003e - min_length (Integer, Optional) : The min length of Strings to be considered for language detection. Shorter Strings will be ignored. Defaults to 50.\n \u003cp\u003e - max_length (Integer, Optional) : The max length of Strings to be considered for language detection. Longer Strings will be truncated. Defaults to 10,000.\n \u003cp\u003e - min_probability (Double, Optional) : The min probability for a language result to be considered valid. Results below this threshold\n will be ignored. Defaults to 0.95.\n \u003cp\u003e - update_mode (String, Optional) : The methodology by which you want document fields to be updated. See {@link UpdateMode}.",
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.PreparedStatementParameterType",
+    "className": "com.kmwllc.lucille.stage.CreateStaticTeaser",
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
     "methods": [
       {
-        "methodName": "values",
+        "methodName": "start",
         "parameterTypes": [],
         "parameterNames": []
       },
       {
-        "methodName": "valueOf",
+        "methodName": "processDocument",
         "parameterTypes": [
-          "java.lang.String"
+          "com.kmwllc.lucille.core.Document"
         ],
         "parameterNames": [
-          "name"
-        ]
-      },
-      {
-        "methodName": "getType",
-        "parameterTypes": [
-          "java.lang.String"
-        ],
-        "parameterNames": [
-          "type"
+          "doc"
         ]
       }
     ],
-    "description": "An enum to represent the parameter types which can be used by the Prepared Statement in the QueryDatabase stage.",
+    "description": "Create teasers of a given length from the given source fields. If the character limit is reached in\n the middle of a word, the teaser will not be truncated until the end of the word.\n \u003cbr\u003e \u003cb\u003eNOTE:\u003c/b\u003e If a given field is multivalued, this Stage will only operate on the first value.\n\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e - source (List\u0026lt;String\u0026gt;) : list of source field names.\n \u003cp\u003e - dest (List\u0026lt;String\u0026gt;) : list of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all the source fields to be mapped into.\n \u003cp\u003e - maxLength (Integer) : The maximum number of characters to include in the extracted teaser.\n \u003cp\u003e - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
     "isConfigClass": false
   },
   {
@@ -1275,11 +420,249 @@
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.RandomVector",
+    "className": "com.kmwllc.lucille.stage.BaseStageConfig",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.XPathExtractor",
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
     "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "@throws StageException if XPath expression cannot be compiled."
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Extracts values out of XML document fields using XPath expressions.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003efieldMapping (Map\u0026lt;String, List\u0026lt;String\u0026gt;\u0026gt;) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.\u003c/li\u003e\n \u003cli\u003exmlField (String) : The name of the document field which contains the XML field: defaults to \"xml\".\u003c/li\u003e\n \u003c/ul\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ApplyJSoup",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Selects elements from an HTML document and extracts the raw text from them into destination fields\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003efilePathField\u003c/b\u003e (String, Optional) : field name which contains a path to an html document which will be processed.\n \u003cp\u003e \u003cb\u003estringField\u003c/b\u003e (String, Optional): field name which contains a string of the html which will be processed.\n \u003cp\u003e \u003cb\u003ebyteArrayField\u003c/b\u003e (String, Optional) : field name which contains a byte array of the html which will be processed.\n only one of fieldPathField, stringField, or byteArrayField can be specified. If a document does not have whichever field is specified in the config, \n then it is not modified\n \u003cp\u003e \u003cb\u003echarset\u003c/b\u003e (String, Optional) : the encoding of the html document. If none is provided when filePathField is provided the charset is detected from\n the byte-order-mark (BOM) or meta tags and defaults to UTF-8 if none is found. If no charset is provided when byteArrayField is provided the charset defaults \n to UTF-8 immediately. Has no effect if stringField is provided.\n @see \u003ca href\u003d\"https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html\"\u003e Charsets \u003c/a\u003e for information on supported charsets and conventions for \n specifying them.\n \u003cp\u003e \u003cb\u003edestinationFields\u003c/b\u003e (Map\u0026lt;String, Map\u0026lt;String, String\u0026gt;\u0026gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes\n a css selector and a `type` field which takes one of the following: \u0027text\u0027, \u0027attribute\u0027, \u0027html\u0027, or \u0027outerHtml\u0027. When doing attribute extraction an additional `attribute` with \n the desired attribute must be specified. For example:\n \u003cp\u003e\n      destinationFields: {\n \u003cbr\u003e  destination1: {\n \u003cbr\u003e    type: \"attribute\",\n \u003cbr\u003e    selector: \".foo\",\n \u003cbr\u003e    attribute: \"href\"\n \u003cbr\u003e  }\n \u003cbr\u003e }\n \u003c/p\u003e\n If a destination field already exists in the processed document it is overwritten. Otherwise, they are created. If a selector returns \n multiple elements the destination field receives a list of processed elements. If a selector returns no elements for a document then the \n destination field is not created.  \n @see \u003ca href\u003d\"https://jsoup.org/cookbook/extracting-data/selector-syntax\"\u003e CSS selectors \u003c/a\u003e for information on supported selectors",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.StageFactory",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "of",
+        "parameterTypes": [
+          "java.lang.Class\u003c? extends com.kmwllc.lucille.core.Stage\u003e"
+        ],
+        "parameterNames": [
+          "stageClass"
+        ],
+        "description": "Creates a StageFactory that returns instances of the designated Stage subclass."
+      },
+      {
+        "methodName": "get",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Creates a new instance of the stage with an empty config, starts it, and returns it."
+      },
+      {
+        "methodName": "get",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "configResourceName"
+        ],
+        "description": "Creates a new instance of the stage with a Config loaded from the given resource path, starts it, and returns it."
+      },
+      {
+        "methodName": "get",
+        "parameterTypes": [
+          "java.util.Map"
+        ],
+        "parameterNames": [
+          "map"
+        ],
+        "description": "Creates a new instance of the stage with a Config built from the provided Map, starts it, and returns it."
+      },
+      {
+        "methodName": "get",
+        "parameterTypes": [
+          "com.typesafe.config.Config"
+        ],
+        "parameterNames": [
+          "config"
+        ],
+        "description": "Creates a new instance of the stage with the designated Config, starts it, and returns it."
+      }
+    ],
+    "description": "Utility for instantiating stages from with a test. Provide various get methods that handle the\n details of acquiring a Config, creating a stage instance with the Config, and then starting\n the stage. The stage is returned in a \"ready to use\" condition.\n\n Moved to lucille-core main from test seeing that we want lucille-plugins (e.g. tika) to be able to use StageFactory\n for testing.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.CopyFields",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Copies values from a given set of source fields to a given set of destination fields. If the same number\n of fields are supplied for both sources and destinations, the fields will be copied from source_1 to dest_1 and\n source_2 to dest_2. If either source or dest has only one field value, and the other has several, all the\n fields will be copied to/from the same field.\n\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e - source (List\u0026lt;String\u0026gt;) : list of source field names\n \u003cp\u003e - dest (List\u0026lt;String\u0026gt;) : list of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n \u003cp\u003e - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.AddRandomDate",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Adds random Dates to documents given parameters.\n\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n \u003cp\u003e\n \u003cb\u003efield_name\u003c/b\u003e (String, Optional) : Field name of field where data is placed. Defaults to \"data\"\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003erange_start_date\u003c/b\u003e (String, Optional) : Date string in ISO format (2024-12-18) representing the start of the range for\n generating random dates. Defaults to the start of Epoch time, 1970-1-1\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003erange_end_date\u003c/b\u003e (String, Optional) : Date string in ISO format (2024-12-18) representing the end of the range for\n generating random dates. Defaults to today\u0027s date/time.\n \u003c/p\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.NormalizeText",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Provides 4 modes for normalizing the case of text: Lowercase, Uppercase, Title Case and Sentence Case.\n The desired mode should be set in the configuration file. NOTE: This stage will not preserve any capitalization from\n the original document. As such, proper nouns, abbreviations and acronyms may not be correctly capitalized after\n normalization.\n Config Parameters:\n\n   - source (List\u0026lt;String\u0026gt;) : List of source field names.\n   - dest (List\u0026lt;String\u0026gt;) : List of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n   - mode (String) : The mode for normalization: uppercase, lowercase, sentence_case, title_case.\n   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.EmitNestedChildren",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "This stage emits attached children documents, removing them from the parent document. Will skip document if no children are found.\n\n Config Parameters:\n \u003cp\u003e - drop_parent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false\n \u003cp\u003e - fields_to_copy (Map\u0026lt;String, String\u0026gt;, Optional): map of fields to copy from parent to children. It\u0027s a map of the source field name to the destination field name.\n \u003cp\u003e - update_mode (String, Optional): The methodology by which you want to update fields, particularly for updating\n multivalued fields on children documents. See {@link UpdateMode} for more information.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.Concatenate",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Replaces wildcards in a given format String with the value for the given field. To declare a wildcard,\n surround the name of the field with \u0027{}\u0027. EX: \"{city}, {state}, {country}\" -\u0026gt; \"Boston, MA, USA\".\n \u003cbr\u003e \u003cb\u003eNOTE:\u003c/b\u003e If a given field is multivalued, this Stage will substitute the first value for every wildcard.\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e  - dest (String) : Destination field. This Stage only supports supplying a single destination field.\n \u003cp\u003e  - format_string (String) : The format String, which will have field values substituted into its placeholders.\n \u003cp\u003e  - default_inputs (Map\u0026lt;String, String\u0026gt;, Optional) : Mapping of input fields to a default value. You do not have to\n   supply a default for every input field. If a default is not provided, the default behavior will be to leave the\n   wildcard for the field in place. Defaults to an empty Map.\n \u003cp\u003e  - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n       Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ElasticsearchLookup",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "stop",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
       {
         "methodName": "processDocument",
         "parameterTypes": [
@@ -1312,7 +695,40 @@
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.AddRandomInt",
+    "className": "com.kmwllc.lucille.stage.PreparedStatementParameterType",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "values",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "valueOf",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "name"
+        ]
+      },
+      {
+        "methodName": "getType",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "type"
+        ]
+      }
+    ],
+    "description": "An enum to represent the parameter types which can be used by the Prepared Statement in the QueryDatabase stage.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.HashFieldValueToBucket",
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
@@ -1327,11 +743,11 @@
         ]
       }
     ],
-    "description": "Adds random Dates to documents given parameters.\n\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003efield_name\u003c/b\u003e (String, Optional) : Field name of field where data is placed. Defaults to \"data\"\n \u003cp\u003e \u003cb\u003erange_start\u003c/b\u003e (Integer, Optional) : Integer representing the start of the range for generating random ints. Defaults to 0.\n \u003cp\u003e \u003cb\u003erange_end\u003c/b\u003e (Integer, Optional) : Integer representing the end of the range for generating random ints. Defaults to 1M (1000000).",
+    "description": "This stage will use the java object hash code modulus the number of buckets as specified in the buckets parameter, \n the resulting label will be placed in the dest field.\n \n \u003cbr/\u003e\n Config Parameters -\n \u003cbr/\u003e\n \u003cp\u003e\n \u003cb\u003efield_name\u003c/b\u003e (String, Required) : Field that will be used as the input for the hashing function.\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003edest\u003c/b\u003e (String, Required) : Field that will contain the hash bucket label.\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003ebuckets\u003c/b\u003e (List of String, Required) : list of buckets for the hash function.\n \u003c/p\u003e",
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.NormalizeText",
+    "className": "com.kmwllc.lucille.stage.ApplyRegex",
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
@@ -1351,39 +767,11 @@
         ]
       }
     ],
-    "description": "Provides 4 modes for normalizing the case of text: Lowercase, Uppercase, Title Case and Sentence Case.\n The desired mode should be set in the configuration file. NOTE: This stage will not preserve any capitalization from\n the original document. As such, proper nouns, abbreviations and acronyms may not be correctly capitalized after\n normalization.\n Config Parameters:\n\n   - source (List\u0026lt;String\u0026gt;) : List of source field names.\n   - dest (List\u0026lt;String\u0026gt;) : List of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n   - mode (String) : The mode for normalization: uppercase, lowercase, sentence_case, title_case.\n   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
+    "description": "Extracts text based on a given regular expression. You can supply a comma\n separated list of fields to apply the text extraction to multiple fields. Extracted values are added to the field on\n top of the existing field value.\n \u003cbr\u003e\n Config Parameters:\n\u003cbr\u003e\n   - source (List\u0026lt;String\u0026gt;) : List of source field names.\n   \u003cbr\u003e\n   - dest (List\u0026lt;String\u0026gt;) : List of destination field names. You can either supply the same number of source and destination fields.\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n   \u003cbr\u003e\n   - regex (String) : A regex expression to find matches for. Matches will be extracted and placed in the destination fields.\n     If the regex includes capturing groups, the value of the first group will be used.\n   \u003cbr\u003e\n   - update_mode (String. Optional) : Determines how writing will be handling if the destination field is already populated.\n   \u003cbr\u003e\n     Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n   - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.\n   \u003cbr\u003e\n   - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.\n   \u003cbr\u003e\n   - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.\n   \u003cbr\u003e\n   - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.",
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.ElasticsearchLookup",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "stop",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.TrimWhitespace",
+    "className": "com.kmwllc.lucille.stage.DropValues",
     "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
@@ -1403,128 +791,7 @@
         ]
       }
     ],
-    "description": "Removes leading and trailing whitespace from every value in a given list of fields.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003efields (List\u0026lt;String\u0026gt;) : The list of fields to trim whitespace from.\u003c/li\u003e\n \u003c/ul\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.TruncateField",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Truncates a string field to a given number of characters. Can be inplace or return the result to a \n seperate field\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n \u003cp\u003e\n \u003cb\u003esource\u003c/b\u003e (String) : The field to be truncated. If this is not a string it is still parsed as a string to generate a result.\n If a document does not have the field it will be skipped. If the fields contents cannot be interpreted as a String the document is also \n skipped and this is logged as a warning.\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003emax_size\u003c/b\u003e (int) : The maximum number of characters to truncate the input to. If this is negative a StageException \n is thrown. \n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003edestination\u003c/b\u003e (String, Optional) : The field where the truncated data should be placed. If this is not provided the \n operation is done inplace. If this field already exists it is overwritten.\n \u003c/p\u003e",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.RemoveDuplicateValues",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Removes duplicate values from the given list of fields.\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n fieldMapping (Map\u0026lt;String, Object\u0026gt;) : A mapping of fields to remove duplicates from and the field to output the result to.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.ApplyJSoup",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Selects elements from an HTML document and extracts the raw text from them into destination fields\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003efilePathField\u003c/b\u003e (String, Optional) : field name which contains a path to an html document which will be processed.\n \u003cp\u003e \u003cb\u003estringField\u003c/b\u003e (String, Optional): field name which contains a string of the html which will be processed.\n \u003cp\u003e \u003cb\u003ebyteArrayField\u003c/b\u003e (String, Optional) : field name which contains a byte array of the html which will be processed.\n only one of fieldPathField, stringField, or byteArrayField can be specified. If a document does not have whichever field is specified in the config, \n then it is not modified\n \u003cp\u003e \u003cb\u003echarset\u003c/b\u003e (String, Optional) : the encoding of the html document. If none is provided when filePathField is provided the charset is detected from\n the byte-order-mark (BOM) or meta tags and defaults to UTF-8 if none is found. If no charset is provided when byteArrayField is provided the charset defaults \n to UTF-8 immediately. Has no effect if stringField is provided.\n @see \u003ca href\u003d\"https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html\"\u003e Charsets \u003c/a\u003e for information on supported charsets and conventions for \n specifying them.\n \u003cp\u003e \u003cb\u003edestinationFields\u003c/b\u003e (Map\u0026lt;String, Map\u0026lt;String, String\u0026gt;\u0026gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes\n a css selector and a `type` field which takes one of the following: \u0027text\u0027, \u0027attribute\u0027, \u0027html\u0027, or \u0027outerHtml\u0027. When doing attribute extraction an additional `attribute` with \n the desired attribute must be specified. For example:\n \u003cp\u003e\n      destinationFields: {\n \u003cbr\u003e  destination1: {\n \u003cbr\u003e    type: \"attribute\",\n \u003cbr\u003e    selector: \".foo\",\n \u003cbr\u003e    attribute: \"href\"\n \u003cbr\u003e  }\n \u003cbr\u003e }\n \u003c/p\u003e\n If a destination field already exists in the processed document it is overwritten. Otherwise, they are created. If a selector returns \n multiple elements the destination field receives a list of processed elements. If a selector returns no elements for a document then the \n destination field is not created.  \n @see \u003ca href\u003d\"https://jsoup.org/cookbook/extracting-data/selector-syntax\"\u003e CSS selectors \u003c/a\u003e for information on supported selectors",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.CreateStaticTeaser",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": []
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Create teasers of a given length from the given source fields. If the character limit is reached in\n the middle of a word, the teaser will not be truncated until the end of the word.\n \u003cbr\u003e \u003cb\u003eNOTE:\u003c/b\u003e If a given field is multivalued, this Stage will only operate on the first value.\n\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e - source (List\u0026lt;String\u0026gt;) : list of source field names.\n \u003cp\u003e - dest (List\u0026lt;String\u0026gt;) : list of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all the source fields to be mapped into.\n \u003cp\u003e - maxLength (Integer) : The maximum number of characters to include in the extracted teaser.\n \u003cp\u003e - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.RenameFields",
-    "packageName": "com.kmwllc.lucille.stage",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "start",
-        "parameterTypes": [],
-        "parameterNames": [],
-        "description": "@throws StageException if the field mapping is empty."
-      },
-      {
-        "methodName": "processDocument",
-        "parameterTypes": [
-          "com.kmwllc.lucille.core.Document"
-        ],
-        "parameterNames": [
-          "doc"
-        ]
-      }
-    ],
-    "description": "Renames a given set of source fields to a given set of destination fields. You must specify the same\n number of source and destination fields.\n\n Config Parameters:\n\n   - fieldMapping (Map\u0026lt;String, String\u0026gt;) : A 1-1 mapping of original field names to new field names.\n   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n       Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.",
+    "description": "Removes all occurrences of a given value from the source fields. Field values are not removed if\n they contain a blacklisted value, only if it is an exact match between the two Strings.\n Config Parameters:\n\n   - source (List\u0026lt;String\u0026gt;) : List of source field names.\n   - values (List\u0026lt;String\u0026gt;) : The values to be blacklisted and removed from the source fields.",
     "isConfigClass": false
   },
   {
@@ -1544,6 +811,66 @@
       }
     ],
     "description": "This stage will take a field that contains a file path (like  c:\\directory\\filename.txt) and parse out information about the\n path:\n   \u003cbr\u003e - filename: The name of the file.\n   \u003cbr\u003e - folder: The parent of the file.\n   \u003cbr\u003e - path: The path to the file. (Normalized)\n   \u003cbr\u003e - file_extension: The extension of the file.\n\n \u003cbr\u003e \u003cbr\u003e \u003cb\u003eConfig Parameters:\u003c/b\u003e\n\n   \u003cbr\u003e - filePathField (String, Optional) - The field name that contains the file path. Defaults to \"file_path\".\n   \u003cbr\u003e - fileSep (String, Optional) - The separator to use in the normalized path output from this stage.\n   Defaults to the operating system\u0027s separator. \u003cb\u003eMust\u003c/b\u003e be either \"/\" or \"\\\". You should specify the separator if you are\n   running Lucille on Windows but working with Unix file paths (or vice versa) and you want the original separators to be\n   preserved. Note that this stage will parse Windows and Unix paths regardless of fileSep / operating system - this property\n   only controls output behavior.\n   \u003cbr\u003e - uppercaseExtension (Boolean, Optional) - If true, the extracted file extension will be in all uppercase letters. Defaults\n   to true.\n   \u003cbr\u003e - includeHierarchy (Boolean, Optional) - If true, a field (\"file_paths\") will be populated with all of the normalized\n   subpaths leading up to the full file path (to aid in building a hierarchical aggregator/facet for a search engine).",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ExtractFirstCharacter",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Extracts the first character from each of the given input fields and set the associated output field\n to contain the character. If the character is not alphanumeric, then \u0027nonaplha\u0027 will be placed in the destination field.\n\n Config Parameters -\n\n   - fieldMapping (Map\u0026lt;String, String\u0026gt;) : A mapping of source-\u0026gt;destination fields\n   - replacement (String, Optional) : The String to place in the output field if the first character is not a letter.\n     If \"SKIP\" is supplied, the output field will not be set to anything. Defaults to \"nonalpha\".",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ChunkText",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      },
+      {
+        "methodName": "splitBySize",
+        "parameterTypes": [
+          "java.lang.String",
+          "int"
+        ],
+        "parameterNames": [
+          "input",
+          "chunkSize"
+        ],
+        "description": "Splits the given String input into chunks, using the given chunkSize.\n @param input The String you want to chunk up.\n @param chunkSize The desired size of your chunks.\n @return The chunked String as an array of individual Strings."
+      }
+    ],
+    "description": "NOTE: This stage produces documents with ATTACHED children containing the chunks. To have children documents emitted as separate\n documents, use the emitNestedChildren stage. An example of this can be seen below.\n\n Retrieves text from a Lucille document field, then breaks it into chunks, with each chunk added as a child document attached to\n the current document.\n Order of processing chunks: chunking method -\u003e cleaning -\u003e pre-merge processing -\u003e merge -\u003e overlap -\u003e character limiting\n\n Config Parameters:\n \u003cp\u003e - source (String) : field of which Chunking Stage will chunk the text.\n \u003cp\u003e - dest (String, optional): the name of the field that will hold the chunk contents in the children documents.\n   Defaults to \"chunk\".\n \u003cp\u003e - chunking_method (Type Enum, optional) : how to split contents in source. Defaults to Sentence chunking.\n \u003cp\u003e 1. fixed chunking (\"fixed\"): split by variable lengthToSplit\n \u003cp\u003e 2. paragraph chunking (\"paragraph\"): split by 2 consecutive line break sequence (\\n, \\r, \\r\\n) with optional whitespaces between,\n     e.g. \\n\\n \\n \\n\n \u003cp\u003e 3. sentence chunking (\"sentence\"): use openNLP sentence model for splitting\n \u003cp\u003e 4. custom chunking (\"custom\"): regex option in config required, used to split content\n \u003cp\u003e - regex (String, only for custom chunking): regEx that will be used to split chunks\n \u003cp\u003e - length_to_split (Integer, only for fixed chunking): length of characters of each initial chunk before processing\n \u003cp\u003e - pre_merge_min_chunk_len (Integer, optional): removes and append chunk to the neighboring chunk if below given number of characters,\n    defaults appending to next chunk.\n \u003cp\u003e - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping\n \u003cp\u003e - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.\n    defaults to 1, keeping the chunks as they were after splitting.\n    e.g. chunks_to_merge: 2 -\u003e { chunk1/chunk2, chunk3/chunk4, chunk5/chunk6}\n \u003cp\u003e - overlap_percentage (Integer, optional) : adds on neighboring chunk\u0027s content based on percentage of current chunk, defaults to 0\n \u003cp\u003e - chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk\n    e.g. chunks_to_overlap: 1 -\u003e { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}\n         chunks_to_overlap: 2 -\u003e { chunk1/chunk2/chunk3, chunk2/chunk3/chunk4, chunk3/chunk4/chunk5}\n \u003cp\u003e - character_limit (Integer, optional) : hard limit number of characters in the final chunk. Truncate rest. Performed after\n   merging and overlapping if they are set.\n\n \u003cp\u003e  - child document fields:\n \u003cp\u003e       - \"id\" : the child id, in the format of \"parent_id-chunk_number\"\n \u003cp\u003e       - \"parent_id\" : id of parent Document\n \u003cp\u003e       - \"offset\" : number of character offset from start of document\n \u003cp\u003e       - \"length\" : number of characters in this chunk\n \u003cp\u003e       - \"chunk_number\" : chunk number\n \u003cp\u003e       - \"total_chunks\" : total chunk number produced from parent document\n \u003cp\u003e       - \"chunk\" : the chunk contents. field name can be changed with config option \"dest\"\n\n  e.g. of paragraph chunking configuration, with a minimum size of 50 characters per chunk, followed by emitting the children\n       documents\n  {\n   class: \"com.kmwllc.lucille.stage.ChunkText\"\n   source: \"text\"\n   chunking_method: \"paragraph\"\n   pre_merge_min_chunk_len: 50\n   clean_chunks: true\n  },\n  {\n    class: \"com.kmwllc.lucille.stage.EmitNestedChildren\"\n    drop_parent : true # drop parent document if you do not want it to be indexed\n  }\n\n  e.g. of sentence chunking configuration with 5 sentences per chunk and 1 sentence of overlap, with a limit of 2000 characters\n  {\n   source: \"text\"\n   chunking_method: \"sentence\"\n   chunks_to_merge: 5\n   chunks_to_overlap: 1\n   clean_chunks: true\n   character_limit: 2000\n  }",
     "isConfigClass": false
   },
   {
@@ -1571,24 +898,676 @@
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.dateformatters.DateYearOnlyFormatter",
-    "packageName": "com.kmwllc.lucille.stage.dateformatters",
+    "className": "com.kmwllc.lucille.stage.TrimWhitespace",
+    "packageName": "com.kmwllc.lucille.stage",
     "interfaceNames": [],
     "isAbstract": false,
     "methods": [
       {
-        "methodName": "apply",
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
         "parameterTypes": [
-          "java.lang.String",
-          "java.time.ZoneId"
+          "com.kmwllc.lucille.core.Document"
         ],
         "parameterNames": [
-          "value",
-          "zone"
+          "doc"
         ]
       }
     ],
-    "description": "Attempts to find dates which only contain a year and extract\n  the values into a Java date. Since no month or date are specified, they will default to January 1 of the given year.\n  Will return null of the there are no dates formatted in it\u0027s style within the String.",
+    "description": "Removes leading and trailing whitespace from every value in a given list of fields.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003efields (List\u0026lt;String\u0026gt;) : The list of fields to trim whitespace from.\u003c/li\u003e\n \u003c/ul\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.AddRandomDouble",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Adds random Dates to documents given parameters.\n\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003efield_name\u003c/b\u003e (String, Optional) : Field name of field where data is placed. Defaults to \"data\"\n \u003cp\u003e \u003cb\u003erange_start\u003c/b\u003e (Double, Optional) : Double representing the start of the range for generating random doubles. Defaults to 0.0.\n \u003cp\u003e \u003cb\u003erange_end\u003c/b\u003e (Double, Optional) : Double representing the end of the range for generating random doubles. Defaults to 1M (1000000.0).",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.Print",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      },
+      {
+        "methodName": "stop",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "description": "Logs all received documents in JSON format and/or writes them to a designated file.\n \u003cp\u003e\n Config Parameters -\n \u003cp\u003e\n - shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.\n - outputFile (String, Optional) : A file to append the documents to (will be created if it doesn\u0027t already exist).\n - excludeFields (String list, Optional) : A list of fields to exclude from the output.\n - overwriteFile (Boolean, Optional) : Whether the output file should overwritten if it already exists. Defaults to true.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.Length",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Determines the length of a field and places the value into a specified field.\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n fieldMapping (Map\u0026lt;String, String\u0026gt;) : A mapping of the field to check the size of to the name of the field to place the length into.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ApplyFileHandlers",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "stop",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "\u003cp\u003e Using a file path found on a Document, applies file handlers to create children documents, as appropriate, using the file\u0027s content.\n\n \u003cp\u003e filePathField (String, Optional): Specify the field in your documents which will has the file path you want to apply handlers to.\n No processing will occur on documents without this field, even if they have the fileContentField present. Defaults to \"file_path\".\n\n \u003cp\u003e fileContentField (String, Optional): Specify the field in your documents which has the file\u0027s contents as an array of bytes.\n When processing a document with a path to a supported file type, the handler will process the array of bytes found in this field,\n if present, before having the FileContentFetcher to open an InputStream for the file\u0027s contents. Defaults to \"file_content\".\n\n \u003cp\u003e handlerOptions (Map): Specifies which file types should be handled / processed by this stage. Valid options include:\n \u003cp\u003e   csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler\n \u003cp\u003e   json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler\n\n \u003cp\u003e \u003cb\u003eNote:\u003c/b\u003e handlerOptions should contain at least one of the above entries, otherwise, an Exception is thrown.\n \u003cp\u003e \u003cb\u003eNote:\u003c/b\u003e XML is not supported.\n\n \u003cp\u003e gcp (Map, Optional): options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.\n See FileConnector for necessary arguments.\n\n \u003cp\u003e s3 (Map, Optional): options for handling S3 files. Include if you are going to process documents with the filePathField set to an S3 URI.\n See FileConnector for necessary arguments.\n\n \u003cp\u003e azure (Map, Optional): options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.\n See FileConnector for necessary arguments.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ParseDate",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Parses dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it\n will not be passed through to the destination field.\n Config Parameters:\n \u003cp\u003e\n - source (List\u0026lt;String\u0026gt;) : List of source field names.\n - dest (List\u0026lt;String\u0026gt;) : List of destination field names. You can either supply the same number of source and destination fields\n for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n - formatters (List\u0026lt;Function\u0026gt;) : List of formatter classes to be used for parsing dates. Formatters must implement\n the Function\u0026lt;String, LocalDate\u0026gt; Interface.\n - format_strs (List\u0026lt;String\u0026gt;, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.\n - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n - time_zone_id (String, Optional) : The time zone ID to use when parsing dates. Defaults to the system default. \u003ca href\u003d\"https://docs.oracle.com/javase/7/docs/api/java/util/TimeZone.html\"\u003eSee here for more info about time zone ids\u003c/a\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.DictionaryLookup",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "\u003cp\u003e Finds exact matches for given input values and extracts the payloads for each match to a given destination field.\n The dictionary file should have a term on each line, and can support providing payloads with\n the syntax \"term, payload\". If any occurrences are found, they will be extracted and their associated payloads will\n be appended to the destination field.\n\n \u003cp\u003e Can also be used as a Set lookup by setting the set_only parameter to true. In this case, the destination field will\n be set to true if all values in the source field are present in the dictionary.\n\n \u003cp\u003e Config Parameters:\n \u003cp\u003e  - source (List\u0026lt;String\u0026gt;) : list of source field names\n \u003cp\u003e  - dest (List\u0026lt;String\u0026gt;) : list of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n \u003cp\u003e  - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with \"classpath:\" the classpath\n       will be searched for the file. Otherwise, the local file system will be searched.\n \u003cp\u003e  - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.\n \u003cp\u003e  - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n \u003cp\u003e  - set_only (Boolean, Optional) : If true, the destination field will be set to true if all values in the source field\n      are present in the dictionary.\n \u003cp\u003e  - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field\n      will be set to true if the source field is missing. Defaults to false.\n\n \u003cp\u003e  - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.\n \u003cp\u003e  - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.\n \u003cp\u003e  - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ReplacePatterns",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Replaces any of the given Patterns found in the source fields with a given replacement String.\n \u003cbr\u003e\n Config Parameters:\n \u003cbr\u003e\n - source (List\u0026lt;String\u0026gt;) : List of source field names.\n \u003cbr\u003e\n - dest (List\u0026lt;String\u0026gt;) : List of destination field names. You can either supply the same number of source and destination fields\n for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n \u003cbr\u003e\n - regex (List\u0026lt;String\u0026gt;) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.\n \u003cbr\u003e\n - replacement (String, Optional) : The String to replace regex matches with. If null, pattern replacement will only take place if\n a replacement_field is specified and set to a String in a document.\n \u003cbr\u003e\n - replacement_field (String, Optional): Specify a field in the document that is set to a String. If non-null, replacements of a\n pattern within a document will use the string set to the replacement_field, if present. Otherwise, we fall back onto replacement:\n If it is not null, patterns are replaced with it; if it is null, no replacement takes place.\n \u003cbr\u003e\n - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n \u003cbr\u003e\n - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.\n \u003cbr\u003e\n - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.\n \u003cbr\u003e\n - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.\n \u003cbr\u003e\n - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.Base64Decode",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "A Stage for decoding base64 data strings and outputting them as arrays of bytes on a document.\n \u003cbr\u003e\n Params:\n \u003cp\u003e \u003cb\u003einput_field\u003c/b\u003e (String): The field containing base64 data Strings you want to decode.\n \u003cp\u003e \u003cb\u003eoutput_field\u003c/b\u003e (String): The field you want to place the decoded data (arrays of bytes) into.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ParseJson",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Parses a JSON string and sets fields on the processed document according to the configured mapping using\n JsonPath expressions.\n\n @see \u003ca href\u003d\"https://github.com/json-path/JsonPath\"\u003eJsonPath\u003c/a\u003e\n Config Parameters\n \u003cp\u003e\n - src (String) : The field containing the JSON string to be parsed.\n - sourceIsBase64: When set to true, indicates that the source field is base64 encoded. In this case the stage will decode\n the field value before parsing.\n - jsonFieldPaths (Map\u0026lt;String, Object\u0026gt;) : Defines the mapping from JsonPath expressions\n to the destination fields in the processed document.\n \u003c/p\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.SetStaticValues",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Sets the value of given fields to a mapped value.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003estatic_values (Map\u0026lt;String, Object\u0026gt;) : A mapping from the field to the value.\u003c/li\u003e\n \u003cli\u003eupdateMode (UpdateMode) : The update mode to use when updating the fields.\u003c/li\u003e\n \u003c/ul\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.DeleteFields",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Deletes a list of given fields from each document it processes.\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e fields (List\u0026lt;String\u0026gt;) : The list of fields to be deleted.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.FetchFileContent",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "stop",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "A stage for getting a file\u0027s contents (array of bytes) using a FileContentFetcher.\n\n filePathField (String, Optional): The document field that contains the file path. Defaults to \"file_path\". No processing will\n take place on documents that do not have this field.\n fileContentField (String, Optional): The document field to write the contents to. Defaults to \"file_content\".\n This stage will overwrite any contents associated with this field.\n\n s3 (Map, Optional): Add if you will be fetching contents from S3 files. See FileConnector for the appropriate arguments to provide.\n azure (Map, Optional): Add if you will be fetching contents from Azure files. See FileConnector for the appropriate arguments to provide.\n gcp (Map, Optional): Add if you will be fetching contents from Google cloud. See FileConnector for the appropriate arguments to provide.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ApplyJSONata",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Applies a given Jsonata expression to extract information from a Document\u0027s field or to transform a Document entirely.\n Applying a transformation to an entire document is an experimental feature and should be used with caution.\n\n See \u003ca href\u003d\"https://github.com/dashjoin/jsonata-java\"\u003ehere\u003c/a\u003e for Jsonata implementation.\n\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003esource\u003c/b\u003e (String, Optional) : The field to use for input. Defaults to applying your expression the entire Document and mutating the entire\n Document in place. Logs warning and skips document if this transformation fails, mutates reserved fields, or returns a non-object (primitive or array).\n \u003cp\u003e \u003cb\u003edestination\u003c/b\u003e (String, Optional) : The destination field into which the json response should be placed. Defaults to mutating the source\n field. Has no effect if source is not specified.\n \u003cp\u003e \u003cb\u003eexpression\u003c/b\u003e (String) : The Jsonata expression you want to apply to each Document.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.AddRandomInt",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Adds random Dates to documents given parameters.\n\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003efield_name\u003c/b\u003e (String, Optional) : Field name of field where data is placed. Defaults to \"data\"\n \u003cp\u003e \u003cb\u003erange_start\u003c/b\u003e (Integer, Optional) : Integer representing the start of the range for generating random ints. Defaults to 0.\n \u003cp\u003e \u003cb\u003erange_end\u003c/b\u003e (Integer, Optional) : Integer representing the end of the range for generating random ints. Defaults to 1M (1000000).",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ParseFloats",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ExtractEntities",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "stop",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Stage for performing dictionary based entity extraction on a given field, using terms from a given dictionary file.\n The dictionary file should have a term on each line, and can support providing payloads with the syntax \"term, payload\".\n If any occurrences are found, they will be extracted and their associated payloads will be appended to the destination\n field.\n\n Config Parameters:\n\n   - source (List\u0026lt;String\u0026gt;) : list of source field names\n   - dest (List\u0026lt;String\u0026gt;) : list of destination field names. You can either supply the same number of source and destination fields\n       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.\n   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with \"classpath:\" the classpath\n       will be searched for the file. Otherwise, the local file system will be searched.\n   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.\n   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.\n      Can be \u0027overwrite\u0027, \u0027append\u0027 or \u0027skip\u0027. Defaults to \u0027overwrite\u0027.\n   - ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.\n   - only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be\n       candidates for matching.  Defaults to false.\n   - stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit.  Defaults to false.\n   - only_whole_words (Boolean, Optional) : Determines whether this matcher will trigger for matches contained within\n       other text. ie \"OMAN\" in \"rOMAN\".  Defaults to false.\n   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the\n       longer, left most match should be kept.  Defaults to true.\n\n   - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.\n   - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.\n   - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.OpenAIEmbed",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "This stage uses openAI embedding services to embed a text field in a Lucille document or its children document(s). Will truncate\n to token limit before sending request. Retrieves API key from config.\n\n Config Parameters:\n - source (String) : field of which the embedding Stage will retrieve content from\n - dest (String, Optional) : name of the field that will hold the embeddings, defaults to \"embeddings\"\n - embed_document (Boolean) : Embeds the document\u0027s source if set to true.\n - embed_children (Boolean): Embeds the document\u0027s children source if set to true.\n - api_key (String) : API key used for OpenAI requests\n - model_name (String, Optional) : the name of the OpenAI embedding model to use, set default to text-embedding-3-small\n    1. text-embedding-3-small\n    2. text-embedding-3-large\n    3. text-embedding-ada-002\n    more details: \u003ca href\u003d\"https://platform.openai.com/docs/guides/embeddings/embedding-models\"\u003e...\u003c/a\u003e\n - dimensions (Integer, Optional) : number of dimensions the resulting embedding should have. Only supported in text-embedding-3\n and later models. Default set to null, which will call the model\u0027s default dimensions.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.DropDocument",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "A stage that drops all documents that pass through it. Intended to use with the conditional framework.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.CreateChildrenStage",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Creates a designated number of children documents.\n \u003cbr\u003e This stage is intended for use in testing only.\n \u003cbr\u003e It is included in the main source tree so that it can be used in manual tests run against an artifact\n that excludes the test tree.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.MatchQuery",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.SplitFieldValues",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Splits a field based off a delimiter and places the separated values into a given output field.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003einputField (String) : The field to split on.\u003c/li\u003e\n \u003cli\u003eoutputField (String) : The field to place the separated values into.\u003c/li\u003e\n \u003cli\u003edelimiter (String) : The String to split the field by.\u003c/li\u003e\n \u003cli\u003etrimWhitespace (Boolean) : True if separated values should trim whitespace, false otherwise.\u003c/li\u003e\n \u003c/ul\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.Timestamp",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Adds a timestamp into a given field.\n \u003cp\u003e\n Config Parameters -\n \u003cul\u003e\n \u003cli\u003edest_field (String) : The field to place the timestamp into.\u003c/li\u003e\n \u003c/ul\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.Contains",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Checks if any of the given fields contain any of the given values and tags the given\n output field with the value.\n \u003cbr\u003e\n Config Parameters:\n \u003cp\u003e - contains (List\u0026lt;String\u0026gt;) : A list of values to search for\n \u003cp\u003e - output (String) : The field to tag if a match is found\n \u003cp\u003e - value (String) : The value to tag the output field with\n \u003cp\u003e - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.\n \u003cp\u003e - fields (List\u0026lt;String\u0026gt;) : The fields to be searched",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.RandomVector",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.QueryDatabase",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      },
+      {
+        "methodName": "stop",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "description": "This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.\n This stage should try and reconnect to the database in the future.\n\n Config Parameters:\n - driver (String) : Driver used for creating a connection to database\n - connectionString (String) : used for establishing a connection to the right database\n - jdbcUser (String) : username to access database\n - jdbcPassword (String) : password to access database\n - sql (String, Optional) : SQL statement that would be requested to the database. Allow for \"?\" character for keyFields configuration\n - keyFields (List\u0026lt;String\u0026gt;) : Strings to replace ? in the statement made in sql\n   e.g. keyFields : [\"123\"]\n        sql: SELECT name FROM meal WHERE id \u003d ?\n - inputTypes (List\u0026lt;String\u0026gt;) : Each input type of each of the keyField\n - fieldMapping (Map\u0026lt;String, String\u0026gt;) : map of columns retrieved from result set to the name of the field in the Lucille document\n   it will populate with.\n - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1\n - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.ComputeFieldSize",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ],
+        "description": "{@inheritDoc}\n Here it processes document by computing and adding the correct field. \n @throws StageException If {@link ComputeFieldSize#source} does not exist in document\n @throws NullPointerException If {@link ComputeFieldSize#source} is not a byte array in document"
+      }
+    ],
+    "description": "Computes size of given byte array field and puts that size in a field on the Document.\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003esource\u003c/b\u003e (String) : The field containing the byte array\n \u003cp\u003e \u003cb\u003edestination\u003c/b\u003e (String) : The name of the field which will be added to store the size. Will overwrite value if field already\n exists",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.CollapseChildrenDocuments",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "\u003cp\u003e This stage will iterate over the children documents that are attached to the current document.\n The fields to copy from the children document will be copied to multi-valued fields on the parent document.\n\n \u003cp\u003e If dropChildren is set to true, the children documents will be dropped from the\n parent before letting the parent document continue down the pipeline.\n\n \u003cp\u003e Config Parameters:\n \u003cp\u003e \u003cb\u003efieldsToCopy\u003c/b\u003e (List\u0026lt;String\u0026gt;): The fields you want to copy from a child document to the parent document.\n \u003cp\u003e \u003cb\u003edropChildren\u003c/b\u003e (Boolean): Whether you want to drop the children Documents from their parents after processing.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.AddRandomString",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "start",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Adds random Strings to a document field given parameters. Note that when randomly selecting multiple values\n from an integer range or from file contents, duplicates are possible -- this stage does not currently guarantee\n that all random terms added to a field will be distinct.\n \u003cbr\u003e\n Config Parameters -\n \u003cp\u003e \u003cb\u003einputDataPath\u003c/b\u003e (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,\n  defaults to numeric data based on range size (0 -\u0026gt; rangeSize - 1). Note that duplicate entries will not be removed.\n \u003cp\u003e \u003cb\u003efieldName\u003c/b\u003e (String, Optional) : Field name of field where data is placed, defaults to \"data\"\n \u003cp\u003e \u003cb\u003erangeSize\u003c/b\u003e (int, Optional) : size of the subset of datapoints to be grabbed either from\n  given datapath or from random numbers\n \u003cp\u003e \u003cb\u003eminNumOfTerms\u003c/b\u003e (Integer, Optional) : minimum number of terms to be in the field, defaults to 1\n \u003cp\u003e \u003cb\u003emaxNumOfTerms\u003c/b\u003e (Integer, Optional) : maximum number of terms to be in the field, defaults to 1\n \u003cp\u003e \u003cb\u003eisNested\u003c/b\u003e (bool, Optional) : setting for structure of field, default or nested\n \u003cp\u003e \u003cb\u003econcatenate\u003c/b\u003e (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple\n  values, defaults to false",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.RemoveDiacritics",
+    "packageName": "com.kmwllc.lucille.stage",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "processDocument",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Document"
+        ],
+        "parameterNames": [
+          "doc"
+        ]
+      }
+    ],
+    "description": "Removes diacritics and accents from String fields.\n \u003cbr\u003e\n Config Parameters -\n \u003cbr\u003e\n \u003cp\u003e\n \u003cb\u003esource\u003c/b\u003e (String) : Name of source field.\n \u003c/p\u003e\n \u003cp\u003e\n \u003cb\u003edestination\u003c/b\u003e (String, Optional) : Name of field where transformed string is put. If not provided the string is mutated in place.\n \u003c/p\u003e",
     "isConfigClass": false
   },
   {
@@ -1613,48 +1592,6 @@
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.dateformatters.UnixTimestampFormatter",
-    "packageName": "com.kmwllc.lucille.stage.dateformatters",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "apply",
-        "parameterTypes": [
-          "java.lang.String",
-          "java.time.ZoneId"
-        ],
-        "parameterNames": [
-          "value",
-          "zone"
-        ]
-      }
-    ],
-    "description": "Formatter for parsing a unix timestamp provided as the number of milliseconds since the epoch.",
-    "isConfigClass": false
-  },
-  {
-    "className": "com.kmwllc.lucille.stage.dateformatters.DatePipeFormatter",
-    "packageName": "com.kmwllc.lucille.stage.dateformatters",
-    "interfaceNames": [],
-    "isAbstract": false,
-    "methods": [
-      {
-        "methodName": "apply",
-        "parameterTypes": [
-          "java.lang.String",
-          "java.time.ZoneId"
-        ],
-        "parameterNames": [
-          "value",
-          "zone"
-        ]
-      }
-    ],
-    "description": "Attempts to find dates of the form \"YYYY|MM|DD\" and extract the values into a Java date.\n Will return null if there are no dates formatted in its style within the String.",
-    "isConfigClass": false
-  },
-  {
     "className": "com.kmwllc.lucille.stage.dateformatters.DateMonthStrFormatter",
     "packageName": "com.kmwllc.lucille.stage.dateformatters",
     "interfaceNames": [],
@@ -1676,29 +1613,66 @@
     "isConfigClass": false
   },
   {
-    "className": "com.kmwllc.lucille.stage.util.DictionaryManager",
-    "packageName": "com.kmwllc.lucille.stage.util",
+    "className": "com.kmwllc.lucille.stage.dateformatters.UnixTimestampFormatter",
+    "packageName": "com.kmwllc.lucille.stage.dateformatters",
     "interfaceNames": [],
     "isAbstract": false,
     "methods": [
       {
-        "methodName": "getDictionary",
+        "methodName": "apply",
         "parameterTypes": [
           "java.lang.String",
-          "boolean",
-          "boolean",
-          "com.typesafe.config.Config"
+          "java.time.ZoneId"
         ],
         "parameterNames": [
-          "path",
-          "ignoreCase",
-          "setOnly",
-          "config"
-        ],
-        "description": "Returns an unmodifiable Map built from the CSV file at the designated path.\n The Map lets us lookup a keyword and retrieve an array containing either the keyword itself\n (indicating that the keyword is found in the given dictionary) or a sequence of payloads associated with\n the keyword.\n\n If a Map has already been populated for a given path (and given setting of ignoreCase and setOnly),\n the first instance will be returned and a second instance will not be created. Note that the config does not\n affect the key / path used - it can only affect whether the file (particularly, if it is held on cloud storage)\n CAN be retrieved successfully in the first place!\n\n Each Stage instance that needs to acquire a dictionary should call this method once inside start().\n Because Stage instances will not be calling this method more than once at startup time, we use a coarse-grained\n approach of making the entire method synchronized. This is to ensure that at most one instance of each\n named dictionary can be created. We are not concerned about the overhead of contention because\n this method is not called repeatedly in the Stage lifecycle; it is only called once at startup.\n\n This implementation explicitly DOES NOT permit the concurrent loading of different dictionaries by different threads.\n Using this implementation, only one thread can enter getDictionary() at a time, meaning that only one dictionary\n can be initialized at a time.\n\n Note that the \"dictionaries\" HashMap is only ever accessed or updated inside this one method. Since this method\n is synchronized, the dictionaries HashMap itself does not need to be thread-safe (by being\n made into a ConcurrentHashMap or being passed through Collections.synchronizedMap())."
+          "value",
+          "zone"
+        ]
       }
     ],
-    "description": "Provides a way for Stage instances to acquire dictionaries.\n\n Dictionaries are read-only and are loaded from the CSV content at a designated filesystem path.\n\n Dictionary instances are safe to share across threads (because they are unmodifiable HashMaps).\n\n DictionaryManager is intended as an optimization that eliminates the need for each Stage instance to initialize and store\n its own dedicated dictionary instance. Using DictionaryManager, the dictionary for a given path is\n initialized once, upon the first request to access it; the single instance of that dictionary is\n returned upon subsequent requests.\n\n Stages that need to obtain a read-only dictionary from a CSV file can call\n DictionaryManager.getDictionary(\"/path/to/dictionary.csv\", ignoreCase, setOnly)\n\n When requesting a dictionary from the same CSV but with different settings of ignoreCase and setOnly,\n a different dictionary instance will be created for each combination, because these settings\n affect the contents of the dictionary.",
+    "description": "Formatter for parsing a unix timestamp provided as the number of milliseconds since the epoch.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.dateformatters.DateYearOnlyFormatter",
+    "packageName": "com.kmwllc.lucille.stage.dateformatters",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "apply",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.time.ZoneId"
+        ],
+        "parameterNames": [
+          "value",
+          "zone"
+        ]
+      }
+    ],
+    "description": "Attempts to find dates which only contain a year and extract\n  the values into a Java date. Since no month or date are specified, they will default to January 1 of the given year.\n  Will return null of the there are no dates formatted in it\u0027s style within the String.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.dateformatters.DatePipeFormatter",
+    "packageName": "com.kmwllc.lucille.stage.dateformatters",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "apply",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.time.ZoneId"
+        ],
+        "parameterNames": [
+          "value",
+          "zone"
+        ]
+      }
+    ],
+    "description": "Attempts to find dates of the form \"YYYY|MM|DD\" and extract the values into a Java date.\n Will return null if there are no dates formatted in its style within the String.",
     "isConfigClass": false
   },
   {
@@ -1789,6 +1763,32 @@
       }
     ],
     "description": "A method of chunking contents.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.stage.util.DictionaryManager",
+    "packageName": "com.kmwllc.lucille.stage.util",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "getDictionary",
+        "parameterTypes": [
+          "java.lang.String",
+          "boolean",
+          "boolean",
+          "com.typesafe.config.Config"
+        ],
+        "parameterNames": [
+          "path",
+          "ignoreCase",
+          "setOnly",
+          "config"
+        ],
+        "description": "Returns an unmodifiable Map built from the CSV file at the designated path.\n The Map lets us lookup a keyword and retrieve an array containing either the keyword itself\n (indicating that the keyword is found in the given dictionary) or a sequence of payloads associated with\n the keyword.\n\n If a Map has already been populated for a given path (and given setting of ignoreCase and setOnly),\n the first instance will be returned and a second instance will not be created. Note that the config does not\n affect the key / path used - it can only affect whether the file (particularly, if it is held on cloud storage)\n CAN be retrieved successfully in the first place!\n\n Each Stage instance that needs to acquire a dictionary should call this method once inside start().\n Because Stage instances will not be calling this method more than once at startup time, we use a coarse-grained\n approach of making the entire method synchronized. This is to ensure that at most one instance of each\n named dictionary can be created. We are not concerned about the overhead of contention because\n this method is not called repeatedly in the Stage lifecycle; it is only called once at startup.\n\n This implementation explicitly DOES NOT permit the concurrent loading of different dictionaries by different threads.\n Using this implementation, only one thread can enter getDictionary() at a time, meaning that only one dictionary\n can be initialized at a time.\n\n Note that the \"dictionaries\" HashMap is only ever accessed or updated inside this one method. Since this method\n is synchronized, the dictionaries HashMap itself does not need to be thread-safe (by being\n made into a ConcurrentHashMap or being passed through Collections.synchronizedMap())."
+      }
+    ],
+    "description": "Provides a way for Stage instances to acquire dictionaries.\n\n Dictionaries are read-only and are loaded from the CSV content at a designated filesystem path.\n\n Dictionary instances are safe to share across threads (because they are unmodifiable HashMaps).\n\n DictionaryManager is intended as an optimization that eliminates the need for each Stage instance to initialize and store\n its own dedicated dictionary instance. Using DictionaryManager, the dictionary for a given path is\n initialized once, upon the first request to access it; the single instance of that dictionary is\n returned upon subsequent requests.\n\n Stages that need to obtain a read-only dictionary from a CSV file can call\n DictionaryManager.getDictionary(\"/path/to/dictionary.csv\", ignoreCase, setOnly)\n\n When requesting a dictionary from the same CSV but with different settings of ignoreCase and setOnly,\n a different dictionary instance will be created for each combination, because these settings\n affect the contents of the dictionary.",
     "isConfigClass": false
   },
   {
