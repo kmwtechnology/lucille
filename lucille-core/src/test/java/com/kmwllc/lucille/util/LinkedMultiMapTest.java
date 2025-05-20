@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.kmwllc.lucille.connector.storageclient.LocalStorageClient;
 import java.time.Instant;
 import java.util.*;
 import org.junit.Before;
@@ -63,6 +64,25 @@ public class LinkedMultiMapTest {
   @Test
   public void testIsMultiValued() {
     // todo
+  }
+
+  @Test
+  public void testClear() {
+    LinkedMultiMap mapToClear = new LinkedMultiMap();
+
+    mapToClear.putOne("string", "a");
+    mapToClear.putOne("long", 1L);
+    mapToClear.putOne("boolean", true);
+
+    assertTrue(mapToClear.contains("string"));
+    assertTrue(mapToClear.contains("long"));
+    assertTrue(mapToClear.contains("boolean"));
+
+    mapToClear.clear();
+
+    assertFalse(mapToClear.contains("string"));
+    assertFalse(mapToClear.contains("long"));
+    assertFalse(mapToClear.contains("boolean"));
   }
 
   @Test
@@ -229,11 +249,6 @@ public class LinkedMultiMapTest {
   }
 
   @Test
-  public void testClear() {
-    // todo
-  }
-
-  @Test
   public void testRename() {
     exception(() -> empty.rename(null, "string"));
     exception(() -> empty.rename("string", null));
@@ -281,6 +296,9 @@ public class LinkedMultiMapTest {
     exception(() -> map.removeFromArray("list-string", -1));
     exception(() -> map.removeFromArray("list-string", 3));
 
+    // not multi-valued
+    exception(() -> map.removeFromArray("string", 0));
+
     map.removeFromArray("list-string", 1);
     assertEquals(List.of("a", "c"), map.getMany("list-string"));
 
@@ -307,6 +325,21 @@ public class LinkedMultiMapTest {
           throw new RuntimeException();
         },
         RuntimeException.class);
+  }
+
+  @Test
+  public void testEqualsEdgeCases() {
+    // 1. Same pointers always return true
+    LinkedMultiMap mm1 = new LinkedMultiMap();
+    LinkedMultiMap alsoMM1 = mm1;
+
+    assertEquals(mm1, alsoMM1);
+
+    // 2. The other argument is null
+    assertNotEquals(null, mm1);
+
+    // 3. Other argument is a different class
+    assertNotEquals(mm1, Integer.valueOf(3));
   }
 
   private void exception(Runnable r) {
