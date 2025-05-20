@@ -335,11 +335,12 @@ public class LinkedMultiMapTest {
 
     assertEquals(mm1, alsoMM1);
 
+    // using .equals instead of assertNotEquals to ensure it's being called ON the LinkedMultiMap
     // 2. The other argument is null
-    assertNotEquals(null, mm1);
+    assertFalse(mm1.equals(null));
 
     // 3. Other argument is a different class
-    assertNotEquals(mm1, Integer.valueOf(3));
+    assertFalse(mm1.equals(Integer.valueOf(3)));
   }
 
   private void exception(Runnable r) {
