@@ -15,11 +15,13 @@ import org.apache.commons.io.FilenameUtils;
 
 public abstract class BaseFileReference implements FileReference {
 
+  private final String fullPathStr;
   private final Instant lastModified;
   private final Long size;
   private final Instant created;
 
-  public BaseFileReference(Instant lastModified, Long size, Instant created) {
+  public BaseFileReference(String fullPathStr, Instant lastModified, Long size, Instant created) {
+    this.fullPathStr = fullPathStr;
     this.lastModified = lastModified;
     this.size = size;
     this.created = created;
@@ -29,6 +31,9 @@ public abstract class BaseFileReference implements FileReference {
   public Instant getLastModified() {
     return this.lastModified;
   }
+
+  @Override
+  public String getFullPath() { return fullPathStr; }
 
   @Override
   public String getFileExtension() {
@@ -46,7 +51,7 @@ public abstract class BaseFileReference implements FileReference {
   public Document asDoc(TraversalParams params) {
     Document doc = createEmptyDocument(params);
 
-    doc.setField(FILE_PATH, getFullPath(params));
+    doc.setField(FILE_PATH, getFullPath());
 
     if (lastModified != null) {
       doc.setField(MODIFIED, lastModified);
@@ -99,8 +104,7 @@ public abstract class BaseFileReference implements FileReference {
    * @return An empty Document with an appropriate docId representing this file reference.
    */
   protected Document createEmptyDocument(TraversalParams params) {
-    String fullPath = getFullPath(params);
-    return createEmptyDocument(params, fullPath);
+    return createEmptyDocument(params, fullPathStr);
   }
 
   /**
