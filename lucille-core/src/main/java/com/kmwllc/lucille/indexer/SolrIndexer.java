@@ -32,15 +32,15 @@ public class SolrIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(SolrIndexer.class);
 
-  private final SolrClient client;
+  private final SolrClient solrClient;
 
-  public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient client, String metricsPrefix, String localRunId) {
+  public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
             "userName", "password", "acceptInvalidCert")
         .withOptionalProperties(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES));
 
-    this.client = client;
+    this.solrClient = solrClient;
   }
 
   public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
@@ -51,12 +51,12 @@ public class SolrIndexer extends Indexer {
 
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
-    this.client = getSolrClient(config, bypass);
+    this.solrClient = getSolrClient(config, bypass);
   }
 
   // Convenience Constructors
-  public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient client, String metricsPrefix) {
-    this(config, messenger, client, metricsPrefix, null);
+  public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
+    this(config, messenger, solrClient, metricsPrefix, null);
   }
 
   public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
@@ -72,12 +72,12 @@ public class SolrIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    if (client == null) {
+    if (solrClient == null) {
       return true;
     }
-    if (client instanceof Http2SolrClient) {
+    if (solrClient instanceof Http2SolrClient) {
       try {
-        SolrPingResponse resp = client.ping();
+        SolrPingResponse resp = solrClient.ping();
         int status = resp.getStatus();
         if (status != 0) {
           log.error("Non zero response when checking solr cluster status: " + status);
@@ -89,14 +89,14 @@ public class SolrIndexer extends Indexer {
         log.error("Couldn't ping solr cluster.", e);
         return false;
       }
-    } else if (client instanceof CloudHttp2SolrClient) {
+    } else if (solrClient instanceof CloudHttp2SolrClient) {
       // If we are indexing to multiple collections with the CloudSolrClient and the default
       // collection is not set then
       // we can't use ping. Instead, verify that we can connect to the cluster.
       NamedList response;
       try {
         log.debug("Validating SolrIndexer connection by checking cluster status.");
-        response = client.request(new CollectionAdminRequest.ClusterStatus());
+        response = solrClient.request(new CollectionAdminRequest.ClusterStatus());
       } catch (Exception e) {
         log.error("Couldn't check solr cluster status.", e);
         return false;
@@ -119,9 +119,9 @@ public class SolrIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (client != null) {
+    if (solrClient != null) {
       try {
-        client.close();
+        solrClient.close();
       } catch (Exception e) {
         log.error("Error closing SolrClient", e);
       }
@@ -130,8 +130,7 @@ public class SolrIndexer extends Indexer {
 
   @Override
   protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
-    // if bypassing, there won't be a managedClient at all - SolrUtils doesn't return null clients in a ManagedCloseSolrClient
-    if (client == null) {
+    if (solrClient == null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
       return Set.of();
     }
@@ -230,9 +229,9 @@ public class SolrIndexer extends Indexer {
       return;
     }
     if (collection == null) {
-      client.add(solrDocs);
+      solrClient.add(solrDocs);
     } else {
-      client.add(collection, solrDocs);
+      solrClient.add(collection, solrDocs);
     }
   }
 
@@ -246,9 +245,9 @@ public class SolrIndexer extends Indexer {
       // All of the deletes are by ID. Simply delete by ID.
       List<String> deletionIds = requests.getDeleteIds();
       if (collection == null) {
-        client.deleteById(deletionIds);
+        solrClient.deleteById(deletionIds);
       } else {
-        client.deleteById(collection, deletionIds);
+        solrClient.deleteById(collection, deletionIds);
       }
     } else {
       // At least some of the deletes are by field. Perform the deletes with a single request using
@@ -272,9 +271,9 @@ public class SolrIndexer extends Indexer {
       String queryToDelete = String.join(" OR ", termsQueries);
 
       if (collection == null) {
-        client.deleteByQuery(queryToDelete);
+        solrClient.deleteByQuery(queryToDelete);
       } else {
-        client.deleteByQuery(collection, queryToDelete);
+        solrClient.deleteByQuery(collection, queryToDelete);
       }
     }
   }

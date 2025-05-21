@@ -38,8 +38,7 @@ public class SolrUtils {
    * are found in the config.
    *
    * @param config The configuration file to generate a client from
-   * @return A ManagedCloseSolrClient, holding the created client and, potentially, another HTTP client created in the
-   * process that needs to be closed manually as well.
+   * @return A SolrClient suitable for the given configuration.
    */
   public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
@@ -47,8 +46,7 @@ public class SolrUtils {
     if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
       return getCloudClient(config);
     } else {
-      Http2SolrClient httpClient = getHttpClientAndSetCheckPeerName(config);
-      return httpClient;
+      return getHttpClientAndSetCheckPeerName(config);
     }
   }
 
@@ -89,13 +87,12 @@ public class SolrUtils {
 
   /**
    * Generates a HttpClient with preemptive authentication if required.
-   * This method has SIDE EFFECTS.  It will set SSL system properties if corresponding properties
+   * This method has SIDE EFFECTS. It will set SSL system properties if corresponding properties
    * are found in the config.
    *
    * @param config The configuration file to generate the HttpClient from.
    * @return the HttpClient
    */
-  // this still returns the actual client (not wrapped) because it is used in getWrappedCloudClient.
   static Http2SolrClient getHttpClientAndSetCheckPeerName(Config config) {
     Http2SolrClient.Builder clientBuilder = new Http2SolrClient.Builder();
 
