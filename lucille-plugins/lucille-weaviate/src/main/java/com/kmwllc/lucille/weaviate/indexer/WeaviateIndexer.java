@@ -23,6 +23,8 @@ import io.weaviate.client.v1.data.model.WeaviateObject.WeaviateObjectBuilder;
 import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.model.Meta;
 import java.io.File;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -111,19 +113,22 @@ public class WeaviateIndexer extends Indexer {
 
   @Override
   protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+    Set<Document> failedDocs = new HashSet<>();
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
-      for (Document doc : documents) {
+      Map<String, Document> docGeneratedUUIDMap = new HashMap<>();
 
+      for (Document doc : documents) {
         // initialize the docMap with all the fields from the document and set the id destination field instead of id field
         Map<String, Object> docMap = doc.asMap();
         docMap.remove(Document.ID_FIELD);
         docMap.put(idDestinationName, doc.getId());
 
         // set id and class name
+        String uuidForDoc = generateDocumentUUID(doc);
         WeaviateObjectBuilder objectBuilder = WeaviateObject.builder()
             .className(weaviateClassName)
-            .id(generateDocumentUUID(doc));
+            .id(uuidForDoc);
 
         // if vector field is specified set it and remove it from the docMap
         if (vectorField != null && doc.has(vectorField)) {
@@ -136,11 +141,14 @@ public class WeaviateIndexer extends Indexer {
             .properties(docMap)
             .build();
         batcher.withObject(obj);
+
+        docGeneratedUUIDMap.put(uuidForDoc, doc);
       }
 
       Result<ObjectGetResponse[]> result = batcher.withConsistencyLevel(ConsistencyLevel.ALL).run();
 
-      // result.hasErrors() may return false even if there are errors inside individual ObjectGetResponses
+      // result.hasErrors() is indicative of a larger API / request failure.
+      // It can return false (no errors), even when some individual ObjectGetResponses will have errors.
       if (result.hasErrors()) {
         throw new IndexerException(result.getError().toString());
       }
@@ -149,16 +157,17 @@ public class WeaviateIndexer extends Indexer {
       ObjectGetResponse[] responses = result.getResult();
       for (ObjectGetResponse response : responses) {
         ErrorResponse errorResponse = response.getResult().getErrors();
+
         if (errorResponse != null) {
-          // we fail the batch on the first error encountered
-          throw new IndexerException(errorResponse.toString());
+          Document docWithResponseUUID = docGeneratedUUIDMap.get(response.getId());
+          failedDocs.add(docWithResponseUUID);
         }
       }
     } catch (Exception e) {
-      throw new IndexerException(e.toString());
+      throw new IndexerException("Error occurred sending Documents to Weaviate:", e);
     }
 
-    return Set.of();
+    return failedDocs;
   }
 
   public static String generateDocumentUUID(Document document) {

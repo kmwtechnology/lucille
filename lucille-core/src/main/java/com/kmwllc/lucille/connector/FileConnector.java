@@ -20,43 +20,59 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Config parameters:
- *  docIdPrefix (string, Optional): prefix to add to the docId when not handled by a file handler, defaults to empty string. To configure docIdPrefix for CSV, JSON or XML files, configure it in its respective file handler config in fileOptions
- *  pathToStorage (string): path to storage, can be local file system or cloud bucket/container
- *  e.g.
- *    /path/to/storage/in/local/filesystem
- *    gs://bucket-name/folder/
- *    s3://bucket-name/folder/
- *    https://accountName.blob.core.windows.net/containerName/prefix/
- *  filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.
- *  fileOptions (Map, Optional): Options for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.
- *  state (Map, Optional): options for tracking when files were published and processed by Lucille. See example configuration and some important notes below.
- *  gcp (Map, Optional): options for handling Google Cloud files. See example below.
- *  s3 (Map, Optional): options for handling S3 files. See example below.
- *  azure (Map, Optional): options for handling Azure files. See example below.
+ * The <code>FileConnector</code> traverses through a file system, starting at a given directory, and publishes a Document for each
+ * file it encounters. It can traverse through the local file system, Azure Blob Storage, Google Cloud, and S3.
  *
- * FilterOptions:
- *  includes (list of strings, Optional): list of regex patterns to include files.
- *  excludes (list of strings, Optional): list of regex patterns to exclude files.
- *  lastModifiedCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time.
- *  Specify "1h" to only include / publish files that were modified within the last hour, for example.
- *  lastPublishedCutoff (Duration, Optional): Filter files that haven't been published by Lucille since a certain amount of time.
- *  Relies on your state configuration to determine when files were last published. If you do not specify configuration for state, this
- *  wil have no effect. Specify "1h" to only include / publish files that were last published <b>more</b> than an hour ago, for example.
- *  (State is <b>only</b> maintained / tracked for the archive file itself.)
+ * <br> Config Parameters:
+ * <ul>
+ *   <li>pathToStorage (String): path to storage, can be local file system or cloud bucket/container. Examples:
+ *    <ul>
+ *       <li>/path/to/storage/in/local/filesystem</li>
+ *       <li>gs://bucket-name/folder/</li>
+ *       <li>s3://bucket-name/folder/</li>
+ *      <li>https://accountName.blob.core.windows.net/containerName/prefix/</li>
+ *    </ul>
+ *   </li>
+ *   <li>filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.</li>
+ *   <li>fileOptions (Map, Optional): configuration for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.</li>
+ *   <li>state (Map, Optional): configuration to track when files are published and processed by Lucille. See example configuration and some important notes below.</li>
+ *   <li>gcp (Map, Optional): options for handling Google Cloud files. See example below.</li>
+ *   <li>s3 (Map, Optional): options for handling S3 files. See example below.</li>
+ *   <li>azure (Map, Optional): options for handling Azure files. See example below.</li>
+ * </ul>
+ *
+ * <code>filterOptions</code>:
+ * <ul>
+ *   <li>includes (List&lt;String&gt;, Optional): list of regex patterns to include files.</li>
+ *   <li>excludes (List&lt;String&gt;, Optional): list of regex patterns to exclude files.</li>
+ *   <li>modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time. For example, specify "1h", and only files that were modified more than an hour ago will be published.</li>
+ *   <li>lastPublishedCutoff (Duration, Optional): Filter files that haven't been published by Lucille since a certain amount of time. Relies on your state configuration to determine when files were last published. If you do not specify configuration for state, this will have no effect. Specify "1h" to only include / publish files that were last published <b>more</b> than an hour ago.</li>
+ * </ul>
+ *
  * <br> Only files that comply with <b>all</b> of your specified FilterOptions will be processed and published in a traversal.
- * <br> For archived / compressed files, filter options are applied to the archive / compressed file itself as well as its contents.
  * <br> See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
+ * <br> Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
  *
- * FileOptions:
- *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.
- *  handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. Recurring not supported. Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing. The file path field of extracted file will be in the format of "{path/to/archive/archive.zip}:{extractedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler
- *  handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. Recurring not supported.Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing.The file path field of decompressed file will be in the format of "{path/to/compressed/compressedFileName.gz}:{compressedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler
- *  moveToAfterProcessing (string, Optional): path to move files to after processing, currently only supported for local file system
- *  moveToErrorFolder (string, Optional): path to move files to if an error occurs during processing, currently only supported for local file system
- *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
- *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
- *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
+ * <p> <code>fileOptions</code>:
+ * <ul>
+ *   <li>getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.</li>
+ *   <li>handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. See important notes below.</li>
+ *   <li>handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. See important notes below.</li>
+ *   <li>moveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system</li>
+ *   <li>moveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system</li>
+ *   <li>csv (Map, Optional): config options for handling csv type files. Config will be passed to CSVFileHandler.</li>
+ *   <li>json (Map, Optional): config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.</li>
+ *   <li>xml (Map, Optional): config options for handling xml type files. Config will be passed to XMLFileHandler.</li>
+ *   <li>(To configure the docIdPrefix for CSV, JSON or XML files, configure it in its respective config in <code>fileOptions</code>.)</li>
+ *   <li> <b>Notes</b> on archive / compressed files:
+ *      <ul>
+ *         <li>Recurring is not supported.</li>
+ *         <li>If enabled during a cloud traversal, the file's contents <b>will</b> be downloaded before processing.</li>
+ *         <li>For archive files, the file path field of the extracted file's Document will be in the format of "{path/to/archive/archive.zip}!{extractedFileName}".</li>
+ *         <li>For compressed files, the file path follows the format of "{path/to/compressed/compressedFileName.gz}!{compressedFileName}".</li>
+ *       </ul>
+ *    </li>
+ * </ul>
  *
  * <p> <b>State</b>: FileConnector allows you to avoid publishing files that were recently published (using FilterOptions.lastPublishedCutoff). In order to keep track of
  * this information, you'll need to specify a connection to a JDBC-compatible database which will be used to track file paths and
@@ -79,22 +95,30 @@ import org.slf4j.LoggerFactory;
  *   <li>You can provide state configuration, but not a lastPublishedCutoff, and Lucille will keep your state updated.</li>
  * </ul>
  *
- * <br> gcp:
- * "pathToServiceKey" : "path/To/Service/Key.json"
- * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+ * <code>gcp</code>:
+ * <ul>
+ *   <li>"pathToServiceKey": "path/To/Service/Key.json"</li>
+ *   <li>"maxNumOfPages" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.</li>
+ * </ul>
  *
- * <br> s3:
- * "accessKeyId" : s3 key id. Not needed if secretAccessKey is not specified (using default credentials).
- * "secretAccessKey" : secret access key. Not needed if accessKeyId is not specified (using default credentials).
- * "region" : s3 storage region
- * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+ * <code>s3</code>:
+ * <ul>
+ *   <li>"accessKeyId": s3 key id. Not needed if secretAccessKey is not specified (using default credentials).</li>
+ *   <li>"secretAccessKey": secret access key. Not needed if accessKeyId is not specified (using default credentials).</li>
+ *   <li>"region": s3 storage region</li>
+ *   <li>"maxNumOfPages" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.</li>
+ * </ul>
  *
- * <br> azure:
- * "connectionString" : azure connection string
+ * <code>azure</code>:
+ * <ul>
+ *   <li>"connectionString": azure connection string</li>
+ * </ul>
  * <b>Or</b>
- * "accountName" : azure account name
- * "accountKey" : azure account key
- * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+ * <ul>
+ *   <li>"accountName": azure account name</li>
+ *   <li>"accountKey": azure account key</li>
+ *   <li>"maxNumOfPages" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.</li>
+ * </ul>
  */
 
 public class FileConnector extends AbstractConnector {

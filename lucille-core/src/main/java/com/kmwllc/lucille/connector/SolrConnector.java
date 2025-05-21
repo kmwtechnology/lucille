@@ -22,18 +22,21 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Connector for issuing requests to Solr. Requests should be formatted as JSON Strings and can contain
- * the {runId} wildcard, which will be substituted for the current runId before the requests are issued.
- * This is the only wildcard supported. XML can be used instead of JSON with the useXml=true parameter.
+ * Connector for issuing requests to Solr. Requests should be formatted as JSON Strings. They can contain
+ * the <code>{runId}</code> wildcard, which will be substituted with the current runId in the actual request.
+ * (This is the only wildcard supported.)
  *
- * Connector Parameters:
+ * <br> You can use XML in lieu of JSON by setting <code>useXML</code> to <code>true</code>.
  *
- *   - preActions (List&lt;String&gt;, Optional) : A list of requests to be issued to Solr. These actions will be performed first.
- *   - postActions (List&lt;String&gt;, Optional) : A list of requests to be issued to Solr. These actions will be performed second.
- *   - solr.url (String) : The url of the Solr instance for this Connector to issue its requests to.
- *   - useXml (boolean, Optional) : indicates whether actions are in xml or json format; defaults to json; note that
- *     Solr does more validation on json commands than xml ones (e.g. it rejects unrecognized JSON commands but
- *     accepts unrecognized XML commands and reports success); therefore, json is preferable
+ * <br> Config Parameters:
+ * <ul>
+ *   <li>preActions (List&lt;String&gt;, Optional): A list of requests to be issued to Solr. These actions will be performed first.</li>
+ *   <li>postActions (List&lt;String&gt;, Optional): A list of requests to be issued to Solr. These actions will be performed second.</li>
+ *   <li>solr (Map): Configuration for connecting to your Solr instance. See {@link SolrUtils#SOLR_PARENT_SPEC} for parameters.</li>
+ *   <li>useXML (Boolean, Optional): Whether your requests use XML or not. Defaults to JSON requests (<code>false</code>).</li>
+ * </ul>
+ *
+ * <b>Note:</b> As Solr performs more validation on JSON commands than XML, it is recommended you use JSON requests.
  */
 // TODO : Honor and return children documents
 public class SolrConnector extends AbstractConnector {

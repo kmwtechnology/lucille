@@ -17,8 +17,6 @@ import java.util.Set;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -238,6 +236,24 @@ public class ParseJsonTest {
     }
   }
 
+  @Test
+  public void testMissingSourceField() throws Exception {
+    Stage stage = factory.get("ParseJson/emptyJsonValue.conf");
+    Document doc = Document.create("parent");
+    Document childDoc = Document.create("child");
+    doc.addChild(childDoc);
+
+    try (InputStream in = ParseJsonTest.class.getClassLoader().getResourceAsStream("ParseJson/testEmptyValue.json")) {
+      childDoc.setField("json", (String) null);
+      doc.setField("json", IOUtils.toString(in, StandardCharsets.UTF_8));
+
+      stage.processDocument(doc);
+
+      // child document is missing the JSON. should throw a StageException (we catch + change the message).
+      // would normally be IllegalArgument.
+      assertThrows(StageException.class, () -> stage.processDocument(childDoc));
+    }
+  }
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ParseJson/config.conf");
