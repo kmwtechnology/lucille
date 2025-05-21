@@ -140,7 +140,7 @@ public class SolrUtilsTest {
         .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
         .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
 
-    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig).client; SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig).client;){
+    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig)) {
       assertTrue(httpClient instanceof Http2SolrClient);
       assertTrue(cloudClient instanceof CloudSolrClient);
     }
