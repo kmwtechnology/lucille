@@ -35,7 +35,8 @@ public abstract class Indexer implements Runnable {
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
 
   // Using a String[] so it can be passed directly to varargs for a Spec
-  private static final String[] OPTIONAL_INDEXER_CONFIG_PROPERTIES = new String[] {"type", "class", "idOverrideField", "indexOverrideField", "ignoreFields", "deletionMarkerField",
+  private static final String[] OPTIONAL_INDEXER_CONFIG_PROPERTIES = new String[]{"type", "class", "idOverrideField",
+      "indexOverrideField", "ignoreFields", "deletionMarkerField",
       "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "batchSize", "batchTimeout", "logRate",
       "versionType", "routingField", "sendEnabled"};
 
@@ -131,9 +132,9 @@ public abstract class Indexer implements Runnable {
           "When one of indexer.deleteByFieldField and indexer.deleteByFieldValue are set, both must be set.");
     }
     if ((deletionMarkerField != null && deletionMarkerFieldValue == null)
-      || (deletionMarkerField == null && deletionMarkerFieldValue != null)) {
+        || (deletionMarkerField == null && deletionMarkerFieldValue != null)) {
       throw new IllegalArgumentException(
-        "When one of indexer.deletionMarkerField and indexer.deletionMarkerFieldValue are set, both must be set.");
+          "When one of indexer.deletionMarkerField and indexer.deletionMarkerFieldValue are set, both must be set.");
     }
 
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
@@ -260,7 +261,6 @@ public abstract class Indexer implements Runnable {
     if (batchedDocs.isEmpty()) {
       return;
     }
-
 
     try {
       stopWatch.reset();
@@ -400,13 +400,11 @@ public abstract class Indexer implements Runnable {
   }
 
   private void validateIndexerConfig(Config config, Spec specificImplSpec) {
-    // Validate the general "indexer" entry in the Config, if present.
-    if (config.hasPath("indexer")) {
-      Config indexerConfig = config.getConfig("indexer");
-      Spec.withoutDefaults()
-          .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
-          .validate(indexerConfig, "Indexer");
-    }
+    // Validate the general "indexer" entry in the Config.
+    Config indexerConfig = config.getConfig("indexer");
+    Spec.withoutDefaults()
+        .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
+        .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
     if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
