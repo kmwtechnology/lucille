@@ -45,13 +45,13 @@ import org.slf4j.LoggerFactory;
  * <ul>
  *   <li>includes (List&lt;String&gt;, Optional): list of regex patterns to include files.</li>
  *   <li>excludes (List&lt;String&gt;, Optional): list of regex patterns to exclude files.</li>
- *   <li>modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time. For example, specify "1h", and only files that were modified more than an hour ago will be published.</li>
+ *   <li>lastModifiedCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time. For example, specify "1h", and only files that were modified within the last hour will be published.</li>
  *   <li>lastPublishedCutoff (Duration, Optional): Filter files that haven't been published by Lucille since a certain amount of time. Relies on your state configuration to determine when files were last published. If you do not specify configuration for state, this will have no effect. Specify "1h" to only include / publish files that were last published <b>more</b> than an hour ago.</li>
  * </ul>
  *
- * <br> Only files that comply with <b>all</b> of your specified FilterOptions will be processed and published in a traversal.
+ * Only files that comply with <b>all</b> of your specified FilterOptions will be processed and published in a traversal.
  * <br> See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
- * <br> Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
+ * <br> Note that, for archive files, <code>lastModifiedCutoff</code> and <code>lastPublishedCutoff</code> apply to both the archive/compressed file itself <i>and</i> its content(s).
  *
  * <p> <code>fileOptions</code>:
  * <ul>
@@ -74,24 +74,24 @@ import org.slf4j.LoggerFactory;
  *    </li>
  * </ul>
  *
- * <p> <b>State</b>: FileConnector allows you to avoid publishing files that were recently published (using FilterOptions.lastPublishedCutoff). In order to keep track of
- * this information, you'll need to specify a connection to a JDBC-compatible database which will be used to track file paths and
- * when they were last published by Lucille. For more information about the database / its schema, see {@link FileConnectorStateManager}
- * <br> Config Parameters:
- * <br> - driver (String): The driver to use for creating the connection.
- * <br> - connectionString (String): A String for a connection to your state database.
- * <br> - jdbcUser (String): The username for accessing the database.
- * <br> - jdbcPassword (String): The password for accessing the database.
- * <br> - tableName (String, Optional): The name of the table in your database that holds the relevant state information. Defaults to the connector name.
- * <br> - performDeletions (Boolean, Optional): Whether you want to delete rows in your database corresponding to files that appear to have been deleted
- * in the file system. Defaults to true.
- * <br> - pathLength (Int, Optional): The maximum length of file paths allowed in the table (VARCHAR length). Only affects the creation of tables
- * that did not already exist. Defaults to 200.
+ * <code>state</code>: FileConnector allows you to avoid publishing files that were recently published (using <code>filterOptions.lastPublishedCutoff</code>).
+ * In order to keep track of this information, you'll need to specify a connection to a JDBC-compatible database which will be used to track file paths and
+ * when they were last published by Lucille. For more information about the database / its schema, see {@link FileConnectorStateManager}.
+ * <p> Config Parameters:
+ * <ul>
+ *   <li>driver (String): The driver to use for creating the connection.</li>
+ *   <li>connectionString (String): A String for a connection to your state database.</li>
+ *   <li>jdbcUser (String): The username for accessing the database.</li>
+ *   <li>jdbcPassword (String): The password for accessing the database.</li>
+ *   <li>tableName (String, Optional): The name of the table in your database that holds the relevant state information. Defaults to the connector name.</li>
+ *   <li>performDeletions (Boolean, Optional): Whether you want to delete rows in your database corresponding to files that appear to have been deleted in the file system. Defaults to true.</li>
+ *   <li>pathLength (Int, Optional): The maximum length of file paths allowed in the table (VARCHAR length). <b>Only affects the creation of tables by Lucille.</b> Defaults to 200.</li>
+ * </ul>
  *
- * <br> <b>Some notes on state:</b>
+ * <p> <b>Some notes on state:</b>
  * <ul>
  *   <li>The FileConnector will be slower when running with state.</li>
- *   <li>Files that get moved or renamed will be treated like deletions - they will always be published, regardless of lastPublishedCutoff.</li>
+ *   <li>Files that get moved or renamed will always be published, regardless of lastPublishedCutoff.</li>
  *   <li>You can provide state configuration, but not a lastPublishedCutoff, and Lucille will keep your state updated.</li>
  * </ul>
  *
