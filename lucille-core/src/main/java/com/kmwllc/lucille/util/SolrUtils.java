@@ -73,6 +73,9 @@ public class SolrUtils {
       Http2SolrClient httpClient = getHttpClientAndSetCheckPeerName(config);
       cloudBuilder.withHttpClient(httpClient);
 
+      // When you give a cloud client an HTTPClient, and the cloudClient is then closed, it *will not* close the
+      // httpClient automatically - since it may (should) be a shared resource. Creating an anonymous subclass
+      // for this case allows us to gracefully make sure the httpClient does get closed, preventing a resource leak.
       return new CloudHttp2SolrClient(cloudBuilder) {
         @Override
         public void close() throws IOException {
