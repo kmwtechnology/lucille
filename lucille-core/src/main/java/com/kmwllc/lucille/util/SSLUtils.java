@@ -9,6 +9,8 @@ public class SSLUtils {
   private static final String TRUSTSTORE = "javax.net.ssl.trustStore";
   private static final String TRUSTSTORE_PASSWORD = "javax.net.ssl.trustStorePassword";
 
+  public static final String[] SSL_CONFIG_OPTIONAL_PROPERTIES = new String[] { KEYSTORE_PASSWORD, KEYSTORE, TRUSTSTORE, TRUSTSTORE_PASSWORD };
+
   /**
    * Sets SSL system properties if they are specified in the config.
    * Looks for config settings: javax.net.ssl.keyStorePassword, javax.net.ssl.keyStore,

@@ -20,10 +20,14 @@ public class FileUtils {
     return System.getProperty("user.dir");
   }
 
+  /**
+   * Returns whether the given String represents a valid URI, meaning a URI can be created from it, and the URI
+   * has a non-null scheme.
+   */
   public static boolean isValidURI(String uriString) {
     try {
       URI rawURI = URI.create(uriString);
-      return rawURI.getScheme() != null && !rawURI.getScheme().trim().isEmpty();
+      return rawURI.getScheme() != null;
     } catch (Exception e) {
       return false;
     }
