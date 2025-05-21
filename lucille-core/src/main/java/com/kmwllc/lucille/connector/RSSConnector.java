@@ -31,24 +31,15 @@ import sun.misc.Signal;
  * Can be configured to only publish items with a recent &lt;pubDate&gt;.
  *
  * <p> Config Parameters:
+ * <ul>
+ *   <li>rssURL (String): The URL to the RSS feed you want to publish Documents for.</li>
+ *   <li>useGuidForDocID (Boolean, Optional): Whether you want the GUID of RSS Items to be the IDs for their corresponding Documents. Defaults to true. If set to false, UUIDs are created for each Document.</li>
+ *   <li>pubDateCutoff (Duration, Optional): Specify a duration to only publish Documents for recent RSS items. For example, "1h" means only RSS items with a &lt;pubDate&gt; within the last hour will be published as Documents.
+ *   Defaults to including all files. If &lt;pubDate&gt; is not found in an item, it will be published.</li>
+ *   <li>refreshIncrement (Duration, Optional): Specify the frequency with which the Connector should check for updates from the RSS feed. Defaults to no updates (the Connector will run once). When used, the Connector will not publish Documents for the same RSS item multiple times.</li>
+ * </ul>
  *
- * <p> rssURL (String): The URL to the RSS feed you want to publish Documents for.
- * <p> useGuidForDocID (Boolean, Optional): Whether you want the GUID of RSS Items to be the IDs for their corresponding Documents. Defaults
- * to true. If set to false, UUIDs are created for each Document.
- * (&lt;guid&gt;, for example) Defaults to using a UUID for each document. If the field has an attribute, Lucille handles extracting the actual
- * value for your Document's ID.
- * <p> pubDateCutoff (Duration, Optional): Specify a duration to only publish Documents for recent RSS items. For example, "1h" means
- * only RSS items with a &lt;pubDate&gt; within the last hour will be published as Documents. Defaults to including all files.
- * If &lt;pubDate&gt; is not found in the items, this value has no effect.
- *
- * <p> refreshIncrement (Duration, Optional): Specify the frequency with which the Connector should check for updates from the RSS
- * feed. Defaults to no updates (the Connector will run once). When used, the Connector will not publish Documents for the same RSS item multiple times.
- *
- * <p>See the HOCON documentation for examples of a duration.</p>
- *
- * <p> <b>Note:</b> By default, XML elements with attributes (ex: &lt;guid isPermaLink="false"&gt;) will be put onto Documents as a JSON object,
- * keyed by the element name, with both the attribute(s) and the content of the element as child properties. The content's key
- * will be an empty String.
+ * See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
  *
  * <p> Document Fields (All Optional):
  * <ul>
