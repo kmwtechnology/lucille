@@ -17,7 +17,7 @@ public class PythonStageTest {
     long start = System.currentTimeMillis();
     while (System.currentTimeMillis() - start < timeoutMs) {
       try (java.net.ServerSocket ignored = new java.net.ServerSocket(port)) {
-        return; // Port is free
+        return; // port is currently free
       } catch (java.io.IOException e) {
         Thread.sleep(100);
       }
@@ -53,5 +53,4 @@ public class PythonStageTest {
     assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
   }
 
-  // Additional tests for error handling, port config, etc. can be added here
 }
