@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,19 +20,21 @@ import java.util.List;
 
 /**
  * Logs all received documents in JSON format and/or writes them to a designated file.
- * <p>
- * Config Parameters -
- * <p>
- * - shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.
- * - outputFile (String, Optional) : A file to append the documents to (will be created if it doesn't already exist).
- * - excludeFields (String list, Optional) : A list of fields to exclude from the output.
- * - overwriteFile (Boolean, Optional) : Whether the output file should overwritten if it already exists. Defaults to true.
+ * <p> Config Parameters -
+ * <ul>
+ *   <li>shouldLog (Boolean, Optional): Whether to log the document in JSON format at INFO level. Defaults to true.</li>
+ *   <li>outputFile (String, Optional): A file to append the documents to (will be created if it doesn't already exist).</li>
+ *   <li>excludeFields (List&lt;String&gt;, Optional): A list of fields to exclude from the output.</li>
+ *   <li>overwriteFile (Boolean, Optional): Whether the output file should overwritten if it already exists. Defaults to true.</li>
+ *   <li>appendThreadName (Boolean, Optional): Whether threadNames should be appended to the outputFile path, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to false.</li>
+ * </ul>
  */
 public class Print extends Stage {
 
-  private final String outputFile;
+  private final String outputFilePath;
   private boolean shouldLog;
   private boolean overwriteFile;
+  private final boolean appendThreadName;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private Writer writer = null;
@@ -38,17 +42,28 @@ public class Print extends Stage {
 
   public Print(Config config) {
     super(config, Spec.stage().withOptionalProperties("shouldLog", "outputFile",
-        "overwriteFile", "excludeFields"));
-    this.outputFile = config.hasPath("outputFile") ? config.getString("outputFile") : null;
+        "overwriteFile", "excludeFields", "appendThreadName"));
+
+    this.outputFilePath = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
     this.excludeFields = config.hasPath("excludeFields") ? config.getStringList("excludeFields") : null;
     this.overwriteFile = config.hasPath("overwriteFile") ? config.getBoolean("overwriteFile") : true;
+    this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", false);
+
+    if (appendThreadName && outputFilePath == null) {
+      log.warn("Print Stage configured to have no outputFile but separateThreads = true. separateThreads has no effect.");
+    }
   }
 
   public void start() throws StageException {
-    if (outputFile != null) {
+    if (outputFilePath != null) {
       try {
-        writer = new BufferedWriter(new FileWriter(outputFile, !overwriteFile));
+        if (appendThreadName) {
+          String appendedOutputFilePath = FileUtils.appendStringToFileName(outputFilePath, Thread.currentThread().getName());
+          writer = new BufferedWriter(new FileWriter(appendedOutputFilePath, !overwriteFile));
+        } else {
+          writer = new BufferedWriter(new FileWriter(outputFilePath, !overwriteFile));
+        }
       } catch (IOException e) {
         throw new StageException("Could not open the specified file.", e);
       }
