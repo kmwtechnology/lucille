@@ -34,26 +34,24 @@ public class PythonStageTest {
     }
   }
 
-  @Test
-  public void testBasicPythonPrint() throws StageException {
-    System.out.println("testBasicPythonPrint -----------------------------------------");    
-    stage = factory.get("PythonStageTest/print_time.conf");
-    Document doc = Document.create("doc1");
-    stage.processDocument(doc);
-    assertTrue(doc.has("python_stage_executed"));
-  }
-
   // @Test
-  // public void testPythonReturnsTime() throws StageException {
-  //   System.out.println("testPythonReturnsTime -----------------------------------------");
-  //   stage = factory.get("PythonStageTest/return_time.conf");
-  //   Document doc = Document.create("doc2");
+  // public void testBasicPythonPrint() throws StageException {
+  //   stage = factory.get("PythonStageTest/print_time.conf");
+  //   Document doc = Document.create("doc1");
   //   stage.processDocument(doc);
-  //   // The placeholder implementation sets this field, but the real implementation should set 'current_time'
-  //   // This will fail until PythonStage is implemented to actually call Python and update the doc
-  //   assertTrue(doc.has("current_time"));
-  //   assertNotNull(doc.getString("current_time"));
+  //   assertTrue(doc.has("python_stage_executed"));
   // }
+
+  @Test
+  public void testPythonUpdateToDoc() throws StageException {
+    stage = factory.get("PythonStageTest/process_document_1.conf");
+    Document doc = Document.create("doc2");
+    stage.processDocument(doc);
+    // The placeholder implementation sets this field, but the real implementation should set 'current_time'
+    // This will fail until PythonStage is implemented to actually call Python and update the doc
+    assertNotNull(doc.getString("field_added_by_python"));
+    assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
+  }
 
   // Additional tests for error handling, port config, etc. can be added here
 }
