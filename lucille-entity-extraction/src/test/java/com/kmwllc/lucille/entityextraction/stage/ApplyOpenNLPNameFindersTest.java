@@ -7,7 +7,7 @@ import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.stage.OpenNLPExtraction;
+import com.kmwllc.lucille.stage.ApplyOpenNLPNameFinders;
 import com.kmwllc.lucille.stage.StageFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -15,9 +15,9 @@ import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 
-public class OpenNLPExtractionTest {
+public class ApplyOpenNLPNameFindersTest {
 
-  private final StageFactory factory = StageFactory.of(OpenNLPExtraction.class);
+  private final StageFactory factory = StageFactory.of(ApplyOpenNLPNameFinders.class);
 
   @Test
   public void extractionTest() throws StageException {
@@ -30,8 +30,8 @@ public class OpenNLPExtractionTest {
     stage.processDocument(doc);
 
     // Model does not pick up on "Jim Cramer" for a "person" name
-    assertEquals(List.of("NYSE"), doc.getStringList("openNLP_organizations"));
-    assertEquals(List.of("Manhattan"), doc.getStringList("openNLP_locations"));
+    assertEquals(List.of("NYSE"), doc.getStringList("ORGANIZATION"));
+    assertEquals(List.of("Manhattan"), doc.getStringList("LOCATION"));
   }
 
   @Test
@@ -57,9 +57,11 @@ public class OpenNLPExtractionTest {
 
     stage.processDocument(doc);
 
-    List<String> people = doc.getStringList("openNLP_people");
-    List<String> organizations = doc.getStringList("openNLP_organizations");
-    List<String> locations = doc.getStringList("openNLP_locations");
+    List<String> people = doc.getStringList("PERSON");
+    List<String> organizations = doc.getStringList("ORGANIZATION");
+    List<String> locations = doc.getStringList("LOCATION");
+
+    System.out.println(doc);
 
     assertTrue(people.contains("Jim Cramer"));
     assertTrue(people.contains("Tim Cook"));
@@ -88,6 +90,6 @@ public class OpenNLPExtractionTest {
 
     stage.processDocument(doc);
 
-    assertFalse(doc.has("openNLP_organizations"));
+    assertFalse(doc.has("ORGANIZATION"));
   }
 }
