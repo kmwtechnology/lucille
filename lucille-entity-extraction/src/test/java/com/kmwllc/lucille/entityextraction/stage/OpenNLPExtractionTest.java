@@ -29,8 +29,7 @@ public class OpenNLPExtractionTest {
 
     stage.processDocument(doc);
 
-    // Model does not pick up on "Jim Cramer"
-//    assertEquals(List.of("Jim Cramer"), doc.getStringList("openNLP_people"));
+    // Model does not pick up on "Jim Cramer" for a "person" name
     assertEquals(List.of("NYSE"), doc.getStringList("openNLP_organizations"));
     assertEquals(List.of("Manhattan"), doc.getStringList("openNLP_locations"));
   }
@@ -69,13 +68,9 @@ public class OpenNLPExtractionTest {
     assertTrue(organizations.contains("Apple"));
     assertTrue(organizations.contains("NYSE"));
     // Model doesn't pick up on Twitter as an organization
-//    assertTrue(organizations.contains("Twitter"));
 
-    // model doesn't pick up on these, only picks up on "Manhattan".
+    // model doesn't pick up on locations "china", "downtown manhattan", or "Fiji". Only picks up on "Manhattan".
     assertTrue(locations.contains("Manhattan"));
-//    assertTrue(locations.contains("China"));
-//    assertTrue(locations.contains("Downtown Manhattan"));
-//    assertTrue(locations.contains("Fiji"));
 
     // Pointing out some of the model's quirks:
     // People includes Shein, Temu

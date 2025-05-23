@@ -17,13 +17,15 @@ import java.util.Set;
 
 /**
  * Gets the names of people, organizations, and locations from a text field on a Document, and places the extracted names
- * into String lists on the Document. The names will be placed into "people", "organizations", and "locations", which will be lists.
- * The fields will not be present if no names are found.
+ * into String lists on the Document. The names will be placed into "coreNLP_people", "coreNLP_organizations", and "coreNLP_locations",
+ * which will be lists. The fields will not be present if no names of that type are found.
  *
- * <p>Uses Apache OpenNLP's pretrained models.</p>
+ * <p>Uses Stanford CoreNLP's pretrained models.</p>
  *
  * <p> Config Parameters:
- * <p> - textField (String): The name of the field with a long string of text that you want to get entity names from.
+ * <ul>
+ *   <li>textField (String): The name of the field with a long string of text that you want to get entity names from.</li>
+ * </ul>
  */
 public class CoreNLPExtraction extends Stage {
 
