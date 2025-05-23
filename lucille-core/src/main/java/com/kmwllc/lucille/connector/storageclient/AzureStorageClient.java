@@ -124,8 +124,10 @@ public class AzureStorageClient extends BaseStorageClient {
     private final BlobItem blobItem;
 
     public AzureFileReference(BlobItem blobItem) {
-      // This is an inexpensive call, this is stored inside the BlobItem.
-      super(blobItem.getProperties().getLastModified().toInstant());
+      // These are inexpensive calls - information is stored in the BlobItem.
+      super(blobItem.getProperties().getLastModified().toInstant(),
+          blobItem.getProperties().getContentLength(),
+          blobItem.getProperties().getCreationTime().toInstant());
 
       this.blobItem = blobItem;
     }
@@ -156,47 +158,11 @@ public class AzureStorageClient extends BaseStorageClient {
     }
 
     @Override
-    public Document asDoc(TraversalParams params) {
-      Document doc = createEmptyDocument(params);
-
-      BlobItemProperties properties = blobItem.getProperties();
-      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
-
-      if (getLastModified() != null) {
-        doc.setField(FileConnector.MODIFIED, getLastModified());
-      }
-
-      if (properties.getCreationTime() != null) {
-        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-      }
-
-      doc.setField(FileConnector.SIZE, properties.getContentLength());
-
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, serviceClient.getBlobContainerClient(getBucketOrContainerName(params)).getBlobClient(blobItem.getName()).downloadContent().toBytes());
-      }
-
-      return doc;
-    }
-
-    @Override
-    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      Document doc = createEmptyDocument(params, decompressedFullPathStr);
-
-      BlobItemProperties properties = blobItem.getProperties();
-      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-      doc.setField(FileConnector.MODIFIED, getLastModified());
-
-      if (properties.getCreationTime() != null) {
-        doc.setField(FileConnector.CREATED, properties.getCreationTime().toInstant());
-      }
-
-      // unable to get the decompressed size via inputStream
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, in.readAllBytes());
-      }
-
-      return doc;
+    protected byte[] getFileContent(TraversalParams params) {
+      return serviceClient
+          .getBlobContainerClient(getBucketOrContainerName(params))
+          .getBlobClient(blobItem.getName())
+          .downloadContent().toBytes();
     }
   }
 }

@@ -18,6 +18,8 @@ import java.nio.file.Path;
 
 /**
  * Connector implementation that produces documents from the rows in a given CSV file.
+ *
+ * <br> The CSVConnector has been deprecated. Use {@link FileConnector} with a {@link CSVFileHandler}.
  */
 @Deprecated
 public class CSVConnector extends AbstractConnector {

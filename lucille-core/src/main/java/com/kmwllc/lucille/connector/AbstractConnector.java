@@ -10,8 +10,18 @@ import com.typesafe.config.Config;
  * for obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
  *
  * All Connectors will have their configuration validated by {@link Spec#validate(Config, String)}. In the Connector's constructor,
- * define the required/optional properties/parents via a ConnectorSpec. Validation errors will mention the connector's name.
- * A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
+ * define the required/optional properties/parents in a {@link Spec#connector()}. Validation errors will mention the connector's <code>name</code>.
+ *
+ * <br> A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
+ *
+ * <br> Base Config Parameters:
+ * <ul>
+ *   <li>name (String): The name of the Connector. Connector names should be unique (within your Lucille Config).</li>
+ *   <li>class (String): The class for the Connector your want to use.</li>
+ *   <li>pipeline (String, Optional): The name of the pipeline to feed Documents to. Defaults to null (no pipeline).</li>
+ *   <li>docIdPrefix (String, Optional): A String to prepend to Document IDs originating from this Connector. Defaults to an empty string (no prefix).</li>
+ *   <li>collapse (Boolean, Optional): Whether this Connector is "collapsing". Defaults to false.</li>
+ * </ul>
  */
 public abstract class AbstractConnector implements Connector {
 

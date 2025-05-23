@@ -63,5 +63,12 @@ public class APIIntegrationTest {
     assertEquals(200, status.getStatus());
   }
 
+  @Test
+  public void testSystemStats() {
+    Response status = client.target(url + "v1/systemstats").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, status.getStatus());
+    // Optionally, further assertions can be added here to check the response body/fields
+  }
 
 }
