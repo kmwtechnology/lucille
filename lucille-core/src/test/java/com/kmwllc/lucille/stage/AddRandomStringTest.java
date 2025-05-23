@@ -166,7 +166,7 @@ public class AddRandomStringTest {
   }
 
   @Test
-  public void testInvalidConfig() {
+  public void testInvalidConfig() throws Exception {
     assertThrows(StageException.class,
         () -> factory.get("AddRandomStringTest/moreMinThanMax.conf"));
 
@@ -184,5 +184,9 @@ public class AddRandomStringTest {
 
     assertThrows(StageException.class,
         () -> factory.get("AddRandomStringTest/largeRangeForFileData.conf"));
+
+    // attempts to read all the file data as part of the "start" method
+    assertThrows(StageException.class,
+        () -> factory.get("AddRandomStringTest/badPath.conf"));
   }
 }
