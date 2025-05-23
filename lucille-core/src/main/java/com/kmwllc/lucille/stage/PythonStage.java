@@ -73,6 +73,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
   private boolean ready = false;
   private ObjectMapper mapper = new ObjectMapper();
   private transient Py4jExecutorInterface handler;
+  private String venvPythonPath = null;
 
   /**
    * Waits for the Python process to terminate and logs its exit code.
@@ -137,6 +138,57 @@ public class PythonStage extends Stage implements GatewayServerListener {
   }
 
   /**
+   * Ensures a Python venv exists in the current working directory and is viable. If not, creates it.
+   * Sets venvPythonPath to the venv's python executable.
+   * @throws StageException if venv creation or validation fails.
+   */
+  private void ensureVenv() throws StageException {
+    java.nio.file.Path venvDir = java.nio.file.Paths.get("venv");
+    java.nio.file.Path venvPython = venvDir.resolve("bin/python");
+    venvPythonPath = venvPython.toAbsolutePath().toString();
+    if (!java.nio.file.Files.exists(venvPython)) {
+      log.info("Python venv not found, creating venv in cwd...");
+      try {
+        Process createVenv = new ProcessBuilder(pythonExecutable, "-m", "venv", "venv")
+          .redirectErrorStream(true).start();
+        StringBuilder output = new StringBuilder();
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(createVenv.getInputStream()))) {
+          String line;
+          while ((line = reader.readLine()) != null) {
+            output.append(line).append("\n");
+          }
+        }
+        int exitCode = createVenv.waitFor();
+        log.info("venv creation output:\n{}", output.toString().trim());
+        if (exitCode != 0) {
+          throw new StageException("Failed to create venv. Output: " + output);
+        }
+      } catch (Exception e) {
+        throw new StageException("Failed to create venv: " + e.getMessage(), e);
+      }
+    }
+    // Check venv python is viable
+    try {
+      Process checkVenv = new ProcessBuilder(venvPythonPath, "--version").redirectErrorStream(true).start();
+      StringBuilder output = new StringBuilder();
+      try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(checkVenv.getInputStream()))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+          output.append(line).append("\n");
+        }
+      }
+      int exitCode = checkVenv.waitFor();
+      String versionOutput = output.toString().trim();
+      if (exitCode != 0 || versionOutput.isEmpty() || !versionOutput.toLowerCase().contains("python")) {
+        throw new StageException("venv python is not viable. Output: " + versionOutput);
+      }
+      log.info("venv python version: {}", versionOutput);
+    } catch (Exception e) {
+      throw new StageException("Failed to check venv python: " + e.getMessage(), e);
+    }
+  }
+
+  /**
    * Checks if the configured Python executable is available and logs its version.
    * 
    * @throws StageException if Python is not found or not working.
@@ -173,7 +225,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
    */
   private boolean checkPy4jInstalled() throws StageException {
     try {
-      Process process = new ProcessBuilder(pythonExecutable, "-c", "import py4j; print(py4j.__version__)")
+      Process process = new ProcessBuilder(venvPythonPath, "-c", "import py4j; print(py4j.__version__)")
           .redirectErrorStream(true).start();
       StringBuilder output = new StringBuilder();
       try (java.io.BufferedReader reader = new java.io.BufferedReader(
@@ -204,7 +256,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
   private void installPy4j() throws StageException {
     try {
       log.info("Attempting to install py4j via pip...");
-      Process installProc = new ProcessBuilder(pythonExecutable, "-m", "pip", "install", "py4j")
+      Process installProc = new ProcessBuilder(venvPythonPath, "-m", "pip", "install", "py4j")
           .redirectErrorStream(true).start();
       StringBuilder installOutput = new StringBuilder();
       try (java.io.BufferedReader installReader = new java.io.BufferedReader(
@@ -231,8 +283,8 @@ public class PythonStage extends Stage implements GatewayServerListener {
    */
   private void logPythonEnvironment() throws StageException {
     try {
-      // Get the Python executable path using Python itself
-      Process execPathProc = new ProcessBuilder(pythonExecutable, "-c", "import sys; print(sys.executable)")
+      // Get the Python executable path using venv python
+      Process execPathProc = new ProcessBuilder(venvPythonPath, "-c", "import sys; print(sys.executable)")
           .redirectErrorStream(true).start();
       StringBuilder execPathOutput = new StringBuilder();
       try (java.io.BufferedReader execPathReader = new java.io.BufferedReader(
@@ -246,8 +298,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
       log.info("Python executable path (from sys.executable):\n{}", execPathOutput.toString().trim());
 
       // Log all sys.path entries
-      // -u: unbuffered stdout
-      Process sysPathProc = new ProcessBuilder(pythonExecutable, "-u", "-c", "import sys; [print(p) for p in sys.path]")
+      Process sysPathProc = new ProcessBuilder(venvPythonPath, "-u", "-c", "import sys; [print(p) for p in sys.path]")
           .redirectErrorStream(true).start();
       StringBuilder sysPaths = new StringBuilder();
       try (java.io.BufferedReader sysPathReader = new java.io.BufferedReader(
@@ -279,6 +330,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
     log.info("functionName: {}", functionName);
     log.info("port: {}", port);
     checkPythonInstalled();
+    ensureVenv();
     logPythonEnvironment();
     if (!checkPy4jInstalled()) {
       installPy4j();
@@ -317,9 +369,9 @@ public class PythonStage extends Stage implements GatewayServerListener {
             .getPath();
         log.info("Using Py4jClient.py script at {}", py4jClientScript);
 
-        log.info("Launching Python process: {} --script-path {} --port {}", pythonExecutable, scriptPath, port);
+        log.info("Launching Python process: {} --script-path {} --port {}", venvPythonPath, scriptPath, port);
         pythonProcess = new ProcessBuilder(
-            pythonExecutable,
+            venvPythonPath,
             py4jClientScript,
             "--script-path", scriptPath,
             "--port", String.valueOf(port))
