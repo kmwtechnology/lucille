@@ -7,6 +7,8 @@ import static org.mockito.Mockito.any;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import java.io.BufferedWriter;
@@ -20,14 +22,14 @@ import static org.junit.Assert.assertThrows;
 public class PrintTest {
 
   private static final StageFactory factory = StageFactory.of(Print.class);
+  private static final String outputFilePath = "src/test/resources/PrintTest/output.txt";
 
   @Test
   public void testBasic() throws StageException {
     Stage stage = factory.get("PrintTest/config.conf");
 
-    Document doc1 = Document.create("doc1");
+    Document doc1 = Document.create("doc1", "runID1");
     doc1.setField("test", "this is a test");
-    doc1.initializeRunId("runID1");
     stage.processDocument(doc1);
     stage.stop();
   }
@@ -67,5 +69,25 @@ public class PrintTest {
       Stage stage = factory.get("PrintTest/full.conf");
       assertThrows(StageException.class, () -> stage.processDocument(Document.create("foo")));
     }
+  }
+
+  @Test
+  public void testBadOutputPath() {
+    assertThrows(StageException.class, () -> factory.get("PrintTest/badOutputPath.conf"));
+  }
+
+  @Test
+  public void testOverwriting() throws Exception {
+    Stage overwrite = factory.get("PrintTest/outputFileOverwrite.conf");
+
+    Document doc = Document.create("doc", "run123");
+    doc.setField("field", "value");
+
+    // TODO: THis test is incomplete!! :)
+    overwrite.processDocument(doc);
+    overwrite.stop();
+
+    String contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));
+    System.out.println(contents);
   }
 }
