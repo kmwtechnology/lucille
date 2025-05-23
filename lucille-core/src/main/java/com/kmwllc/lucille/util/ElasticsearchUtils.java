@@ -3,15 +3,16 @@ package com.kmwllc.lucille.util;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
+import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
+import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.Spec.ParentSpec;
 import com.typesafe.config.Config;
+import java.util.Base64;
 import nl.altindag.ssl.SSLFactory;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.elasticsearch.client.RestClient;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.message.BasicHeader;
 
 import java.net.URI;
 
@@ -20,23 +21,17 @@ import java.net.URI;
  */
 public class ElasticsearchUtils {
 
+  public static ParentSpec ELASTICSEARCH_PARENT_SPEC = Spec.parent("elasticsearch")
+      .withRequiredProperties("index", "url")
+      .withOptionalProperties("parentName", "acceptInvalidCert")
+      .withOptionalParentNames("join");
+
   public static ElasticsearchClient getElasticsearchOfficialClient(Config config) {
     URI hostUri = URI.create(getElasticsearchUrl(config));
 
-    final CredentialsProvider provider = new BasicCredentialsProvider();
-
-    // get user info from URI if present and setup BasicAuth credentials if needed
-    String userInfo = hostUri.getUserInfo();
-    if (userInfo != null) {
-      int pos = userInfo.indexOf(":");
-      String username = userInfo.substring(0, pos);
-      String password = userInfo.substring(pos + 1);
-      provider.setCredentials(AuthScope.ANY,
-          new UsernamePasswordCredentials(username, password));
-    }
-
     // needed to allow for local testing of HTTPS
     SSLFactory.Builder sslFactoryBuilder = SSLFactory.builder();
+
     boolean allowInvalidCert = getAllowInvalidCert(config);
     if (allowInvalidCert) {
       sslFactoryBuilder
@@ -48,12 +43,18 @@ public class ElasticsearchUtils {
 
     SSLFactory sslFactory = sslFactoryBuilder.build();
 
-    RestClient restClient = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultCredentialsProvider(provider)
-            .setSSLContext(sslFactory.getSslContext())
-            .setSSLHostnameVerifier(sslFactory.getHostnameVerifier())).build();
+    Rest5ClientBuilder builder = Rest5Client.builder(hostUri)
+        .setSSLContext(sslFactory.getSslContext());
 
-    ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+    // get user info from URI if present and setup BasicAuth credentials if needed
+    String userInfo = hostUri.getUserInfo();
+    if (userInfo != null) {
+      String creds = Base64.getEncoder().encodeToString(userInfo.getBytes());
+      builder.setDefaultHeaders(new Header[] { new BasicHeader("Authorization", "Basic " + creds) });
+    }
+
+    Rest5Client client = builder.build();
+    ElasticsearchTransport transport = new Rest5ClientTransport(client, new JacksonJsonpMapper());
     return new ElasticsearchClient(transport);
   }
 

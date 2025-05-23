@@ -46,7 +46,7 @@ public class ElasticsearchIndexer extends Indexer {
       String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("index", "url")
-        .withOptionalProperties("update", "parentName")
+        .withOptionalProperties("update", "parentName", "acceptInvalidCert")
         .withOptionalParentNames("join"));
 
     if (this.indexOverrideField != null) {
