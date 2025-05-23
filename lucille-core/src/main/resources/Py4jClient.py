@@ -12,14 +12,7 @@ class Py4jClient:
         self.running = False
         self.user_module = None
 
-    def exec(self, code):
-        print(f"[Py4jClient] Executing code: {code}")
-        try:
-            exec(code)
-        except Exception as e:
-            print(f"[Py4jClient] Error executing code: {e}")
-
-    def send(self, json_msg):
+    def exec(self, json_msg):
         msg = json.loads(json_msg)
         print(f"[Py4jClient] Executing msg: {msg}")
         if msg.get("data") is None or msg.get("data") == []:
@@ -92,8 +85,13 @@ class Py4jClient:
             print("[Py4jClient] Gateway shutdown.")
 
 if __name__ == "__main__":
-    script_path = "/mnt/2tb/github/lucille/lucille-core/src/test/resources/PythonStageTest/process_document_1.py"  # Update as needed
-    port = 25333  # Update as needed
+    import argparse
+    parser = argparse.ArgumentParser(description="Py4jClient for Lucille PythonStage integration")
+    parser.add_argument('--script-path', required=True, help='Path to the user Python script to load')
+    parser.add_argument('--port', required=True, type=int, help='Port for Py4J Gateway')
+    args = parser.parse_args()
+    script_path = args.script_path
+    port = args.port
     client = Py4jClient(script_path, port)
     client.start()
     # client.stop()

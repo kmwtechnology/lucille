@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.stage.util.Py4jExecutorInterface;
 import com.typesafe.config.Config;
 import com.kmwllc.lucille.stage.util.StreamGobbler;
+import java.util.Objects;
 import py4j.GatewayServer;
 import py4j.GatewayServerListener;
 import org.slf4j.Logger;
@@ -16,7 +17,6 @@ import java.net.ServerSocket;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
@@ -25,23 +25,38 @@ import py4j.Py4JServerConnection;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Executes a Python script using Py4J as part of a pipeline stage.
+ * A pipeline stage that executes a Python script using Py4J for cross-language
+ * integration.
+ * <p>
+ * This stage launches a Python process, connects to it via Py4J, and allows
+ * Java code to call Python functions
+ * and exchange data (typically as JSON). The Python script can modify
+ * documents, perform enrichment, or run
+ * arbitrary logic as part of the Lucille pipeline.
+ * </p>
  *
- * Config Parameters:
- * <p>
- * <b>scriptPath</b> (String, Required): Path to the Python script to execute.
- * <p>
- * <b>pythonExecutable</b> (String, Optional): Python executable to use.
- * Defaults to 'python3'.
- * <p>
- * <b>function_name</b> (String, Optional): Function in the script to call.
- * Defaults to 'process'.
- * <p>
- * <b>args</b> (List<Object>, Optional): Arguments to pass to the function.
- * Defaults to [].
- * <p>
- * <b>port</b> (int, Optional): Port for the GatewayServer. Defaults to
- * GatewayServer.DEFAULT_PORT.
+ * <h2>Configuration Parameters</h2>
+ * <ul>
+ * <li><b>scriptPath</b> (String, Required): Path to the user Python script to
+ * execute.</li>
+ * <li><b>pythonExecutable</b> (String, Optional): Python executable to use
+ * (default: 'python3').</li>
+ * <li><b>function_name</b> (String, Optional): Name of the function in the
+ * script to call (default: 'process_document').</li>
+ * <li><b>port</b> (int, Optional): Port for the Py4J GatewayServer (default:
+ * GatewayServer.DEFAULT_PORT).</li>
+ * </ul>
+ *
+ * <h2>Behavior</h2>
+ * <ul>
+ * <li>Checks that Python and py4j are installed (and attempts to install py4j
+ * if missing).</li>
+ * <li>Starts a Py4J GatewayServer and launches the Python process, passing
+ * script path and port as arguments.</li>
+ * <li>For each document, serializes it to JSON, sends it to Python, and updates
+ * the document with the returned fields.</li>
+ * <li>Captures and logs Python stdout/stderr in the Java logs.</li>
+ * </ul>
  */
 public class PythonStage extends Stage implements GatewayServerListener {
 
@@ -50,19 +65,18 @@ public class PythonStage extends Stage implements GatewayServerListener {
   private final String scriptPath;
   private final String pythonExecutable;
   private final String functionName;
-  private final List<Object> args;
   private final int port;
   private GatewayServer gateway;
   private final AtomicBoolean started = new AtomicBoolean(false);
-  private Process pythonProcess; // Transient handle to the launched Python process
+  private transient Process pythonProcess; // Transient handle to the launched Python process
   private Py4jClient py4jClient = null;
   private boolean ready = false;
   private ObjectMapper mapper = new ObjectMapper();
   private transient Py4jExecutorInterface handler;
 
   /**
-   * A class to wait on a process signal and notify py4jClient is disconnected
-   *
+   * Waits for the Python process to terminate and logs its exit code.
+   * Notifies the parent PythonStage when the process ends.
    */
   public class WaitForProcess extends Thread {
     public Integer exitCode;
@@ -82,17 +96,14 @@ public class PythonStage extends Stage implements GatewayServerListener {
       } catch (InterruptedException e) {
         log.info("process shutting down {}", process);
       }
-      log.warn("process %s terminated with exit code %d", process.toString(), exitCode);
+      log.warn("process {} terminated with exit code {}", process.toString(), exitCode);
     }
   }
 
   /**
-   * POJO class to tie all the data elements of a external python process
-   * together. Including the process handler, the std out, std err streams and
-   * termination signal thread.
-   * 
-   * @author GroG
-   *
+   * Holds references to the external Python process, its output gobbler, and the
+   * process wait thread.
+   * Used to manage the lifecycle and output of the Python subprocess.
    */
   class Py4jClient {
     // pythonStage connection
@@ -114,24 +125,28 @@ public class PythonStage extends Stage implements GatewayServerListener {
     }
   }
 
-  @SuppressWarnings("unchecked")
   public PythonStage(Config config) {
     super(config, Spec.stage()
         .withRequiredProperties("scriptPath")
-        .withOptionalProperties("pythonExecutable", "function_name", "args", "port"));
+        .withOptionalProperties("pythonExecutable", "function_name", "port"));
     log.info("PythonStage constructor");
     this.scriptPath = config.getString("scriptPath");
     this.pythonExecutable = config.hasPath("pythonExecutable") ? config.getString("pythonExecutable") : "python3";
-    this.functionName = config.hasPath("function_name") ? config.getString("function_name") : "process";
-    this.args = config.hasPath("args") ? (List<Object>) config.getAnyRefList("args") : java.util.Collections.emptyList();
+    this.functionName = config.hasPath("function_name") ? config.getString("function_name") : "process_document";
     this.port = config.hasPath("port") ? config.getInt("port") : GatewayServer.DEFAULT_PORT;
   }
 
+  /**
+   * Checks if the configured Python executable is available and logs its version.
+   * 
+   * @throws StageException if Python is not found or not working.
+   */
   private void checkPythonInstalled() throws StageException {
     try {
       Process process = new ProcessBuilder(pythonExecutable, "--version").redirectErrorStream(true).start();
       StringBuilder output = new StringBuilder();
-      try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))) {
+      try (java.io.BufferedReader reader = new java.io.BufferedReader(
+          new java.io.InputStreamReader(process.getInputStream()))) {
         String line;
         while ((line = reader.readLine()) != null) {
           output.append(line).append("\n");
@@ -141,7 +156,8 @@ public class PythonStage extends Stage implements GatewayServerListener {
       String versionOutput = output.toString().trim();
       if (exitCode != 0 || versionOutput.isEmpty() || !versionOutput.toLowerCase().contains("python")) {
         log.error("Python version check failed. Output:\n{}", versionOutput);
-        throw new StageException("Python executable '" + pythonExecutable + "' not found or not working. Output: " + versionOutput);
+        throw new StageException(
+            "Python executable '" + pythonExecutable + "' not found or not working. Output: " + versionOutput);
       }
       log.info("Detected Python version:\n{}", versionOutput);
     } catch (Exception e) {
@@ -149,12 +165,19 @@ public class PythonStage extends Stage implements GatewayServerListener {
     }
   }
 
-  private void checkPy4jInstalled() throws StageException {
+  /**
+   * Checks if py4j is installed in the Python environment.
+   * 
+   * @return true if py4j is installed, false otherwise.
+   * @throws StageException if the check fails for other reasons.
+   */
+  private boolean checkPy4jInstalled() throws StageException {
     try {
       Process process = new ProcessBuilder(pythonExecutable, "-c", "import py4j; print(py4j.__version__)")
-        .redirectErrorStream(true).start();
+          .redirectErrorStream(true).start();
       StringBuilder output = new StringBuilder();
-      try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))) {
+      try (java.io.BufferedReader reader = new java.io.BufferedReader(
+          new java.io.InputStreamReader(process.getInputStream()))) {
         String line;
         while ((line = reader.readLine()) != null) {
           output.append(line).append("\n");
@@ -163,22 +186,57 @@ public class PythonStage extends Stage implements GatewayServerListener {
       int exitCode = process.waitFor();
       String py4jOutput = output.toString().trim();
       if (exitCode != 0 || py4jOutput.isEmpty() || py4jOutput.toLowerCase().contains("traceback")) {
-        log.error("py4j check failed. Output:\n{}", py4jOutput);
-        throw new StageException("py4j is not installed in the Python environment for '" + pythonExecutable + "'. Output: " + py4jOutput);
+        log.warn("py4j is not installed. Output:\n{}", py4jOutput);
+        return false;
       }
       log.info("Detected py4j version:\n{}", py4jOutput);
+      return true;
     } catch (Exception e) {
-      throw new StageException("Failed to check py4j installation: " + e.getMessage(), e);
+      throw new StageException("Failed to check py4j: " + e.getMessage(), e);
     }
   }
 
+  /**
+   * Attempts to install py4j using pip for the configured Python executable.
+   * 
+   * @throws StageException if installation fails.
+   */
+  private void installPy4j() throws StageException {
+    try {
+      log.info("Attempting to install py4j via pip...");
+      Process installProc = new ProcessBuilder(pythonExecutable, "-m", "pip", "install", "py4j")
+          .redirectErrorStream(true).start();
+      StringBuilder installOutput = new StringBuilder();
+      try (java.io.BufferedReader installReader = new java.io.BufferedReader(
+          new java.io.InputStreamReader(installProc.getInputStream()))) {
+        String line;
+        while ((line = installReader.readLine()) != null) {
+          installOutput.append(line).append("\n");
+        }
+      }
+      int installExit = installProc.waitFor();
+      log.info("py4j pip install output:\n{}", installOutput.toString().trim());
+      if (installExit != 0) {
+        throw new StageException("Failed to install py4j via pip. Output: " + installOutput);
+      }
+    } catch (Exception e) {
+      throw new StageException("Failed to install py4j: " + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Logs the Python executable path and sys.path entries for debugging.
+   * 
+   * @throws StageException if logging fails.
+   */
   private void logPythonEnvironment() throws StageException {
     try {
       // Get the Python executable path using Python itself
       Process execPathProc = new ProcessBuilder(pythonExecutable, "-c", "import sys; print(sys.executable)")
-        .redirectErrorStream(true).start();
+          .redirectErrorStream(true).start();
       StringBuilder execPathOutput = new StringBuilder();
-      try (java.io.BufferedReader execPathReader = new java.io.BufferedReader(new java.io.InputStreamReader(execPathProc.getInputStream()))) {
+      try (java.io.BufferedReader execPathReader = new java.io.BufferedReader(
+          new java.io.InputStreamReader(execPathProc.getInputStream()))) {
         String line;
         while ((line = execPathReader.readLine()) != null) {
           execPathOutput.append(line).append("\n");
@@ -190,9 +248,10 @@ public class PythonStage extends Stage implements GatewayServerListener {
       // Log all sys.path entries
       // -u: unbuffered stdout
       Process sysPathProc = new ProcessBuilder(pythonExecutable, "-u", "-c", "import sys; [print(p) for p in sys.path]")
-        .redirectErrorStream(true).start();
+          .redirectErrorStream(true).start();
       StringBuilder sysPaths = new StringBuilder();
-      try (java.io.BufferedReader sysPathReader = new java.io.BufferedReader(new java.io.InputStreamReader(sysPathProc.getInputStream()))) {
+      try (java.io.BufferedReader sysPathReader = new java.io.BufferedReader(
+          new java.io.InputStreamReader(sysPathProc.getInputStream()))) {
         String line;
         while ((line = sysPathReader.readLine()) != null) {
           sysPaths.append(line).append("\n");
@@ -206,6 +265,12 @@ public class PythonStage extends Stage implements GatewayServerListener {
     }
   }
 
+  /**
+   * Starts the PythonStage, launching the Python process and setting up Py4J
+   * integration.
+   * 
+   * @throws StageException if setup fails.
+   */
   @Override
   public void start() throws StageException {
     log.info("start() called");
@@ -215,7 +280,12 @@ public class PythonStage extends Stage implements GatewayServerListener {
     log.info("port: {}", port);
     checkPythonInstalled();
     logPythonEnvironment();
-    checkPy4jInstalled();
+    if (!checkPy4jInstalled()) {
+      installPy4j();
+      if (!checkPy4jInstalled()) {
+        throw new StageException("py4j is still not installed after pip install.");
+      }
+    }
     if (started.compareAndSet(false, true)) {
       boolean portAvailable = true;
       try (ServerSocket ignored = new ServerSocket(port)) {
@@ -243,16 +313,16 @@ public class PythonStage extends Stage implements GatewayServerListener {
 
       try {
         // Use Py4jClient.py from main/resources
-        String py4jClientScript = getClass().getClassLoader().getResource("Py4jClient.py").getPath();
+        String py4jClientScript = Objects.requireNonNull(getClass().getClassLoader().getResource("Py4jClient.py"))
+            .getPath();
         log.info("Using Py4jClient.py script at {}", py4jClientScript);
 
-        log.info("Launching Python process: {} {} {} {}", pythonExecutable, py4jClientScript, scriptPath, port);
+        log.info("Launching Python process: {} --script-path {} --port {}", pythonExecutable, scriptPath, port);
         pythonProcess = new ProcessBuilder(
-                pythonExecutable,
-                py4jClientScript,
-                scriptPath,
-                String.valueOf(port)
-            )
+            pythonExecutable,
+            py4jClientScript,
+            "--script-path", scriptPath,
+            "--port", String.valueOf(port))
             .redirectErrorStream(true)
             .start();
         log.info("Python process started");
@@ -266,6 +336,14 @@ public class PythonStage extends Stage implements GatewayServerListener {
     }
   }
 
+  /**
+   * Processes a document by sending it to Python, updating it with the returned
+   * fields.
+   * 
+   * @param doc the document to process
+   * @return always null (no child documents)
+   * @throws StageException if processing fails
+   */
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     log.info("processDocument");
@@ -276,7 +354,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
       String msgJson = mapper.writeValueAsString(msg);
       log.info("JSON encoded doc: {}", msgJson);
       // Call Python and get the updated document as a JSON string
-      String jsonReturn = (String) handler.send(msgJson); // Assumes send returns the result
+      String jsonReturn = (String) handler.exec(msgJson); // Assumes send returns the result
       if (jsonReturn != null) {
 
         @SuppressWarnings("unchecked")
@@ -295,7 +373,9 @@ public class PythonStage extends Stage implements GatewayServerListener {
           }
         }
       }
-      doc.setField("python_stage_executed", true);
+      if (log.isDebugEnabled()) {
+        log.debug("doc {}", doc);
+      }
       return null;
     } catch (Exception e) {
       log.error("Failed to update Document from Python return", e);
@@ -303,10 +383,16 @@ public class PythonStage extends Stage implements GatewayServerListener {
     }
   }
 
+  /**
+   * Stops the PythonStage, shutting down the GatewayServer and Python process.
+   * 
+   * @throws StageException if shutdown fails.
+   */
   @Override
   public void stop() throws StageException {
     if (gateway != null) {
       gateway.shutdown();
+      gateway = null;
     }
     if (pythonProcess != null) {
       pythonProcess.destroy();
@@ -314,12 +400,21 @@ public class PythonStage extends Stage implements GatewayServerListener {
     }
   }
 
+  /**
+   * Called when a connection error occurs with the Py4J GatewayServer.
+   * 
+   * @param e the exception that occurred
+   */
   @Override
   public void connectionError(Exception e) {
-    log.info("Connection error: {}", e.getMessage());
     log.error("connectionError: {}", e.getMessage(), e);
   }
 
+  /**
+   * Called when a new connection is established with the Py4J GatewayServer.
+   * 
+   * @param gatewayConnection the connection object
+   */
   @Override
   public void connectionStarted(Py4JServerConnection gatewayConnection) {
     log.info("Connection established: {}", gatewayConnection);
@@ -332,6 +427,11 @@ public class PythonStage extends Stage implements GatewayServerListener {
     }
   }
 
+  /**
+   * Called when a connection to the Py4J GatewayServer is stopped.
+   * 
+   * @param gatewayConnection the connection object
+   */
   @Override
   public void connectionStopped(Py4JServerConnection gatewayConnection) {
     log.info("Connection lost: {}", gatewayConnection);
@@ -339,26 +439,43 @@ public class PythonStage extends Stage implements GatewayServerListener {
     ready = false;
   }
 
+  /**
+   * Called when a server error occurs in the Py4J GatewayServer.
+   * 
+   * @param e the exception that occurred
+   */
   @Override
   public void serverError(Exception e) {
     log.error("serverError: {}", e.getMessage(), e);
   }
 
+  /**
+   * Called after the Py4J GatewayServer has shut down.
+   */
   @Override
   public void serverPostShutdown() {
     log.info("serverPostShutdown");
   }
 
+  /**
+   * Called before the Py4J GatewayServer is about to shut down.
+   */
   @Override
   public void serverPreShutdown() {
     log.info("serverPreShutdown");
   }
 
+  /**
+   * Called when the Py4J GatewayServer has started.
+   */
   @Override
   public void serverStarted() {
     log.info("serverStarted");
   }
 
+  /**
+   * Called when the Py4J GatewayServer has stopped.
+   */
   @Override
   public void serverStopped() {
     log.info("serverStopped");
@@ -366,14 +483,12 @@ public class PythonStage extends Stage implements GatewayServerListener {
 
   /**
    * Sink for standard output from Py4j-related subprocesses. This method
-   * immediately publishes the output on {@link #publishStdOut(String)}.
+   * immediately publishes the output on the logger.
    *
-   * @param msg
-   *          The output from a py4j related subprocess.
+   * @param msg The output from a py4j related subprocess.
    */
   public void handleStdOut(String msg) {
     log.info("Py4jClient -> {}", msg);
   }
-
 
 }
