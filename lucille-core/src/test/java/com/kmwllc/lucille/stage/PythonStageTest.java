@@ -42,7 +42,7 @@ public class PythonStageTest {
     String confPath = "PythonStageTest/process_document_1.conf";
     Config config = ConfigFactory.parseResourcesAnySyntax(confPath);
     int port = config.getInt("port");
-    waitForPortToBeFree(port, 15000);
+    // waitForPortToBeFree(port, 15000);
     stage = factory.get(confPath);
     Document doc = Document.create("doc2");
     stage.processDocument(doc);
@@ -50,16 +50,16 @@ public class PythonStageTest {
     Thread.sleep(1000);
   }
 
-  // @Test
-  // public void testBasicPythonPrint() throws Exception {
-  //   String confPath = "PythonStageTest/print_time.conf";
-  //   Config config = ConfigFactory.parseResourcesAnySyntax(confPath);
-  //   int port = config.getInt("port");
-  //   waitForPortToBeFree(port, 15000);
-  //   stage = factory.get(confPath);
-  //   Document doc = Document.create("doc1");
-  //   stage.processDocument(doc);
-  //   Thread.sleep(1000);
-  // }
+  @Test
+  public void testBasicPythonPrint() throws Exception {
+    String confPath = "PythonStageTest/print_time.conf";
+    Config config = ConfigFactory.parseResourcesAnySyntax(confPath);
+    int port = config.getInt("port");
+    // waitForPortToBeFree(port, 15000);
+    stage = factory.get(confPath);
+    Document doc = Document.create("doc1");
+    stage.processDocument(doc);
+    Thread.sleep(1000);
+  }
 
 }

@@ -70,7 +70,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
   private final AtomicBoolean started = new AtomicBoolean(false);
   private transient Process pythonProcess; // Transient handle to the launched Python process
   private Py4jClient py4jClient = null;
-  private boolean ready = false;
+  private volatile boolean ready = false;
   private ObjectMapper mapper = new ObjectMapper();
   private transient Py4jExecutorInterface handler;
   private String venvPythonPath = null;
@@ -110,6 +110,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
     // pythonStage connection
     public transient Py4JServerConnection connection;
     public transient StreamGobbler gobbler;
+    public transient StreamGobbler errGobbler;
     public transient Process process;
     public transient PythonStage pythonStage;
     public transient Thread waitFor;
@@ -117,8 +118,12 @@ public class PythonStage extends Stage implements GatewayServerListener {
     public Py4jClient(PythonStage pythonStage, Process process) {
       this.process = process;
       this.pythonStage = pythonStage;
-      this.gobbler = new StreamGobbler(String.format("Py4jClient-%s", getName()), process.getInputStream());
+      // Gobble stdout
+      this.gobbler = new StreamGobbler(String.format("Py4jClient-stdout-%s", getName()), process.getInputStream());
       this.gobbler.start();
+      // Gobble stderr
+      this.errGobbler = new StreamGobbler(String.format("Py4jClient-stderr-%s", getName()), process.getErrorStream());
+      this.errGobbler.start();
       this.waitFor = new WaitForProcess(pythonStage, process);
       this.waitFor.start();
 
@@ -340,25 +345,20 @@ public class PythonStage extends Stage implements GatewayServerListener {
     }
     if (started.compareAndSet(false, true)) {
       boolean portAvailable = true;
-      try (ServerSocket ignored = new ServerSocket(port)) {
-        log.info("Port {} is available", port);
-      } catch (IOException e) {
-        log.error("port {} is already in use", port, e);
-        portAvailable = false;
-      }
+       try (ServerSocket ignored = new ServerSocket(port)) {
+         log.info("Port {} is available", port);
+       } catch (IOException e) {
+         log.error("port {} is already in use", port, e);
+         portAvailable = false;
+       }
       if (!portAvailable) {
-        log.warn(
-            "WARNING: Port {} is already in use. Assuming a GatewayServer is already running and reconnecting to it.",
-            port);
-        // Do not start a new GatewayServer or Python process
-        gateway = null;
-        pythonProcess = null;
-        return;
+        throw new StageException(String.format("Port %d is already in use. Assuming a GatewayServer is already running and reconnecting to it.", port));
       }
 
       log.info("Starting Py4J GatewayServer on port {}", port);
       gateway = new GatewayServer(this, port);
       gateway.start();
+      gateway.addListener(this); // Register listener so connectionStarted and others are called
       log.info("GatewayServer started");
 
       handler = (Py4jExecutorInterface) gateway.getPythonServerEntryPoint(new Class[] { Py4jExecutorInterface.class });
@@ -369,9 +369,10 @@ public class PythonStage extends Stage implements GatewayServerListener {
             .getPath();
         log.info("Using Py4jClient.py script at {}", py4jClientScript);
 
-        log.info("Launching Python process: {} --script-path {} --port {}", venvPythonPath, scriptPath, port);
+        log.info("Launching Python process: {} {} --script-path {} --port {}", venvPythonPath, py4jClientScript, scriptPath, port);
         pythonProcess = new ProcessBuilder(
             venvPythonPath,
+            "-u", // do not buffer python stdout
             py4jClientScript,
             "--script-path", scriptPath,
             "--port", String.valueOf(port))
@@ -380,6 +381,8 @@ public class PythonStage extends Stage implements GatewayServerListener {
         log.info("Python process started");
 
         py4jClient = new Py4jClient(this, pythonProcess);
+
+        log.info("py4jclient created");
 
       } catch (Exception e) {
         log.error("Failed to launch Python process for Py4J integration", e);
@@ -399,6 +402,20 @@ public class PythonStage extends Stage implements GatewayServerListener {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     log.info("processDocument");
+    // Wait for connection to be ready, up to 5 seconds
+    long start = System.currentTimeMillis();
+    while (!ready && (System.currentTimeMillis() - start < 5000)) {
+      try {
+        Thread.sleep(500);
+        log.info("Waiting for Py4J connection to be ready");
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new StageException("Interrupted while waiting for Py4J connection to be ready", e);
+      }
+    }
+    if (!ready) {
+      throw new StageException("Py4J connection was not established within 5 seconds");
+    }
     try {
       Map<String, Object> msg = new HashMap<>();
       msg.put("method", "process_document");
@@ -442,6 +459,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
    */
   @Override
   public void stop() throws StageException {
+    log.info("stop called - shutting down PythonStage gateway and python process");
     if (gateway != null) {
       gateway.shutdown();
       gateway = null;
@@ -459,6 +477,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
    */
   @Override
   public void connectionError(Exception e) {
+
     log.error("connectionError: {}", e.getMessage(), e);
   }
 
@@ -473,7 +492,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
     try {
       log.info("connectionStarted {}", gatewayConnection.toString());
       ready = true;
-      // invoke("getClients");
+      log.info("========== connection ready {}", gatewayConnection.toString()); 
     } catch (Exception e) {
       log.error("connectionStarted {}", e.getMessage(), e);
     }

@@ -3,9 +3,25 @@ from py4j.java_gateway import JavaGateway, GatewayParameters, CallbackServerPara
 import importlib.util
 import time
 import json
+import os
+import threading
+import signal
+
+class TeeLogger:
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = open(filename, "a", buffering=1)
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
 
 class Py4jClient:
     def __init__(self, script_path, port=25333):
+
+        print(f"[Py4jClient] Initializing Py4jClient with script_path: {script_path} and port: {port}")
         self.script_path = script_path
         self.port = port
         self.gateway = None
@@ -13,15 +29,16 @@ class Py4jClient:
         self.user_module = None
 
     def exec(self, json_msg):
+        print(f"[Py4jClient] exec called with json_msg: {json_msg}")
         msg = json.loads(json_msg)
         print(f"[Py4jClient] Executing msg: {msg}")
         if msg.get("data") is None or msg.get("data") == []:
             return globals()[msg.get("method")]()
         else:
-            # globals()[msg.get("method")](*msg.get("data"))
             return globals()[msg.get("method")](msg.get("data"))
 
     def write(self, string):
+        print(f"[Py4jClient] write called with string: {string}")
         if self.py4j:
             self.py4j.handleStdOut(string)
 
@@ -29,53 +46,61 @@ class Py4jClient:
         pass            
 
     def start(self):
+        # Set up tee logging to both stdout and a file
+        log_file = os.environ.get("PY4JCLIENT_LOG", "py4jclient.log")
+        sys.stdout = TeeLogger(log_file)
+        sys.stderr = TeeLogger(log_file)
+        print(f"[Py4jClient] Logging to stdout and {log_file}")
         print(f"[Py4jClient] Loading user module from: {self.script_path}")
         # Load the user script into the global namespace so its functions are available in globals()
         with open(self.script_path) as f:
             code = f.read()
         exec(code, globals())
+        print(f"[Py4jClient] User module loaded, starting JavaGateway...")
         try:
             print("[Py4jClient] Attempting to connect to JavaGateway...")
-            # self.gateway = JavaGateway(
-            #     gateway_parameters=GatewayParameters(port=self.port),
-            #     callback_server_parameters=None,
-            #     python_server_entry_point=self
-            # )
-
-            # self.stdout = sys.stdout
-            # self.stderr = sys.stderr
-            # sys.stdout = self
-            # sys.stderr = self
             self.gateway = JavaGateway(
-                gateway_parameters=GatewayParameters(auto_convert=True),
-                callback_server_parameters=CallbackServerParameters(),
+                gateway_parameters=GatewayParameters(auto_convert=True, port=self.port),
+                callback_server_parameters=CallbackServerParameters(port=self.port + 1),  # Use fixed callback port
                 python_server_entry_point=self,
             )
-            # self.runtime = self.gateway.jvm.org.myrobotlab.service.Runtime.getInstance()
-
-
             print("[Py4jClient] JavaGateway JVM:", self.gateway.jvm)
             print("[Py4jClient] Successfully connected to JavaGateway!")
+            print("[Py4jClient] Callback server port:", self.gateway.get_callback_server().get_listening_port())
+            # No resetCallbackClient call needed for fixed port
         except Exception as e:
             print("[Py4jClient] Error connecting to JavaGateway:", e)
             sys.exit(1)
         self.running = True
         self.blocking_loop()
 
+    def liveness_check(self):
+        print("[Py4jClient] Starting liveness check thread.")
+        while self.running:
+            try:
+                self.gateway.jvm.System.currentTimeMillis()
+                print("[Py4jClient] Connection alive.")
+            except Exception as e:
+                print("[Py4jClient] Connection lost:", e)
+                self.stop()
+                os.kill(os.getpid(), signal.SIGKILL)
+            time.sleep(5)
+
     def blocking_loop(self):
-        print("[Py4jClient] Entering blocking loop. Press Ctrl+C to exit.")
+        # Start liveness check in a background thread
+        t = threading.Thread(target=self.liveness_check, daemon=True)
+        t.start()
+        print("[Py4jClient] Main thread idling, callback server is active.")
         try:
             while self.running:
-                try:
-                    self.gateway.jvm.hashCode()
-                    print("[Py4jClient] Connection alive.")
-                except Exception as e:
-                    print("[Py4jClient] Connection lost:", e)
-                    break
-                time.sleep(5)
+                time.sleep(1)
         except KeyboardInterrupt:
             print("[Py4jClient] KeyboardInterrupt received, exiting.")
+            self.stop()
+            os.kill(os.getpid(), signal.SIGKILL)
         print("[Py4jClient] Python script exiting.")
+        self.stop()
+        os.kill(os.getpid(), signal.SIGKILL)
 
     def stop(self):
         print("[Py4jClient] Stopping client.")
