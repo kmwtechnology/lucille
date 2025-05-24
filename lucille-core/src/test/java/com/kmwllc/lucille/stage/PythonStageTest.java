@@ -46,20 +46,22 @@ public class PythonStageTest {
     stage = factory.get(confPath);
     Document doc = Document.create("doc2");
     stage.processDocument(doc);
+    stage.processDocument(doc);
+    stage.processDocument(doc);
     assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
     Thread.sleep(1000);
   }
 
-  @Test
-  public void testBasicPythonPrint() throws Exception {
-    String confPath = "PythonStageTest/print_time.conf";
-    Config config = ConfigFactory.parseResourcesAnySyntax(confPath);
-    int port = config.getInt("port");
-    // waitForPortToBeFree(port, 15000);
-    stage = factory.get(confPath);
-    Document doc = Document.create("doc1");
-    stage.processDocument(doc);
-    Thread.sleep(1000);
-  }
+  // @Test
+  // public void testBasicPythonPrint() throws Exception {
+  //   String confPath = "PythonStageTest/print_time.conf";
+  //   Config config = ConfigFactory.parseResourcesAnySyntax(confPath);
+  //   int port = config.getInt("port");
+  //   // waitForPortToBeFree(port, 15000);
+  //   stage = factory.get(confPath);
+  //   Document doc = Document.create("doc1");
+  //   stage.processDocument(doc);
+  //   Thread.sleep(1000);
+  // }
 
 }

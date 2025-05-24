@@ -6,7 +6,7 @@ import json
 import os
 import threading
 import signal
-
+from py4j.protocol import Py4JNetworkError
 class TeeLogger:
     def __init__(self, filename):
         self.terminal = sys.stdout
@@ -60,8 +60,8 @@ class Py4jClient:
         try:
             print("[Py4jClient] Attempting to connect to JavaGateway...")
             self.gateway = JavaGateway(
-                gateway_parameters=GatewayParameters(auto_convert=True, port=self.port),
-                callback_server_parameters=CallbackServerParameters(port=self.port + 1),  # Use fixed callback port
+                gateway_parameters=GatewayParameters(auto_convert=True, port=self.port, auto_close=True, read_timeout=5 ),
+                callback_server_parameters=CallbackServerParameters(port=self.port + 1, daemonize_connections=True),
                 python_server_entry_point=self,
             )
             print("[Py4jClient] JavaGateway JVM:", self.gateway.jvm)
@@ -73,26 +73,8 @@ class Py4jClient:
             self.running = False
             sys.exit(1)
         self.running = True
-        self.blocking_loop()
-
-    def liveness_check(self):
-        print("[Py4jClient] Starting liveness check thread.")
-        while self.running:
-            try:
-                self.gateway.jvm.System.currentTimeMillis()
-                print("[Py4jClient] Connection alive.")
-            except Exception as e:
-                print("[Py4jClient] Connection lost:", e)
-                self.stop()
-                os.kill(os.getpid(), signal.SIGKILL)
-            time.sleep(5)
-
-    def blocking_loop(self):
-        # Start liveness check in a background thread
-        t = threading.Thread(target=self.liveness_check, daemon=True)
-        t.start()
-        print("[Py4jClient] Main thread idling, callback server is active.")
-
+        self._monitor_thread = threading.Thread(target=self.monitor_connection, daemon=True)
+        self._monitor_thread.start()
 
     def stop(self):
         print("[Py4jClient] Stopping client.")
@@ -100,6 +82,19 @@ class Py4jClient:
         if self.gateway is not None:
             self.gateway.shutdown()
             print("[Py4jClient] Gateway shutdown.")
+
+    def monitor_connection(self):
+        """Background thread: exits process if Java side is gone."""
+        while self.running:
+            try:
+                self.gateway.jvm.System.currentTimeMillis()
+                print("[Py4jClient] Connection alive, continuing.")
+            except (Py4JNetworkError, EOFError, OSError) as e:
+                print(f"[Py4jClient] Lost connection to Java: {e}, exiting.")
+                self.stop()
+                os._exit(1)
+            time.sleep(2)
+
 
 if __name__ == "__main__":
     import argparse
