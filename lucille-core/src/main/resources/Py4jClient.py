@@ -70,6 +70,7 @@ class Py4jClient:
             # No resetCallbackClient call needed for fixed port
         except Exception as e:
             print("[Py4jClient] Error connecting to JavaGateway:", e)
+            self.running = False
             sys.exit(1)
         self.running = True
         self.blocking_loop()
@@ -91,16 +92,7 @@ class Py4jClient:
         t = threading.Thread(target=self.liveness_check, daemon=True)
         t.start()
         print("[Py4jClient] Main thread idling, callback server is active.")
-        try:
-            while self.running:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("[Py4jClient] KeyboardInterrupt received, exiting.")
-            self.stop()
-            os.kill(os.getpid(), signal.SIGKILL)
-        print("[Py4jClient] Python script exiting.")
-        self.stop()
-        os.kill(os.getpid(), signal.SIGKILL)
+
 
     def stop(self):
         print("[Py4jClient] Stopping client.")
@@ -119,5 +111,6 @@ if __name__ == "__main__":
     port = args.port
     client = Py4jClient(script_path, port)
     client.start()
+    print(f"[Py4jClient] Started client with script_path: {script_path} and port: {port} leaving main")
     # client.stop()
 
