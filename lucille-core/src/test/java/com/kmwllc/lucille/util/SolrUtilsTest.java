@@ -151,10 +151,10 @@ public class SolrUtilsTest {
         .withValue("solr.zkChroot", ConfigValueFactory.fromAnyRef("/solr_chroot"));
 
     try (
-        SolrClient httpClient = SolrUtils.getSolrClient(httpConfig).client;
-        SolrClient httpClientWithFalseCloud = SolrUtils.getSolrClient(httpConfigWithFalseCloud).client;
-        SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig).client;
-        SolrClient cloudClientWithChroot = SolrUtils.getSolrClient(cloudConfigWithZkChroot).client
+        SolrClient httpClient = SolrUtils.getSolrClient(httpConfig);
+        SolrClient httpClientWithFalseCloud = SolrUtils.getSolrClient(httpConfigWithFalseCloud);
+        SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);
+        SolrClient cloudClientWithChroot = SolrUtils.getSolrClient(cloudConfigWithZkChroot)
     ) {
       assertTrue(httpClient instanceof Http2SolrClient);
       assertTrue(httpClientWithFalseCloud instanceof Http2SolrClient);
