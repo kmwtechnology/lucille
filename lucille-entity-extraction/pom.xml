@@ -14,7 +14,7 @@
     </properties>
 
     <dependencies>
-      <!-- Apache OpenNLP -->
+      <!-- Apache OpenNLP... we get access through Lucille-core -->
       <dependency>
         <groupId>com.kmwllc</groupId>
         <artifactId>lucille-core</artifactId>

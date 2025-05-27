@@ -2,12 +2,13 @@ package com.kmwllc.lucille.entityextraction.stage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.stage.CoreNLPExtraction;
+import com.kmwllc.lucille.stage.ApplyCoreNLPEntityRecognition;
 import com.kmwllc.lucille.stage.StageFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -15,23 +16,59 @@ import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 
-public class CoreNLPExtractionTest {
+public class ApplyCoreNLPEntityRecognitionTest {
 
-  private final StageFactory factory = StageFactory.of(CoreNLPExtraction.class);
+  private final StageFactory factory = StageFactory.of(ApplyCoreNLPEntityRecognition.class);
 
   @Test
   public void extractionTest() throws StageException {
-    Config config = ConfigFactory.parseMap(Map.of("textField", "text"));
-    Stage stage = factory.get(config);
+    Stage stage = factory.get("ApplyCoreNLPEntityRecognitionTest/default.conf");
 
     Document doc = Document.create("doc1");
     doc.setField("text", "Jim Cramer spoke at a leadership conference hosted by the NYSE in Downtown Manhattan yesterday.");
 
     stage.processDocument(doc);
 
-    assertEquals(List.of("Jim Cramer"), doc.getStringList("coreNLP_people"));
-    assertEquals(List.of("NYSE"), doc.getStringList("coreNLP_organizations"));
-    assertEquals(List.of("Downtown Manhattan"), doc.getStringList("coreNLP_locations"));
+    assertEquals(List.of("Jim Cramer"), doc.getStringList("PERSON"));
+    assertEquals(List.of("NYSE"), doc.getStringList("ORGANIZATION"));
+    assertEquals(List.of("Downtown Manhattan"), doc.getStringList("LOCATION"));
+    assertEquals(List.of("yesterday"), doc.getStringList("DATE"));
+  }
+
+  @Test
+  public void extractionTestWithNameTypes() throws StageException {
+    Stage stage = factory.get("ApplyCoreNLPEntityRecognitionTest/personOrganizationLocationOnly.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("text", "Jim Cramer spoke at a leadership conference hosted by the NYSE in Downtown Manhattan yesterday.");
+
+    stage.processDocument(doc);
+
+    assertEquals(List.of("Jim Cramer"), doc.getStringList("PERSON"));
+    assertEquals(List.of("NYSE"), doc.getStringList("ORGANIZATION"));
+    assertEquals(List.of("Downtown Manhattan"), doc.getStringList("LOCATION"));
+    assertFalse(doc.has("DATE"));
+  }
+
+  @Test
+  public void fineGrained() throws StageException {
+    Stage stage = factory.get("ApplyCoreNLPEntityRecognitionTest/fineGrained.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("text", "Jim Cramer and David Faber spoke at a leadership conference hosted by the NYSE in Downtown Manhattan yesterday. We all know that New York is the heart of the U.S. economic engine. Be sure to tweet me @JimCramer.");
+
+    stage.processDocument(doc);
+
+    assertEquals(List.of("Jim Cramer", "David Faber"), doc.getStringList("PERSON"));
+    assertEquals(List.of("NYSE"), doc.getStringList("ORGANIZATION"));
+    assertEquals(List.of("Downtown"), doc.getStringList("LOCATION"));
+    assertEquals(List.of("yesterday"), doc.getStringList("DATE"));
+
+    // Specific to fine grained.
+    assertEquals(List.of("Manhattan"), doc.getStringList("CITY"));
+    assertEquals(List.of("New York"), doc.getStringList("STATE_OR_PROVINCE"));
+    assertEquals(List.of("U.S."), doc.getStringList("COUNTRY"));
+    assertEquals(List.of("@JimCramer"), doc.getStringList("HANDLE"));
   }
 
   @Test
@@ -57,9 +94,9 @@ public class CoreNLPExtractionTest {
 
     stage.processDocument(doc);
 
-    List<String> people = doc.getStringList("coreNLP_people");
-    List<String> organizations = doc.getStringList("coreNLP_organizations");
-    List<String> locations = doc.getStringList("coreNLP_locations");
+    List<String> people = doc.getStringList("PERSON");
+    List<String> organizations = doc.getStringList("ORGANIZATION");
+    List<String> locations = doc.getStringList("LOCATION");
 
     assertTrue(people.contains("Jim Cramer"));
     assertTrue(people.contains("Tim Cook"));
@@ -72,23 +109,10 @@ public class CoreNLPExtractionTest {
     assertTrue(locations.contains("China"));
     assertTrue(locations.contains("Downtown Manhattan"));
     assertTrue(locations.contains("Fiji"));
-
-    // Pointing out some of the model's quirks:
-    // People includes Shein, Temu
-    // Organizations includes "Celsius Energy Drink Jim"
   }
 
-  // no organizations --> shouldn't be a field on the Document
   @Test
-  public void testMissingTypes() throws StageException {
-    Config config = ConfigFactory.parseMap(Map.of("textField", "text"));
-    Stage stage = factory.get(config);
-
-    Document doc = Document.create("doc1");
-    doc.setField("text", "Sabrina Carpenter made a guest appearance on SNL in New York last week.");
-
-    stage.processDocument(doc);
-
-    assertFalse(doc.has("coreNLP_organizations"));
+  public void testBadConfig() {
+    assertThrows(StageException.class, () -> factory.get("ApplyCoreNLPEntityRecognitionTest/emptyNameTypes.conf"));
   }
 }
