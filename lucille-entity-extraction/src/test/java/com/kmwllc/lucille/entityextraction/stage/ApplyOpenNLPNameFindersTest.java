@@ -2,6 +2,7 @@ package com.kmwllc.lucille.entityextraction.stage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
@@ -21,8 +22,7 @@ public class ApplyOpenNLPNameFindersTest {
 
   @Test
   public void extractionTest() throws StageException {
-    Config config = ConfigFactory.parseMap(Map.of("textField", "text"));
-    Stage stage = factory.get(config);
+    Stage stage = factory.get("ApplyOpenNLPNameFindersTest/default.conf");
 
     Document doc = Document.create("doc1");
     doc.setField("text", "Jim Cramer spoke at a leadership conference hosted by the NYSE in Downtown Manhattan yesterday.");
@@ -36,11 +36,10 @@ public class ApplyOpenNLPNameFindersTest {
 
   @Test
   public void longerExtractionTest() throws StageException {
-    Config config = ConfigFactory.parseMap(Map.of("textField", "content"));
-    Stage stage = factory.get(config);
+    Stage stage = factory.get("ApplyOpenNLPNameFindersTest/default.conf");
 
     Document doc = Document.create("doc1");
-    doc.setField("content", """
+    doc.setField("text", """
     Jim Cramer spoke at a leadership conference hosted by the NYSE in Downtown Manhattan yesterday. On Squawk on the Street later that
     Tuesday, he came out as bearish against Apple stock, suggesting they could be negatively affected by the China tariffs. "Do not be
     mistaken here, Carl", he said to his co-host. "What we have here is effectively a total embargo on Chinese trade - and no matter 
@@ -61,29 +60,21 @@ public class ApplyOpenNLPNameFindersTest {
     List<String> organizations = doc.getStringList("ORGANIZATION");
     List<String> locations = doc.getStringList("LOCATION");
 
-    System.out.println(doc);
-
     assertTrue(people.contains("Jim Cramer"));
     assertTrue(people.contains("Tim Cook"));
     assertTrue(people.contains("David Faber"));
 
     assertTrue(organizations.contains("Apple"));
     assertTrue(organizations.contains("NYSE"));
-    // Model doesn't pick up on Twitter as an organization
 
     // model doesn't pick up on locations "china", "downtown manhattan", or "Fiji". Only picks up on "Manhattan".
     assertTrue(locations.contains("Manhattan"));
-
-    // Pointing out some of the model's quirks:
-    // People includes Shein, Temu
-    // Organizations includes "Celsius Energy Drink Jim"
   }
 
   // no organizations --> shouldn't be a field on the Document
   @Test
   public void testMissingTypes() throws StageException {
-    Config config = ConfigFactory.parseMap(Map.of("textField", "text"));
-    Stage stage = factory.get(config);
+    Stage stage = factory.get("ApplyOpenNLPNameFindersTest/default.conf");
 
     Document doc = Document.create("doc1");
     doc.setField("text", "Sabrina Carpenter made a guest appearance in New York last week.");
@@ -91,5 +82,26 @@ public class ApplyOpenNLPNameFindersTest {
     stage.processDocument(doc);
 
     assertFalse(doc.has("ORGANIZATION"));
+  }
+
+  @Test
+  public void extractionTestLessModels() throws StageException {
+    Stage stage = factory.get("ApplyOpenNLPNameFindersTest/locationOnly.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("text", "Jim Cramer spoke at a leadership conference hosted by the NYSE in Downtown Manhattan yesterday.");
+
+    stage.processDocument(doc);
+
+    // the organization model did pick up on "NYSE" in the previous test.
+    assertFalse(doc.has("ORGANIZATION"));
+    assertEquals(List.of("Manhattan"), doc.getStringList("LOCATION"));
+  }
+
+  @Test
+  public void testBadConfigs() {
+    assertThrows(StageException.class, () -> factory.get("ApplyOpenNLPNameFindersTest/badConfigs/badTokenizer.conf"));
+    assertThrows(StageException.class, () -> factory.get("ApplyOpenNLPNameFindersTest/badConfigs/badModelPath.conf"));
+    assertThrows(StageException.class, () -> factory.get("ApplyOpenNLPNameFindersTest/badConfigs/badModelValue.conf"));
   }
 }
