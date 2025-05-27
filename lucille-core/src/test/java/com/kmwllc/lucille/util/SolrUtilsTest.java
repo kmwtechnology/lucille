@@ -6,7 +6,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueFactory;
 import java.io.IOException;
 import java.util.HashMap;
@@ -40,7 +39,6 @@ public class SolrUtilsTest {
     Http2SolrClient client = SolrUtils.getHttpClientAndSetCheckPeerName(config);
     // would like to inspect the solr client to confirm credentials are configured, but can’t do that so just checking it’s non-null
     assertNotNull(client);
-
     client.close();
   }
 

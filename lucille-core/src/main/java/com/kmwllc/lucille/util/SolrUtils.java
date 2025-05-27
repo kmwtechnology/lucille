@@ -38,21 +38,19 @@ public class SolrUtils {
    * are found in the config.
    *
    * @param config The configuration file to generate a client from
-   * @return A ManagedCloseSolrClient, holding the created client and, potentially, another HTTP client created in the
-   * process that needs to be closed manually as well.
+   * @return A SolrClient suitable for the given configuration.
    */
-  public static ManagedCloseSolrClient getSolrClient(Config config) {
+  public static SolrClient getSolrClient(Config config) {
     SSLUtils.setSSLSystemProperties(config);
     
     if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
-      return getWrappedCloudClient(config);
+      return getCloudClient(config);
     } else {
-      Http2SolrClient httpClient = getHttpClientAndSetCheckPeerName(config);
-      return new ManagedCloseSolrClient(httpClient, null);
+      return getHttpClientAndSetCheckPeerName(config);
     }
   }
 
-  private static ManagedCloseSolrClient getWrappedCloudClient(Config config) {
+  private static CloudHttp2SolrClient getCloudClient(Config config) {
     CloudHttp2SolrClient.Builder cloudBuilder;
     if (config.hasPath("solr.zkHosts")) {
       // optional property
@@ -75,21 +73,29 @@ public class SolrUtils {
       Http2SolrClient httpClient = getHttpClientAndSetCheckPeerName(config);
       cloudBuilder.withHttpClient(httpClient);
 
-      return new ManagedCloseSolrClient(cloudBuilder.build(), httpClient);
+      // When you give a cloud client an HTTPClient, and the cloudClient is then closed, it *will not* close the
+      // httpClient automatically - since it may (should) be a shared resource. Creating an anonymous subclass
+      // for this case allows us to gracefully make sure the httpClient does get closed, preventing a resource leak.
+      return new CloudHttp2SolrClient(cloudBuilder) {
+        @Override
+        public void close() throws IOException {
+          super.close();
+          httpClient.close();
+        }
+      };
     } else {
-      return new ManagedCloseSolrClient(cloudBuilder.build(), null);
+      return cloudBuilder.build();
     }
   }
 
   /**
    * Generates a HttpClient with preemptive authentication if required.
-   * This method has SIDE EFFECTS.  It will set SSL system properties if corresponding properties
+   * This method has SIDE EFFECTS. It will set SSL system properties if corresponding properties
    * are found in the config.
    *
    * @param config The configuration file to generate the HttpClient from.
    * @return the HttpClient
    */
-  // this still returns the actual client (not wrapped) because it is used in getWrappedCloudClient.
   static Http2SolrClient getHttpClientAndSetCheckPeerName(Config config) {
     Http2SolrClient.Builder clientBuilder = new Http2SolrClient.Builder();
 
@@ -172,40 +178,5 @@ public class SolrUtils {
       return config.getString("solr.acceptInvalidCert").equalsIgnoreCase("true");
     }
     return false;
-  }
-
-  /**
-   * Manages the closing of a Solr Client, which may have been set to use another Http2SolrClient to support
-   * authentication. (In the SolrJ SDK, these clients, set by .withHttpClient(), are not automatically closed -
-   * we need to maintain a reference to them and make sure we close them to prevent leaks.)
-   *
-   * <p> <b>Important Note:</b> The {@link ManagedCloseSolrClient#client} should <b>NOT</b> be closed directly. It should
-   * only be closed by calling {@link ManagedCloseSolrClient#close()}!
-   */
-  public static class ManagedCloseSolrClient {
-    public final SolrClient client;
-    private final Http2SolrClient httpClientToClose;
-
-    /**
-     * @param client The SolrClient to be used / returned. Must not be null. This is the client that should be used
-     *               to run operations on Solr; as such, it is public.
-     * @param httpClientToClose Potentially, an httpClient that the given SolrClient is configured to have. May be null.
-     */
-    public ManagedCloseSolrClient(SolrClient client, Http2SolrClient httpClientToClose) {
-      this.client = client;
-      this.httpClientToClose = httpClientToClose;
-    }
-
-    /**
-     * Closes the primary client, and the httpClient it uses, if provided.
-     * @throws IOException If an error occurs while closing either client.
-     */
-    public void close() throws IOException {
-      this.client.close();
-
-      if (httpClientToClose != null) {
-        httpClientToClose.close();
-      }
-    }
   }
 }
