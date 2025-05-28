@@ -1,5 +1,5 @@
 import json
-
+import requests
 
 def process_document(doc):
     import datetime

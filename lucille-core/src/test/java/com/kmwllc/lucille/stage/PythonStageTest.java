@@ -40,9 +40,6 @@ public class PythonStageTest {
   @Test
   public void testPythonUpdateToDoc() throws Exception {
     String confPath = "PythonStageTest/process_document_1.conf";
-    Config config = ConfigFactory.parseResourcesAnySyntax(confPath);
-    int port = config.getInt("port");
-    // waitForPortToBeFree(port, 15000);
     stage = factory.get(confPath);
     Document doc = Document.create("doc2");
     stage.processDocument(doc);
@@ -52,16 +49,42 @@ public class PythonStageTest {
     Thread.sleep(1000);
   }
 
-  // @Test
-  // public void testBasicPythonPrint() throws Exception {
-  //   String confPath = "PythonStageTest/print_time.conf";
-  //   Config config = ConfigFactory.parseResourcesAnySyntax(confPath);
-  //   int port = config.getInt("port");
-  //   // waitForPortToBeFree(port, 15000);
-  //   stage = factory.get(confPath);
-  //   Document doc = Document.create("doc1");
-  //   stage.processDocument(doc);
-  //   Thread.sleep(1000);
-  // }
+  @Test
+  public void testBasicPythonPrint() throws Exception {
+    String confPath = "PythonStageTest/print_time.conf";
+    stage = factory.get(confPath);
+    Document doc = Document.create("doc1");
+    stage.processDocument(doc);
+    Thread.sleep(1000);
+  }
+
+  @Test
+  public void testPythonUpdateToDocMultiThreaded() throws Exception {
+    String confPath = "PythonStageTest/process_document_1.conf";
+    stage = factory.get(confPath);
+    int numThreads = 5;
+    int numDocsPerThread = 3;
+    Thread[] threads = new Thread[numThreads];
+    Document[] docs = new Document[numThreads];
+    for (int i = 0; i < numThreads; i++) {
+      final int idx = i;
+      docs[i] = Document.create("doc_mt_" + idx);
+      threads[i] = new Thread(() -> {
+        try {
+          for (int j = 0; j < numDocsPerThread; j++) {
+            stage.processDocument(docs[idx]);
+          }
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      });
+    }
+    for (Thread t : threads) t.start();
+    for (Thread t : threads) t.join();
+    for (int i = 0; i < numThreads; i++) {
+      assertEquals("Hello from Python!", docs[i].getString("field_added_by_python"));
+    }
+    Thread.sleep(1000);
+  }
 
 }

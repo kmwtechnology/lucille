@@ -45,6 +45,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * script to call (default: 'process_document').</li>
  * <li><b>port</b> (int, Optional): Port for the Py4J GatewayServer (default:
  * GatewayServer.DEFAULT_PORT).</li>
+ * <li><b>requirementsPath</b> (String, Optional): Path to the Python
+ * requirements file (for pip install). If specified, the stage will ensure
+ * the requirements are installed in the Python environment before execution.
+ * </li>
  * </ul>
  *
  * <h2>Behavior</h2>
@@ -64,7 +68,11 @@ public class PythonStage extends Stage implements GatewayServerListener {
 
   private final String scriptPath;
   private final String pythonExecutable;
-  private final String functionName;
+  private final String requirementsPath;
+  // Thread-safe static port management
+  private static final Object portLock = new Object();
+  private static final Set<Integer> usedPorts = new HashSet<>();
+  private static int nextPort = 25333; // Default Py4J port
   private final int port;
   private GatewayServer gateway;
   private final AtomicBoolean started = new AtomicBoolean(false);
@@ -134,12 +142,31 @@ public class PythonStage extends Stage implements GatewayServerListener {
   public PythonStage(Config config) {
     super(config, Spec.stage()
         .withRequiredProperties("scriptPath")
-        .withOptionalProperties("pythonExecutable", "function_name", "port"));
+        .withOptionalProperties("pythonExecutable", "function_name", "port", "requirementsPath"));
     log.info("PythonStage constructor");
     this.scriptPath = config.getString("scriptPath");
     this.pythonExecutable = config.hasPath("pythonExecutable") ? config.getString("pythonExecutable") : "python3";
-    this.functionName = config.hasPath("function_name") ? config.getString("function_name") : "process_document";
-    this.port = config.hasPath("port") ? config.getInt("port") : GatewayServer.DEFAULT_PORT;
+    this.requirementsPath = config.hasPath("requirementsPath") ? config.getString("requirementsPath") : null;
+    if (config.hasPath("port")) {
+      this.port = config.getInt("port");
+      synchronized (portLock) {
+        usedPorts.add(this.port);
+        usedPorts.add(this.port + 1);
+      }
+    } else {
+      // Use getNextAvailablePort for dynamic allocation, but default to 25333 if available
+      int defaultPort = 25333;
+      synchronized (portLock) {
+        if (!usedPorts.contains(defaultPort) && !usedPorts.contains(defaultPort + 1)
+            && isPortAvailable(defaultPort) && isPortAvailable(defaultPort + 1)) {
+          this.port = defaultPort;
+          usedPorts.add(this.port);
+          usedPorts.add(this.port + 1);
+        } else {
+          this.port = getNextAvailablePort();
+        }
+      }
+    }
   }
 
   /**
@@ -322,6 +349,39 @@ public class PythonStage extends Stage implements GatewayServerListener {
   }
 
   /**
+   * Installs Python requirements from requirementsPath using pip in the venv, if requirementsPath is set.
+   * Logs output and throws StageException on failure.
+   */
+  private void installRequirementsIfNeeded() throws StageException {
+    if (requirementsPath == null || requirementsPath.trim().isEmpty()) {
+      log.info("No requirementsPath specified; skipping requirements installation.");
+      return;
+    }
+    log.info("Installing Python requirements from {} using venv python {}", requirementsPath, venvPythonPath);
+    try {
+      Process installProc = new ProcessBuilder(
+        venvPythonPath, "-m", "pip", "install", "-r", requirementsPath)
+        .redirectErrorStream(true)
+        .start();
+      StringBuilder installOutput = new StringBuilder();
+      try (java.io.BufferedReader installReader = new java.io.BufferedReader(
+          new java.io.InputStreamReader(installProc.getInputStream()))) {
+        String line;
+        while ((line = installReader.readLine()) != null) {
+          installOutput.append(line).append("\n");
+        }
+      }
+      int installExit = installProc.waitFor();
+      log.info("pip install -r output:\n{}", installOutput.toString().trim());
+      if (installExit != 0) {
+        throw new StageException("Failed to install requirements from " + requirementsPath + ". Output: " + installOutput);
+      }
+    } catch (Exception e) {
+      throw new StageException("Failed to install requirements from " + requirementsPath + ": " + e.getMessage(), e);
+    }
+  }
+
+  /**
    * Starts the PythonStage, launching the Python process and setting up Py4J
    * integration.
    * 
@@ -332,7 +392,6 @@ public class PythonStage extends Stage implements GatewayServerListener {
     log.info("start() called");
     log.info("scriptPath: {}", scriptPath);
     log.info("pythonExecutable: {}", pythonExecutable);
-    log.info("functionName: {}", functionName);
     log.info("port: {}", port);
     checkPythonInstalled();
     ensureVenv();
@@ -343,14 +402,15 @@ public class PythonStage extends Stage implements GatewayServerListener {
         throw new StageException("py4j is still not installed after pip install.");
       }
     }
+    installRequirementsIfNeeded();
     if (started.compareAndSet(false, true)) {
       boolean portAvailable = true;
-       try (ServerSocket ignored = new ServerSocket(port)) {
-         log.info("Port {} is available", port);
-       } catch (IOException e) {
-         log.error("port {} is already in use", port, e);
-         portAvailable = false;
-       }
+      try (ServerSocket ignored = new ServerSocket(port)) {
+        log.info("Port {} is available", port);
+      } catch (IOException e) {
+        log.error("port {} is already in use", port, e);
+        portAvailable = false;
+      }
       if (!portAvailable) {
         throw new StageException(String.format("Port %d is already in use. Assuming a GatewayServer is already running and reconnecting to it.", port));
       }
@@ -468,6 +528,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
       pythonProcess.destroy();
       pythonProcess = null;
     }
+    releasePort(this.port);
   }
 
   /**
@@ -562,4 +623,44 @@ public class PythonStage extends Stage implements GatewayServerListener {
     log.info("Py4jClient -> {}", msg);
   }
 
+  /**
+   * Returns the next available port pair (gateway and callback), checking for OS-level availability and thread safety.
+   */
+  private static int getNextAvailablePort() {
+    synchronized (portLock) {
+      int candidate = nextPort;
+      while (true) {
+        // Check both candidate (gateway) and candidate+1 (callback) for availability
+        if (!usedPorts.contains(candidate) && !usedPorts.contains(candidate + 1)
+            && isPortAvailable(candidate) && isPortAvailable(candidate + 1)) {
+          usedPorts.add(candidate);
+          usedPorts.add(candidate + 1);
+          nextPort = candidate + 2;
+          return candidate;
+        }
+        candidate += 2;
+      }
+    }
+  }
+
+  /**
+   * Checks if a port is available on the system.
+   */
+  private static boolean isPortAvailable(int port) {
+    try (ServerSocket ignored = new ServerSocket(port)) {
+      return true;
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  /**
+   * Releases a port and its callback port when a stage is stopped.
+   */
+  private static void releasePort(int port) {
+    synchronized (portLock) {
+      usedPorts.remove(port);
+      usedPorts.remove(port + 1);
+    }
+  }
 }
