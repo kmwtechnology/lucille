@@ -5,6 +5,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -13,12 +15,36 @@ import java.nio.file.Files;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import org.junit.Test;
 
 public class AddRandomStringTest {
 
   private final StageFactory factory = StageFactory.of(AddRandomString.class);
+  private static final Set<String> acceptableStrings = Set.of(
+      "Artichoke",
+      "Arugula",
+      "Asparagus",
+      "Avocado",
+      "BambooShoots",
+      "BeanSprouts",
+      "Beans",
+      "Beet",
+      "BelgianEndive",
+      "BellPepper",
+      "BitterMelon",
+      "BokChoy",
+      "Broccoli",
+      "Brussels Sprouts",
+      "Burdock Root/Gobo",
+      "Cabbage",
+      "Calabash",
+      "Capers",
+      "Carrot",
+      "Cassava/Yuca"
+  );
 
   /**
    * Tests stage without a file path
@@ -36,12 +62,12 @@ public class AddRandomStringTest {
       stage.processDocument(doc);
     }
 
-    int docVal1 = Integer.valueOf(doc1.getString("data"));
-    int docVal2 = Integer.valueOf(doc2.getString("data"));
-    int docVal3 = Integer.valueOf(doc3.getString("data"));
-    assertTrue(0 <= docVal1 && docVal1 < 20);
-    assertTrue(0 <= docVal2 && docVal2 < 20);
-    assertTrue(0 <= docVal3 && docVal3 < 20);
+    for (List<String> docVal : List.of(doc1.getStringList("data"), doc2.getStringList("data"), doc3.getStringList("data"))) {
+      for (String docValStr : docVal) {
+        int docValInt = Integer.valueOf(docValStr);
+        assertTrue(0 <= docValInt && docValInt < 20);
+      }
+    }
   }
 
   @Test
@@ -128,6 +154,56 @@ public class AddRandomStringTest {
 
     for (List<String> docVal : Arrays.asList(docVal1, docVal2, docVal3)) {
       assertTrue(docVal.size() == 10);
+    }
+  }
+
+  @Test
+  public void testNested() throws StageException {
+    Stage stage = factory.get("AddRandomStringTest/nestedNoFile.conf");
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
+
+    for (Document doc : Arrays.asList(doc1, doc2, doc3)) {
+      stage.processDocument(doc);
+    }
+
+    for (JsonNode node : List.of(doc1.getJson("data"), doc2.getJson("data"), doc3.getJson("data"))) {
+      assertTrue(node.isArray());
+
+      Iterator<JsonNode> elements = node.elements();
+
+      while (elements.hasNext()) {
+        JsonNode currentElement = elements.next();
+        String currentElementData = currentElement.get("data").asText();
+
+        int currentElementDataInt = Integer.valueOf(currentElementData);
+        assertTrue(0 <= currentElementDataInt && currentElementDataInt < 20);
+      }
+    }
+  }
+
+  @Test
+  public void testNestedWithFile() throws StageException {
+    Stage stage = factory.get("AddRandomStringTest/nestedWithFile.conf");
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
+
+    for (Document doc : Arrays.asList(doc1, doc2, doc3)) {
+      stage.processDocument(doc);
+    }
+
+    for (JsonNode node : List.of(doc1.getJson("data"), doc2.getJson("data"), doc3.getJson("data"))) {
+      assertTrue(node.isArray());
+
+      Iterator<JsonNode> elements = node.elements();
+
+      while (elements.hasNext()) {
+        JsonNode currentElement = elements.next();
+        String currentElementText = currentElement.get("data").asText();
+        assertTrue(acceptableStrings.contains(currentElementText));
+      }
     }
   }
 
