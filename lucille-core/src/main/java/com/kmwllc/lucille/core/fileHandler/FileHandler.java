@@ -41,17 +41,16 @@ public interface FileHandler {
 
   /**
    * Returns a Map from the given Config, creating FileHandlers that can be constructed from the given config, mapped
-   * to their corresponding file extensions. The returned map is not modifiable.
+   * to their corresponding file extensions. The returned map is not modifiable. Configs mapped to <code>csv</code>, <code>xml</code>, <code>json</code>,
+   * and <code>jsonl</code> without a <code>class</code> specified will use Lucille's <code>CSVFileHandler</code>, <code>XMLFileHandler</code>,
+   * or <code>JSONFileHandler</code>, respectively. Configs mapped to another file extension (a custom <code>FileHandler</code>) must
+   * include <code>class</code> in their Config, or an Exception will be thrown.
    *
    * <br> <b>Note:</b> If <code>json</code> config is included, but <code>jsonl</code> is not (or vice versa), both extensions will
    * map to the same JSONFileHandler in the Config. If both are included, however, they will map to unique JSONFileHandlers,
    * created using their respective Configs.
    *
-   * <br> <b>Note:</b> Configs mapped to <code>csv</code>, <code>xml</code>, <code>json</code>, and <code>jsonl</code> will
-   * <i>always</i> result in Lucille's <code>CSVFileHandler</code>, <code>XMLFileHandler</code>, or <code>JSONFileHandler</code>, respectively,
-   * regardless of whether a custom <code>class</code> is specified in the Config!
-   *
-   * @param fileHandlersConfig The Config under key "fileHandlers" which potentially contains Configs for various FileHandlers.
+   * @param fileHandlersConfig The Config, typically under the key <code>fileHandlers</code>, which potentially contains Configs for various FileHandlers.
    * @return A map of file extensions to their respective file handlers, creating as many as could be built from the
    * provided config.
    */
@@ -83,7 +82,7 @@ public interface FileHandler {
    *                    configurations for the different FileHandlers you want to support.
    *
    * @return A FileHandler to process files with the given extension.
-   * @throws IllegalArgumentException If you try to create a FileHandler for an unsupported file type and don't specify a class, or
+   * @throws IllegalArgumentException If you try to create a FileHandler for a non-default file type and don't specify a class, or
    * if a reflective error occurs instantiating a custom FileHandler class.
    */
   static FileHandler create(String fileExtension, Config fileHandlersConfig) {
