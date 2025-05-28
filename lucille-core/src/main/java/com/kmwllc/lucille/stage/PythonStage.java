@@ -490,7 +490,7 @@ public class PythonStage extends Stage implements GatewayServerListener {
         Map<String, Object> updatedFields = mapper.readValue(jsonReturn, Map.class);
 
         Set<String> reserved = com.kmwllc.lucille.core.Document.RESERVED_FIELDS;
-        for (String field : new HashSet<>(doc.getFieldNames())) {
+        for (String field : doc.getFieldNames()) {
           if (!reserved.contains(field)) {
             doc.removeField(field);
           }

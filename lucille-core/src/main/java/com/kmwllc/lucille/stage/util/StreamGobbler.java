@@ -51,13 +51,7 @@ public class StreamGobbler extends Thread {
       BufferedReader br = new BufferedReader(isr);
       String line = null;
       while ((line = br.readLine()) != null) {
-        System.out.println(name + " - " + line);
-        System.out.flush();
-        // log.info("python -> {}", line);
-        // if (line != null && processIn != null) {
-        //   processIn.write(String.format("%s\n", line).getBytes());
-        //   processIn.flush();
-        // }
+        log.info("python -> {}", line);
         }
     } catch (IOException ioe) {
       log.info("{} gobbler leaving", name);
