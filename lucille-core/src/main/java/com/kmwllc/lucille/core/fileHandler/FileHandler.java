@@ -75,18 +75,34 @@ public interface FileHandler {
   }
 
   /**
-   * Returns a new FileHandler based on the file extension and file options.
+   * Returns a new FileHandler based on the file extension and file options. If the file extension is not a "default" type supported
+   * by Lucille, your Config must contain the class for the FileHandler.
    *
    * @param fileExtension The extension associated with the file.
    * @param fileHandlersConfig Configuration for how you want to handle / process files. Should contain individual entries with
    *                    configurations for the different FileHandlers you want to support.
    *
    * @return A FileHandler to process files with the given extension.
-   * @throws UnsupportedOperationException If you try to create a FileHandler for an unsupported file type.
+   * @throws IllegalArgumentException If you try to create a FileHandler for an unsupported file type and don't specify a class, or
+   * if a reflective error occurs instantiating a custom FileHandler class.
    */
   static FileHandler create(String fileExtension, Config fileHandlersConfig) {
     Config fileExtensionConfig = fileHandlersConfig.getConfig(fileExtension);
 
+    // Allow for an overridden implementation, even if we provide a default implementation
+    if (fileExtensionConfig.hasPath("class")) {
+      String className = fileExtensionConfig.getString("class");
+
+      try {
+        Class<?> clazz = Class.forName(className);
+        Constructor<?> constructor = clazz.getConstructor(Config.class);
+        return (FileHandler) constructor.newInstance(fileExtensionConfig);
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalArgumentException("Couldn't create custom FileHandler (" + fileExtension + ") from Config:", e);
+      }
+    }
+
+    // No class provided, see if it is a supported type, throw an exception if it is not supported
     switch (fileExtension) {
       case "json", "jsonl" -> {
         return new JsonFileHandler(fileExtensionConfig);
@@ -98,14 +114,7 @@ public interface FileHandler {
         return new XMLFileHandler(fileExtensionConfig);
       }
       default -> {
-        try {
-          String className = fileExtensionConfig.getString("class");
-          Class<?> clazz = Class.forName(className);
-          Constructor<?> constructor = clazz.getConstructor(Config.class);
-          return (FileHandler) constructor.newInstance(fileExtensionConfig);
-        } catch (ReflectiveOperationException e) {
-          throw new IllegalArgumentException("Couldn't create custom FileHandler (" + fileExtension + ") from Config:", e);
-        }
+        throw new IllegalArgumentException("No \"class\" provided for FileHandler config " + fileExtension + ".");
       }
     }
   }

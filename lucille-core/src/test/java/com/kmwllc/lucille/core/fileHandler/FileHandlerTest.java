@@ -90,5 +90,14 @@ public class FileHandlerTest {
 
     Config missingCustom = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/missing_custom.conf");
     assertThrows(IllegalArgumentException.class, () -> FileHandler.createFromConfig(missingCustom));
+
+    // custom file handler implementation missing "class" field triggers IllegalArgumentException
+    Config missingClass = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/missing_class.conf");
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.createFromConfig(missingClass));
+
+    // manually overriding csv to have a different type (in this case, a JsonFileHandler... for some reason)
+    Config overrideCSV = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/override_csv.conf");
+    result = FileHandler.createFromConfig(overrideCSV);
+    assertInstanceOf(JsonFileHandler.class, result.get("csv"));
   }
 }
