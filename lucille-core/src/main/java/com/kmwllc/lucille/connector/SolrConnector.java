@@ -43,7 +43,7 @@ public class SolrConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private SolrClient client;
+  private final SolrClient client;
   private final GenericSolrRequest request;
   private List<String> replacedPreActions;
   private List<String> replacedPostActions;
@@ -91,7 +91,6 @@ public class SolrConnector extends AbstractConnector {
         this.solrParams.put(e.getKey(), Collections.singletonList(String.valueOf(rawValues)));
       }
     }
-
   }
 
   @Override
