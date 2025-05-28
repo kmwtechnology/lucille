@@ -63,11 +63,11 @@ import org.slf4j.LoggerFactory;
  *
  * <code>fileHandlers</code>:
  * <ul>
- *   <li>csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler.</li>
- *   <li>json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.</li>
- *   <li>xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler.</li>
+ *   <li>csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler (if no alternate <code>class</code> is provided).</li>
+ *   <li>json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler (if no alternate <code>class</code> is provided).</li>
+ *   <li>xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler (if no alternate <code>class</code> is provided).</li>
  *   <li>Include your custom FileHandler implementations here (if any). Remember to include the <code>class</code> in their Configuration.</li>
- *   <li>To configure the docIdPrefix for CSV, JSON or XML files, configure it in its respective config in <code>fileOptions</code>.</li>
+ *   <li>To configure the docIdPrefix for a certain file type, configure it in its respective config (under <code>docIdPrefix</code>).</li>
  * </ul>
  *
  * <code>gcp</code>:
