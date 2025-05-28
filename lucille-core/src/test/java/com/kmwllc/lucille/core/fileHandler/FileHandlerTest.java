@@ -25,7 +25,7 @@ public class FileHandlerTest {
     FileHandler xmlHandler = FileHandler.create("xml", xmlConfig);
     assertInstanceOf(XMLFileHandler.class, xmlHandler);
     // test xml without required configs
-    assertThrows(ConfigException.class, () -> FileHandler.create("xml", ConfigFactory.parseMap(Map.of("xml", Map.of()))));
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("xml", ConfigFactory.parseMap(Map.of("xml", Map.of()))));
     // test json
     Config jsonConfig = ConfigFactory.parseMap(Map.of("json", Map.of()));
     FileHandler jsonHandler = FileHandler.create("json", jsonConfig);

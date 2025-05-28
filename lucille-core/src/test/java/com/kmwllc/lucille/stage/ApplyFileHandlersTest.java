@@ -28,6 +28,7 @@ public class ApplyFileHandlersTest {
   private final Path testCsvPath = Paths.get("src/test/resources/ApplyFileHandlersTest/test.csv");
   private final Path testJsonlPath = Paths.get("src/test/resources/ApplyFileHandlersTest/test.jsonl");
   private final Path testFaultyCsvPath = Paths.get("src/test/resources/ApplyFileHandlersTest/faulty.csv");
+  private final Path secretCSVTXTPath = Paths.get("src/test/resources/ApplyFileHandlersTest/secretCSV.txt");
 
   private final byte[] testCsvContents;
 
@@ -202,7 +203,7 @@ public class ApplyFileHandlersTest {
   }
 
   @Test
-  public void testNoHandlers() throws StageException {
+  public void testNoHandlersForFileTypes() throws StageException {
     Stage stage = factory.get("ApplyFileHandlersTest/csvOnly.conf");
     Document jsonDoc = Document.create("json_doc");
     jsonDoc.setField("file_path", testJsonlPath.toString());
@@ -225,10 +226,30 @@ public class ApplyFileHandlersTest {
   }
 
   @Test
+  public void testCustomFileHandler() throws StageException {
+    Stage stage = factory.get("ApplyFileHandlersTest/implementedCustom.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("file_path", secretCSVTXTPath.toString());
+
+    Iterator<Document> handledDocs = stage.processDocument(doc);
+
+    int docsCount = 0;
+
+    while (handledDocs.hasNext()) {
+      Document d = handledDocs.next();
+      docsCount++;
+      assertEquals("secretCSV.txt-" + docsCount, d.getId());
+    }
+
+    assertEquals(4, docsCount);
+  }
+
+  @Test
   public void testInvalidConfs() throws StageException {
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/empty.conf"));
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/noHandlers.conf"));
-    // Start is called in the factory
+    // implements a custom file handler that is not present in the classpath
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/onlyInvalidHandlers.conf"));
   }
 

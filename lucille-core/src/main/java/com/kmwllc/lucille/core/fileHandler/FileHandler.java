@@ -48,7 +48,7 @@ public interface FileHandler {
    * created using their respective Configs.
    *
    * <br> <b>Note:</b> Configs mapped to <code>csv</code>, <code>xml</code>, <code>json</code>, and <code>jsonl</code> will
-   * <i>always</i> result in <code>CSVFileHandler</code>, <code>XMLFileHandler</code>, or <code>JSONFileHandler</code>, respectively,
+   * <i>always</i> result in Lucille's <code>CSVFileHandler</code>, <code>XMLFileHandler</code>, or <code>JSONFileHandler</code>, respectively,
    * regardless of whether a custom <code>class</code> is specified in the Config!
    *
    * @param fileHandlersConfig The Config under key "fileHandlers" which potentially contains Configs for various FileHandlers.
