@@ -27,14 +27,11 @@ mvn install
 ```
 
 ## Running API
-
-TODO - add classpath 
-TODO - add ability to do one jar ?
 ```sh
+cd lucille-plugins/lucille-api/
 java -Dconfig.file=conf/simple-config.conf -jar target/lucille-api-plugin.jar server conf/api.yml
 
 ```
-
 
 ## Generating JSON Documentation
 
@@ -56,77 +53,3 @@ For examples and usage, see the `lucille-examples/` directory and the main [Luci
 
 For more information, visit the [Lucille GitHub repository](https://github.com/kmwtechnology/lucille).
 
-
-```bash
-
-mvn dependency:copy-dependencies -DoutputDirectory=./lucille-core/target/lib
-
-
-javadoc -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "./lucille-core/target/classes:./lucille-core/target/lib/*" \
-  -classpath "./lucille-core/target/classes:./lucille-core/target/lib/*" \
-  -sourcepath ./lucille-core/src/main/java \
-  -subpackages com.kmwllc.lucille.stage \
-  -o javadocs.json \
-  -d target
-
-```
-
-# push/sync to forked upstream
-```bash
-git push upstream LC-680-reflective-config-api
-```
-
-# regular push
-```bash
-git push origin LC-680-reflective-config-api
-```
-
-# merge from upstream main
-```bash
-# 1. Fetch all upstream changes
-git fetch upstream
-
-# 2. Checkout your feature branch
-git checkout LC-680-reflective-config-api
-
-# 3. Merge upstream/main into it
-git merge upstream/main
-```
-
-# Testing
-```bash
-mvn clean test -Dtest=SequenceConnectorTest
-
-mvn test -Dtest=SequenceConnectorTest
-```
-
-
-# pull from upstream LC-680-reflective-config-api
-```bash
-git pull upstream LC-680-reflective-config-api
-```
-
-
-# How to start the admin api server
-
-* Static site (admin-ui) is published under lucille-plugins/lucille-api/src/main/resources/assets/admin
-* Removed temporary CORS that I used earlier.
-* Run mvn clean install -DskipTests from ../lucille-api/
-* Run java -Dconfig.file=conf/simple-config.conf -jar target/lucille-api-plugin.jar server conf/api.yml
-* Point your browser to http://localhost:8080/admin
-
-# how to quick find the last commit date
-git for-each-ref --sort=-committerdate --format='%(refname:short) %(committerdate)' refs/heads/
-
-
-# Python Stage
-mvn test -Dtest=PythonStageTest
-
-## check if port is available
-sudo netstat -tulnp | grep 25333
-sudo lsof -i :25333
-
-## Better testing
-cd lucille-core
-mvn test -Dtest=com.kmwllc.lucille.stage.PythonStageTest
