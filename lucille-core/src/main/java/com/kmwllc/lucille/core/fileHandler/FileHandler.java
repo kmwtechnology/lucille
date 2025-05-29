@@ -40,11 +40,10 @@ public interface FileHandler {
   void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException;
 
   /**
-   * Returns a Map from the given Config, creating FileHandlers that can be constructed from the given config, mapped
-   * to their corresponding file extensions. The returned map is not modifiable. Configs mapped to <code>csv</code>, <code>xml</code>, <code>json</code>,
-   * and <code>jsonl</code> without a <code>class</code> specified will use Lucille's <code>CSVFileHandler</code>, <code>XMLFileHandler</code>,
-   * or <code>JSONFileHandler</code>, respectively. Configs mapped to another file extension (a custom <code>FileHandler</code>) must
-   * include <code>class</code> in their Config, or an Exception will be thrown.
+   * From the given Config, returns a map of supported file extensions to their FileHandlers.The returned map is not modifiable.
+   * Configs mapped to <code>csv</code>, <code>xml</code>, <code>json</code>, and <code>jsonl</code> without a <code>class</code>
+   * specified will use Lucille's <code>CSVFileHandler</code>, <code>XMLFileHandler</code>, or <code>JSONFileHandler</code>, respectively.
+   * Configs mapped to another file extension (a custom <code>FileHandler</code>) must include <code>class</code> in their Config, or an Exception will be thrown.
    *
    * <br> <b>Note:</b> If <code>json</code> config is included, but <code>jsonl</code> is not (or vice versa), both extensions will
    * map to the same JSONFileHandler in the Config. If both are included, however, they will map to unique JSONFileHandlers,
@@ -78,8 +77,9 @@ public interface FileHandler {
    * by Lucille, your Config must contain the class for the FileHandler.
    *
    * @param fileExtension The extension associated with the file.
-   * @param fileHandlersConfig Configuration for how you want to handle / process files. Should contain individual entries with
-   *                    configurations for the different FileHandlers you want to support.
+   * @param fileHandlersConfig Configuration for fileHandlers. Should contain individual entries with configurations for the
+   *                           different FileHandlers you want to support, keyed by their file extension. This config should contain
+   *                           the given fileExtension.
    *
    * @return A FileHandler to process files with the given extension.
    * @throws IllegalArgumentException If you try to create a FileHandler for a non-default file type and don't specify a class, or
