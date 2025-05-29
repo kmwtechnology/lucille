@@ -154,6 +154,8 @@ public class PrintTest {
 
     doc = Document.create("doc", "run456");
     doc.setField("abc", "123");
+    // in excludeFields, shouldn't be part of the response.
+    doc.setField("to_remove", "abcdef");
 
     overwrite.processDocument(doc);
     overwrite.stop();
