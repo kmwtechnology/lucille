@@ -142,11 +142,26 @@ public class PrintTest {
     Document doc = Document.create("doc", "run123");
     doc.setField("field", "value");
 
-    // TODO: THis test is incomplete!! :)
     overwrite.processDocument(doc);
     overwrite.stop();
 
+    // should be the doc written, as usual.
     String contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));
-    System.out.println(contents);
+    assertTrue(contents.startsWith("{\"id\":\"doc\",\"field\":\"value\"}"));
+
+    // now, we will attempt to overwrite the file contents
+    overwrite = factory.get("PrintTest/outputFileOverwrite.conf");
+
+    doc = Document.create("doc", "run456");
+    doc.setField("abc", "123");
+
+    overwrite.processDocument(doc);
+    overwrite.stop();
+
+    // should be only the new contents - overwrite the old contents
+    contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));
+    assertTrue(contents.startsWith("{\"id\":\"doc\",\"abc\":\"123\"}"));
+
+    Files.delete(Paths.get(outputFilePath));
   }
 }
