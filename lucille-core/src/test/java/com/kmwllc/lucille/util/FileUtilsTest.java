@@ -47,5 +47,10 @@ public class FileUtilsTest {
     String exceptionURI = ":example.org";
     assertFalse(FileUtils.isValidURI(exceptionURI));
   }
-
+  
+  @Test
+  public void testAppendStringToFileName() {
+    assertEquals("/Users/Desktop/hello-FILE-1.txt", FileUtils.appendStringToFileName("/Users/Desktop/hello.txt", "-FILE-1"));
+    assertEquals("/Users/Desktop/hello-FILE-1", FileUtils.appendStringToFileName("/Users/Desktop/hello", "-FILE-1"));
+  }
 }
