@@ -24,9 +24,6 @@ import org.xml.sax.XMLReader;
 
 public class XMLFileHandler extends BaseFileHandler {
 
-  public static final ParentSpec PARENT_SPEC = Spec.parent("xml")
-      .withRequiredProperties("xmlRootPath", "xmlIdPath")
-      .withOptionalProperties("docIdPrefix", "outputField", "encoding");
 
   private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
 
@@ -40,7 +37,10 @@ public class XMLFileHandler extends BaseFileHandler {
   private XMLReader xmlReader = null;
 
   public XMLFileHandler(Config config) {
-    super(config);
+    super(config, Spec.fileHandler()
+        .withRequiredProperties("xmlRootPath", "xmlIdPath")
+        .withOptionalProperties("docIdPrefix", "outputField", "encoding"));
+
     this.xmlRootPath = config.getString("xmlRootPath");
     this.xmlIdPath = config.getString("xmlIdPath");
     this.encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
