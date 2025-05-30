@@ -35,9 +35,9 @@ import org.slf4j.LoggerFactory;
  *  consider adding all failed documents to the failure topic
  *  add ability to override names of any kafka topic in the config
  *
- *  s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
- *  azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
- *  gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
+ *  s3 (Map, Optional) : If your property files are held in S3. See FileConnector for the appropriate arguments to provide.
+ *  azure (Map, Optional) : If your property files are held in Azure. See FileConnector for the appropriate arguments to provide.
+ *  gcp (Map, Optional) : If your property files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class KafkaUtils {
 

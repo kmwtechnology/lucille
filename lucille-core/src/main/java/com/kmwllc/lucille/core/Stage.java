@@ -335,7 +335,7 @@ public abstract class Stage {
     // validate conditions
     if (config.hasPath("conditions")) {
       for (Config condition : config.getConfigList("conditions")) {
-        Spec.validateConfig(condition, getDisplayName() + " Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
+        Spec.validateConfig(condition, getDisplayName() + "'s Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
             EMPTY_LIST);
       }
     }

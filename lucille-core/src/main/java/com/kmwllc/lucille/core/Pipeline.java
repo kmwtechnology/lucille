@@ -68,6 +68,10 @@ public class Pipeline {
     List<Exception> exceptions = new ArrayList<>();
     for (Config c : stages) {
       try {
+        if (!c.hasPath("class")) {
+          throw new IllegalArgumentException("No Stage class specified");
+        }
+
         Class<?> clazz = Class.forName(c.getString("class"));
         Constructor<?> constructor = clazz.getConstructor(Config.class);
         // Construct the stage. Validation takes place in the super() constructor.
