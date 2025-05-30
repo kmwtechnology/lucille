@@ -14,6 +14,7 @@ import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.sql.SQLException;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,23 +34,24 @@ import org.slf4j.LoggerFactory;
  *    </ul>
  *   </li>
  *   <li>filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.</li>
- *   <li>fileOptions (Map, Optional): configuratino for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.</li>
+ *   <li>fileOptions (Map, Optional): configuration for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.</li>
+ *   <li>state (Map, Optional): configuration to track when files are published and processed by Lucille. See example configuration and some important notes below.</li>
  *   <li>gcp (Map, Optional): options for handling Google Cloud files. See example below.</li>
  *   <li>s3 (Map, Optional): options for handling S3 files. See example below.</li>
  *   <li>azure (Map, Optional): options for handling Azure files. See example below.</li>
  * </ul>
  *
- * <br>
- *
  * <code>filterOptions</code>:
  * <ul>
  *   <li>includes (List&lt;String&gt;, Optional): list of regex patterns to include files.</li>
  *   <li>excludes (List&lt;String&gt;, Optional): list of regex patterns to exclude files.</li>
- *   <li>modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time. For example, specify "1h", and only files that were modified more than an hour ago will be published.</li>
+ *   <li>lastModifiedCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time. For example, specify "1h", and only files that were modified within the last hour will be published.</li>
+ *   <li>lastPublishedCutoff (Duration, Optional): Filter files that haven't been published by Lucille since a certain amount of time. Relies on your state configuration to determine when files were last published. If you do not specify configuration for state, this will have no effect. Specify "1h" to only include / publish files that were last published <b>more</b> than an hour ago.</li>
  * </ul>
  *
- * See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
- * <br> Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
+ * Only files that comply with <b>all</b> of your specified FilterOptions will be processed and published in a traversal.
+ * <br> See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
+ * <br> Note that, for archive files, <code>lastModifiedCutoff</code> and <code>lastPublishedCutoff</code> apply to both the archive/compressed file itself <i>and</i> its content(s).
  *
  * <p> <code>fileOptions</code>:
  * <ul>
@@ -62,7 +64,6 @@ import org.slf4j.LoggerFactory;
  *   <li>json (Map, Optional): config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.</li>
  *   <li>xml (Map, Optional): config options for handling xml type files. Config will be passed to XMLFileHandler.</li>
  *   <li>(To configure the docIdPrefix for CSV, JSON or XML files, configure it in its respective config in <code>fileOptions</code>.)</li>
- *
  *   <li> <b>Notes</b> on archive / compressed files:
  *      <ul>
  *         <li>Recurring is not supported.</li>
@@ -71,6 +72,27 @@ import org.slf4j.LoggerFactory;
  *         <li>For compressed files, the file path follows the format of "{path/to/compressed/compressedFileName.gz}!{compressedFileName}".</li>
  *       </ul>
  *    </li>
+ * </ul>
+ *
+ * <code>state</code>: FileConnector allows you to avoid publishing files that were recently published (using <code>filterOptions.lastPublishedCutoff</code>).
+ * In order to keep track of this information, you'll need to specify a connection to a JDBC-compatible database which will be used to track file paths and
+ * when they were last published by Lucille. For more information about the database / its schema, see {@link FileConnectorStateManager}.
+ * <p> Config Parameters:
+ * <ul>
+ *   <li>driver (String): The driver to use for creating the connection.</li>
+ *   <li>connectionString (String): A String for a connection to your state database.</li>
+ *   <li>jdbcUser (String): The username for accessing the database.</li>
+ *   <li>jdbcPassword (String): The password for accessing the database.</li>
+ *   <li>tableName (String, Optional): The name of the table in your database that holds the relevant state information. Defaults to the connector name.</li>
+ *   <li>performDeletions (Boolean, Optional): Whether you want to delete rows in your database corresponding to files that appear to have been deleted in the file system. Defaults to true.</li>
+ *   <li>pathLength (Int, Optional): The maximum length of file paths allowed in the table (VARCHAR length). <b>Only affects the creation of tables by Lucille.</b> Defaults to 200.</li>
+ * </ul>
+ *
+ * <p> <b>Some notes on state:</b>
+ * <ul>
+ *   <li>The FileConnector will be slower when running with state.</li>
+ *   <li>Files that get moved or renamed will always be published, regardless of lastPublishedCutoff.</li>
+ *   <li>You can provide state configuration, but not a lastPublishedCutoff, and Lucille will keep your state updated.</li>
  * </ul>
  *
  * <code>gcp</code>:
@@ -144,15 +166,20 @@ public class FileConnector extends AbstractConnector {
   private StorageClient storageClient;
   private final URI storageURI;
 
+  private final FileConnectorStateManager stateManager;
+
   public FileConnector(Config config) throws ConnectorException {
     super(config, Spec.connector()
         .withRequiredProperties("pathToStorage")
         .withOptionalParents(
-            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
+            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "lastModifiedCutoff", "lastPublishedCutoff"),
             Spec.parent("fileOptions")
                 .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
                     "moveToErrorFolder")
                 .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
+            Spec.parent("state")
+                .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword")
+                .withOptionalProperties("tableName", "performDeletions", "pathLength"),
             GCP_PARENT_SPEC,
             AZURE_PARENT_SPEC,
             S3_PARENT_SPEC
@@ -169,8 +196,14 @@ public class FileConnector extends AbstractConnector {
       throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
     }
 
+    this.stateManager = config.hasPath("state") ? new FileConnectorStateManager(config.getConfig("state"), getName()) : null;
+
     if (CLOUD_STORAGE_CLIENT_KEYS.stream().filter(config::hasPath).count() > 1) {
       log.warn("Config for FileConnector contains options for more than one cloud provider.");
+    }
+
+    if (filterOptions.hasPath("lastPublishedCutoff") && !config.hasPath("state")) {
+      log.warn("FilterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
     }
   }
 
@@ -185,15 +218,29 @@ public class FileConnector extends AbstractConnector {
     try {
       storageClient.init();
       TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), fileOptions, filterOptions);
-      storageClient.traverse(publisher, params);
+
+      if (stateManager != null) {
+        stateManager.init();
+        storageClient.traverse(publisher, params, stateManager);
+      } else {
+        storageClient.traverse(publisher, params);
+      }
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
+      throw new ConnectorException("Error occurred while initializing client/state or publishing files.", e);
     } finally {
       try {
         // closes clients and clears file handlers if any
         storageClient.shutdown();
       } catch (IOException e) {
         throw new ConnectorException("Error occurred while shutting down client.", e);
+      }
+
+      if (stateManager != null) {
+        try {
+          stateManager.shutdown();
+        } catch (SQLException e) {
+          throw new ConnectorException("Error occurred while shutting down FileConnectorStateManager.", e);
+        }
       }
     }
   }

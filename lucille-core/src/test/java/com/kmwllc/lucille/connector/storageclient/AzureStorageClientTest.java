@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -461,7 +462,7 @@ public class AzureStorageClientTest {
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     // only files modified in the last 2 hours
-    Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
+    Map<String, String> filterOptionsMap = Map.of("lastModifiedCutoff", "2h");
     TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "",
         ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
 
