@@ -253,4 +253,208 @@ public class CSVFileHandlerTest {
     assertEquals("3", docsPublished.get(2).getId());
   }
 
+  @Test
+  public void testCustomLineNumberField() throws Exception {
+    // just making sure we can change the line number field.
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/customLineNumberField.conf");
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "defaults.csv");
+
+    int docsCount = 0;
+
+    while (docs.hasNext()) {
+      Document d = docs.next();
+      docsCount++;
+
+      assertEquals(Integer.valueOf(docsCount), d.getInt("line_number"));
+      assertFalse(d.has("csvLineNumber"));
+    }
+  }
+
+  @Test
+  public void testCustomFilenameField() throws Exception {
+    // just making sure we can change the filename field.
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/customFilenameField.conf");
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "defaults.csv");
+
+    while (docs.hasNext()) {
+      Document d = docs.next();
+
+      assertEquals("defaults.csv", d.getString("file_name_here"));
+      assertFalse(d.has("filename"));
+    }
+  }
+
+  @Test
+  public void testCustomFilepathField() throws Exception {
+    // just making sure we can change the filePath field.
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/customFilepathField.conf");
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+
+    while (docs.hasNext()) {
+      Document d = docs.next();
+
+      // will just put whatever is provided to the method call.
+      assertEquals("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv", d.getString("path_to_file"));
+      assertFalse(d.has("source"));
+    }
+  }
+
+  @Test
+  public void testCustomDocIDFormat() throws Exception {
+    // the format separates the three strings with an underscore
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/customDocIDFormat.conf");
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+
+    Document d = docs.next();
+    assertEquals("a_b_c", d.getId());
+
+    // looks a bit wonky. "e,f" is a literal string in the csv.
+    d = docs.next();
+    assertEquals("d_e,f_g", d.getId());
+
+    d = docs.next();
+    assertEquals("x_y_z", d.getId());
+  }
+
+  @Test
+  public void testLowercaseFields() throws Exception {
+    // the header columns are all lowercased. they have different capitalizations in the config
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/lowercaseFields.conf");
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+
+    // even though they were capitalized differently in the config, should be extracted the same as before because lowercaseFields = true
+    Document d = docs.next();
+    assertEquals("a_b_c", d.getId());
+
+    d = docs.next();
+    assertEquals("d_e,f_g", d.getId());
+
+    d = docs.next();
+    assertEquals("x_y_z", d.getId());
+  }
+
+  @Test
+  public void testIgnoreTerms() throws Exception {
+    // ignored terms is set to exclude all of the values found in "field2".
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/ignoredTerms.conf");
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "defaults.csv");
+
+    while (docs.hasNext()) {
+      Document d = docs.next();
+
+      assertTrue(d.has("field1"));
+      // all the values are in "ignoredTerms" so it never gets placed on a document
+      assertFalse(d.has("field2"));
+      assertTrue(d.has("field3"));
+    }
+  }
+
+  // empty and blank lines from the reader (iterator), make sure they get skipped
+
+  // skipping a row with more columns than the header
+  @Test
+  public void testSkipRowsWithExtraColumns() throws Exception {
+    Config config = ConfigFactory.empty();
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaultsExtraTerms.csv"), "defaults.csv");
+
+    int docsCount = 0;
+
+    while (docs.hasNext()) {
+      docs.next();
+      docsCount++;
+    }
+
+    // the second line should've been skipped
+    assertEquals(2, docsCount);
+  }
+
+  // null header (empty file) --> handled gracefully, no documents to be published?
+  @Test
+  public void testEmptyFile() throws Exception {
+    Config config = ConfigFactory.empty();
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/empty.csv"), "defaults.csv");
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testHeaderNoRows() throws Exception {
+    Config config = ConfigFactory.empty();
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/headerOnly.csv"), "defaults.csv");
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testBlanksAndEmpties() throws Exception {
+    Config config = ConfigFactory.empty();
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaultsWithEmptiesAndBlanks.csv"), "defaults.csv");
+
+    int docsCount = 0;
+
+    while (docs.hasNext()) {
+      docsCount++;
+      Document d = docs.next();
+      // 1, 4, and 7 are the line numbers. (still get counted even with the blank lines!)
+      assertEquals(Integer.valueOf((3 * (docsCount - 1)) + 1), d.getInt("csvLineNumber"));
+    }
+
+    // still should just be the three docs
+    assertEquals(3, docsCount);
+  }
+
+  // file handler should safely ignore reserved fields when there is a column with the same name in the header
+  @Test
+  public void testIgnoreReservedFields() throws Exception {
+    Config config = ConfigFactory.empty();
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/reservedFields.csv"), "defaults.csv");
+
+    int docsCount = 0;
+    while (docs.hasNext()) {
+
+      Document d = docs.next();
+      docsCount++;
+
+      assertEquals("defaults.csv-" + docsCount, d.getId());
+      // was in the headers but shouldn't be placed on document
+      assertFalse(d.has(Document.RUNID_FIELD));
+      // csv has 1, 2, 3 for "value" :)
+      assertEquals(Integer.valueOf(docsCount), d.getInt("value"));
+    }
+  }
+
+  @Test
+  public void testExhaustingIterator() throws Exception {
+    Config config = ConfigFactory.empty();
+    CSVFileHandler handler = new CSVFileHandler(config);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "defaults.csv");
+
+    while (docs.hasNext()) {
+      docs.next();
+    }
+
+    // an exception is thrown but caught, so just an error is logged
+    docs.next();
+  }
 }
