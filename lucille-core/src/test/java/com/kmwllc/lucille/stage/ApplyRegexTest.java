@@ -133,6 +133,42 @@ public class ApplyRegexTest {
   }
 
   @Test
+  public void testIgnoreCaseAndMultiline() throws StageException {
+    Stage stage = factory.get("ApplyRegexTest/ignoreCaseAndMultiline.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "\n\nLIne");
+
+    stage.processDocument(doc1);
+
+    assertEquals("LIne", doc1.getString("output"));
+  }
+
+  @Test
+  public void testIgnoreCaseAndMultilineAndDotall() throws StageException {
+    Stage stage = factory.get("ApplyRegexTest/icAndMlAndDa.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "\n\nLI\ne");
+
+    stage.processDocument(doc1);
+
+    assertEquals("LI\ne", doc1.getString("output"));
+  }
+
+  @Test
+  public void testAllFlags() throws StageException {
+    Stage stage = factory.get("ApplyRegexTest/allFlags.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "^LI.e$");
+
+    stage.processDocument(doc1);
+
+    assertEquals("^LI.e$", doc1.getString("output"));
+  }
+
+  @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ApplyRegexTest/config.conf");
     assertEquals(
