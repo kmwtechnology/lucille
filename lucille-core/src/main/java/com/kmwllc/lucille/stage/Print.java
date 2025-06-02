@@ -7,14 +7,13 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
-import java.lang.invoke.MethodHandles;
 import java.util.Iterator;
 import java.util.List;
 
@@ -34,14 +33,17 @@ import java.util.List;
  */
 public class Print extends Stage {
 
-  private final String outputFilePath;
-  private boolean shouldLog;
-  private boolean overwriteFile;
-  private final boolean appendThreadName;
+  private static final Logger log = LoggerFactory.getLogger(Print.class);
 
-  private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private Writer writer = null;
-  private List<String> excludeFields;
+  private final String outputFilePath;
+  private final boolean shouldLog;
+  private final boolean overwriteFile;
+  private final boolean appendThreadName;
+  private final List<String> excludeFields;
+
+  // multithreaded support for handling appendThreadName + multithreaded runs involving an outputFile.
+  private ThreadLocal<BufferedWriter> threadLocalWriter;
+  private final ConcurrentLinkedQueue<BufferedWriter> allWriters = new ConcurrentLinkedQueue<>();
 
   public Print(Config config) {
     super(config, Spec.stage().withOptionalProperties("shouldLog", "outputFile",
@@ -61,16 +63,23 @@ public class Print extends Stage {
 
   public void start() throws StageException {
     if (outputFilePath != null) {
-      try {
-        if (appendThreadName) {
-          String appendedOutputFilePath = FileUtils.appendStringToFileName(outputFilePath, Thread.currentThread().getName());
-          writer = new BufferedWriter(new FileWriter(appendedOutputFilePath, !overwriteFile));
-        } else {
-          writer = new BufferedWriter(new FileWriter(outputFilePath, !overwriteFile));
+      this.threadLocalWriter = ThreadLocal.withInitial(() -> {
+        try {
+          BufferedWriter writer;
+
+          if (appendThreadName) {
+            String appendedOutputFilePath = FileUtils.appendStringToFileName(outputFilePath, Thread.currentThread().getName());
+            writer = new BufferedWriter(new FileWriter(appendedOutputFilePath, !overwriteFile));
+          } else {
+            writer = new BufferedWriter(new FileWriter(outputFilePath, !overwriteFile));
+          }
+
+          allWriters.add(writer);
+          return writer;
+        } catch (IOException e) {
+          throw new RuntimeException("Couldn't initialize FileWriter / BufferedWriter.", e);
         }
-      } catch (IOException e) {
-        throw new StageException("Could not open the specified file.", e);
-      }
+      });
     }
   }
 
@@ -91,9 +100,9 @@ public class Print extends Stage {
       log.info(doc.toString());
     }
 
-    if (writer != null) {
+    if (threadLocalWriter != null) {
       try {
-        writer.append(doc.toString() + "\n");
+        threadLocalWriter.get().append(doc.toString() + "\n");
       } catch (IOException e) {
         throw new StageException("Could not write to the given file", e);
       }
@@ -104,13 +113,12 @@ public class Print extends Stage {
 
   @Override
   public void stop() throws StageException {
-    if (writer != null) {
+    for (BufferedWriter writer : allWriters) {
       try {
         writer.close();
       } catch (IOException e) {
-        throw new StageException("Error closing writer.", e);
+        throw new StageException("Couldn't close a BufferedWriter.", e);
       }
     }
   }
-
 }

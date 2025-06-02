@@ -55,20 +55,20 @@ public class PrintTest {
     Document doc = Document.create("doc1");
     doc.setField("field", "value");
 
-    Runnable runStage = () -> {
+    // NOTE: The Stage is *purposely* constructed and started in the main thread. This mimics how pipelines work in a
+    // multithreaded run. Have to make sure our threadLocals work / handle this behavior gracefully.
+    Stage stage = factory.get(appendThreadConfig);
+
+    Runnable processDocument = () -> {
       try {
-        // have to create the Stage in the thread, otherwise, appendThreadNames won't be used correctly
-        Stage stage = factory.get(appendThreadConfig);
         stage.processDocument(doc);
-        // Have to stop the stage to close the writer, allowing us to get the contents
-        stage.stop();
       } catch (StageException e) {
         throw new RuntimeException(e);
       }
     };
 
-    Thread thread1 = new Thread(runStage, "thread-1");
-    Thread thread2 = new Thread(runStage, "thread-2");
+    Thread thread1 = new Thread(processDocument, "thread-1");
+    Thread thread2 = new Thread(processDocument, "thread-2");
 
     thread1.start();
     thread2.start();
@@ -76,7 +76,9 @@ public class PrintTest {
     thread1.join();
     thread2.join();
 
-    // check the output files are at the appropriate paths, etc.
+    stage.stop();
+
+    // check the output files are at the appropriate paths, appropriate content, etc.
     try (
         InputStream thread1Stream = new FileInputStream(thread1OutputPath.toFile());
         InputStream thread2Stream = new FileInputStream(thread2OutputPath.toFile())
@@ -105,6 +107,11 @@ public class PrintTest {
     try (MockedConstruction<BufferedWriter> mockedConstruction = mockConstruction(BufferedWriter.class);
         MockedConstruction<FileWriter> mockedWriter = mockConstruction(FileWriter.class)) {
       Stage stage = factory.get("PrintTest/full.conf");
+
+      // have to process something so the ThreadLocal FileWriter actually gets built.
+      Document doc = Document.create("test");
+      stage.processDocument(doc);
+
       stage.stop();
       verify(mockedConstruction.constructed().get(0)).close();
     }
@@ -116,6 +123,11 @@ public class PrintTest {
       doThrow(IOException.class).when(mock).close();
     }); MockedConstruction<FileWriter> mockedWriter = mockConstruction(FileWriter.class)) {
       Stage stage = factory.get("PrintTest/full.conf");
+
+      // have to process something so the ThreadLocal FileWriter actually gets built.
+      Document doc = Document.create("test");
+      stage.processDocument(doc);
+
       assertThrows(StageException.class, () -> stage.stop());
     }
   }
