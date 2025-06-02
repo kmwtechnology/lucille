@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.Test;
 
 public class XMLFileHandlerTest {
@@ -197,5 +198,56 @@ public class XMLFileHandlerTest {
     String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/chinese.xml";
     File file = new File(filePath);
     assertThrows(FileHandlerException.class, () -> xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath));
+  }
+
+  @Test
+  public void testIdPathIncludesAttribute() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        "xmlIdPath", "@id",
+        "encoding", "utf-8",
+        "outputField", "xml_field"
+    )));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staffIDAttribute.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+
+    assertEquals(3, docs.size());
+
+    assertEquals("1001", docs.get(0).getId());
+    assertEquals("1002", docs.get(1).getId());
+
+    // Making sure the third document has a UUID for its ID.
+    // would throw an exception if it wasn't.
+    UUID.fromString(docs.get(2).getId());
+  }
+
+  @Test
+  public void testIdPathQualifier() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        "xmlIdPath", "@id[. = '1001']",
+        "encoding", "utf-8",
+        "outputField", "xml_field"
+    )));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staffIDAttribute.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+
+    assertEquals(1, docs.size());
   }
 }

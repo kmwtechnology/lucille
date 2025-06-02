@@ -16,6 +16,7 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
+import javax.xml.xpath.XPathExpressionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
@@ -103,12 +104,20 @@ public class XMLFileHandler extends BaseFileHandler {
       throw new FileHandlerException("unable to get XML Reader", e);
     }
 
-    ChunkingXMLHandler xmlHandler = new ChunkingXMLHandler();
+    ChunkingXMLHandler xmlHandler;
+
+    try {
+      xmlHandler = new ChunkingXMLHandler();
+      xmlHandler.setDocumentIDPath(xmlIdPath);
+    } catch (Exception e) {
+      throw new FileHandlerException("Error setting up ChunkingXMLHandler.", e);
+    }
+
     xmlHandler.setOutputField(outputField);
     xmlHandler.setPublisher(publisher);
     xmlHandler.setDocumentRootPath(xmlRootPath);
-    xmlHandler.setDocumentIDPath(xmlIdPath);
     xmlHandler.setDocIDPrefix(docIdPrefix);
+
     xmlReader.setContentHandler(xmlHandler);
     return xmlHandler;
   }
