@@ -29,7 +29,7 @@ import java.util.List;
  * </ul>
  *
  * <p> <b>Note:</b> If you have multiple worker threads, it is highly recommended that you keep <code>appendThreadName</code> enabled
- * to ensure thread-safe file writes and prevent data corruption.
+ * to ensure thread-safe file writes and prevent data corruption - <i>especially</i> if <code>overwriteFile</code> is enabled.
  */
 public class Print extends Stage {
 
