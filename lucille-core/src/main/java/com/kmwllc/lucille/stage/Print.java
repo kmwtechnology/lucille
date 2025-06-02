@@ -7,7 +7,6 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,9 +40,9 @@ public class Print extends Stage {
   private final boolean appendThreadName;
   private final List<String> excludeFields;
 
-  // multithreaded support for handling appendThreadName + multithreaded runs involving an outputFile.
-  private ThreadLocal<BufferedWriter> threadLocalWriter;
-  private final ConcurrentLinkedQueue<BufferedWriter> allWriters = new ConcurrentLinkedQueue<>();
+  // using a Supplier so the FileWriter is not actually constructed until it is needed. this allows us to appendThreadName
+  // as needed, since construction + "start()" are always called in the main thread, even in multithreaded runs.
+  private BufferedWriter writer;
 
   public Print(Config config) {
     super(config, Spec.stage().withOptionalProperties("shouldLog", "outputFile",
@@ -62,29 +61,29 @@ public class Print extends Stage {
   }
 
   public void start() throws StageException {
-    if (outputFilePath != null) {
-      this.threadLocalWriter = ThreadLocal.withInitial(() -> {
-        try {
-          BufferedWriter writer;
-
-          if (appendThreadName) {
-            String appendedOutputFilePath = FileUtils.appendStringToFileName(outputFilePath, Thread.currentThread().getName());
-            writer = new BufferedWriter(new FileWriter(appendedOutputFilePath, !overwriteFile));
-          } else {
-            writer = new BufferedWriter(new FileWriter(outputFilePath, !overwriteFile));
-          }
-
-          allWriters.add(writer);
-          return writer;
-        } catch (IOException e) {
-          throw new RuntimeException("Couldn't initialize FileWriter / BufferedWriter.", e);
-        }
-      });
+    // create the file writer, if needed, if we aren't using appendThreadName
+    if (outputFilePath != null && !appendThreadName) {
+      try {
+        this.writer = new BufferedWriter(new FileWriter(outputFilePath, !overwriteFile));
+      } catch (IOException e) {
+        throw new RuntimeException("Couldn't initialize FileWriter / BufferedWriter.", e);
+      }
     }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    // create the file writer, if needed, here, if we are using appendThreadName, since this method is the first time the specific
+    // worker thread is executing code on this stage instance.
+    if (outputFilePath != null && appendThreadName && writer == null) {
+      try {
+        String appendedOutputFilePath = FileUtils.appendStringToFileName(outputFilePath, Thread.currentThread().getName());
+        writer = new BufferedWriter(new FileWriter(appendedOutputFilePath, !overwriteFile));
+      } catch (IOException e) {
+        throw new RuntimeException("Couldn't initialize FileWriter / BufferedWriter.", e);
+      }
+    }
+
     if (excludeFields != null) {
       doc = doc.deepCopy();
       for (String field : excludeFields) {
@@ -100,9 +99,9 @@ public class Print extends Stage {
       log.info(doc.toString());
     }
 
-    if (threadLocalWriter != null) {
+    if (writer != null) {
       try {
-        threadLocalWriter.get().append(doc.toString() + "\n");
+        writer.append(doc.toString() + "\n");
       } catch (IOException e) {
         throw new StageException("Could not write to the given file", e);
       }
@@ -113,7 +112,7 @@ public class Print extends Stage {
 
   @Override
   public void stop() throws StageException {
-    for (BufferedWriter writer : allWriters) {
+    if (writer != null) {
       try {
         writer.close();
       } catch (IOException e) {

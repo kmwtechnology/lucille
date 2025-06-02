@@ -56,19 +56,25 @@ public class PrintTest {
     doc.setField("field", "value");
 
     // NOTE: The Stage is *purposely* constructed and started in the main thread. This mimics how pipelines work in a
-    // multithreaded run. Have to make sure our threadLocals work / handle this behavior gracefully.
-    Stage stage = factory.get(appendThreadConfig);
+    // multithreaded run. Have to make sure the threads still work / handle this... write to the correct file.
+    Stage stage1 = factory.get(appendThreadConfig);
+    Stage stage2 = factory.get(appendThreadConfig);
 
-    Runnable processDocument = () -> {
+    Thread thread1 = new Thread(() -> {
       try {
-        stage.processDocument(doc);
+        stage1.processDocument(doc);
       } catch (StageException e) {
         throw new RuntimeException(e);
       }
-    };
+    }, "thread-1");
 
-    Thread thread1 = new Thread(processDocument, "thread-1");
-    Thread thread2 = new Thread(processDocument, "thread-2");
+    Thread thread2 = new Thread(() -> {
+      try {
+        stage2.processDocument(doc);
+      } catch (StageException e) {
+        throw new RuntimeException(e);
+      }
+    }, "thread-2");
 
     thread1.start();
     thread2.start();
@@ -76,7 +82,8 @@ public class PrintTest {
     thread1.join();
     thread2.join();
 
-    stage.stop();
+    stage1.stop();
+    stage2.stop();
 
     // check the output files are at the appropriate paths, appropriate content, etc.
     try (
