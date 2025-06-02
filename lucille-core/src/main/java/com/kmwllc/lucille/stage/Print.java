@@ -25,9 +25,12 @@ import java.util.List;
  *   <li>shouldLog (Boolean, Optional): Whether to log the document in JSON format at INFO level. Defaults to true.</li>
  *   <li>outputFile (String, Optional): A file to append the documents to (will be created if it doesn't already exist).</li>
  *   <li>excludeFields (List&lt;String&gt;, Optional): A list of fields to exclude from the output.</li>
- *   <li>overwriteFile (Boolean, Optional): Whether the output file should overwritten if it already exists. Defaults to true.</li>
- *   <li>appendThreadName (Boolean, Optional): Whether threadNames should be appended to the outputFile path, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to false.</li>
+ *   <li>overwriteFile (Boolean, Optional): Whether the output file's contents should be overwritten if they already exist. Defaults to true.</li>
+ *   <li>appendThreadName (Boolean, Optional): Whether the current thread's name should be appended to the outputFile's filename, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to true.</li>
  * </ul>
+ *
+ * <p> <b>Note:</b> If you have multiple worker threads, it is highly recommended that you keep <code>appendThreadName</code> enabled
+ * to ensure thread-safe file writes and prevent data corruption.
  */
 public class Print extends Stage {
 
@@ -48,10 +51,11 @@ public class Print extends Stage {
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
     this.excludeFields = config.hasPath("excludeFields") ? config.getStringList("excludeFields") : null;
     this.overwriteFile = config.hasPath("overwriteFile") ? config.getBoolean("overwriteFile") : true;
-    this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", false);
+    this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", true);
 
-    if (appendThreadName && outputFilePath == null) {
-      log.warn("Print Stage configured to have no outputFile but separateThreads = true. separateThreads has no effect.");
+    // if appendThreadName is *explicitly* set to true in the config, but no output file, warn it has no effect.
+    if ((config.hasPath("appendThreadName") && config.getBoolean("appendThreadName")) && outputFilePath == null) {
+      log.warn("appendThreadName was set to true in Print Config, but no outputFile was specified. appendThreadName has no effect.");
     }
   }
 
