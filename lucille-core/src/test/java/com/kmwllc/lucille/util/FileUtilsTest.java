@@ -14,25 +14,31 @@ public class FileUtilsTest {
     String oldLucilleHome = System.getProperty("LUCILLE_HOME");
     String oldUserDir = System.getProperty("user.dir");
 
-    // 1. Getting it when it is set to a String
-    // This runs Path.of(""), which returns the working directory (lucille-core).
-    System.setProperty("LUCILLE_HOME", "");
-    String lucilleHome = FileUtils.getLucilleHomeDirectory();
-    assertTrue(Paths.get(lucilleHome).isAbsolute());
-    assertTrue(Paths.get(lucilleHome).endsWith("lucille-core"));
+    try {
+      // 1. Getting it when it is set to a String
+      // This runs Path.of(""), which returns the working directory (lucille-core).
+      System.setProperty("LUCILLE_HOME", "");
+      String lucilleHome = FileUtils.getLucilleHomeDirectory();
+      assertTrue(Paths.get(lucilleHome).isAbsolute());
+      assertTrue(Paths.get(lucilleHome).endsWith("lucille-core"));
 
-    // 2. Getting it when it is not set, falls back to user.dir
-    System.clearProperty("LUCILLE_HOME");
-    System.setProperty("user.dir", "/test/folder");
-    String homeDir = FileUtils.getLucilleHomeDirectory();
-    assertEquals("/test/folder", homeDir);
+      // 2. Getting it when it is not set, falls back to user.dir
+      System.clearProperty("LUCILLE_HOME");
+      System.setProperty("user.dir", "/test/folder");
+      String homeDir = FileUtils.getLucilleHomeDirectory();
+      assertEquals("/test/folder", homeDir);
+    } finally {
+      if (oldLucilleHome != null) {
+        System.setProperty("LUCILLE_HOME", oldLucilleHome);
+      } else {
+        System.clearProperty("LUCILLE_HOME");
+      }
 
-    if (oldLucilleHome != null) {
-      System.setProperty("LUCILLE_HOME", oldLucilleHome);
-    }
-
-    if (oldUserDir != null) {
-      System.setProperty("user.dir", oldUserDir);
+      if (oldUserDir != null) {
+        System.setProperty("user.dir", oldUserDir);
+      } else {
+        System.clearProperty("user.dir");
+      }
     }
   }
 

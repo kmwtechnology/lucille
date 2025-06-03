@@ -9,7 +9,6 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-
 public class SSLUtilsTest {
   private static final String KEYSTORE_PASSWORD = "javax.net.ssl.keyStorePassword";
   private static final String KEYSTORE = "javax.net.ssl.keyStore";
@@ -90,55 +89,71 @@ public class SSLUtilsTest {
 
   @Test
   public void testAllPropertiesInConfigAndNotSet() {
-    System.clearProperty(KEYSTORE);
-    System.clearProperty(KEYSTORE_PASSWORD);
-    System.clearProperty(TRUSTSTORE);
-    System.clearProperty(TRUSTSTORE_PASSWORD);
+    try {
+      Config config = ConfigFactory.parseResourcesAnySyntax("SSLUtilsTest/all.conf");
 
-    Config config = ConfigFactory.parseResourcesAnySyntax("SSLUtilsTest/all.conf");
+      SSLUtils.setSSLSystemProperties(config);
 
-    SSLUtils.setSSLSystemProperties(config);
-
-    // all four of them should have been set.
-    assertEquals("/all/path/keyStore", System.getProperty(KEYSTORE));
-    assertEquals("all-secret", System.getProperty(KEYSTORE_PASSWORD));
-    assertEquals("/all/path/trustStore", System.getProperty(TRUSTSTORE));
-    assertEquals("all-trust-secret", System.getProperty(TRUSTSTORE_PASSWORD));
+      // all four of them should have been set.
+      assertEquals("/all/path/keyStore", System.getProperty(KEYSTORE));
+      assertEquals("all-secret", System.getProperty(KEYSTORE_PASSWORD));
+      assertEquals("/all/path/trustStore", System.getProperty(TRUSTSTORE));
+      assertEquals("all-trust-secret", System.getProperty(TRUSTSTORE_PASSWORD));
+    } finally {
+      System.clearProperty(KEYSTORE);
+      System.clearProperty(KEYSTORE_PASSWORD);
+      System.clearProperty(TRUSTSTORE);
+      System.clearProperty(TRUSTSTORE_PASSWORD);
+    }
   }
 
   @Test
   public void testAllPropertiesInConfigButSet() {
-    System.setProperty(KEYSTORE, "/default/keyStore");
-    System.setProperty(KEYSTORE_PASSWORD, "default-key-secret");
-    System.setProperty(TRUSTSTORE, "/default/trustStore");
-    System.setProperty(TRUSTSTORE_PASSWORD, "default-trust-secret");
+    try {
+      System.setProperty(KEYSTORE, "/default/keyStore");
+      System.setProperty(KEYSTORE_PASSWORD, "default-key-secret");
+      System.setProperty(TRUSTSTORE, "/default/trustStore");
+      System.setProperty(TRUSTSTORE_PASSWORD, "default-trust-secret");
 
-    Config config = ConfigFactory.parseResourcesAnySyntax("SSLUtilsTest/all.conf");
+      Config config = ConfigFactory.parseResourcesAnySyntax("SSLUtilsTest/all.conf");
 
-    SSLUtils.setSSLSystemProperties(config);
+      SSLUtils.setSSLSystemProperties(config);
 
-    // none of them should've been overwritten.
-    assertEquals("/default/keyStore", System.getProperty(KEYSTORE));
-    assertEquals("default-key-secret", System.getProperty(KEYSTORE_PASSWORD));
-    assertEquals("/default/trustStore", System.getProperty(TRUSTSTORE));
-    assertEquals("default-trust-secret", System.getProperty(TRUSTSTORE_PASSWORD));
+      // none of them should've been overwritten.
+      assertEquals("/default/keyStore", System.getProperty(KEYSTORE));
+      assertEquals("default-key-secret", System.getProperty(KEYSTORE_PASSWORD));
+      assertEquals("/default/trustStore", System.getProperty(TRUSTSTORE));
+      assertEquals("default-trust-secret", System.getProperty(TRUSTSTORE_PASSWORD));
+    } finally {
+      System.clearProperty(KEYSTORE);
+      System.clearProperty(KEYSTORE_PASSWORD);
+      System.clearProperty(TRUSTSTORE);
+      System.clearProperty(TRUSTSTORE_PASSWORD);
+    }
   }
 
   @Test
   public void testAllPropertiesMissingButSet() {
-    System.setProperty(KEYSTORE, "/default/keyStore");
-    System.setProperty(KEYSTORE_PASSWORD, "default-key-secret");
-    System.setProperty(TRUSTSTORE, "/default/trustStore");
-    System.setProperty(TRUSTSTORE_PASSWORD, "default-trust-secret");
+    try {
+      System.setProperty(KEYSTORE, "/default/keyStore");
+      System.setProperty(KEYSTORE_PASSWORD, "default-key-secret");
+      System.setProperty(TRUSTSTORE, "/default/trustStore");
+      System.setProperty(TRUSTSTORE_PASSWORD, "default-trust-secret");
 
-    Config config = ConfigFactory.empty();
+      Config config = ConfigFactory.empty();
 
-    SSLUtils.setSSLSystemProperties(config);
+      SSLUtils.setSSLSystemProperties(config);
 
-    // none of them should've been cleared or overwritten, somehow.
-    assertEquals("/default/keyStore", System.getProperty(KEYSTORE));
-    assertEquals("default-key-secret", System.getProperty(KEYSTORE_PASSWORD));
-    assertEquals("/default/trustStore", System.getProperty(TRUSTSTORE));
-    assertEquals("default-trust-secret", System.getProperty(TRUSTSTORE_PASSWORD));
+      // none of them should've been cleared or overwritten, somehow.
+      assertEquals("/default/keyStore", System.getProperty(KEYSTORE));
+      assertEquals("default-key-secret", System.getProperty(KEYSTORE_PASSWORD));
+      assertEquals("/default/trustStore", System.getProperty(TRUSTSTORE));
+      assertEquals("default-trust-secret", System.getProperty(TRUSTSTORE_PASSWORD));
+    } finally {
+      System.clearProperty(KEYSTORE);
+      System.clearProperty(KEYSTORE_PASSWORD);
+      System.clearProperty(TRUSTSTORE);
+      System.clearProperty(TRUSTSTORE_PASSWORD);
+    }
   }
 }
