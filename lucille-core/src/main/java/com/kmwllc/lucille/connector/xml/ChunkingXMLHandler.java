@@ -42,8 +42,8 @@ public class ChunkingXMLHandler implements ContentHandler {
 
   public ChunkingXMLHandler() throws Exception {
     XPathFactory xpathFactory = XPathFactory.newInstance();
-    xpath = xpathFactory.newXPath();
-    builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+    this.xpath = xpathFactory.newXPath();
+    this.builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
   }
 
   @Override

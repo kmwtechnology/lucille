@@ -23,7 +23,7 @@ public class XMLFileHandlerTest {
   public void testUnsupportedProcessFileOperation() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "/Company/staff/id",
+        "xmlIdPath", "id",
         "encoding", "utf-8",
         "outputField", "xml"
     )));
@@ -39,7 +39,7 @@ public class XMLFileHandlerTest {
   public void testStaff() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "/Company/staff/id",
+        "xmlIdPath", "id",
         "encoding", "utf-8",
         "outputField", "xml"
     )));
@@ -67,10 +67,32 @@ public class XMLFileHandlerTest {
   }
 
   @Test
+  public void testStaffWithInfoIDExtraction() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        "xmlIdPath", "info/id",
+        "encoding", "utf-8",
+        "outputField", "xml"
+    )));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staffWithInfo.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals("1001", docs.get(0).getId());
+    assertEquals("1002", docs.get(1).getId());
+  }
+
+  @Test
   public void testKoreanEncoding() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "/Company/staff/id",
+        "xmlIdPath", "id",
         "encoding", "ISO-2022-KR",
         "outputField", "xml"
     )));
@@ -100,7 +122,7 @@ public class XMLFileHandlerTest {
   public void testJapaneseEncoding() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "/Company/staff/id",
+        "xmlIdPath", "id",
         "encoding", "ISO-2022-JP",
         "outputField", "xml"
     )));
@@ -130,7 +152,7 @@ public class XMLFileHandlerTest {
   public void testChineseEncoding() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "/Company/staff/id",
+        "xmlIdPath", "id",
         "encoding", "utf-16",
         "outputField", "xml_field"
     )));
@@ -161,7 +183,7 @@ public class XMLFileHandlerTest {
   public void testEncodingError() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "/Company/staff/id",
+        "xmlIdPath", "id",
         "encoding", "wrongEncoding",
         "outputField", "xml_field"
     )));
