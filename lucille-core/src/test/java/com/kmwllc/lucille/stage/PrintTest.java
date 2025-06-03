@@ -137,28 +137,28 @@ public class PrintTest {
 
   @Test
   public void testOverwriting() throws Exception {
-    Stage overwrite = factory.get("PrintTest/outputFileOverwrite.conf");
+    Stage stage = factory.get("PrintTest/outputFileOverwrite.conf");
 
     Document doc = Document.create("doc", "run123");
     doc.setField("field", "value");
 
-    overwrite.processDocument(doc);
-    overwrite.stop();
+    stage.processDocument(doc);
+    stage.stop();
 
     // should be the doc written, as usual.
     String contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));
     assertTrue(contents.startsWith("{\"id\":\"doc\",\"field\":\"value\"}"));
 
     // now, we will attempt to overwrite the file contents
-    overwrite = factory.get("PrintTest/outputFileOverwrite.conf");
+    stage = factory.get("PrintTest/outputFileOverwrite.conf");
 
     doc = Document.create("doc", "run456");
     doc.setField("abc", "123");
     // in excludeFields, shouldn't be part of the response.
     doc.setField("to_remove", "abcdef");
 
-    overwrite.processDocument(doc);
-    overwrite.stop();
+    stage.processDocument(doc);
+    stage.stop();
 
     // should be only the new contents - overwrite the old contents
     contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));

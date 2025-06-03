@@ -71,7 +71,7 @@ public class ApplyRegexTest {
     Document doc1 = Document.create("1");
     doc1.setField("input", "Hi abcdef");
 
-    Document doc2 = Document.create("1");
+    Document doc2 = Document.create("2");
     doc2.setField("input", "Hi AbCDeF");
 
     stage.processDocument(doc1);
@@ -88,7 +88,7 @@ public class ApplyRegexTest {
     Document doc1 = Document.create("1");
     doc1.setField("input", "line");
 
-    Document doc2 = Document.create("1");
+    Document doc2 = Document.create("2");
     doc2.setField("input", "hello there\n\nline");
 
     stage.processDocument(doc1);
@@ -105,7 +105,7 @@ public class ApplyRegexTest {
     Document doc1 = Document.create("1");
     doc1.setField("input", "abc");
 
-    Document doc2 = Document.create("1");
+    Document doc2 = Document.create("2");
     doc2.setField("input", "a\nc");
 
     stage.processDocument(doc1);
@@ -122,7 +122,7 @@ public class ApplyRegexTest {
     Document doc1 = Document.create("1");
     doc1.setField("input", "abc");
 
-    Document doc2 = Document.create("1");
+    Document doc2 = Document.create("2");
     doc2.setField("input", "a.c");
 
     stage.processDocument(doc1);

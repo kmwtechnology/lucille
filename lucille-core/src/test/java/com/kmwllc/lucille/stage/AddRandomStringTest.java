@@ -217,9 +217,10 @@ public class AddRandomStringTest {
     stage.processDocument(doc);
 
     assertTrue(doc.has("data"));
-    int data = doc.getInt("data");
+    String data = doc.getString("data");
+    int dataVal = Integer.parseInt(data);
     // lower is inclusive, upper is exclusive
-    assertTrue(data >= 0 && data < 100);
+    assertTrue(dataVal >= 0 && dataVal < 5);
   }
 
   // When range size is equal to the length of the file data. Want to make sure we see all of the file data.
@@ -230,12 +231,12 @@ public class AddRandomStringTest {
     Document doc = Document.create("doc");
     stage.processDocument(doc);
 
-    // has 300 terms. there's a 0.00000000000072745% chance this test will fail due to natural variability.
+    // has 500 terms. there's a ~0.000000000145489831% chance this test will fail due to natural variability.
     List<String> randomStrings = doc.getStringList("data");
 
     Set<String> encounteredFoods = new HashSet<>(randomStrings);
 
-    assertEquals("Not all foods were in the random String list. There is a 0.00000000000072% chance of this occurring naturally.", 20, encounteredFoods.size());
+    assertEquals("Not all foods were in the random String list. There is a ~0.000000000145% chance of this occurring naturally.", 20, encounteredFoods.size());
   }
 
   @Test
