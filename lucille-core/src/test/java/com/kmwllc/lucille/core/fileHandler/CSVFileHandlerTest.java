@@ -259,7 +259,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/customLineNumberField.conf");
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"),
+        "defaults.csv");
 
     int docsCount = 0;
 
@@ -278,7 +279,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/customFilenameField.conf");
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"),
+        "defaults.csv");
 
     while (docs.hasNext()) {
       Document d = docs.next();
@@ -294,7 +296,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/customFilepathField.conf");
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"),
+        "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
     while (docs.hasNext()) {
       Document d = docs.next();
@@ -311,7 +314,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/customDocIDFormat.conf");
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"),
+        "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
     Document d = docs.next();
     assertEquals("a_b_c", d.getId());
@@ -330,7 +334,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/lowercaseFields.conf");
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"),
+        "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
     // even though they were capitalized differently in the config, should be extracted the same as before because lowercaseFields = true
     Document d = docs.next();
@@ -349,7 +354,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/CSVFileHandlerTest/config/ignoredTerms.conf");
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"),
+        "defaults.csv");
 
     while (docs.hasNext()) {
       Document d = docs.next();
@@ -369,7 +375,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.empty();
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaultsExtraTerms.csv"), "defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaultsExtraTerms.csv"),
+        "defaults.csv");
 
     int docsCount = 0;
 
@@ -388,7 +395,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.empty();
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/empty.csv"), "defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/empty.csv"),
+        "defaults.csv");
     assertFalse(docs.hasNext());
   }
 
@@ -397,7 +405,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.empty();
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/headerOnly.csv"), "defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/headerOnly.csv"),
+        "defaults.csv");
     assertFalse(docs.hasNext());
   }
 
@@ -406,7 +415,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.empty();
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaultsWithEmptiesAndBlanks.csv"), "defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaultsWithEmptiesAndBlanks.csv"),
+        "defaults.csv");
 
     int docsCount = 0;
 
@@ -427,7 +437,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.empty();
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/reservedFields.csv"), "defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/reservedFields.csv"),
+        "defaults.csv");
 
     int docsCount = 0;
     while (docs.hasNext()) {
@@ -448,7 +459,8 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.empty();
     CSVFileHandler handler = new CSVFileHandler(config);
 
-    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"), "defaults.csv");
+    Iterator<Document> docs = handler.processFile(new FileInputStream("src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv"),
+        "defaults.csv");
 
     while (docs.hasNext()) {
       docs.next();
