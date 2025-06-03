@@ -221,6 +221,8 @@ public class AddRandomStringTest {
     int dataVal = Integer.parseInt(data);
     // lower is inclusive, upper is exclusive
     assertTrue(dataVal >= 0 && dataVal < 5);
+
+    assertEquals(1, data.split(" ").length);
   }
 
   // When range size is equal to the length of the file data. Want to make sure we see all of the file data.
