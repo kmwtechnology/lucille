@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.verify;
@@ -7,6 +8,14 @@ import static org.mockito.Mockito.any;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import java.io.BufferedWriter;
@@ -33,9 +42,61 @@ public class PrintTest {
   }
 
   @Test
+  public void testOutputFileAppendThreadNames() throws Exception {
+    String baseOutputFileAbsolute = Paths.get("src/test/resources/PrintTest/output-.txt").toAbsolutePath().toString();
+    Path thread1OutputPath = Paths.get("src/test/resources/PrintTest/output-thread-1.txt");
+    Path thread2OutputPath = Paths.get("src/test/resources/PrintTest/output-thread-2.txt");
+
+    // Getting the Config manually so we can override with an absolute path to the resources folder, where we will hold
+    // the output files to delete later.
+    Config appendThreadConfig = ConfigFactory.parseResourcesAnySyntax("PrintTest/appendThreadNames.conf")
+        .withValue("outputFile", ConfigValueFactory.fromAnyRef(baseOutputFileAbsolute));
+
+    Document doc = Document.create("doc1");
+    doc.setField("field", "value");
+
+    Runnable runStage = () -> {
+      try {
+        // have to create the Stage in the thread, otherwise, appendThreadNames won't be used correctly
+        Stage stage = factory.get(appendThreadConfig);
+        stage.processDocument(doc);
+        // Have to stop the stage to close the writer, allowing us to get the contents
+        stage.stop();
+      } catch (StageException e) {
+        throw new RuntimeException(e);
+      }
+    };
+
+    Thread thread1 = new Thread(runStage, "thread-1");
+    Thread thread2 = new Thread(runStage, "thread-2");
+
+    thread1.start();
+    thread2.start();
+
+    thread1.join();
+    thread2.join();
+
+    // check the output files are at the appropriate paths, etc.
+    try (
+        InputStream thread1Stream = new FileInputStream(thread1OutputPath.toFile());
+        InputStream thread2Stream = new FileInputStream(thread2OutputPath.toFile())
+    ) {
+      String thread1Contents = new String(thread1Stream.readAllBytes());
+      String thread2Contents = new String(thread2Stream.readAllBytes());
+
+      assertTrue(thread1Contents.startsWith("{\"id\":\"doc1\",\"field\":\"value\"}"));
+      assertTrue(thread2Contents.startsWith("{\"id\":\"doc1\",\"field\":\"value\"}"));
+    }
+
+    // Delete the files
+    Files.delete(thread1OutputPath);
+    Files.delete(thread2OutputPath);
+  }
+
+  @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("PrintTest/config.conf");
-    assertEquals(Set.of("overwriteFile", "outputFile", "shouldLog", "name", "excludeFields", "conditions", "class", "conditionPolicy"),
+    assertEquals(Set.of("overwriteFile", "outputFile", "shouldLog", "name", "excludeFields", "conditions", "class", "conditionPolicy", "appendThreadName"),
         stage.getLegalProperties());
   }
 

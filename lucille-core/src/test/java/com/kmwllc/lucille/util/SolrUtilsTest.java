@@ -4,8 +4,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+
+import com.typesafe.config.ConfigValueFactory;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.io.Tuple;
 import org.junit.Test;
@@ -27,9 +32,9 @@ public class SolrUtilsTest {
   }
 
   @Test
-  public void getHttpClientTest() throws Exception {
+  public void getHttpClientAndSetCheckPeerNameTest() throws Exception {
     Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:SolrUtilsTest/auth.conf"));
-    Http2SolrClient client = SolrUtils.getHttpClient(config);
+    Http2SolrClient client = SolrUtils.getHttpClientAndSetCheckPeerName(config);
     // would like to inspect the solr client to confirm credentials are configured, but can’t do that so just checking it’s non-null
     assertNotNull(client);
     client.close();
@@ -123,5 +128,21 @@ public class SolrUtilsTest {
     assertEquals(2, mixedListDoc.getFieldNames().size());
     assertEquals("foo9", mixedListDoc.getString(Document.ID_FIELD));
     assertEquals(List.of("1", "string"), mixedListDoc.getStringList("mixed"));
+  }
+
+  @Test
+  public void testClientInstance() throws IOException {
+
+    Config httpConfig = ConfigFactory.empty()
+        .withValue("solr.url", ConfigValueFactory.fromAnyRef("localhost:8983/solr"));
+
+    Config cloudConfig = ConfigFactory.empty()
+        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
+        .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
+
+    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig)) {
+      assertTrue(httpClient instanceof Http2SolrClient);
+      assertTrue(cloudClient instanceof CloudSolrClient);
+    }
   }
 }
