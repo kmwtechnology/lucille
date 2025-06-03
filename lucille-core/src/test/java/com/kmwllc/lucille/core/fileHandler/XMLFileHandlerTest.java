@@ -176,7 +176,7 @@ public class XMLFileHandlerTest {
   }
 
   @Test
-  public void testIdPathIncludesAttribute() throws Exception {
+  public void testIdPathAttribute() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "@id",
@@ -200,13 +200,13 @@ public class XMLFileHandlerTest {
     assertEquals("1002", docs.get(1).getId());
 
     // Making sure the third document has a UUID for its ID.
-    // this method would throw an exception if it wasn't a UUID.
+    // (this method would throw an exception if it wasn't a UUID.)
     UUID.fromString(docs.get(2).getId());
   }
 
   @Test
   public void testIdQualifier() throws Exception {
-    // Only the XML element with an id attribute of 1001 should be included.
+    // Only the XML element with an id of 1001 should be included.
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
         "xmlIdPath", "id[. = '1001']",
