@@ -40,8 +40,6 @@ public class Print extends Stage {
   private final boolean appendThreadName;
   private final List<String> excludeFields;
 
-  // using a Supplier so the FileWriter is not actually constructed until it is needed. this allows us to appendThreadName
-  // as needed, since construction + "start()" are always called in the main thread, even in multithreaded runs.
   private BufferedWriter writer;
 
   public Print(Config config) {
@@ -60,25 +58,22 @@ public class Print extends Stage {
     }
   }
 
-  public void start() throws StageException {
-    // create the file writer, if needed, if we aren't using appendThreadName
-    if (outputFilePath != null && !appendThreadName) {
-      try {
-        this.writer = new BufferedWriter(new FileWriter(outputFilePath, !overwriteFile));
-      } catch (IOException e) {
-        throw new RuntimeException("Couldn't initialize FileWriter / BufferedWriter.", e);
-      }
-    }
-  }
+  // we always create the writer in processDocument - not in start(). This allows us to get the name of the
+  // Worker thread that will actually be using the Stage, in case appendThreadName is true. (Since Stages/Pipelines are always
+  // constructed and start()ed in the main thread).
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    // create the file writer, if needed, here, if we are using appendThreadName, since this method is the first time the specific
-    // worker thread is executing code on this stage instance.
-    if (outputFilePath != null && appendThreadName && writer == null) {
+    // create the file writer, if needed and not already created. this allows us to get the name of the Worker thread that
+    // will actually be using the stage, in case appendThreadName is true.
+    if (outputFilePath != null && writer == null) {
       try {
-        String appendedOutputFilePath = FileUtils.appendStringToFileName(outputFilePath, Thread.currentThread().getName());
-        writer = new BufferedWriter(new FileWriter(appendedOutputFilePath, !overwriteFile));
+        if (appendThreadName) {
+          String appendedOutputFilePath = FileUtils.appendStringToFileName(outputFilePath, Thread.currentThread().getName());
+          writer = new BufferedWriter(new FileWriter(appendedOutputFilePath, !overwriteFile));
+        } else {
+          writer = new BufferedWriter(new FileWriter(outputFilePath, !overwriteFile));
+        }
       } catch (IOException e) {
         throw new RuntimeException("Couldn't initialize FileWriter / BufferedWriter.", e);
       }
