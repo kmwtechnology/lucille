@@ -150,8 +150,12 @@ public class PrintTest {
   }
 
   @Test
-  public void testBadOutputPath() {
-    assertThrows(StageException.class, () -> factory.get("PrintTest/badOutputPath.conf"));
+  public void testBadOutputPath() throws StageException {
+    Stage stage = factory.get("PrintTest/badOutputPath.conf");
+
+    // error for bad file path (I/O) is not thrown until a document actually gets processed
+    Document doc = Document.create("doc1");
+    assertThrows(StageException.class, () -> stage.processDocument(doc));
   }
 
   @Test

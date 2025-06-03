@@ -75,7 +75,7 @@ public class Print extends Stage {
           writer = new BufferedWriter(new FileWriter(outputFilePath, !overwriteFile));
         }
       } catch (IOException e) {
-        throw new RuntimeException("Couldn't initialize FileWriter / BufferedWriter.", e);
+        throw new StageException("Couldn't initialize FileWriter / BufferedWriter.", e);
       }
     }
 
