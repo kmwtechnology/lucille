@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector.xml;
 
-import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import java.io.ByteArrayInputStream;
@@ -9,7 +8,6 @@ import java.util.UUID;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
@@ -29,35 +27,29 @@ public class ChunkingXMLHandler implements ContentHandler {
   private static final Logger log = LoggerFactory.getLogger(ChunkingXMLHandler.class);
 
   Stack<String> currentPath = new Stack<String>();
-  private AbstractConnector connector;
-  private Publisher publisher;
 
   private final XPath xpath;
+  private final DocumentBuilder builder;
 
-  private DocumentBuilder builder;
-  private DocumentBuilderFactory factory;
-
-
+  private String outputField;
+  private Publisher publisher;
   private String documentRootPath;
-
   private XPathExpression docIdExpression;
+  private boolean skipEmptyId;
 
   private String docIDPrefix = "";
   private RecordingInputStream ris;
-  private String outputField;
 
   public ChunkingXMLHandler() throws Exception {
     XPathFactory xpathFactory = XPathFactory.newInstance();
     xpath = xpathFactory.newXPath();
-    factory = DocumentBuilderFactory.newInstance();
-    builder = factory.newDocumentBuilder();
+    builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
   }
 
   @Override
   public void setDocumentLocator(Locator locator) {
   }
 
-  // starting a document --> evaluate the ID path
   @Override
   public void startDocument() throws SAXException {
   }
@@ -102,6 +94,7 @@ public class ChunkingXMLHandler implements ContentHandler {
       try {
         xml = ris.returnUpTo("</" + qName + ">");
 
+        // we have the full XML object. run xpath to get the ID on just this XML.
         try (InputStream xmlStream = new ByteArrayInputStream(xml.getBytes())) {
           org.w3c.dom.Document xmlDoc = builder.parse(xmlStream);
           id = docIdExpression.evaluate(xmlDoc.getDocumentElement());
@@ -112,14 +105,21 @@ public class ChunkingXMLHandler implements ContentHandler {
         log.error("IOException caught", e);
       }
 
-      // if we didn't get the id from evaluating the docIDExpression, use a random UUID
-      if (id == null || id.isEmpty()) {
+      // always publish a Document we successfully got *some* ID String for.
+      if (id != null && !id.isEmpty()) {
+        Document doc = Document.create(docIDPrefix + id);
+        doc.setField(outputField, xml);
+        internalPublishDocument(doc);
+      } else if (!skipEmptyId) {
+        // if we didn't get the id from evaluating the docIDExpression, use a random UUID
         id = UUID.randomUUID().toString();
-      }
 
-      Document doc = Document.create(docIDPrefix + id);
-      doc.setField(outputField, xml);
-      internalPublishDocument(doc);
+        Document doc = Document.create(docIDPrefix + id);
+        doc.setField(outputField, xml);
+        internalPublishDocument(doc);
+      } else {
+        log.info("No DocID extracted for xml {}. Since skipEmptyId = true, no Document will be published.", xml);
+      }
     }
 
     currentPath.pop();
@@ -165,10 +165,6 @@ public class ChunkingXMLHandler implements ContentHandler {
     this.docIDPrefix = docIDPrefix;
   }
 
-  public void setConnector(AbstractConnector connector) {
-    this.connector = connector;
-  }
-
   public RecordingInputStream getRis() {
     return ris;
   }
@@ -185,4 +181,7 @@ public class ChunkingXMLHandler implements ContentHandler {
     this.outputField = outputField;
   }
 
+  public void setSkipEmptyId(boolean skipEmptyId) {
+    this.skipEmptyId = skipEmptyId;
+  }
 }
