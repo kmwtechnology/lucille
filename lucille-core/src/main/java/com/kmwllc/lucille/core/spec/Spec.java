@@ -1,12 +1,10 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.core.spec;
 
-import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValueType;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -16,25 +14,10 @@ import java.util.stream.Collectors;
  */
 public class Spec {
 
-  private final Set<String> defaultLegalProperties;
+  private final Set<Property> properties;
 
-  private final Set<String> requiredProperties;
-  private final Set<String> optionalProperties;
-
-  // Mapping parent names to the corresponding ParentSpecs. withRequired/OptionalParentNames will add those names to the map,
-  // mapping them to null. Methods throw exceptions if a parent name is declared more than once (among both required and
-  // optional).
-  private final Map<String, ParentSpec> requiredParentMap;
-  private final Map<String, ParentSpec> optionalParentMap;
-
-  private Spec(Set<String> defaultLegalProperties) {
-    this.defaultLegalProperties = defaultLegalProperties;
-
-    this.requiredProperties = new HashSet<>();
-    this.optionalProperties = new HashSet<>();
-
-    this.requiredParentMap = new HashMap<>();
-    this.optionalParentMap = new HashMap<>();
+  private Spec(Set<Property> defaultLegalProperties) {
+    this.properties = new HashSet<>(defaultLegalProperties);
   }
 
   // Convenience constructor to create a Spec without default legal properties.
@@ -48,7 +31,11 @@ public class Spec {
    * @return a Spec with default legal properties suitable for a Stage.
    */
   public static Spec stage() {
-    return new Spec(Set.of("name", "class", "conditions", "conditionPolicy"));
+    return new Spec(Set.of(
+        new StringProperty("name", false),
+        new StringProperty("class", false),
+        new ListProperty("conditions", false, ConfigValueType.OBJECT),
+        new StringProperty("conditionPolicy", false)));
   }
 
   /**
@@ -57,7 +44,12 @@ public class Spec {
    * @return a Spec with default legal properties suitable for a Connector.
    */
   public static Spec connector() {
-    return new Spec(Set.of("name", "class", "pipeline", "docIdPrefix", "collapse"));
+    return new Spec(Set.of(
+        new StringProperty("name", false),
+        new StringProperty("class", false),
+        new StringProperty("pipeline", false),
+        new StringProperty("docIdPrefix", false),
+        new BooleanProperty("collapse", false)));
   }
 
   /**
@@ -91,61 +83,47 @@ public class Spec {
 
   /**
    * Returns this Spec with the given properties added as required properties.
-   * @param properties The required properties you want to add to this Spec.
+   * @param requiredProperties The required properties you want to add to this Spec.
    * @return This Spec with the given required properties added.
    */
-  public Spec withRequiredProperties(String... properties) {
-    requiredProperties.addAll(Arrays.asList(properties));
+  public Spec withRequiredProperties(String... requiredProperties) {
+    Arrays.stream(requiredProperties).forEach(requiredPropertyName -> properties.add(new AnyProperty(requiredPropertyName, true)));
     return this;
   }
 
   /**
    * Returns this Spec with the given properties added as optional properties.
-   * @param properties The optional properties you want to add to this Spec.
+   * @param optionalProperties The optional properties you want to add to this Spec.
    * @return This Spec with the given optional properties added.
    */
-  public Spec withOptionalProperties(String... properties) {
-    optionalProperties.addAll(Arrays.asList(properties));
+  public Spec withOptionalProperties(String... optionalProperties) {
+    Arrays.stream(optionalProperties).forEach(optionalPropertyName -> properties.add(new AnyProperty(optionalPropertyName, false)));
     return this;
   }
 
   /**
    * Returns this Spec with the given parents added as required parents. The ParentSpecs provided will be validated as part of
    * {@link Spec#validate(Config, String)}, and an Exception will be thrown if the parent is missing or has invalid properties.
-   * @param properties The required parents you want to add to this Spec.
+   * @param requiredParents The required parents you want to add to this Spec.
    * @return This Spec with the given required parents added.
    * @throws IllegalArgumentException If you attempt to add a ParentSpec with a name that is already added to this Spec, either
    * as an optional or required parent.
    */
-  public Spec withRequiredParents(ParentSpec... properties) {
-    for (ParentSpec parentSpec : properties) {
-      if (requiredParentMap.containsKey(parentSpec.parentName) || optionalParentMap.containsKey(parentSpec.parentName)) {
-        throw new IllegalArgumentException("There is already a parent with name " + parentSpec.parentName);
-      }
-
-      requiredParentMap.put(parentSpec.parentName, parentSpec);
-    }
-
+  public Spec withRequiredParents(ParentSpec... requiredParents) {
+    Arrays.stream(requiredParents).forEach(requiredParentSpec -> properties.add(new ObjectProperty(requiredParentSpec, true)));
     return this;
   }
 
   /**
    * Returns this Spec with the given parents added as optional parents. The ParentSpecs provided will be validated as part of
    * {@link Spec#validate(Config, String)}, and an Exception will be thrown if the parent is present and has invalid properties.
-   * @param properties The optional parents you want to add to this Spec.
+   * @param optionalParents The optional parents you want to add to this Spec.
    * @return This Spec with the given ParentSpecs added as optional parents.
    * @throws IllegalArgumentException If you attempt to add a ParentSpec with a name that is already added to this Spec, either
    * as an optional or required parent.
    */
-  public Spec withOptionalParents(ParentSpec... properties) {
-    for (ParentSpec parentSpec : properties) {
-      if (requiredParentMap.containsKey(parentSpec.parentName) || optionalParentMap.containsKey(parentSpec.parentName)) {
-        throw new IllegalArgumentException("There is already a parent with name " + parentSpec.parentName);
-      }
-
-      optionalParentMap.put(parentSpec.parentName, parentSpec);
-    }
-
+  public Spec withOptionalParents(ParentSpec... optionalParents) {
+    Arrays.stream(optionalParents).forEach(optionalParentSpec -> properties.add(new ObjectProperty(optionalParentSpec, false)));
     return this;
   }
 
@@ -153,20 +131,13 @@ public class Spec {
    * Returns this Spec with the given parent names added as required parents. No validation will take place on the child properties
    * of the declared required parents in a Config you validate with {@link Spec#validate(Config, String)}. As such, this method
    * should be used for required parents with unpredictable properties / entries.
-   * @param optionalParentNames The names of optional parents you want to add to this Spec.
+   * @param requiredParentNames The names of required parents you want to add to this Spec.
    * @return This Spec with the given ParentSpecs added as optional parents.
    * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
    * as an optional or required parent.
    */
-  public Spec withRequiredParentNames(String... optionalParentNames) {
-    for (String parentName : optionalParentNames) {
-      if (requiredParentMap.containsKey(parentName) || optionalParentMap.containsKey(parentName)) {
-        throw new IllegalArgumentException("There is already a parent with name " + parentName);
-      }
-
-      requiredParentMap.put(parentName, null);
-    }
-
+  public Spec withRequiredParentNames(String... requiredParentNames) {
+    Arrays.stream(requiredParentNames).forEach(requiredParentName -> properties.add(new ObjectProperty(requiredParentName, true)));
     return this;
   }
 
@@ -184,14 +155,7 @@ public class Spec {
    * as an optional or required parent.
    */
   public Spec withOptionalParentNames(String... optionalParentNames) {
-    for (String parentName : optionalParentNames) {
-      if (requiredParentMap.containsKey(parentName) || optionalParentMap.containsKey(parentName)) {
-        throw new IllegalArgumentException("There is already a parent with name " + parentName);
-      }
-
-      optionalParentMap.put(parentName, null);
-    }
-
+    Arrays.stream(optionalParentNames).forEach(optionalParentName -> properties.add(new ObjectProperty(optionalParentName, false)));
     return this;
   }
 
@@ -203,65 +167,34 @@ public class Spec {
    * a non-legal property / parent.
    */
   public void validate(Config config, String displayName) {
-    if (!disjoint(requiredProperties, optionalProperties, requiredParentMap.keySet(), optionalParentMap.keySet())) {
-      throw new IllegalArgumentException(displayName
-          + ": Properties and parents sets must be disjoint.");
-    }
-
     // mainly using a set to prevent repeats with the "unknown parent" message
     Set<String> errorMessages = new HashSet<>();
 
-    // verifies all required properties are present
     Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
-    for (String property : requiredProperties) {
-      if (!keys.contains(property)) {
-        errorMessages.add("Config must contain property " + property);
-      }
-    }
 
-    // verifies that
-    // 1. all remaining properties are in the optional set or are nested;
-    // 2. all required parents are present
-    Set<String> observedRequiredParentNames = new HashSet<>();
-    Set<String> legalProperties = mergeSets(requiredProperties, optionalProperties, defaultLegalProperties);
+    // This method is responsible for making sure that there are no unknown / illegal field names found.
+    // Properties are responsible for making sure a required field is present and for making sure that the
+    // fields are mapped to the correct type.
+    Set<String> legalProperties = getLegalProperties();
+
+    System.out.println(keys);
     for (String key : keys) {
       if (!legalProperties.contains(key)) {
         String parentName = getParent(key);
         if (parentName == null) {
           errorMessages.add("Config contains unknown property " + key);
-        } else if (requiredParentMap.containsKey(parentName)) {
-          observedRequiredParentNames.add(parentName);
-
-          Config requiredParentConfig = config.getConfig(parentName);
-          ParentSpec requiredParentSpec = requiredParentMap.get(parentName);
-
-          if (requiredParentSpec != null) {
-            try {
-              requiredParentSpec.validate(requiredParentConfig, parentName);
-            } catch (IllegalArgumentException e) {
-              errorMessages.add(e.getMessage());
-            }
-          }
-        } else if (optionalParentMap.containsKey(parentName)) {
-          Config optionalParentConfig = config.getConfig(parentName);
-          ParentSpec optionalParentSpec = optionalParentMap.get(parentName);
-
-          // If not null, then this is a fledged out, optional parent, and the child properties should be validated.
-          // if it is null, only its name was declared, and the properties are dynamic / unpredictable.
-          if (optionalParentSpec != null) {
-            try {
-              optionalParentSpec.validate(optionalParentConfig, parentName);
-            } catch (IllegalArgumentException e) {
-              errorMessages.add(e.getMessage());
-            }
-          }
-        } else {
+        } else if (!legalProperties.contains(parentName)) {
           errorMessages.add("Config contains unknown parent " + parentName);
         }
       }
     }
-    if (observedRequiredParentNames.size() != requiredParentMap.size()) {
-      errorMessages.add("Config is missing required parents: " + Sets.difference(requiredParentMap.keySet(), observedRequiredParentNames));
+
+    for (Property property : properties) {
+      try {
+        property.validate(config);
+      } catch (IllegalArgumentException e) {
+        errorMessages.add(e.getMessage());
+      }
     }
 
     if (!errorMessages.isEmpty()) {
@@ -274,55 +207,10 @@ public class Spec {
    * @return a Set of the legal properties associated with this Spec.
    */
   public Set<String> getLegalProperties() {
-    return mergeSets(requiredProperties, optionalProperties, defaultLegalProperties);
+    return properties.stream().map(Property::getName).collect(Collectors.toSet());
   }
 
   // ***** Utility Functions *****
-
-  /**
-   * Returns whether the provided sets are disjoint. You must specify at least one set.
-   *
-   * @param sets The sets you want to check.
-   * @return Whether the provided sets are disjoint.
-   */
-  @SafeVarargs
-  static boolean disjoint(Set<String>... sets) {
-    if (sets == null) {
-      throw new IllegalArgumentException("Sets must not be null");
-    }
-    if (sets.length == 0) {
-      throw new IllegalArgumentException("expecting at least one set");
-    }
-
-    Set<String> observed = new HashSet<>();
-    for (Set<String> set : sets) {
-      if (set == null) {
-        throw new IllegalArgumentException("Each set must not be null");
-      }
-      for (String s : set) {
-        if (observed.contains(s)) {
-          return false;
-        }
-        observed.add(s);
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Merges the given sets into one set.
-   * @param sets The sets you want to merge together.
-   * @return The sets merged together.
-   * @param <T> The type of the sets you are merging together.
-   */
-  @SafeVarargs
-  static <T> Set<T> mergeSets(Set<T>... sets) {
-    Set<T> merged = new HashSet<>();
-    for (Set<T> set : sets) {
-      merged.addAll(set);
-    }
-    return Collections.unmodifiableSet(merged);
-  }
 
   /**
    * Returns the String to the parent of the given Config property. Returns null if it doesn't exist.
@@ -337,26 +225,7 @@ public class Spec {
     return property.substring(0, dotIndex);
   }
 
-  /**
-   * Validates the given config against the given properties, without any default legal properties.
-   *
-   * @param config The configuration you want to validate.
-   * @param displayName A displayName for the object you're validating. Included in any exceptions / error messages.
-   * @param requiredProperties The properties you require in your config.
-   * @param optionalProperties The properties allowed in your config.
-   * @param requiredParents The parents you require in your config.
-   * @param optionalParents The parents you allow in your config.
-   */
-  public static void validateConfig(Config config, String displayName, List<String> requiredProperties, List<String> optionalProperties, List<ParentSpec> requiredParents, List<ParentSpec> optionalParents) {
-    Spec spec = new Spec(Set.of())
-        .withRequiredProperties(requiredProperties.toArray(new String[0]))
-        .withOptionalProperties(optionalProperties.toArray(new String[0]))
-        .withRequiredParents(requiredParents.toArray(new ParentSpec[0]))
-        .withOptionalParents(optionalParents.toArray(new ParentSpec[0]));
-
-    spec.validate(config, displayName);
-  }
-
+  // *****************************
 
   /** Represents a Spec for a Parent in a Config. */
   public static class ParentSpec extends Spec {
@@ -404,6 +273,10 @@ public class Spec {
     public ParentSpec withOptionalParentNames(String... properties) {
       super.withOptionalParentNames(properties);
       return this;
+    }
+
+    public String getParentName() {
+      return parentName;
     }
   }
 }

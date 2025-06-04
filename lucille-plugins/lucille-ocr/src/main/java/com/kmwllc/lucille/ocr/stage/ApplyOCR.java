@@ -2,7 +2,7 @@ package com.kmwllc.lucille.ocr.stage;
 
 import static org.bytedeco.leptonica.global.leptonica.pixRead;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;

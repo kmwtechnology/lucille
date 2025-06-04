@@ -1,8 +1,8 @@
 package com.kmwllc.lucille.util;
 
 
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map.Entry;

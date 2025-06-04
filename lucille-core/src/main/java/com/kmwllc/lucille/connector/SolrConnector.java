@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;

@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 
+import com.kmwllc.lucille.core.spec.NumberProperty;
+import com.kmwllc.lucille.core.spec.Property;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
@@ -196,5 +198,16 @@ public class ParseFilePathTest {
     assertFalse(doc1.has("folder"));
     assertFalse(doc1.has("path"));
     assertFalse(doc1.has("file_extension"));
+  }
+
+  @Test
+  public void configSandbox() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParseFilePathTest/sandbox.conf");
+
+    Property requiredNumberProperty = new NumberProperty("field", true);
+    Property optionalNumberProperty = new NumberProperty("field", false);
+
+    requiredNumberProperty.validate(config);
+    optionalNumberProperty.validate(config);
   }
 }
