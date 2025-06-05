@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.core.spec;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValueType;
 import java.util.Arrays;
@@ -13,6 +17,8 @@ import java.util.stream.Collectors;
  * Specifications for a Config and which properties it is allowed / required to have.
  */
 public class Spec {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final Set<Property> properties;
 
@@ -366,6 +372,26 @@ public class Spec {
         .optParent(optionalParents.toArray(new ParentSpec[0]));
 
     spec.validate(config, displayName);
+  }
+
+  /**
+   * Serializes this Spec into a JsonNode describing the properties it declares. The returned node will contain one entry, <code>fields</code>,
+   * which will be a list of JsonNode(s) describing the associated properties. See {@link Property#json()} for information on what these
+   * objects will contain.
+   * @return A JsonNode describing this Spec and the properties it declares.
+   */
+  public JsonNode serialize() {
+    ObjectNode node = MAPPER.createObjectNode();
+
+    ArrayNode fieldsArray = MAPPER.createArrayNode();
+
+    for (Property prop : properties) {
+      fieldsArray.add(prop.json());
+    }
+
+    node.set("fields", fieldsArray);
+
+    return node;
   }
 
   // *****************************

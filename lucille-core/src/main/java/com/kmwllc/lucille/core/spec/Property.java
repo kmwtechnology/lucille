@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.core.spec;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 
 /**
@@ -7,9 +10,11 @@ import com.typesafe.config.Config;
  */
 public abstract class Property {
 
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
   protected final String name;
   protected final boolean required;
-  private final String description;
+  protected final String description;
 
   public Property(String name, boolean required, String description) {
     this.name = name;
@@ -42,6 +47,40 @@ public abstract class Property {
    */
   public String getDescription() {
     return description;
+  }
+
+  /**
+   * Return a JsonNode describing this property. Includes <code>name</code>, the name of the field, <code>required</code>, whether it
+   * is required, <code>description</code>, if it has one, and <code>type</code>, the type of the field.
+   *
+   * <p> <code>type</code> is one of <code>STRING</code>, <code>NUMBER</code>, <code>BOOLEAN</code>, <code>LIST</code>,
+   * <code>OBJECT</code>, or <code>ANY</code> (TODO: May remove ANY.)
+   */
+  public JsonNode json() {
+    ObjectNode node = MAPPER.createObjectNode();
+
+    node.put("name", name);
+    node.put("required", required);
+
+    if (description != null) {
+      node.put("description", description);
+    }
+
+    // TODO: Not the best way to get this information... Maybe subclasses aren't needed, *especially* if we don't type arrays
+    // Object not written because it overrides this method
+    if (this instanceof NumberProperty) {
+      node.put("type", "NUMBER");
+    } else if (this instanceof BooleanProperty) {
+      node.put("type", "BOOLEAN");
+    } else if (this instanceof StringProperty) {
+      node.put("type", "STRING");
+    } else if (this instanceof ListProperty) {
+      node.put("type", "LIST");
+    } else {
+      node.put("type", "ANY");
+    }
+
+    return node;
   }
 
   /**

@@ -1,10 +1,15 @@
 package com.kmwllc.lucille.core.spec;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 
 public class ObjectProperty extends Property {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final ParentSpec parentSpec;
 
@@ -26,6 +31,23 @@ public class ObjectProperty extends Property {
     super(parentSpec.getParentName(), required, description);
 
     this.parentSpec = parentSpec;
+  }
+
+  @Override
+  public JsonNode json() {
+    ObjectNode node = MAPPER.createObjectNode();
+
+    node.put("name", name);
+    node.put("required", required);
+
+    if (description != null) {
+      node.put("description", description);
+    }
+
+    node.put("type", "OBJECT");
+    node.set("child", parentSpec.serialize());
+
+    return node;
   }
 
   @Override
