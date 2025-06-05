@@ -55,17 +55,19 @@ public class SolrConnector extends AbstractConnector {
   private final String idField;
   private final String actionFormat;
 
+  public static Spec SPEC = Spec.connector()
+      // the Solr ParentSpec has solr.url as a required property.
+      .reqParent(SolrUtils.SOLR_PARENT_SPEC)
+      .withOptionalProperties("preActions", "postActions", "useXml", "idField")
+      .optParentName("solrParams");
+
   public SolrConnector(Config config) {
     this(config, SolrUtils.getSolrClient(config));
   }
 
   public SolrConnector(Config config, SolrClient client) {
-    super(config, Spec.connector()
-        // the Solr ParentSpec has solr.url as a required property.
-        .reqParent(SolrUtils.SOLR_PARENT_SPEC)
-        .withOptionalProperties("preActions", "postActions", "useXml", "idField")
-        .optParentName("solrParams")
-    );
+    super(config);
+
     this.client = client;
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());

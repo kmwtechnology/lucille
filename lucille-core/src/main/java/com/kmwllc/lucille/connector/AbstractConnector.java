@@ -32,14 +32,18 @@ public abstract class AbstractConnector implements Connector {
   private String message = null;
   protected final Config config;
 
-  public AbstractConnector(Config config, Spec spec) {
+  public AbstractConnector(Config config) {
     this.config = config;
     this.name = config.getString("name");
     this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
     this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
 
-    spec.validate(config, name);
+    try {
+      getSpec().validate(config, name);
+    } catch (ReflectiveOperationException e) {
+      throw new RuntimeException("Connector " + getClass() + " does not have a public static SPEC declared.", e);
+    }
   }
 
   @Override
@@ -97,4 +101,8 @@ public abstract class AbstractConnector implements Connector {
     this.message = message;
   }
 
+  @Override
+  public Spec getSpec() throws ReflectiveOperationException {
+    return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+  }
 }

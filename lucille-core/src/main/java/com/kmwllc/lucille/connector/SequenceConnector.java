@@ -29,7 +29,7 @@ public class SequenceConnector extends AbstractConnector {
   private final int startWith;
 
   public SequenceConnector(Config config) {
-    super(config, SPEC);
+    super(config);
 
     this.numDocs = config.getLong("numDocs");
     this.startWith = config.hasPath("startWith") ? config.getInt("startWith") : 0;

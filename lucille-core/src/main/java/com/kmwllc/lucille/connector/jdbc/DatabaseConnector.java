@@ -69,11 +69,13 @@ public class DatabaseConnector extends AbstractConnector {
   // TODO: consider moving this down to the base connector class.
   //  private ConnectorState state = null;
 
+  public static Spec SPEC = Spec.connector()
+      .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
+      .withOptionalProperties("fetchSize", "preSQL", "postSQL", "otherSQLs", "otherJoinFields", "ignoreColumns", "connectionRetries", "connectionRetryPause");
+
   // The constructor that takes the config.
   public DatabaseConnector(Config config) {
-    super(config, Spec.connector()
-        .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
-        .withOptionalProperties("fetchSize", "preSQL", "postSQL", "otherSQLs", "otherJoinFields", "ignoreColumns", "connectionRetries", "connectionRetryPause"));
+    super(config);
 
     // required config
     driver = config.getString("driver");

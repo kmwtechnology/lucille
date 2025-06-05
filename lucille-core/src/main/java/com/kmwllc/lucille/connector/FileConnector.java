@@ -138,6 +138,22 @@ public class FileConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
+  public static final Spec SPEC = Spec.connector()
+      .withRequiredProperties("pathToStorage")
+      .optParent(
+          Spec.parent("filterOptions")
+              .optList("includes", "excludes")
+              // durations are strings.
+              .optStr("modificationCutoff"),
+          Spec.parent("fileOptions")
+              .optBool("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+              .optStr("moveToAfterProcessing", "moveToErrorFolder")
+              .optParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
+          GCP_PARENT_SPEC,
+          AZURE_PARENT_SPEC,
+          S3_PARENT_SPEC
+      );
+
   private final String pathToStorage;
   private final Config fileOptions;
   private final Config filterOptions;
@@ -145,18 +161,7 @@ public class FileConnector extends AbstractConnector {
   private final URI storageURI;
 
   public FileConnector(Config config) throws ConnectorException {
-    super(config, Spec.connector()
-        .withRequiredProperties("pathToStorage")
-        .optParent(
-            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
-            Spec.parent("fileOptions")
-                .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
-                    "moveToErrorFolder")
-                .optParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
-            GCP_PARENT_SPEC,
-            AZURE_PARENT_SPEC,
-            S3_PARENT_SPEC
-        ));
+    super(config);
 
     this.pathToStorage = config.getString("pathToStorage");
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();

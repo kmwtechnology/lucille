@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValueFactory;
 
@@ -76,6 +77,12 @@ public interface Connector extends AutoCloseable {
    * @throws ConnectorException in the event an error occurs.
    */
   void postExecute(String runId) throws ConnectorException;
+
+  /**
+   * @return The Spec describing this Connector's Config properties. Must be declared as <code>public static Spec SPEC</code>.
+   * @throws ReflectiveOperationException If this Connector does not have a <code>public static Spec SPEC</code>.
+   */
+  Spec getSpec() throws ReflectiveOperationException;
 
   /**
    * Instantiates a list of Connectors from the designated Config.

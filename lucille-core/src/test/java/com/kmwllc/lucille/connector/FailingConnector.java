@@ -7,8 +7,10 @@ import com.typesafe.config.Config;
 
 public class FailingConnector extends AbstractConnector {
 
+  public static Spec SPEC = Spec.connector();
+
   public FailingConnector(Config config) {
-    super(config, Spec.connector());
+    super(config);
   }
 
   @Override

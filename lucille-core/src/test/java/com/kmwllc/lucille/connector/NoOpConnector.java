@@ -11,8 +11,10 @@ public class NoOpConnector extends AbstractConnector {
   // supplied to this connector without having a reference to the connector instance
   private static Publisher suppliedPublisher = null;
 
+  public static Spec SPEC = Spec.connector();
+
   public NoOpConnector(Config config) {
-    super(config, Spec.connector());
+    super(config);
   }
 
   @Override
