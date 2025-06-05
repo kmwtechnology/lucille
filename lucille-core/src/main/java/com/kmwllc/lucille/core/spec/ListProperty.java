@@ -9,7 +9,11 @@ public class ListProperty extends Property {
   private final ConfigValueType elementType;
 
   public ListProperty(String name, boolean required, ConfigValueType elementType) {
-    super(name, required);
+    this(name, required, elementType, null);
+  }
+
+  public ListProperty(String name, boolean required, ConfigValueType elementType, String description) {
+    super(name, required, description);
 
     if (elementType == ConfigValueType.NULL) {
       throw new IllegalArgumentException("NULL is not a valid list type. Spec needs to be modified.");

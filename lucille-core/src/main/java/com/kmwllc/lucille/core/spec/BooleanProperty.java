@@ -6,7 +6,11 @@ import com.typesafe.config.ConfigException;
 public class BooleanProperty extends Property {
 
   public BooleanProperty(String name, boolean required) {
-    super(name, required);
+    this(name, required, null);
+  }
+
+  public BooleanProperty(String name, boolean required, String description) {
+    super(name, required, description);
   }
 
   @Override

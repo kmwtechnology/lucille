@@ -9,10 +9,12 @@ public abstract class Property {
 
   protected final String name;
   protected final boolean required;
+  private final String description;
 
-  public Property(String name, boolean required) {
+  public Property(String name, boolean required, String description) {
     this.name = name;
     this.required = required;
+    this.description = description;
   }
 
   public String getName() { return name; }
@@ -33,6 +35,13 @@ public abstract class Property {
     if (config.hasPath(name)) {
       validatePresentProperty(config);
     }
+  }
+
+  /**
+   * @return A description describing the purpose of this property. Will be null if no description was provided.
+   */
+  public String getDescription() {
+    return description;
   }
 
   /**

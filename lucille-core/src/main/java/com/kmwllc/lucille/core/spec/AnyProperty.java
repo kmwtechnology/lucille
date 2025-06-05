@@ -7,7 +7,7 @@ import com.typesafe.config.Config;
 public class AnyProperty extends Property {
 
   public AnyProperty(String name, boolean required) {
-    super(name, required);
+    super(name, required, null);
   }
 
   @Override

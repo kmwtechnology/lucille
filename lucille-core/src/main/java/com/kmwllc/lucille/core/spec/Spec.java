@@ -212,6 +212,75 @@ public class Spec {
 
   // ******************************************
 
+  // ************ Adding Basic Types w/ Descriptions ****************
+
+  public Spec reqStrWithDesc(String requiredStringFieldName, String description) {
+    properties.add(new StringProperty(requiredStringFieldName, true, description));
+    return this;
+  }
+
+  public Spec optStrWithDesc(String optionalStringFieldName, String description) {
+    properties.add(new StringProperty(optionalStringFieldName, false, description));
+    return this;
+  }
+
+  public Spec reqNumWithDesc(String requiredNumberFieldName, String description) {
+    properties.add(new NumberProperty(requiredNumberFieldName, true, description));
+    return this;
+  }
+
+  public Spec optNumWithDesc(String optionalNumberFieldName, String description) {
+    properties.add(new NumberProperty(optionalNumberFieldName, false, description));
+    return this;
+  }
+
+  public Spec reqBoolWithDesc(String requiredBooleanFieldName, String description) {
+    properties.add(new BooleanProperty(requiredBooleanFieldName, true, description));
+    return this;
+  }
+
+  public Spec optBoolWithDesc(String optionalBooleanFieldName, String description) {
+    properties.add(new BooleanProperty(optionalBooleanFieldName, false, description));
+    return this;
+  }
+
+  public Spec reqListWithDesc(String requiredListFieldName, String description) {
+    properties.add(new ListProperty(requiredListFieldName, true, null, description));
+    return this;
+  }
+
+  public Spec optListWithDesc(String optionalBooleanFieldName, String description) {
+    properties.add(new ListProperty(optionalBooleanFieldName, false, null, description));
+    return this;
+  }
+
+  // **********************************************************
+
+
+  // ******** Adding Objects w/ Descriptions ********
+
+  public Spec reqParentWithDesc(ParentSpec requiredParentSpec, String description) {
+    properties.add(new ObjectProperty(requiredParentSpec, true, description));
+    return this;
+  }
+
+  public Spec optParentWithDesc(ParentSpec optionalParentSpec, String description) {
+    properties.add(new ObjectProperty(optionalParentSpec, false, description));
+    return this;
+  }
+
+  public Spec reqParentNameWithDesc(String requiredParentName, String description) {
+    properties.add(new ObjectProperty(requiredParentName, true, description));
+    return this;
+  }
+
+  public Spec optParentNameWithDesc(String optionalParentName, String description) {
+    properties.add(new ObjectProperty(optionalParentName, false, description));
+    return this;
+  }
+
+  // ************************************************
+
 
   // ********* Validation / Utility Functions *********
 
@@ -350,50 +419,122 @@ public class Spec {
     }
 
     @Override
-    public Spec reqStr(String... requiredStringFieldNames) {
+    public ParentSpec reqStr(String... requiredStringFieldNames) {
       super.reqStr(requiredStringFieldNames);
       return this;
     }
 
     @Override
-    public Spec optStr(String... optionalStringFieldNames) {
+    public ParentSpec optStr(String... optionalStringFieldNames) {
       super.optStr(optionalStringFieldNames);
       return this;
     }
 
     @Override
-    public Spec reqNum(String... requiredNumberFieldNames) {
+    public ParentSpec reqNum(String... requiredNumberFieldNames) {
       super.reqNum(requiredNumberFieldNames);
       return this;
     }
 
     @Override
-    public Spec optNum(String... optionalNumberFieldNames) {
+    public ParentSpec optNum(String... optionalNumberFieldNames) {
       super.optNum(optionalNumberFieldNames);
       return this;
     }
 
     @Override
-    public Spec reqBool(String... requiredBooleanFieldNames) {
+    public ParentSpec reqBool(String... requiredBooleanFieldNames) {
       super.reqBool(requiredBooleanFieldNames);
       return this;
     }
 
     @Override
-    public Spec optBool(String... optionalBooleanFieldNames) {
+    public ParentSpec optBool(String... optionalBooleanFieldNames) {
       super.optBool(optionalBooleanFieldNames);
       return this;
     }
 
     @Override
-    public Spec reqList(String... requiredListFieldNames) {
+    public ParentSpec reqList(String... requiredListFieldNames) {
       super.reqList(requiredListFieldNames);
       return this;
     }
 
     @Override
-    public Spec optList(String... optionalListFieldNames) {
+    public ParentSpec optList(String... optionalListFieldNames) {
       super.optList(optionalListFieldNames);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqStrWithDesc(String requiredStringFieldName, String description) {
+      super.reqStrWithDesc(requiredStringFieldName, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optStrWithDesc(String optionalStringFieldName, String description) {
+      super.optStrWithDesc(optionalStringFieldName, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqNumWithDesc(String requiredNumberFieldName, String description) {
+      super.reqNumWithDesc(requiredNumberFieldName, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optNumWithDesc(String optionalNumberFieldName, String description) {
+      super.optNumWithDesc(optionalNumberFieldName, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqBoolWithDesc(String requiredBooleanFieldName, String description) {
+      super.reqBoolWithDesc(requiredBooleanFieldName, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optBoolWithDesc(String optionalBooleanFieldName, String description) {
+      super.optBoolWithDesc(optionalBooleanFieldName, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqListWithDesc(String requiredListFieldName, String description) {
+      super.reqListWithDesc(requiredListFieldName, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optListWithDesc(String optionalListFieldName, String description) {
+      super.optListWithDesc(optionalListFieldName, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqParentWithDesc(ParentSpec requiredParentSpec, String description) {
+      super.reqParentWithDesc(requiredParentSpec, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optParentWithDesc(ParentSpec optionalParentSpec, String description) {
+      super.optParentWithDesc(optionalParentSpec, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqParentNameWithDesc(String requiredParentName, String description) {
+      super.reqParentNameWithDesc(requiredParentName, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optParentNameWithDesc(String optionalParentName, String description) {
+      super.optParentNameWithDesc(optionalParentName, description);
       return this;
     }
 
