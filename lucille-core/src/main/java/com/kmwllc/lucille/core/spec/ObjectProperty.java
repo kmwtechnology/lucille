@@ -1,0 +1,67 @@
+package com.kmwllc.lucille.core.spec;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
+
+public class ObjectProperty extends Property {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
+  private final ParentSpec parentSpec;
+
+  public ObjectProperty(ParentSpec parentSpec, boolean required) {
+    this(parentSpec, required, null);
+  }
+
+  public ObjectProperty(String name, boolean required) {
+    this(name, required, null);
+  }
+
+  public ObjectProperty(String name, boolean required, String description) {
+    super(name, required, description);
+
+    this.parentSpec = null;
+  }
+
+  public ObjectProperty(ParentSpec parentSpec, boolean required, String description) {
+    super(parentSpec.getParentName(), required, description);
+
+    this.parentSpec = parentSpec;
+  }
+
+  @Override
+  public JsonNode json() {
+    ObjectNode node = MAPPER.createObjectNode();
+
+    node.put("name", name);
+    node.put("required", required);
+
+    if (description != null) {
+      node.put("description", description);
+    }
+
+    node.put("type", "OBJECT");
+    node.set("child", parentSpec.serialize());
+
+    return node;
+  }
+
+  @Override
+  protected void validatePresentProperty(Config config) {
+    Config childConfig;
+
+    try {
+      childConfig = config.getConfig(name);
+    } catch (ConfigException e) {
+      throw new IllegalArgumentException(name + " is supposed to be a Config, was \"" + config.getValue(name).valueType() + "\"");
+    }
+
+    if (parentSpec != null) {
+      parentSpec.validate(childConfig, name);
+    }
+  }
+}

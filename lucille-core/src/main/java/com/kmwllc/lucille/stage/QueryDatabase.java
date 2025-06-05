@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -54,7 +54,7 @@ public class QueryDatabase extends Stage {
   public QueryDatabase(Config config) {
     super(config, Spec.stage()
         .withOptionalProperties("sql", "connectionRetries", "connectionRetryPause")
-        .withRequiredParentNames("fieldMapping")
+        .reqParentName("fieldMapping")
         .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
             "keyFields", "inputTypes"));
 

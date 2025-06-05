@@ -86,7 +86,8 @@ public class DictionaryLookupTest {
             "dict_path",
             "set_only",
             "ignore_missing_source",
-            "conditionPolicy"),
+            "conditionPolicy",
+            "gcp", "azure", "s3"),
         stage.getLegalProperties());
   }
 

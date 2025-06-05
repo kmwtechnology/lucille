@@ -3,8 +3,8 @@ package com.kmwllc.lucille.core.fileHandler;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -32,8 +32,9 @@ import org.slf4j.LoggerFactory;
 public class CSVFileHandler extends BaseFileHandler {
 
   public static final ParentSpec PARENT_SPEC = Spec.parent("csv")
-      .withOptionalProperties("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "idFields", "docIdFormat",
-          "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms");
+      .optStr("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "docIdFormat")
+      .optList("idFields", "ignoredTerms")
+      .optBool("useTabs", "separatorChar", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields");
 
   private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);
 

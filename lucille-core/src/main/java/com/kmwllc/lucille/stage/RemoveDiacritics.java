@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import java.text.Normalizer;
 import java.util.Iterator;
 import com.kmwllc.lucille.core.ConfigUtils;

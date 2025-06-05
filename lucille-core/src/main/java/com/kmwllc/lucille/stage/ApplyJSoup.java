@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -63,7 +63,7 @@ public class ApplyJSoup extends Stage {
 
   public ApplyJSoup(Config config) throws StageException {
     super(config, Spec.stage().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
-        .withRequiredParentNames("destinationFields"));
+        .reqParentName("destinationFields"));
 
     this.destinationFields = config.getConfig("destinationFields").root().unwrapped();
     this.charset = ConfigUtils.getOrDefault(config, "charset", null);

@@ -2,7 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 
 /**
@@ -32,12 +32,20 @@ public abstract class AbstractConnector implements Connector {
   private String message = null;
   protected final Config config;
 
-  public AbstractConnector(Config config, Spec spec) {
+  public AbstractConnector(Config config) {
     this.config = config;
     this.name = config.getString("name");
     this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
     this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
+
+    Spec spec;
+
+    try {
+      spec = getSpec();
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
+    }
 
     spec.validate(config, name);
   }
@@ -97,4 +105,8 @@ public abstract class AbstractConnector implements Connector {
     this.message = message;
   }
 
+  @Override
+  public Spec getSpec() throws Exception {
+    return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+  }
 }

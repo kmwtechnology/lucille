@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -27,7 +27,7 @@ public class SetStaticValues extends Stage {
   public SetStaticValues(Config config) {
     super(config, Spec.stage()
         .withOptionalProperties("update_mode")
-        .withRequiredParentNames("static_values"));
+        .reqParentName("static_values"));
 
     staticValues = config.getConfig("static_values").root().unwrapped();
     updateMode = UpdateMode.fromConfig(config);

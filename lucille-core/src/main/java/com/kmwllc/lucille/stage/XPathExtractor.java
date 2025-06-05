@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -47,7 +47,7 @@ public class XPathExtractor extends Stage {
   public XPathExtractor(Config config) {
     super(config, Spec.stage()
         .withOptionalProperties("xmlField")
-        .withRequiredParentNames("fieldMapping"));
+        .reqParentName("fieldMapping"));
 
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();

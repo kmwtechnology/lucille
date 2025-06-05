@@ -4,8 +4,7 @@ import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
@@ -40,11 +39,12 @@ public class XMLConnector extends AbstractConnector {
 
   private XMLFileHandler xmlFileHandler;
 
+  public static Spec SPEC = Spec.connector()
+      .withRequiredProperties("xmlRootPath", "xmlIdPath", "encoding", "outputField")
+      .withOptionalProperties("filePaths", "urlFiles");
 
   public XMLConnector(Config config) {
-    super(config, Spec.connector()
-        .withRequiredProperties("xmlRootPath", "xmlIdPath", "encoding", "outputField")
-        .withOptionalProperties("filePaths", "urlFiles"));
+    super(config);
     filePaths = config.hasPath("filePaths") ? config.getStringList("filePaths") : null;
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
     this.xmlFileHandler = new XMLFileHandler(config);
