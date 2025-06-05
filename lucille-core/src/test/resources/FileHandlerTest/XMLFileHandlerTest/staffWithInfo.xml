@@ -1,18 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Company>
     <staff>
-        <id>1001</id>
         <name>daniel</name>
-        <staff>joe</staff>
-        <role>software engineer</role>
         <salary currency="USD">3000</salary>
         <bio>I am from San Diego</bio>
+
+        <info>
+          <id>1001</id>
+          <role>software engineer</role>
+        </info>
     </staff>
     <staff>
-        <id>1002</id>
         <name>brian</name>
-        <role>admin</role>
         <salary currency="EUR">8000</salary>
         <bio>I enjoy reading</bio>
+
+        <info>
+          <id>1002</id>
+          <role>admin</role>
+        </info>
     </staff>
 </Company>
