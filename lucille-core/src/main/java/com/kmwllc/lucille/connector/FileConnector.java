@@ -129,12 +129,14 @@ public class FileConnector extends AbstractConnector {
 
   // parent specs for cloud provider configs
   public static final ParentSpec GCP_PARENT_SPEC = Spec.parent("gcp")
-      .withRequiredProperties("pathToServiceKey")
-      .withOptionalProperties("maxNumOfPages");
+      .reqStr("pathToServiceKey")
+      .optNum("maxNumOfPages");
   public static final ParentSpec S3_PARENT_SPEC = Spec.parent("s3")
-      .withOptionalProperties("accessKeyId", "secretAccessKey", "region", "maxNumOfPages");
+      .optStr("accessKeyId", "secretAccessKey", "region")
+      .optNum("maxNumOfPages");
   public static final ParentSpec AZURE_PARENT_SPEC = Spec.parent("azure")
-      .withOptionalProperties("connectionString", "accountName", "accountKey", "maxNumOfPages");
+      .optStr("connectionString", "accountName", "accountKey")
+      .optNum("maxNumOfPages");
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 

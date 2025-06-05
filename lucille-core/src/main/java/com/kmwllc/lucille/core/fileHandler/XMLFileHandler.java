@@ -25,8 +25,8 @@ import org.xml.sax.XMLReader;
 public class XMLFileHandler extends BaseFileHandler {
 
   public static final ParentSpec PARENT_SPEC = Spec.parent("xml")
-      .withRequiredProperties("xmlRootPath", "xmlIdPath")
-      .withOptionalProperties("docIdPrefix", "outputField", "encoding");
+      .reqStr("xmlRootPath", "xmlIdPath")
+      .optStr("docIdPrefix", "outputField", "encoding");
 
   private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
 

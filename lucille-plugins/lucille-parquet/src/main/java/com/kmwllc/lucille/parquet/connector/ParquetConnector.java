@@ -42,8 +42,9 @@ public class ParquetConnector extends AbstractConnector {
   private long count = 0L;
 
   public static Spec SPEC = Spec.connector()
-      .withRequiredProperties("path", "id_field", "fs_uri")
-      .withOptionalProperties("s3_key", "s3_secret", "limit", "start");
+      .reqStr("path", "id_field", "fs_uri")
+      .optStr("s3_key", "s3_secret")
+      .optNum("limit", "start");
 
   public ParquetConnector(Config config) {
     super(config);

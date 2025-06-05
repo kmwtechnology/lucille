@@ -30,7 +30,7 @@ public class CSVConnector extends AbstractConnector {
   private final String moveToAfterProcessing;
   private final String moveToErrorFolder;
 
-  public static Spec SPEC = Spec.connector()
+  public static final Spec SPEC = Spec.connector()
       .withRequiredProperties("path")
       .withOptionalProperties("moveToAfterProcessing", "moveToErrorFolder", "lineNumberField", "filenameField", "filePathField",
           "idField", "docIdFormat", "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms");

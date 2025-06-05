@@ -39,11 +39,15 @@ public abstract class AbstractConnector implements Connector {
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
     this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
 
+    Spec spec;
+
     try {
-      getSpec().validate(config, name);
+      spec = getSpec();
     } catch (Exception e) {
       throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
     }
+
+    spec.validate(config, name);
   }
 
   @Override

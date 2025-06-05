@@ -27,8 +27,8 @@ import org.slf4j.LoggerFactory;
 public class OpenSearchUtils {
 
   public static final ParentSpec OPENSEARCH_PARENT_SPEC = Spec.parent("opensearch")
-      .withRequiredProperties("url", "index")
-      .withOptionalProperties("acceptInvalidCert");
+      .reqStr("url", "index")
+      .optBool("acceptInvalidCert");
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 

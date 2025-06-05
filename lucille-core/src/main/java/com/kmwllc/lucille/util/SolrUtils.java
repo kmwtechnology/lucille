@@ -24,10 +24,10 @@ import org.slf4j.LoggerFactory;
 public class SolrUtils {
 
   public static final ParentSpec SOLR_PARENT_SPEC = Spec.parent("solr")
-      .withRequiredProperties("url")
-      .withOptionalProperties("useCloudClients", "zkHosts", "zkChroot", "defaultCollection",
-          "userName", "password", "acceptInvalidCert")
-      .withOptionalProperties(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES);
+      .reqStr("url")
+      .optStr("zkHosts", "zkChroot", "defaultCollection", "userName", "password")
+      .optBool("useCloudClients", "acceptInvalidCert")
+      .optStr(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES);
 
   private static final Logger log = LoggerFactory.getLogger(SolrUtils.class);
 
