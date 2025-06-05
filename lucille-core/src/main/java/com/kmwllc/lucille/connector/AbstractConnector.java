@@ -41,8 +41,8 @@ public abstract class AbstractConnector implements Connector {
 
     try {
       getSpec().validate(config, name);
-    } catch (ReflectiveOperationException e) {
-      throw new RuntimeException("Connector " + getClass() + " does not have a public static SPEC declared.", e);
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
     }
   }
 
@@ -102,7 +102,7 @@ public abstract class AbstractConnector implements Connector {
   }
 
   @Override
-  public Spec getSpec() throws ReflectiveOperationException {
+  public Spec getSpec() throws Exception {
     return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
   }
 }
