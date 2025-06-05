@@ -334,7 +334,8 @@ public class Spec {
 
   /**
    * Returns a Set of the legal properties associated with this Spec, include required/optional properties/parents
-   * and any default properties associated with the Spec as well.
+   * and any default properties associated with the Spec as well. Note that, if this Spec has an {@link ObjectProperty}, this
+   * will only return that property's name - <b>not</b> its child's legal properties as well.
    * @return a Set of the legal properties associated with this Spec.
    */
   public Set<String> getLegalProperties() {
