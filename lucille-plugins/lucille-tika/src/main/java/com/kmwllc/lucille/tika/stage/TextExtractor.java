@@ -63,7 +63,7 @@ public class TextExtractor extends Stage {
     super(config, Spec.stage()
         .withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
             "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit")
-        .withOptionalParents(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
+        .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
 
     textField = config.hasPath("text_field") ? config.getString("text_field") : "text";
     filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : null;

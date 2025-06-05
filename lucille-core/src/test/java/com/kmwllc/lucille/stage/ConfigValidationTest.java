@@ -168,11 +168,11 @@ public class ConfigValidationTest {
   @Test
   public void testParentSpecValidation() {
     Spec spec = Spec.connector()
-        .withRequiredParents(
+        .reqParent(
             Spec.parent("required")
                 .withRequiredProperties("requiredProp")
                 .withOptionalProperties("optionalProp"))
-        .withOptionalParents(
+        .optParent(
             Spec.parent("optional")
                 .withRequiredProperties("requiredProp")
                 .withOptionalProperties("optionalProp"));

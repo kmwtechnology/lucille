@@ -47,7 +47,7 @@ public class SolrIndexer extends Indexer {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
             "userName", "password", "acceptInvalidCert")
-        .withOptionalParentNames("ssl"));
+        .optParentName("ssl"));
 
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.

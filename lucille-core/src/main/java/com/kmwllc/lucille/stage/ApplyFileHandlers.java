@@ -60,9 +60,9 @@ public class ApplyFileHandlers extends Stage {
    */
   public ApplyFileHandlers(Config config) {
     super(config, Spec.stage()
-        .withOptionalParents(
+        .optParent(
             Spec.parent("handlerOptions")
-                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
+                .optParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
             FileConnector.GCP_PARENT_SPEC,
             FileConnector.AZURE_PARENT_SPEC,
             FileConnector.S3_PARENT_SPEC)

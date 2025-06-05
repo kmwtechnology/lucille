@@ -28,7 +28,7 @@ public class ExtractFirstCharacter extends Stage {
 
   public ExtractFirstCharacter(Config config) {
     super(config, Spec.stage().withOptionalProperties("replacement")
-        .withRequiredParentNames("fieldMapping"));
+        .reqParentName("fieldMapping"));
 
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";

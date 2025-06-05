@@ -147,12 +147,12 @@ public class FileConnector extends AbstractConnector {
   public FileConnector(Config config) throws ConnectorException {
     super(config, Spec.connector()
         .withRequiredProperties("pathToStorage")
-        .withOptionalParents(
+        .optParent(
             Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
             Spec.parent("fileOptions")
                 .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
                     "moveToErrorFolder")
-                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
+                .optParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
             GCP_PARENT_SPEC,
             AZURE_PARENT_SPEC,
             S3_PARENT_SPEC

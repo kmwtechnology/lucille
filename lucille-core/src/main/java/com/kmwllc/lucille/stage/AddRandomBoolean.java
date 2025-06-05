@@ -20,12 +20,15 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class AddRandomBoolean extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .optStr("field_name")
+      .optNum("percent_true");
+
   private final String fieldName;
   private final int percentTrue;
 
   public AddRandomBoolean(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withOptionalProperties("field_name", "percent_true"));
+    super(config, SPEC);
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.percentTrue = ConfigUtils.getOrDefault(config, "percent_true", 50);

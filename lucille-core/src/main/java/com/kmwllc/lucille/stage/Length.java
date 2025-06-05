@@ -23,7 +23,7 @@ public class Length extends Stage {
   private final Map<String, Object> fieldMap;
 
   public Length(Config config) {
-    super(config, Spec.stage().withRequiredParentNames("fieldMapping"));
+    super(config, Spec.stage().reqParentName("fieldMapping"));
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
   }
 

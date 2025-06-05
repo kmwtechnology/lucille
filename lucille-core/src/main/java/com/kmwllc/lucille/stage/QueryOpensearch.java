@@ -65,9 +65,9 @@ import org.slf4j.LoggerFactory;
 public class QueryOpensearch extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withRequiredParents(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
-      .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
-          "optionalParamNames", "opensearchResponsePath", "destinationField");
+      .reqParent(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
+      .optStr("templateName", "searchTemplate", "opensearchResponsePath", "destinationField")
+      .optList("requiredParamNames", "optionalParamNames");
 
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
   private static final ObjectMapper mapper = new ObjectMapper();

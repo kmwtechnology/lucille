@@ -27,18 +27,21 @@ public class ListProperty extends Property {
       throw new IllegalArgumentException(name + " is supposed to be a list, was \"" + config.getValue(name).valueType() + "\"");
     }
 
-    // then check the actual element type of the list.
-    try {
-      switch (elementType) {
-        case NUMBER -> config.getNumberList(name);
-        case OBJECT -> config.getConfigList(name);
-        case STRING -> config.getStringList(name);
-        case BOOLEAN -> config.getBooleanList(name);
-        // if elementType is List, just allow it to be valid.
-        // elementType won't be null - we prevent that above.
+    // then check the actual element type of the list, if it is specified.
+    if (elementType != null) {
+      try {
+        switch (elementType) {
+          case NUMBER -> config.getNumberList(name);
+          case OBJECT -> config.getConfigList(name);
+          case STRING -> config.getStringList(name);
+          case BOOLEAN -> config.getBooleanList(name);
+          // if elementType is List, just allow it to be valid.
+          // elementType won't be null - we prevent that above.
+        }
+      } catch (ConfigException e) {
+        throw new IllegalArgumentException(
+            name + " is supposed to be a list of " + elementType + ", is " + config.getList(name).valueType());
       }
-    } catch (ConfigException e) {
-      throw new IllegalArgumentException(name + " is supposed to be a list of " + elementType + ", is " + config.getList(name).valueType());
     }
   }
 }

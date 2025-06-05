@@ -61,7 +61,7 @@ public class PineconeIndexer extends Indexer {
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("apiKey", "index")
-        .withOptionalParentNames("namespaces")
+        .optParentName("namespaces")
         .withOptionalProperties("metadataFields", "mode", "defaultEmbeddingField"));
 
     this.client = bypass ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();

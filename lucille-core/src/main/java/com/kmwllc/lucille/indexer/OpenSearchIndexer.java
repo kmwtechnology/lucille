@@ -35,6 +35,10 @@ import org.slf4j.LoggerFactory;
 
 public class OpenSearchIndexer extends Indexer {
 
+  public static final Spec SPEC = Spec.indexer()
+      .reqStr("index", "url")
+      .optBool("update", "acceptInvalidCert");
+
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
   private final OpenSearchClient client;
@@ -48,9 +52,7 @@ public class OpenSearchIndexer extends Indexer {
   private final boolean update;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withRequiredProperties("index", "url")
-        .withOptionalProperties("update", "acceptInvalidCert"));
+    super(config, messenger, metricsPrefix, localRunId, SPEC);
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(

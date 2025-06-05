@@ -3,7 +3,6 @@ package com.kmwllc.lucille.core.spec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValueType;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +25,8 @@ public class Spec {
     this(Set.of());
   }
 
+  // ********** "Constructors" **********
+
   /**
    * Creates a Spec with default legal properties suitable for a Stage. Includes name, class, conditions, and
    * conditionPolicy.
@@ -35,6 +36,8 @@ public class Spec {
     return new Spec(Set.of(
         new StringProperty("name", false),
         new StringProperty("class", false),
+        // the conditions get individually validated in Stage.
+        // TODO: The UI might not be able to access that information though.
         new ListProperty("conditions", false, ConfigValueType.OBJECT),
         new StringProperty("conditionPolicy", false)));
   }
@@ -82,6 +85,11 @@ public class Spec {
     return new ParentSpec(parentName);
   }
 
+  // ***********************************
+
+
+  // ************* Basic Properties **************
+
   /**
    * Returns this Spec with the given properties added as required properties.
    * @param requiredProperties The required properties you want to add to this Spec.
@@ -110,7 +118,7 @@ public class Spec {
    * @throws IllegalArgumentException If you attempt to add a ParentSpec with a name that is already added to this Spec, either
    * as an optional or required parent.
    */
-  public Spec withRequiredParents(ParentSpec... requiredParents) {
+  public Spec reqParent(ParentSpec... requiredParents) {
     Arrays.stream(requiredParents).forEach(requiredParentSpec -> properties.add(new ObjectProperty(requiredParentSpec, true)));
     return this;
   }
@@ -123,7 +131,7 @@ public class Spec {
    * @throws IllegalArgumentException If you attempt to add a ParentSpec with a name that is already added to this Spec, either
    * as an optional or required parent.
    */
-  public Spec withOptionalParents(ParentSpec... optionalParents) {
+  public Spec optParent(ParentSpec... optionalParents) {
     Arrays.stream(optionalParents).forEach(optionalParentSpec -> properties.add(new ObjectProperty(optionalParentSpec, false)));
     return this;
   }
@@ -137,7 +145,7 @@ public class Spec {
    * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
    * as an optional or required parent.
    */
-  public Spec withRequiredParentNames(String... requiredParentNames) {
+  public Spec reqParentName(String... requiredParentNames) {
     Arrays.stream(requiredParentNames).forEach(requiredParentName -> properties.add(new ObjectProperty(requiredParentName, true)));
     return this;
   }
@@ -155,10 +163,57 @@ public class Spec {
    * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
    * as an optional or required parent.
    */
-  public Spec withOptionalParentNames(String... optionalParentNames) {
+  public Spec optParentName(String... optionalParentNames) {
     Arrays.stream(optionalParentNames).forEach(optionalParentName -> properties.add(new ObjectProperty(optionalParentName, false)));
     return this;
   }
+
+  // ************ Adding Basic Types ****************
+
+  public Spec reqStr(String... requiredStringFieldNames) {
+    Arrays.stream(requiredStringFieldNames).forEach(fieldName -> properties.add(new StringProperty(fieldName, true)));
+    return this;
+  }
+
+  public Spec optStr(String... optionalStringFieldNames) {
+    Arrays.stream(optionalStringFieldNames).forEach(fieldName -> properties.add(new StringProperty(fieldName, false)));
+    return this;
+  }
+
+  public Spec reqNum(String... requiredNumberFieldNames) {
+    Arrays.stream(requiredNumberFieldNames).forEach(fieldName -> properties.add(new NumberProperty(fieldName, true)));
+    return this;
+  }
+
+  public Spec optNum(String... optionalNumberFieldNames) {
+    Arrays.stream(optionalNumberFieldNames).forEach(fieldName -> properties.add(new NumberProperty(fieldName, false)));
+    return this;
+  }
+
+  public Spec reqBool(String... requiredBooleanFieldNames) {
+    Arrays.stream(requiredBooleanFieldNames).forEach(fieldName -> properties.add(new BooleanProperty(fieldName, true)));
+    return this;
+  }
+
+  public Spec optBool(String... optionalBooleanFieldNames) {
+    Arrays.stream(optionalBooleanFieldNames).forEach(fieldName -> properties.add(new BooleanProperty(fieldName, false)));
+    return this;
+  }
+
+  public Spec reqList(String... requiredListFieldNames) {
+    Arrays.stream(requiredListFieldNames).forEach(fieldName -> properties.add(new ListProperty(fieldName, true, null)));
+    return this;
+  }
+
+  public Spec optList(String... optionalListFieldNames) {
+    Arrays.stream(optionalListFieldNames).forEach(fieldName -> properties.add(new ListProperty(fieldName, false, null)));
+    return this;
+  }
+
+  // ******************************************
+
+
+  // ********* Validation / Utility Functions *********
 
   /**
    * Validates this Config using this Spec's properties. Throws an Exception if the Config is missing a required
@@ -175,7 +230,7 @@ public class Spec {
 
     // This method is responsible for making sure that there are no unknown / illegal field names found.
     // Properties are responsible for making sure a required field is present and for making sure that the
-    // fields are mapped to the correct type.
+    // field has correct type.
     Set<String> legalProperties = getLegalProperties();
 
     for (String key : keys) {
@@ -203,14 +258,13 @@ public class Spec {
   }
 
   /**
-   * Returns a Set of the legal properties associated with this Spec.
+   * Returns a Set of the legal properties associated with this Spec, include required/optional properties/parents
+   * and any default properties associated with the Spec as well.
    * @return a Set of the legal properties associated with this Spec.
    */
   public Set<String> getLegalProperties() {
     return properties.stream().map(Property::getName).collect(Collectors.toSet());
   }
-
-  // ***** Utility Functions *****
 
   /**
    * Returns the String to the parent of the given Config property. Returns null if it doesn't exist.
@@ -239,8 +293,8 @@ public class Spec {
     Spec spec = new Spec(Set.of())
         .withRequiredProperties(requiredProperties.toArray(new String[0]))
         .withOptionalProperties(optionalProperties.toArray(new String[0]))
-        .withRequiredParents(requiredParents.toArray(new ParentSpec[0]))
-        .withOptionalParents(optionalParents.toArray(new ParentSpec[0]));
+        .reqParent(requiredParents.toArray(new ParentSpec[0]))
+        .optParent(optionalParents.toArray(new ParentSpec[0]));
 
     spec.validate(config, displayName);
   }
@@ -272,26 +326,74 @@ public class Spec {
     }
 
     @Override
-    public ParentSpec withRequiredParents(ParentSpec... properties) {
-      super.withRequiredParents(properties);
+    public ParentSpec reqParent(ParentSpec... properties) {
+      super.reqParent(properties);
       return this;
     }
 
     @Override
-    public ParentSpec withOptionalParents(ParentSpec... properties) {
-      super.withOptionalParents(properties);
+    public ParentSpec optParent(ParentSpec... properties) {
+      super.optParent(properties);
       return this;
     }
 
     @Override
-    public ParentSpec withRequiredParentNames(String... properties) {
-      super.withRequiredParentNames(properties);
+    public ParentSpec reqParentName(String... properties) {
+      super.reqParentName(properties);
       return this;
     }
 
     @Override
-    public ParentSpec withOptionalParentNames(String... properties) {
-      super.withOptionalParentNames(properties);
+    public ParentSpec optParentName(String... properties) {
+      super.optParentName(properties);
+      return this;
+    }
+
+    @Override
+    public Spec reqStr(String... requiredStringFieldNames) {
+      super.reqStr(requiredStringFieldNames);
+      return this;
+    }
+
+    @Override
+    public Spec optStr(String... optionalStringFieldNames) {
+      super.optStr(optionalStringFieldNames);
+      return this;
+    }
+
+    @Override
+    public Spec reqNum(String... requiredNumberFieldNames) {
+      super.reqNum(requiredNumberFieldNames);
+      return this;
+    }
+
+    @Override
+    public Spec optNum(String... optionalNumberFieldNames) {
+      super.optNum(optionalNumberFieldNames);
+      return this;
+    }
+
+    @Override
+    public Spec reqBool(String... requiredBooleanFieldNames) {
+      super.reqBool(requiredBooleanFieldNames);
+      return this;
+    }
+
+    @Override
+    public Spec optBool(String... optionalBooleanFieldNames) {
+      super.optBool(optionalBooleanFieldNames);
+      return this;
+    }
+
+    @Override
+    public Spec reqList(String... requiredListFieldNames) {
+      super.reqList(requiredListFieldNames);
+      return this;
+    }
+
+    @Override
+    public Spec optList(String... optionalListFieldNames) {
+      super.optList(optionalListFieldNames);
       return this;
     }
 
