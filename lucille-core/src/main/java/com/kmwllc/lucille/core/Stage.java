@@ -334,12 +334,14 @@ public abstract class Stage {
     spec.validate(config, getDisplayName());
 
     // validate conditions
-//    if (config.hasPath("conditions")) {
-//      for (Config condition : config.getConfigList("conditions")) {
-//        Spec.validateConfig(condition, getDisplayName() + " Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
-//            EMPTY_LIST);
-//      }
-//    }
+    if (config.hasPath("conditions")) {
+      // Spec doesn't support validating individual objects in a List<Config>. For Stages, we want to validate the conditions,
+      // so we run another validation on each condition found in the list.
+      for (Config condition : config.getConfigList("conditions")) {
+        Spec.validateConfig(condition, getDisplayName() + " Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
+            EMPTY_LIST);
+      }
+    }
   }
 
   public Set<String> getLegalProperties() {

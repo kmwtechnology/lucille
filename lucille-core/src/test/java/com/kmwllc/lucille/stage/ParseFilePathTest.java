@@ -199,15 +199,4 @@ public class ParseFilePathTest {
     assertFalse(doc1.has("path"));
     assertFalse(doc1.has("file_extension"));
   }
-
-  @Test
-  public void configSandbox() throws Exception {
-    Config config = ConfigFactory.parseResourcesAnySyntax("ParseFilePathTest/sandbox.conf");
-
-    Property requiredNumberProperty = new NumberProperty("field", true);
-    Property optionalNumberProperty = new NumberProperty("field", false);
-
-    requiredNumberProperty.validate(config);
-    optionalNumberProperty.validate(config);
-  }
 }

@@ -5,6 +5,7 @@ import com.typesafe.config.ConfigValueType;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -177,7 +178,6 @@ public class Spec {
     // fields are mapped to the correct type.
     Set<String> legalProperties = getLegalProperties();
 
-    System.out.println(keys);
     for (String key : keys) {
       if (!legalProperties.contains(key)) {
         String parentName = getParent(key);
@@ -223,6 +223,26 @@ public class Spec {
       return null;
     }
     return property.substring(0, dotIndex);
+  }
+
+  /**
+   * Validates the given config against the given properties, without any default legal properties.
+   *
+   * @param config The configuration you want to validate.
+   * @param displayName A displayName for the object you're validating. Included in any exceptions / error messages.
+   * @param requiredProperties The properties you require in your config.
+   * @param optionalProperties The properties allowed in your config.
+   * @param requiredParents The parents you require in your config.
+   * @param optionalParents The parents you allow in your config.
+   */
+  public static void validateConfig(Config config, String displayName, List<String> requiredProperties, List<String> optionalProperties, List<ParentSpec> requiredParents, List<ParentSpec> optionalParents) {
+    Spec spec = new Spec(Set.of())
+        .withRequiredProperties(requiredProperties.toArray(new String[0]))
+        .withOptionalProperties(optionalProperties.toArray(new String[0]))
+        .withRequiredParents(requiredParents.toArray(new ParentSpec[0]))
+        .withOptionalParents(optionalParents.toArray(new ParentSpec[0]));
+
+    spec.validate(config, displayName);
   }
 
   // *****************************
