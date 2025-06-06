@@ -202,12 +202,6 @@ public class RSSConnectorTest {
 
     ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    // Stop the connector after 5 seconds, allowing it to run twice, and then it gets interrupted.
-    scheduler.schedule(() -> {
-      Signal.raise(new Signal("INT"));
-    }, 5, TimeUnit.SECONDS);
-
-    // on my machine, mockito setup takes ~0.5 seconds, Connector construction takes ~0.1 seconds.
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read(any(String.class)))
           .thenReturn(Stream.of(singleItem))
@@ -215,11 +209,16 @@ public class RSSConnectorTest {
     })) {
       RSSConnector connector = new RSSConnector(config);
 
+      // Stop the connector after 2 seconds, allowing it to run twice, and then it gets interrupted.
+      scheduler.schedule(() -> {
+        Signal.raise(new Signal("INT"));
+      }, 2, TimeUnit.SECONDS);
+
       // blocked until the signal gets raised. should run 2 times
       connector.execute(publisher);
     }
 
-    // Should run 2 times: 0 sec, 3 sec, then interrupted.
+    // Should run 2 times: 0 sec, 1.2 sec, then interrupted.
     // Only has 3 unique items to be published
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
     assertEquals(3, publishedDocs.size());
@@ -241,11 +240,6 @@ public class RSSConnectorTest {
 
     ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    // Stop the connector after 8 seconds, allowing it to run three times, and then is interrupted.
-    scheduler.schedule(() -> {
-      Signal.raise(new Signal("INT"));
-    }, 8, TimeUnit.SECONDS);
-
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read(any(String.class)))
           // simulating a "real" RSS experience - older content slowly getting removed from the feed
@@ -254,6 +248,12 @@ public class RSSConnectorTest {
           .thenReturn(Stream.of(singleItem));
     })) {
       RSSConnector connector = new RSSConnector(config);
+
+      // Stop the connector after 3 seconds, allowing it to run three times, and then is interrupted.
+      scheduler.schedule(() -> {
+        Signal.raise(new Signal("INT"));
+      }, 3, TimeUnit.SECONDS);
+
       // will be blocked until the signal gets raised. should run three times
       connector.execute(publisher);
     }
