@@ -170,7 +170,7 @@ public abstract class Indexer implements Runnable {
    * each document individually.
    *
    * @param documents The documents to send to the destination.
-   * @return A set of Pairs, containing the Documents that were not successfully indexed, along with String of information about why they failed.
+   * @return A set of Pairs, containing the Documents that were not successfully indexed, along with a String of information about why it failed.
    * Returns an empty set if no documents fail, or if this information is not supported by the Indexer implementation. Does not return null.
    * @throws Exception In the event of a considerable error causing indexing to fail. (Does not throw
    * Exceptions just because some Documents were not successfully indexed.)
