@@ -374,6 +374,13 @@
         <artifactId>ollama4j</artifactId>
         <version>1.0.93</version>
     </dependency>
+
+    <!-- for RSS connector -->
+    <dependency>
+      <groupId>com.apptasticsoftware</groupId>
+      <artifactId>rssreader</artifactId>
+      <version>3.9.3</version>
+    </dependency>
   </dependencies>
 
 
