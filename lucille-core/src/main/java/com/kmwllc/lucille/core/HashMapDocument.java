@@ -641,7 +641,8 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Set<String> getFieldNames() {
-    return data.getKeys();
+    // will follow the order of iteration
+    return new LinkedHashSet<>(data.getKeys());
   }
 
   @Override

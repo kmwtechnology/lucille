@@ -7,7 +7,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.Iterator;
+import java.util.Set;
 import org.junit.Test;
 
 import java.util.Base64;
@@ -248,4 +252,41 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals("r", doc.getString("foo"));
     assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
   }
+
+  @Test
+  public void testGetFieldNamesInsertionOrder() {
+    List<Integer> numbers = new ArrayList<>();
+
+    for (int i = 1; i <= 40; i++) {
+      numbers.add(i);
+    }
+
+    // add fields named "1" through "40" in a random order.
+    Collections.shuffle(numbers);
+
+    Document doc = Document.create("test");
+
+    for (Integer num : numbers) {
+      doc.setField(String.valueOf(num), "something");
+    }
+
+    Set<String> fieldNames = doc.getFieldNames();
+
+    Iterator<String> fieldNamesIterator = fieldNames.iterator();
+    // always the first field added to the Document
+    assertEquals("id", fieldNamesIterator.next());
+
+    int fieldNamesParsed = 0;
+
+    while (fieldNamesIterator.hasNext()) {
+      // making sure that the Set returned by getFieldNames preserves insertion order -
+      // should be the same order that they were added above.
+      int currentNum = Integer.parseInt(fieldNamesIterator.next());
+      assertEquals(numbers.get(fieldNamesParsed), Integer.valueOf(currentNum));
+      fieldNamesParsed++;
+    }
+
+    assertEquals(40, fieldNamesParsed);
+  }
+
 }

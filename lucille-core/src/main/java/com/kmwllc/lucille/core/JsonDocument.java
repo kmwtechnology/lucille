@@ -875,12 +875,9 @@ public class JsonDocument implements Document {
 
   @Override
   public Set<String> getFieldNames() {
-    Set<String> fieldNames = new HashSet<String>();
-    Iterator<String> it = data.fieldNames();
-    while (it.hasNext()) {
-      String fieldName = it.next();
-      fieldNames.add(fieldName);
-    }
+    LinkedHashSet<String> fieldNames = new LinkedHashSet<String>();
+    // ObjectNode uses a LinkedHashMap internally, so this iteration will follow insertion order into the ObjectNode.
+    data.fieldNames().forEachRemaining(fieldNames::add);
     return fieldNames;
   }
 
