@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -528,6 +529,9 @@ public interface Document {
     return Collections.singleton(this).iterator();
   }
 
+  /**
+   * @return A set of field names found on the Document. Preserves insertion order.
+   */
   Set<String> getFieldNames();
 
   Map<String, Object> asMap();
