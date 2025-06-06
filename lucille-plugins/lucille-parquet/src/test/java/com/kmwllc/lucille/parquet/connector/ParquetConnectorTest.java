@@ -37,7 +37,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/connector.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/connector.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -56,7 +56,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/limit.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/limit.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -76,7 +76,7 @@ public class ParquetConnectorTest {
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     // Starts at index 3 in the parquet file
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/start.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/start.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -96,7 +96,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/startAndLimit.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/startAndLimit.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -116,7 +116,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversal.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/traversal.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -130,7 +130,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversalWithStart.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/traversalWithStart.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -144,7 +144,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversalWithLimit.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/traversalWithLimit.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -159,7 +159,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversalWithStart2AndLimit.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/traversalWithStart2AndLimit.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -174,7 +174,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/traversalWithStart20AndLimit.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/traversalWithStart20AndLimit.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -190,7 +190,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/largeStart.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/largeStart.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -204,7 +204,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/notParquet.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/notParquet.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     connector.execute(publisher);
@@ -218,7 +218,7 @@ public class ParquetConnectorTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config config = ConfigFactory.load("ParquetConnectorTest/conf/fakeFile.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("ParquetConnectorTest/conf/fakeFile.conf");
     ParquetConnector connector = new ParquetConnector(config);
 
     assertThrows(ConnectorException.class, () -> connector.execute(publisher));
