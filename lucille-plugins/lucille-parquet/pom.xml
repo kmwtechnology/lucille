@@ -33,7 +33,7 @@
     <dependency>
       <groupId>org.apache.parquet</groupId>
       <artifactId>parquet-avro</artifactId>
-      <version>1.15.1</version>
+      <version>1.15.2</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
@@ -56,7 +56,7 @@
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-aws</artifactId>
-      <version>3.3.4</version>
+      <version>3.4.1</version>
       <exclusions>
         <exclusion>
           <groupId>com.amazonaws</groupId>
