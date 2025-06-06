@@ -91,12 +91,13 @@ public class AzureStorageClientTest {
   public void testPublishValidFiles() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "https://storagename.blob.core.windows.net/folder/"
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        ConfigFactory.empty(), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, "prefix-");
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
@@ -148,12 +149,14 @@ public class AzureStorageClientTest {
   public void testSkipFileContent() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "https://storagename.blob.core.windows.net/folder/",
+        "fileOptions", Map.of(GET_FILE_CONTENT, false)
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, "prefix-");
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -190,13 +193,14 @@ public class AzureStorageClientTest {
   public void testPublishInvalidFiles() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "https://storagename.blob.core.windows.net/folder/",
+        "filterOptions", Map.of("excludes", List.of("blob3", "blob4"))
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of("blob3", "blob4"));
-    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+    TraversalParams params = new TraversalParams(connectorConfig, "prefix-");
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -231,14 +235,15 @@ public class AzureStorageClientTest {
   public void testPublishUsingFileHandler() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "https://storagename.blob.core.windows.net/folder/",
+        "fileOptions", Map.of(GET_FILE_CONTENT, false),
+        "fileHandlers", Map.of("json", Map.of())
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     // azure storage client that handles json files
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        ConfigFactory.parseMap(Map.of("json", Map.of(), GET_FILE_CONTENT, false)), ConfigFactory.empty());
-
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -252,8 +257,8 @@ public class AzureStorageClientTest {
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
       mockFileHandler.when(() -> FileHandler.createFromConfig(any())).thenReturn(Map.of("json", jsonFileHandler));
-      mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
-          .thenReturn(true).thenReturn(true).thenReturn(false);
+
+      TraversalParams params = new TraversalParams(connectorConfig, "prefix-");
 
       azureStorageClient.initializeForTesting();
       azureStorageClient.traverse(publisher, params);
@@ -273,19 +278,21 @@ public class AzureStorageClientTest {
   public void testPublishCompressedAndArchived() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "https://storagename.blob.core.windows.net/folder/",
+        "fileOptions", Map.of(
+            "handleArchivedFiles", true,
+            "handleCompressedFiles", true
+        ),
+        "fileHandlers", Map.of(
+            "csv", Map.of(),
+            "json", Map.of()
+        )
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        ConfigFactory.parseMap(
-            Map.of(
-                "csv", Map.of(),
-                "json", Map.of(),
-                "handleArchivedFiles", true,
-                "handleCompressedFiles", true
-            )),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, "prefix-");
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -394,17 +401,17 @@ public class AzureStorageClientTest {
   public void testErrorMovingFiles() throws Exception{
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "https://storagename.blob.core.windows.net/folder/",
+        "fileOptions", Map.of(
+            "moveToAfterProcessing", "https://storagename.blob.core.windows.net/folder/processed",
+            "moveToErrorFolder", "https://storagename.blob.core.windows.net/folder/error"
+        )
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "prefix-",
-        ConfigFactory.parseMap(
-            Map.of(
-                "moveToAfterProcessing", "https://storagename.blob.core.windows.net/folder/processed",
-                "moveToErrorFolder", "https://storagename.blob.core.windows.net/folder/error"
-            )),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, "prefix-");
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
@@ -456,14 +463,16 @@ public class AzureStorageClientTest {
   public void testModificationCutoff() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "pathToStorage", "https://storagename.blob.core.windows.net/folder/",
+        "filterOptions", Map.of("modificationCutoff", "2h")
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
     // only files modified in the last 2 hours
     Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
-    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/folder/"), "",
-        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+    TraversalParams params = new TraversalParams(connectorConfig, "");
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
