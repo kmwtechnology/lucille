@@ -13,6 +13,7 @@ import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.Set;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,10 +26,18 @@ import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 import sun.misc.Signal;
 
+/**
+ * Indexes documents into a target destination.
+ */
 public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
+
+  // Using a String[] so it can be passed directly to varargs for a Spec
+  private static final String[] OPTIONAL_INDEXER_CONFIG_PROPERTIES = new String[] {"type", "class", "idOverrideField", "indexOverrideField", "ignoreFields", "deletionMarkerField",
+      "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "batchSize", "batchTimeout", "logRate",
+      "versionType", "routingField", "sendEnabled"};
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -64,7 +73,16 @@ public abstract class Indexer implements Runnable {
     log.debug("terminate");
   }
 
-  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
+  /**
+   * Creates the base implementation of an Indexer from the given parameters and validates it. Runs validation on the common "indexer"
+   * config as well as the specific implementation's config, as either are present.
+   *
+   * @param config The root config for Lucille. (In other words, should potentially include both "indexer" and specific
+   *               implementation config, like "solr" or "elasticsearch".)
+   * @param specificImplSpec A Spec for the specific Indexer implementation and its properties. Should define what is allowed in the
+   *                         config, for example, index, url, etc. for "elasticsearch".
+   */
+  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId, Spec specificImplSpec) {
     this.messenger = messenger;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
@@ -123,13 +141,24 @@ public abstract class Indexer implements Runnable {
     this.stopWatch = new StopWatch();
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
-
     this.localRunId = localRunId;
+
+    // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
+    validateIndexerConfig(config, specificImplSpec);
   }
+
+  /**
+   * Gets the key / parent name of this Indexer in a Config. For example, "elasticsearch" for ElasticsearchIndexer. Return null
+   * if this Indexer does not take additional / specific configuration and, as such, has no config key.
+   * @return the key / parent name of this Indexer in a Config.
+   */
+  protected abstract String getIndexerConfigKey();
 
   /**
    * Return true if connection to the destination search engine is valid and the relevant index or
    * collection exists; false otherwise.
+   *
+   * @return Whether this Indexer has a valid connection to its destination.
    */
   public abstract boolean validateConnection();
 
@@ -137,8 +166,14 @@ public abstract class Indexer implements Runnable {
    * Send a batch of documents to the destination search engine. Implementations should use a single
    * call to the batch API provided by the search engine client, if available, as opposed to sending
    * each document individually.
+   *
+   * @param documents The documents to send to the destination.
+   * @return A set of the Documents that were not successfully indexed. Return an empty set if no documents fail / if not
+   * supported by the Indexer implementation. Must not return null.
+   * @throws Exception In the event of a considerable error causing indexing to fail. Does not throw
+   * Exceptions just because some Documents may have not been indexed successfully.
    */
-  protected abstract void sendToIndex(List<Document> documents) throws Exception;
+  protected abstract Set<Document> sendToIndex(List<Document> documents) throws Exception;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -173,6 +208,11 @@ public abstract class Indexer implements Runnable {
     }
   }
 
+  /**
+   * Runs the Indexer, having it check for documents a certain number of times.
+   *
+   * @param iterations The number of times to check for a document.
+   */
   public void run(int iterations) {
     try {
       for (int i = 0; i < iterations; i++) {
@@ -199,6 +239,9 @@ public abstract class Indexer implements Runnable {
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
     } else {
+      try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
+        docLogger.info("Indexer polled doc {}, added to batch.", doc.getId());
+      }
       sendToIndexWithAccounting(batch.add(doc));
     }
   }
@@ -218,14 +261,54 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
+
     try {
       stopWatch.reset();
       stopWatch.start();
-      sendToIndex(batchedDocs);
+      Set<Document> failedDocs = sendToIndex(batchedDocs);
       stopWatch.stop();
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
+
+      if (!failedDocs.isEmpty()) {
+        log.warn("{} Documents were not indexed successfully.", failedDocs.size());
+      }
+
+      // Mark all the documents in failedDoc as failed
+      for (Document d : failedDocs) {
+        try {
+          messenger.sendEvent(d, "FAILED", Event.Type.FAIL);
+          docLogger.error("Sent failure message for doc {}.", d.getId());
+        } catch (Exception e) {
+          log.error("Couldn't send failure event for doc {}", d.getId(), e);
+        }
+      }
+
+      for (Document d : batchedDocs) {
+        if (failedDocs.contains(d)) {
+          continue;
+        }
+
+        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+          if (d.getRunId() != null) {
+            MDC.pushByKey(RUNID_FIELD, d.getRunId());
+          }
+
+          messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
+          docLogger.info("Sent success message for doc {}.", d.getId());
+        } catch (Exception e) {
+          // TODO: The run won't be able to finish if this event isn't received; can we do something
+          // special here?
+          log.error("Error sending completion event for doc {}", d.getId(), e);
+        } finally {
+          if (d.getRunId() != null) {
+            MDC.popByKey(RUNID_FIELD);
+          }
+        }
+      }
     } catch (Exception e) {
+      // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing) to be indexed.
+      // So everything is considered to have failed - we won't even look at failedDocs.
       log.error("Error sending documents to index: " + e.getMessage(), e);
 
       for (Document d : batchedDocs) {
@@ -246,32 +329,12 @@ public abstract class Indexer implements Runnable {
           }
         }
       }
-      return;
     } finally {
+      // We always mark batches as completed, regardless of whether the whole batch failed, some docs failed, etc.
       try {
-        // for now we add offsets whether or not the batch was successfully indexed
         messenger.batchComplete(batchedDocs);
       } catch (Exception e) {
         log.error("Error marking batch complete.", e);
-      }
-    }
-
-    for (Document d : batchedDocs) {
-      try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
-        if (d.getRunId() != null) {
-          MDC.pushByKey(RUNID_FIELD, d.getRunId());
-        }
-
-        messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
-        docLogger.info("Sent success message for doc {}.", d.getId());
-      } catch (Exception e) {
-        // TODO: The run won't be able to finish if this event isn't received; can we do something
-        // special here?
-        log.error("Error sending completion event for doc {}", d.getId(), e);
-      } finally {
-        if (d.getRunId() != null) {
-          MDC.popByKey(RUNID_FIELD);
-        }
       }
     }
   }
@@ -334,6 +397,22 @@ public abstract class Indexer implements Runnable {
           }
           System.exit(0);
         });
+  }
+
+  private void validateIndexerConfig(Config config, Spec specificImplSpec) {
+    // Validate the general "indexer" entry in the Config, if present.
+    if (config.hasPath("indexer")) {
+      Config indexerConfig = config.getConfig("indexer");
+      Spec.withoutDefaults()
+          .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
+          .validate(indexerConfig, "Indexer");
+    }
+
+    // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
+    if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
+      Config specificImplConfig = config.getConfig(getIndexerConfigKey());
+      specificImplSpec.validate(specificImplConfig, getIndexerConfigKey());
+    }
   }
 
   public int getBatchCapacity() {

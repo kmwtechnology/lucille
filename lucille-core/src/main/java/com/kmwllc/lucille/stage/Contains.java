@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -13,14 +14,13 @@ import java.util.List;
 /**
  * Checks if any of the given fields contain any of the given values and tags the given
  * output field with the value.
- *
+ * <br>
  * Config Parameters:
- *
- *   - contains (List&lt;String&gt;) : A list of values to search for
- *   - output (String) : The field to tag if a match is found
- *   - value (String) : The value to tag the output field with
- *   - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.
- *   - field (List&lt;String&gt;) : The fields to be searched
+ * <p> - contains (List&lt;String&gt;) : A list of values to search for
+ * <p> - output (String) : The field to tag if a match is found
+ * <p> - value (String) : The value to tag the output field with
+ * <p> - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.
+ * <p> - fields (List&lt;String&gt;) : The fields to be searched
  */
 public class Contains extends Stage {
 
@@ -32,8 +32,13 @@ public class Contains extends Stage {
 
   private PayloadTrie<String> trie;
 
+  /**
+   * Creates the Contains stage from the given Config.
+   *
+   * @param config Configuration for the Contains stage.
+   */
   public Contains(Config config) {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withRequiredProperties("contains", "output", "value", "fields")
         .withOptionalProperties("ignoreCase"));
 

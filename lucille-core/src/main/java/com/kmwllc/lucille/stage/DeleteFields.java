@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -11,16 +12,19 @@ import java.util.List;
 /**
  * Deletes a list of given fields from each document it processes.
  * <br>
- * Config Parameters -
- * <br>
- * fields (List&lt;String&gt;) : The list of fields to be deleted.
+ * Config Parameters:
+ * <p> fields (List&lt;String&gt;) : The list of fields to be deleted.
  */
 public class DeleteFields extends Stage {
 
   private final List<String> fields;
 
+  /**
+   * Creates the DeleteFields stage from the given config.
+   * @param config Configuration for the DeleteFields stage.
+   */
   public DeleteFields(Config config) {
-    super(config, new StageSpec().withRequiredProperties("fields"));
+    super(config, Spec.stage().withRequiredProperties("fields"));
     this.fields = config.getStringList("fields");
   }
 

@@ -1,14 +1,11 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -17,16 +14,9 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <br>
  * Config Parameters -
- * <br>
- * <p>
- * <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data"
- * </p>
- * <p>
- * <b>range_start</b> (Double, Optional) : Double representing the start of the range for generating random doubles. Defaults to 0.0.
- * </p>
- * <p>
- * <b>range_end</b> (Double, Optional) : Double representing the end of the range for generating random doubles. Defaults to 1M (1000000.0).
- * </p>
+ * <p> <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data"
+ * <p> <b>range_start</b> (Double, Optional) : Double representing the start of the range for generating random doubles. Defaults to 0.0.
+ * <p> <b>range_end</b> (Double, Optional) : Double representing the end of the range for generating random doubles. Defaults to 1M (1000000.0).
  */
 public class AddRandomDouble extends Stage {
 
@@ -35,7 +25,7 @@ public class AddRandomDouble extends Stage {
   private final double rangeEnd;
 
   public AddRandomDouble(Config config) throws StageException {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withOptionalProperties("field_name", "range_start", "range_end"));
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");

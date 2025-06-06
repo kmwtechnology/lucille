@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import java.util.Iterator;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -8,17 +9,12 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
 
 /**
- * Computes size of given byte array field and adds a field with that size
+ * Computes size of given byte array field and puts that size in a field on the Document.
  * <br>
  * Config Parameters -
- * <br>
- * <p>
- * <b>source</b> (String) : The field containing the byte array
- * </p>
- * <p>
- * <b>destination</b> (String) : The name of the field which will be added to store the size. Will overwrite value if field already
+ * <p> <b>source</b> (String) : The field containing the byte array
+ * <p> <b>destination</b> (String) : The name of the field which will be added to store the size. Will overwrite value if field already
  * exists
- * </p>
  */
 public class ComputeFieldSize extends Stage {
 
@@ -26,7 +22,7 @@ public class ComputeFieldSize extends Stage {
   private final String destination;
 
   public ComputeFieldSize(Config config) {
-    super(config, new StageSpec().withRequiredProperties("source", "dest"));
+    super(config, Spec.stage().withRequiredProperties("source", "dest"));
 
     this.source = config.getString("source");
     this.destination = config.getString("dest");

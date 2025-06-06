@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -8,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -23,38 +23,27 @@ import com.typesafe.config.Config;
  * Selects elements from an HTML document and extracts the raw text from them into destination fields
  * <br>
  * Config Parameters -
- * <br>
- * <p>
- * <b>filePathField</b> (String, Optional) : field name which contains a path to an html document which will be processed
- * </p>
- * <p>
- * <b>stringField</b> (String, Optional): field name which contains a string of the html which will be processed.
- * </p>
- * <p>
- * <b>byteArrayField</b> (String, Optional) : field name which contains a byte array of the html which will be processed.
+ * <p> <b>filePathField</b> (String, Optional) : field name which contains a path to an html document which will be processed.
+ * <p> <b>stringField</b> (String, Optional): field name which contains a string of the html which will be processed.
+ * <p> <b>byteArrayField</b> (String, Optional) : field name which contains a byte array of the html which will be processed.
  * only one of fieldPathField, stringField, or byteArrayField can be specified. If a document does not have whichever field is specified in the config, 
  * then it is not modified
- * </p>
- * <p>
- * <b>charset</b> (String, Optional) : the encoding of the html document. If none is provided when filePathField is provided the charset is detected from 
+ * <p> <b>charset</b> (String, Optional) : the encoding of the html document. If none is provided when filePathField is provided the charset is detected from
  * the byte-order-mark (BOM) or meta tags and defaults to UTF-8 if none is found. If no charset is provided when byteArrayField is provided the charset defaults 
  * to UTF-8 immediately. Has no effect if stringField is provided.
- * </p>
  * @see <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html"> Charsets </a> for information on supported charsets and conventions for 
  * specifying them.
- * <p>
- * <b>destinationFields</b> (Map&lt;String, Map&lt;String, String&gt;&gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes 
+ * <p> <b>destinationFields</b> (Map&lt;String, Map&lt;String, String&gt;&gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes
  * a css selector and a `type` field which takes one of the following: 'text', 'attribute', 'html', or 'outerHtml'. When doing attribute extraction an additional `attribute` with 
  * the desired attribute must be specified. For example:
- * </p>
  * <p>
- *  destinationFields: {
- *    destination1: {
- *      type: "attribute",
- *      selector: ".foo",
- *      attribute: "href"
- *    } 
- *  }
+ *      destinationFields: {
+ * <br>  destination1: {
+ * <br>    type: "attribute",
+ * <br>    selector: ".foo",
+ * <br>    attribute: "href"
+ * <br>  }
+ * <br> }
  * </p>
  * If a destination field already exists in the processed document it is overwritten. Otherwise, they are created. If a selector returns 
  * multiple elements the destination field receives a list of processed elements. If a selector returns no elements for a document then the 
@@ -73,8 +62,8 @@ public class ApplyJSoup extends Stage {
   }
 
   public ApplyJSoup(Config config) throws StageException {
-    super(config, new StageSpec().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
-        .withRequiredParents("destinationFields"));
+    super(config, Spec.stage().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
+        .withRequiredParentNames("destinationFields"));
 
     this.destinationFields = config.getConfig("destinationFields").root().unwrapped();
     this.charset = ConfigUtils.getOrDefault(config, "charset", null);

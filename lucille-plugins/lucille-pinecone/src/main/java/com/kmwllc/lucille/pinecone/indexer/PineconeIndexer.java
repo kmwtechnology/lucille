@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import io.pinecone.clients.Pinecone;
 import io.pinecone.proto.UpsertResponse;
@@ -54,10 +55,18 @@ public class PineconeIndexer extends Indexer {
   private final String defaultEmbeddingField;
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) throws IndexerException {
-    super(config, messenger, metricsPrefix, localRunId);
-    this.client = new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
+    this(config, messenger, false, metricsPrefix, localRunId);
+  }
+
+  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
+    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
+        .withRequiredProperties("apiKey", "index")
+        .withOptionalParentNames("namespaces")
+        .withOptionalProperties("metadataFields", "mode", "defaultEmbeddingField"));
+
+    this.client = bypass ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
-    this.index = client.getIndexConnection(indexName);
+    this.index = bypass ? null : client.getIndexConnection(indexName);
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = config.hasPath("pinecone.metadataFields")
         ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();
@@ -75,10 +84,6 @@ public class PineconeIndexer extends Indexer {
     }
   }
 
-  public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(config, messenger, metricsPrefix, localRunId);
-  }
-
   // Convenience Constructors
   public PineconeIndexer(Config config, IndexerMessenger messenger, String metricsPrefix) throws IndexerException {
     this(config, messenger, metricsPrefix, null);
@@ -87,6 +92,9 @@ public class PineconeIndexer extends Indexer {
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
     this(config, messenger, metricsPrefix, null);
   }
+
+  @Override
+  protected String getIndexerConfigKey() { return "pinecone"; }
 
   @Override
   public boolean validateConnection() {
@@ -99,7 +107,7 @@ public class PineconeIndexer extends Indexer {
   }
 
   @Override
-  protected void sendToIndex(List<Document> documents) throws IndexerException {
+  protected Set<Document> sendToIndex(List<Document> documents) throws IndexerException {
     // retrieve documents to delete & upload, mapping id to document
     Map<String, Document> deleteMap = new LinkedHashMap<>();
     Map<String, Document> uploadMap = new LinkedHashMap<>();
@@ -141,6 +149,8 @@ public class PineconeIndexer extends Indexer {
         uploadDocuments(new ArrayList<>(uploadMap.values()), defaultEmbeddingField, PineconeUtils.getDefaultNamespace());
       }
     }
+
+    return Set.of();
   }
 
   private void validateUploadRequirements() throws IndexerException {

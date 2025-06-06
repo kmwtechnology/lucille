@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -12,14 +13,10 @@ import java.util.concurrent.ThreadLocalRandom;
  * Adds random Booleans to documents given parameters.
  *
  * <br>
- * Config Parameters -
- * <br>
- * <p>
- * <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data"
- * </p>
- * <p>
- * <b>percent_true</b> (Integer, Optional) : Determines the rate at which "true" is selected and placed on a document. Defaults to 50.
- * </p>
+ *
+ * Config Parameters:
+ * <p> <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data".
+ * <p> <b>percent_true</b> (Integer, Optional) : Determines the rate at which "true" is selected and placed on a document. Defaults to 50.
  */
 public class AddRandomBoolean extends Stage {
 
@@ -27,7 +24,7 @@ public class AddRandomBoolean extends Stage {
   private final int percentTrue;
 
   public AddRandomBoolean(Config config) throws StageException {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withOptionalProperties("field_name", "percent_true"));
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");

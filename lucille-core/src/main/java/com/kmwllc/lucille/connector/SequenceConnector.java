@@ -3,12 +3,20 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.Spec;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Connector implementation that produces blank documents given amount to produce
+ * Connector implementation that produces a certain number of empty Documents. Each Document will have a number for its ID
+ * (generated in order).
+ *
+ * <p> Config Parameters:
+ * <ul>
+ *   <li>numDocs (Long): The number of Documents you want to create.</li>
+ *   <li>startWith (Int, Optional): The ID you want the first Document to have. Defaults to zero.</li>
+ * </ul>
  */
 public class SequenceConnector extends AbstractConnector {
 
@@ -17,7 +25,10 @@ public class SequenceConnector extends AbstractConnector {
   private final int startWith;
 
   public SequenceConnector(Config config) {
-    super(config);
+    super(config, Spec.connector()
+        .withRequiredProperties("numDocs")
+        .withOptionalProperties("startWith"));
+
     this.numDocs = config.getLong("numDocs");
     this.startWith = config.hasPath("startWith") ? config.getInt("startWith") : 0;
   }

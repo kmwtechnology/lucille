@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -8,7 +10,6 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.stage.util.DictionaryManager;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,32 +20,31 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Finds exact matches for given input values and extracts the payloads for each match to a given destination field.
+ * <p> Finds exact matches for given input values and extracts the payloads for each match to a given destination field.
  * The dictionary file should have a term on each line, and can support providing payloads with
  * the syntax "term, payload". If any occurrences are found, they will be extracted and their associated payloads will
  * be appended to the destination field.
  *
- * Can also be used as a Set lookup by setting the set_only parameter to true. In this case, the destination field will
+ * <p> Can also be used as a Set lookup by setting the set_only parameter to true. In this case, the destination field will
  * be set to true if all values in the source field are present in the dictionary.
  *
- * Config Parameters:
- *
- *   - source (List&lt;String&gt;) : list of source field names
- *   - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
+ * <p> Config Parameters:
+ * <p>  - source (List&lt;String&gt;) : list of source field names
+ * <p>  - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
+ * <p>  - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
  *       will be searched for the file. Otherwise, the local file system will be searched.
- *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
+ * <p>  - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.
+ * <p>  - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- *   - set_only (Boolean, Optional) : If true, the destination field will be set to true if all values in the source field
+ * <p>  - set_only (Boolean, Optional) : If true, the destination field will be set to true if all values in the source field
  *      are present in the dictionary.
- *   - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field
+ * <p>  - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field
  *      will be set to true if the source field is missing. Defaults to false.
  *
- *   - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
- *   - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
- *   - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
+ * <p>  - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
+ * <p>  - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
+ * <p>  - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class DictionaryLookup extends Stage {
 
@@ -57,15 +57,14 @@ public class DictionaryLookup extends Stage {
   private final boolean setOnly;
   private final boolean ignoreMissingSource;
 
-  private Map<String, String[]> dict;
+  private Map<String, List<String>> dict;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  // Dummy value to indicate that a key is present in the HashMap
 
   public DictionaryLookup(Config config) throws StageException {
-    super(config, new StageSpec().withRequiredProperties("source", "dest", "dict_path")
+    super(config, Spec.stage().withRequiredProperties("source", "dest", "dict_path")
         .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")
-        .withOptionalParents("s3", "gcp", "azure"));
+        .withOptionalParents(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
@@ -136,7 +135,7 @@ public class DictionaryLookup extends Stage {
           }
           if (dict.containsKey(value)) {
             if (usePayloads) {
-              outputValues.addAll(Arrays.asList(dict.get(value)));
+              outputValues.addAll(dict.get(value));
             } else {
               outputValues.add(value);
             }

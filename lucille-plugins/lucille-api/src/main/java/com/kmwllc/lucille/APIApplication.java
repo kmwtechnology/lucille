@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.endpoints.LivenessResource;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import com.kmwllc.lucille.endpoints.ReadinessResource;
+import com.kmwllc.lucille.endpoints.SystemStatsResource;
 import io.dropwizard.auth.AuthDynamicFeature;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.PrincipalImpl;
@@ -22,35 +23,73 @@ import io.federecio.dropwizard.swagger.SwaggerBundleConfiguration;
 import jdk.jfr.Experimental;
 
 /**
- * Main Class for the Lucille API.
+ * Main entry point for the Lucille API.
+ * <p>
+ * Configures authentication, Swagger, and resource registration for the Dropwizard server.
+ * <p>
+ * Usage:
+ * <pre>
+ *   java -jar lucille-api.jar server conf/config.yml
+ * </pre>
+ * @see com.kmwllc.lucille.config.LucilleAPIConfiguration
  */
 @Experimental
 public class APIApplication extends Application<LucilleAPIConfiguration> {
 
+  /**
+   * Logger for the Lucille API application.
+   */
   public static final Logger log = LoggerFactory.getLogger(APIApplication.class);
 
+  /**
+   * Default constructor for APIApplication.
+   * Required for Javadoc compliance.
+   */
+  public APIApplication() {
+    // No-op constructor
+  }
+
+  /**
+   * Returns the name of the application.
+   * @return the application name
+   */
   @Override
   public String getName() {
     return "lucille-api";
   }
 
-  // Turn off the default Dropwizard Logging
+  /**
+   * Disables the default Dropwizard logging configuration so that Log4j2 can take over.
+   */
   @Override
   protected void bootstrapLogging() {}
 
+  /**
+   * Initializes the Dropwizard application, including Swagger bundle registration.
+   * @param bootstrap the Dropwizard bootstrap object
+   */
   @Override
   public void initialize(Bootstrap<LucilleAPIConfiguration> bootstrap) {
-
     bootstrap.addBundle(new SwaggerBundle<LucilleAPIConfiguration>() {
+      /**
+       * Returns the Swagger bundle configuration from the Lucille API configuration.
+       * @param configuration the Lucille API configuration
+       * @return the SwaggerBundleConfiguration
+       */
       @Override
       protected SwaggerBundleConfiguration getSwaggerBundleConfiguration(
           LucilleAPIConfiguration configuration) {
         return configuration.swaggerBundleConfiguration;
       }
     });
-
   }
 
+  /**
+   * Starts the Lucille API server, configures authentication, and registers resources. Throws Exception on unsupported auth type, aborting startup.
+   * @param config the Lucille API configuration
+   * @param env the Dropwizard environment
+   * @throws Exception if authentication type is unsupported (startup abort) or other startup failures
+   */
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
     log.info(String.format("starting lucille-api from %s config %s env %s",
@@ -82,8 +121,16 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     env.jersey().register(new LivenessResource());
     env.jersey().register(new ReadinessResource());
     env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
+
+    // Register SystemStatsResource
+    env.jersey().register(new SystemStatsResource());
   }
 
+  /**
+   * Main method for launching the Lucille API server. If no args are provided, defaults to 'server conf/default-config.yml'.
+   * @param args command-line arguments (expects Dropwizard {@code server <config.yml>})
+   * @throws Exception if startup fails
+   */
   public static void main(String[] args) throws Exception {
     log.info(String.format("starting lucille-api from %s args %s",
         System.getProperty("user.dir"), Arrays.toString(args)));

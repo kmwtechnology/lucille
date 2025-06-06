@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -7,8 +8,6 @@ import com.typesafe.config.Config;
 
 import java.util.Iterator;
 import java.util.Map;
-
-import java.util.List;
 
 /**
  * Removes duplicate values from the given list of fields.
@@ -22,7 +21,7 @@ public class RemoveDuplicateValues extends Stage {
   private final Map<String, Object> fieldMapping;
 
   public RemoveDuplicateValues(Config config) {
-    super(config, new StageSpec().withRequiredParents("fieldMapping"));
+    super(config, Spec.stage().withRequiredParentNames("fieldMapping"));
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
 

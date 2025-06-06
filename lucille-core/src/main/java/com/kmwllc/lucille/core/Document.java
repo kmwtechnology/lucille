@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import com.api.jsonata4java.expressions.Expressions;
+import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -113,7 +113,11 @@ public interface Document {
 
   /**
    * Sets the designated field to the given value, overwriting any value
-   * that existed previously, and making the field single-valued. **/
+   * that existed previously, and making the field single-valued.
+   *
+   * @param name the name of the field you want to set.
+   * @param value the value you want to set the field to have.
+   */
   void setField(String name, String value);
 
   void setField(String name, Boolean value);
@@ -144,8 +148,11 @@ public interface Document {
   /**
    * Sets the designated field to the given value, overwriting any value
    * that existed previously, and making the field single-valued.
-   * The provided Object value must be a String, Long, Double, Boolean, Integer, Instant, or byte[]
+   * The provided Object value must be one of:
+   * String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, or Date.
    *
+   * @param name the name of the field you want to set.
+   * @param value the value you want to set the field to have.
    * @throws IllegalArgumentException if value is not of a supported type
    **/
   default void setField(String name, Object value) {
@@ -182,7 +189,10 @@ public interface Document {
   /**
    * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)
    * if it was not multivalued already.
-   **/
+   *
+   * @param name the name of the field you want to add the value to.
+   * @param value the value you want to add.
+   */
   void addToField(String name, String value);
 
   void addToField(String name, Boolean value);
@@ -206,10 +216,12 @@ public interface Document {
   void addToField(String name, Timestamp value);
 
   /**
-   * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)
-   * if it was not multivalued already.
-   * The provided Object value must be a String, Long, Double, Boolean, Integer, Instant, or byte[]
+   * Adds the given value to the designated field, converting the field to multivalued (i.e. a list)if it was not multivalued already.
+   * The provided Object value must be one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp,
+   * or Date.
    *
+   * @param name the name of the field you want to add the value to.
+   * @param value the value you want to add.
    * @throws IllegalArgumentException if value is not of a supported type
    **/
   default void addToField(String name, Object value) {
@@ -249,6 +261,9 @@ public interface Document {
    * <p>If the field does not already exist and this method is called once, the field will be
    * created as single-valued; if the field already exists and/or this method is called more than
    * once, the field will be converted to multivalued (i.e. a list of values).
+   *
+   * @param name the name of the field you want to set or add a value to.
+   * @param value the value you want to set or add to an existing field.
    */
   void setOrAdd(String name, String value);
 
@@ -273,8 +288,18 @@ public interface Document {
   void setOrAdd(String name, Timestamp value);
 
   /**
-   * @throws IllegalArgumentException if value is not of a supported type
-   **/
+   * Sets the field to the given value if the field is not already present; otherwise, adds the value to the field.
+   *
+   * <p>If the field does not already exist and this method is called once, the field will be
+   * created as single-valued; if the field already exists and/or this method is called more than
+   * once, the field will be converted to multivalued (i.e. a list of values).
+   *
+   * The provided value must be one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, Date.
+   *
+   * @param name the name of the field you want to set or add a value to.
+   * @param value the value you want to set or add to an existing field.
+   * @throws IllegalArgumentException if the value is not a supported type.
+   */
   default void setOrAdd(String name, Object value) {
     if (value instanceof String) {
       setOrAdd(name, (String) value);
@@ -324,13 +349,12 @@ public interface Document {
   /* --- UPDATERS --- */
 
   /**
-   * Updates the designated field according to the provided UpdateMode.
+   * Updates the designated field in accordance with the provided UpdateMode.
+   * <p> In all cases, the field will be created if it doesn't already exist.
    *
-   * <p>APPEND: the provided values will be appended to the field. OVERWRITE: the provided values
-   * will overwrite any current field values SKIP: the provided values will populate the field if
-   * the field didn't previously exist; otherwise no change will be made.
-   *
-   * <p>In all cases the field will be created if it doesn't already exist.
+   * @param name the name of the field you want to update.
+   * @param mode the UpdateMode you want to use.
+   * @param values the value(s) you want the field to have.
    */
   default void update(String name, UpdateMode mode, String... values) {
     update(name, mode, v -> setField(name, (String) v), v -> setOrAdd(name, (String) v), values);
@@ -377,15 +401,20 @@ public interface Document {
   }
 
   /**
-   * Updates the designated field according to the provided UpdateMode. The provided values
-   * must be of supported types (String, Long, Double, Boolean, Integer, Instant, or byte[])
-   * but type uniformity is not enforced. If an unsupported type is encountered, an
-   * IllegalArgumentException will be thrown, but any values that had been added to the field
-   * will remain in place; that is to say, the partial update will not be reverted if a failure
-   * occurs in the middle.
+   * Updates the designated field according to the provided UpdateMode.
    *
+   * <p> The provided values must be of one of: String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, Date.
+   *
+   * <p> Note that type uniformity is <b>not</b> enforced.
+   *
+   * <p> If an unsupported type is encountered, an IllegalArgumentException will be thrown, but any values that had been added to the field
+   * will remain in place; that is to say, the partial update will not be reverted if a failure occurs in the middle.
+   *
+   * @param name the name of the field you want to update.
+   * @param mode the UpdateMode you want to use.
+   * @param values the value(s) you want the field to have.
    * @throws IllegalArgumentException if any of the values is not of a supported type
-   **/
+   */
   default void update(String name, UpdateMode mode, Object... values) {
     update(name, mode, v -> setField(name, v), (v) -> setOrAdd(name, v), values);
   }
@@ -485,12 +514,12 @@ public interface Document {
   Document deepCopy();
 
   /**
-   * Applies a JSONNata expression to this Document (as if it were a JSON object) and replaces this Document with the result. 
+   * Applies a JSONNata expression to this Document (as if it were a JSON object) and replaces this Document with the result.
    *
    * @throws DocumentException if any reserved fields are mutated or if the result is not an object (primitive or array)
-   * @see <a href="https://github.com/IBM/JSONata4Java">JSONNata implementation</a>
+   * @see <a href="https://github.com/dashjoin/jsonata-java">JSONNata implementation</a>
    */
-  void transform(Expressions expr) throws DocumentException;
+  void transform(Jsonata expr) throws DocumentException;
 
   /**
    * Returns an Iterator that contains only this document.

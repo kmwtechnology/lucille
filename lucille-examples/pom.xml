@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.5.4-SNAPSHOT</version>
+    <version>0.5.6-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -21,6 +21,7 @@
     <module>lucille-joining-db-connector-example</module>
     <module>lucille-file-to-file-example</module>
     <module>lucille-distributed-example</module>
+    <module>lucille-distributed-example/runner</module>
     <module>lucille-simple-csv-solr-example</module>
     <module>lucille-opensearch-ingest-example</module>
     <module>lucille-s3-ingest-example</module>

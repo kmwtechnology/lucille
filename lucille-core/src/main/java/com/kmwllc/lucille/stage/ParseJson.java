@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.jayway.jsonpath.*;
 import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -43,10 +44,11 @@ public class ParseJson extends Stage {
   private ParseContext jsonParseCtx;
 
   public ParseJson(Config config) {
-    super(config, new StageSpec()
+    super(config, Spec.stage()
         .withRequiredProperties("src")
         .withOptionalProperties("sourceIsBase64")
-        .withRequiredParents("jsonFieldPaths"));
+        .withRequiredParentNames("jsonFieldPaths"));
+
     this.src = config.getString("src");
     this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();
     this.sourceIsBase64 = config.hasPath("sourceIsBase64") && config.getBoolean("sourceIsBase64");
@@ -70,15 +72,20 @@ public class ParseJson extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     DocumentContext ctx;
-    if (this.sourceIsBase64) {
-      try (InputStream stream = new ByteArrayInputStream(DECODER.decode(doc.getString(this.src)))) {
-        ctx = this.jsonParseCtx.parse(stream);
-      } catch (IOException e) {
-        //do nothing this is a byte array stream close is a no-op. Throw stage exception just in case / futureproof.
-        throw new StageException("Unexpected error parsing JSON.", e);
+    try {
+      if (this.sourceIsBase64) {
+        try (InputStream stream = new ByteArrayInputStream(DECODER.decode(doc.getString(this.src)))) {
+          ctx = this.jsonParseCtx.parse(stream);
+        } catch (IOException e) {
+          //do nothing this is a byte array stream close is a no-op. Throw stage exception just in case / futureproof.
+          throw new StageException("Unexpected error parsing JSON.", e);
+        }
+      } else {
+        ctx = this.jsonParseCtx.parse(doc.getString(this.src));
       }
-    } else {
-      ctx = this.jsonParseCtx.parse(doc.getString(this.src));
+    } catch (IllegalArgumentException e) {
+      // Using a more specific Exception message. Primarily triggered when the Document is missing the JSON src field.
+      throw new StageException("Couldn't run ParseJson on Document " + doc.getId() + ".", e);
     }
     for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
       JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);

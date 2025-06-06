@@ -1,21 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<!-- **** IMPORTANT NOTE **** -->
+
+<!-- Any changes made to this POM should also be made to githubpom.xml. That is the pom that will be used when the
+smoketest is run on GitHub Actions. (The only difference being that it does not have a declared parent, to prevent
+errors relating to the container's limited context.) -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.kmwllc</groupId>
+  <parent>
+    <groupId>com.kmwllc</groupId>
+    <artifactId>lucille-examples</artifactId>
+    <version>0.5.6-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
   <artifactId>lucille-distributed</artifactId>
-  <version>0.5.4-SNAPSHOT</version>
   <packaging>jar</packaging>
+  <name>Lucille Examples: Distributed Runner</name>
 
   <dependencies>
-    <!-- JUnit dependency -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
-      <scope>test</scope>
-    </dependency>
 
     <!-- Jackson dependency -->
     <dependency>

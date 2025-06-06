@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.5.4-SNAPSHOT</version>
+    <version>0.5.6-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -18,9 +18,9 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.ibm.jsonata4java</groupId>
-      <artifactId>JSONata4Java</artifactId>
-      <version>2.5.0</version>
+        <groupId>com.dashjoin</groupId>
+        <artifactId>jsonata</artifactId>
+        <version>0.9.8</version>
     </dependency>
     <dependency>
       <groupId>org.opensearch.client</groupId>
@@ -259,7 +259,23 @@
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>s3</artifactId>
-      <version>2.29.1</version>
+      <version>${aws-sdk.version}</version>
+    </dependency>
+    <!-- The following 3 dependencies are needed for the AWS SDK S3Client default credentials provider -->
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>sso</artifactId>
+        <version>${aws-sdk.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>ssooidc</artifactId>
+        <version>${aws-sdk.version}</version>
+    </dependency>
+    <dependency>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>sts</artifactId>
+          <version>${aws-sdk.version}</version>
     </dependency>
 
     <dependency>
@@ -351,6 +367,12 @@
       <artifactId>spring-kafka-test</artifactId>
       <version>3.3.3</version>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+        <groupId>io.github.ollama4j</groupId>
+        <artifactId>ollama4j</artifactId>
+        <version>1.0.93</version>
     </dependency>
   </dependencies>
 

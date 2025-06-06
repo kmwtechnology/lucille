@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.parquet.connector;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -40,7 +41,10 @@ public class ParquetConnector extends AbstractConnector {
    * @param config Configuration for the ParquetConnector.
    */
   public ParquetConnector(Config config) {
-    super(config);
+    super(config, Spec.connector()
+        .withRequiredProperties("pathToStorage", "id_field", "fs_uri")
+        .withOptionalProperties("s3_key", "s3_secret", "limit", "start"));
+
     this.path = config.getString("pathToStorage");
     this.idField = config.getString("id_field");
     this.fsUri = config.getString("fs_uri");

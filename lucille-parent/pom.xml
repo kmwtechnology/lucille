@@ -8,7 +8,7 @@
   <groupId>com.kmwllc</groupId>
   <artifactId>lucille-parent</artifactId>
   <name>Lucille Parent</name>
-  <version>0.5.4-SNAPSHOT</version>
+  <version>0.5.6-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>Lucille is a production-grade Search ETL solution.</description>
   <url>https://github.com/kmwtechnology/lucille</url>
@@ -65,6 +65,7 @@
     <dropwizard-core.version>4.0.12</dropwizard-core.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit4.version>4.13.2</junit4.version>
+    <aws-sdk.version>2.29.1</aws-sdk.version>
 
   </properties>
 
@@ -256,11 +257,18 @@
               <goal>jar</goal>
             </goals>
             <configuration>
-              <!-- The failOnError set to false ensures that JavaDoc is still created even if some comments have not been created.
-               Otherwise, the build will fail. https://stackoverflow.com/questions/15886209/maven-is-not-working-in-java-8-when-javadoc-tags-are-incomplete
-              The goal is to eventually remove this setting once we add correct JavaDoc comments where they are needed.
-              !-->
-              <failOnError>false</failOnError>
+            <!--
+            This configuration causes a Lucille build to fail in the event of invalid JavaDoc - not missing JavaDoc.
+            For example, if the codebase has JavaDoc referencing the CSVConnector (via @see or @link), and you delete it
+            without changing that JavaDoc, *that* will cause a build failure.
+            Something else that will cause JavaDoc to fail is bad HTML - for example, if you write a Stage parameter as
+            List<String> instead of List&lt;String&gt;.
+            -->
+              <failOnError>true</failOnError>
+              <additionalOptions>
+                  <!-- Apply all doclints EXCEPT for missing JavaDoc -->
+                  <additionalOption>-Xdoclint:all,-missing</additionalOption>
+              </additionalOptions>
             </configuration>
           </execution>
 

@@ -11,40 +11,46 @@ import java.util.Map;
 /**
  * Interface for storage clients. Implementations of this interface should be able to traverse a storage system
  * and publish files to the Lucille pipeline.
- *
- *  - create : create appropriate client based on the URI scheme with authentication/settings from Config. Authentication only checks that required information is present
- *  - init : Initialize the client
- *  - shutdown : Shutdown the client
- *  - validateOptions: Whether the storage client's Config is sufficient for it to connect to its file system. See below for necessary keys / arguments.
- *  - traverse : traverse through the storage client and publish files to Lucille pipeline
- *  - getFileContentStream : Given a URI to a file in the storage client's system, return an InputStream for the file's contents
- *  - createClients : Given a Config, build a map of StorageClients that can be created from the supplied options, using the URI schemes as keys for the map.
  */
-
 public interface StorageClient {
 
   /**
-   * Initialize the client and creates necessary connections and/or resources
+   * Initialize the client and creates necessary connections and/or resources.
+   * @throws IOException If an error occurs during initialization.
    */
   void init() throws IOException;
 
   /**
-   * Shutdown the client, closes any open connections and/or resources
+   * Shutdown the client, closes any open connections and/or resources.
+   * @throws IOException If an error occurs during shutdown.
    */
   void shutdown() throws IOException;
 
   /**
    * Traverses through the storage client and publish files to Lucille pipeline
+   * @param publisher The Publisher you want to publish documents to.
+   * @param params Parameters / options regarding the traversal of the client's file system.
+   * @throws Exception If an error occurs during traversal.
    */
   void traverse(Publisher publisher, TraversalParams params) throws Exception;
 
   /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.
+   * @param uri A URI to the file whose contents you want to extract.
+   * @return An InputStream for the file's contents.
+   * @throws IOException If an error occurs while getting the file's contents.
    */
   InputStream getFileContentStream(URI uri) throws IOException;
 
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config.
+   * @param pathToStorage A URI to storage - either local or cloud - where you want to start your traversal from.
+   * @param connectorConfig Configuration for your connector, which should contain configuration for cloud storage clients
+   *                        as needed.
+   * @return The appropriate, configured storage client to use for your traversal.
+   *
+   * @throws IllegalArgumentException If your path to storage requires support for a cloud storage client that you did not provide,
+   * or you provided a URI with an unsupported scheme.
    */
   static StorageClient create(URI pathToStorage, Config connectorConfig) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
@@ -104,6 +110,9 @@ public interface StorageClient {
    *   "accountName" : azure account name
    *   "accountKey" : azure account key
    *   "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   *
+   * @param config The configuration which potentially contains cloud options that you want to use to build storage clients.
+   * @return A map of Strings to StorageClients. StorageClients are keyed by their URI scheme (gs, https, s3, file).
    */
   static Map<String, StorageClient> createClients(Config config) {
     Map<String, StorageClient> results = new HashMap<>();
@@ -126,5 +135,17 @@ public interface StorageClient {
     }
 
     return results;
+  }
+
+  /**
+   * Creates a full document ID from the initial docId and the given params. Adds the parameters' ID prefix
+   * to the beginning of the initial ID.
+   *
+   * @param docId The initial docId for your document.
+   * @param params Parameters for your storage traversal.
+   * @return A full document ID to use, adding the parameters' ID prefix to the beginning of the initial ID.
+   */
+  static String createDocId(String docId, TraversalParams params) {
+    return params.getDocIdPrefix() + docId;
   }
 }

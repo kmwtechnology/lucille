@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
@@ -21,7 +22,7 @@ public class AbstractConnectorTest {
   private class MyConnector extends AbstractConnector {
 
     public MyConnector(Config config) {
-      super(config);
+      super(config, Spec.connector());
     }
 
     @Override

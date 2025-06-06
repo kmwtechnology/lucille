@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class ApplyRegexTest {
 
@@ -60,6 +62,110 @@ public class ApplyRegexTest {
     doc.setField("input", "test~123");
     stage.processDocument(doc);
     assertEquals("123", doc.getString("output"));
+  }
+
+  @Test
+  public void testIgnoreCase() throws Exception {
+    Stage stage = factory.get("ApplyRegexTest/ignoreCase.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "Hi abcdef");
+
+    Document doc2 = Document.create("2");
+    doc2.setField("input", "Hi AbCDeF");
+
+    stage.processDocument(doc1);
+    stage.processDocument(doc2);
+
+    assertEquals("abcdef", doc1.getString("output"));
+    assertEquals("AbCDeF", doc2.getString("output"));
+  }
+
+  @Test
+  public void testMultiline() throws Exception {
+    Stage stage = factory.get("ApplyRegexTest/multiline.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "line");
+
+    Document doc2 = Document.create("2");
+    doc2.setField("input", "hello there\n\nline");
+
+    stage.processDocument(doc1);
+    stage.processDocument(doc2);
+
+    assertEquals("line", doc1.getString("output"));
+    assertEquals("line", doc2.getString("output"));
+  }
+
+  @Test
+  public void testDotall() throws Exception {
+    Stage stage = factory.get("ApplyRegexTest/dotall.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "abc");
+
+    Document doc2 = Document.create("2");
+    doc2.setField("input", "a\nc");
+
+    stage.processDocument(doc1);
+    stage.processDocument(doc2);
+
+    assertEquals("abc", doc1.getString("output"));
+    assertEquals("a\nc", doc2.getString("output"));
+  }
+
+  @Test
+  public void testLiteral() throws Exception {
+    Stage stage = factory.get("ApplyRegexTest/literal.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "abc");
+
+    Document doc2 = Document.create("2");
+    doc2.setField("input", "a.c");
+
+    stage.processDocument(doc1);
+    stage.processDocument(doc2);
+
+    assertNull(doc1.getString("output"));
+    assertEquals("a.c", doc2.getString("output"));
+  }
+
+  @Test
+  public void testIgnoreCaseAndMultiline() throws StageException {
+    Stage stage = factory.get("ApplyRegexTest/ignoreCaseAndMultiline.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "\n\nLIne");
+
+    stage.processDocument(doc1);
+
+    assertEquals("LIne", doc1.getString("output"));
+  }
+
+  @Test
+  public void testIgnoreCaseAndMultilineAndDotall() throws StageException {
+    Stage stage = factory.get("ApplyRegexTest/icAndMlAndDa.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "\n\nLI\ne");
+
+    stage.processDocument(doc1);
+
+    assertEquals("LI\ne", doc1.getString("output"));
+  }
+
+  @Test
+  public void testAllFlags() throws StageException {
+    Stage stage = factory.get("ApplyRegexTest/allFlags.conf");
+
+    Document doc1 = Document.create("1");
+    doc1.setField("input", "^LI.e$");
+
+    stage.processDocument(doc1);
+
+    assertEquals("^LI.e$", doc1.getString("output"));
   }
 
   @Test

@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -30,8 +32,9 @@ public class FetchFileContent extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public FetchFileContent(Config config) {
-    super(config, new StageSpec().withOptionalProperties("filePathField", "fileContentField")
-        .withOptionalParents("s3", "azure", "gcp"));
+    super(config, Spec.stage()
+        .withOptionalProperties("filePathField", "fileContentField")
+        .withOptionalParents(FileConnector.S3_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC));
 
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");

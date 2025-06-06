@@ -21,10 +21,12 @@ import java.net.URI;
 import java.nio.channels.Channels;
 import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A storage client for Google Cloud. Create using a configuration (commonly mapped to <b>gcp</b>) which contains "pathToServiceKey".
+ */
 public class GoogleStorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);
@@ -69,11 +71,8 @@ public class GoogleStorageClient extends BaseStorageClient {
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            if (isValid(blob, params)) {
-              String fullPathStr = getFullPath(blob, params);
-              String fileExtension = FilenameUtils.getExtension(fullPathStr);
-              tryProcessAndPublishFile(publisher, fullPathStr, fileExtension, new FileReference(blob), params);
-            }
+            GoogleFileReference fileRef = new GoogleFileReference(blob);
+            processAndPublishFileIfValid(publisher, fileRef, params);
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
     } while (page != null);
@@ -89,37 +88,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     return Channels.newInputStream(blobReadChannel);
   }
 
-  @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, TraversalParams params) {
-    Blob blob = fileReference.getBlob();
-
-    try {
-      return blobToDoc(blob, params);
-    } catch (IOException e) {
-      throw new IllegalArgumentException("Unable to convert blob '" + blob.getName() + "' to Document", e);
-    }
-  }
-
-  @Override
-  protected Document convertFileReferenceToDoc(FileReference fileReference, InputStream in, String decompressedFullPathStr, TraversalParams params) {
-    Blob blob = fileReference.getBlob();
-
-    try {
-      return blobToDoc(blob, in, decompressedFullPathStr, params);
-    } catch (IOException e) {
-      throw new IllegalArgumentException("Unable to convert blob '" + blob.getName() + "' to Document", e);
-    }
-  }
-
-  @Override
-  protected InputStream getFileReferenceContentStream(FileReference fileReference, TraversalParams params) {
-    Blob blob = fileReference.getBlob();
-    ReadChannel readChannel = blob.reader();
-    return Channels.newInputStream(readChannel);
-  }
-
-  @Override
-  protected String getStartingDirectory(TraversalParams params) {
+  private String getStartingDirectory(TraversalParams params) {
     URI pathURI = params.getURI();
     String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
     if (startingDirectory.startsWith("/")) {
@@ -128,69 +97,54 @@ public class GoogleStorageClient extends BaseStorageClient {
     return startingDirectory;
   }
 
-  @Override
-  protected String getBucketOrContainerName(TraversalParams params) {
+  private String getBucketOrContainerName(TraversalParams params) {
     return params.getURI().getAuthority();
-  }
-
-  private boolean isValid(Blob blob, TraversalParams params) {
-    if (blob.isDirectory()) return false;
-
-    return params.shouldIncludeFile(blob.getName());
-  }
-
-  private String getFullPath(Blob blob, TraversalParams params) {
-    return params.getURI().getScheme() + "://" + getBucketOrContainerName(params) + "/" + blob.getName();
-  }
-
-  private Document blobToDoc(Blob blob, TraversalParams params) throws IOException {
-    String fullPath = getFullPath(blob, params);
-    String docId = DigestUtils.md5Hex(fullPath);
-    Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-    doc.setField(FileConnector.FILE_PATH, fullPath);
-
-    if (blob.getUpdateTimeOffsetDateTime() != null) {
-      doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
-    }
-
-    if (blob.getCreateTimeOffsetDateTime() != null) {
-      doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-    }
-
-    doc.setField(FileConnector.SIZE, blob.getSize());
-
-    if (params.shouldGetFileContent()) {
-      doc.setField(FileConnector.CONTENT, blob.getContent());
-    }
-
-    return doc;
-  }
-
-  private Document blobToDoc(Blob blob, InputStream content, String decompressedFullPathStr, TraversalParams params) throws IOException {
-    final String docId = DigestUtils.md5Hex(decompressedFullPathStr);
-    final Document doc = Document.create(params.getDocIdPrefix() + docId);
-
-    doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-
-    if (blob.getUpdateTimeOffsetDateTime() != null) {
-      doc.setField(FileConnector.MODIFIED, blob.getUpdateTimeOffsetDateTime().toInstant());
-    }
-
-    if (blob.getCreateTimeOffsetDateTime() != null) {
-      doc.setField(FileConnector.CREATED, blob.getCreateTimeOffsetDateTime().toInstant());
-    }
-
-    // unable to get decompressed file size
-    if (params.shouldGetFileContent()) {
-      doc.setField(FileConnector.CONTENT, content.readAllBytes());
-    }
-
-    return doc;
   }
 
   // Only for testing
   void setStorageForTesting(Storage storage) {
     this.storage = storage;
+  }
+
+
+  private class GoogleFileReference extends BaseFileReference {
+
+    private final Blob blob;
+
+    public GoogleFileReference(Blob blob) {
+      // This is an inexpensive call that doesn't involve networking / RPC.
+      super(blob.getUpdateTimeOffsetDateTime() == null ? null : blob.getUpdateTimeOffsetDateTime().toInstant(),
+          blob.getSize(),
+          blob.getCreateTimeOffsetDateTime() == null ? null : blob.getCreateTimeOffsetDateTime().toInstant());
+
+      this.blob = blob;
+    }
+
+    @Override
+    public String getName() {
+      return blob.getName();
+    }
+
+    @Override
+    public String getFullPath(TraversalParams params) {
+      URI paramsURI = params.getURI();
+      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
+    }
+
+    @Override
+    public boolean isValidFile() {
+      return !blob.isDirectory();
+    }
+
+    @Override
+    public InputStream getContentStream(TraversalParams params) {
+      ReadChannel readChannel = blob.reader();
+      return Channels.newInputStream(readChannel);
+    }
+
+    @Override
+    protected byte[] getFileContent(TraversalParams params) {
+      return blob.getContent();
+    }
   }
 }

@@ -91,7 +91,7 @@ class Worker implements Runnable {
       }
 
       try (MDC.MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
-        docLogger.info("Beginning work on {}.", doc.getId());
+        docLogger.info("Worker is processing document {}.", doc.getId());
 
         if (trackRetries && counter.add(doc)) {
           try {
