@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
@@ -129,7 +130,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     if (solrClient == null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
       return Set.of();
@@ -199,18 +200,20 @@ public class SolrIndexer extends Indexer {
       }
     }
 
-    Set<Document> failedDocs = new HashSet<>();
+    Set<Pair<Document, String>> failedDocs = new HashSet<>();
 
     for (String collection : solrDocRequestsByCollection.keySet()) {
+      List<SolrInputDocument> collectionDocs = solrDocRequestsByCollection.get(collection).getAddUpdateDocs();
+
       try {
-        sendAddUpdateBatch(collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
+        sendAddUpdateBatch(collection, collectionDocs);
       } catch (Exception e) {
         // Add all the docs to failed docs
-        for (SolrInputDocument d : solrDocRequestsByCollection.get(collection).getAddUpdateDocs()) {
+        for (SolrInputDocument d : collectionDocs) {
           String docId = d.getFieldValue(Document.ID_FIELD).toString();
 
           if (docsUploaded.containsKey(docId)) {
-            failedDocs.add(docsUploaded.get(docId));
+            failedDocs.add(Pair.of(docsUploaded.get(docId), e.getMessage()));
           } else {
             throw e;
           }

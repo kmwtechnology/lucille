@@ -7,6 +7,7 @@ import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * The NopIndexer performs no operations and does not send documents to any index. It is intended to be used for testing or
@@ -31,7 +32,7 @@ public class NopIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     // no-op
     return Set.of();
   }
