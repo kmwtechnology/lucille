@@ -17,6 +17,7 @@ The core Lucille project contains a number of commonly used connectors. Addition
 * [File Connector](file_connector.md)
 * [Sequence Connector](sequence_connector.md)
 * [Solr Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SolrConnector.java)
+* [RSS Connector](rss_connector.md) - Coming Soon!
 
 **The following connectors are deprecated.** Use FileConnector instead, along with a corresponding FileHandler.
 
