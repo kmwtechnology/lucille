@@ -140,7 +140,10 @@ public class RSSConnector extends AbstractConnector {
       // Continuously updating it based on what was seen in the iteration to prevent unbounded growth of the set...
       // Luckily we don't have to handle some weird edge case where pubDateCutoff + incremental is used. If something doesn't
       // meet the cutoff 30 seconds ago, it's not going to suddenly be "more recent" 30 seconds later...
-      processedItems = itemsProcessedThisRefresh;
+      // We do check that it's not empty, however, to prevent one bad "fetch" from causing extra Documents from being published.
+      if (!itemsProcessedThisRefresh.isEmpty()) {
+        processedItems = itemsProcessedThisRefresh;
+      }
 
       try {
         log.info("Finished checking RSS feed. Will wait to refresh.");
