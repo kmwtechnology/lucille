@@ -22,7 +22,7 @@ public class PropertyTest {
     Property objectProperty = new ObjectProperty(S3_PARENT_SPEC, true);
     JsonNode objectPropertyJson = objectProperty.json();
 
-    assertEquals(S3_PARENT_SPEC.serialize(), objectPropertyJson.get("child"));
+    assertEquals(S3_PARENT_SPEC.toJson(), objectPropertyJson.get("child"));
   }
 
 }

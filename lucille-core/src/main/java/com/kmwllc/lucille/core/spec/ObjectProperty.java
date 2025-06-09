@@ -45,7 +45,7 @@ public class ObjectProperty extends Property {
     }
 
     node.put("type", "OBJECT");
-    node.set("child", parentSpec.serialize());
+    node.set("child", parentSpec.toJson());
 
     return node;
   }

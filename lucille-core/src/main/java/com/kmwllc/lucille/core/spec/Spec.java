@@ -376,12 +376,12 @@ public class Spec {
   }
 
   /**
-   * Serializes this Spec into a JsonNode describing the properties it declares. The returned node will contain one entry, <code>fields</code>,
+   * Returns this Spec as a JsonNode describing the properties it declares. The returned node will contain one entry, <code>fields</code>,
    * which will be a list of JsonNode(s) describing the associated properties. See {@link Property#json()} for information on what these
    * objects will contain.
    * @return A JsonNode describing this Spec and the properties it declares.
    */
-  public JsonNode serialize() {
+  public JsonNode toJson() {
     ObjectNode node = MAPPER.createObjectNode();
 
     ArrayNode fieldsArray = MAPPER.createArrayNode();
