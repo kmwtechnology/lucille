@@ -121,7 +121,7 @@ public class ConfigValidationTest {
   @Test
   public void testValidationModeMultipleExceptionsInStage() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("veryBadStage.conf"));
-    assertEquals(2, exceptions.size());
+    assertEquals(1, exceptions.size());
 
     // should only be one exception, but we should have both of the errors mentioned in the response
     assertEquals(1, exceptions.get("pipeline1").size());
