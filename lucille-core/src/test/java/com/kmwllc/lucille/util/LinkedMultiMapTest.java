@@ -66,6 +66,25 @@ public class LinkedMultiMapTest {
   }
 
   @Test
+  public void testClear() {
+    LinkedMultiMap mapToClear = new LinkedMultiMap();
+
+    mapToClear.putOne("string", "a");
+    mapToClear.putOne("long", 1L);
+    mapToClear.putOne("boolean", true);
+
+    assertTrue(mapToClear.contains("string"));
+    assertTrue(mapToClear.contains("long"));
+    assertTrue(mapToClear.contains("boolean"));
+
+    mapToClear.clear();
+
+    assertFalse(mapToClear.contains("string"));
+    assertFalse(mapToClear.contains("long"));
+    assertFalse(mapToClear.contains("boolean"));
+  }
+
+  @Test
   public void testSize() {
     assertEquals(0, empty.size());
     assertEquals(11, map.size());
@@ -229,11 +248,6 @@ public class LinkedMultiMapTest {
   }
 
   @Test
-  public void testClear() {
-    // todo
-  }
-
-  @Test
   public void testRename() {
     exception(() -> empty.rename(null, "string"));
     exception(() -> empty.rename("string", null));
@@ -281,6 +295,9 @@ public class LinkedMultiMapTest {
     exception(() -> map.removeFromArray("list-string", -1));
     exception(() -> map.removeFromArray("list-string", 3));
 
+    // not multi-valued
+    exception(() -> map.removeFromArray("string", 0));
+
     map.removeFromArray("list-string", 1);
     assertEquals(List.of("a", "c"), map.getMany("list-string"));
 
@@ -307,6 +324,22 @@ public class LinkedMultiMapTest {
           throw new RuntimeException();
         },
         RuntimeException.class);
+  }
+
+  @Test
+  public void testEqualsEdgeCases() {
+    // 1. Same pointers always return true
+    LinkedMultiMap mm1 = new LinkedMultiMap();
+    LinkedMultiMap alsoMM1 = mm1;
+
+    assertEquals(mm1, alsoMM1);
+
+    // using .equals instead of assertNotEquals to ensure it's being called ON the LinkedMultiMap
+    // 2. The other argument is null
+    assertFalse(mm1.equals(null));
+
+    // 3. Other argument is a different class
+    assertFalse(mm1.equals(Integer.valueOf(3)));
   }
 
   private void exception(Runnable r) {
