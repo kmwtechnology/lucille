@@ -936,6 +936,7 @@ public class SolrIndexerTest {
   @Test(expected = com.typesafe.config.ConfigException.WrongType.class)
   public void testUseCloudClientConfigException() {
     Config config = ConfigFactory.empty()
+        .withValue("indexer.type", ConfigValueFactory.fromAnyRef("solr"))
         .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
         // This should be a list of strings
         .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef("hello"));
