@@ -80,9 +80,9 @@ public interface Connector extends AutoCloseable {
 
   /**
    * @return The Spec describing this Connector's Config properties. Must be declared as <code>public static Spec SPEC</code>.
-   * @throws ReflectiveOperationException If this Connector does not have a <code>public static Spec SPEC</code>.
+   * @throws RuntimeException If this Connector does not have a <code>public static Spec SPEC</code>.
    */
-  Spec getSpec() throws Exception;
+  Spec getSpec();
 
   /**
    * @return The Spec describing the given Connector class's Config properties. Must be declared as <code>public static Spec SPEC</code>.

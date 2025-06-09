@@ -39,15 +39,7 @@ public abstract class AbstractConnector implements Connector {
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
     this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
 
-    Spec spec;
-
-    try {
-      spec = getSpec();
-    } catch (Exception e) {
-      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
-    }
-
-    spec.validate(config, name);
+    getSpec().validate(config, name);
   }
 
   @Override
@@ -106,7 +98,11 @@ public abstract class AbstractConnector implements Connector {
   }
 
   @Override
-  public Spec getSpec() throws Exception {
-    return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+  public Spec getSpec() {
+    try {
+      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
+    }
   }
 }
