@@ -50,7 +50,7 @@ import sun.misc.Signal;
  *   <li><code>description</code> (String)</li>
  *   <li><code>enclosures</code> (List&lt;JsonNode&gt;). Each JsonNode <i>will</i> have <code>type</code> (String) and <code>url</code> (String), and <i>may</i> have "length" (Long).</li>
  *   <li><code>guid</code> (String)</li>
- *   <li><code>isPermaLink</code> (String)</li>
+ *   <li><code>isPermaLink</code> (Boolean)</li>
  *   <li><code>link</code> (String)</li>
  *   <li><code>title</code> (String)</li>
  *   <li><code>pubDate</code> (Instant)</li>

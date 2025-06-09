@@ -11,7 +11,22 @@ Stages are the building blocks of a Lucille pipeline. Each Stage performs a spec
 Lucille Stages should have JavaDocs that describe their purpose and the parameters acceptable in their Config. On this site,
 you'll find more in-depth documentation for some more advanced / complex Lucille Stages. 
 
-## Conditions
+To configure a stage, you have to provide its class (under `class`) in its config. You can also specify a `name` for the Stage as well,
+in addition to `conditions` and `conditionPolicy` (described below).
+
+You'll also provide the parameters needed by the Stage as well. For example, the `AddRandomBoolean` Stage accepts two optional parameters -
+`field_name` and `percent_true`. So, an `AddRandomBoolean` Config would look something like this:
+
+```hocon
+{
+  name: "AddRandomBoolean-First"
+  class: "com.kmwllc.lucille.stage.AddRandomBoolean"
+  field_name: "rand_bool_1"
+  percent_true: 65
+}
+```
+
+#### Conditions
 
 For any Stage, you can specify "conditions" in its Config, controlling when the Stage will process a Document. Each
 condition has a required parameter, `fields`, and two optional parameters, `operator` and `values`.
