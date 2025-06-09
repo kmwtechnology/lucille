@@ -14,7 +14,9 @@ import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.time.StopWatch;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -168,12 +170,12 @@ public abstract class Indexer implements Runnable {
    * each document individually.
    *
    * @param documents The documents to send to the destination.
-   * @return A set of the Documents that were not successfully indexed. Return an empty set if no documents fail / if not
-   * supported by the Indexer implementation. Must not return null.
-   * @throws Exception In the event of a considerable error causing indexing to fail. Does not throw
-   * Exceptions just because some Documents may have not been indexed successfully.
+   * @return A set of Pairs, containing the Documents that were not successfully indexed, along with a String of information about why it failed.
+   * Returns an empty set if no documents fail, or if this information is not supported by the Indexer implementation. Does not return null.
+   * @throws Exception In the event of a considerable error causing indexing to fail. (Does not throw
+   * Exceptions just because some Documents were not successfully indexed.)
    */
-  protected abstract Set<Document> sendToIndex(List<Document> documents) throws Exception;
+  protected abstract Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -265,24 +267,26 @@ public abstract class Indexer implements Runnable {
     try {
       stopWatch.reset();
       stopWatch.start();
-      Set<Document> failedDocs = sendToIndex(batchedDocs);
+      Set<Pair<Document, String>> failedDocPairs = sendToIndex(batchedDocs);
       stopWatch.stop();
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
 
-      if (!failedDocs.isEmpty()) {
-        log.warn("{} Documents were not indexed successfully.", failedDocs.size());
+      if (!failedDocPairs.isEmpty()) {
+        log.warn("{} Documents were not indexed successfully.", failedDocPairs.size());
       }
 
       // Mark all the documents in failedDoc as failed
-      for (Document d : failedDocs) {
+      for (Pair<Document, String> pair : failedDocPairs) {
         try {
-          messenger.sendEvent(d, "FAILED", Event.Type.FAIL);
-          docLogger.error("Sent failure message for doc {}.", d.getId());
+          messenger.sendEvent(pair.getLeft(), "FAILED: " + pair.getRight(), Event.Type.FAIL);
+          docLogger.error("Sent failure message for doc {}. Reason: {}", pair.getLeft().getId(), pair.getRight());
         } catch (Exception e) {
-          log.error("Couldn't send failure event for doc {}", d.getId(), e);
+          log.error("Couldn't send failure event for doc {}", pair.getLeft().getId(), e);
         }
       }
+
+      Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
 
       for (Document d : batchedDocs) {
         if (failedDocs.contains(d)) {
