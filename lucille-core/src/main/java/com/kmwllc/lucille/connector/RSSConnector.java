@@ -93,17 +93,19 @@ public class RSSConnector extends AbstractConnector {
     }
 
     this.refreshIncrement = config.hasPath("refreshIncrement") ? config.getDuration("refreshIncrement") : null;
-
-    Signal.handle(
-        new Signal("INT"),
-        signal -> {
-          this.running = false;
-          log.info("RSSConnector to shut down...");
-        });
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
+    if (refreshIncrement != null) {
+      Signal.handle(
+          new Signal("INT"),
+          signal -> {
+            this.running = false;
+            log.info("RSSConnector to shut down...");
+          });
+    }
+
     do {
       // resetting this cutoff at the start of each iteration, in case it is incremental
       Optional<Instant> pubDateCutoff = Optional.ofNullable(pubDateCutoffDuration == null ? null : Instant.now().minus(pubDateCutoffDuration));
