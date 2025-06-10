@@ -135,13 +135,15 @@ public class CSVFileHandler extends BaseFileHandler {
           return getDocumentFromLine(idColumns, header, line, filename, path, lineNum);
         } catch (Exception e) {
           log.error("Error processing CSV line {}", lineNum, e);
+
           try {
             csvReader.close();
           } catch (IOException ex) {
             throw new RuntimeException(ex);
           }
+
+          return null;
         }
-        return null;
       }
     };
   }
@@ -195,6 +197,12 @@ public class CSVFileHandler extends BaseFileHandler {
 
   private HashMap<String, Integer> getColumnIndexMap(String[] header) {
     HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
+
+    // If header is null, just return an empty map. (Allows for graceful handling of empty files)
+    if (header == null) {
+      return columnIndexMap;
+    }
+
     for (int i = 0; i < header.length; i++) {
       // check for BOM
       if (i == 0) {
@@ -219,7 +227,7 @@ public class CSVFileHandler extends BaseFileHandler {
         } catch (IOException e) {
           log.error("Error closing CSVReader", e);
         }
-        log.warn("CSV does not contain header row, skipping csv file");
+        log.warn("CSV does not contain header row, no Documents will be published for the file.");
       }
       if (lowercaseFields) {
         for (int i = 0; i < header.length; i++) {

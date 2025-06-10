@@ -6,7 +6,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -15,6 +14,7 @@ import java.nio.file.Files;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -208,7 +208,41 @@ public class AddRandomStringTest {
   }
 
   @Test
-  public void testInvalidConfig() {
+  public void testDefaultNumOfTerms() throws Exception {
+    Stage stage = factory.get("AddRandomStringTest/noMinOrMaxNum.conf");
+
+    // defaults to min/max of 1
+    Document doc = Document.create("doc");
+
+    stage.processDocument(doc);
+
+    assertTrue(doc.has("data"));
+    String data = doc.getString("data");
+    int dataVal = Integer.parseInt(data);
+    // lower is inclusive, upper is exclusive
+    assertTrue(dataVal >= 0 && dataVal < 5);
+
+    assertEquals(1, data.split(" ").length);
+  }
+
+  // When range size is equal to the length of the file data. Want to make sure we see all of the file data.
+  @Test
+  public void testFileDataEqualRangeSize() throws Exception {
+    Stage stage = factory.get("AddRandomStringTest/equalFileDataRangeSize.conf");
+
+    Document doc = Document.create("doc");
+    stage.processDocument(doc);
+
+    // has 500 terms. there's a ~0.000000000145489831% chance this test will fail due to natural variability.
+    List<String> randomStrings = doc.getStringList("data");
+
+    Set<String> encounteredFoods = new HashSet<>(randomStrings);
+
+    assertEquals("Not all foods were in the random String list. There is a ~0.000000000145% chance of this occurring naturally.", 20, encounteredFoods.size());
+  }
+
+  @Test
+  public void testInvalidConfig() throws Exception {
     assertThrows(StageException.class,
         () -> factory.get("AddRandomStringTest/moreMinThanMax.conf"));
 
@@ -223,5 +257,12 @@ public class AddRandomStringTest {
 
     assertThrows(StageException.class,
         () -> factory.get("AddRandomStringTest/maxIsNullMinIsNot.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get("AddRandomStringTest/largeRangeForFileData.conf"));
+
+    // attempts to read all the file data as part of the "start" method
+    assertThrows(StageException.class,
+        () -> factory.get("AddRandomStringTest/badPath.conf"));
   }
 }
