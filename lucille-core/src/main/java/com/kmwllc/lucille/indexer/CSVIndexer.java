@@ -9,6 +9,7 @@ import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
 import java.io.File;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -108,7 +109,7 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     for (Document doc : documents) {
       writer.writeNext(getLine(doc), true);
     }

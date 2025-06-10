@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
 import org.opensearch.client.opensearch._types.FieldValue;
@@ -117,7 +118,7 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
       return Set.of();
@@ -150,7 +151,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Document> failedDocs = uploadDocuments(documentsToUpload.values());
+    Set<Pair<Document, String>> failedDocs = uploadDocuments(documentsToUpload.values());
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
 
@@ -248,7 +249,7 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private Set<Document> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Pair<Document, String>> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }
@@ -311,7 +312,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Document> failedDocs = new HashSet<>();
+    Set<Pair<Document, String>> failedDocs = new HashSet<>();
 
     BulkResponse response = client.bulk(br.build());
 
@@ -322,7 +323,7 @@ public class OpenSearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (uploadedDocuments.containsKey(item.id())) {
             Document failedDoc = uploadedDocuments.get(item.id());
-            failedDocs.add(failedDoc);
+            failedDocs.add(Pair.of(failedDoc, item.error().reason()));
           } else {
             throw new IndexerException(item.error().reason());
           }

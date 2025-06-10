@@ -338,7 +338,7 @@ public abstract class Stage {
       // Spec doesn't support validating individual objects in a List<Config>. For Stages, we want to validate the conditions,
       // so we run another validation on each condition found in the list.
       for (Config condition : config.getConfigList("conditions")) {
-        Spec.validateConfig(condition, getDisplayName() + " Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
+        Spec.validateConfig(condition, getDisplayName() + "'s Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
             EMPTY_LIST);
       }
     }
