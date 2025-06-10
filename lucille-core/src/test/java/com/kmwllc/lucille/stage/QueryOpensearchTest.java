@@ -239,4 +239,9 @@ public class QueryOpensearchTest {
       assertEquals("", testDoc.getJson("response").toString());
     }
   }
+
+  @Test
+  public void sandbox() throws Exception {
+    System.out.println(QueryOpensearch.SPEC.toJson().toPrettyString());
+  }
 }
