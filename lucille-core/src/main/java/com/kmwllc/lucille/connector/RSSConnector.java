@@ -24,7 +24,6 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 /**
  * <p> Reads the item(s) from an RSS feed, and publishes Documents with each RSS item's content in the "rss_item" field on the Document.
@@ -66,11 +65,9 @@ public class RSSConnector extends AbstractConnector {
   private final URL rssURL;
 
   private final Duration pubDateCutoffDuration;
-
   private final Duration refreshIncrement;
 
   private boolean running = true;
-
   private Set<Item> processedItems = new HashSet<>();
 
   public RSSConnector(Config config) {
@@ -97,15 +94,6 @@ public class RSSConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    if (refreshIncrement != null) {
-      Signal.handle(
-          new Signal("INT"),
-          signal -> {
-            this.running = false;
-            log.info("RSSConnector to shut down...");
-          });
-    }
-
     do {
       // resetting this cutoff at the start of each iteration, in case it is incremental
       Optional<Instant> pubDateCutoff = Optional.ofNullable(pubDateCutoffDuration == null ? null : Instant.now().minus(pubDateCutoffDuration));
@@ -149,13 +137,14 @@ public class RSSConnector extends AbstractConnector {
         log.info("Finished checking RSS feed. Will wait to refresh.");
         Instant wakeupInstant = Instant.now().plus(refreshIncrement);
 
-        while (Instant.now().isBefore(wakeupInstant) && running) {
+        while (Instant.now().isBefore(wakeupInstant)) {
           Thread.sleep(250);
         }
 
         log.info("RSSConnector to check for new content.");
       } catch (InterruptedException e) {
-        throw new ConnectorException("RSSConnector interrupted while waiting to refresh.", e);
+        log.info("RSSConnector interrupted, will stop running.");
+        running = false;
       }
     } while (running);
   }

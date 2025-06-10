@@ -17,6 +17,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -209,13 +210,24 @@ public class RSSConnectorTest {
     })) {
       RSSConnector connector = new RSSConnector(config);
 
-      // Stop the connector after 2 seconds, allowing it to run twice, and then it gets interrupted.
+      Thread thread = new Thread(() -> {
+        // blocked until the signal gets raised. should run 2 times
+        System.out.println(Instant.now() + " starting");
+        try {
+          connector.execute(publisher);
+        } catch (ConnectorException e) {
+          throw new RuntimeException(e);
+        }
+      });
+
+      // Stop the connector "thread" after 2 seconds, allowing it to run twice, and then it gets interrupted.
       scheduler.schedule(() -> {
-        Signal.raise(new Signal("INT"));
+        System.out.println(Instant.now() + " interrupting");
+        thread.interrupt();
       }, 2, TimeUnit.SECONDS);
 
-      // blocked until the signal gets raised. should run 2 times
-      connector.execute(publisher);
+      thread.start();
+      thread.join();
     }
 
     // Should run 2 times: 0 sec, 1.2 sec, then interrupted.
@@ -249,13 +261,24 @@ public class RSSConnectorTest {
     })) {
       RSSConnector connector = new RSSConnector(config);
 
-      // Stop the connector after 3 seconds, allowing it to run three times, and then is interrupted.
+      Thread thread = new Thread(() -> {
+        // blocked until the signal gets raised. should run 2 times
+        System.out.println(Instant.now() + " starting");
+        try {
+          connector.execute(publisher);
+        } catch (ConnectorException e) {
+          throw new RuntimeException(e);
+        }
+      });
+
+      // Stop the connector "thread" after 3 seconds, allowing it to run e times, and then it gets interrupted.
       scheduler.schedule(() -> {
-        Signal.raise(new Signal("INT"));
+        System.out.println(Instant.now() + " interrupting");
+        thread.interrupt();
       }, 3, TimeUnit.SECONDS);
 
-      // will be blocked until the signal gets raised. should run three times
-      connector.execute(publisher);
+      thread.start();
+      thread.join();
     }
 
     // Should be run 3 times, only 4 items w/ valid (or missing) pubDates to be published
