@@ -206,31 +206,15 @@ public class RSSConnectorTest {
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read(any(String.class)))
           .thenReturn(Stream.of(singleItem))
+          .thenReturn(Stream.of(basicItems))
           .thenReturn(Stream.of(basicItems));
     })) {
       RSSConnector connector = new RSSConnector(config);
-
-      Thread thread = new Thread(() -> {
-        // blocked until the signal gets raised. should run 2 times
-        System.out.println(Instant.now() + " starting");
-        try {
-          connector.execute(publisher);
-        } catch (ConnectorException e) {
-          throw new RuntimeException(e);
-        }
-      });
-
-      // Stop the connector "thread" after 2 seconds, allowing it to run twice, and then it gets interrupted.
-      scheduler.schedule(() -> {
-        System.out.println(Instant.now() + " interrupting");
-        thread.interrupt();
-      }, 2, TimeUnit.SECONDS);
-
-      thread.start();
-      thread.join();
+      // refreshes every 1.2 seconds, runs for ~2 seconds.
+      connector.execute(publisher);
     }
 
-    // Should run 2 times: 0 sec, 1.2 sec, then interrupted.
+    // Should run 3 times: 0 sec, 1.2 sec, 2.4 seconds, then stops.
     // Only has 3 unique items to be published
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
     assertEquals(3, publishedDocs.size());
@@ -260,25 +244,8 @@ public class RSSConnectorTest {
           .thenReturn(Stream.of(singleItem));
     })) {
       RSSConnector connector = new RSSConnector(config);
-
-      Thread thread = new Thread(() -> {
-        // blocked until the signal gets raised. should run 2 times
-        System.out.println(Instant.now() + " starting");
-        try {
-          connector.execute(publisher);
-        } catch (ConnectorException e) {
-          throw new RuntimeException(e);
-        }
-      });
-
-      // Stop the connector "thread" after 3 seconds, allowing it to run e times, and then it gets interrupted.
-      scheduler.schedule(() -> {
-        System.out.println(Instant.now() + " interrupting");
-        thread.interrupt();
-      }, 3, TimeUnit.SECONDS);
-
-      thread.start();
-      thread.join();
+      // refreshes every 1.2 seconds, runs for 3 seconds.
+      connector.execute(publisher);
     }
 
     // Should be run 3 times, only 4 items w/ valid (or missing) pubDates to be published
