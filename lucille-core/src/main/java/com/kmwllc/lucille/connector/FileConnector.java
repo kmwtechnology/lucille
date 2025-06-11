@@ -104,8 +104,6 @@ import org.slf4j.LoggerFactory;
 
 public class FileConnector extends AbstractConnector {
 
-  private static final Set<String> CLOUD_STORAGE_CLIENT_KEYS = Set.of("s3", "azure", "gcp");
-
   public static final String FILE_PATH = "file_path";
   public static final String MODIFIED = "file_modification_date";
   public static final String CREATED = "file_creation_date";
