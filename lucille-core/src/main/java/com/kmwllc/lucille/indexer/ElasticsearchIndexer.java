@@ -20,6 +20,7 @@ import com.typesafe.config.Config;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,7 +103,7 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
       return Set.of();
@@ -181,7 +182,7 @@ public class ElasticsearchIndexer extends Indexer {
       }
     }
 
-    Set<Document> failedDocs = new HashSet<>();
+    Set<Pair<Document, String>> failedDocs = new HashSet<>();
 
     BulkResponse response = client.bulk(br.build());
     if (response != null) {
@@ -191,7 +192,7 @@ public class ElasticsearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (documentsUploaded.containsKey(item.id())) {
             Document failedDoc = documentsUploaded.get(item.id());
-            failedDocs.add(failedDoc);
+            failedDocs.add(Pair.of(failedDoc, item.error().reason()));
           } else {
             throw new IndexerException(item.error().reason());
           }

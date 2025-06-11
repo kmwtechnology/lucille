@@ -265,7 +265,12 @@ public class Spec {
     }
 
     if (!errorMessages.isEmpty()) {
-      throw new IllegalArgumentException("Error(s) with " + displayName + " Config: " + errorMessages);
+      if (errorMessages.size() == 1) {
+        // Saying only "error", and not wrapping the list in [] brackets
+        throw new IllegalArgumentException("Error with " + displayName + " Config: " + errorMessages.iterator().next());
+      } else {
+        throw new IllegalArgumentException("Errors with " + displayName + " Config: " + errorMessages);
+      }
     }
   }
 

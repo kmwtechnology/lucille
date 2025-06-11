@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,8 +113,8 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
-    Set<Document> failedDocs = new HashSet<>();
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+    Set<Pair<Document, String>> failedDocs = new HashSet<>();
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
       Map<String, Document> docGeneratedUUIDMap = new HashMap<>();
@@ -160,7 +161,7 @@ public class WeaviateIndexer extends Indexer {
 
         if (errorResponse != null) {
           Document docWithResponseUUID = docGeneratedUUIDMap.get(response.getId());
-          failedDocs.add(docWithResponseUUID);
+          failedDocs.add(Pair.of(docWithResponseUUID, errorResponse.toString()));
         }
       }
     } catch (Exception e) {
