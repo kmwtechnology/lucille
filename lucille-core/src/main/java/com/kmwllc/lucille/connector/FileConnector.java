@@ -22,7 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The <code>FileConnector</code> traverses through a file system, starting at a given directory, and publishes a Document for each
+ * The <code>FileConnector</code> traverses through a file system, starting at a given directory (or directories), and publishes a Document for each
  * file it encounters. It can traverse through the local file system, Azure Blob Storage, Google Cloud, and S3.
  *
  * <br> Config Parameters:
@@ -171,7 +171,7 @@ public class FileConnector extends AbstractConnector {
       try {
         URI newStorageURI = new URI(path);
         storageURIs.add(newStorageURI);
-        log.debug("using path {} with scheme {}", path, newStorageURI.getScheme());
+        log.debug("FileConnector to use path {} with scheme {}", path, newStorageURI.getScheme());
       } catch (URISyntaxException e) {
         throw new ConnectorException("Invalid path to storage: " + path, e);
       }
@@ -185,24 +185,25 @@ public class FileConnector extends AbstractConnector {
         client.init();
       }
     } catch (IOException e) {
-      throw new ConnectorException("Error initializing StorageClient.", e);
+      throw new ConnectorException("Error initializing a StorageClient.", e);
     }
 
     try {
       for (URI pathToTraverse : storageURIs) {
+        String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
+        StorageClient storageClient = storageClientMap.get(clientKey);
+
+        if (storageClient == null) {
+          log.warn("No StorageClient was available for {}, the path will be skipped. Did you include the necessary configuration?", pathToTraverse);
+          continue;
+        }
+
+        TraversalParams params = new TraversalParams(pathToTraverse, getDocIdPrefix(), fileOptions, filterOptions);
+
         try {
-          String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
-          StorageClient storageClient = storageClientMap.get(clientKey);
-
-          if (storageClient == null) {
-            log.warn("No StorageClient was available for {}, the path will be skipped. Did you include the necessary configuration?", pathToTraverse);
-            continue;
-          }
-
-          TraversalParams params = new TraversalParams(pathToTraverse, getDocIdPrefix(), fileOptions, filterOptions);
           storageClient.traverse(publisher, params);
         } catch (Exception e) {
-          throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
+          throw new ConnectorException("Error occurred while traversing " + pathToTraverse + ".", e);
         }
       }
     } finally {
