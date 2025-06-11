@@ -91,7 +91,9 @@ public class FileContentFetcher {
       is = FileContentFetcher.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
     } else if (FileUtils.isValidURI(path)) {
       URI pathURI = URI.create(path);
-      String activeClient = pathURI.getScheme() != null ? pathURI.getScheme() : "file";
+
+      // scheme won't be null / empty, as we make sure the URI is valid.
+      String activeClient = pathURI.getScheme();
       StorageClient storageClient = availableClients.get(activeClient);
 
       if (storageClient == null) {
