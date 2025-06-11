@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,6 +25,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.nio.file.FileSystem;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.Assert;
@@ -269,4 +271,41 @@ public class FileConnectorTest {
   }
 
   // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
+
+  // Testing when the state configuration is empty.
+  @Test
+  public void testTraversalWithStateEmbedded() throws Exception {
+    File stateDirectory = new File("state");
+    File dbFile = new File("state/file-connector.mv.db");
+
+    assertFalse(stateDirectory.isDirectory());
+    assertFalse(dbFile.isFile());
+
+    try {
+      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
+      TestMessenger messenger = new TestMessenger();
+      Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+      Connector connector = new FileConnector(config);
+
+      // the stateManager doesn't get initialized until execution begins.
+      connector.execute(publisher);
+
+      // now the database file should exist.
+      assertTrue(stateDirectory.isDirectory());
+      assertTrue(dbFile.isFile());
+
+      assertEquals(18, messenger.getDocsSentForProcessing().size());
+
+      messenger = new TestMessenger();
+      publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+      connector.execute(publisher);
+
+      // filtered out by state database
+      assertEquals(0, messenger.getDocsSentForProcessing().size());
+    } finally {
+      Files.delete(dbFile.toPath());
+      Files.delete(stateDirectory.toPath());
+    }
+  }
 }

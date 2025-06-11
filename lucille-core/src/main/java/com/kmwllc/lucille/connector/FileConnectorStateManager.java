@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p> The database should/will have the following Columns:
  *   <ul>
- *     <li>name (VARCHAR(200) PRIMARY KEY): The full path (for cloud, the full URI) to the file.
+ *     <li>name (VARCHAR PRIMARY KEY): The full path (for cloud, the full URI) to the file. Defaults to a length of 200.
  *       <ul>
  *         <li>Names are case-sensitive - it is very important to keep the pathToStorage consistent in your Config when using state.</li>
  *       </ul>
@@ -64,10 +64,10 @@ public class FileConnectorStateManager {
    * @param connectorName The name of the connector using this connection. Uses the name for tableName, if it is not specified.
    */
   public FileConnectorStateManager(Config config, String connectorName) {
-    this.driver = config.getString("driver");
-    this.connectionString = config.getString("connectionString");
-    this.jdbcUser = config.getString("jdbcUser");
-    this.jdbcPassword = config.getString("jdbcPassword");
+    this.driver = ConfigUtils.getOrDefault(config, "driver", "org.h2.Driver");
+    this.connectionString = ConfigUtils.getOrDefault(config, "connectionString", "jdbc:h2:./state/" + connectorName);
+    this.jdbcUser = ConfigUtils.getOrDefault(config, "jdbcUser", "");
+    this.jdbcPassword = ConfigUtils.getOrDefault(config, "jdbcPassword", "");
 
     this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);

@@ -13,7 +13,9 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.File;
 import java.io.StringReader;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -246,6 +248,30 @@ public class FileConnectorStateManagerTest {
 
       assertTrue(skipFile2Results.next());
       assertNull(skipFile2Results.getTimestamp("last_published"));
+    }
+  }
+
+  // empty state configuration should mean we create a database for the user.
+  @Test
+  public void testEmbeddedCreationEmptyConfig() throws Exception {
+    File stateDirectory = new File("state");
+    File dbFile = new File("state/connector.mv.db");
+
+    assertFalse(stateDirectory.isDirectory());
+    assertFalse(dbFile.isFile());
+
+    try {
+      Config emptyConfig = ConfigFactory.empty();
+
+      FileConnectorStateManager stateMgr = new FileConnectorStateManager(emptyConfig, "connector");
+
+      stateMgr.init();
+
+      assertTrue(stateDirectory.isDirectory());
+      assertTrue(dbFile.isFile());
+    } finally {
+      Files.delete(dbFile.toPath());
+      Files.delete(stateDirectory.toPath());
     }
   }
 }
