@@ -69,7 +69,7 @@ public class RSSConnector extends AbstractConnector {
 
   private final Duration runDuration;
   private final Duration refreshIncrement;
-  private Set<Item> processedItems = new HashSet<>();
+  private Set<Item> itemsProcessedLastRefresh = new HashSet<>();
 
   private final RssReader rssReader = new RssReader();
 
@@ -117,12 +117,12 @@ public class RSSConnector extends AbstractConnector {
           // want to add all items retrieved to the set at the end of the RSS "refresh"
           itemsProcessedThisRefresh.add(item);
 
-          // method returns true if the pubDateCutoff is null or the item doesn't have a pubDate.
-          if (optionalPubDateBeforeCutoff(item, pubDateCutoff) || processedItems.contains(item)) {
+          // method returns false if the pubDateCutoff is empty or the item doesn't have a pubDate.
+          if (isPubDateBeforeCutoff(item, pubDateCutoff) || itemsProcessedLastRefresh.contains(item)) {
             continue;
           }
 
-          Document doc = docFromRSSItem(item);
+          Document doc = createDoc(item);
           publisher.publish(doc);
         }
       } catch (IOException e) {
@@ -143,7 +143,7 @@ public class RSSConnector extends AbstractConnector {
       // meet the cutoff 30 seconds ago, it's not going to suddenly be "more recent" 30 seconds later...
       // We do check that it's not empty, however, to prevent one bad "fetch" from causing extra Documents from being published.
       if (!itemsProcessedThisRefresh.isEmpty()) {
-        processedItems = itemsProcessedThisRefresh;
+        itemsProcessedLastRefresh = itemsProcessedThisRefresh;
       }
 
       try {
@@ -162,7 +162,7 @@ public class RSSConnector extends AbstractConnector {
     } while (true);
   }
 
-  private Document docFromRSSItem(Item item) {
+  private Document createDoc(Item item) {
     Document doc;
     if (useGuidForDocID) {
       if (item.getGuid().isPresent()) {
@@ -204,7 +204,8 @@ public class RSSConnector extends AbstractConnector {
     return doc;
   }
 
-  private static boolean optionalPubDateBeforeCutoff(Item item, Optional<Instant> cutoff) {
+  /** If the item has no pubDate OR the cutoff is empty, returns false - meaning the item should get a Document published.. */
+  private static boolean isPubDateBeforeCutoff(Item item, Optional<Instant> cutoff) {
     if (cutoff.isEmpty()) {
       return false;
     }
