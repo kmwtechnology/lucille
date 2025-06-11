@@ -32,10 +32,13 @@ import org.slf4j.LoggerFactory;
  *     <li>encountered (BOOLEAN): Used internally to track files which have been encountered in a traversal, enabling deletions.</li>
  *   </ul>
  *
+ * <p> Lucille includes H2 as a dependency. You are welcome to configure the FileConnectorStateManager to use an embedded
+ * H2 instance - use the <code>org.h2.Driver</code>, and something like <code>jdbc:h2:{LOCAL_FILE_PATH}</code> as your connectionString.
+ *
  * <p> <b>Note:</b> This class is operating under two key assumptions about FileConnector / Connectors:
  * <ol>
  *   <li>Connectors run sequentially.</li>
- *   <li>FileConnector does not support individual multithreading.</li>
+ *   <li>The FileConnector is not multithreaded.</li>
  * </ol>
  */
 public class FileConnectorStateManager {
