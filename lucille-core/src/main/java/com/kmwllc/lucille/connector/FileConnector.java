@@ -59,8 +59,8 @@ import org.slf4j.LoggerFactory;
  *   <li>getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.</li>
  *   <li>handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. See important notes below.</li>
  *   <li>handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. See important notes below.</li>
- *   <li>moveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system</li>
- *   <li>moveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system</li>
+ *   <li>moveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
+ *   <li>moveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
  *   <li>csv (Map, Optional): config options for handling csv type files. Config will be passed to CSVFileHandler.</li>
  *   <li>json (Map, Optional): config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.</li>
  *   <li>xml (Map, Optional): config options for handling xml type files. Config will be passed to XMLFileHandler.</li>
@@ -175,6 +175,11 @@ public class FileConnector extends AbstractConnector {
       } catch (URISyntaxException e) {
         throw new ConnectorException("Invalid path to storage: " + path, e);
       }
+    }
+
+    // Cannot specify multiple storage paths and a moveTo of some kind
+    if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath("fileOptions.moveToErrorFolder"))) {
+      throw new IllegalArgumentException("FileConnector does not support multiple pathsToStorage and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
   }
 

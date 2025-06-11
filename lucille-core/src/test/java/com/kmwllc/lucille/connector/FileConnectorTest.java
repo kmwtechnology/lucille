@@ -352,4 +352,13 @@ public class FileConnectorTest {
     List<Document> documentList = messenger.getDocsSentForProcessing();
     assertEquals(3, documentList.size());
   }
+
+  @Test
+  public void testPreventMultiplePathsAndMoveTo() throws Exception {
+    Config config1 = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsMoveToProcessing.conf");
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(config1));
+
+    Config config2 = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsMoveToError.conf");
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(config2));
+  }
 }
