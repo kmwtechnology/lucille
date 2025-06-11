@@ -346,11 +346,7 @@ public class FileConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     Connector connector = new FileConnector(config);
 
-    connector.execute(publisher);
-    // should still get the three documents from directory1, even though we had other bad paths.
-    // Two warnings will get logged
-    List<Document> documentList = messenger.getDocsSentForProcessing();
-    assertEquals(3, documentList.size());
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
   }
 
   @Test

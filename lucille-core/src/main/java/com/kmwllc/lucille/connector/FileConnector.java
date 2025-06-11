@@ -197,8 +197,7 @@ public class FileConnector extends AbstractConnector {
         StorageClient storageClient = storageClientMap.get(clientKey);
 
         if (storageClient == null) {
-          log.warn("No StorageClient was available for {}, the path will be skipped. Did you include the necessary configuration?", pathToTraverse);
-          continue;
+          throw new ConnectorException("No StorageClient was available for (" + pathToTraverse + "). Did you include the necessary configuration?");
         }
 
         TraversalParams params = new TraversalParams(pathToTraverse, getDocIdPrefix(), fileOptions, filterOptions);
