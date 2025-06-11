@@ -71,8 +71,7 @@ public class ConfigValidationTest {
     List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
     assertEquals(2, pipeline1Exceptions.size());
 
-    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class,
-        "Error with com.kmwllc.lucille.stage.NopStage Config: Config contains unknown property invalid_property");
+    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class, "Config contains unknown property invalid_property");
     testException(pipeline1Exceptions.get(1), IllegalArgumentException.class, "Config is missing required property fields");
   }
 
@@ -85,9 +84,7 @@ public class ConfigValidationTest {
     List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
     assertEquals(2, pipeline1Exceptions.size());
 
-    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class,
-        "Error with com.kmwllc.lucille.stage.NopStage Config: Config contains unknown property invalid_property");
-
+    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class, "Config contains unknown property invalid_property");
     testException(pipeline1Exceptions.get(1), IllegalArgumentException.class, "Config is missing required property fields");
   }
 
@@ -103,7 +100,7 @@ public class ConfigValidationTest {
     assertEquals(2, pipeline2Exceptions.size());
 
     testException(pipeline1Exceptions.get(0), IllegalArgumentException.class,
-        "Error with com.kmwllc.lucille.stage.NopStage Config: Config contains unknown property invalid_property");
+        "Config contains unknown property invalid_property");
 
     // TODO note that for the following two exceptions, the fields are retrieved before
     //  the config validation is called
@@ -115,7 +112,7 @@ public class ConfigValidationTest {
         "Config is missing required property dest");
 
     testException(pipeline2Exceptions.get(1), IllegalArgumentException.class,
-        "Error with com.kmwllc.lucille.stage.Concatenate Config: Config contains unknown parent default_inputs3");
+        "Config contains unknown parent default_inputs3");
   }
 
   @Test
@@ -161,13 +158,14 @@ public class ConfigValidationTest {
     // before the second one will. (in other words, you have to fix "indexer" issues before seeing issues with your other
     // specific implementation config).
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badIndexer.conf"));
-    // five "things" to validate here - Indexer is always one entry on the map.
-    assertEquals(5, exceptions.size());
-    assertTrue(exceptions.get("Indexer").get(0).getMessage().contains("missing required property index"));
+    // five "things" to validate here - Indexer is only one with exceptions
+    assertEquals(1, exceptions.size());
+    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Config contains unknown property sendEnabled"));
+    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Config is missing required property index"));
 
     exceptions = Runner.runInValidationMode(addPath("extraIndexerProps.conf"));
     assertEquals(1, exceptions.size());
-    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Error with Indexer Config"));
+    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Config contains unknown property blah"));
   }
 
 //  @Test
