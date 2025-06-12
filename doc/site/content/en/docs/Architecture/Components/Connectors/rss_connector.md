@@ -4,8 +4,6 @@ date: 2025-06-06
 description: A Connector that publishes Documents representing items found in an RSS feed. 
 ---
 
-Wow, RSS... retro!
-
 ### The RSSConnector
 
 The `RSSConnector` allows you to publish Documents representing the items found in an RSS feed of your choice. Each Document will 
