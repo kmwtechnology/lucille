@@ -36,8 +36,6 @@ public class Concatenate extends Stage {
   private final List<String> fields;
 
   public Concatenate(Config config) {
-    // TODO: This is an example of a Config where we'd pass in "optParent("default_inputs", new TypeReference<Map<String, String>>)".
-    //  We'd then run Jackson, make sure we can successfully deserialize it as that type, throw an error if not.
     super(config, Spec.stage()
         .withRequiredProperties("dest", "format_string")
         .withOptionalProperties("update_mode")
