@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core.spec;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -147,13 +148,14 @@ public class Spec {
    * Returns this Spec with the given parent names added as required parents. No validation will take place on the child properties
    * of the declared required parents in a Config you validate with {@link Spec#validate(Config, String)}. As such, this method
    * should be used for required parents with unpredictable properties / entries.
-   * @param requiredParentNames The names of required parents you want to add to this Spec.
+   * @param name The names of required parents you want to add to this Spec.
+   * @param type The type (Likely a &lt;String, Something&gt;) that this Config should deserialize to.
    * @return This Spec with the given ParentSpecs added as optional parents.
    * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
    * as an optional or required parent.
    */
-  public Spec reqParentName(String... requiredParentNames) {
-    Arrays.stream(requiredParentNames).forEach(requiredParentName -> properties.add(new ObjectProperty(requiredParentName, true)));
+  public Spec reqParent(String name, TypeReference<?> type) {
+    properties.add(new ObjectProperty(name, true, type));
     return this;
   }
 
@@ -165,13 +167,14 @@ public class Spec {
    * <p> <b>Note:</b> If you have a ParentSpec with a required property, an Exception will only be thrown during validation
    * if the parent is present in a Config but that required property is missing.
    *
-   * @param optionalParentNames The names of optional parents you want to add to this Spec.
+   * @param name The name of the optional parent you want to add to this Spec.
+   * @param type The type (Likely a &lt;String, Something&gt;) that this Config, if present, should deserialize to.
    * @return This Spec with the given ParentSpecs added as optional parents.
    * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
    * as an optional or required parent.
    */
-  public Spec optParentName(String... optionalParentNames) {
-    Arrays.stream(optionalParentNames).forEach(optionalParentName -> properties.add(new ObjectProperty(optionalParentName, false)));
+  public Spec optParent(String name, TypeReference<?> type) {
+    properties.add(new ObjectProperty(name, false, type));
     return this;
   }
 
@@ -276,13 +279,13 @@ public class Spec {
     return this;
   }
 
-  public Spec reqParentNameWithDesc(String requiredParentName, String description) {
-    properties.add(new ObjectProperty(requiredParentName, true, description));
+  public Spec reqParentWithDesc(String requiredParentName, TypeReference<?> type, String description) {
+    properties.add(new ObjectProperty(requiredParentName, true, type, description));
     return this;
   }
 
-  public Spec optParentNameWithDesc(String optionalParentName, String description) {
-    properties.add(new ObjectProperty(optionalParentName, false, description));
+  public Spec optParentWithDesc(String optionalParentName, TypeReference<?> type, String description) {
+    properties.add(new ObjectProperty(optionalParentName, false, type, description));
     return this;
   }
 
@@ -435,14 +438,14 @@ public class Spec {
     }
 
     @Override
-    public ParentSpec reqParentName(String... properties) {
-      super.reqParentName(properties);
+    public ParentSpec reqParent(String name, TypeReference<?> type) {
+      super.reqParent(name, type);
       return this;
     }
 
     @Override
-    public ParentSpec optParentName(String... properties) {
-      super.optParentName(properties);
+    public ParentSpec optParent(String name, TypeReference<?> type) {
+      super.optParent(name, type);
       return this;
     }
 
@@ -555,14 +558,14 @@ public class Spec {
     }
 
     @Override
-    public ParentSpec reqParentNameWithDesc(String requiredParentName, String description) {
-      super.reqParentNameWithDesc(requiredParentName, description);
+    public ParentSpec reqParentWithDesc(String requiredParentName, TypeReference<?> type, String description) {
+      super.reqParentWithDesc(requiredParentName, type, description);
       return this;
     }
 
     @Override
-    public ParentSpec optParentNameWithDesc(String optionalParentName, String description) {
-      super.optParentNameWithDesc(optionalParentName, description);
+    public ParentSpec optParentWithDesc(String optionalParentName, TypeReference<?> type, String description) {
+      super.optParentWithDesc(optionalParentName, type, description);
       return this;
     }
 
