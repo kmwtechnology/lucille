@@ -139,7 +139,7 @@ public interface Connector extends AutoCloseable {
       // so validation logs / messages look a bit clearer.
       // (if we just blindly access class, and it doesn't exist, a more verbose / less descriptive Exception message is printed)
       if (!connectorConfig.hasPath("class")) {
-        throw new IllegalArgumentException("No Connector class specified");
+        throw new IllegalArgumentException("No Connector class specified.");
       }
 
       Class<?> clazz = Class.forName(connectorConfig.getString("class"));

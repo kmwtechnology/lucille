@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValueType;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -273,7 +273,7 @@ public class Spec {
    * a non-legal property / parent.
    */
   public void validate(Config config, String displayName) {
-    // mainly using a set to prevent repeats with the "unknown parent" message
+    // mainly using a set to prevent repeats of any error messages
     Set<String> errorMessages = new HashSet<>();
 
     Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
@@ -303,7 +303,12 @@ public class Spec {
     }
 
     if (!errorMessages.isEmpty()) {
-      throw new IllegalArgumentException("Error(s) with " + displayName + " Config: " + errorMessages);
+      if (errorMessages.size() == 1) {
+        throw new IllegalArgumentException("Error with " + displayName + " Config: " + errorMessages.iterator().next());
+      } else {
+        throw new IllegalArgumentException("Errors with " + displayName + " Config: " + errorMessages);
+      }
+
     }
   }
 
@@ -328,26 +333,6 @@ public class Spec {
       return null;
     }
     return property.substring(0, dotIndex);
-  }
-
-  /**
-   * Validates the given config against the given properties, without any default legal properties.
-   *
-   * @param config The configuration you want to validate.
-   * @param displayName A displayName for the object you're validating. Included in any exceptions / error messages.
-   * @param requiredProperties The properties you require in your config.
-   * @param optionalProperties The properties allowed in your config.
-   * @param requiredParents The parents you require in your config.
-   * @param optionalParents The parents you allow in your config.
-   */
-  public static void validateConfig(Config config, String displayName, List<String> requiredProperties, List<String> optionalProperties, List<ParentSpec> requiredParents, List<ParentSpec> optionalParents) {
-    Spec spec = new Spec(Set.of())
-        .withRequiredProperties(requiredProperties.toArray(new String[0]))
-        .withOptionalProperties(optionalProperties.toArray(new String[0]))
-        .reqParent(requiredParents.toArray(new ParentSpec[0]))
-        .optParent(optionalParents.toArray(new ParentSpec[0]));
-
-    spec.validate(config, displayName);
   }
 
   /**
