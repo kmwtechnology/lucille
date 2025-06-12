@@ -23,7 +23,7 @@ public class XMLFileHandlerTest {
   public void testUnsupportedProcessFileOperation() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "id",
+        "xmlIdPath", "/Company/staff/id",
         "encoding", "utf-8",
         "outputField", "xml"
     )));
@@ -39,7 +39,7 @@ public class XMLFileHandlerTest {
   public void testStaff() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "id",
+        "xmlIdPath", "/Company/staff/id",
         "encoding", "utf-8",
         "outputField", "xml"
     )));
@@ -70,7 +70,7 @@ public class XMLFileHandlerTest {
   public void testStaffWithInfoIDExtraction() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "info/id",
+        "xmlIdPath", "/Company/staff/info/id",
         "encoding", "utf-8",
         "outputField", "xml"
     )));
@@ -92,7 +92,7 @@ public class XMLFileHandlerTest {
   public void testKoreanEncoding() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "id",
+        "xmlIdPath", "/Company/staff/id",
         "encoding", "ISO-2022-KR",
         "outputField", "xml"
     )));
@@ -122,7 +122,7 @@ public class XMLFileHandlerTest {
   public void testJapaneseEncoding() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "id",
+        "xmlIdPath", "/Company/staff/id",
         "encoding", "ISO-2022-JP",
         "outputField", "xml"
     )));
@@ -152,7 +152,7 @@ public class XMLFileHandlerTest {
   public void testChineseEncoding() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "id",
+        "xmlIdPath", "/Company/staff/id",
         "encoding", "utf-16",
         "outputField", "xml_field"
     )));
@@ -183,7 +183,7 @@ public class XMLFileHandlerTest {
   public void testEncodingError() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "id",
+        "xmlIdPath", "/Company/staff/id",
         "encoding", "wrongEncoding",
         "outputField", "xml_field"
     )));
@@ -201,7 +201,7 @@ public class XMLFileHandlerTest {
   public void testIdPathAttribute() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "@id",
+        "xpathIdPath", "@id",
         "encoding", "utf-8",
         "outputField", "xml_field"
     )));
@@ -231,7 +231,7 @@ public class XMLFileHandlerTest {
     // Only the XML element with an id of 1001 should be included.
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "id[. = '1001']",
+        "xpathIdPath", "id[. = '1001']",
         "encoding", "utf-8",
         "outputField", "xml_field",
         "skipEmptyId", true
@@ -256,7 +256,7 @@ public class XMLFileHandlerTest {
     // Only the XML element with an id attribute of 1001 should be included.
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "@id[. = '1001']",
+        "xpathIdPath", "@id[. = '1001']",
         "encoding", "utf-8",
         "outputField", "xml_field",
         "skipEmptyId", true

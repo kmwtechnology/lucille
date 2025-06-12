@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.UUID;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -34,7 +35,13 @@ public class ChunkingXMLHandler implements ContentHandler {
   private String outputField;
   private Publisher publisher;
   private String documentRootPath;
+
   private XPathExpression docIdExpression;
+
+  private String docIdPathStr;
+  private boolean inDocIdPath = false;
+  private StringBuilder docIdBuilder = new StringBuilder();
+
   private boolean skipEmptyId;
 
   private String docIDPrefix = "";
@@ -75,11 +82,17 @@ public class ChunkingXMLHandler implements ContentHandler {
 
     if (documentRootPath.equals(path)) {
       // this is the start of our page.
+      docIdBuilder = new StringBuilder();
+
       try {
         ris.clearUpTo("<" + qName);
       } catch (IOException e) {
         log.error("IOException caught", e);
       }
+    }
+
+    if (path.equals(docIdPathStr)) {
+      inDocIdPath = true;
     }
   }
 
@@ -95,14 +108,20 @@ public class ChunkingXMLHandler implements ContentHandler {
         xml = ris.returnUpTo("</" + qName + ">");
 
         // we have the full XML object. run xpath to get the ID on just this XML.
-        try (InputStream xmlStream = new ByteArrayInputStream(xml.getBytes())) {
-          org.w3c.dom.Document xmlDoc = builder.parse(xmlStream);
-          id = docIdExpression.evaluate(xmlDoc.getDocumentElement());
+        if (docIdExpression != null) {
+          try (InputStream xmlStream = new ByteArrayInputStream(xml.getBytes())) {
+            org.w3c.dom.Document xmlDoc = builder.parse(xmlStream);
+            id = docIdExpression.evaluate(xmlDoc.getDocumentElement());
+          }
         }
       } catch (XPathExpressionException e) {
         log.warn("Error evaluating docID for xml {}. Document will have a UUID.", xml, e);
       } catch (IOException e) {
         log.error("IOException caught", e);
+      }
+
+      if (docIdPathStr != null) {
+        id = docIdBuilder.toString();
       }
 
       // always publish a Document we successfully got *some* ID String for.
@@ -122,6 +141,10 @@ public class ChunkingXMLHandler implements ContentHandler {
       }
     }
 
+    if (path.equals(docIdPathStr)) {
+      inDocIdPath = false;
+    }
+
     currentPath.pop();
   }
 
@@ -135,6 +158,9 @@ public class ChunkingXMLHandler implements ContentHandler {
 
   @Override
   public void characters(char[] ch, int start, int length) throws SAXException {
+    if (inDocIdPath) {
+      docIdBuilder.append(Arrays.copyOfRange(ch, start, start + length));
+    }
   }
 
   @Override
@@ -153,8 +179,12 @@ public class ChunkingXMLHandler implements ContentHandler {
     this.documentRootPath = documentRootPath;
   }
 
-  public void setDocumentIDPath(String documentIDPath) throws XPathExpressionException {
-    this.docIdExpression = xpath.compile(documentIDPath);
+  public void setXmlIdPath(String documentIDPath)  {
+    this.docIdPathStr = documentIDPath;
+  }
+
+  public void setXpathIdPath(String xpathIdPath) throws XPathExpressionException {
+    this.docIdExpression = xpath.compile(xpathIdPath);
   }
 
   public String getDocIDPrefix() {
