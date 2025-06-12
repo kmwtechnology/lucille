@@ -9,22 +9,22 @@ import org.junit.Test;
 
 public class SpecTest {
 
-//  @Test
-//  public void testToJson() {
-//    JsonNode messageJson = Spec.withoutDefaults().reqStrWithDesc("message", "A message to send.").toJson();
-//    JsonNode messageNode = messageJson.get("fields").get(0);
-//
-//    assertEquals("message", messageNode.get("name").asText());
-//    assertTrue(messageNode.get("required").booleanValue());
-//    assertEquals("STRING", messageNode.get("type").asText());
-//
-//    JsonNode withDescriptionJson = Spec.withoutDefaults().optStrWithDesc("message", "A message to send.").toJson();
-//    messageNode = withDescriptionJson.get("fields").get(0);
-//
-//    assertEquals("message", messageNode.get("name").asText());
-//    assertFalse(messageNode.get("required").booleanValue());
-//    assertEquals("STRING", messageNode.get("type").asText());
-//    assertEquals("A message to send.", messageNode.get("description").asText());
-//  }
+  @Test
+  public void testToJson() {
+    JsonNode messageJson = Spec.withoutDefaults().reqStrWithDesc("message", "A message to send.").toJson();
+    JsonNode messageNode = messageJson.get("fields").get(0);
+
+    assertEquals("message", messageNode.get("name").asText());
+    assertTrue(messageNode.get("required").asBoolean());
+    assertEquals("STRING", messageNode.get("type").get("type").asText());
+
+    JsonNode withDescriptionJson = Spec.withoutDefaults().optStrWithDesc("message", "A message to send.").toJson();
+    messageNode = withDescriptionJson.get("fields").get(0);
+
+    assertEquals("message", messageNode.get("name").asText());
+    assertFalse(messageNode.get("required").asBoolean());
+    assertEquals("STRING", messageNode.get("type").get("type").asText());
+    assertEquals("A message to send.", messageNode.get("description").asText());
+  }
 
 }
