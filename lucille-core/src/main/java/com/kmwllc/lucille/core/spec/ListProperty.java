@@ -1,25 +1,54 @@
 package com.kmwllc.lucille.core.spec;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
-import com.typesafe.config.ConfigValueType;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ListProperty extends Property {
 
-  private final ConfigValueType elementType;
+  private final Spec objectSpec;
+  private final TypeReference<?> typeReference;
 
-  public ListProperty(String name, boolean required, ConfigValueType elementType) {
-    this(name, required, elementType, null);
-  }
-
-  public ListProperty(String name, boolean required, ConfigValueType elementType, String description) {
+  public ListProperty(String name, boolean required, Spec objectSpec, String description) {
     super(name, required, description);
 
-    if (elementType == ConfigValueType.NULL) {
-      throw new IllegalArgumentException("NULL is not a valid list type. Spec needs to be modified.");
+    this.objectSpec = objectSpec;
+    this.typeReference = null;
+  }
+
+  public ListProperty(String name, boolean required, Spec objectSpec) {
+    this(name, required, objectSpec, null);
+  }
+
+  public ListProperty(String name, boolean required, TypeReference<?> type, String description) {
+    super(name, required, description);
+
+    this.objectSpec = null;
+    this.typeReference = type;
+  }
+
+  public ListProperty(String name, boolean required, TypeReference<?> type) {
+    this(name, required, type, null);
+  }
+
+  @Override
+  protected ObjectNode typeJson() {
+    ObjectNode node = MAPPER.createObjectNode();
+
+    node.put("type", "OBJECT");
+
+    if (objectSpec != null) {
+      node.set("child", objectSpec.toJson());
     }
 
-    this.elementType = elementType;
+    if (typeReference != null) {
+      node.put("typeReference", typeReference.getType().toString());
+    }
+
+    return node;
   }
 
   @Override
@@ -31,20 +60,38 @@ public class ListProperty extends Property {
       throw new IllegalArgumentException(name + " is supposed to be a list, was \"" + config.getValue(name).valueType() + "\"");
     }
 
-    // then check the actual element type of the list, if it is specified.
-    if (elementType != null) {
+    if (objectSpec != null) {
+      List<? extends Config> configs;
+      List<String> errorMessages = new ArrayList<>();
+
       try {
-        switch (elementType) {
-          case NUMBER -> config.getNumberList(name);
-          case OBJECT -> config.getConfigList(name);
-          case STRING -> config.getStringList(name);
-          case BOOLEAN -> config.getBooleanList(name);
-          // if elementType is List, just allow it to be valid.
-          // elementType won't be null - we prevent that above.
-        }
+        configs = config.getConfigList(name);
       } catch (ConfigException e) {
-        throw new IllegalArgumentException(
-            name + " is supposed to be a list of " + elementType + ", is " + config.getList(name).valueType());
+        throw new IllegalArgumentException(name + " is supposed to be a list, was \"" + config.getValue(name).valueType() + "\"");
+      }
+
+      for (int i = 0; i < configs.size(); i++) {
+        try {
+          objectSpec.validate(configs.get(i), name + "[" + i + "]");
+        } catch (IllegalArgumentException e) {
+          errorMessages.add(e.getMessage());
+        }
+      }
+
+      if (!errorMessages.isEmpty()) {
+        if (errorMessages.size() == 1) {
+          throw new IllegalArgumentException("Error with " + name + " element: " + errorMessages.get(0));
+        } else {
+          throw new IllegalArgumentException("Error with " + name + " elements: " + errorMessages);
+        }
+      }
+    }
+
+    if (typeReference != null) {
+      try {
+        MAPPER.convertValue(config.getList(name), typeReference);
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("List " + name + " could not be converted to specified type: " + e.getMessage());
       }
     }
   }

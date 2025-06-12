@@ -42,9 +42,10 @@ public class Spec {
     return new Spec(Set.of(
         new StringProperty("name", false),
         new StringProperty("class", false),
-        // the conditions get individually validated in Stage.
-        // TODO: The UI might not be able to access that information though.
-        new ListProperty("conditions", false, ConfigValueType.OBJECT),
+        new ListProperty("conditions", false, Spec.withoutDefaults()
+            .optStr("operator", "values")
+            // TODO: Will have a TypeReference of String
+            .optList("fieldList")),
         new StringProperty("conditionPolicy", false)));
   }
 

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core.spec;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 
 // TODO: Not sure if this is something we'd want to include in a final version. I made it to temporarily not need
@@ -8,6 +9,15 @@ public class AnyProperty extends Property {
 
   public AnyProperty(String name, boolean required) {
     super(name, required, null);
+  }
+
+  @Override
+  protected ObjectNode typeJson() {
+    ObjectNode node = MAPPER.createObjectNode();
+
+    node.put("type", "ANY");
+
+    return node;
   }
 
   @Override

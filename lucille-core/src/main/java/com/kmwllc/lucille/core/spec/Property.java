@@ -10,7 +10,7 @@ import com.typesafe.config.Config;
  */
 public abstract class Property {
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  protected static final ObjectMapper MAPPER = new ObjectMapper();
 
   protected final String name;
   protected final boolean required;
@@ -53,8 +53,7 @@ public abstract class Property {
    * Return a JsonNode describing this property. Includes <code>name</code>, the name of the field, <code>required</code>, whether it
    * is required, <code>description</code>, if it has one, and <code>type</code>, the type of the field.
    *
-   * <p> <code>type</code> is one of <code>STRING</code>, <code>NUMBER</code>, <code>BOOLEAN</code>, <code>LIST</code>,
-   * <code>OBJECT</code>, or <code>ANY</code> (TODO: May remove ANY.)
+   *  (TODO: May remove ANY.)
    */
   public JsonNode json() {
     ObjectNode node = MAPPER.createObjectNode();
@@ -66,22 +65,27 @@ public abstract class Property {
       node.put("description", description);
     }
 
-    // TODO: Not the best way to get this information... Maybe subclasses aren't needed, *especially* if we don't type arrays
-    // Object not written because it overrides this method
-    if (this instanceof NumberProperty) {
-      node.put("type", "NUMBER");
-    } else if (this instanceof BooleanProperty) {
-      node.put("type", "BOOLEAN");
-    } else if (this instanceof StringProperty) {
-      node.put("type", "STRING");
-    } else if (this instanceof ListProperty) {
-      node.put("type", "LIST");
-    } else {
-      node.put("type", "ANY");
-    }
+    node.set("type", typeJson());
 
     return node;
   }
+
+  /**
+   * Returns a JsonNode (potentially just a String) describing this Property's type. The node returned should have <code>type</code>,
+   * the name of the type, and may have either <code>typeReference</code> or <code>child</code>.
+   *
+   * <p> <code>type</code> is one of <code>STRING</code>, <code>NUMBER</code>, <code>BOOLEAN</code>, <code>LIST</code>,
+   * or <code>OBJECT</code>. (Or, temporarily, <code>ANY</code>.)
+   *
+   * <p> If this property is a List or an Object, the returned node will contain <i>either</i> <code>typeReference</code> or <code>child</code>.
+   *
+   * <p> <code>typeReference</code> will be a String representing the type that the list or Object should deserialize to.
+   * (For example, a List&lt;List&lt;String&gt;&gt;, or a Map&lt;String, &lt;List&lt;String&gt;&gt;&gt;)
+   *
+   * <p> <code>child</code> will be a JSON representation of a Spec describing what this object can contain or what the objects in this
+   * list can contain (only used for a &lt;List&lt;Object&gt;&gt;).
+   */
+  protected abstract ObjectNode typeJson();
 
   /**
    * Validate that a property has the correct value / type, given that it is present in the given Config.

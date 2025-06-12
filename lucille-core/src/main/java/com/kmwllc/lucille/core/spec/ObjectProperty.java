@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core.spec;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -9,43 +10,44 @@ import com.typesafe.config.ConfigException;
 
 public class ObjectProperty extends Property {
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
-
+  private final TypeReference<?> typeReference;
   private final ParentSpec parentSpec;
 
   public ObjectProperty(ParentSpec parentSpec, boolean required) {
     this(parentSpec, required, null);
   }
 
-  public ObjectProperty(String name, boolean required) {
-    this(name, required, null);
+  public ObjectProperty(String name, boolean required, TypeReference<?> type) {
+    this(name, required, type, null);
   }
 
-  public ObjectProperty(String name, boolean required, String description) {
+  public ObjectProperty(String name, boolean required, TypeReference<?> type, String description) {
     super(name, required, description);
 
     this.parentSpec = null;
+    this.typeReference = type;
   }
 
   public ObjectProperty(ParentSpec parentSpec, boolean required, String description) {
     super(parentSpec.getParentName(), required, description);
 
     this.parentSpec = parentSpec;
+    this.typeReference = null;
   }
 
   @Override
-  public JsonNode json() {
+  protected ObjectNode typeJson() {
     ObjectNode node = MAPPER.createObjectNode();
 
-    node.put("name", name);
-    node.put("required", required);
+    node.put("type", "OBJECT");
 
-    if (description != null) {
-      node.put("description", description);
+    if (parentSpec != null) {
+      node.set("child", parentSpec.toJson());
     }
 
-    node.put("type", "OBJECT");
-    node.set("child", parentSpec.toJson());
+    if (typeReference != null) {
+      node.put("typeReference", typeReference.getType().toString());
+    }
 
     return node;
   }
@@ -61,7 +63,16 @@ public class ObjectProperty extends Property {
     }
 
     if (parentSpec != null) {
+      // allowing the exception to be thrown
       parentSpec.validate(childConfig, name);
+    }
+
+    if (typeReference != null) {
+      try {
+        MAPPER.convertValue(childConfig.root().unwrapped(), typeReference);
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("List " + name + " could not be converted to specified type: " + e.getMessage());
+      }
     }
   }
 }
