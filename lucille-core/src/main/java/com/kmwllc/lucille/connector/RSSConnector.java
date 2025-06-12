@@ -24,11 +24,12 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 /**
  * <p> Reads the item(s) from an RSS feed, and publishes Documents with each RSS item's content in the "rss_item" field on the Document.
- * Can be configured to only publish items with a recent &lt;pubDate&gt;.
+ * Can be configured to only publish items with a recent &lt;pubDate&gt;. Can be configured to run incrementally, by specifying
+ * both <code>runDuration</code> and <code>refreshIncrement</code>. When running incrementally, the RSSConnector will avoid
+ * publishing a Document for the same RSS item twice.
  *
  * <p> Config Parameters:
  * <ul>
@@ -36,7 +37,8 @@ import sun.misc.Signal;
  *   <li>useGuidForDocID (Boolean, Optional): Whether you want the GUID of RSS Items to be the IDs for their corresponding Documents. Defaults to true. If set to false, UUIDs are created for each Document.</li>
  *   <li>pubDateCutoff (Duration, Optional): Specify a duration to only publish Documents for recent RSS items. For example, "1h" means only RSS items with a &lt;pubDate&gt; within the last hour will be published as Documents.
  *   Defaults to including all files. If &lt;pubDate&gt; is not found in an item, it will be published.</li>
- *   <li>refreshIncrement (Duration, Optional): Specify the frequency with which the Connector should check for updates from the RSS feed. Defaults to no updates (the Connector will run once). When used, the Connector will not publish Documents for the same RSS item multiple times.</li>
+ *   <li>runDuration (Duration, Optional): How long you want the RSSConnector to run for. You must also specify <code>refreshIncrement</code>. (The Connector will stop after a refresh completes, and has been running for at least the runDuration.)</li>
+ *   <li>refreshIncrement (Duration, Optional): Specify the frequency with which the Connector should check for updates from the RSS feed. You must also specify <code>runDuration</code>.</li>
  * </ul>
  *
  * See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
@@ -58,25 +60,23 @@ import sun.misc.Signal;
  */
 public class RSSConnector extends AbstractConnector {
 
-  private final RssReader rssReader = new RssReader();
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final Logger log = LoggerFactory.getLogger(RSSConnector.class);
 
-  private final boolean useGuidForDocID;
   private final URL rssURL;
-
+  private final boolean useGuidForDocID;
   private final Duration pubDateCutoffDuration;
 
+  private final Duration runDuration;
   private final Duration refreshIncrement;
+  private Set<Item> itemsProcessedLastRefresh = new HashSet<>();
 
-  private boolean running = true;
-
-  private Set<Item> processedItems = new HashSet<>();
+  private final RssReader rssReader = new RssReader();
 
   public RSSConnector(Config config) {
     super(config, Spec.connector()
         .withRequiredProperties("rssURL")
-        .withOptionalProperties("useGuidForDocID", "pubDateCutoff", "refreshIncrement"));
+        .withOptionalProperties("useGuidForDocID", "pubDateCutoff", "runDuration", "refreshIncrement"));
 
     try {
       this.rssURL = new URL(config.getString("rssURL"));
@@ -92,18 +92,18 @@ public class RSSConnector extends AbstractConnector {
       this.pubDateCutoffDuration = null;
     }
 
-    this.refreshIncrement = config.hasPath("refreshIncrement") ? config.getDuration("refreshIncrement") : null;
+    if (config.hasPath("runDuration") != config.hasPath("refreshIncrement")) {
+      throw new IllegalArgumentException("runDuration and refreshIncrement must both be defined to run incrementally.");
+    }
 
-    Signal.handle(
-        new Signal("INT"),
-        signal -> {
-          this.running = false;
-          log.info("RSSConnector to shut down...");
-        });
+    this.runDuration = config.hasPath("runDuration") ? config.getDuration("runDuration") : null;
+    this.refreshIncrement = config.hasPath("refreshIncrement") ? config.getDuration("refreshIncrement") : null;
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
+    Instant executionStarted = Instant.now();
+
     do {
       // resetting this cutoff at the start of each iteration, in case it is incremental
       Optional<Instant> pubDateCutoff = Optional.ofNullable(pubDateCutoffDuration == null ? null : Instant.now().minus(pubDateCutoffDuration));
@@ -114,15 +114,15 @@ public class RSSConnector extends AbstractConnector {
         List<Item> rssItems = itemStream.toList();
 
         for (Item item : rssItems) {
-          // want to add all items retrieved to the set at the end of the iteration
+          // want to add all items retrieved to the set at the end of the RSS "refresh"
           itemsProcessedThisRefresh.add(item);
 
-          // will allow the item to be published if the pubDateCutoff is null or the item doesn't have a pubDate.
-          if (optionalPubDateBeforeCutoff(item, pubDateCutoff) || processedItems.contains(item)) {
+          // method returns false if the pubDateCutoff is empty or the item doesn't have a pubDate.
+          if (isPubDateBeforeCutoff(item, pubDateCutoff) || itemsProcessedLastRefresh.contains(item)) {
             continue;
           }
 
-          Document doc = docFromRSSItem(item);
+          Document doc = createDoc(item);
           publisher.publish(doc);
         }
       } catch (IOException e) {
@@ -131,31 +131,38 @@ public class RSSConnector extends AbstractConnector {
         throw new ConnectorException("Error occurred with RSSConnector", e);
       }
 
-      if (refreshIncrement == null) {
+      if (refreshIncrement == null || runDuration == null) {
+        return;
+      } else if (Instant.now().isAfter(executionStarted.plus(runDuration))) {
+        // if we've been running for longer than the runDuration (after this refresh), stop.
         return;
       }
 
       // Continuously updating it based on what was seen in the iteration to prevent unbounded growth of the set...
       // Luckily we don't have to handle some weird edge case where pubDateCutoff + incremental is used. If something doesn't
       // meet the cutoff 30 seconds ago, it's not going to suddenly be "more recent" 30 seconds later...
-      processedItems = itemsProcessedThisRefresh;
+      // We do check that it's not empty, however, to prevent one bad "fetch" from causing extra Documents from being published.
+      if (!itemsProcessedThisRefresh.isEmpty()) {
+        itemsProcessedLastRefresh = itemsProcessedThisRefresh;
+      }
 
       try {
         log.info("Finished checking RSS feed. Will wait to refresh.");
         Instant wakeupInstant = Instant.now().plus(refreshIncrement);
 
-        while (Instant.now().isBefore(wakeupInstant) && running) {
+        while (Instant.now().isBefore(wakeupInstant)) {
           Thread.sleep(250);
         }
 
         log.info("RSSConnector to check for new content.");
       } catch (InterruptedException e) {
-        throw new ConnectorException("RSSConnector interrupted while waiting to refresh.", e);
+        log.info("RSSConnector interrupted, will stop running.");
+        return;
       }
-    } while (running);
+    } while (true);
   }
 
-  private Document docFromRSSItem(Item item) {
+  private Document createDoc(Item item) {
     Document doc;
     if (useGuidForDocID) {
       if (item.getGuid().isPresent()) {
@@ -197,7 +204,8 @@ public class RSSConnector extends AbstractConnector {
     return doc;
   }
 
-  private static boolean optionalPubDateBeforeCutoff(Item item, Optional<Instant> cutoff) {
+  /** If the item has no pubDate OR the cutoff is empty, returns false - meaning the item should get a Document published.. */
+  private static boolean isPubDateBeforeCutoff(Item item, Optional<Instant> cutoff) {
     if (cutoff.isEmpty()) {
       return false;
     }

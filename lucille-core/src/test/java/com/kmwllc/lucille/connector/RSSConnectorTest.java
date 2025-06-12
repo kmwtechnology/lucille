@@ -17,6 +17,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -205,20 +206,15 @@ public class RSSConnectorTest {
     try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
       when(mockReader.read(any(String.class)))
           .thenReturn(Stream.of(singleItem))
+          .thenReturn(Stream.of(basicItems))
           .thenReturn(Stream.of(basicItems));
     })) {
       RSSConnector connector = new RSSConnector(config);
-
-      // Stop the connector after 2 seconds, allowing it to run twice, and then it gets interrupted.
-      scheduler.schedule(() -> {
-        Signal.raise(new Signal("INT"));
-      }, 2, TimeUnit.SECONDS);
-
-      // blocked until the signal gets raised. should run 2 times
+      // refreshes every 1.2 seconds, runs for ~2 seconds.
       connector.execute(publisher);
     }
 
-    // Should run 2 times: 0 sec, 1.2 sec, then interrupted.
+    // Should run 3 times: 0 sec, 1.2 sec, 2.4 seconds, then stops.
     // Only has 3 unique items to be published
     List<Document> publishedDocs = messenger.getDocsSentForProcessing();
     assertEquals(3, publishedDocs.size());
@@ -248,13 +244,7 @@ public class RSSConnectorTest {
           .thenReturn(Stream.of(singleItem));
     })) {
       RSSConnector connector = new RSSConnector(config);
-
-      // Stop the connector after 3 seconds, allowing it to run three times, and then is interrupted.
-      scheduler.schedule(() -> {
-        Signal.raise(new Signal("INT"));
-      }, 3, TimeUnit.SECONDS);
-
-      // will be blocked until the signal gets raised. should run three times
+      // refreshes every 1.2 seconds, runs for 3 seconds.
       connector.execute(publisher);
     }
 
