@@ -21,7 +21,7 @@ public abstract class BaseFileHandler implements FileHandler {
   private static final Logger log = LoggerFactory.getLogger(BaseFileHandler.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  protected String docIdPrefix;
+  protected final String docIdPrefix;
 
   public BaseFileHandler(Config config, Spec spec) {
     spec.validate(config, this.getClass().getName());

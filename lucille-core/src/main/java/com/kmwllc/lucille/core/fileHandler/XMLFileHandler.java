@@ -45,7 +45,6 @@ public class XMLFileHandler extends BaseFileHandler {
     this.xmlIdPath = config.getString("xmlIdPath");
     this.encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
     this.outputField = config.hasPath("outputField") ? config.getString("outputField") : "xml";
-    this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
 
   @Override
