@@ -3,7 +3,7 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.SSLUtils;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -48,7 +48,7 @@ public class SolrIndexer extends Indexer {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
             "userName", "password", "acceptInvalidCert")
-        .withOptionalParentNames("ssl"));
+        .optParent(Spec.parent("ssl").optStr(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)));
 
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.

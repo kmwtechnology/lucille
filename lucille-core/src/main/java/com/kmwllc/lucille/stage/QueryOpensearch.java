@@ -2,10 +2,11 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.JsonPointer;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -64,6 +65,12 @@ import org.slf4j.LoggerFactory;
  */
 public class QueryOpensearch extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .reqParent(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
+      .optStr("templateName", "searchTemplate", "opensearchResponsePath", "destinationField")
+      .optList("requiredParamNames", new TypeReference<List<String>>(){})
+      .optList("optionalParamNames", new TypeReference<List<String>>(){});
+
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final HttpClient httpClient = HttpClient.newHttpClient();
@@ -80,10 +87,7 @@ public class QueryOpensearch extends Stage {
   private JsonNode searchTemplateJson;
 
   public QueryOpensearch(Config config) {
-    super(config, Spec.stage()
-        .withRequiredParents(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
-        .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
-            "optionalParamNames", "opensearchResponsePath", "destinationField"));
+    super(config, SPEC);
 
     this.searchURI = getTemplateSearchURI(config);
 

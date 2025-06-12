@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import io.pinecone.clients.Pinecone;
 import io.pinecone.proto.UpsertResponse;
@@ -62,7 +63,7 @@ public class PineconeIndexer extends Indexer {
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("apiKey", "index")
-        .withOptionalParentNames("namespaces")
+        .optParent("namespaces", new TypeReference<Map<String, Object>>() {})
         .withOptionalProperties("metadataFields", "mode", "defaultEmbeddingField"));
 
     this.client = bypass ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();

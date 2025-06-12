@@ -139,7 +139,8 @@ public class ExtractEntitiesTest {
             "conditions",
             "class",
             "dictionaries",
-            "conditionPolicy"),
+            "conditionPolicy",
+            "gcp", "azure", "s3"),
         stage.getLegalProperties());
   }
 

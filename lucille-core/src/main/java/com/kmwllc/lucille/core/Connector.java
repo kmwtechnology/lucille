@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValueFactory;
 
@@ -78,6 +79,20 @@ public interface Connector extends AutoCloseable {
   void postExecute(String runId) throws ConnectorException;
 
   /**
+   * @return The Spec describing this Connector's Config properties. Must be declared as <code>public static Spec SPEC</code>.
+   * @throws RuntimeException If this Connector does not have a <code>public static Spec SPEC</code>.
+   */
+  Spec getSpec();
+
+  /**
+   * @return The Spec describing the given Connector class's Config properties. Must be declared as <code>public static Spec SPEC</code>.
+   * @throws ReflectiveOperationException If this Connector does not have a <code>public static Spec SPEC</code>.
+   */
+  static Spec getSpecFor(Class<? extends Connector> connectorClass) throws Exception {
+    return (Spec) connectorClass.getDeclaredField("SPEC").get(null);
+  }
+
+  /**
    * Instantiates a list of Connectors from the designated Config.
    *
    * @param config The configuration you want to extract Connectors from.
@@ -124,7 +139,7 @@ public interface Connector extends AutoCloseable {
       // so validation logs / messages look a bit clearer.
       // (if we just blindly access class, and it doesn't exist, a more verbose / less descriptive Exception message is printed)
       if (!connectorConfig.hasPath("class")) {
-        throw new IllegalArgumentException("No Connector class specified");
+        throw new IllegalArgumentException("No Connector class specified.");
       }
 
       Class<?> clazz = Class.forName(connectorConfig.getString("class"));

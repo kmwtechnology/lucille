@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.connector.jdbc;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import java.util.concurrent.TimeUnit;
@@ -69,11 +70,17 @@ public class DatabaseConnector extends AbstractConnector {
   // TODO: consider moving this down to the base connector class.
   //  private ConnectorState state = null;
 
+  public static Spec SPEC = Spec.connector()
+      .reqStr("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
+      .optStr("preSQL", "postSQL")
+      .optNum("fetchSize", "connectionRetries", "connectionRetryPause")
+      .optList("otherSQLs", new TypeReference<List<String>>(){})
+      .optList("otherJoinFields", new TypeReference<List<String>>(){})
+      .optList("ignoreColumns", new TypeReference<List<String>>(){});
+
   // The constructor that takes the config.
   public DatabaseConnector(Config config) {
-    super(config, Spec.connector()
-        .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
-        .withOptionalProperties("fetchSize", "preSQL", "postSQL", "otherSQLs", "otherJoinFields", "ignoreColumns", "connectionRetries", "connectionRetryPause"));
+    super(config);
 
     // required config
     driver = config.getString("driver");

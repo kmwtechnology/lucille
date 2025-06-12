@@ -7,7 +7,7 @@ import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.RunResult;
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.Runner.RunType;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;

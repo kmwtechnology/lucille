@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -23,7 +24,8 @@ public class Length extends Stage {
   private final Map<String, Object> fieldMap;
 
   public Length(Config config) {
-    super(config, Spec.stage().withRequiredParentNames("fieldMapping"));
+    super(config, Spec.stage().reqParent("fieldMapping", new TypeReference<Map<String, String>>() {}));
+
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
   }
 

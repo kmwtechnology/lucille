@@ -1,10 +1,11 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.jayway.jsonpath.*;
 import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -47,7 +48,7 @@ public class ParseJson extends Stage {
     super(config, Spec.stage()
         .withRequiredProperties("src")
         .withOptionalProperties("sourceIsBase64")
-        .withRequiredParentNames("jsonFieldPaths"));
+        .reqParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {}));
 
     this.src = config.getString("src");
     this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();

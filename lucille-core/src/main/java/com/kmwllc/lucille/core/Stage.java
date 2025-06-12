@@ -4,7 +4,8 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;
@@ -38,10 +39,6 @@ import java.util.stream.Collectors;
 public abstract class Stage {
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  private static final List<ParentSpec> EMPTY_LIST = Collections.emptyList();
-  private static final List<String> CONDITIONS_OPTIONAL = List.of("operator", "values");
-  private static final List<String> CONDITIONS_REQUIRED = List.of("fields");
-
   protected Config config;
   private final Spec spec;
   private final Predicate<Document> condition;
@@ -70,8 +67,8 @@ public abstract class Stage {
     this.config = config;
     this.spec = spec;
 
-    // validates the config as well as any potential conditions. throws an IllegalArgumentException if invalid.
-    validateConfigAndConditions();
+    // validates the stage config AND conditions too
+    spec.validate(config, getDisplayName());
 
     this.condition = getMergedConditions();
   }
@@ -323,22 +320,6 @@ public abstract class Stage {
    */
   public Config getConfig() {
     return config;
-  }
-
-  /**
-   * Throws an exception if this stage's config, or its conditions, are not valid
-   * @throws IllegalArgumentException If the config is not valid.
-   */
-  private void validateConfigAndConditions() {
-    spec.validate(config, getDisplayName());
-
-    // validate conditions
-    if (config.hasPath("conditions")) {
-      for (Config condition : config.getConfigList("conditions")) {
-        Spec.validateConfig(condition, getDisplayName() + "'s Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
-            EMPTY_LIST);
-      }
-    }
   }
 
   public Set<String> getLegalProperties() {
