@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -58,8 +59,9 @@ public class SolrConnector extends AbstractConnector {
   public static Spec SPEC = Spec.connector()
       // the Solr ParentSpec has solr.url as a required property.
       .reqParent(SolrUtils.SOLR_PARENT_SPEC)
-      .optParentName("solrParams")
-      .optList("preActions", "postActions")
+      .optParent("solrParams", new TypeReference<Map<String, Object>>(){})
+      .optList("preActions", new TypeReference<List<String>>(){})
+      .optList("postActions", new TypeReference<List<String>>(){})
       .optBool("useXml")
       .optStr("idField");
 

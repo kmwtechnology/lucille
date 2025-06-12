@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -15,6 +16,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.BoundedInputStream;
@@ -72,7 +74,7 @@ public class FetchUri extends Stage {
     super(config, Spec.stage().withRequiredProperties("source", "dest")
         .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
             "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "status_code_retry_list")
-        .optParentName("headers"));
+        .optParent("headers", new TypeReference<Map<String, Object>>() {}));
 
     this.source = config.getString("source");
     this.dest = config.getString("dest");

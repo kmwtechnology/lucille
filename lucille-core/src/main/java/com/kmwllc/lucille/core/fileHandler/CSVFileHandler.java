@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
@@ -33,7 +34,8 @@ public class CSVFileHandler extends BaseFileHandler {
 
   public static final ParentSpec PARENT_SPEC = Spec.parent("csv")
       .optStr("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "docIdFormat")
-      .optList("idFields", "ignoredTerms")
+      .optList("idFields", new TypeReference<List<String>>() {})
+      .optList("ignoredTerms", new TypeReference<List<String>>() {})
       .optBool("useTabs", "separatorChar", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields");
 
   private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);

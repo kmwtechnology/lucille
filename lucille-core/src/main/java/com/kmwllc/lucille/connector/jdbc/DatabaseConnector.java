@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector.jdbc;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -73,7 +74,9 @@ public class DatabaseConnector extends AbstractConnector {
       .reqStr("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
       .optStr("preSQL", "postSQL")
       .optNum("fetchSize", "connectionRetries", "connectionRetryPause")
-      .optList("otherSQLs", "otherJoinFields", "ignoreColumns");
+      .optList("otherSQLs", new TypeReference<List<String>>(){})
+      .optList("otherJoinFields", new TypeReference<List<String>>(){})
+      .optList("ignoreColumns", new TypeReference<List<String>>(){});
 
   // The constructor that takes the config.
   public DatabaseConnector(Config config) {

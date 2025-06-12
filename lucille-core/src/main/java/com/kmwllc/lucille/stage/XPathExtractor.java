@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -47,7 +48,7 @@ public class XPathExtractor extends Stage {
   public XPathExtractor(Config config) {
     super(config, Spec.stage()
         .withOptionalProperties("xmlField")
-        .reqParentName("fieldMapping"));
+        .reqParent("fieldMapping", new TypeReference<Map<String, List<String>>>(){}));
 
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();

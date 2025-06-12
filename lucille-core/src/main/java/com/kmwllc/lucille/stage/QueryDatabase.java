@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -54,7 +55,7 @@ public class QueryDatabase extends Stage {
   public QueryDatabase(Config config) {
     super(config, Spec.stage()
         .withOptionalProperties("sql", "connectionRetries", "connectionRetryPause")
-        .reqParentName("fieldMapping")
+        .reqParent("fieldMapping", new TypeReference<Map<String, String>>(){})
         .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
             "keyFields", "inputTypes"));
 

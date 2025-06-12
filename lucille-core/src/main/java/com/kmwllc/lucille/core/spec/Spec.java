@@ -44,9 +44,9 @@ public class Spec {
         new StringProperty("name", false),
         new StringProperty("class", false),
         new ListProperty("conditions", false, Spec.withoutDefaults()
-            .optStr("operator", "values")
-            // TODO: Will have a TypeReference of String
-            .optList("fieldList")),
+            .optStr("operator")
+            .optList("values", new TypeReference<List<String>>(){})
+            .reqList("fields", new TypeReference<List<String>>(){})),
         new StringProperty("conditionPolicy", false)));
   }
 
@@ -93,9 +93,6 @@ public class Spec {
     return new ParentSpec(parentName);
   }
 
-  // ***********************************
-
-
   // ************* Basic Properties **************
 
   /**
@@ -115,66 +112,6 @@ public class Spec {
    */
   public Spec withOptionalProperties(String... optionalProperties) {
     Arrays.stream(optionalProperties).forEach(optionalPropertyName -> properties.add(new AnyProperty(optionalPropertyName, false)));
-    return this;
-  }
-
-  /**
-   * Returns this Spec with the given parents added as required parents. The ParentSpecs provided will be validated as part of
-   * {@link Spec#validate(Config, String)}, and an Exception will be thrown if the parent is missing or has invalid properties.
-   * @param requiredParents The required parents you want to add to this Spec.
-   * @return This Spec with the given required parents added.
-   * @throws IllegalArgumentException If you attempt to add a ParentSpec with a name that is already added to this Spec, either
-   * as an optional or required parent.
-   */
-  public Spec reqParent(ParentSpec... requiredParents) {
-    Arrays.stream(requiredParents).forEach(requiredParentSpec -> properties.add(new ObjectProperty(requiredParentSpec, true)));
-    return this;
-  }
-
-  /**
-   * Returns this Spec with the given parents added as optional parents. The ParentSpecs provided will be validated as part of
-   * {@link Spec#validate(Config, String)}, and an Exception will be thrown if the parent is present and has invalid properties.
-   * @param optionalParents The optional parents you want to add to this Spec.
-   * @return This Spec with the given ParentSpecs added as optional parents.
-   * @throws IllegalArgumentException If you attempt to add a ParentSpec with a name that is already added to this Spec, either
-   * as an optional or required parent.
-   */
-  public Spec optParent(ParentSpec... optionalParents) {
-    Arrays.stream(optionalParents).forEach(optionalParentSpec -> properties.add(new ObjectProperty(optionalParentSpec, false)));
-    return this;
-  }
-
-  /**
-   * Returns this Spec with the given parent names added as required parents. No validation will take place on the child properties
-   * of the declared required parents in a Config you validate with {@link Spec#validate(Config, String)}. As such, this method
-   * should be used for required parents with unpredictable properties / entries.
-   * @param name The names of required parents you want to add to this Spec.
-   * @param type The type (Likely a &lt;String, Something&gt;) that this Config should deserialize to.
-   * @return This Spec with the given ParentSpecs added as optional parents.
-   * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
-   * as an optional or required parent.
-   */
-  public Spec reqParent(String name, TypeReference<?> type) {
-    properties.add(new ObjectProperty(name, true, type));
-    return this;
-  }
-
-  /**
-   * Returns this Spec with the given parent names added as optional parents. No validation will take place on the child properties
-   * of the declared optional parents, if they are present in a Config you validate with {@link Spec#validate(Config, String)}. As
-   * such, this method should be used for optional parents with unpredictable properties / entries.
-   *
-   * <p> <b>Note:</b> If you have a ParentSpec with a required property, an Exception will only be thrown during validation
-   * if the parent is present in a Config but that required property is missing.
-   *
-   * @param name The name of the optional parent you want to add to this Spec.
-   * @param type The type (Likely a &lt;String, Something&gt;) that this Config, if present, should deserialize to.
-   * @return This Spec with the given ParentSpecs added as optional parents.
-   * @throws IllegalArgumentException If you attempt to add an optional parent name that is already a parent name in this Spec, either
-   * as an optional or required parent.
-   */
-  public Spec optParent(String name, TypeReference<?> type) {
-    properties.add(new ObjectProperty(name, false, type));
     return this;
   }
 
@@ -210,17 +147,47 @@ public class Spec {
     return this;
   }
 
-  public Spec reqList(String... requiredListFieldNames) {
-    Arrays.stream(requiredListFieldNames).forEach(fieldName -> properties.add(new ListProperty(fieldName, true, null)));
+  // ************ Adding Objects (Parents) and Lists ************
+
+  public Spec reqParent(ParentSpec... requiredParents) {
+    Arrays.stream(requiredParents).forEach(requiredParentSpec -> properties.add(new ObjectProperty(requiredParentSpec, true)));
     return this;
   }
 
-  public Spec optList(String... optionalListFieldNames) {
-    Arrays.stream(optionalListFieldNames).forEach(fieldName -> properties.add(new ListProperty(fieldName, false, null)));
+  public Spec optParent(ParentSpec... optionalParents) {
+    Arrays.stream(optionalParents).forEach(optionalParentSpec -> properties.add(new ObjectProperty(optionalParentSpec, false)));
     return this;
   }
 
-  // ******************************************
+  public Spec reqParent(String name, TypeReference<?> type) {
+    properties.add(new ObjectProperty(name, true, type));
+    return this;
+  }
+
+  public Spec optParent(String name, TypeReference<?> type) {
+    properties.add(new ObjectProperty(name, false, type));
+    return this;
+  }
+
+  public Spec reqList(String name, Spec objectSpec) {
+    properties.add(new ListProperty(name, true, objectSpec));
+    return this;
+  }
+
+  public Spec optList(String name, Spec objectSpec) {
+    properties.add(new ListProperty(name, false, objectSpec));
+    return this;
+  }
+
+  public Spec reqList(String name, TypeReference<?> listType) {
+    properties.add(new ListProperty(name, true, listType));
+    return this;
+  }
+
+  public Spec optList(String name, TypeReference<?> listType) {
+    properties.add(new ListProperty(name, false, listType));
+    return this;
+  }
 
   // ************ Adding Basic Types w/ Descriptions ****************
 
@@ -254,20 +221,7 @@ public class Spec {
     return this;
   }
 
-  public Spec reqListWithDesc(String requiredListFieldName, String description) {
-    properties.add(new ListProperty(requiredListFieldName, true, null, description));
-    return this;
-  }
-
-  public Spec optListWithDesc(String optionalBooleanFieldName, String description) {
-    properties.add(new ListProperty(optionalBooleanFieldName, false, null, description));
-    return this;
-  }
-
-  // **********************************************************
-
-
-  // ******** Adding Objects w/ Descriptions ********
+  // ******** Adding Objects and Lists with Descriptions ********
 
   public Spec reqParentWithDesc(ParentSpec requiredParentSpec, String description) {
     properties.add(new ObjectProperty(requiredParentSpec, true, description));
@@ -289,8 +243,25 @@ public class Spec {
     return this;
   }
 
-  // ************************************************
+  public Spec reqListWithDesc(String name, Spec objectSpec, String description) {
+    properties.add(new ListProperty(name, true, objectSpec, description));
+    return this;
+  }
 
+  public Spec optListWithDesc(String name, Spec objectSpec, String description) {
+    properties.add(new ListProperty(name, false, objectSpec, description));
+    return this;
+  }
+
+  public Spec reqListWithDesc(String name, TypeReference<?> listType, String description) {
+    properties.add(new ListProperty(name, true, listType, description));
+    return this;
+  }
+
+  public Spec optListWithDesc(String name, TypeReference<?> listType, String description) {
+    properties.add(new ListProperty(name, false, listType, description));
+    return this;
+  }
 
   // ********* Validation / Utility Functions *********
 
@@ -426,30 +397,6 @@ public class Spec {
     }
 
     @Override
-    public ParentSpec reqParent(ParentSpec... properties) {
-      super.reqParent(properties);
-      return this;
-    }
-
-    @Override
-    public ParentSpec optParent(ParentSpec... properties) {
-      super.optParent(properties);
-      return this;
-    }
-
-    @Override
-    public ParentSpec reqParent(String name, TypeReference<?> type) {
-      super.reqParent(name, type);
-      return this;
-    }
-
-    @Override
-    public ParentSpec optParent(String name, TypeReference<?> type) {
-      super.optParent(name, type);
-      return this;
-    }
-
-    @Override
     public ParentSpec reqStr(String... requiredStringFieldNames) {
       super.reqStr(requiredStringFieldNames);
       return this;
@@ -486,14 +433,50 @@ public class Spec {
     }
 
     @Override
-    public ParentSpec reqList(String... requiredListFieldNames) {
-      super.reqList(requiredListFieldNames);
+    public ParentSpec reqParent(ParentSpec... properties) {
+      super.reqParent(properties);
       return this;
     }
 
     @Override
-    public ParentSpec optList(String... optionalListFieldNames) {
-      super.optList(optionalListFieldNames);
+    public ParentSpec optParent(ParentSpec... properties) {
+      super.optParent(properties);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqParent(String name, TypeReference<?> type) {
+      super.reqParent(name, type);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optParent(String name, TypeReference<?> type) {
+      super.optParent(name, type);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqList(String name, Spec objectSpec) {
+      super.reqList(name, objectSpec);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optList(String name, Spec objectSpec) {
+      super.optList(name, objectSpec);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqList(String name, TypeReference<?> listType) {
+      super.reqList(name, listType);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optList(String name, TypeReference<?> listType) {
+      super.optList(name, listType);
       return this;
     }
 
@@ -534,18 +517,6 @@ public class Spec {
     }
 
     @Override
-    public ParentSpec reqListWithDesc(String requiredListFieldName, String description) {
-      super.reqListWithDesc(requiredListFieldName, description);
-      return this;
-    }
-
-    @Override
-    public ParentSpec optListWithDesc(String optionalListFieldName, String description) {
-      super.optListWithDesc(optionalListFieldName, description);
-      return this;
-    }
-
-    @Override
     public ParentSpec reqParentWithDesc(ParentSpec requiredParentSpec, String description) {
       super.reqParentWithDesc(requiredParentSpec, description);
       return this;
@@ -566,6 +537,30 @@ public class Spec {
     @Override
     public ParentSpec optParentWithDesc(String optionalParentName, TypeReference<?> type, String description) {
       super.optParentWithDesc(optionalParentName, type, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqListWithDesc(String name, Spec objectSpec, String description) {
+      super.reqListWithDesc(name, objectSpec, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optListWithDesc(String name, Spec objectSpec, String description) {
+      super.optListWithDesc(name, objectSpec, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec reqListWithDesc(String name, TypeReference<?> listType, String description) {
+      super.reqListWithDesc(name, listType, description);
+      return this;
+    }
+
+    @Override
+    public ParentSpec optListWithDesc(String name, TypeReference<?> listType, String description) {
+      super.optListWithDesc(name, listType, description);
       return this;
     }
 

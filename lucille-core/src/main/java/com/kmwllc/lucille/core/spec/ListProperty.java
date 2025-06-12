@@ -89,7 +89,7 @@ public class ListProperty extends Property {
 
     if (typeReference != null) {
       try {
-        MAPPER.convertValue(config.getList(name), typeReference);
+        MAPPER.convertValue(config.getList(name).unwrapped(), typeReference);
       } catch (IllegalArgumentException e) {
         throw new IllegalArgumentException("List " + name + " could not be converted to specified type: " + e.getMessage());
       }

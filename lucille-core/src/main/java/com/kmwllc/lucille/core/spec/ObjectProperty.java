@@ -71,7 +71,7 @@ public class ObjectProperty extends Property {
       try {
         MAPPER.convertValue(childConfig.root().unwrapped(), typeReference);
       } catch (IllegalArgumentException e) {
-        throw new IllegalArgumentException("List " + name + " could not be converted to specified type: " + e.getMessage());
+        throw new IllegalArgumentException("Object " + name + " could not be converted to specified type: " + e.getMessage());
       }
     }
   }

@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -48,7 +49,8 @@ public class ElasticsearchIndexer extends Indexer {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("index", "url")
         .withOptionalProperties("update", "parentName", "acceptInvalidCert")
-        .optParentName("join"));
+        // TODO: might be able to be more specific
+        .optParent("join", new TypeReference<Map<String, Object>>() {}));
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(

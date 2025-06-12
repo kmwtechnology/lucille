@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -28,7 +29,7 @@ public class ExtractFirstCharacter extends Stage {
 
   public ExtractFirstCharacter(Config config) {
     super(config, Spec.stage().withOptionalProperties("replacement")
-        .reqParentName("fieldMapping"));
+        .reqParent("fieldMapping", new TypeReference<Map<String, String>>() {}));
 
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";

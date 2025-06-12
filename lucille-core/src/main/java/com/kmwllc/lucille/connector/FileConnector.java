@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -14,6 +15,7 @@ import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -144,7 +146,8 @@ public class FileConnector extends AbstractConnector {
       .withRequiredProperties("pathToStorage")
       .optParent(
           Spec.parent("filterOptions")
-              .optList("includes", "excludes")
+              .optList("includes", new TypeReference<List<String>>(){})
+              .optList("excludes", new TypeReference<List<String>>(){})
               // durations are strings.
               .optStr("modificationCutoff"),
           Spec.parent("fileOptions")
