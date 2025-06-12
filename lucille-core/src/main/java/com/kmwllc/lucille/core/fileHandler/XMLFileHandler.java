@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.connector.xml.ChunkingXMLHandler;
 import com.kmwllc.lucille.connector.xml.RecordingInputStream;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Spec;
@@ -16,24 +17,49 @@ import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
+import javax.xml.xpath.XPathExpressionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 
+/**
+ * <p> Given an InputStream to a .xml file, publishes Documents containing the text of separate elements at a "root path"
+ * in the Document. This FileHandler does not support the <code>processFile</code> method. <code>processFileAndPublish</code>
+ * must be called. Supports attribute extraction and qualifiers in the <code>xmlIdPath</code>
+ *
+ * <p> Config Parameters:
+ * <ul>
+ *   <li><code>xmlRootPath</code> (String): The path to the root of the XML Element(s) you want to publish Documents for. For example, in a file
+ *   that contains "&lt;Company&gt;" and, inside it, multiple "&lt;Staff&gt;", each of which you want to publish a Document for, your
+ *   path should be <code>/Company/Staff</code>.
+ *   <li><code>xmlIdPath</code></li> (String): The (absolute) path to the XML element you want to use as the Document ID. For example, <code>/Company/Staff/id</code>.
+ *   <li><code>xpathIdPath</code> (String): The xpath, <i>relative</i> to the root of the <code>xmlRootPath</code>, to the XML element
+ *   or attribute that will be used to create Document IDs. This path can be a qualifier - be sure to enable <code>skipEmptyId</code>, if so!</li>
+ *   <li><code>encoding</code> (String, Optional): The encoding the xml files use. Defaults to utf-8.</li>
+ *   <li><code>outputField</code> (String, Optional): The field you want to put the XML text into. Defaults to "xml".</li>
+ *   <li><code>skipEmptyID</code> (Boolean, Optional): Whether you want to skip a document when your <code>xmlIdPath</code> or <code>xpathIdPath</code>
+ *   evaluates to an empty or null String. Defaults to false. You should enable if your xmlIdPath is a qualifier.</li>
+ * </ul>
+ *
+ * <b>Note:</b> You cannot specify both an <code>xmlIdPath</code> and an <code>xpathIdPath</code>. <code>xmlIdPath</code> runs
+ * roughly twice as fast as <code>xpathIdPath</code>, but is less versatile.
+ */
 public class XMLFileHandler extends BaseFileHandler {
 
   public static final ParentSpec PARENT_SPEC = Spec.parent("xml")
-      .withRequiredProperties("xmlRootPath", "xmlIdPath")
-      .withOptionalProperties("docIdPrefix", "outputField", "encoding");
+      .withRequiredProperties("xmlRootPath")
+      .withOptionalProperties("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding", "skipEmptyId");
 
   private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
 
-  private String xmlRootPath;
-  private String xmlIdPath;
-  private String encoding;
-  private String outputField;
+  private final String xmlRootPath;
+  private final String xmlIdPath;
+  private final String xpathIdPath;
+  private final String encoding;
+  private final String outputField;
+  private final boolean skipEmptyId;
 
   private SAXParserFactory spf = null;
   private SAXParser saxParser = null;
@@ -41,10 +67,18 @@ public class XMLFileHandler extends BaseFileHandler {
 
   public XMLFileHandler(Config config) {
     super(config);
+
     this.xmlRootPath = config.getString("xmlRootPath");
-    this.xmlIdPath = config.getString("xmlIdPath");
+    this.xmlIdPath = ConfigUtils.getOrDefault(config, "xmlIdPath", null);
+    this.xpathIdPath = ConfigUtils.getOrDefault(config, "xpathIdPath", null);
     this.encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
     this.outputField = config.hasPath("outputField") ? config.getString("outputField") : "xml";
+    this.skipEmptyId = ConfigUtils.getOrDefault(config, "skipEmptyId", false);
+
+    if (config.hasPath("xmlIdPath") == config.hasPath("xpathIdPath")) {
+      throw new IllegalArgumentException("Must specify exactly one of xmlIdPath and xpathIdPath.");
+    }
+
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
 
@@ -103,12 +137,32 @@ public class XMLFileHandler extends BaseFileHandler {
       throw new FileHandlerException("unable to get XML Reader", e);
     }
 
-    ChunkingXMLHandler xmlHandler = new ChunkingXMLHandler();
+    ChunkingXMLHandler xmlHandler;
+
+    try {
+      xmlHandler = new ChunkingXMLHandler();
+    } catch (Exception e) {
+      throw new FileHandlerException("Error setting up ChunkingXMLHandler.", e);
+    }
+
+    if (xmlIdPath != null) {
+      xmlHandler.setXmlIdPath(xmlIdPath);
+    }
+
+    if (xpathIdPath != null) {
+      try {
+        xmlHandler.setXpathIdPath(xpathIdPath);
+      } catch (XPathExpressionException e) {
+        throw new FileHandlerException("XPath related error with your xmlIdPath.", e);
+      }
+    }
+
     xmlHandler.setOutputField(outputField);
     xmlHandler.setPublisher(publisher);
     xmlHandler.setDocumentRootPath(xmlRootPath);
-    xmlHandler.setDocumentIDPath(xmlIdPath);
     xmlHandler.setDocIDPrefix(docIdPrefix);
+    xmlHandler.setSkipEmptyId(skipEmptyId);
+
     xmlReader.setContentHandler(xmlHandler);
     return xmlHandler;
   }
