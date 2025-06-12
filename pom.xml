@@ -23,7 +23,6 @@
     <module>lucille-core</module>
     <module>lucille-plugins</module>
     <module>lucille-examples</module>
-    <module>lucille-examples/lucille-rss-example</module>
   </modules>
 
   <repositories>
