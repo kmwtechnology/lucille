@@ -184,14 +184,14 @@ public class FileConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      for (StorageClient client : storageClientMap.values()) {
-        client.init();
+      try {
+        for (StorageClient client : storageClientMap.values()) {
+          client.init();
+        }
+      } catch (IOException e) {
+        throw new ConnectorException("Error initializing a StorageClient.", e);
       }
-    } catch (IOException e) {
-      throw new ConnectorException("Error initializing a StorageClient.", e);
-    }
 
-    try {
       for (URI pathToTraverse : storageURIs) {
         String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
         StorageClient storageClient = storageClientMap.get(clientKey);
