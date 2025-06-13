@@ -17,7 +17,6 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +26,7 @@ import org.slf4j.LoggerFactory;
  *
  * <br> Config Parameters:
  * <ul>
- *   <li>pathsToStorage (String): The paths to storage you want to traverse. Can be local file paths or cloud storage URIs. Make sure to include the necessary configuration for cloud providers as they are included in your pathsToStorage. Examples:
+ *   <li>pathsToStorage (List &lt;String&gt;): The paths to storage you want to traverse. Can be local file paths or cloud storage URIs. Make sure to include the necessary configuration for cloud providers as they are included in your pathsToStorage. Examples:
  *    <ul>
  *       <li>/path/to/storage/in/local/filesystem</li>
  *       <li>gs://bucket-name/folder/</li>
