@@ -26,21 +26,21 @@ import org.xml.sax.XMLReader;
 
 /**
  * <p> Given an InputStream to a .xml file, publishes Documents containing the text of separate elements at a "root path"
- * in the Document. This FileHandler does not support the <code>processFile</code> method. <code>processFileAndPublish</code>
- * must be called. Supports attribute extraction and qualifiers in the <code>xmlIdPath</code>
+ * in the Document. This FileHandler does not support the <code>processFile</code> method, <code>processFileAndPublish</code>
+ * must be called. Supports attribute extraction and qualifiers via use of the <code>xpathIdPath</code>.
  *
  * <p> Config Parameters:
  * <ul>
  *   <li><code>xmlRootPath</code> (String): The path to the root of the XML Element(s) you want to publish Documents for. For example, in a file
  *   that contains "&lt;Company&gt;" and, inside it, multiple "&lt;Staff&gt;", each of which you want to publish a Document for, your
  *   path should be <code>/Company/Staff</code>.
- *   <li><code>xmlIdPath</code></li> (String): The (absolute) path to the XML element you want to use as the Document ID. For example, <code>/Company/Staff/id</code>.
- *   <li><code>xpathIdPath</code> (String): The xpath, <i>relative</i> to the root of the <code>xmlRootPath</code>, to the XML element
+ *   <li><code>xmlIdPath</code></li> (String): The <i>absolute</i> path to the XML element you want to use as the Document ID. For example, <code>/Company/Staff/id</code>.
+ *   <li><code>xpathIdPath</code> (String): An xpath expression, <i>relative</i> to <code>xmlRootPath</code>, specifying the XML element
  *   or attribute that will be used to create Document IDs. This path can be a qualifier - be sure to enable <code>skipEmptyId</code>, if so!</li>
  *   <li><code>encoding</code> (String, Optional): The encoding the xml files use. Defaults to utf-8.</li>
- *   <li><code>outputField</code> (String, Optional): The field you want to put the XML text into. Defaults to "xml".</li>
+ *   <li><code>outputField</code> (String, Optional): The field you want to put the extracted XML text into. Defaults to "xml".</li>
  *   <li><code>skipEmptyID</code> (Boolean, Optional): Whether you want to skip a document when your <code>xmlIdPath</code> or <code>xpathIdPath</code>
- *   evaluates to an empty or null String. Defaults to false. You should enable if your xmlIdPath is a qualifier.</li>
+ *   evaluates to an empty or null String. You should enable if using an <code>xpathIdPath</code> that is a qualifier. Defaults to false.</li>
  * </ul>
  *
  * <b>Note:</b> You cannot specify both an <code>xmlIdPath</code> and an <code>xpathIdPath</code>. <code>xmlIdPath</code> runs
@@ -153,7 +153,7 @@ public class XMLFileHandler extends BaseFileHandler {
       try {
         xmlHandler.setXpathIdPath(xpathIdPath);
       } catch (XPathExpressionException e) {
-        throw new FileHandlerException("XPath related error with your xmlIdPath.", e);
+        throw new FileHandlerException("XPath related error with your xpathIdPath.", e);
       }
     }
 

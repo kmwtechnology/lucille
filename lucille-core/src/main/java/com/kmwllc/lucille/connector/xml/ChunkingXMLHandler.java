@@ -40,7 +40,8 @@ public class ChunkingXMLHandler implements ContentHandler {
 
   private String docIdPathStr;
   private boolean inDocIdPath = false;
-  private StringBuilder docIdBuilder = new StringBuilder();
+  // only for using a idPathStr, not for xpath
+  private StringBuilder docIdBuilder;
 
   private boolean skipEmptyId;
 
@@ -81,8 +82,10 @@ public class ChunkingXMLHandler implements ContentHandler {
     String path = "/" + StringUtils.join(currentPath.toArray(), "/");
 
     if (documentRootPath.equals(path)) {
-      // this is the start of our page.
-      docIdBuilder = new StringBuilder();
+      if (docIdPathStr != null) {
+        // this is the start of our page.
+        docIdBuilder = new StringBuilder();
+      }
 
       try {
         ris.clearUpTo("<" + qName);
@@ -107,7 +110,7 @@ public class ChunkingXMLHandler implements ContentHandler {
       try {
         xml = ris.returnUpTo("</" + qName + ">");
 
-        // we have the full XML object. run xpath to get the ID on just this XML.
+        // we have the full XML object. if using xpath, run it to get the ID
         if (docIdExpression != null) {
           try (InputStream xmlStream = new ByteArrayInputStream(xml.getBytes())) {
             org.w3c.dom.Document xmlDoc = builder.parse(xmlStream);
@@ -130,7 +133,7 @@ public class ChunkingXMLHandler implements ContentHandler {
         doc.setField(outputField, xml);
         internalPublishDocument(doc);
       } else if (!skipEmptyId) {
-        // if we didn't get the id from evaluating the docIDExpression, use a random UUID
+        // if we didn't get the id from evaluating the docIDExpression / using docIdPathStr, use a random UUID
         id = UUID.randomUUID().toString();
 
         Document doc = Document.create(docIDPrefix + id);

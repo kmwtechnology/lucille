@@ -275,4 +275,19 @@ public class XMLFileHandlerTest {
     assertEquals(1, docs.size());
     assertEquals("1001", docs.get(0).getId());
   }
+
+  @Test
+  public void testInvalidConfig() {
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        // cannot specify both
+        "xmlIdPath", "/Company/staff/id",
+        "xpathIdPath", "@id[. = '1001']",
+        "encoding", "utf-8",
+        "outputField", "xml_field",
+        "skipEmptyId", true
+    )));
+
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("xml", config));
+  }
 }
