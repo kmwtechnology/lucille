@@ -52,7 +52,7 @@ public interface StorageClient {
 
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config.
-   * @param pathToStorage A URI to storage - either local or cloud - where you want to start your traversal from.
+   * @param pathToStorage A URI to storage - either local or cloud - that you need a StorageClient for.
    * @param connectorConfig Configuration for your connector, which should contain configuration for cloud storage clients
    *                        as needed.
    * @return The appropriate, configured storage client to use for your traversal.
@@ -98,29 +98,30 @@ public interface StorageClient {
 
   /**
    * Builds a map of all StorageClients which can be built from the given Config. Always returns at least
-   * a LocalStorageClient (mapped to "file"). The map uses the cloud provider's URI schemes as keys (gs, https,
+   * a LocalStorageClient (keyed by "file"). The map uses the cloud provider's URI schemes as keys (gs, https,
    * s3, and file).
    *
    * To build clients for the cloud providers, these arguments must be provided in separate maps:
    * <br> gcp:
-   *   "pathToServiceKey" : "path/To/Service/Key.json"
-   *   "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   * "pathToServiceKey" : "path/To/Service/Key.json"
+   * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
    *
    * <br> s3:
-   *   "accessKeyId" : s3 key id
-   *   "secretAccessKey" : secret access key
-   *   "region" : s3 storage region
-   *   "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   * "accessKeyId" : s3 key id. Not needed if secretAccessKey is not specified (using default credentials).
+   * "secretAccessKey" : secret access key. Not needed if accessKeyId is not specified (using default credentials).
+   * "region" : s3 storage region
+   * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
    *
    * <br> azure:
-   *   "connectionString" : azure connection string
+   * "connectionString" : azure connection string
    * <b>Or</b>
-   *   "accountName" : azure account name
-   *   "accountKey" : azure account key
-   *   "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   * "accountName" : azure account name
+   * "accountKey" : azure account key
+   * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
    *
    * @param config The configuration which potentially contains cloud options that you want to use to build storage clients.
-   * @return A map of Strings to StorageClients. StorageClients are keyed by their URI scheme (gs, https, s3, file).
+   * @return A map of Strings to StorageClients. StorageClients are keyed by their URI scheme (gs, https, s3, file). Always
+   * includes the LocalStorageClient, keyed by "file".
    */
   static Map<String, StorageClient> createClients(Config config) {
     Map<String, StorageClient> results = new HashMap<>();
