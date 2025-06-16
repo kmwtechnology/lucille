@@ -52,20 +52,23 @@ import org.slf4j.LoggerFactory;
  * <br> Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
  *
  * <p> <code>fileOptions</code>:
- *  getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.
- *  handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. Recurring not supported. Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing. The file path field of extracted file will be in the format of "{path/to/archive/archive.zip}:{extractedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler
- *  handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. Recurring not supported.Note: If this is enabled while traversing the cloud, it will force to fetch the file contents of the compressed file before processing.The file path field of decompressed file will be in the format of "{path/to/compressed/compressedFileName.gz}:{compressedFileName}" unless handled by fileHandler in which in that case will follow the id creation of that fileHandler
- *  moveToAfterProcessing (string, Optional): URI for a location to move files to after processing. Can be a relative / absolute path for local files.
- *  moveToErrorFolder (string, Optional): URI for a location to move files to if an error occurs during processing. Can be a relative / absolute path for local files.
- *  <b>Note:</b> For Cloud Storage, when a file is moved, its entire "key" moves with it. For example, the file s3://bucket/files/file1.txt has key "files/file1.txt".
- *  So, when it moves to s3://bucket/after/ it becomes s3://bucket/after/files/file1.txt.
- *  This prevents you from having to make sure all files in your bucket have unique "filenames". You should still ensure there won't be any duplicate
- *  / colliding keys in your target folders for moveToAfterProcessing or moveToErrorFolder.
- *  <b>Note:</b> For CloudStorage, it is important that your directory names end with '/'. When using Azure, you'll have to use the same storage account.
- *  csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
- *  json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
- *  xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler
- *  <li>(To configure the docIdPrefix for CSV, JSON or XML files, configure it in its respective config in <code>fileOptions</code>.)</li>
+ * <ul>
+ *   <li>getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.</li>
+ *   <li>handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. See important notes below.</li>
+ *   <li>handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. See important notes below.</li>
+ *   <li>moveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system</li>
+ *   <li>moveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system</li>
+ *   <li>
+ *     <b>Note:</b> For Cloud Storage, when a file is moved, its entire "key" moves with it. For example, the file s3://bucket/files/file1.txt has key "files/file1.txt".
+ *     So, when it moves to s3://bucket/after/ it becomes s3://bucket/after/files/file1.txt.
+ *     This prevents you from having to make sure all files in your bucket have unique "filenames". You should still ensure there won't be any duplicate
+ *     / colliding keys in your target folders for moveToAfterProcessing or moveToErrorFolder.
+ *   </li>
+ *   <li><b>Note:</b> For Cloud Storage, it is important that your directory names end with '/'. When using Azure, you'll have to use the same storage account.</li>
+ *   <li>csv (Map, Optional): config options for handling csv type files. Config will be passed to CSVFileHandler.</li>
+ *   <li>json (Map, Optional): config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.</li>
+ *   <li>xml (Map, Optional): config options for handling xml type files. Config will be passed to XMLFileHandler.</li>
+ *   <li>(To configure the docIdPrefix for CSV, JSON or XML files, configure it in its respective config in <code>fileOptions</code>.)</li>
  *
  *   <li> <b>Notes</b> on archive / compressed files:
  *      <ul>
