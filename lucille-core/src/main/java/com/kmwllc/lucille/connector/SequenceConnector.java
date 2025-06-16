@@ -9,7 +9,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Connector implementation that produces blank documents given amount to produce
+ * Connector implementation that produces a certain number of empty Documents. Each Document will have a number for its ID
+ * (generated in order).
+ *
+ * <p> Config Parameters:
+ * <ul>
+ *   <li>numDocs (Long): The number of Documents you want to create.</li>
+ *   <li>startWith (Int, Optional): The ID you want the first Document to have. Defaults to zero.</li>
+ * </ul>
  */
 public class SequenceConnector extends AbstractConnector {
 
