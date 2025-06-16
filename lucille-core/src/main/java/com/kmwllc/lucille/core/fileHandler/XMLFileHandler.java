@@ -33,8 +33,8 @@ import org.xml.sax.XMLReader;
  * <ul>
  *   <li><code>xmlRootPath</code> (String): The path to the root of the XML Element(s) you want to publish Documents for. For example, in a file
  *   that contains "&lt;Company&gt;" and, inside it, multiple "&lt;Staff&gt;", each of which you want to publish a Document for, your
- *   path should be <code>/Company/Staff</code>.
- *   <li><code>xmlIdPath</code></li> (String): The <i>absolute</i> path to the XML element you want to use as the Document ID. For example, <code>/Company/Staff/id</code>.
+ *   path should be <code>/Company/Staff</code>.</li>
+ *   <li><code>xmlIdPath</code> (String): The <i>absolute</i> path to the XML element you want to use as the Document ID. For example, <code>/Company/Staff/id</code>.</li>
  *   <li><code>xpathIdPath</code> (String): An xpath expression, <i>relative</i> to <code>xmlRootPath</code>, specifying the XML element
  *   or attribute that will be used to create Document IDs. This path can be a qualifier - be sure to enable <code>skipEmptyId</code>, if so!</li>
  *   <li><code>encoding</code> (String, Optional): The encoding the xml files use. Defaults to utf-8.</li>
