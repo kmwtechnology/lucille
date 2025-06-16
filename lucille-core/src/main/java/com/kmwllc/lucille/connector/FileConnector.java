@@ -61,7 +61,7 @@ import org.slf4j.LoggerFactory;
  *   <li>
  *     <b>Note:</b> For Cloud Storage, when a file is moved, its entire "key" moves with it. For example, the file s3://bucket/files/file1.txt has key "files/file1.txt".
  *     So, when it moves to s3://bucket/after/ it becomes s3://bucket/after/files/file1.txt.
- *     This prevents you from having to make sure all files in your bucket have unique "filenames". You should still ensure there won't be any duplicate
+ *     This prevents you from having to make sure all files in your bucket have unique names. You should still ensure there won't be any duplicate
  *     / colliding keys in your target folders for moveToAfterProcessing or moveToErrorFolder.
  *   </li>
  *   <li><b>Note:</b> For Cloud Storage, it is important that your directory names end with '/'. When using Azure, you'll have to use the same storage account.</li>
