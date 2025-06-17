@@ -1,12 +1,5 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.CREATED;
-import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
-import static com.kmwllc.lucille.connector.FileConnector.SIZE;
-
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 
 import com.typesafe.config.Config;
@@ -23,8 +16,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.time.Instant;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

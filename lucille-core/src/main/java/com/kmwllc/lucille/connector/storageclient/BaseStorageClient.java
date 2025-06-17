@@ -16,10 +16,6 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -324,7 +320,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * helper method to get the full path of an entry in an archived file. Only used for archive files.
-   * @param fullPathURI A String representing the full path to the archive file.
+   * @param fullPathURI A URI representing the full path to the archive file.
    * @param entryName The name of the file extracted from the archive file.
    * @return A String representing the full path to this archive entry, including the full path to the
    * archive file, the archive file separator, and then the entry's name.
@@ -334,9 +330,8 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * method for performing operations before processing files. This method will be called before processing
-   * each file in traversal.  If the method returns true, the file will be processed.  A return of false indicates
-   * the file should be skipped.
+   * Performs preprocessing operations. Called before processing each file in a traversal.
+   * @return Whether preprocessing was successful, and the file should be processed further.
    */
   private boolean beforeProcessingFile(URI filePath) throws Exception {
     // Base implementation, process all files. 
@@ -346,6 +341,9 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * method for performing operations after processing files. Additional operations can be added
    * in the implementation of this method. Will be called after processing each file in traversal.
+   *
+   * @throws IOException If an error occurs performing post-processing operations on the file. (Namely, a <code>moveToAfterProcessing</code>
+   * directory is specified and an error occurs.)
    */
   private void afterProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToAfterProcessing() != null) {

@@ -11,8 +11,6 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
 import com.google.cloud.storage.StorageOptions;
-import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
@@ -21,7 +19,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.channels.Channels;
 import java.util.Objects;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
