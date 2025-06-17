@@ -155,7 +155,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
           // if detected to be an archive type after decompression
           if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(decompressedPath)) {
-            handleArchiveFiles(publisher, compressorStream, fullPath.toString(), params);
+            handleArchiveFiles(publisher, compressorStream, fullPath, params);
           } else {
             String filePathFormat = fullPath + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
             // if file is a supported file type that should be handled by a file handler
@@ -177,7 +177,7 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle archived files if needed to the end
       if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPath.toString())) {
         try (InputStream is = fileReference.getContentStream(params)) {
-          handleArchiveFiles(publisher, is, fullPath.toString(), params);
+          handleArchiveFiles(publisher, is, fullPath, params);
         }
         afterProcessingFile(fullPath, params);
         return;
@@ -188,7 +188,7 @@ public abstract class BaseStorageClient implements StorageClient {
         // Get a stream for the file content, so we don't have to load it all at once.
         InputStream contentStream = fileReference.getContentStream(params);
         // get the right FileHandler and publish based on content
-        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPath.toString());
+        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPath);
 
         afterProcessingFile(fullPath, params);
         return;
@@ -220,7 +220,7 @@ public abstract class BaseStorageClient implements StorageClient {
    *
    * @param publisher publisher used to publish documents
    * @param inputStream input stream of the archive file. Used to create an ArchiveInputStream
-   * @param fullPathStr full path of the archive file including the extension. Can be a cloud path or local path.
+   * @param fullPathURI full path of the archive file including the extension. Can be a cloud path or local path.
    *                    Cloud path would include schema and bucket/container name
    *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
    * @param params Parameters to customize the traversal / handling of files.
@@ -229,15 +229,15 @@ public abstract class BaseStorageClient implements StorageClient {
    * @throws IOException If an error regarding file I/O occurs
    * @throws ConnectorException If an error occurs handling subsequent archive entries.
    */
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
 
       while ((entry = in.getNextEntry()) != null) {
-        String entryFullPathStr = getArchiveEntryFullPath(fullPathStr, entry.getName());
+        String entryFullPathStr = getArchiveEntryFullPath(fullPathURI, entry.getName());
         if (!in.canReadEntryData(entry)) {
-          log.info("Cannot read entry data for entry: '{}' in '{}'. Skipping...", entry.getName(), fullPathStr);
+          log.info("Cannot read entry data for entry: '{}' in '{}'. Skipping...", entry.getName(), fullPathURI);
           continue;
         }
         // checking validity only for the entries
@@ -263,7 +263,7 @@ public abstract class BaseStorageClient implements StorageClient {
               }
               publisher.publish(doc);
             } catch (Exception e) {
-              throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName() + " in " + fullPathStr, e);
+              throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName() + " in " + fullPathURI, e);
             }
           }
         }
@@ -309,28 +309,28 @@ public abstract class BaseStorageClient implements StorageClient {
    * Publishes a file using a file handler and an InputStream to its contents.
    * @throws Exception If an error occurs or the file extension doesn't have a file handler to use.
    */
-  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, String pathStr) throws Exception {
+  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, URI pathURI) throws Exception {
     FileHandler handler = fileHandlers.get(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
 
     try {
-      handler.processFileAndPublish(publisher, inputStream, pathStr);
+      handler.processFileAndPublish(publisher, inputStream, pathURI.toString());
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
+      throw new ConnectorException("Error occurred while processing or publishing file: " + pathURI, e);
     }
   }
 
   /**
    * helper method to get the full path of an entry in an archived file. Only used for archive files.
-   * @param fullPathStr A String representing the full path to the archive file.
+   * @param fullPathURI A String representing the full path to the archive file.
    * @param entryName The name of the file extracted from the archive file.
    * @return A String representing the full path to this archive entry, including the full path to the
    * archive file, the archive file separator, and then the entry's name.
    */
-  private String getArchiveEntryFullPath(String fullPathStr, String entryName) {
-    return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
+  private String getArchiveEntryFullPath(URI fullPathURI, String entryName) {
+    return fullPathURI + ARCHIVE_FILE_SEPARATOR + entryName;
   }
 
   /**

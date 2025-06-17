@@ -128,16 +128,18 @@ public class S3StorageClient extends BaseStorageClient {
     String destBucket = folder.getAuthority();
     String destKey = folder.getPath().substring(1) + sourceKey;
 
-    // using the async client to prevent a MASSIVE slowdown. allow the object to copy, and then delete it, also async.
-    s3Async.copyObject(CopyObjectRequest.builder()
+    CopyObjectRequest copyRequest = CopyObjectRequest.builder()
         .sourceBucket(sourceBucket).sourceKey(sourceKey)
         .destinationBucket(destBucket).destinationKey(destKey)
-        .build()).thenRun(() -> {
-      s3Async.deleteObject(
-          DeleteObjectRequest.builder()
-              .bucket(sourceBucket).key(sourceKey)
-              .build());
-    });
+        .build();
+
+    DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+        .bucket(sourceBucket).key(sourceKey)
+        .build();
+
+    // using the async client to prevent a slowdown. allow the object to copy, and then delete it, all async.
+    s3Async.copyObject(copyRequest)
+        .thenRun(() -> s3Async.deleteObject(deleteRequest));
   }
 
   private String getStartingDirectory(TraversalParams params) {

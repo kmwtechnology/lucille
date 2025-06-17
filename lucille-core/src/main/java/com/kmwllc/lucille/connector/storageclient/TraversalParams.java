@@ -47,7 +47,7 @@ public class TraversalParams {
    * @throws IllegalArgumentException If fileOptions.moveToAfterProcessing or fileOptions.moveToErrorFolder are specified but are not
    * valid URIs.
    */
-  public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) throws IllegalArgumentException {
+  public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) {
     this.uri = uri;
     this.docIdPrefix = docIdPrefix;
 
@@ -57,16 +57,24 @@ public class TraversalParams {
     this.handleArchivedFiles = fileOptions.hasPath(HANDLE_ARCHIVED_FILES) && fileOptions.getBoolean(HANDLE_ARCHIVED_FILES);
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
 
-    if (fileOptions.hasPath("moveToAfterProcessing")) {
-      this.moveToAfterProcessing = URI.create(fileOptions.getString("moveToAfterProcessing"));
-    } else {
-      this.moveToAfterProcessing = null;
+    try {
+      if (fileOptions.hasPath("moveToAfterProcessing")) {
+        this.moveToAfterProcessing = new URI(fileOptions.getString("moveToAfterProcessing"));
+      } else {
+        this.moveToAfterProcessing = null;
+      }
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Error with moveToAfterProcessing URI.", e);
     }
 
-    if (fileOptions.hasPath("moveToErrorFolder")) {
-      this.moveToErrorFolder = URI.create(fileOptions.getString("moveToErrorFolder"));
-    } else {
-      this.moveToErrorFolder = null;
+    try {
+      if (fileOptions.hasPath("moveToErrorFolder")) {
+        this.moveToErrorFolder = new URI(fileOptions.getString("moveToErrorFolder"));
+      } else {
+        this.moveToErrorFolder = null;
+      }
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Error with moveToErrorFolder URI.", e);
     }
 
     // filter options / derived params
