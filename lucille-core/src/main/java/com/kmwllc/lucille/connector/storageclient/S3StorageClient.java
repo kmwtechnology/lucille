@@ -4,22 +4,23 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
-import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.Objects;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -32,6 +33,7 @@ import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 public class S3StorageClient extends BaseStorageClient {
 
   private S3Client s3;
+  private S3AsyncClient s3Async;
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
 
   public S3StorageClient(Config s3CloudOptions) {
@@ -50,9 +52,13 @@ public class S3StorageClient extends BaseStorageClient {
   protected void initializeStorageClient() throws IOException {
     try {
       S3ClientBuilder builder = S3Client.builder();
+      S3AsyncClientBuilder asyncBuilder = S3AsyncClient.builder();
 
       if (config.hasPath(S3_REGION)) {
-        builder = builder.region(Region.of(config.getString(S3_REGION)));
+        Region configRegion = Region.of(config.getString(S3_REGION));
+
+        builder = builder.region(configRegion);
+        asyncBuilder = asyncBuilder.region(configRegion);
       }
 
       // use StaticCredentialsProvider when access key is provided,
@@ -60,9 +66,11 @@ public class S3StorageClient extends BaseStorageClient {
       if (config.hasPath(S3_ACCESS_KEY_ID) && config.hasPath(S3_SECRET_ACCESS_KEY)) {
         AwsBasicCredentials awsCred = AwsBasicCredentials.create(config.getString(S3_ACCESS_KEY_ID), config.getString(S3_SECRET_ACCESS_KEY));
         builder = builder.credentialsProvider(StaticCredentialsProvider.create(awsCred));
+        asyncBuilder = asyncBuilder.credentialsProvider(StaticCredentialsProvider.create(awsCred));
       }
 
       s3 = builder.build();
+      s3Async = asyncBuilder.build();
     } catch (Exception e) {
       throw new IOException("Error occurred building S3Client", e);
     }
@@ -77,6 +85,14 @@ public class S3StorageClient extends BaseStorageClient {
         throw new IOException("Error occurred closing S3Client", e);
       }
     }
+
+    if (s3Async != null) {
+      try {
+        s3Async.close();
+      } catch (Exception e) {
+        throw new IOException("Error occurred closing S3AsyncClient", e);
+      }
+    }
   }
 
   @Override
@@ -89,7 +105,7 @@ public class S3StorageClient extends BaseStorageClient {
     response.stream()
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
-            S3FileReference fileRef = new S3FileReference(obj);
+            S3FileReference fileRef = new S3FileReference(obj, params);
             processAndPublishFileIfValid(publisher, fileRef, params);
           });
         });
@@ -102,6 +118,28 @@ public class S3StorageClient extends BaseStorageClient {
 
     GetObjectRequest request = GetObjectRequest.builder().bucket(bucketName).key(objectKey).build();
     return s3.getObject(request);
+  }
+
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+    String sourceBucket = filePath.getAuthority();
+    String sourceKey = filePath.getPath().substring(1);
+
+    String destBucket = folder.getAuthority();
+    String destKey = folder.getPath().substring(1) + sourceKey;
+
+    CopyObjectRequest copyRequest = CopyObjectRequest.builder()
+        .sourceBucket(sourceBucket).sourceKey(sourceKey)
+        .destinationBucket(destBucket).destinationKey(destKey)
+        .build();
+
+    DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+        .bucket(sourceBucket).key(sourceKey)
+        .build();
+
+    // using the async client to prevent a slowdown. allow the object to copy, and then delete it, all async.
+    s3Async.copyObject(copyRequest)
+        .thenRun(() -> s3Async.deleteObject(deleteRequest));
   }
 
   private String getStartingDirectory(TraversalParams params) {
@@ -122,15 +160,20 @@ public class S3StorageClient extends BaseStorageClient {
     this.s3 = s3;
   }
 
+  // Only for testing
+  void setS3AsyncClientForTesting(S3AsyncClient s3) {
+    this.s3Async = s3;
+  }
+
 
   private class S3FileReference extends BaseFileReference {
 
     private final S3Object s3Obj;
 
-    public S3FileReference(S3Object s3Obj) {
+    public S3FileReference(S3Object s3Obj, TraversalParams params) {
       // These are inexpensive calls - information stored in the s3 object.
       // "null" for creation time - this isn't available in a S3Object
-      super(s3Obj.lastModified(), s3Obj.size(), null);
+      super(getFullPathHelper(s3Obj, params), s3Obj.lastModified(), s3Obj.size(), null);
 
       this.s3Obj = s3Obj;
     }
@@ -138,12 +181,6 @@ public class S3StorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return s3Obj.key();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
     }
 
     @Override
@@ -163,6 +200,12 @@ public class S3StorageClient extends BaseStorageClient {
       return s3.getObjectAsBytes(
           GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(s3Obj.key()).build()
       ).asByteArray();
+    }
+
+    private static URI getFullPathHelper(S3Object s3Obj, TraversalParams params) {
+      URI paramsURI = params.getURI();
+      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
+      return URI.create(fullPathStr);
     }
   }
 }

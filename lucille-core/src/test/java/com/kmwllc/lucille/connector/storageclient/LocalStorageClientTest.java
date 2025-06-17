@@ -302,7 +302,47 @@ public class LocalStorageClientTest {
       // verify file is moved inside error directory
       assertTrue(f.exists());
     } finally {
-      // delete all created folders and files and reset the FileHandlerManager
+      // delete everything we've created, shutdown the storage client
+      f.delete();
+      successDir.delete();
+      tempDir.delete();
+      localStorageClient.shutdown();
+    }
+  }
+
+  // As we use URIs for the processed/error paths, want to make sure a relative and an absolute
+  // path in the Config will work for moveToAfter error / processing.
+  @Test
+  public void testMoveProcessedFilesAbsolutePath() throws Exception {
+    File tempDir = new File("temp");
+
+    // copy successful csv into temp directory
+    File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
+    org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(new URI("temp/defaults.csv"), "",
+        ConfigFactory.parseMap(
+            Map.of("moveToAfterProcessing", Paths.get("success").toAbsolutePath().toString())),
+        ConfigFactory.empty());
+
+    localStorageClient.init();
+
+    localStorageClient.traverse(publisher, params);
+
+    // verify error directory is made
+    File successDir = new File("success");
+    File f = new File("success/defaults.csv");
+
+    try {
+      // verify error directory is made
+      assertTrue(successDir.exists());
+      // verify file is moved inside error directory
+      assertTrue(f.exists());
+    } finally {
+      // delete everything we've created, shutdown the storage client
       f.delete();
       successDir.delete();
       tempDir.delete();

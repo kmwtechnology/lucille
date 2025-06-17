@@ -9,21 +9,27 @@ import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.time.Instant;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 
 public abstract class BaseFileReference implements FileReference {
 
+  private final URI pathToFile;
   private final Instant lastModified;
   private final Long size;
   private final Instant created;
 
-  public BaseFileReference(Instant lastModified, Long size, Instant created) {
+  public BaseFileReference(URI pathToFile, Instant lastModified, Long size, Instant created) {
+    this.pathToFile = pathToFile;
     this.lastModified = lastModified;
     this.size = size;
     this.created = created;
   }
+
+  @Override
+  public URI getFullPath() { return pathToFile; }
 
   @Override
   public Instant getLastModified() {
@@ -46,7 +52,7 @@ public abstract class BaseFileReference implements FileReference {
   public Document asDoc(TraversalParams params) {
     Document doc = createEmptyDocument(params);
 
-    doc.setField(FILE_PATH, getFullPath(params));
+    doc.setField(FILE_PATH, getFullPath().toString());
 
     if (lastModified != null) {
       doc.setField(MODIFIED, lastModified);
@@ -99,7 +105,7 @@ public abstract class BaseFileReference implements FileReference {
    * @return An empty Document with an appropriate docId representing this file reference.
    */
   protected Document createEmptyDocument(TraversalParams params) {
-    String fullPath = getFullPath(params);
+    String fullPath = getFullPath().toString();
     return createEmptyDocument(params, fullPath);
   }
 

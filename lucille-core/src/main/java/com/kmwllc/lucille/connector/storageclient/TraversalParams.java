@@ -6,9 +6,11 @@ import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES
 import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_AFTER_PROCESSING;
 import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_ERROR_FOLDER;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.typesafe.config.Config;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -30,14 +32,21 @@ public class TraversalParams {
   private final boolean getFileContent;
   private final boolean handleArchivedFiles;
   private final boolean handleCompressedFiles;
-  private final String moveToAfterProcessing;
-  private final String moveToErrorFolder;
+
+  private final URI moveToAfterProcessing;
+  private final URI moveToErrorFolder;
 
   // FilterOptions / its params
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
   private final Duration modificationCutoff;
 
+  /**
+   * Creates TraversalParams representing the provided options.
+   *
+   * @throws IllegalArgumentException If fileOptions.moveToAfterProcessing or fileOptions.moveToErrorFolder are specified but are not
+   * valid URIs.
+   */
   public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) {
     this.uri = uri;
     this.docIdPrefix = docIdPrefix;
@@ -47,8 +56,26 @@ public class TraversalParams {
     this.getFileContent = !fileOptions.hasPath(GET_FILE_CONTENT) || fileOptions.getBoolean(GET_FILE_CONTENT);
     this.handleArchivedFiles = fileOptions.hasPath(HANDLE_ARCHIVED_FILES) && fileOptions.getBoolean(HANDLE_ARCHIVED_FILES);
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
-    this.moveToAfterProcessing = fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING) ? fileOptions.getString(MOVE_TO_AFTER_PROCESSING) : null;
-    this.moveToErrorFolder = fileOptions.hasPath(MOVE_TO_ERROR_FOLDER) ? fileOptions.getString(MOVE_TO_ERROR_FOLDER) : null;
+
+    try {
+      if (fileOptions.hasPath("moveToAfterProcessing")) {
+        this.moveToAfterProcessing = new URI(fileOptions.getString("moveToAfterProcessing"));
+      } else {
+        this.moveToAfterProcessing = null;
+      }
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Error with moveToAfterProcessing URI.", e);
+    }
+
+    try {
+      if (fileOptions.hasPath("moveToErrorFolder")) {
+        this.moveToErrorFolder = new URI(fileOptions.getString("moveToErrorFolder"));
+      } else {
+        this.moveToErrorFolder = null;
+      }
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Error with moveToErrorFolder URI.", e);
+    }
 
     // filter options / derived params
     List<String> includeRegex = filterOptions.hasPath("includes") ?
@@ -122,11 +149,11 @@ public class TraversalParams {
     return handleCompressedFiles;
   }
 
-  public String getMoveToAfterProcessing() {
+  public URI getMoveToAfterProcessing() {
     return moveToAfterProcessing;
   }
 
-  public String getMoveToErrorFolder() {
+  public URI getMoveToErrorFolder() {
     return moveToErrorFolder;
   }
 }
