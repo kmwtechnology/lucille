@@ -1,8 +1,17 @@
 package com.kmwllc.lucille.connector.xml;
 
-import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.UUID;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,24 +21,38 @@ import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Stack;
-import java.util.UUID;
 
 public class ChunkingXMLHandler implements ContentHandler {
 
   private static final Logger log = LoggerFactory.getLogger(ChunkingXMLHandler.class);
 
   Stack<String> currentPath = new Stack<String>();
-  private AbstractConnector connector;
+
+  private final XPath xpath;
+  private final DocumentBuilder builder;
+
+  private String outputField;
   private Publisher publisher;
   private String documentRootPath;
-  private String documentIDPath;
+
+  private XPathExpression docIdExpression;
+
+  private String docIdPathStr;
+  private boolean inDocIdPath = false;
+  // only for using a idPathStr, not for xpath
+  private StringBuilder docIdBuilder;
+
+  private boolean skipEmptyId;
+
   private String docIDPrefix = "";
-  private boolean inDocID = false;
-  private StringBuilder docIDBuilder = new StringBuilder();
   private RecordingInputStream ris;
-  private String outputField;
+
+  public ChunkingXMLHandler() throws Exception {
+    XPathFactory xpathFactory = XPathFactory.newInstance();
+    this.xpath = xpathFactory.newXPath();
+    this.builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+  }
 
   @Override
   public void setDocumentLocator(Locator locator) {
@@ -59,18 +82,20 @@ public class ChunkingXMLHandler implements ContentHandler {
     String path = "/" + StringUtils.join(currentPath.toArray(), "/");
 
     if (documentRootPath.equals(path)) {
-      // this is the start of our page.
-      docIDBuilder = new StringBuilder();
+      if (docIdPathStr != null) {
+        // this is the start of our page.
+        docIdBuilder = new StringBuilder();
+      }
+
       try {
         ris.clearUpTo("<" + qName);
       } catch (IOException e) {
         log.error("IOException caught", e);
       }
-
     }
-    if (documentIDPath.equals(path)) {
-      // this is the start of the document id field.
-      inDocID = true;
+
+    if (path.equals(docIdPathStr)) {
+      inDocIdPath = true;
     }
   }
 
@@ -80,26 +105,47 @@ public class ChunkingXMLHandler implements ContentHandler {
     String path = "/" + StringUtils.join(currentPath.toArray(), "/");
     if (documentRootPath.equals(path)) {
       String xml = "Malformed";
+      String id = null;
+
       try {
         xml = ris.returnUpTo("</" + qName + ">");
+
+        // we have the full XML object. if using xpath, run it to get the ID
+        if (docIdExpression != null) {
+          try (InputStream xmlStream = new ByteArrayInputStream(xml.getBytes())) {
+            org.w3c.dom.Document xmlDoc = builder.parse(xmlStream);
+            id = docIdExpression.evaluate(xmlDoc.getDocumentElement());
+          }
+        }
+      } catch (XPathExpressionException e) {
+        log.warn("Error evaluating docID for xml {}. Document will have a UUID.", xml, e);
       } catch (IOException e) {
         log.error("IOException caught", e);
       }
 
-      // XPath not supported where id is in attribute (e.g. <field name="id">
-      // Quick workaround is to use a UUID instead and assign ID elsewhere in workflow
-      String id = docIDBuilder.toString();
-      if (id == null || id.equals("")) {
-        id = UUID.randomUUID().toString();
+      if (docIdPathStr != null) {
+        id = docIdBuilder.toString();
       }
 
-      Document doc = Document.create(docIDPrefix + id);
-      doc.setField(outputField, xml);
-      internalPublishDocument(doc);
+      // always publish a Document we successfully got *some* ID String for.
+      if (id != null && !id.isEmpty()) {
+        Document doc = Document.create(docIDPrefix + id);
+        doc.setField(outputField, xml);
+        internalPublishDocument(doc);
+      } else if (!skipEmptyId) {
+        // if we didn't get the id from evaluating the docIDExpression / using docIdPathStr, use a random UUID
+        id = UUID.randomUUID().toString();
+
+        Document doc = Document.create(docIDPrefix + id);
+        doc.setField(outputField, xml);
+        internalPublishDocument(doc);
+      } else {
+        log.info("No DocID extracted for xml {}. Since skipEmptyId = true, no Document will be published.", xml);
+      }
     }
-    if (documentIDPath.equals(path)) {
-      // this is the end of the doc id tag.
-      inDocID = false;
+
+    if (path.equals(docIdPathStr)) {
+      inDocIdPath = false;
     }
 
     currentPath.pop();
@@ -115,8 +161,8 @@ public class ChunkingXMLHandler implements ContentHandler {
 
   @Override
   public void characters(char[] ch, int start, int length) throws SAXException {
-    if (inDocID) {
-      docIDBuilder.append(Arrays.copyOfRange(ch, start, start + length));
+    if (inDocIdPath) {
+      docIdBuilder.append(Arrays.copyOfRange(ch, start, start + length));
     }
   }
 
@@ -136,8 +182,12 @@ public class ChunkingXMLHandler implements ContentHandler {
     this.documentRootPath = documentRootPath;
   }
 
-  public void setDocumentIDPath(String documentIDPath) {
-    this.documentIDPath = documentIDPath;
+  public void setXmlIdPath(String documentIDPath)  {
+    this.docIdPathStr = documentIDPath;
+  }
+
+  public void setXpathIdPath(String xpathIdPath) throws XPathExpressionException {
+    this.docIdExpression = xpath.compile(xpathIdPath);
   }
 
   public String getDocIDPrefix() {
@@ -146,10 +196,6 @@ public class ChunkingXMLHandler implements ContentHandler {
 
   public void setDocIDPrefix(String docIDPrefix) {
     this.docIDPrefix = docIDPrefix;
-  }
-
-  public void setConnector(AbstractConnector connector) {
-    this.connector = connector;
   }
 
   public RecordingInputStream getRis() {
@@ -168,4 +214,7 @@ public class ChunkingXMLHandler implements ContentHandler {
     this.outputField = outputField;
   }
 
+  public void setSkipEmptyId(boolean skipEmptyId) {
+    this.skipEmptyId = skipEmptyId;
+  }
 }

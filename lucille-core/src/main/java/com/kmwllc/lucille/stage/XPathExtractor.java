@@ -100,7 +100,6 @@ public class XPathExtractor extends Stage {
 
       for (XPathExpression expression : expressionMapping.keySet()) {
         NodeList result = (NodeList) expression.evaluate(xmldoc, XPathConstants.NODESET);
-
         for (String field : expressionMapping.get(expression)) {
           for (int i = 0; i < result.getLength(); i++) {
             doc.setOrAdd(field, result.item(i).getTextContent());
