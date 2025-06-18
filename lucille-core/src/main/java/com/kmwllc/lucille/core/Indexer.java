@@ -7,6 +7,7 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -415,6 +416,7 @@ public abstract class Indexer implements Runnable {
             "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
         .optionalNumber("batchSize", "batchTimeout", "logRate")
         .optionalBoolean("sendEnabled")
+        .optionalList("ignoreFields", new TypeReference<List<String>>(){})
         .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.

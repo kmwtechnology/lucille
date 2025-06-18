@@ -43,7 +43,7 @@ public class XMLConnector extends AbstractConnector {
   public static final Spec SPEC = Spec.connector()
       .requiredString("xmlRootPath", "xmlIdPath", "encoding", "outputField")
       .optionalList("filePaths", new TypeReference<List<String>>(){})
-      .optionalList("urlFIles", new TypeReference<List<String>>(){});
+      .optionalList("urlFiles", new TypeReference<List<String>>(){});
 
   public XMLConnector(Config config) {
     super(config);
