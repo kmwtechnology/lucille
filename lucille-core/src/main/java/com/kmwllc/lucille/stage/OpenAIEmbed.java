@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
 
 public class OpenAIEmbed extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqStr("source", "api_key")
       .reqBool("embed_document", "embed_children")
       .optStr("dest", "model_name")

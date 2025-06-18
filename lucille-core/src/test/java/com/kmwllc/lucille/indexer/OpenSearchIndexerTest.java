@@ -887,7 +887,7 @@ public class OpenSearchIndexerTest {
 
   public static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
-    public static Spec SPEC = OpenSearchIndexer.SPEC;
+    public static final Spec SPEC = OpenSearchIndexer.SPEC;
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessenger messenger,
         OpenSearchClient client, String metricsPrefix) {

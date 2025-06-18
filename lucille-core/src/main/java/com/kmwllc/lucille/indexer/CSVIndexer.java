@@ -23,7 +23,7 @@ import java.util.List;
  */
 public class CSVIndexer extends Indexer {
 
-  public static Spec SPEC = Spec.indexer()
+  public static final Spec SPEC = Spec.indexer()
       .reqStr("path")
       .reqList("columns", new TypeReference<List<String>>(){})
       .optBool("includeHeader", "append");

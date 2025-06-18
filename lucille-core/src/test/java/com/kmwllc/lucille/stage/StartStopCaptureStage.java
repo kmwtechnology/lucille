@@ -11,7 +11,7 @@ import java.util.List;
 
 public class StartStopCaptureStage extends Stage {
 
-  public static Spec SPEC = Spec.stage();
+  public static final Spec SPEC = Spec.stage();
 
   public static boolean startCalled = false;
   public static boolean stopCalled = false;

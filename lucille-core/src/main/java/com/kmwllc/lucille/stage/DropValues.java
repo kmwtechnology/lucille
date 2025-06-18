@@ -21,7 +21,7 @@ import java.util.List;
  */
 public class DropValues extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqList("source", new TypeReference<List<String>>(){})
       .reqList("values", new TypeReference<List<String>>(){});
 

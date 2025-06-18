@@ -36,7 +36,7 @@ import java.util.List;
  */
 public class DetectLanguage extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqList("source", new TypeReference<List<String>>(){})
       .reqStr("language_field")
       .optStr("language_confidence_field", "update_mode")

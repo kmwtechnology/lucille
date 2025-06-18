@@ -47,7 +47,7 @@ import org.apache.commons.io.FilenameUtils;
  */
 public class ApplyFileHandlers extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .optParent(
           Spec.parent("handlerOptions")
               .optParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),

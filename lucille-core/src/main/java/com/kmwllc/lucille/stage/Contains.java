@@ -25,7 +25,7 @@ import java.util.List;
  */
 public class Contains extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqList("contains", new TypeReference<List<String>>(){})
       .reqList("fields", new TypeReference<List<String>>(){})
       .reqStr("output", "value")

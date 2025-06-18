@@ -22,7 +22,7 @@ import java.util.List;
  */
 public class TrimWhitespace extends Stage {
 
-  public static Spec SPEC = Spec.stage().reqList("fields", new TypeReference<List<String>>(){});
+  public static final Spec SPEC = Spec.stage().reqList("fields", new TypeReference<List<String>>(){});
 
   private final List<String> fields;
 

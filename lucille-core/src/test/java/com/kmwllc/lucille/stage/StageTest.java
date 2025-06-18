@@ -19,7 +19,7 @@ public class StageTest {
 
   public static class MockStage extends Stage {
 
-    public static Spec SPEC = Spec.stage();
+    public static final Spec SPEC = Spec.stage();
 
     public MockStage(Config config) {
       super(config);

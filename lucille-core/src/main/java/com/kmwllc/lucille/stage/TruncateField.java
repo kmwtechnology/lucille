@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
  */
 public class TruncateField extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqStr("source")
       .reqNum("max_size")
       .optStr("destination");

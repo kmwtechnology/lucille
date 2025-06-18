@@ -23,7 +23,7 @@ import com.typesafe.config.Config;
  */
 public class RemoveDiacritics extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqStr("source")
       .optStr("destination");
 

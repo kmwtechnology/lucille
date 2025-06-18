@@ -47,7 +47,7 @@ import org.xml.sax.SAXException;
  */
 public class TextExtractor extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .optStr("text_field", "file_path_field", "byte_array_field", "tika_config_path", "metadata_prefix")
       .optList("metadata_whitelist", new TypeReference<List<String>>(){})
       .optList("metadata_blacklist", new TypeReference<List<String>>(){})

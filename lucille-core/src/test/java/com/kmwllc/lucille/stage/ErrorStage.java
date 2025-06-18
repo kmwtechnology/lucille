@@ -11,7 +11,7 @@ import java.util.List;
 
 public class ErrorStage extends Stage {
 
-  public static Spec SPEC = Spec.stage().optBool("exceptionOnStart");
+  public static final Spec SPEC = Spec.stage().optBool("exceptionOnStart");
 
   private boolean exceptionOnStart = false;
 

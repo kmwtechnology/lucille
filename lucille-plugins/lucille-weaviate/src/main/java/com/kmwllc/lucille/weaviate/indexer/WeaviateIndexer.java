@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
 
 public class WeaviateIndexer extends Indexer {
 
-  public static Spec SPEC = Spec.indexer()
+  public static final Spec SPEC = Spec.indexer()
       .reqStr("apiKey", "host")
       .optStr("className", "idDestinationName", "vectorField");
 

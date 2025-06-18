@@ -65,7 +65,7 @@ import org.slf4j.LoggerFactory;
  */
 public class PromptOllama extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqStr("hostURL", "modelName")
       .optNum("timeout")
       .optBool("requireJSON")

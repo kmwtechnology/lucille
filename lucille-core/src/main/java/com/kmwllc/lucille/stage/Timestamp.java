@@ -20,7 +20,7 @@ import java.util.Iterator;
  */
 public class Timestamp extends Stage {
 
-  public static Spec SPEC = Spec.stage().reqStr("dest_field");
+  public static final Spec SPEC = Spec.stage().reqStr("dest_field");
 
   private final String destField;
 

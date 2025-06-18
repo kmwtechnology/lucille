@@ -22,7 +22,7 @@ import java.util.List;
 
 public class ElasticsearchLookup extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqParent(ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
       .reqList("source", new TypeReference<List<String>>(){})
       .reqList("dest", new TypeReference<List<String>>(){})

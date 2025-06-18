@@ -81,7 +81,7 @@ public abstract class Indexer implements Runnable {
    * Creates the base implementation of an Indexer from the given parameters and validates it. Runs validation on the common "indexer"
    * config as well as the specific implementation's config, as either are present.
    *
-   * <p> All Indexer implementations should declare a <code>public static Spec SPEC</code> that defines the implementation's
+   * <p> All Indexer implementations should declare a <code>public static final Spec SPEC</code> that defines the implementation's
    * specific properties. For example, Elasticsearch needs <code>index</code>, <code>url</code>, etc.
    *
    * @param config The root config for Lucille. (In other words, should potentially include both "indexer" and specific

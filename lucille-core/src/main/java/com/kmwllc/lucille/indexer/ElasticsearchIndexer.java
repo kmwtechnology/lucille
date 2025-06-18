@@ -33,7 +33,7 @@ import java.util.Optional;
 // TODO: upgrade the ElasticsearchIndexer to use the Elasticsearch Java API Client
 public class ElasticsearchIndexer extends Indexer {
 
-  public static Spec SPEC = Spec.indexer()
+  public static final Spec SPEC = Spec.indexer()
       .reqStr("index", "url")
       .optBool("update", "acceptInvalidCert")
       .optStr("parentName")

@@ -39,7 +39,7 @@ public class XMLConnector extends AbstractConnector {
 
   private XMLFileHandler xmlFileHandler;
 
-  public static Spec SPEC = Spec.connector()
+  public static final Spec SPEC = Spec.connector()
       .withRequiredProperties("xmlRootPath", "xmlIdPath", "encoding", "outputField")
       .withOptionalProperties("filePaths", "urlFiles");
 

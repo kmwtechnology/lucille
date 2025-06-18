@@ -48,7 +48,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DictionaryLookup extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqList("source", new TypeReference<List<String>>(){})
       .reqList("dest", new TypeReference<List<String>>(){})
       .reqStr("dict_path")

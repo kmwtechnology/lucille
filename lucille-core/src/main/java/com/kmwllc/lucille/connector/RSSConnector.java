@@ -60,7 +60,7 @@ import org.slf4j.LoggerFactory;
  */
 public class RSSConnector extends AbstractConnector {
 
-  public static Spec SPEC = Spec.connector()
+  public static final Spec SPEC = Spec.connector()
       .reqStr("rssURL")
       .optBool("useGuidForDocID")
       // best to reference durations as Strings

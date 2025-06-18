@@ -33,7 +33,7 @@ import java.util.List;
  */
 public class Print extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .optBool("shouldLog", "overwriteFile", "appendThreadName")
       .optStr("outputFile")
       .optList("excludeFields", new TypeReference<List<String>>(){});

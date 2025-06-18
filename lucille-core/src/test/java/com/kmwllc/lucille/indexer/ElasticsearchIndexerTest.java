@@ -740,7 +740,7 @@ public class ElasticsearchIndexerTest {
 
   public static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
 
-    public static Spec SPEC = ElasticsearchIndexer.SPEC;
+    public static final Spec SPEC = ElasticsearchIndexer.SPEC;
 
     public ErroringElasticsearchIndexer(Config config, IndexerMessenger messenger,
         ElasticsearchClient client, String metricsPrefix) {

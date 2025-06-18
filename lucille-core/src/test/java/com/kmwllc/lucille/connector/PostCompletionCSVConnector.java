@@ -16,7 +16,7 @@ public class PostCompletionCSVConnector extends CSVConnector {
   private static boolean completionActionsOccurred = false;
   private static Instant postCompletionInstant = null;
 
-  public static Spec SPEC = Spec.connector().withRequiredProperties("path");
+  public static final Spec SPEC = Spec.connector().withRequiredProperties("path");
 
   public PostCompletionCSVConnector(Config config) {
     super(config);

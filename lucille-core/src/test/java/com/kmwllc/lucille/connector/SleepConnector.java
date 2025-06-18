@@ -9,7 +9,7 @@ public class SleepConnector extends AbstractConnector {
 
   private final int duration;
 
-  public static Spec SPEC = Spec.connector().withRequiredProperties("duration");
+  public static final Spec SPEC = Spec.connector().withRequiredProperties("duration");
 
   public SleepConnector(Config config) {
     super(config);

@@ -1030,7 +1030,7 @@ public class SolrIndexerTest {
 
   public static class ErroringIndexer extends SolrIndexer {
 
-    public static Spec SPEC = SolrIndexer.SPEC;
+    public static final Spec SPEC = SolrIndexer.SPEC;
 
     public ErroringIndexer(Config config, IndexerMessenger messenger, boolean bypass) {
       super(config, messenger, bypass, "");

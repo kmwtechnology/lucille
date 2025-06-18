@@ -10,7 +10,7 @@ import java.util.Iterator;
 
 public class NopStage extends Stage {
 
-  public static Spec SPEC = Spec.stage();
+  public static final Spec SPEC = Spec.stage();
 
   public NopStage(Config config) {
     super(config);

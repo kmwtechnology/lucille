@@ -7,7 +7,7 @@ import com.typesafe.config.Config;
 
 public class FailingConnector extends AbstractConnector {
 
-  public static Spec SPEC = Spec.connector();
+  public static final Spec SPEC = Spec.connector();
 
   public FailingConnector(Config config) {
     super(config);

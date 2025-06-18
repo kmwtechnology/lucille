@@ -40,7 +40,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class AddRandomString extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .optStr("input_data_path", "field_name")
       .optNum("min_num_of_terms", "max_num_of_terms", "range_size")
       .optBool("is_nested", "concatenate");

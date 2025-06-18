@@ -70,7 +70,7 @@ public class DatabaseConnector extends AbstractConnector {
   // TODO: consider moving this down to the base connector class.
   //  private ConnectorState state = null;
 
-  public static Spec SPEC = Spec.connector()
+  public static final Spec SPEC = Spec.connector()
       .reqStr("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
       .optStr("preSQL", "postSQL")
       .optNum("fetchSize", "connectionRetries", "connectionRetryPause")

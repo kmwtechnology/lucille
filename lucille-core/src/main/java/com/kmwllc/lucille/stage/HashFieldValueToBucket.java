@@ -32,7 +32,7 @@ import com.typesafe.config.Config;
  */
 public class HashFieldValueToBucket extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqStr("field_name", "dest")
       .reqList("buckets", new TypeReference<List<String>>(){});
 

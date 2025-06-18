@@ -17,7 +17,7 @@ import org.apache.commons.lang3.StringUtils;
  */
 public class RemoveEmptyFields extends Stage {
 
-  public static Spec SPEC = Spec.stage();
+  public static final Spec SPEC = Spec.stage();
 
   public RemoveEmptyFields(Config config) {
     super(config);

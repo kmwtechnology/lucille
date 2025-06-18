@@ -53,7 +53,7 @@ import java.util.stream.Collectors;
  */
 public class ExtractEntities extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqList("dictionaries", new TypeReference<List<String>>(){})
       .reqList("source", new TypeReference<List<String>>(){})
       .reqList("dest", new TypeReference<List<String>>(){})

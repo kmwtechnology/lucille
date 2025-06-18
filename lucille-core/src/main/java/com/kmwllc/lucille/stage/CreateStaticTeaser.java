@@ -28,7 +28,7 @@ import java.util.List;
  */
 public class CreateStaticTeaser extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqList("source", new TypeReference<List<String>>(){})
       .reqList("dest", new TypeReference<List<String>>(){})
       .reqNum("maxLength")

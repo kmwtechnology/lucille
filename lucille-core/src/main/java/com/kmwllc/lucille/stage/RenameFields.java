@@ -24,7 +24,7 @@ import java.util.Map.Entry;
  */
 public class RenameFields extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .optStr("update_mode")
       .reqParent("fieldMapping", new TypeReference<Map<String, String>>() {});
 

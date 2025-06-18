@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  */
 public class QueryDatabase extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqStr("driver", "connectionString", "jdbcUser", "jdbcPassword")
       .reqList("keyFields", new TypeReference<List<String>>(){})
       .reqList("inputTypes", new TypeReference<List<String>>(){})

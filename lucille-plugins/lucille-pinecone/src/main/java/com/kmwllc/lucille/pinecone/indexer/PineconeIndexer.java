@@ -46,7 +46,7 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  */
 public class PineconeIndexer extends Indexer {
 
-  public static Spec SPEC = Spec.indexer()
+  public static final Spec SPEC = Spec.indexer()
       .reqStr("apiKey", "index")
       .optParent("namespaces", new TypeReference<Map<String, Object>>() {})
       .optList("metadataFields", new TypeReference<List<String>>(){})

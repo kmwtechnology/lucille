@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
  */
 public class ApplyRegex extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqList("source", new TypeReference<List<String>>(){})
       .reqList("dest", new TypeReference<List<String>>(){})
       .reqStr("regex")

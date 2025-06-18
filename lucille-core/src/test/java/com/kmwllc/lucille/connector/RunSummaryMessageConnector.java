@@ -12,7 +12,7 @@ public class RunSummaryMessageConnector extends AbstractConnector {
 
   public static final String MESSAGE = "RunSummaryMessage123";
 
-  public static Spec SPEC = Spec.connector();
+  public static final Spec SPEC = Spec.connector();
 
   public RunSummaryMessageConnector(Config config) {
     super(config);

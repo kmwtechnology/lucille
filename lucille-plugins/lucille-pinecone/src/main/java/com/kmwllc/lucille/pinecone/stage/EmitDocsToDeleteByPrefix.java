@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
  */
 public class EmitDocsToDeleteByPrefix extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqStr("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index")
       .optBool("dropOriginal")
       .optStr("addPrefix")

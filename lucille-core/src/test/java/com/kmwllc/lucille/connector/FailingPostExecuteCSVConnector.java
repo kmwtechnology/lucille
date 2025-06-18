@@ -9,7 +9,7 @@ import com.typesafe.config.Config;
  */
 public class FailingPostExecuteCSVConnector extends CSVConnector {
 
-  public static Spec SPEC = Spec.connector().withRequiredProperties("path");
+  public static final Spec SPEC = Spec.connector().withRequiredProperties("path");
 
   public FailingPostExecuteCSVConnector(Config config) {
     super(config);

@@ -21,7 +21,7 @@ public class AbstractConnectorTest {
 
   private class MyConnector extends AbstractConnector {
 
-    public static Spec SPEC = Spec.connector();
+    public static final Spec SPEC = Spec.connector();
 
     public MyConnector(Config config) {
       super(config);

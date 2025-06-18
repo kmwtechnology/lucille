@@ -36,7 +36,7 @@ import static com.dashjoin.jsonata.Jsonata.jsonata;
  */
 public class ApplyJSONata extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqStr("expression")
       .optStr("source", "destination");
 

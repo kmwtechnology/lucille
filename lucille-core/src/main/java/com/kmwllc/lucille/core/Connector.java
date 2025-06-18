@@ -79,14 +79,14 @@ public interface Connector extends AutoCloseable {
   void postExecute(String runId) throws ConnectorException;
 
   /**
-   * @return The Spec describing this Connector's Config properties. Must be declared as <code>public static Spec SPEC</code>.
-   * @throws RuntimeException If this Connector does not have a <code>public static Spec SPEC</code>.
+   * @return The Spec describing this Connector's Config properties. Must be declared as <code>public static final Spec SPEC</code>.
+   * @throws RuntimeException If this Connector does not have a <code>public static final Spec SPEC</code>.
    */
   Spec getSpec();
 
   /**
-   * @return The Spec describing the given Connector class's Config properties. Must be declared as <code>public static Spec SPEC</code>.
-   * @throws ReflectiveOperationException If this Connector does not have a <code>public static Spec SPEC</code>.
+   * @return The Spec describing the given Connector class's Config properties. Must be declared as <code>public static final Spec SPEC</code>.
+   * @throws ReflectiveOperationException If this Connector does not have a <code>public static final Spec SPEC</code>.
    */
   static Spec getSpecFor(Class<? extends Connector> connectorClass) throws Exception {
     return (Spec) connectorClass.getDeclaredField("SPEC").get(null);

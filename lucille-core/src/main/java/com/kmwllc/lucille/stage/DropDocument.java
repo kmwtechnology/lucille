@@ -12,7 +12,7 @@ import java.util.Iterator;
  */
 public class DropDocument extends Stage {
 
-  public static Spec SPEC = Spec.stage();
+  public static final Spec SPEC = Spec.stage();
 
   public DropDocument(Config config) {
     super(config);

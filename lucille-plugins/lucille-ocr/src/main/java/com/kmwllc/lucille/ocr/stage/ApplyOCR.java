@@ -88,7 +88,7 @@ import com.typesafe.config.ConfigBeanFactory;
  */
 public class ApplyOCR extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqStr("lang", "path_field")
       .optStr("pages_field", "extract_all_dest")
       .optList("extraction_templates", Spec.withoutDefaults()

@@ -14,7 +14,7 @@ import java.util.Random;
 
 public class RandomVector extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .reqList("fields", new TypeReference<List<String>>(){})
       .reqNum("dimensions")
       .optStr("update_mode");

@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ParseFilePath extends Stage {
 
-  public static Spec SPEC = Spec.stage()
+  public static final Spec SPEC = Spec.stage()
       .optStr("filePathField", "fileSep")
       .optBool("uppercaseExtension", "includeHierarchy");
 

@@ -263,7 +263,7 @@ public class WeaviateIndexerTest {
 
   public static class CorruptedWeaviateIndexer extends WeaviateIndexer {
 
-    public static Spec SPEC = WeaviateIndexer.SPEC;
+    public static final Spec SPEC = WeaviateIndexer.SPEC;
 
     public CorruptedWeaviateIndexer(Config config, IndexerMessenger messenger,
         WeaviateClient client, String metricsPrefix) {
