@@ -19,7 +19,8 @@ import com.typesafe.config.Config;
  */
 public class Base64Decode extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("input_field", "output_field");
+  public static Spec SPEC = Spec.stage()
+      .reqStr("input_field", "output_field");
 
   private String inputField;
   private String outputField;

@@ -18,7 +18,8 @@ import com.typesafe.config.Config;
  */
 public class ComputeFieldSize extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "dest");
+  public static Spec SPEC = Spec.stage()
+      .reqStr("source", "dest");
 
   private final String source;
   private final String destination;

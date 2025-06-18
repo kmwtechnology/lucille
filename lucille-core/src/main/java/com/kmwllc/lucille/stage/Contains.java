@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -25,8 +26,10 @@ import java.util.List;
 public class Contains extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withRequiredProperties("contains", "output", "value", "fields")
-      .withOptionalProperties("ignoreCase");
+      .reqList("contains", new TypeReference<List<String>>(){})
+      .reqList("fields", new TypeReference<List<String>>(){})
+      .reqStr("output", "value")
+      .optBool("ignoreCase");
 
   private final List<String> contains;
   private final String output;

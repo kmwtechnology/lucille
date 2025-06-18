@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import java.util.Iterator;
 import java.util.List;
@@ -31,7 +32,9 @@ import com.typesafe.config.Config;
  */
 public class HashFieldValueToBucket extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("field_name", "dest", "buckets");
+  public static Spec SPEC = Spec.stage()
+      .reqStr("field_name", "dest")
+      .reqList("buckets", new TypeReference<List<String>>(){});
 
   private final String fieldName;
   private final List<String> buckets;

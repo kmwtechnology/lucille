@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.tika.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
@@ -47,8 +48,10 @@ import org.xml.sax.SAXException;
 public class TextExtractor extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
-          "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit")
+      .optStr("text_field", "file_path_field", "byte_array_field", "tika_config_path", "metadata_prefix")
+      .optList("metadata_whitelist", new TypeReference<List<String>>(){})
+      .optList("metadata_blacklist", new TypeReference<List<String>>(){})
+      .optNum("text_content_limit")
       .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);

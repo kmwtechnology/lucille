@@ -4,7 +4,11 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.typesafe.config.Config;
+import java.util.Map;
 import nl.altindag.ssl.SSLFactory;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -19,6 +23,12 @@ import java.net.URI;
  * Utility methods for communicating with Elasticsearch.
  */
 public class ElasticsearchUtils {
+
+  public static ParentSpec ELASTICSEARCH_PARENT_SPEC = Spec.parent("elasticsearch")
+      .reqStr("index", "url")
+      .optBool("update", "acceptInvalidCert")
+      .optStr("parentName")
+      .optParent("join", new TypeReference<Map<String, String>>(){});
 
   public static ElasticsearchClient getElasticsearchOfficialClient(Config config) {
     URI hostUri = URI.create(getElasticsearchUrl(config));

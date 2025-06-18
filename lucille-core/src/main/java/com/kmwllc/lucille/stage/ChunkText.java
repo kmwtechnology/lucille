@@ -88,10 +88,11 @@ import org.slf4j.LoggerFactory;
 public class ChunkText extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",
-          "clean_chunks", "overlap_percentage", "length_to_split", "pre_merge_min_chunk_len", "pre_merge_max_chunk_len",
-          "chunks_to_overlap")
-      .withRequiredProperties("source");
+      .reqStr("source")
+      .optStr("dest", "chunking_method", "regex")
+      .optNum("chunks_to_merge", "character_limit", "overlap_percentage", "length_to_split",
+          "pre_merge_min_chunk_len", "pre_merge_max_chunk_len", "chunks_to_overlap")
+      .optBool("clean_chunks");
 
   private final String source;
   private final String dest;

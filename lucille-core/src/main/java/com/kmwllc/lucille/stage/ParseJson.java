@@ -28,7 +28,7 @@ import nl.altindag.ssl.util.internal.StringUtils;
  * Config Parameters
  * <p>
  * - src (String) : The field containing the JSON string to be parsed.
- * - sourceIsBase64: When set to true, indicates that the source field is base64 encoded. In this case the stage will decode
+ * - sourceIsBase64 (Boolean): When set to true, indicates that the source field is base64 encoded. In this case the stage will decode
  * the field value before parsing.
  * - jsonFieldPaths (Map&lt;String, Object&gt;) : Defines the mapping from JsonPath expressions
  * to the destination fields in the processed document.
@@ -37,8 +37,8 @@ import nl.altindag.ssl.util.internal.StringUtils;
 public class ParseJson extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withRequiredProperties("src")
-      .withOptionalProperties("sourceIsBase64")
+      .reqStr("src")
+      .optBool("sourceIsBase64")
       .reqParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {});
 
   private static final Base64.Decoder DECODER = Base64.getDecoder();

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -14,8 +15,9 @@ import java.util.Random;
 public class RandomVector extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withOptionalProperties("update_mode")
-      .withRequiredProperties("fields", "dimensions");
+      .reqList("fields", new TypeReference<List<String>>(){})
+      .reqNum("dimensions")
+      .optStr("update_mode");
 
   private final List<String> fields;
   private final int dimensions;

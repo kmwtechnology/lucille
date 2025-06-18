@@ -52,10 +52,12 @@ import org.slf4j.LoggerFactory;
  */
 public class FetchUri extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "dest")
-      .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
-          "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "status_code_retry_list")
-      .optParent("headers", new TypeReference<Map<String, Object>>() {});
+  public static Spec SPEC = Spec.stage()
+      .reqStr("source", "dest")
+      .optStr("size_suffix", "status_suffix", "error_suffix")
+      .optNum("max_retries", "initial_expiry_ms", "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "max_size")
+      .optList("status_code_retry_list", new TypeReference<List<String>>(){})
+      .optParent("headers", new TypeReference<Map<String, Object>>(){});
 
   private static final Logger log = LoggerFactory.getLogger(FetchUri.class);
 

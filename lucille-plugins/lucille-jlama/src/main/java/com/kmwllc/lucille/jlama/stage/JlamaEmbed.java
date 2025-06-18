@@ -62,8 +62,9 @@ import org.slf4j.LoggerFactory;
 public class JlamaEmbed extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withRequiredProperties("model", "source", "pathToStoreModel")
-      .withOptionalProperties("workingMemoryType", "workingQuantizationType", "dest", "deleteModelAfter");
+      .reqStr("model", "source", "pathToStoreModel")
+      .optStr("workingMemoryType", "workingQuantizationType", "dest")
+      .optBool("deleteModelAfter");
 
   private final String embeddingModel;
   private final String source;

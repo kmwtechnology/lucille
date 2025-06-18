@@ -54,7 +54,7 @@ public class ApplyFileHandlers extends Stage {
           FileConnector.GCP_PARENT_SPEC,
           FileConnector.AZURE_PARENT_SPEC,
           FileConnector.S3_PARENT_SPEC)
-      .withOptionalProperties("filePathField", "fileContentField");
+      .optStr("filePathField", "fileContentField");
 
   private final Config handlerOptions;
 

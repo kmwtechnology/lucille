@@ -37,7 +37,6 @@ public class ElasticsearchIndexer extends Indexer {
       .reqStr("index", "url")
       .optBool("update", "acceptInvalidCert")
       .optStr("parentName")
-      // TODO: might be able to be more specific, have to look into it more
       .optParent("join", new TypeReference<Map<String, String>>() {});
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);

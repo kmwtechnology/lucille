@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -52,9 +53,13 @@ import java.util.stream.Collectors;
  */
 public class ExtractEntities extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "dest", "dictionaries")
-      .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
-          "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field")
+  public static Spec SPEC = Spec.stage()
+      .reqList("dictionaries", new TypeReference<List<String>>(){})
+      .reqList("source", new TypeReference<List<String>>(){})
+      .reqList("dest", new TypeReference<List<String>>(){})
+      .optBool("ignore_case", "only_whitespace_separated", "stop_on_hit",
+          "only_whole_words", "ignore_overlaps", "use_payloads")
+      .optStr("update_mode", "entity_field")
       .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());

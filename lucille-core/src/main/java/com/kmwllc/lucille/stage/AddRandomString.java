@@ -41,8 +41,9 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AddRandomString extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
-          "max_num_of_terms", "is_nested", "concatenate");
+      .optStr("input_data_path", "field_name")
+      .optNum("min_num_of_terms", "max_num_of_terms", "range_size")
+      .optBool("is_nested", "concatenate");
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 

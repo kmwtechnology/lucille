@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
@@ -32,8 +33,10 @@ import java.util.List;
  */
 public class Print extends Stage {
 
-  public static Spec SPEC = Spec.stage().withOptionalProperties("shouldLog", "outputFile",
-      "overwriteFile", "excludeFields", "appendThreadName");
+  public static Spec SPEC = Spec.stage()
+      .optBool("shouldLog", "overwriteFile", "appendThreadName")
+      .optStr("outputFile")
+      .optList("excludeFields", new TypeReference<List<String>>(){});
 
   private static final Logger log = LoggerFactory.getLogger(Print.class);
 

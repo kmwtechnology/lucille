@@ -46,14 +46,12 @@ public class ConfigValidationTest {
     Document doc = Document.createFromJson("{\"id\":\"id\",\"true\": \"boolean\"}");
 
     testMessage(ApplyRegex.class, "apply-regex-invalid-type-1.conf", doc,
-        "source has type BOOLEAN rather than LIST");
+        "be a list, was \"BOOLEAN\"");
 
     testMessage(ApplyRegex.class, "apply-regex-invalid-type-2.conf", doc,
-        "regex has type LIST rather than STRING");
+        "be a string, was \"LIST\"");
 
-    // multiple variants of the class cast error message have been observed so we only look for a short substring
-    testMessage(ApplyRegex.class, "apply-regex-invalid-type-3.conf", doc,
-        "java.lang.String");
+    testMessage(ApplyRegex.class, "apply-regex-invalid-type-3.conf", doc, "be a boolean, was \"STRING\"");
   }
 
   @Test
@@ -306,6 +304,7 @@ public class ConfigValidationTest {
       processDoc(stageClass, config, doc);
     } catch (StageException e) {
       Throwable cause = e.getCause().getCause();
+      System.out.println(cause.getMessage());
       assertContains(cause.getMessage(), message);
     }
   }

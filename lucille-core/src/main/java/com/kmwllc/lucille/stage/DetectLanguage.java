@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.cybozu.labs.langdetect.Detector;
 import com.cybozu.labs.langdetect.DetectorFactory;
 import com.cybozu.labs.langdetect.Language;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -26,7 +27,7 @@ import java.util.List;
  * <p> Config Parameters:
  * <p> - source (List&lt;String&gt;) : List of source field names.
  * <p> - language_field (String) : The field you want detected languages to be placed into.
- * <p> - language_confidence_field (String) : The field you want the confidence value to be placed into.
+ * <p> - language_confidence_field (String, Optional) : The field you want the confidence value to be placed into. Defaults to "languageConfidence".
  * <p> - min_length (Integer, Optional) : The min length of Strings to be considered for language detection. Shorter Strings will be ignored. Defaults to 50.
  * <p> - max_length (Integer, Optional) : The max length of Strings to be considered for language detection. Longer Strings will be truncated. Defaults to 10,000.
  * <p> - min_probability (Double, Optional) : The min probability for a language result to be considered valid. Results below this threshold
@@ -35,9 +36,11 @@ import java.util.List;
  */
 public class DetectLanguage extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "language_field")
-      .withOptionalProperties("language_confidence_field", "min_length", "max_length",
-          "min_probability", "update_mode");
+  public static Spec SPEC = Spec.stage()
+      .reqList("source", new TypeReference<List<String>>(){})
+      .reqStr("language_field")
+      .optStr("language_confidence_field", "update_mode")
+      .optNum("min_length", "max_length", "min_probability");
 
   private final static String profileResourcesLoc = "profiles";
 

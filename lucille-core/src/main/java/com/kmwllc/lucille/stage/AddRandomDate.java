@@ -34,7 +34,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AddRandomDate extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withOptionalProperties("field_name", "range_start_date", "range_end_date");
+      .optStr("field_name", "range_start_date", "range_end_date");
 
   private final String fieldName;
   private final String rangeStartDateString;

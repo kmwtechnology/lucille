@@ -16,7 +16,9 @@ import org.slf4j.LoggerFactory;
 
 public class ParseFloats extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("field").withOptionalProperties("dest");
+  public static Spec SPEC = Spec.stage()
+      .reqStr("field")
+      .optStr("dest");
 
   private final String field;
   private final String dest;

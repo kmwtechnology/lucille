@@ -37,8 +37,8 @@ import static com.dashjoin.jsonata.Jsonata.jsonata;
 public class ApplyJSONata extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withOptionalProperties("source", "destination")
-      .withRequiredProperties("expression");
+      .reqStr("expression")
+      .optStr("source", "destination");
 
   private static final Logger log = LoggerFactory.getLogger(ApplyJSONata.class);
   private static final ObjectMapper objectMapper = new ObjectMapper();

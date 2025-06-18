@@ -27,13 +27,13 @@ import java.util.Map;
  * Config Parameters -
  * <ul>
  * <li>fieldMapping (Map&lt;String, List&lt;String&gt;&gt;) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.</li>
- * <li>xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".</li>
+ * <li>xmlField (String, Optional) : The name of the document field which contains the XML field: defaults to "xml".</li>
  * </ul>
  */
 public class XPathExtractor extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withOptionalProperties("xmlField")
+      .optStr("xmlField")
       .reqParent("fieldMapping", new TypeReference<Map<String, List<String>>>(){});
 
   protected Map<String, Object> xpaths;

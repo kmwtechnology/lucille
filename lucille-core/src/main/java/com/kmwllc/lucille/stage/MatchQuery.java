@@ -1,11 +1,13 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -30,7 +32,9 @@ public class MatchQuery extends Stage {
   public static final String MATCHEDQUERIES_PARAM = "matchedQueriesField";
 
   public static Spec SPEC = Spec.stage()
-      .withRequiredProperties(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM);
+      .reqList(FIELDS_PARAM, new TypeReference<List<String>>(){})
+      .reqList(QUERIES_PARAM, new TypeReference<List<Map<String, Object>>>(){})
+      .reqStr(MATCHEDQUERIES_PARAM);
 
   // the list of fields to run the queries against
   private final List<String> fieldsList;

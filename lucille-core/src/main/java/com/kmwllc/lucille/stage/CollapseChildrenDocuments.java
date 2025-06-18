@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import java.util.Iterator;
 import java.util.List;
@@ -22,7 +23,9 @@ import com.typesafe.config.Config;
  */
 public class CollapseChildrenDocuments extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("fieldsToCopy", "dropChildren");
+  public static Spec SPEC = Spec.stage()
+      .reqList("fieldsToCopy", new TypeReference<List<String>>(){})
+      .reqBool("dropChildren");
 
   private List<String> fieldsToCopy;
   private boolean dropChildren;

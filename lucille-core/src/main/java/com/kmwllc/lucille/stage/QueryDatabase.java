@@ -39,10 +39,12 @@ import org.slf4j.LoggerFactory;
 public class QueryDatabase extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withOptionalProperties("sql", "connectionRetries", "connectionRetryPause")
-      .reqParent("fieldMapping", new TypeReference<Map<String, String>>(){})
-      .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
-          "keyFields", "inputTypes");
+      .reqStr("driver", "connectionString", "jdbcUser", "jdbcPassword")
+      .reqList("keyFields", new TypeReference<List<String>>(){})
+      .reqList("inputTypes", new TypeReference<List<String>>(){})
+      .optStr("sql")
+      .optNum("connectionRetries", "connectionRetryPause")
+      .reqParent("fieldMapping", new TypeReference<Map<String, String>>(){});
 
   private String driver;
   private String connectionString;

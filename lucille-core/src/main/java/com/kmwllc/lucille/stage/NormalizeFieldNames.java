@@ -20,7 +20,7 @@ import java.util.Iterator;
  */
 public class NormalizeFieldNames extends Stage {
 
-  public static Spec SPEC = Spec.stage().withOptionalProperties("delimiter", "nonAlphanumReplacement");
+  public static Spec SPEC = Spec.stage().optStr("delimiter", "nonAlphanumReplacement");
 
   private final String delimeter;
   private final String nonAlphanumReplacement;

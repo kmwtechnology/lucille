@@ -30,7 +30,8 @@ public class EmitNestedChildren extends Stage {
 
   public static Spec SPEC = Spec.stage()
       .optParent("fields_to_copy", new TypeReference<Map<String, String>>() {})
-      .withOptionalProperties("drop_parent", "update_mode");
+      .optBool("drop_parent")
+      .optStr("update_mode");
 
   private final boolean dropParent;
   private final Map<String,Object> fieldsToCopy;

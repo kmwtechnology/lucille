@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -47,8 +48,12 @@ import org.slf4j.LoggerFactory;
  */
 public class DictionaryLookup extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "dest", "dict_path")
-      .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")
+  public static Spec SPEC = Spec.stage()
+      .reqList("source", new TypeReference<List<String>>(){})
+      .reqList("dest", new TypeReference<List<String>>(){})
+      .reqStr("dict_path")
+      .optBool("use_payloads", "ignore_case", "set_only", "ignore_missing_source")
+      .optStr("update_mode")
       .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
 
   private final List<String> sourceFields;

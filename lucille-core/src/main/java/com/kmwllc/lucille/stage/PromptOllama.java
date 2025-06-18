@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -65,8 +66,11 @@ import org.slf4j.LoggerFactory;
 public class PromptOllama extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withRequiredProperties("hostURL", "modelName")
-      .withOptionalProperties("systemPrompt", "timeout", "fields", "requireJSON", "update_mode");
+      .reqStr("hostURL", "modelName")
+      .optNum("timeout")
+      .optBool("requireJSON")
+      .optStr("systemPrompt", "update_mode")
+      .optList("fields", new TypeReference<List<String>>() {});
 
   private static final Logger log = LoggerFactory.getLogger(PromptOllama.class);
   private static final ObjectMapper mapper = new ObjectMapper();

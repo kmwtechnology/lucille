@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -20,7 +21,9 @@ import java.util.List;
  */
 public class DropValues extends Stage {
 
-  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "values");
+  public static Spec SPEC = Spec.stage()
+      .reqList("source", new TypeReference<List<String>>(){})
+      .reqList("values", new TypeReference<List<String>>(){});
 
   private final List<String> sourceFields;
   private final List<String> values;

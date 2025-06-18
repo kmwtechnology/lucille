@@ -23,8 +23,8 @@ import com.typesafe.config.Config;
 public class SplitFieldValues extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .withRequiredProperties("inputField", "outputField",
-          "delimiter", "trimWhitespace");
+      .reqStr("inputField", "outputField", "delimiter")
+      .reqBool("trimWhitespace");
 
   private boolean trimWhitespace = true;
   private String inputField;
