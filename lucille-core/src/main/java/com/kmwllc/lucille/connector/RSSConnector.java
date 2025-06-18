@@ -61,10 +61,10 @@ import org.slf4j.LoggerFactory;
 public class RSSConnector extends AbstractConnector {
 
   public static final Spec SPEC = Spec.connector()
-      .reqStr("rssURL")
-      .optBool("useGuidForDocID")
+      .requiredString("rssURL")
+      .optionalBoolean("useGuidForDocID")
       // best to reference durations as Strings
-      .optStr("pubDateCutoff", "runDuration", "refreshIncrement");
+      .optionalString("pubDateCutoff", "runDuration", "refreshIncrement");
 
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final Logger log = LoggerFactory.getLogger(RSSConnector.class);

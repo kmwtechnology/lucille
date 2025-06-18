@@ -17,9 +17,9 @@ public class ObjectPropertyTest {
   @Test
   public void testParentValidation() {
     ParentSpec filterOptionsSpec = Spec.parent("filterOptions")
-        .optList("includes", new TypeReference<List<String>>(){})
-        .optList("excludes", new TypeReference<List<String>>(){})
-        .optStr("lastModifiedCutoff");
+        .optionalList("includes", new TypeReference<List<String>>(){})
+        .optionalList("excludes", new TypeReference<List<String>>(){})
+        .optionalString("lastModifiedCutoff");
 
     Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
 
@@ -60,9 +60,9 @@ public class ObjectPropertyTest {
   public void testTypeJson() {
     // 1. an ObjectProperty w/ a ParentSpec
     ParentSpec filterOptionsSpec = Spec.parent("filterOptions")
-        .optList("includes", new TypeReference<List<String>>(){})
-        .optList("excludes", new TypeReference<List<String>>(){})
-        .optStr("lastModifiedCutoff");
+        .optionalList("includes", new TypeReference<List<String>>(){})
+        .optionalList("excludes", new TypeReference<List<String>>(){})
+        .optionalString("lastModifiedCutoff");
 
     Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
 

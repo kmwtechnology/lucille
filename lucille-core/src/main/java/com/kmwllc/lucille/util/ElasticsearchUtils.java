@@ -25,10 +25,10 @@ import java.net.URI;
 public class ElasticsearchUtils {
 
   public static ParentSpec ELASTICSEARCH_PARENT_SPEC = Spec.parent("elasticsearch")
-      .reqStr("index", "url")
-      .optBool("update", "acceptInvalidCert")
-      .optStr("parentName")
-      .optParent("join", new TypeReference<Map<String, String>>(){});
+      .requiredString("index", "url")
+      .optionalBoolean("update", "acceptInvalidCert")
+      .optionalString("parentName")
+      .optionalParent("join", new TypeReference<Map<String, String>>(){});
 
   public static ElasticsearchClient getElasticsearchOfficialClient(Config config) {
     URI hostUri = URI.create(getElasticsearchUrl(config));

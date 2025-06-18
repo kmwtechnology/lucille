@@ -23,11 +23,11 @@ import java.util.List;
 public class ElasticsearchLookup extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqParent(ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
-      .reqList("source", new TypeReference<List<String>>(){})
-      .reqList("dest", new TypeReference<List<String>>(){})
-      .optStr("update_mode")
-      .optStr("update_mode");
+      .requiredParent(ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .optionalString("update_mode")
+      .optionalString("update_mode");
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 

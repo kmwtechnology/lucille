@@ -22,7 +22,7 @@ public class JSONConnector extends AbstractConnector {
   private final String pathStr;
   private final JsonFileHandler jsonFileHandler;
 
-  public static final Spec SPEC = Spec.connector().reqStr("jsonPath");
+  public static final Spec SPEC = Spec.connector().requiredString("jsonPath");
 
   public JSONConnector(Config config) {
     super(config);

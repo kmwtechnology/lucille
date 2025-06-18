@@ -21,8 +21,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AddRandomBoolean extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optStr("field_name")
-      .optNum("percent_true");
+      .optionalString("field_name")
+      .optionalNumber("percent_true");
 
   private final String fieldName;
   private final int percentTrue;

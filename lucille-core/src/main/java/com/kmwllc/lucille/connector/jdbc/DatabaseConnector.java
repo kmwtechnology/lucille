@@ -71,12 +71,12 @@ public class DatabaseConnector extends AbstractConnector {
   //  private ConnectorState state = null;
 
   public static final Spec SPEC = Spec.connector()
-      .reqStr("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
-      .optStr("preSQL", "postSQL")
-      .optNum("fetchSize", "connectionRetries", "connectionRetryPause")
-      .optList("otherSQLs", new TypeReference<List<String>>(){})
-      .optList("otherJoinFields", new TypeReference<List<String>>(){})
-      .optList("ignoreColumns", new TypeReference<List<String>>(){});
+      .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
+      .optionalString("preSQL", "postSQL")
+      .optionalNumber("fetchSize", "connectionRetries", "connectionRetryPause")
+      .optionalList("otherSQLs", new TypeReference<List<String>>(){})
+      .optionalList("otherJoinFields", new TypeReference<List<String>>(){})
+      .optionalList("ignoreColumns", new TypeReference<List<String>>(){});
 
   // The constructor that takes the config.
   public DatabaseConnector(Config config) {

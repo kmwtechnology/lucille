@@ -34,9 +34,9 @@ import org.slf4j.LoggerFactory;
 public class TruncateField extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqStr("source")
-      .reqNum("max_size")
-      .optStr("destination");
+      .requiredString("source")
+      .requiredNumber("max_size")
+      .optionalString("destination");
 
   private final String source;
   private final int maxSize;

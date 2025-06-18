@@ -29,9 +29,9 @@ import org.slf4j.LoggerFactory;
 public class EmitNestedChildren extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optParent("fields_to_copy", new TypeReference<Map<String, String>>() {})
-      .optBool("drop_parent")
-      .optStr("update_mode");
+      .optionalParent("fields_to_copy", new TypeReference<Map<String, String>>() {})
+      .optionalBoolean("drop_parent")
+      .optionalString("update_mode");
 
   private final boolean dropParent;
   private final Map<String,Object> fieldsToCopy;

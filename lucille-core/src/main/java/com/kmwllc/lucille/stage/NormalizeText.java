@@ -37,10 +37,10 @@ import java.util.regex.Pattern;
 public class NormalizeText extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("source", new TypeReference<List<String>>(){})
-      .reqList("dest", new TypeReference<List<String>>(){})
-      .reqStr("mode")
-      .optStr("update_mode");
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .requiredString("mode")
+      .optionalString("update_mode");
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final Pattern pattern = Pattern.compile("[.?!] \\w");

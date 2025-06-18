@@ -41,11 +41,11 @@ import java.util.regex.Pattern;
 public class ApplyRegex extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("source", new TypeReference<List<String>>(){})
-      .reqList("dest", new TypeReference<List<String>>(){})
-      .reqStr("regex")
-      .optStr("update_mode")
-      .optBool("ignore_case", "multiline", "dotall", "literal");
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .requiredString("regex")
+      .optionalString("update_mode")
+      .optionalBoolean("ignore_case", "multiline", "dotall", "literal");
 
   private final List<String> sourceFields;
   private final List<String> destFields;

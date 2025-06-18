@@ -54,8 +54,8 @@ import com.typesafe.config.Config;
 public class ApplyJSoup extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optStr("filePathField", "byteArrayField", "stringField", "charset")
-      .reqParent("destinationFields", new TypeReference<Map<String, Map<String, String>>>(){});
+      .optionalString("filePathField", "byteArrayField", "stringField", "charset")
+      .requiredParent("destinationFields", new TypeReference<Map<String, Map<String, String>>>(){});
 
   private final Map<String, Object> destinationFields;
   private final String charset;

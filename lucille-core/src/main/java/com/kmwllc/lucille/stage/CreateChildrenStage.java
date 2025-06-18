@@ -18,8 +18,8 @@ import java.util.Iterator;
 public class CreateChildrenStage extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optNum("numChildren", "failAfter", "dropChild")
-      .optBool("dropParent");
+      .optionalNumber("numChildren", "failAfter", "dropChild")
+      .optionalBoolean("dropParent");
 
   private final int numChildren;
   private final boolean dropParent;

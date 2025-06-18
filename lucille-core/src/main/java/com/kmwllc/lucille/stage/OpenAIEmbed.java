@@ -44,10 +44,10 @@ import org.slf4j.LoggerFactory;
 public class OpenAIEmbed extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqStr("source", "api_key")
-      .reqBool("embed_document", "embed_children")
-      .optStr("dest", "model_name")
-      .optNum("dimensions");
+      .requiredString("source", "api_key")
+      .requiredBoolean("embed_document", "embed_children")
+      .optionalString("dest", "model_name")
+      .optionalNumber("dimensions");
 
   // this is the token limit for all embedding models from openai
   private static final int DEFAULT_OPENAI_TOKEN_LIMIT = 8191;

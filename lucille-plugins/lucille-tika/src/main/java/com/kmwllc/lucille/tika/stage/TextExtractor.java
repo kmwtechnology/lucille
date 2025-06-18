@@ -48,11 +48,11 @@ import org.xml.sax.SAXException;
 public class TextExtractor extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optStr("text_field", "file_path_field", "byte_array_field", "tika_config_path", "metadata_prefix")
-      .optList("metadata_whitelist", new TypeReference<List<String>>(){})
-      .optList("metadata_blacklist", new TypeReference<List<String>>(){})
-      .optNum("text_content_limit")
-      .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
+      .optionalString("text_field", "file_path_field", "byte_array_field", "tika_config_path", "metadata_prefix")
+      .optionalList("metadata_whitelist", new TypeReference<List<String>>(){})
+      .optionalList("metadata_blacklist", new TypeReference<List<String>>(){})
+      .optionalNumber("text_content_limit")
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
   private String textField;

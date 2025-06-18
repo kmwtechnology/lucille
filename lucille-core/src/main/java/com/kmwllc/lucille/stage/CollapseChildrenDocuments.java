@@ -24,8 +24,8 @@ import com.typesafe.config.Config;
 public class CollapseChildrenDocuments extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("fieldsToCopy", new TypeReference<List<String>>(){})
-      .reqBool("dropChildren");
+      .requiredList("fieldsToCopy", new TypeReference<List<String>>(){})
+      .requiredBoolean("dropChildren");
 
   private List<String> fieldsToCopy;
   private boolean dropChildren;

@@ -130,29 +130,29 @@ public class FileConnector extends AbstractConnector {
 
   // parent specs for cloud provider configs
   public static final ParentSpec GCP_PARENT_SPEC = Spec.parent("gcp")
-      .reqStr("pathToServiceKey")
-      .optNum("maxNumOfPages");
+      .requiredString("pathToServiceKey")
+      .optionalNumber("maxNumOfPages");
   public static final ParentSpec S3_PARENT_SPEC = Spec.parent("s3")
-      .optStr("accessKeyId", "secretAccessKey", "region")
-      .optNum("maxNumOfPages");
+      .optionalString("accessKeyId", "secretAccessKey", "region")
+      .optionalNumber("maxNumOfPages");
   public static final ParentSpec AZURE_PARENT_SPEC = Spec.parent("azure")
-      .optStr("connectionString", "accountName", "accountKey")
-      .optNum("maxNumOfPages");
+      .optionalString("connectionString", "accountName", "accountKey")
+      .optionalNumber("maxNumOfPages");
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public static final Spec SPEC = Spec.connector()
-      .reqList("pathsToStorage", new TypeReference<List<String>>(){})
-      .optParent(
+      .requiredList("pathsToStorage", new TypeReference<List<String>>(){})
+      .optionalParent(
           Spec.parent("filterOptions")
-              .optList("includes", new TypeReference<List<String>>(){})
-              .optList("excludes", new TypeReference<List<String>>(){})
+              .optionalList("includes", new TypeReference<List<String>>(){})
+              .optionalList("excludes", new TypeReference<List<String>>(){})
               // durations are strings.
-              .optStr("modificationCutoff"),
+              .optionalString("modificationCutoff"),
           Spec.parent("fileOptions")
-              .optBool("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
-              .optStr("moveToAfterProcessing", "moveToErrorFolder")
-              .optParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
+              .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+              .optionalString("moveToAfterProcessing", "moveToErrorFolder")
+              .optionalParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
           GCP_PARENT_SPEC,
           AZURE_PARENT_SPEC,
           S3_PARENT_SPEC

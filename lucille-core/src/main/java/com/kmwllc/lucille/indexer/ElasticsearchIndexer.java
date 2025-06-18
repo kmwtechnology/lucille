@@ -34,10 +34,10 @@ import java.util.Optional;
 public class ElasticsearchIndexer extends Indexer {
 
   public static final Spec SPEC = Spec.indexer()
-      .reqStr("index", "url")
-      .optBool("update", "acceptInvalidCert")
-      .optStr("parentName")
-      .optParent("join", new TypeReference<Map<String, String>>() {});
+      .requiredString("index", "url")
+      .optionalBoolean("update", "acceptInvalidCert")
+      .optionalString("parentName")
+      .optionalParent("join", new TypeReference<Map<String, String>>() {});
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
 

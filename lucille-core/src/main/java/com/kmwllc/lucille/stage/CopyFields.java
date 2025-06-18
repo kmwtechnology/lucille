@@ -29,9 +29,9 @@ import java.util.List;
 public class CopyFields extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("source", new TypeReference<List<String>>(){})
-      .reqList("dest", new TypeReference<List<String>>(){})
-      .optStr("update_mode");
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .optionalString("update_mode");
 
   private final List<String> sourceFields;
   private final List<String> destFields;

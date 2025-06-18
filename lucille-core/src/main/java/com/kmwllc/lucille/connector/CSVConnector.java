@@ -33,11 +33,11 @@ public class CSVConnector extends AbstractConnector {
   private final String moveToErrorFolder;
 
   public static final Spec SPEC = Spec.connector()
-      .reqStr("path")
-      .optStr("moveToAfterProcessing", "moveToErrorFolder", "lineNumberField", "filenameField", "filePathField",
+      .requiredString("path")
+      .optionalString("moveToAfterProcessing", "moveToErrorFolder", "lineNumberField", "filenameField", "filePathField",
           "idField", "docIdFormat", "separatorChar")
-      .optBool("useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields")
-      .optList("ignoredTerms", new TypeReference<List<String>>(){});
+      .optionalBoolean("useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields")
+      .optionalList("ignoredTerms", new TypeReference<List<String>>(){});
 
   public CSVConnector(Config config) {
     super(config);

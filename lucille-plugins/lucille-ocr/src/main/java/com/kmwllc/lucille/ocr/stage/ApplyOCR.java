@@ -89,14 +89,14 @@ import com.typesafe.config.ConfigBeanFactory;
 public class ApplyOCR extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqStr("lang", "path_field")
-      .optStr("pages_field", "extract_all_dest")
-      .optList("extraction_templates", Spec.withoutDefaults()
-          .reqStr("name")
-          .reqList("regions", Spec.withoutDefaults()
-              .reqNum("x", "y", "width", "height")
-              .reqStr("dest")))
-      .optParent("pages", new TypeReference<Map<Integer, String>>(){});
+      .requiredString("lang", "path_field")
+      .optionalString("pages_field", "extract_all_dest")
+      .optionalList("extraction_templates", Spec.withoutDefaults()
+          .requiredString("name")
+          .requiredList("regions", Spec.withoutDefaults()
+              .requiredNumber("x", "y", "width", "height")
+              .requiredString("dest")))
+      .optionalParent("pages", new TypeReference<Map<Integer, String>>(){});
 
   public static final String TEMP_DIR = "lucille-ocr-temp";
   public static final int SOURCE_RESOLUTION = 300;

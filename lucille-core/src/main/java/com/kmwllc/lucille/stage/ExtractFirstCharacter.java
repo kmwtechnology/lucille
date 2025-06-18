@@ -25,8 +25,8 @@ import org.apache.commons.lang3.StringUtils;
 public class ExtractFirstCharacter extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optStr("replacement")
-      .reqParent("fieldMapping", new TypeReference<Map<String, String>>() {});
+      .optionalString("replacement")
+      .requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {});
 
   private final Map<String, Object> fieldMapping;
   private final String replacement;

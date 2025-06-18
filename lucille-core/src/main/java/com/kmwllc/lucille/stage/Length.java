@@ -21,7 +21,7 @@ import java.util.Map;
  */
 public class Length extends Stage {
 
-  public static final Spec SPEC = Spec.stage().reqParent("fieldMapping", new TypeReference<Map<String, String>>() {});
+  public static final Spec SPEC = Spec.stage().requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {});
 
   private final Map<String, Object> fieldMap;
 

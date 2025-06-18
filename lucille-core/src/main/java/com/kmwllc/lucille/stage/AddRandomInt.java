@@ -21,8 +21,8 @@ import java.util.concurrent.ThreadLocalRandom;
 public class AddRandomInt extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optStr("field_name")
-      .optNum("range_start", "range_end");
+      .optionalString("field_name")
+      .optionalNumber("range_start", "range_end");
 
   private final String fieldName;
   private final int rangeStart;

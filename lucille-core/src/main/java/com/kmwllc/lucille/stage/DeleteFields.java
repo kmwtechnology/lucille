@@ -18,7 +18,7 @@ import java.util.List;
  */
 public class DeleteFields extends Stage {
 
-  public static final Spec SPEC = Spec.stage().reqList("fields", new TypeReference<List<String>>(){});
+  public static final Spec SPEC = Spec.stage().requiredList("fields", new TypeReference<List<String>>(){});
 
   private final List<String> fields;
 

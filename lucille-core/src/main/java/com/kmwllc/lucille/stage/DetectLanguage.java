@@ -37,10 +37,10 @@ import java.util.List;
 public class DetectLanguage extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("source", new TypeReference<List<String>>(){})
-      .reqStr("language_field")
-      .optStr("language_confidence_field", "update_mode")
-      .optNum("min_length", "max_length", "min_probability");
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredString("language_field")
+      .optionalString("language_confidence_field", "update_mode")
+      .optionalNumber("min_length", "max_length", "min_probability");
 
   private final static String profileResourcesLoc = "profiles";
 

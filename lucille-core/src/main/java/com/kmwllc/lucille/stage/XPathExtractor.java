@@ -33,8 +33,8 @@ import java.util.Map;
 public class XPathExtractor extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optStr("xmlField")
-      .reqParent("fieldMapping", new TypeReference<Map<String, List<String>>>(){});
+      .optionalString("xmlField")
+      .requiredParent("fieldMapping", new TypeReference<Map<String, List<String>>>(){});
 
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;

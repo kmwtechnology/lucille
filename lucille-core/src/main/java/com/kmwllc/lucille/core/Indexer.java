@@ -411,10 +411,10 @@ public abstract class Indexer implements Runnable {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     Config indexerConfig = config.getConfig("indexer");
     Spec.withoutDefaults()
-        .optStr("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
+        .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
             "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
-        .optNum("batchSize", "batchTimeout", "logRate")
-        .optBool("sendEnabled")
+        .optionalNumber("batchSize", "batchTimeout", "logRate")
+        .optionalBoolean("sendEnabled")
         .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.

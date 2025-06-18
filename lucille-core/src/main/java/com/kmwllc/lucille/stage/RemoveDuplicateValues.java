@@ -19,7 +19,7 @@ import java.util.Map;
  */
 public class RemoveDuplicateValues extends Stage {
 
-  public static final Spec SPEC = Spec.stage().reqParent("fieldMapping", new TypeReference<Map<String, Object>>() {});
+  public static final Spec SPEC = Spec.stage().requiredParent("fieldMapping", new TypeReference<Map<String, Object>>() {});
 
   private final Map<String, Object> fieldMapping;
 

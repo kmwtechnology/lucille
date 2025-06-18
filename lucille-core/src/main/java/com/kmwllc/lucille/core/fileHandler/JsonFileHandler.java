@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 
 public class JsonFileHandler extends BaseFileHandler {
 
-  public static final ParentSpec PARENT_SPEC = Spec.parent("json").optStr("docIdPrefix");
+  public static final ParentSpec PARENT_SPEC = Spec.parent("json").optionalString("docIdPrefix");
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 

@@ -29,9 +29,9 @@ import org.apache.commons.text.StringSubstitutor;
 public class Concatenate extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqStr("dest", "format_string")
-      .optStr("update_mode")
-      .optParent("default_inputs", new TypeReference<Map<String, String>>(){});
+      .requiredString("dest", "format_string")
+      .optionalString("update_mode")
+      .optionalParent("default_inputs", new TypeReference<Map<String, String>>(){});
 
   private final String destField;
   private final String formatStr;

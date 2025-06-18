@@ -41,10 +41,10 @@ import java.util.stream.Collectors;
 public class EmitDocsToDeleteByPrefix extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqStr("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index")
-      .optBool("dropOriginal")
-      .optStr("addPrefix")
-      .optParent("namespaces", new TypeReference<Map<String, Object>>(){});
+      .requiredString("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index")
+      .optionalBoolean("dropOriginal")
+      .optionalString("addPrefix")
+      .optionalParent("namespaces", new TypeReference<Map<String, Object>>(){});
 
   private Pinecone client;
   private final String indexName;

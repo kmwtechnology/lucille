@@ -33,10 +33,10 @@ import org.slf4j.LoggerFactory;
 public class CSVFileHandler extends BaseFileHandler {
 
   public static final ParentSpec PARENT_SPEC = Spec.parent("csv")
-      .optStr("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "docIdFormat")
-      .optList("idFields", new TypeReference<List<String>>() {})
-      .optList("ignoredTerms", new TypeReference<List<String>>() {})
-      .optBool("useTabs", "separatorChar", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields");
+      .optionalString("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "docIdFormat")
+      .optionalList("idFields", new TypeReference<List<String>>() {})
+      .optionalList("ignoredTerms", new TypeReference<List<String>>() {})
+      .optionalBoolean("useTabs", "separatorChar", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields");
 
   private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);
 

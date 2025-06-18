@@ -32,9 +32,9 @@ public class MatchQuery extends Stage {
   public static final String MATCHEDQUERIES_PARAM = "matchedQueriesField";
 
   public static final Spec SPEC = Spec.stage()
-      .reqList(FIELDS_PARAM, new TypeReference<List<String>>(){})
-      .reqList(QUERIES_PARAM, new TypeReference<List<Map<String, Object>>>(){})
-      .reqStr(MATCHEDQUERIES_PARAM);
+      .requiredList(FIELDS_PARAM, new TypeReference<List<String>>(){})
+      .requiredList(QUERIES_PARAM, new TypeReference<List<Map<String, Object>>>(){})
+      .requiredString(MATCHEDQUERIES_PARAM);
 
   // the list of fields to run the queries against
   private final List<String> fieldsList;

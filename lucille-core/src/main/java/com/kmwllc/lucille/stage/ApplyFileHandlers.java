@@ -48,13 +48,13 @@ import org.apache.commons.io.FilenameUtils;
 public class ApplyFileHandlers extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optParent(
+      .optionalParent(
           Spec.parent("handlerOptions")
-              .optParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
+              .optionalParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
           FileConnector.GCP_PARENT_SPEC,
           FileConnector.AZURE_PARENT_SPEC,
           FileConnector.S3_PARENT_SPEC)
-      .optStr("filePathField", "fileContentField");
+      .optionalString("filePathField", "fileContentField");
 
   private final Config handlerOptions;
 

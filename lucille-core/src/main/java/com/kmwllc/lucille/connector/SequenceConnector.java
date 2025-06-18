@@ -21,8 +21,8 @@ import org.slf4j.LoggerFactory;
 public class SequenceConnector extends AbstractConnector {
 
   public static final Spec SPEC = Spec.connector()
-      .reqNum("numDocs")
-      .optNum("startWith");
+      .requiredNumber("numDocs")
+      .optionalNumber("startWith");
 
   private static final Logger log = LoggerFactory.getLogger(SequenceConnector.class);
   private final long numDocs;

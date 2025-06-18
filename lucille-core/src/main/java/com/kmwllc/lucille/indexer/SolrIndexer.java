@@ -33,11 +33,11 @@ import org.slf4j.LoggerFactory;
 public class SolrIndexer extends Indexer {
 
   public static final Spec SPEC = Spec.indexer()
-      .optList("url", new TypeReference<List<String>>() {})
-      .optBool("useCloudClient", "acceptInvalidCert")
-      .optStr("defaultCollection", "userName", "password", "zkChroot")
-      .optStr(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
-      .optList("zkHosts", new TypeReference<List<String>>(){});
+      .optionalList("url", new TypeReference<List<String>>() {})
+      .optionalBoolean("useCloudClient", "acceptInvalidCert")
+      .optionalString("defaultCollection", "userName", "password", "zkChroot")
+      .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
+      .optionalList("zkHosts", new TypeReference<List<String>>(){});
 
   private static final Logger log = LoggerFactory.getLogger(SolrIndexer.class);
 

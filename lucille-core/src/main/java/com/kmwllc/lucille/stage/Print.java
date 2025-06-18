@@ -34,9 +34,9 @@ import java.util.List;
 public class Print extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optBool("shouldLog", "overwriteFile", "appendThreadName")
-      .optStr("outputFile")
-      .optList("excludeFields", new TypeReference<List<String>>(){});
+      .optionalBoolean("shouldLog", "overwriteFile", "appendThreadName")
+      .optionalString("outputFile")
+      .optionalList("excludeFields", new TypeReference<List<String>>(){});
 
   private static final Logger log = LoggerFactory.getLogger(Print.class);
 

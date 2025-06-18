@@ -6,7 +6,6 @@ import static org.junit.Assert.assertTrue;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValueType;
 import java.util.List;
 import org.junit.Test;
 
@@ -15,7 +14,7 @@ public class ListPropertyTest {
   @Test
   public void testSpecList() {
     Config config = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/books.conf");
-    Property property = new ListProperty("books", true, Spec.withoutDefaults().reqStr("author", "title"));
+    Property property = new ListProperty("books", true, Spec.withoutDefaults().requiredString("author", "title"));
     property.validate(config);
 
     Config boolListConfig = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/boolList.conf");
@@ -73,7 +72,7 @@ public class ListPropertyTest {
     property = new ListProperty("list", true, new TypeReference<List<Object>>(){});
     property.validate(config);
 
-    property = new ListProperty("list", true, Spec.withoutDefaults().reqStr("author", "title"));
+    property = new ListProperty("list", true, Spec.withoutDefaults().requiredString("author", "title"));
     property.validate(config);
 
     property = new ListProperty("list", true, Spec.withoutDefaults());

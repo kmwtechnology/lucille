@@ -58,12 +58,12 @@ public class SolrConnector extends AbstractConnector {
 
   public static final Spec SPEC = Spec.connector()
       // the Solr ParentSpec has solr.url as a required property.
-      .reqParent(SolrUtils.SOLR_PARENT_SPEC)
-      .optParent("solrParams", new TypeReference<Map<String, Object>>(){})
-      .optList("preActions", new TypeReference<List<String>>(){})
-      .optList("postActions", new TypeReference<List<String>>(){})
-      .optBool("useXml")
-      .optStr("idField");
+      .requiredParent(SolrUtils.SOLR_PARENT_SPEC)
+      .optionalParent("solrParams", new TypeReference<Map<String, Object>>(){})
+      .optionalList("preActions", new TypeReference<List<String>>(){})
+      .optionalList("postActions", new TypeReference<List<String>>(){})
+      .optionalBoolean("useXml")
+      .optionalString("idField");
 
   public SolrConnector(Config config) {
     this(config, SolrUtils.getSolrClient(config));

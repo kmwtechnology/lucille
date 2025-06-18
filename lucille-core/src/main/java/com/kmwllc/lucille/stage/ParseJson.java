@@ -37,9 +37,9 @@ import nl.altindag.ssl.util.internal.StringUtils;
 public class ParseJson extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqStr("src")
-      .optBool("sourceIsBase64")
-      .reqParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {});
+      .requiredString("src")
+      .optionalBoolean("sourceIsBase64")
+      .requiredParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {});
 
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 

@@ -26,10 +26,10 @@ import java.util.List;
 public class Contains extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("contains", new TypeReference<List<String>>(){})
-      .reqList("fields", new TypeReference<List<String>>(){})
-      .reqStr("output", "value")
-      .optBool("ignoreCase");
+      .requiredList("contains", new TypeReference<List<String>>(){})
+      .requiredList("fields", new TypeReference<List<String>>(){})
+      .requiredString("output", "value")
+      .optionalBoolean("ignoreCase");
 
   private final List<String> contains;
   private final String output;

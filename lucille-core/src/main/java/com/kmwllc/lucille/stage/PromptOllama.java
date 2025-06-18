@@ -66,11 +66,11 @@ import org.slf4j.LoggerFactory;
 public class PromptOllama extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqStr("hostURL", "modelName")
-      .optNum("timeout")
-      .optBool("requireJSON")
-      .optStr("systemPrompt", "update_mode")
-      .optList("fields", new TypeReference<List<String>>() {});
+      .requiredString("hostURL", "modelName")
+      .optionalNumber("timeout")
+      .optionalBoolean("requireJSON")
+      .optionalString("systemPrompt", "update_mode")
+      .optionalList("fields", new TypeReference<List<String>>() {});
 
   private static final Logger log = LoggerFactory.getLogger(PromptOllama.class);
   private static final ObjectMapper mapper = new ObjectMapper();

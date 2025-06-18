@@ -47,10 +47,10 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
 public class PineconeIndexer extends Indexer {
 
   public static final Spec SPEC = Spec.indexer()
-      .reqStr("apiKey", "index")
-      .optParent("namespaces", new TypeReference<Map<String, Object>>() {})
-      .optList("metadataFields", new TypeReference<List<String>>(){})
-      .optStr("mode", "defaultEmbeddingField");
+      .requiredString("apiKey", "index")
+      .optionalParent("namespaces", new TypeReference<Map<String, Object>>() {})
+      .optionalList("metadataFields", new TypeReference<List<String>>(){})
+      .optionalString("mode", "defaultEmbeddingField");
 
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
   private static final Integer MAX_PINECONE_BATCH_SIZE = 1000;

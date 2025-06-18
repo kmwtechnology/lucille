@@ -49,12 +49,12 @@ import org.slf4j.LoggerFactory;
 public class DictionaryLookup extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("source", new TypeReference<List<String>>(){})
-      .reqList("dest", new TypeReference<List<String>>(){})
-      .reqStr("dict_path")
-      .optBool("use_payloads", "ignore_case", "set_only", "ignore_missing_source")
-      .optStr("update_mode")
-      .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .requiredString("dict_path")
+      .optionalBoolean("use_payloads", "ignore_case", "set_only", "ignore_missing_source")
+      .optionalString("update_mode")
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
 
   private final List<String> sourceFields;
   private final List<String> destFields;

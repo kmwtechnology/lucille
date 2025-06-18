@@ -37,8 +37,8 @@ import org.slf4j.LoggerFactory;
 public class OpenSearchIndexer extends Indexer {
 
   public static final Spec SPEC = Spec.indexer()
-      .reqStr("index", "url")
-      .optBool("update", "acceptInvalidCert");
+      .requiredString("index", "url")
+      .optionalBoolean("update", "acceptInvalidCert");
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 

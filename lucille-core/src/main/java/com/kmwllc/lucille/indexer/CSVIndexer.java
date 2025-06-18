@@ -24,9 +24,9 @@ import java.util.List;
 public class CSVIndexer extends Indexer {
 
   public static final Spec SPEC = Spec.indexer()
-      .reqStr("path")
-      .reqList("columns", new TypeReference<List<String>>(){})
-      .optBool("includeHeader", "append");
+      .requiredString("path")
+      .requiredList("columns", new TypeReference<List<String>>(){})
+      .optionalBoolean("includeHeader", "append");
 
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
 

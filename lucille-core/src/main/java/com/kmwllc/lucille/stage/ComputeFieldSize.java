@@ -19,7 +19,7 @@ import com.typesafe.config.Config;
 public class ComputeFieldSize extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqStr("source", "dest");
+      .requiredString("source", "dest");
 
   private final String source;
   private final String destination;

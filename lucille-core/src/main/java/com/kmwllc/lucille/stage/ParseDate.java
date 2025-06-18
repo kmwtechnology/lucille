@@ -41,11 +41,11 @@ import java.util.stream.Collectors;
 public class ParseDate extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("source", new TypeReference<List<String>>(){})
-      .reqList("dest", new TypeReference<List<String>>(){})
-      .optList("format_strs", new TypeReference<List<String>>(){})
-      .optList("formatters", Spec.withoutDefaults().reqStr("class"))
-      .optStr("time_zone_id", "update_mode");
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .optionalList("format_strs", new TypeReference<List<String>>(){})
+      .optionalList("formatters", Spec.withoutDefaults().requiredString("class"))
+      .optionalString("time_zone_id", "update_mode");
 
   private final List<BiFunction<String, ZoneId, ZonedDateTime>> formatters;
   private final List<DateTimeFormatter> formats;

@@ -45,11 +45,11 @@ import java.util.regex.Pattern;
 public class ReplacePatterns extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("source", new TypeReference<List<String>>(){})
-      .reqList("dest", new TypeReference<List<String>>(){})
-      .reqList("regex", new TypeReference<List<String>>(){})
-      .optStr("replacement", "replacement_field", "update_mode")
-      .optBool("ignore_case", "multiline", "dotall", "literal");
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .requiredList("regex", new TypeReference<List<String>>(){})
+      .optionalString("replacement", "replacement_field", "update_mode")
+      .optionalBoolean("ignore_case", "multiline", "dotall", "literal");
 
   private final List<String> sourceFields;
   private final List<String> destFields;

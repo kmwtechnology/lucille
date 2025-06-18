@@ -54,13 +54,13 @@ import java.util.stream.Collectors;
 public class ExtractEntities extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .reqList("dictionaries", new TypeReference<List<String>>(){})
-      .reqList("source", new TypeReference<List<String>>(){})
-      .reqList("dest", new TypeReference<List<String>>(){})
-      .optBool("ignore_case", "only_whitespace_separated", "stop_on_hit",
+      .requiredList("dictionaries", new TypeReference<List<String>>(){})
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .optionalBoolean("ignore_case", "only_whitespace_separated", "stop_on_hit",
           "only_whole_words", "ignore_overlaps", "use_payloads")
-      .optStr("update_mode", "entity_field")
-      .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
+      .optionalString("update_mode", "entity_field")
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 

@@ -23,8 +23,8 @@ import java.util.Map;
 public class SetStaticValues extends Stage {
 
   public static final Spec SPEC = Spec.stage()
-      .optStr("update_mode")
-      .reqParent("static_values", new TypeReference<Map<String, Object>>() {});
+      .optionalString("update_mode")
+      .requiredParent("static_values", new TypeReference<Map<String, Object>>() {});
 
   private final Map<String, Object> staticValues;
   private final UpdateMode updateMode;

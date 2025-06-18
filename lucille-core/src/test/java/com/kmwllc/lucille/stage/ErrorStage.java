@@ -7,11 +7,10 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
-import java.util.List;
 
 public class ErrorStage extends Stage {
 
-  public static final Spec SPEC = Spec.stage().optBool("exceptionOnStart");
+  public static final Spec SPEC = Spec.stage().optionalBoolean("exceptionOnStart");
 
   private boolean exceptionOnStart = false;
 
