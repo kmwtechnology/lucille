@@ -27,6 +27,8 @@ import java.util.List;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 public class FileConnectorStateManagerTest {
 
@@ -253,6 +255,7 @@ public class FileConnectorStateManagerTest {
 
   // empty state configuration should mean we create a database for the user.
   @Test
+  @Execution(ExecutionMode.SAME_THREAD)
   public void testEmbeddedCreationEmptyConfig() throws Exception {
     File stateDirectory = new File("state");
     File dbFile = new File("state/connector.mv.db");
@@ -260,16 +263,19 @@ public class FileConnectorStateManagerTest {
     assertFalse(stateDirectory.isDirectory());
     assertFalse(dbFile.isFile());
 
+
+    Config emptyConfig = ConfigFactory.empty();
+
+    FileConnectorStateManager stateMgr = new FileConnectorStateManager(emptyConfig, "connector");
+
     try {
-      Config emptyConfig = ConfigFactory.empty();
-
-      FileConnectorStateManager stateMgr = new FileConnectorStateManager(emptyConfig, "connector");
-
       stateMgr.init();
 
       assertTrue(stateDirectory.isDirectory());
       assertTrue(dbFile.isFile());
     } finally {
+      stateMgr.shutdown();
+
       Files.delete(dbFile.toPath());
       Files.delete(stateDirectory.toPath());
     }
