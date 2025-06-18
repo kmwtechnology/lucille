@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.indexer;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -23,8 +24,9 @@ import java.util.List;
 public class CSVIndexer extends Indexer {
 
   public static Spec SPEC = Spec.indexer()
-      .withRequiredProperties("columns", "path")
-      .withOptionalProperties("includeHeader", "append");
+      .reqStr("path")
+      .reqList("columns", new TypeReference<List<String>>(){})
+      .optBool("includeHeader", "append");
 
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
 

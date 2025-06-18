@@ -142,7 +142,7 @@ public class FileConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public static final Spec SPEC = Spec.connector()
-      .withRequiredProperties("pathsToStorage")
+      .reqList("pathsToStorage", new TypeReference<List<String>>(){})
       .optParent(
           Spec.parent("filterOptions")
               .optList("includes", new TypeReference<List<String>>(){})
