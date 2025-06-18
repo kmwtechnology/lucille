@@ -16,7 +16,11 @@ public class ObjectPropertyTest {
 
   @Test
   public void testParentValidation() {
-    ParentSpec filterOptionsSpec = Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "lastModifiedCutoff");
+    ParentSpec filterOptionsSpec = Spec.parent("filterOptions")
+        .optList("includes", new TypeReference<List<String>>(){})
+        .optList("excludes", new TypeReference<List<String>>(){})
+        .optStr("lastModifiedCutoff");
+
     Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
 
     Config filterOptions = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ObjectProperty/filterOptions.conf");
@@ -55,7 +59,11 @@ public class ObjectPropertyTest {
   @Test
   public void testTypeJson() {
     // 1. an ObjectProperty w/ a ParentSpec
-    ParentSpec filterOptionsSpec = Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "lastModifiedCutoff");
+    ParentSpec filterOptionsSpec = Spec.parent("filterOptions")
+        .optList("includes", new TypeReference<List<String>>(){})
+        .optList("excludes", new TypeReference<List<String>>(){})
+        .optStr("lastModifiedCutoff");
+
     Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
 
     JsonNode typeNode = parentProperty.typeJson();

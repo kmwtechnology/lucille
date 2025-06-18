@@ -37,12 +37,6 @@ public abstract class Indexer implements Runnable {
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
 
-  // Using a String[] so it can be passed directly to varargs for a Spec
-  private static final String[] OPTIONAL_INDEXER_CONFIG_PROPERTIES = new String[]{"type", "class", "idOverrideField",
-      "indexOverrideField", "ignoreFields", "deletionMarkerField",
-      "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "batchSize", "batchTimeout", "logRate",
-      "versionType", "routingField", "sendEnabled"};
-
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
@@ -417,7 +411,10 @@ public abstract class Indexer implements Runnable {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     Config indexerConfig = config.getConfig("indexer");
     Spec.withoutDefaults()
-        .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
+        .optStr("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
+            "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
+        .optNum("batchSize", "batchTimeout", "logRate")
+        .optBool("sendEnabled")
         .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.

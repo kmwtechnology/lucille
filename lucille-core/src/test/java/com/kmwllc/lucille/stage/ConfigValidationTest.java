@@ -180,12 +180,12 @@ public class ConfigValidationTest {
     Spec spec = Spec.connector()
         .reqParent(
             Spec.parent("required")
-                .withRequiredProperties("requiredProp")
-                .withOptionalProperties("optionalProp"))
+                .reqNum("requiredProp")
+                .optNum("optionalProp"))
         .optParent(
             Spec.parent("optional")
-                .withRequiredProperties("requiredProp")
-                .withOptionalProperties("optionalProp"));
+                .reqNum("requiredProp")
+                .optNum("optionalProp"));
 
     // All of the properties allowed are present.
     spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/allPresent.conf"), "test");

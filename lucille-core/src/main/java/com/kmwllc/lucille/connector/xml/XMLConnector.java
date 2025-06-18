@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector.xml;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -40,8 +41,9 @@ public class XMLConnector extends AbstractConnector {
   private XMLFileHandler xmlFileHandler;
 
   public static final Spec SPEC = Spec.connector()
-      .withRequiredProperties("xmlRootPath", "xmlIdPath", "encoding", "outputField")
-      .withOptionalProperties("filePaths", "urlFiles");
+      .reqStr("xmlRootPath", "xmlIdPath", "encoding", "outputField")
+      .optList("filePaths", new TypeReference<List<String>>(){})
+      .optList("urlFIles", new TypeReference<List<String>>(){});
 
   public XMLConnector(Config config) {
     super(config);
