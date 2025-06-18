@@ -228,31 +228,6 @@ public class FileConnectorStateManagerTest {
     assertEquals(4, messenger2.getDocsSentForProcessing().size());
   }
 
-  @Test
-  public void testTraversalWithStateAndExclusion() throws Exception {
-    String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/Example").toAbsolutePath() + "/";
-    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateAndExclude.conf");
-
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-
-    Connector connector = new FileConnector(config);
-    connector.execute(publisher);
-    assertEquals(16, messenger.getDocsSentForProcessing().size());
-
-    // Even though "skipFile.txt" is excluded, we should still have a state entry for it, without a lastPublished time
-    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
-        ResultSet skipFile1Results = RunScript.execute(connection, new StringReader("SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name='" + fileConnectorExampleDir + "skipFile.txt'"));
-        ResultSet skipFile2Results = RunScript.execute(connection, new StringReader("SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name='" + fileConnectorExampleDir + "subdir/skipFile.txt'"))) {
-
-      assertTrue(skipFile1Results.next());
-      assertNull(skipFile1Results.getTimestamp("last_published"));
-
-      assertTrue(skipFile2Results.next());
-      assertNull(skipFile2Results.getTimestamp("last_published"));
-    }
-  }
-
   // empty state configuration should mean we create a database for the user.
   @Test
   @Execution(ExecutionMode.SAME_THREAD)
@@ -279,5 +254,50 @@ public class FileConnectorStateManagerTest {
       Files.delete(dbFile.toPath());
       Files.delete(stateDirectory.toPath());
     }
+  }
+
+  // FileConnector tests taking advantage of our embedded test database
+  @Test
+  public void testTraversalWithStateAndExclusion() throws Exception {
+    String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/example").toAbsolutePath() + "/";
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateAndExclude.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector connector = new FileConnector(config);
+    connector.execute(publisher);
+    assertEquals(16, messenger.getDocsSentForProcessing().size());
+
+    // Even though "skipFile.txt" is excluded, we should still have a state entry for it, without a lastPublished time
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet skipFile1Results = RunScript.execute(connection, new StringReader("SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name='" + fileConnectorExampleDir + "skipFile.txt'"));
+        ResultSet skipFile2Results = RunScript.execute(connection, new StringReader("SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name='" + fileConnectorExampleDir + "subdir/skipFile.txt'"))) {
+
+      assertTrue(skipFile1Results.next());
+      assertNull(skipFile1Results.getTimestamp("last_published"));
+
+      assertTrue(skipFile2Results.next());
+      assertNull(skipFile2Results.getTimestamp("last_published"));
+    }
+  }
+
+  @Test
+  public void testTraversalWithStateAndMultiplePaths() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector connector = new FileConnector(config);
+    connector.execute(publisher);
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
+
+    // second run, nothing should get published
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    connector.execute(publisher);
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
   }
 }
