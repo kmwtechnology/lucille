@@ -15,17 +15,19 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The <code>FileConnector</code> traverses through a file system, starting at a given directory, and publishes a Document for each
+ * The <code>FileConnector</code> traverses through a file system, starting at a given directory (or directories), and publishes a Document for each
  * file it encounters. It can traverse through the local file system, Azure Blob Storage, Google Cloud, and S3.
  *
  * <br> Config Parameters:
  * <ul>
- *   <li>pathToStorage (String): path to storage, can be local file system or cloud bucket/container. Examples:
+ *   <li>pathsToStorage (List &lt;String&gt;): The paths to storage you want to traverse. Can be local file paths or cloud storage URIs. Make sure to include the necessary configuration for cloud providers as they are included in your pathsToStorage. Examples:
  *    <ul>
  *       <li>/path/to/storage/in/local/filesystem</li>
  *       <li>gs://bucket-name/folder/</li>
@@ -58,8 +60,8 @@ import org.slf4j.LoggerFactory;
  *   <li>getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.</li>
  *   <li>handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. See important notes below.</li>
  *   <li>handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. See important notes below.</li>
- *   <li>moveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system</li>
- *   <li>moveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system</li>
+ *   <li>moveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
+ *   <li>moveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
  *   <li>csv (Map, Optional): config options for handling csv type files. Config will be passed to CSVFileHandler.</li>
  *   <li>json (Map, Optional): config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.</li>
  *   <li>xml (Map, Optional): config options for handling xml type files. Config will be passed to XMLFileHandler.</li>
@@ -129,8 +131,6 @@ import org.slf4j.LoggerFactory;
 
 public class FileConnector extends AbstractConnector {
 
-  private static final Set<String> CLOUD_STORAGE_CLIENT_KEYS = Set.of("s3", "azure", "gcp");
-
   public static final String FILE_PATH = "file_path";
   public static final String MODIFIED = "file_modification_date";
   public static final String CREATED = "file_creation_date";
@@ -166,19 +166,19 @@ public class FileConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
-  private final String pathToStorage;
   private final Config fileOptions;
   private final Config filterOptions;
-  private StorageClient storageClient;
-  private final URI storageURI;
+  private final List<URI> storageURIs;
+  private final Map<String, StorageClient> storageClientMap;
 
   private final FileConnectorStateManager stateManager;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config, Spec.connector()
-        .withRequiredProperties("pathToStorage")
+        .withRequiredProperties("pathsToStorage")
         .withOptionalParents(
-            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "lastModifiedCutoff", "lastPublishedCutoff"),
+            Spec.parent("filterOptions")
+                .withOptionalProperties("includes", "excludes", "lastModifiedCutoff", "lastPublishedCutoff"),
             Spec.parent("fileOptions")
                 .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
                     "moveToErrorFolder")
@@ -191,21 +191,29 @@ public class FileConnector extends AbstractConnector {
             S3_PARENT_SPEC
         ));
 
-    this.pathToStorage = config.getString("pathToStorage");
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
+    this.storageClientMap = StorageClient.createClients(config);
 
-    try {
-      this.storageURI = new URI(pathToStorage);
-      log.debug("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
-    } catch (URISyntaxException e) {
-      throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
+    List<String> pathsToStorage = config.getStringList("pathsToStorage");
+    this.storageURIs = new ArrayList<>();
+
+    for (String path : pathsToStorage) {
+      try {
+        URI newStorageURI = new URI(path);
+        storageURIs.add(newStorageURI);
+        log.debug("FileConnector to use path {} with scheme {}", path, newStorageURI.getScheme());
+      } catch (URISyntaxException e) {
+        throw new ConnectorException("Invalid path to storage: " + path, e);
+      }
     }
 
     this.stateManager = config.hasPath("state") ? new FileConnectorStateManager(config.getConfig("state"), getName()) : null;
 
-    if (CLOUD_STORAGE_CLIENT_KEYS.stream().filter(config::hasPath).count() > 1) {
-      log.warn("Config for FileConnector contains options for more than one cloud provider.");
+    // Cannot specify multiple storage paths and a moveTo of some kind
+    if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath(
+        "fileOptions.moveToErrorFolder"))) {
+      throw new IllegalArgumentException("FileConnector does not support multiple pathsToStorage and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
 
     if (filterOptions.hasPath("lastPublishedCutoff") && !config.hasPath("state")) {
@@ -216,36 +224,52 @@ public class FileConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      storageClient = StorageClient.create(storageURI, config);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while creating storage client.", e);
-    }
-
-    try {
-      storageClient.init();
-      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), fileOptions, filterOptions);
+      try {
+        for (StorageClient client : storageClientMap.values()) {
+          client.init();
+        }
+      } catch (IOException e) {
+        throw new ConnectorException("Error initializing a StorageClient.", e);
+      }
 
       if (stateManager != null) {
-        stateManager.init();
-        storageClient.traverse(publisher, params, stateManager);
-      } else {
-        storageClient.traverse(publisher, params);
+        try {
+          stateManager.init();
+        } catch (Exception e) {
+          throw new ConnectorException("Error occurred initializing StorageClientStateManager.", e);
+        }
       }
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while initializing client/state or publishing files.", e);
+
+      for (URI pathToTraverse : storageURIs) {
+        String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
+        StorageClient storageClient = storageClientMap.get(clientKey);
+
+        if (storageClient == null) {
+          throw new ConnectorException("No StorageClient was available for (" + pathToTraverse + "). Did you include the necessary configuration?");
+        }
+
+        TraversalParams params = new TraversalParams(pathToTraverse, getDocIdPrefix(), fileOptions, filterOptions);
+
+        try {
+          storageClient.traverse(publisher, params, stateManager);
+        } catch (Exception e) {
+          throw new ConnectorException("Error occurred while traversing " + pathToTraverse + ".", e);
+        }
+      }
     } finally {
-      try {
-        // closes clients and clears file handlers if any
-        storageClient.shutdown();
-      } catch (IOException e) {
-        throw new ConnectorException("Error occurred while shutting down client.", e);
+      for (StorageClient client : storageClientMap.values()) {
+        try {
+          client.shutdown();
+        } catch (IOException e) {
+          log.warn("Error shutting down StorageClient.", e);
+        }
       }
 
       if (stateManager != null) {
         try {
           stateManager.shutdown();
         } catch (SQLException e) {
-          throw new ConnectorException("Error occurred while shutting down FileConnectorStateManager.", e);
+          log.warn("Error occurred while shutting down FileConnectorStateManager.", e);
         }
       }
     }

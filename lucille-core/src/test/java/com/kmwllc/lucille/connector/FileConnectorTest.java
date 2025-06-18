@@ -6,6 +6,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kmwllc.lucille.connector.storageclient.LocalStorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Connector;
@@ -24,10 +26,12 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -48,17 +52,20 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
 
-    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
-      StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
-          .thenReturn(storageClient);
+    try (MockedStatic<StorageClient> mockedStaticStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient mockCloudClient = mock(StorageClient.class);
+      mockedStaticStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "gs", mockCloudClient));
 
+      Connector connector = new FileConnector(config);
       connector.execute(publisher);
-      verify(storageClient, times(1)).init();
-      verify(storageClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
-      verify(storageClient, times(1)).shutdown();
+
+      verify(mockCloudClient, times(1)).init();
+      verify(mockCloudClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(mockCloudClient, times(1)).shutdown();
     }
   }
 
@@ -67,17 +74,26 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multipleCloud.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
-      StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
-          .thenReturn(storageClient);
+      StorageClient mockForGoogle = mock(StorageClient.class);
+      StorageClient mockForAzure = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "gs", mockForGoogle,
+              "https", mockForAzure));
 
+      Connector connector = new FileConnector(config);
       connector.execute(publisher);
-      verify(storageClient, times(1)).init();
-      verify(storageClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
-      verify(storageClient, times(1)).shutdown();
+      verify(mockForGoogle, times(1)).init();
+      verify(mockForGoogle, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(mockForGoogle, times(1)).shutdown();
+
+      // Azure will get started / shutdown, but not traversed
+      verify(mockForAzure, times(1)).init();
+      verify(mockForAzure, times(0)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(mockForAzure, times(1)).shutdown();
     }
   }
 
@@ -86,19 +102,19 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
 
-    try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
-      StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
-          .thenReturn(storageClient);
+    try (MockedStatic<StorageClient> mockedStaticStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient mockCloudClient = mock(StorageClient.class);
+      mockedStaticStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "gs", mockCloudClient));
 
-      // init method did not declare to throw any Exception, so using RuntimeException
-      // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
-      doThrow(new RuntimeException("Failed to initialize client")).when(storageClient).init();
+      Connector connector = new FileConnector(config);
+
+      // nothing takes place if a client fails to initialize
+      doThrow(new IOException("Failed to initialize client")).when(mockCloudClient).init();
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));
-      // verify that shutdown is called even gettingClient fails
-      verify(storageClient, times(1)).shutdown();
     }
   }
 
@@ -107,18 +123,21 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
-      StorageClient storageClient = mock(StorageClient.class);
-      mockCloudStorageClient.when(() -> StorageClient.create(any(), any()))
-          .thenReturn(storageClient);
+      StorageClient mockCloudClient = mock(StorageClient.class);
+      mockCloudStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "gs", mockCloudClient));
+
+      Connector connector = new FileConnector(config);
 
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
-      doThrow(new Exception("Failed to publish files")).when(storageClient).traverse(any(Publisher.class), any(TraversalParams.class));
+      doThrow(new Exception("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class));
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));
-      // verify that shutdown is called even gettingClient fails
-      verify(storageClient, times(1)).shutdown();
+      // verify that shutdown is called, even after a traversal fails
+      verify(mockCloudClient, times(1)).shutdown();
     }
   }
 
@@ -268,6 +287,77 @@ public class FileConnectorTest {
         "        <salary currency=\"EUR\">8000</salary>\n" +
         "        <bio>I enjoy reading</bio>\n" +
         "    </staff>", doc16.getString("xml"));
+  }
+
+  @Test
+  public void testMultiplePathsSameClient() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    assertEquals(9, documentList.size());
+  }
+
+  @Test
+  public void testMultiplePathsDifferentClients() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocalAndCloud.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector connector;
+    try (MockedStatic<StorageClient> mockStaticStorageClient = mockStatic(StorageClient.class)) {
+      StorageClient s3StorageClient = mock(StorageClient.class);
+      StorageClient googleStorageClient = mock(StorageClient.class);
+
+      mockStaticStorageClient.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "s3", s3StorageClient,
+              "gs", googleStorageClient));
+
+      doAnswer(invocationOnMock -> {
+        publisher.publish(Document.create("a"));
+        publisher.publish(Document.create("b"));
+        publisher.publish(Document.create("c"));
+        return null;
+      }).when(s3StorageClient).traverse(any(), any());
+
+      doAnswer(invocationOnMock -> {
+        publisher.publish(Document.create("d"));
+        publisher.publish(Document.create("e"));
+        publisher.publish(Document.create("f"));
+        return null;
+      }).when(googleStorageClient).traverse(any(), any());
+
+      connector = new FileConnector(config);
+    }
+
+    connector.execute(publisher);
+
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+    assertEquals(9, documentList.size());
+  }
+
+  @Test
+  public void testUnsupportedClientPath() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsSomeInvalid.conf");
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(config);
+
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+  }
+
+  @Test
+  public void testPreventMultiplePathsAndMoveTo() throws Exception {
+    Config config1 = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsMoveToProcessing.conf");
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(config1));
+
+    Config config2 = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsMoveToError.conf");
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(config2));
   }
 
   // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
