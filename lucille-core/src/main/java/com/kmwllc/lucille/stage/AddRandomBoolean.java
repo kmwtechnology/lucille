@@ -28,7 +28,7 @@ public class AddRandomBoolean extends Stage {
   private final int percentTrue;
 
   public AddRandomBoolean(Config config) throws StageException {
-    super(config, SPEC);
+    super(config);
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.percentTrue = ConfigUtils.getOrDefault(config, "percent_true", 50);

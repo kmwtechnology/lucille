@@ -22,14 +22,17 @@ import com.typesafe.config.Config;
  */
 public class SplitFieldValues extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("inputField", "outputField",
+          "delimiter", "trimWhitespace");
+
   private boolean trimWhitespace = true;
   private String inputField;
   private String outputField;
   private String delimiter;
 
   public SplitFieldValues(Config config) {
-    super(config, Spec.stage().withRequiredProperties("inputField", "outputField",
-        "delimiter", "trimWhitespace"));
+    super(config);
 
     inputField = config.getString("inputField");
     outputField = config.getString("outputField");

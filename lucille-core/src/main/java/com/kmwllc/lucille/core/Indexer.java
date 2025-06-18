@@ -81,12 +81,13 @@ public abstract class Indexer implements Runnable {
    * Creates the base implementation of an Indexer from the given parameters and validates it. Runs validation on the common "indexer"
    * config as well as the specific implementation's config, as either are present.
    *
+   * <p> All Indexer implementations should declare a <code>public static Spec SPEC</code> that defines the implementation's
+   * specific properties. For example, Elasticsearch needs <code>index</code>, <code>url</code>, etc.
+   *
    * @param config The root config for Lucille. (In other words, should potentially include both "indexer" and specific
    *               implementation config, like "solr" or "elasticsearch".)
-   * @param specificImplSpec A Spec for the specific Indexer implementation and its properties. Should define what is allowed in the
-   *                         config, for example, index, url, etc. for "elasticsearch".
    */
-  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId, Spec specificImplSpec) {
+  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
@@ -148,7 +149,7 @@ public abstract class Indexer implements Runnable {
     this.localRunId = localRunId;
 
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
-    validateIndexerConfig(config, specificImplSpec);
+    validateIndexerConfigs(config);
   }
 
   /**
@@ -404,17 +405,28 @@ public abstract class Indexer implements Runnable {
         });
   }
 
-  private void validateIndexerConfig(Config config, Spec specificImplSpec) {
-    // Validate the general "indexer" entry in the Config.
+  public Spec getImplementationSpec() {
+    try {
+      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
+    }
+  }
+
+  private void validateIndexerConfigs(Config config) {
+    // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     Config indexerConfig = config.getConfig("indexer");
     Spec.withoutDefaults()
         .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
         .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
-    if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
-      Config specificImplConfig = config.getConfig(getIndexerConfigKey());
-      specificImplSpec.validate(specificImplConfig, getIndexerConfigKey());
+    // This spec is unique to the implementation and must be public + static under "SPEC".
+    String indexerConfigKey = getIndexerConfigKey();
+
+    if (indexerConfigKey != null && config.hasPath(indexerConfigKey)) {
+      Config specificImplConfig = config.getConfig(indexerConfigKey);
+      getImplementationSpec().validate(specificImplConfig, indexerConfigKey);
     }
   }
 

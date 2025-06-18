@@ -31,13 +31,15 @@ import com.typesafe.config.Config;
  */
 public class HashFieldValueToBucket extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("field_name", "dest", "buckets");
+
   private final String fieldName;
   private final List<String> buckets;
   private final String destField;
   private final int numBuckets;
 
   public HashFieldValueToBucket(Config config) throws StageException {
-    super(config, Spec.stage().withRequiredProperties("field_name", "dest", "buckets"));
+    super(config);
     this.fieldName = config.getString("field_name");
     this.buckets = config.getStringList("buckets");
     this.destField = config.getString("dest");

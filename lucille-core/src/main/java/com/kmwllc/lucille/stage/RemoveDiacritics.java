@@ -23,11 +23,15 @@ import com.typesafe.config.Config;
  */
 public class RemoveDiacritics extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("source")
+      .withOptionalProperties("destination");
+
   private final String source;
   private final String destination;
 
   public RemoveDiacritics(Config config) throws StageException {
-    super(config, Spec.stage().withRequiredProperties("source").withOptionalProperties("destination"));
+    super(config);
     this.source = config.getString("source");
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);
   }

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.stage.CreateChildrenStage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -235,6 +236,8 @@ public class PipelineTest {
 
   private static class Stage1 extends Stage {
 
+    public static Spec SPEC = Spec.stage();
+
     public Stage1(Config conf) {
       super(conf);
     }
@@ -247,6 +250,8 @@ public class PipelineTest {
   }
 
   private static class Stage2 extends Stage {
+
+    public static Spec SPEC = Spec.stage();
 
     public Stage2(Config conf) {
       super(conf);
@@ -266,6 +271,8 @@ public class PipelineTest {
 
   private static class Stage3 extends Stage {
 
+    public static Spec SPEC = Spec.stage();
+
     public Stage3(Config conf) {
       super(conf);
     }
@@ -283,6 +290,8 @@ public class PipelineTest {
   }
 
   private static class Stage4 extends Stage {
+
+    public static Spec SPEC = Spec.stage();
 
     private boolean started = false;
 
@@ -306,7 +315,9 @@ public class PipelineTest {
     }
   }
 
-  private static class MarkingStage extends Stage {
+  public static class MarkingStage extends Stage {
+
+    public static Spec SPEC = Spec.stage();
 
     private String field;
 

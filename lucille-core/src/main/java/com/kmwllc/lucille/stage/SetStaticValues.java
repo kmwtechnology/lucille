@@ -22,13 +22,15 @@ import java.util.Map;
  */
 public class SetStaticValues extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("update_mode")
+      .reqParent("static_values", new TypeReference<Map<String, Object>>() {});
+
   private final Map<String, Object> staticValues;
   private final UpdateMode updateMode;
 
   public SetStaticValues(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("update_mode")
-        .reqParent("static_values", new TypeReference<Map<String, Object>>() {}));
+    super(config);
 
     staticValues = config.getConfig("static_values").root().unwrapped();
     updateMode = UpdateMode.fromConfig(config);

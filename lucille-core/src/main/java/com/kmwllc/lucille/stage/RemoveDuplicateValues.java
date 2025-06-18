@@ -19,10 +19,12 @@ import java.util.Map;
  */
 public class RemoveDuplicateValues extends Stage {
 
+  public static Spec SPEC = Spec.stage().reqParent("fieldMapping", new TypeReference<Map<String, Object>>() {});
+
   private final Map<String, Object> fieldMapping;
 
   public RemoveDuplicateValues(Config config) {
-    super(config, Spec.stage().reqParent("fieldMapping", new TypeReference<Map<String, Object>>() {}));
+    super(config);
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
 

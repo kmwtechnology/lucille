@@ -46,6 +46,16 @@ import org.apache.commons.io.FilenameUtils;
  * See FileConnector for necessary arguments.
  */
 public class ApplyFileHandlers extends Stage {
+
+  public static Spec SPEC = Spec.stage()
+      .optParent(
+          Spec.parent("handlerOptions")
+              .optParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
+          FileConnector.GCP_PARENT_SPEC,
+          FileConnector.AZURE_PARENT_SPEC,
+          FileConnector.S3_PARENT_SPEC)
+      .withOptionalProperties("filePathField", "fileContentField");
+
   private final Config handlerOptions;
 
   private final String filePathField;
@@ -59,14 +69,7 @@ public class ApplyFileHandlers extends Stage {
    * @param config Configuration for the ApplyFileHandlers stage.
    */
   public ApplyFileHandlers(Config config) {
-    super(config, Spec.stage()
-        .optParent(
-            Spec.parent("handlerOptions")
-                .optParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
-            FileConnector.GCP_PARENT_SPEC,
-            FileConnector.AZURE_PARENT_SPEC,
-            FileConnector.S3_PARENT_SPEC)
-        .withOptionalProperties("filePathField", "fileContentField"));
+    super(config);
 
     this.handlerOptions = config.getConfig("handlerOptions");
     if (handlerOptions.isEmpty()) {

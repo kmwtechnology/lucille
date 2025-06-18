@@ -28,15 +28,18 @@ import org.slf4j.LoggerFactory;
  */
 public class EmitNestedChildren extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .optParent("fields_to_copy", new TypeReference<Map<String, String>>() {})
+      .withOptionalProperties("drop_parent", "update_mode");
+
   private final boolean dropParent;
   private final Map<String,Object> fieldsToCopy;
   private final UpdateMode updateMode;
   private static final Logger log = LoggerFactory.getLogger(EmitNestedChildren.class);
 
   public EmitNestedChildren(Config config) {
-    super(config, Spec.stage()
-        .optParent("fields_to_copy", new TypeReference<Map<String, String>>() {})
-        .withOptionalProperties("drop_parent", "update_mode"));
+    super(config);
+
     this.dropParent = config.hasPath("drop_parent") ? config.getBoolean("drop_parent") : false;
     this.fieldsToCopy = config.hasPath("fields_to_copy") ? config.getConfig("fields_to_copy").root().unwrapped() : Map.of();
     this.updateMode = UpdateMode.fromConfig(config);

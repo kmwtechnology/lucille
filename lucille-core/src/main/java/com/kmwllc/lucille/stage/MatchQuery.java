@@ -29,6 +29,9 @@ public class MatchQuery extends Stage {
   public static final String QUERIES_PARAM = "queries";
   public static final String MATCHEDQUERIES_PARAM = "matchedQueriesField";
 
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM);
+
   // the list of fields to run the queries against
   private final List<String> fieldsList;
 
@@ -41,8 +44,7 @@ public class MatchQuery extends Stage {
 
 
   public MatchQuery(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties(FIELDS_PARAM, QUERIES_PARAM, MATCHEDQUERIES_PARAM));
+    super(config);
     fieldsList = config.getStringList(FIELDS_PARAM);
     queryList = config.getObjectList(QUERIES_PARAM);
     matchedQueriesField = config.getString(MATCHEDQUERIES_PARAM);

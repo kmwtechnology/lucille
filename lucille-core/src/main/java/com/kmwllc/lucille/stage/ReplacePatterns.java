@@ -43,6 +43,9 @@ import java.util.regex.Pattern;
  */
 public class ReplacePatterns extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "dest", "regex")
+      .withOptionalProperties("replacement", "replacement_field", "update_mode", "ignore_case", "multiline", "dotall", "literal");
+
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final List<String> regexExprs;
@@ -58,8 +61,7 @@ public class ReplacePatterns extends Stage {
   private List<Pattern> patterns;
 
   public ReplacePatterns(Config config) throws StageException {
-    super(config, Spec.stage().withRequiredProperties("source", "dest", "regex")
-        .withOptionalProperties("replacement", "replacement_field", "update_mode", "ignore_case", "multiline", "dotall", "literal"));
+    super(config);
 
     this.patterns = new ArrayList<>();
 

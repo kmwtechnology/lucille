@@ -24,6 +24,10 @@ import java.util.List;
  */
 public class Contains extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("contains", "output", "value", "fields")
+      .withOptionalProperties("ignoreCase");
+
   private final List<String> contains;
   private final String output;
   private final String value;
@@ -38,9 +42,7 @@ public class Contains extends Stage {
    * @param config Configuration for the Contains stage.
    */
   public Contains(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("contains", "output", "value", "fields")
-        .withOptionalProperties("ignoreCase"));
+    super(config);
 
     this.contains = config.getStringList("contains");
     this.output = config.getString("output");

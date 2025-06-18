@@ -42,6 +42,11 @@ import org.slf4j.LoggerFactory;
  */
 
 public class OpenAIEmbed extends Stage {
+
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("source", "embed_document", "embed_children", "api_key")
+      .withOptionalProperties("dest", "model_name", "dimensions");
+
   // this is the token limit for all embedding models from openai
   private static final int DEFAULT_OPENAI_TOKEN_LIMIT = 8191;
   private final String API_KEY;
@@ -57,9 +62,8 @@ public class OpenAIEmbed extends Stage {
   private static final Logger log = LoggerFactory.getLogger(OpenAIEmbed.class);
 
   public OpenAIEmbed(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withRequiredProperties("source", "embed_document", "embed_children", "api_key")
-        .withOptionalProperties("dest", "model_name", "dimensions"));
+    super(config);
+
     this.source = config.getString("source");
     this.embedDocument = config.getBoolean("embed_document");
     this.embedChildren = config.getBoolean("embed_children");

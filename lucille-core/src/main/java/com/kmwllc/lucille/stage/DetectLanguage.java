@@ -35,6 +35,10 @@ import java.util.List;
  */
 public class DetectLanguage extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "language_field")
+      .withOptionalProperties("language_confidence_field", "min_length", "max_length",
+          "min_probability", "update_mode");
+
   private final static String profileResourcesLoc = "profiles";
 
   private final static String[] profiles = {"af", "ar", "bg", "bn", "cs", "da", "de", "el", "en", "es", "et", "fa",
@@ -57,9 +61,7 @@ public class DetectLanguage extends Stage {
    * @param config Configuration for the DetectLanguage stage.
    */
   public DetectLanguage(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "language_field")
-        .withOptionalProperties("language_confidence_field", "min_length", "max_length",
-            "min_probability", "update_mode"));
+    super(config);
 
     this.sourceFields = config.getStringList("source");
     this.languageField = config.getString("language_field");

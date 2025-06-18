@@ -36,6 +36,10 @@ import static com.dashjoin.jsonata.Jsonata.jsonata;
  */
 public class ApplyJSONata extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("source", "destination")
+      .withRequiredProperties("expression");
+
   private static final Logger log = LoggerFactory.getLogger(ApplyJSONata.class);
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -45,7 +49,7 @@ public class ApplyJSONata extends Stage {
   private Jsonata parsedExpression;
 
   public ApplyJSONata(Config config) throws StageException {
-    super(config, Spec.stage().withOptionalProperties("source", "destination").withRequiredProperties("expression"));
+    super(config);
     this.source = ConfigUtils.getOrDefault(config, "source", null);
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);
     this.expressionStr = config.getString("expression");

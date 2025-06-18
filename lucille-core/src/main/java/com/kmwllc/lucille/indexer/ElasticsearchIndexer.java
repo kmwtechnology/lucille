@@ -33,6 +33,12 @@ import java.util.Optional;
 // TODO: upgrade the ElasticsearchIndexer to use the Elasticsearch Java API Client
 public class ElasticsearchIndexer extends Indexer {
 
+  public static Spec SPEC = Spec.indexer()
+      .withRequiredProperties("index", "url")
+      .withOptionalProperties("update", "parentName", "acceptInvalidCert")
+      // TODO: might be able to be more specific, have to look into it more
+      .optParent("join", new TypeReference<Map<String, Object>>() {});
+
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
 
   private final ElasticsearchClient client;
@@ -46,11 +52,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client,
       String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withRequiredProperties("index", "url")
-        .withOptionalProperties("update", "parentName", "acceptInvalidCert")
-        // TODO: might be able to be more specific
-        .optParent("join", new TypeReference<Map<String, Object>>() {}));
+    super(config, messenger, metricsPrefix, localRunId);
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(

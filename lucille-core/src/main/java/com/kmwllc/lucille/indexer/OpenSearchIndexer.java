@@ -53,7 +53,7 @@ public class OpenSearchIndexer extends Indexer {
   private final boolean update;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, SPEC);
+    super(config, messenger, metricsPrefix, localRunId);
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(

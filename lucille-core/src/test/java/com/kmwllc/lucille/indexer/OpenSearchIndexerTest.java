@@ -16,6 +16,7 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -884,7 +885,9 @@ public class OpenSearchIndexerTest {
     indexer.closeConnection();
   }
 
-  private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
+  public static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
+
+    public static Spec SPEC = OpenSearchIndexer.SPEC;
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessenger messenger,
         OpenSearchClient client, String metricsPrefix) {

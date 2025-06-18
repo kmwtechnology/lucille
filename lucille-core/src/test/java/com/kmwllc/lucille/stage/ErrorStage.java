@@ -3,12 +3,15 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
 import java.util.List;
 
 public class ErrorStage extends Stage {
+
+  public static Spec SPEC = Spec.stage().optBool("exceptionOnStart");
 
   private boolean exceptionOnStart = false;
 

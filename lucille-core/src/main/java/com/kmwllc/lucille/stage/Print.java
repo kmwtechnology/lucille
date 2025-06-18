@@ -32,6 +32,9 @@ import java.util.List;
  */
 public class Print extends Stage {
 
+  public static Spec SPEC = Spec.stage().withOptionalProperties("shouldLog", "outputFile",
+      "overwriteFile", "excludeFields", "appendThreadName");
+
   private static final Logger log = LoggerFactory.getLogger(Print.class);
 
   private final String outputFilePath;
@@ -43,8 +46,7 @@ public class Print extends Stage {
   private BufferedWriter writer;
 
   public Print(Config config) {
-    super(config, Spec.stage().withOptionalProperties("shouldLog", "outputFile",
-        "overwriteFile", "excludeFields", "appendThreadName"));
+    super(config);
 
     this.outputFilePath = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;

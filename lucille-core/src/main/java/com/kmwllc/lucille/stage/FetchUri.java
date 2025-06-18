@@ -51,6 +51,12 @@ import org.slf4j.LoggerFactory;
  * socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.
  */
 public class FetchUri extends Stage {
+
+  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "dest")
+      .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
+          "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "status_code_retry_list")
+      .optParent("headers", new TypeReference<Map<String, Object>>() {});
+
   private static final Logger log = LoggerFactory.getLogger(FetchUri.class);
 
   private final String source;
@@ -71,10 +77,7 @@ public class FetchUri extends Stage {
   private CloseableHttpClient client;
 
   public FetchUri(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "dest")
-        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
-            "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "status_code_retry_list")
-        .optParent("headers", new TypeReference<Map<String, Object>>() {}));
+    super(config);
 
     this.source = config.getString("source");
     this.dest = config.getString("dest");

@@ -24,12 +24,14 @@ import org.apache.commons.lang3.StringUtils;
  */
 public class ExtractFirstCharacter extends Stage {
 
+  public static Spec SPEC = Spec.stage().withOptionalProperties("replacement")
+      .reqParent("fieldMapping", new TypeReference<Map<String, String>>() {});
+
   private final Map<String, Object> fieldMapping;
   private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
-    super(config, Spec.stage().withOptionalProperties("replacement")
-        .reqParent("fieldMapping", new TypeReference<Map<String, String>>() {}));
+    super(config);
 
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";

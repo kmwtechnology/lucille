@@ -31,24 +31,23 @@ import org.slf4j.LoggerFactory;
 
 public class SolrIndexer extends Indexer {
 
+  public static Spec SPEC = Spec.indexer()
+      .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
+          "userName", "password", "acceptInvalidCert")
+      .withOptionalProperties(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES);
+
   private static final Logger log = LoggerFactory.getLogger(SolrIndexer.class);
 
   private final SolrClient solrClient;
 
   public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
-            "userName", "password", "acceptInvalidCert")
-        .withOptionalProperties(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES));
+    super(config, messenger, metricsPrefix, localRunId);
 
     this.solrClient = solrClient;
   }
 
   public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
-            "userName", "password", "acceptInvalidCert")
-        .optParent(Spec.parent("ssl").optStr(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)));
+    super(config, messenger, metricsPrefix, localRunId);
 
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.

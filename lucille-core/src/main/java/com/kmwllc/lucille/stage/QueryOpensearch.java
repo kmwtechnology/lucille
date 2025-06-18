@@ -66,7 +66,7 @@ import org.slf4j.LoggerFactory;
 public class QueryOpensearch extends Stage {
 
   public static Spec SPEC = Spec.stage()
-      .reqParent(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
+      .reqParentWithDesc(OpenSearchUtils.OPENSEARCH_PARENT_SPEC, "Configuration for your OpenSearch instance.")
       .optStr("templateName", "searchTemplate", "opensearchResponsePath", "destinationField")
       .optList("requiredParamNames", new TypeReference<List<String>>(){})
       .optList("optionalParamNames", new TypeReference<List<String>>(){});
@@ -87,7 +87,7 @@ public class QueryOpensearch extends Stage {
   private JsonNode searchTemplateJson;
 
   public QueryOpensearch(Config config) {
-    super(config, SPEC);
+    super(config);
 
     this.searchURI = getTemplateSearchURI(config);
 

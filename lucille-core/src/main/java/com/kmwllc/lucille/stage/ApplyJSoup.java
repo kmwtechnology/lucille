@@ -53,6 +53,10 @@ import com.typesafe.config.Config;
  */
 public class ApplyJSoup extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
+      .reqParent("destinationFields", new TypeReference<Map<String, Map<String, String>>>(){});
+
   private final Map<String, Object> destinationFields;
   private final String charset;
   private final String activeField;
@@ -63,8 +67,7 @@ public class ApplyJSoup extends Stage {
   }
 
   public ApplyJSoup(Config config) throws StageException {
-    super(config, Spec.stage().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
-        .reqParent("destinationFields", new TypeReference<Map<String, Map<String, String>>>(){}));
+    super(config);
 
     this.destinationFields = config.getConfig("destinationFields").root().unwrapped();
     this.charset = ConfigUtils.getOrDefault(config, "charset", null);

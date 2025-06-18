@@ -20,10 +20,12 @@ import java.util.Iterator;
  */
 public class Timestamp extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("dest_field");
+
   private final String destField;
 
   public Timestamp(Config config) {
-    super(config, Spec.stage().withRequiredProperties("dest_field"));
+    super(config);
     this.destField = config.getString("dest_field");
   }
 

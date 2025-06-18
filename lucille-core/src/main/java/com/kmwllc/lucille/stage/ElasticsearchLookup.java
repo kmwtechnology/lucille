@@ -21,6 +21,11 @@ import java.util.List;
 
 public class ElasticsearchLookup extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("update_mode")
+      .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
+      .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode");
+
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 
   private ElasticsearchClient client;
@@ -31,10 +36,7 @@ public class ElasticsearchLookup extends Stage {
   private final UpdateMode updateMode;
 
   public ElasticsearchLookup(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("update_mode")
-        .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
-        .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode"));
+    super(config);
 
     this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);

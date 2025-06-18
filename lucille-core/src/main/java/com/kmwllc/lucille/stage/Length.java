@@ -21,10 +21,12 @@ import java.util.Map;
  */
 public class Length extends Stage {
 
+  public static Spec SPEC = Spec.stage().reqParent("fieldMapping", new TypeReference<Map<String, String>>() {});
+
   private final Map<String, Object> fieldMap;
 
   public Length(Config config) {
-    super(config, Spec.stage().reqParent("fieldMapping", new TypeReference<Map<String, String>>() {}));
+    super(config);
 
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
   }

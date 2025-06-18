@@ -18,6 +18,7 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -737,7 +738,9 @@ public class ElasticsearchIndexerTest {
     indexer.closeConnection();
   }
 
-  private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
+  public static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
+
+    public static Spec SPEC = ElasticsearchIndexer.SPEC;
 
     public ErroringElasticsearchIndexer(Config config, IndexerMessenger messenger,
         ElasticsearchClient client, String metricsPrefix) {

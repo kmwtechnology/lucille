@@ -19,11 +19,13 @@ import com.typesafe.config.Config;
  */
 public class Base64Decode extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("input_field", "output_field");
+
   private String inputField;
   private String outputField;
 
   public Base64Decode(Config config) {
-    super(config, Spec.stage().withRequiredProperties("input_field", "output_field"));
+    super(config);
     inputField = config.getString("input_field");
     outputField = config.getString("output_field");
   }

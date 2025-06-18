@@ -33,6 +33,10 @@ import org.slf4j.LoggerFactory;
  */
 public class TruncateField extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("source", "max_size")
+      .withOptionalProperties("destination");
+
   private final String source;
   private final int maxSize;
   private final String destination;
@@ -40,7 +44,7 @@ public class TruncateField extends Stage {
   private static final Logger log = LoggerFactory.getLogger(TruncateField.class);
 
   public TruncateField(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "max_size").withOptionalProperties("destination"));
+    super(config);
 
 
     this.source = config.getString("source");

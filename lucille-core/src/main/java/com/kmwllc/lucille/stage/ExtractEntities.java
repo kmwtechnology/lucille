@@ -52,6 +52,11 @@ import java.util.stream.Collectors;
  */
 public class ExtractEntities extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "dest", "dictionaries")
+      .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
+          "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field")
+      .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
+
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   private PayloadTrie<String> dictTrie;
@@ -70,10 +75,7 @@ public class ExtractEntities extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public ExtractEntities(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "dest", "dictionaries")
-        .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
-            "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field")
-        .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
+    super(config);
 
     // For the optional settings, we check if the config has this setting and then what the value is.
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);

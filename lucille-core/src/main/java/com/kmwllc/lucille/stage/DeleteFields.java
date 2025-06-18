@@ -17,6 +17,8 @@ import java.util.List;
  */
 public class DeleteFields extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("fields");
+
   private final List<String> fields;
 
   /**
@@ -24,7 +26,7 @@ public class DeleteFields extends Stage {
    * @param config Configuration for the DeleteFields stage.
    */
   public DeleteFields(Config config) {
-    super(config, Spec.stage().withRequiredProperties("fields"));
+    super(config);
     this.fields = config.getStringList("fields");
   }
 

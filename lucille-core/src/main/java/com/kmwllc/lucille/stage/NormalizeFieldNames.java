@@ -20,11 +20,13 @@ import java.util.Iterator;
  */
 public class NormalizeFieldNames extends Stage {
 
+  public static Spec SPEC = Spec.stage().withOptionalProperties("delimiter", "nonAlphanumReplacement");
+
   private final String delimeter;
   private final String nonAlphanumReplacement;
 
   public NormalizeFieldNames(Config config) {
-    super(config, Spec.stage().withOptionalProperties("delimiter", "nonAlphanumReplacement"));
+    super(config);
     this.delimeter = config.hasPath("delimeter") ? config.getString("delimeter") : "_";
     this.nonAlphanumReplacement = config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";
   }

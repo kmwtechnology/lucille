@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -1032,7 +1033,9 @@ public class SolrIndexerTest {
     return (String) document.getFieldValue(Document.ID_FIELD);
   }
 
-  private static class ErroringIndexer extends SolrIndexer {
+  public static class ErroringIndexer extends SolrIndexer {
+
+    public static Spec SPEC = SolrIndexer.SPEC;
 
     public ErroringIndexer(Config config, IndexerMessenger messenger, boolean bypass) {
       super(config, messenger, bypass, "");

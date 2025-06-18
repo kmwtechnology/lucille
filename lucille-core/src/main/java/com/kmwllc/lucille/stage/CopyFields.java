@@ -27,14 +27,16 @@ import java.util.List;
  */
 public class CopyFields extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("source", "dest")
+      .withOptionalProperties("update_mode");
+
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final UpdateMode updateMode;
 
   public CopyFields(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("source", "dest")
-        .withOptionalProperties("update_mode"));
+    super(config);
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);

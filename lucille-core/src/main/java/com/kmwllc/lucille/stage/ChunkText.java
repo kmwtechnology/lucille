@@ -87,6 +87,12 @@ import org.slf4j.LoggerFactory;
 
 public class ChunkText extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",
+          "clean_chunks", "overlap_percentage", "length_to_split", "pre_merge_min_chunk_len", "pre_merge_max_chunk_len",
+          "chunks_to_overlap")
+      .withRequiredProperties("source");
+
   private final String source;
   private final String dest;
   private final ChunkingMethod method;
@@ -103,11 +109,7 @@ public class ChunkText extends Stage {
   private static final Logger log = LoggerFactory.getLogger(ChunkText.class);
 
   public ChunkText(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withOptionalProperties("chunking_method", "chunks_to_merge", "dest", "regex", "character_limit",
-            "clean_chunks", "overlap_percentage", "length_to_split", "pre_merge_min_chunk_len", "pre_merge_max_chunk_len",
-            "chunks_to_overlap")
-        .withRequiredProperties("source"));
+    super(config);
     this.source = config.getString("source");
     this.dest = config.hasPath("dest") ? config.getString("dest") : "chunk";
     this.method = ChunkingMethod.fromConfig(config);

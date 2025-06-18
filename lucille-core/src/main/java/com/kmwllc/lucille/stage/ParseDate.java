@@ -39,6 +39,9 @@ import java.util.stream.Collectors;
  */
 public class ParseDate extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "dest")
+      .withOptionalProperties("format_strs", "update_mode", "formatters", "time_zone_id");
+
   private final List<BiFunction<String, ZoneId, ZonedDateTime>> formatters;
   private final List<DateTimeFormatter> formats;
   private final List<String> sourceFields;
@@ -49,8 +52,7 @@ public class ParseDate extends Stage {
   private final ZoneId zoneId;
 
   public ParseDate(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "dest")
-        .withOptionalProperties("format_strs", "update_mode", "formatters", "time_zone_id"));
+    super(config);
 
     this.formatters = new ArrayList<>();
 

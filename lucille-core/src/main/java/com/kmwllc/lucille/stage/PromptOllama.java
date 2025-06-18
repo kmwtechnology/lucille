@@ -64,6 +64,10 @@ import org.slf4j.LoggerFactory;
  */
 public class PromptOllama extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("hostURL", "modelName")
+      .withOptionalProperties("systemPrompt", "timeout", "fields", "requireJSON", "update_mode");
+
   private static final Logger log = LoggerFactory.getLogger(PromptOllama.class);
   private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -81,9 +85,7 @@ public class PromptOllama extends Stage {
   private final UpdateMode updateMode;
 
   public PromptOllama(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("hostURL", "modelName")
-        .withOptionalProperties("systemPrompt", "timeout", "fields", "requireJSON", "update_mode"));
+    super(config);
 
     this.hostURL = config.getString("hostURL");
     this.modelName = config.getString("modelName");

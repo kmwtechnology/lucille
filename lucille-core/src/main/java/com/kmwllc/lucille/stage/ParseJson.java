@@ -35,6 +35,12 @@ import nl.altindag.ssl.util.internal.StringUtils;
  * </p>
  */
 public class ParseJson extends Stage {
+
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("src")
+      .withOptionalProperties("sourceIsBase64")
+      .reqParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {});
+
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 
   private final String src;
@@ -45,10 +51,7 @@ public class ParseJson extends Stage {
   private ParseContext jsonParseCtx;
 
   public ParseJson(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("src")
-        .withOptionalProperties("sourceIsBase64")
-        .reqParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {}));
+    super(config);
 
     this.src = config.getString("src");
     this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();

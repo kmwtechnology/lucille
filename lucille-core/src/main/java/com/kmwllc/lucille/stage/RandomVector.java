@@ -13,6 +13,10 @@ import java.util.Random;
 
 public class RandomVector extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("update_mode")
+      .withRequiredProperties("fields", "dimensions");
+
   private final List<String> fields;
   private final int dimensions;
   private final Random random;
@@ -20,9 +24,8 @@ public class RandomVector extends Stage {
   private final UpdateMode updateMode;
 
   public RandomVector(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("update_mode")
-        .withRequiredProperties("fields", "dimensions"));
+    super(config);
+
     this.fields = config.getStringList("fields");
     this.updateMode = UpdateMode.fromConfig(config);
     this.dimensions = config.getInt("dimensions");

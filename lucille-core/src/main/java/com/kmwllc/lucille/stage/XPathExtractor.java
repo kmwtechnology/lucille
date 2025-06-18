@@ -32,6 +32,10 @@ import java.util.Map;
  */
 public class XPathExtractor extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("xmlField")
+      .reqParent("fieldMapping", new TypeReference<Map<String, List<String>>>(){});
+
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
   private DocumentBuilderFactory factory;
@@ -46,9 +50,7 @@ public class XPathExtractor extends Stage {
    * @param config
    */
   public XPathExtractor(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("xmlField")
-        .reqParent("fieldMapping", new TypeReference<Map<String, List<String>>>(){}));
+    super(config);
 
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();

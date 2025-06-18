@@ -22,11 +22,13 @@ import com.typesafe.config.Config;
  */
 public class CollapseChildrenDocuments extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("fieldsToCopy", "dropChildren");
+
   private List<String> fieldsToCopy;
   private boolean dropChildren;
 
   public CollapseChildrenDocuments(Config config) { 
-    super(config, Spec.stage().withRequiredProperties("fieldsToCopy", "dropChildren"));
+    super(config);
     fieldsToCopy = config.getStringList("fieldsToCopy"); 
     dropChildren = config.getBoolean("dropChildren"); 
   }

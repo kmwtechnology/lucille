@@ -46,6 +46,11 @@ import org.xml.sax.SAXException;
  */
 public class TextExtractor extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
+          "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit")
+      .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
+
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
   private String textField;
   private String filePathField;
@@ -60,10 +65,7 @@ public class TextExtractor extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public TextExtractor(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
-            "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit")
-        .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
+    super(config);
 
     textField = config.hasPath("text_field") ? config.getString("text_field") : "text";
     filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : null;

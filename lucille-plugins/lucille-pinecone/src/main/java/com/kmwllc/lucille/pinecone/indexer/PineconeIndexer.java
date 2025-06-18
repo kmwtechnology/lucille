@@ -46,6 +46,11 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  */
 public class PineconeIndexer extends Indexer {
 
+  public static Spec SPEC = Spec.indexer()
+      .withRequiredProperties("apiKey", "index")
+      .optParent("namespaces", new TypeReference<Map<String, Object>>() {})
+      .withOptionalProperties("metadataFields", "mode", "defaultEmbeddingField");
+
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
   private static final Integer MAX_PINECONE_BATCH_SIZE = 1000;
   private final Pinecone client;
@@ -61,10 +66,7 @@ public class PineconeIndexer extends Indexer {
   }
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withRequiredProperties("apiKey", "index")
-        .optParent("namespaces", new TypeReference<Map<String, Object>>() {})
-        .withOptionalProperties("metadataFields", "mode", "defaultEmbeddingField"));
+    super(config, messenger, metricsPrefix, localRunId);
 
     this.client = bypass ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");

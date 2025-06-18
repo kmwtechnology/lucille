@@ -47,6 +47,10 @@ import org.slf4j.LoggerFactory;
  */
 public class DictionaryLookup extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "dest", "dict_path")
+      .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")
+      .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
+
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final String dictPath;
@@ -61,9 +65,7 @@ public class DictionaryLookup extends Stage {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   public DictionaryLookup(Config config) throws StageException {
-    super(config, Spec.stage().withRequiredProperties("source", "dest", "dict_path")
-        .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")
-        .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
+    super(config);
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

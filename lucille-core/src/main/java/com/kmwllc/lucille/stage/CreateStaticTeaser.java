@@ -27,15 +27,17 @@ import java.util.List;
  */
 public class CreateStaticTeaser extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("source", "dest", "maxLength")
+      .withOptionalProperties("update_mode");
+
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final int maxLength;
   private final UpdateMode updateMode;
 
   public CreateStaticTeaser(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("source", "dest", "maxLength")
-        .withOptionalProperties("update_mode"));
+    super(config);
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

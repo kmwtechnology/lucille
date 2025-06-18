@@ -39,6 +39,10 @@ import java.util.regex.Pattern;
  */
 public class ApplyRegex extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withRequiredProperties("source", "dest", "regex")
+      .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal");
+
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final String regexExpr;
@@ -52,8 +56,7 @@ public class ApplyRegex extends Stage {
   private Pattern pattern;
 
   public ApplyRegex(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "dest", "regex")
-        .withOptionalProperties("update_mode", "ignore_case", "multiline", "dotall", "literal"));
+    super(config);
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");

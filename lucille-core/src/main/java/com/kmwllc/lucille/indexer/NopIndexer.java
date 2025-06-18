@@ -15,8 +15,10 @@ import org.apache.commons.lang3.tuple.Pair;
  */
 public class NopIndexer extends Indexer {
 
+  public static Spec SPEC = Spec.withoutDefaults();
+
   public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer());
+    super(config, messenger, metricsPrefix, localRunId);
   }
 
   public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {

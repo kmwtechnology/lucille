@@ -26,15 +26,17 @@ import java.util.Iterator;
  */
 public class FetchFileContent extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("filePathField", "fileContentField")
+      .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC);
+
   private final String filePathField;
   private final String fileContentField;
 
   private final FileContentFetcher fileFetcher;
 
   public FetchFileContent(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("filePathField", "fileContentField")
-        .optParent(FileConnector.S3_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC));
+    super(config);
 
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");

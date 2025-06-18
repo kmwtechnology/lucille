@@ -20,13 +20,15 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class AddRandomInt extends Stage {
 
+  public static Spec SPEC = Spec.stage()
+      .withOptionalProperties("field_name", "range_start", "range_end");
+
   private final String fieldName;
   private final int rangeStart;
   private final int rangeEnd;
 
   public AddRandomInt(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withOptionalProperties("field_name", "range_start", "range_end"));
+    super(config);
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.rangeStart = ConfigUtils.getOrDefault(config, "range_start", 0);

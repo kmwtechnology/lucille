@@ -5,7 +5,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;
@@ -40,7 +39,6 @@ public abstract class Stage {
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
   protected Config config;
-  private final Spec spec;
   private final Predicate<Document> condition;
   private String name;
 
@@ -54,10 +52,6 @@ public abstract class Stage {
    * @param config The configuration for the Stage.
    */
   public Stage(Config config) {
-    this(config, Spec.stage());
-  }
-
-  protected Stage(Config config, Spec spec) {
     if (config == null) {
       throw new IllegalArgumentException("Config cannot be null");
     }
@@ -65,10 +59,9 @@ public abstract class Stage {
     this.name = ConfigUtils.getOrDefault(config, "name", null);
 
     this.config = config;
-    this.spec = spec;
 
-    // validates the stage config AND conditions too
-    spec.validate(config, getDisplayName());
+    // A spec.stage() validates the stage config AND the conditions as well
+    getSpec().validate(config, getDisplayName());
 
     this.condition = getMergedConditions();
   }
@@ -93,6 +86,14 @@ public abstract class Stage {
       return conditions.stream().reduce(c -> true, Predicate::and);
     } else {
       throw new IllegalArgumentException("Unsupported condition policy: " + conditionPolicy);
+    }
+  }
+
+  public Spec getSpec() {
+    try {
+      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
     }
   }
 
@@ -323,6 +324,6 @@ public abstract class Stage {
   }
 
   public Set<String> getLegalProperties() {
-    return spec.getLegalProperties();
+    return getSpec().getLegalProperties();
   }
 }

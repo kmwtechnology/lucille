@@ -88,6 +88,10 @@ import com.typesafe.config.ConfigBeanFactory;
  */
 public class ApplyOCR extends Stage {
 
+  public static Spec SPEC = Spec.stage().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
+      .withRequiredProperties("lang", "path_field")
+      .optParent("pages", new TypeReference<Map<Integer, String>>(){});
+
   public static final String TEMP_DIR = "lucille-ocr-temp";
   public static final int SOURCE_RESOLUTION = 300;
   private static final Logger log = LoggerFactory.getLogger(ApplyOCR.class);
@@ -102,9 +106,7 @@ public class ApplyOCR extends Stage {
 
 
   public ApplyOCR(Config config) throws StageException {
-    super(config, Spec.stage().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
-        .withRequiredProperties("lang", "path_field")
-        .optParent("pages", new TypeReference<Map<Integer, String>>(){}));
+    super(config);
 
     lang = config.getString("lang");
     pathField = ConfigUtils.getOrDefault(config, "path_field", null);

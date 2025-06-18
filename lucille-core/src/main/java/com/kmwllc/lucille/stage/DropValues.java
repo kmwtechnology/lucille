@@ -20,11 +20,13 @@ import java.util.List;
  */
 public class DropValues extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("source", "values");
+
   private final List<String> sourceFields;
   private final List<String> values;
 
   public DropValues(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "values"));
+    super(config);
     this.sourceFields = config.getStringList("source");
     this.values = config.getStringList("values");
   }

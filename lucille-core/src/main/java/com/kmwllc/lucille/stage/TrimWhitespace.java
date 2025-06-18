@@ -21,10 +21,12 @@ import java.util.List;
  */
 public class TrimWhitespace extends Stage {
 
+  public static Spec SPEC = Spec.stage().withRequiredProperties("fields");
+
   private final List<String> fields;
 
   public TrimWhitespace(Config config) {
-    super(config, Spec.stage().withRequiredProperties("fields"));
+    super(config);
     this.fields = config.getStringList("fields");
   }
 
