@@ -52,8 +52,6 @@ public abstract class Property {
   /**
    * Return a JsonNode describing this property. Includes <code>name</code>, the name of the field, <code>required</code>, whether it
    * is required, <code>description</code>, if it has one, and <code>type</code>, the type of the field.
-   *
-   *  (TODO: May remove ANY.)
    */
   public JsonNode json() {
     ObjectNode node = MAPPER.createObjectNode();

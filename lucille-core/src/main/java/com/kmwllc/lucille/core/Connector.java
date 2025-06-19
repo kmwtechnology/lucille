@@ -85,14 +85,6 @@ public interface Connector extends AutoCloseable {
   Spec getSpec();
 
   /**
-   * @return The Spec describing the given Connector class's Config properties. Must be declared as <code>public static final Spec SPEC</code>.
-   * @throws ReflectiveOperationException If this Connector does not have a <code>public static final Spec SPEC</code>.
-   */
-  static Spec getSpecFor(Class<? extends Connector> connectorClass) throws Exception {
-    return (Spec) connectorClass.getDeclaredField("SPEC").get(null);
-  }
-
-  /**
    * Instantiates a list of Connectors from the designated Config.
    *
    * @param config The configuration you want to extract Connectors from.
