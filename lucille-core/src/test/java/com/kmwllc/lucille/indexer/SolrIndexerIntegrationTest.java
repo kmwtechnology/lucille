@@ -311,7 +311,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
 
     // Create a HTTP2SolrClient config
     Map<String, Object> mapHttp = new HashMap<>();
-    mapHttp.put("solr.url", jetty.getBaseUrl().toString() + "/test");
+    mapHttp.put("solr.url", List.of(jetty.getBaseUrl().toString() + "/test"));
     mapHttp.put("indexer.batchTimeout", 5000);
     mapHttp.put("indexer.batchSize", 2);
     mapHttp.put("indexer.type", "solr");

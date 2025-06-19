@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 
 import java.time.Instant;
@@ -14,6 +15,8 @@ public class PostCompletionCSVConnector extends CSVConnector {
   // Create static fields on the class that we can access from within our tests.
   private static boolean completionActionsOccurred = false;
   private static Instant postCompletionInstant = null;
+
+  public static final Spec SPEC = Spec.connector().requiredString("path");
 
   public PostCompletionCSVConnector(Config config) {
     super(config);

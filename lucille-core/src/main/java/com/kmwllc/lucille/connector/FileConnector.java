@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.connector;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
@@ -129,14 +130,33 @@ public class FileConnector extends AbstractConnector {
 
   // parent specs for cloud provider configs
   public static final ParentSpec GCP_PARENT_SPEC = Spec.parent("gcp")
-      .withRequiredProperties("pathToServiceKey")
-      .withOptionalProperties("maxNumOfPages");
+      .requiredString("pathToServiceKey")
+      .optionalNumber("maxNumOfPages");
   public static final ParentSpec S3_PARENT_SPEC = Spec.parent("s3")
-      .withOptionalProperties("accessKeyId", "secretAccessKey", "region", "maxNumOfPages");
+      .optionalString("accessKeyId", "secretAccessKey", "region")
+      .optionalNumber("maxNumOfPages");
   public static final ParentSpec AZURE_PARENT_SPEC = Spec.parent("azure")
-      .withOptionalProperties("connectionString", "accountName", "accountKey", "maxNumOfPages");
+      .optionalString("connectionString", "accountName", "accountKey")
+      .optionalNumber("maxNumOfPages");
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
+
+  public static final Spec SPEC = Spec.connector()
+      .requiredList("pathsToStorage", new TypeReference<List<String>>(){})
+      .optionalParent(
+          Spec.parent("filterOptions")
+              .optionalList("includes", new TypeReference<List<String>>(){})
+              .optionalList("excludes", new TypeReference<List<String>>(){})
+              // durations are strings.
+              .optionalString("modificationCutoff"),
+          Spec.parent("fileOptions")
+              .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+              .optionalString("moveToAfterProcessing", "moveToErrorFolder")
+              .optionalParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
+          GCP_PARENT_SPEC,
+          AZURE_PARENT_SPEC,
+          S3_PARENT_SPEC
+      );
 
   private final Config fileOptions;
   private final Config filterOptions;
@@ -144,18 +164,7 @@ public class FileConnector extends AbstractConnector {
   private final Map<String, StorageClient> storageClientMap;
 
   public FileConnector(Config config) throws ConnectorException {
-    super(config, Spec.connector()
-        .withRequiredProperties("pathsToStorage")
-        .withOptionalParents(
-            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
-            Spec.parent("fileOptions")
-                .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
-                    "moveToErrorFolder")
-                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
-            GCP_PARENT_SPEC,
-            AZURE_PARENT_SPEC,
-            S3_PARENT_SPEC
-        ));
+    super(config);
 
     this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();

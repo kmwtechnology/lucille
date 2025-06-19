@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -46,6 +46,16 @@ import org.apache.commons.io.FilenameUtils;
  * See FileConnector for necessary arguments.
  */
 public class ApplyFileHandlers extends Stage {
+
+  public static final Spec SPEC = Spec.stage()
+      .optionalParent(
+          Spec.parent("handlerOptions")
+              .optionalParent(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
+          FileConnector.GCP_PARENT_SPEC,
+          FileConnector.AZURE_PARENT_SPEC,
+          FileConnector.S3_PARENT_SPEC)
+      .optionalString("filePathField", "fileContentField");
+
   private final Config handlerOptions;
 
   private final String filePathField;
@@ -59,14 +69,7 @@ public class ApplyFileHandlers extends Stage {
    * @param config Configuration for the ApplyFileHandlers stage.
    */
   public ApplyFileHandlers(Config config) {
-    super(config, Spec.stage()
-        .withOptionalParents(
-            Spec.parent("handlerOptions")
-                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
-            FileConnector.GCP_PARENT_SPEC,
-            FileConnector.AZURE_PARENT_SPEC,
-            FileConnector.S3_PARENT_SPEC)
-        .withOptionalProperties("filePathField", "fileContentField"));
+    super(config);
 
     this.handlerOptions = config.getConfig("handlerOptions");
     if (handlerOptions.isEmpty()) {

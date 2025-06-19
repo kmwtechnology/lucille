@@ -1,12 +1,13 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
@@ -64,6 +65,13 @@ import org.slf4j.LoggerFactory;
  */
 public class PromptOllama extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .requiredString("hostURL", "modelName")
+      .optionalNumber("timeout")
+      .optionalBoolean("requireJSON")
+      .optionalString("systemPrompt", "update_mode")
+      .optionalList("fields", new TypeReference<List<String>>() {});
+
   private static final Logger log = LoggerFactory.getLogger(PromptOllama.class);
   private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -81,9 +89,7 @@ public class PromptOllama extends Stage {
   private final UpdateMode updateMode;
 
   public PromptOllama(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("hostURL", "modelName")
-        .withOptionalProperties("systemPrompt", "timeout", "fields", "requireJSON", "update_mode"));
+    super(config);
 
     this.hostURL = config.getString("hostURL");
     this.modelName = config.getString("modelName");

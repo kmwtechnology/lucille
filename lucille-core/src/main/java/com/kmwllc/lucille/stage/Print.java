@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -32,6 +33,11 @@ import java.util.List;
  */
 public class Print extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .optionalBoolean("shouldLog", "overwriteFile", "appendThreadName")
+      .optionalString("outputFile")
+      .optionalList("excludeFields", new TypeReference<List<String>>(){});
+
   private static final Logger log = LoggerFactory.getLogger(Print.class);
 
   private final String outputFilePath;
@@ -43,8 +49,7 @@ public class Print extends Stage {
   private BufferedWriter writer;
 
   public Print(Config config) {
-    super(config, Spec.stage().withOptionalProperties("shouldLog", "outputFile",
-        "overwriteFile", "excludeFields", "appendThreadName"));
+    super(config);
 
     this.outputFilePath = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;

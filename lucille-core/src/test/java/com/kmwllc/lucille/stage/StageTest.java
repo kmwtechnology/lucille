@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 import org.junit.Test;
 
@@ -16,7 +17,9 @@ public class StageTest {
 
   private final StageFactory factory = StageFactory.of(MockStage.class);
 
-  private static class MockStage extends Stage {
+  public static class MockStage extends Stage {
+
+    public static final Spec SPEC = Spec.stage();
 
     public MockStage(Config config) {
       super(config);
