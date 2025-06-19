@@ -9,12 +9,13 @@ import com.typesafe.config.Config;
  * Base class for use by Connector implementations, providing basic Config parsing behavior
  * for obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
  *
- * All Connectors will have their configuration validated by {@link Spec#validate(Config, String)}. In the Connector's constructor,
- * define the required/optional properties/parents in a {@link Spec#connector()}. Validation errors will mention the connector's <code>name</code>.
+ * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the Connector's properties. This Spec will be accessed
+ * reflectively in the super constructor, so the Connector will not function without declaring a Spec. The Config provided
+ * to <code>super()</code> will be validated against the Spec. Validation errors will reference the Connector's <code>name</code>.
  *
- * <br> A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
+ * <p> A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
  *
- * <br> Base Config Parameters:
+ * <p> Base Config Parameters:
  * <ul>
  *   <li>name (String): The name of the Connector. Connector names should be unique (within your Lucille Config).</li>
  *   <li>class (String): The class for the Connector your want to use.</li>

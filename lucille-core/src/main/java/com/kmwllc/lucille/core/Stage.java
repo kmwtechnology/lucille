@@ -18,10 +18,14 @@ import java.util.stream.Collectors;
 /**
  * An operation that can be performed on a Document.<br>
  * This abstract class provides some base functionality which should be applicable to all Stages.
- * <br>
- * <br>
  *
- * Config Parameters (Conditions):
+ * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the Stage's properties. This Spec will be accessed
+ * reflectively in the super constructor, so the Stage will not function without declaring a Spec. The Config provided
+ * to <code>super()</code> will be validated against the Spec. Validation errors will reference the Stage's <code>name</code>.
+ *
+ * <p> A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
+ *
+ * <p> Config Parameters (Conditions):
  * <ul>
  *   <li>fields (List&lt;String&gt;, Optional) : The fields which will be used to determine if
  *       this stage should be applied. Turns off conditional execution by default.
@@ -30,10 +34,6 @@ import java.util.stream.Collectors;
  *   <li>operator (String, Optional) : The operator to determine conditional execution.
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
- *
- * All stages will have their configuration, including conditions, validated by {@link Spec#validate(Config, String)}. In the Stage constructor, define
- * the required/optional properties/parents via a StageSpec. Any error messages regarding the Stage's Config will include the stage's
- * display name. A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  */
 public abstract class Stage {
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");

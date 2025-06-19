@@ -32,6 +32,21 @@ import sun.misc.Signal;
 
 /**
  * Indexes documents into a target destination.
+ *
+ * <p> Indexers have two separate configurations - the generic <code>indexer</code> configuration, and configuration for the
+ * specific implementation held under a certain key. For example, <code>solr</code> holds configuration for a SolrIndexer, <code>csv</code>
+ * holds configuration for a CSVIndexer, etc.
+ *
+ * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the specific implementation's properties.
+ * This Spec will be accessed reflectively in the super constructor, so the Indexer will not function without declaring a Spec.
+ * The Config provided to <code>super()</code> will be validated against the Spec. The Indexer superclass will validate the
+ * generic <code>indexer</code> configuration and the specific implementation configuration as well.
+ *
+ * <p> The <code>public static Spec SPEC</code> should <b>not</b> include the config key in your property names. For example, you
+ * only write "url", not "solr.url", in a Spec for a SolrIndexer.
+ *
+ * <p> A {@link Spec#indexer()} does not include any default legal properties, as it is intended for use in specific Indexer
+ * implementations.
  */
 public abstract class Indexer implements Runnable {
 
