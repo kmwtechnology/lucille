@@ -14,7 +14,20 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Specifications for a Config and which properties it is allowed / required to have.
+ * Specifications for a Config and which properties it is allowed / required to have. Properties are either required
+ * or optional, and they have a certain type. The three basic types are number, boolean, and string. You can also
+ * specify a List or an Object. For these types, you need to either provide a Spec or a TypeReference describing the
+ * list or object.
+ *
+ * <p> For an object, providing a <code>ParentSpec</code> describes the object's key and the properties it can / must have.
+ * Providing a <code>TypeReference</code> describes what the unwrapped ConfigObject should deserialize as / cast to. For example, if you
+ * need a "field mapping" that maps Strings to Strings, you should pass in <code>TypeReference&lt;Map&lt;String, String&gt;&gt;</code>.
+ *
+ * <p> For a list, you should provide a <code>Spec</code> when you need a list of Configs with a specific set of properties. A common
+ * example is conditions for a Stage. Provide a <code>TypeReference</code> otherwise, describing what the unwrapped ConfigList should deserialize as
+ * / cast to. For example, if you need a List of Doubles, you should pass in <code>TypeReference&lt;List&lt;Double&gt;&gt;</code>.
+ *
+ * <p> Generally, for objects and lists, use a Spec when you know field names in advance, and a <code>TypeReference</code> when you do not.
  */
 public class Spec {
 
