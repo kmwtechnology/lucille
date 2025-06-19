@@ -67,7 +67,7 @@ public class ListProperty extends Property {
       try {
         configs = config.getConfigList(name);
       } catch (ConfigException e) {
-        throw new IllegalArgumentException(name + " is supposed to be a list, was \"" + config.getValue(name).valueType() + "\"");
+        throw new IllegalArgumentException(name + " is supposed to be a Config / Object list, was \"" + config.getValue(name).valueType() + "\"");
       }
 
       for (int i = 0; i < configs.size(); i++) {
