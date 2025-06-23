@@ -106,9 +106,6 @@ public class DictionaryLookup extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    // used only for set_only + use_any_match
-    boolean anyMatchesFound = false;
-
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);
@@ -131,15 +128,17 @@ public class DictionaryLookup extends Stage {
               .map(ignoreCase ? String::toLowerCase : String::toString);
 
           if (useAnyMatch) {
-            anyMatchesFound = anyMatchesFound || sourceStream.anyMatch(dict::containsKey);
+            // once we get a match on any field, can break the loop and just update the field to true.
+            if (sourceStream.anyMatch(dict::containsKey)) {
+              doc.update(destField, updateMode, true);
+              return null;
+            }
           } else {
             currentValue = sourceStream.allMatch(dict::containsKey);
           }
         }
 
-        // always write "true" to the field if using set_only in conjunction with use_any_match,
-        // and we've found a match on any field.
-        doc.update(destField, updateMode, (defaultValue && currentValue) || anyMatchesFound);
+        doc.update(destField, updateMode, defaultValue && currentValue);
       } else {
 
         if (!doc.has(sourceField)) {
