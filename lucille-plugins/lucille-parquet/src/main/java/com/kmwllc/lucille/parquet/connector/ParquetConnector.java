@@ -22,6 +22,20 @@ import java.net.URI;
 /**
  * A connector for processing Parquet files, either locally, or on S3, and publishing Lucille documents from
  * files.
+ *
+ * <p> Config Parameters:
+ * <ul>
+ *   <li>pathToStorage (String): The path to storage you want to traverse for <code>.parquet</code> files.</li>
+ *   <li>id_field (String): The name of a field found in the Parquet files you will process that can be used for Document IDs.
+ *   Must be found in the file's schema, or an Exception will be thrown.</li>
+ *   <li>fs_uri (String): A URI for the file system that you want to use (for your <code>pathToStorage</code>).</li>
+ *   <li>s3_key (String, Optional): Your key to AWS S3. Only needed if using S3.</li>
+ *   <li>s3_secret (String, Optional): Your secret to AWS S3. Only needed if using S3.</li>
+ *   <li>limit (Long, Optional): The maximum number of Documents to publish. Defaults to no limit.</li>
+ *   <li>start (Long, Optional): The number of rows to skip from the beginning of each parquet file encountered. Defaults to skipping no rows.</li>
+ * </ul>
+ *
+ * <b>Note:</b> If you are paginating (using start / limit), it is recommended you use individual Connectors for each Parquet file.
  */
 public class ParquetConnector extends AbstractConnector {
 
