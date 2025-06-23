@@ -137,9 +137,6 @@ public class FileConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
-  private final TraversalParams params;
-  private final Config fileOptions;
-  private final Config filterOptions;
   private final List<URI> storageURIs;
   private final Map<String, StorageClient> storageClientMap;
 
@@ -153,12 +150,6 @@ public class FileConnector extends AbstractConnector {
             GCP_PARENT_SPEC, AZURE_PARENT_SPEC, S3_PARENT_SPEC)
         .withOptionalParentNames("fileHandlers"));
 
-    this.params = new TraversalParams(config, getDocIdPrefix());
-
-    this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
-    this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
-    this.storageClientMap = StorageClient.createClients(config);
-
     List<String> pathsToStorage = config.getStringList("pathsToStorage");
     this.storageURIs = new ArrayList<>();
 
@@ -171,6 +162,8 @@ public class FileConnector extends AbstractConnector {
         throw new ConnectorException("Invalid path to storage: " + path, e);
       }
     }
+
+    this.storageClientMap = StorageClient.createClients(config);
 
     // Cannot specify multiple storage paths and a moveTo of some kind
     if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath("fileOptions.moveToErrorFolder"))) {
@@ -196,6 +189,8 @@ public class FileConnector extends AbstractConnector {
         if (storageClient == null) {
           throw new ConnectorException("No StorageClient was available for (" + pathToTraverse + "). Did you include the necessary configuration?");
         }
+
+        TraversalParams params = new TraversalParams(config, pathToTraverse, getDocIdPrefix());
 
         try {
           storageClient.traverse(publisher, params);

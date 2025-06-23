@@ -44,8 +44,8 @@ public class TraversalParams {
   // FileHandlers
   private final Map<String, FileHandler> fileHandlers;
 
-  public TraversalParams(Config config, String docIdPrefix) {
-    this.uri = URI.create(config.getString("pathToStorage"));
+  public TraversalParams(Config config, URI pathToStorage, String docIdPrefix) {
+    this.uri = pathToStorage;
     this.docIdPrefix = docIdPrefix;
 
     Config fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
@@ -110,6 +110,7 @@ public class TraversalParams {
     return fileLastModified.isAfter(cutoffPoint);
   }
 
+  /** Returns a URI to the path to storage we are traversing through. */
   public URI getURI() {
     return uri;
   }
