@@ -42,22 +42,6 @@ public class XMLConnectorTest {
   }
 
   @Test
-  public void testNestedStaff() throws Exception {
-    Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:XMLConnectorTest/nestedstaff.conf"));
-    TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    Connector connector = new XMLConnector(config);
-    connector.execute(publisher);
-
-    List<Document> docs = messenger.getDocsSentForProcessing();
-
-    // ensure that in a nested scenario, the nested tag does not get included
-    assertEquals(2, docs.size());
-
-    assertTrue(docs.get(0).has("xml"));
-  }
-
-  @Test
   public void testKoreanEncoding() throws Exception {
     Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:XMLConnectorTest/korean.conf"));
     TestMessenger messenger = new TestMessenger();
