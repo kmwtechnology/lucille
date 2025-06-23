@@ -116,10 +116,8 @@ public class GoogleStorageClient extends BaseStorageClient {
     BlobId target = BlobId.of(destBucket, destKey);
 
     // copy source to target, and then delete source.
-    new Thread(() -> {
-      storage.copy(CopyRequest.newBuilder().setSource(source).setTarget(target).build());
-      storage.delete(source);
-    }).start();
+    storage.copy(CopyRequest.newBuilder().setSource(source).setTarget(target).build());
+    storage.delete(source);
   }
 
 

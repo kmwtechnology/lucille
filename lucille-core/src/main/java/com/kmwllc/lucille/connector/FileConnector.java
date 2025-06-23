@@ -67,7 +67,7 @@ import org.slf4j.LoggerFactory;
  *     / colliding keys in your target folders for moveToAfterProcessing or moveToErrorFolder.
  *   </li>
  *   <li><b>Note:</b> For Cloud Storage, it is important that your directory names end with '/'. When using Azure, you'll have to use the same storage account.</li>
- *   <li><b>Note:</b> Cloud Storage moves are executed asynchronously. As such, the moves may not be completed before the next Connector in your run is executed.</li>
+ *   <li><b>Note:</b> Cloud Storage moves are not always executed synchronously. As such, the moves may not be completed before the next Connector in your run is executed.</li>
  *   <li>csv (Map, Optional): config options for handling csv type files. Config will be passed to CSVFileHandler.</li>
  *   <li>json (Map, Optional): config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.</li>
  *   <li>xml (Map, Optional): config options for handling xml type files. Config will be passed to XMLFileHandler.</li>
