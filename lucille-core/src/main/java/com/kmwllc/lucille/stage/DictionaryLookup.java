@@ -38,8 +38,9 @@ import org.slf4j.LoggerFactory;
  * <p>  - use_payloads (Boolean, Optional) : denotes whether payloads from the dictionary should be used or not. Defaults to true.
  * <p>  - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- * <p>  - set_only (Boolean, Optional) : If true, the destination field will be set to true if all values in the source field
- *      are present in the dictionary.
+ * <p>  - set_only (Boolean, Optional) : If true, the destination field will be set to true when a match is found (instead of
+ *      outputting the match itself). You can control this behavior with <code>use_any_match</code> and <code>ignore_missing_source</code>.
+ *      <code>set_only</code> defaults to false.
  * <p>  - use_any_match (Boolean, Optional) : Use in combination with set_only. If true, the destination field will
  *      be set to true if any values in the source field are present in the dictionary. If false, the destination field
  *      will be set to true if all the values in the source field are present in the dictionary. Defaults to false.
