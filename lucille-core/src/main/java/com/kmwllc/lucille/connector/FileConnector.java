@@ -53,9 +53,18 @@ import org.slf4j.LoggerFactory;
  *   <li>getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.</li>
  *   <li>handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. See important notes below.</li>
  *   <li>handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. See important notes below.</li>
- *   <li>moveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
- *   <li>moveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
- *   <li><b>Notes</b> on archive / compressed files:
+ *   <li>moveToAfterProcessing (String, Optional): URI to move files to after processing. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
+ *   <li>moveToErrorFolder (String, Optional): URI to move files to if an error occurs during processing. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
+ *   <li>
+ *     <b>Note:</b> For Cloud Storage, when a file is moved, its entire "key" moves with it. For example, the file s3://bucket/files/file1.txt has key "files/file1.txt".
+ *     So, when it moves to s3://bucket/after/ it becomes s3://bucket/after/files/file1.txt.
+ *     This prevents you from having to make sure all files in your bucket have unique names. You should still ensure there won't be any duplicate
+ *     / colliding keys in your target folders for moveToAfterProcessing or moveToErrorFolder.
+ *   </li>
+ *   <li><b>Note:</b> For Cloud Storage, it is important that your directory names end with '/'. When using Azure, you'll have to use the same storage account.</li>
+ *   <li><b>Note:</b> File moves are executed synchronously, including on Cloud Storage. As such, the FileConnector may run slower when moves are enabled.</li>
+ *
+ *   <li> <b>Notes</b> on archive / compressed files:
  *      <ul>
  *         <li>Recurring is not supported.</li>
  *         <li>If enabled during a cloud traversal, the file's contents <b>will</b> be downloaded before processing.</li>

@@ -16,10 +16,6 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -124,7 +120,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
   protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params) {
-    String fullPathStr = fileReference.getFullPath(params);
+    URI fullPath = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
     try {
@@ -132,24 +128,24 @@ public abstract class BaseStorageClient implements StorageClient {
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
       if (!fileReference.isValidFile()
           || !params.includeFile(fileReference.getName(), fileReference.getLastModified())
-          || !beforeProcessingFile(fullPathStr)) {
+          || !beforeProcessingFile(fullPath)) {
         return;
       }
 
       // handle compressed files if needed to the end
-      if (params.getHandleCompressedFiles() && isSupportedCompressedFileType(fullPathStr)) {
+      if (params.getHandleCompressedFiles() && isSupportedCompressedFileType(fullPath.toString())) {
         // unzip the file, compressorStream will be closed when try block is exited
         try (BufferedInputStream bis = new BufferedInputStream(fileReference.getContentStream(params));
             CompressorInputStream compressorStream = new CompressorStreamFactory().createCompressorInputStream(bis)) {
           // we can remove the last extension from path knowing before we confirmed that it has a compressed extension
-          String decompressedPath = FilenameUtils.removeExtension(fullPathStr);
+          String decompressedPath = FilenameUtils.removeExtension(fullPath.toString());
           String resolvedExtension = FilenameUtils.getExtension(decompressedPath);
 
           // if detected to be an archive type after decompression
           if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(decompressedPath)) {
-            handleArchiveFiles(publisher, compressorStream, fullPathStr, params);
+            handleArchiveFiles(publisher, compressorStream, fullPath, params);
           } else {
-            String filePathFormat = fullPathStr + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
+            String filePathFormat = fullPath + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
             // if file is a supported file type that should be handled by a file handler
             if (params.supportedFileExtension(resolvedExtension)) {
               handleStreamExtensionFiles(publisher, resolvedExtension, params, compressorStream, filePathFormat);
@@ -162,16 +158,16 @@ public abstract class BaseStorageClient implements StorageClient {
             }
           }
         }
-        afterProcessingFile(fullPathStr, params);
+        afterProcessingFile(fullPath, params);
         return;
       }
 
       // handle archived files if needed to the end
-      if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPathStr)) {
+      if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPath.toString())) {
         try (InputStream is = fileReference.getContentStream(params)) {
-          handleArchiveFiles(publisher, is, fullPathStr, params);
+          handleArchiveFiles(publisher, is, fullPath, params);
         }
-        afterProcessingFile(fullPathStr, params);
+        afterProcessingFile(fullPath, params);
         return;
       }
 
@@ -180,9 +176,9 @@ public abstract class BaseStorageClient implements StorageClient {
         // Get a stream for the file content, so we don't have to load it all at once.
         InputStream contentStream = fileReference.getContentStream(params);
         // get the right FileHandler and publish based on content
-        publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPathStr);
+        publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPath);
 
-        afterProcessingFile(fullPathStr, params);
+        afterProcessingFile(fullPath, params);
         return;
       }
 
@@ -192,16 +188,16 @@ public abstract class BaseStorageClient implements StorageClient {
         docLogger.info("StorageClient to publish Document {}.", doc.getId());
       }
       publisher.publish(doc);
-      afterProcessingFile(fullPathStr, params);
+      afterProcessingFile(fullPath, params);
     } catch (UnsupportedOperationException e) {
       throw new UnsupportedOperationException("Encountered unsupported operation", e);
     } catch (Exception e) {
       try {
-        errorProcessingFile(fullPathStr, params);
+        errorProcessingFile(fullPath, params);
       } catch (IOException ex) {
-        log.error("Error occurred while performing error operations on file '{}'", fullPathStr, ex);
+        log.error("Error occurred while performing error operations on file '{}'", fullPath, ex);
       }
-      log.error("Unable to publish document '{}', SKIPPING", fullPathStr, e);
+      log.error("Unable to publish document '{}', SKIPPING", fullPath, e);
     }
   }
 
@@ -212,7 +208,7 @@ public abstract class BaseStorageClient implements StorageClient {
    *
    * @param publisher publisher used to publish documents
    * @param inputStream input stream of the archive file. Used to create an ArchiveInputStream
-   * @param fullPathStr full path of the archive file including the extension. Can be a cloud path or local path.
+   * @param fullPathURI full path of the archive file including the extension. Can be a cloud path or local path.
    *                    Cloud path would include schema and bucket/container name
    *                    e.g gs://bucket-name/folder/file.zip or s3://bucket-name/file.tar
    * @param params Parameters to customize the traversal / handling of files.
@@ -221,15 +217,15 @@ public abstract class BaseStorageClient implements StorageClient {
    * @throws IOException If an error regarding file I/O occurs
    * @throws ConnectorException If an error occurs handling subsequent archive entries.
    */
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, String fullPathStr, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
 
       while ((entry = in.getNextEntry()) != null) {
-        String entryFullPathStr = getArchiveEntryFullPath(fullPathStr, entry.getName());
+        String entryFullPathStr = getArchiveEntryFullPath(fullPathURI, entry.getName());
         if (!in.canReadEntryData(entry)) {
-          log.info("Cannot read entry data for entry: '{}' in '{}'. Skipping...", entry.getName(), fullPathStr);
+          log.info("Cannot read entry data for entry: '{}' in '{}'. Skipping...", entry.getName(), fullPathURI);
           continue;
         }
         // checking validity only for the entries
@@ -255,7 +251,7 @@ public abstract class BaseStorageClient implements StorageClient {
               }
               publisher.publish(doc);
             } catch (Exception e) {
-              throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName() + " in " + fullPathStr, e);
+              throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName() + " in " + fullPathURI, e);
             }
           }
         }
@@ -301,36 +297,35 @@ public abstract class BaseStorageClient implements StorageClient {
    * Publishes a file using a file handler and an InputStream to its contents.
    * @throws Exception If an error occurs or the file extension doesn't have a file handler to use.
    */
-  private void publishUsingFileHandler(Publisher publisher, String fileExtension, TraversalParams params, InputStream inputStream, String pathStr) throws Exception {
+  private void publishUsingFileHandler(Publisher publisher, String fileExtension, TraversalParams params, InputStream inputStream, URI pathURI) throws Exception {
     FileHandler handler = params.handlerForExtension(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }
 
     try {
-      handler.processFileAndPublish(publisher, inputStream, pathStr);
+      handler.processFileAndPublish(publisher, inputStream, pathURI.toString());
     } catch (Exception e) {
-      throw new ConnectorException("Error occurred while processing or publishing file: " + pathStr, e);
+      throw new ConnectorException("Error occurred while processing or publishing file: " + pathURI, e);
     }
   }
 
   /**
    * helper method to get the full path of an entry in an archived file. Only used for archive files.
-   * @param fullPathStr A String representing the full path to the archive file.
+   * @param fullPathURI A URI representing the full path to the archive file.
    * @param entryName The name of the file extracted from the archive file.
    * @return A String representing the full path to this archive entry, including the full path to the
    * archive file, the archive file separator, and then the entry's name.
    */
-  private String getArchiveEntryFullPath(String fullPathStr, String entryName) {
-    return fullPathStr + ARCHIVE_FILE_SEPARATOR + entryName;
+  private String getArchiveEntryFullPath(URI fullPathURI, String entryName) {
+    return fullPathURI + ARCHIVE_FILE_SEPARATOR + entryName;
   }
 
   /**
-   * method for performing operations before processing files. This method is ill be called before processing 
-   * each file in traversal.  If the method returns true, the file will be processed.  A return of false indicates
-   * the file should be skipped.
+   * Performs preprocessing operations. Called before processing each file in a traversal.
+   * @return Whether preprocessing was successful, and the file should be processed further.
    */
-  private boolean beforeProcessingFile(String pathStr) throws Exception {
+  private boolean beforeProcessingFile(URI filePath) throws Exception {
     // Base implementation, process all files. 
     return true;
   }
@@ -338,11 +333,14 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * method for performing operations after processing files. Additional operations can be added
    * in the implementation of this method. Will be called after processing each file in traversal.
+   *
+   * @throws IOException If an error occurs performing post-processing operations on the file. (Namely, a <code>moveToAfterProcessing</code>
+   * directory is specified and an error occurs.)
    */
-  private void afterProcessingFile(String pathStr, TraversalParams params) throws IOException {
+  private void afterProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToAfterProcessing() != null) {
       // move to processed folder
-      moveFile(pathStr, params.getMoveToAfterProcessing());
+      moveFile(filePath, params.getMoveToAfterProcessing());
     }
   }
 
@@ -351,40 +349,10 @@ public abstract class BaseStorageClient implements StorageClient {
    * in the implementation of this method. Will be called in the catch block for each file in traversal
    * in the tryProcessAndPublishFile method.
    */
-  private void errorProcessingFile(String pathStr, TraversalParams params) throws IOException {
+  private void errorProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToErrorFolder() != null) {
       // move to error folder
-      moveFile(pathStr, params.getMoveToErrorFolder());
-    }
-  }
-
-  /**
-   * Moves the file at the given path to the given option path. Only works for local files - cloud files are not supported yet.
-   * @throws UnsupportedOperationException If you attempt to move a cloud file.
-   */
-  private void moveFile(String pathStr, String option) throws IOException {
-    if (pathStr.startsWith("classpath:")) {
-      log.warn("Skipping moving classpath file: {} to {}", pathStr, option);
-      return;
-    }
-
-    // get paths of source and target
-    Path sourcePath = Paths.get(pathStr);
-    Path targetFolderPath = Paths.get(option);
-
-    // ensure target folder exists as a precaution, only create if source path is local, meaning it is not a cloud path
-    if (Files.exists(sourcePath) && !Files.exists(targetFolderPath)) {
-      Files.createDirectory(targetFolderPath);
-    }
-
-    if (Files.exists(sourcePath)) {
-      // move the local file to the target folder
-      Path targetPath = targetFolderPath.resolve(sourcePath.getFileName());
-      Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
-      log.debug("Moved local file to: {}", targetPath);
-    } else {
-      // handle cloud paths
-      throw new UnsupportedOperationException("Moving cloud files is not supported yet");
+      moveFile(filePath, params.getMoveToErrorFolder());
     }
   }
 
