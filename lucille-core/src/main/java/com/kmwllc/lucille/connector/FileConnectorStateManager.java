@@ -76,7 +76,7 @@ public class FileConnectorStateManager {
 
   /**
    * Connects to the database specified by your Config, and ensure a table with tableName exists, building it with the
-   * appropriate schema if it doesn't.
+   * appropriate schema if it doesn't. After connecting to the table, sets encountered=FALSE for all rows.
    */
   public void init() throws ClassNotFoundException, SQLException {
     try {
@@ -100,6 +100,14 @@ public class FileConnectorStateManager {
         }
       }
     }
+
+    // making sure encountered = false for all rows
+    String allNotEncounteredSQL = "UPDATE \"" + tableName + "\" SET encountered=false";
+
+    try (Statement statement = jdbcConnection.createStatement()) {
+      int rowsAffected = statement.executeUpdate(allNotEncounteredSQL);
+      log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
+    }
   }
 
   /**
@@ -108,7 +116,7 @@ public class FileConnectorStateManager {
    */
   public void shutdown() throws SQLException {
     if (performDeletions) {
-      deleteFilesNotEncountered();
+      deleteFilesNotEncounteredAndResetTable();
     }
 
     if (jdbcConnection != null) {
@@ -120,7 +128,7 @@ public class FileConnectorStateManager {
     }
   }
 
-  private void deleteFilesNotEncountered() throws SQLException {
+  private void deleteFilesNotEncounteredAndResetTable() throws SQLException {
     String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE";
 
     try (Statement statement = jdbcConnection.createStatement()) {

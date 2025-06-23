@@ -44,8 +44,8 @@ If you specify multiple filter options, files must comply with all of them to be
 * `lastModifiedCutoff`: Filter out files that haven't been modified recently. For example, specify `"1h"`, and only
 files modified within the last hour will be processed & published.
 * `lastPublishedCutoff`: Filter out files that were recently published by Lucille. For example, specify `"1h"`, and only
-files published by Lucille more than an hour ago will processed & published. Requires you to provide **state** configuration, otherwise,
-it will not be enforced!
+files published by Lucille more than an hour ago (or never published) will be processed & published. Requires you to provide **state** configuration,
+otherwise, it will not be enforced!
 
 ### State
 The File Connector can keep track of when files were last known to be published by Lucille. This allows you to use `FilterOptions.lastPublishedCutoff` and

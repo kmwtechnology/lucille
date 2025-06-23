@@ -121,21 +121,46 @@ public class FileConnectorStateManagerTest {
     assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    // pretending we got to the root of the file system and found everything, mark it all as encountered
     manager.init();
 
-    // pretending we got to the root of the file system and found nothing else..
+    manager.markFileEncountered("/hello.txt");
+    manager.markFileEncountered("/files/info.txt");
+    manager.markFileEncountered("/files/subdir/secrets.txt");
+
     manager.shutdown();
     assertEquals(1, dbHelper.checkNumConnections());
 
-    // reconnect, allowing us to make sure the deletions took place...
+    // reconnecting to run these queries + for second traversal
     manager.init();
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
         ResultSet infoRS = RunScript.execute(connection, new StringReader(infoQuery));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(secretsQuery))) {
-      // there shouldn't be any results for any of these... they were all deleted
-      assertFalse(helloRS.next());
+      // everything should still be here
+      assertTrue(helloRS.next());
+      assertTrue(infoRS.next());
+      assertTrue(secretRS.next());
+    }
+
+    // pretending that "files" directory has been deleted - so we only see "hello.txt"
+    manager.markFileEncountered("/hello.txt");
+
+    // traversal complete
+    manager.shutdown();
+    assertEquals(1, dbHelper.checkNumConnections());
+
+    // reconnecting to run queries and ensure deletions took place
+    manager.init();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
+        ResultSet infoRS = RunScript.execute(connection, new StringReader(infoQuery));
+        ResultSet secretRS = RunScript.execute(connection, new StringReader(secretsQuery))) {
+      // there shouldn't be any results for the files under "files" directory
+      assertTrue(helloRS.next());
       assertFalse(infoRS.next());
       assertFalse(secretRS.next());
     }
