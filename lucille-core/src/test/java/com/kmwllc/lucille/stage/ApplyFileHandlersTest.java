@@ -246,11 +246,12 @@ public class ApplyFileHandlersTest {
   }
 
   @Test
-  public void testInvalidConfs() throws StageException {
+  public void testInvalidConfs() {
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/empty.conf"));
     assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/noHandlers.conf"));
-    // implements a custom file handler that is not present in the classpath
-    assertThrows(StageException.class, () -> factory.get("ApplyFileHandlersTest/onlyInvalidHandlers.conf"));
+    // attempts to use a custom file handler that is not present in the classpath
+    // IllegalArgumentException is thrown in the FileHandler.create method
+    assertThrows(IllegalArgumentException.class, () -> factory.get("ApplyFileHandlersTest/missingCustom.conf"));
   }
 
   @Test
