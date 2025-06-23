@@ -330,13 +330,14 @@ public class LocalStorageClientTest {
     File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of("moveToAfterProcessing", Paths.get("success").toAbsolutePath().toString())
+    ));
+
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(new URI("temp/defaults.csv"), "",
-        ConfigFactory.parseMap(
-            Map.of("moveToAfterProcessing", Paths.get("success").toAbsolutePath().toString())),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("temp/defaults.csv"), "");
 
     localStorageClient.init();
 

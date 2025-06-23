@@ -394,16 +394,17 @@ public class AzureStorageClientTest {
   public void testMovingFiles() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config emptyConfig = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(emptyConfig, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of(
+            "moveToAfterProcessing", "https://storagename.blob.core.windows.net/container/processed/",
+            "getFileContent", false
+        )
+    ));
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/container/"), "",
-        ConfigFactory.parseMap(Map.of(
-            "moveToAfterProcessing", "https://storagename.blob.core.windows.net/container/processed/",
-            "getFileContent", false)),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("https://storagename.blob.core.windows.net/container/"), "");
 
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStream());
@@ -462,16 +463,17 @@ public class AzureStorageClientTest {
   public void testMovingFilesAcrossContainers() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config emptyConfig = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(emptyConfig, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of(
+            "moveToAfterProcessing", "https://storagename.blob.core.windows.net/container/processed/",
+            "getFileContent", false
+        )
+    ));
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("https://storagename.blob.core.windows.net/container/"), "",
-        ConfigFactory.parseMap(Map.of(
-            "moveToAfterProcessing", "https://storagename.blob.core.windows.net/processed/",
-            "getFileContent", false)),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("https://storagename.blob.core.windows.net/container/"), "");
 
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStream());

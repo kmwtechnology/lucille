@@ -362,8 +362,8 @@ public class GoogleStorageClientTest {
 
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "fileOptions", Map.of(
-            "moveToAfterProcessing", "gs://bucket/processed",
-            "moveToErrorFolder", "gs://bucket/error"
+            "moveToAfterProcessing", "gs://bucket/processed/",
+            "moveToErrorFolder", "gs://bucket/error/"
         )
     ));
 
@@ -418,15 +418,14 @@ public class GoogleStorageClientTest {
   public void testMovingFilesAcrossBuckets() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Config emptyConfig = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(emptyConfig, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of("moveToAfterProcessing", "gs://processed/")
+    ));
 
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-        ConfigFactory.parseMap(
-            Map.of("moveToAfterProcessing", "gs://processed/")
-        ), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("gs://bucket/"), "prefix-");
 
     BlobId blobId = BlobId.of("bucket", "files/my-object1");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();

@@ -297,7 +297,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * Publishes a file using a file handler and an InputStream to its contents.
    * @throws Exception If an error occurs or the file extension doesn't have a file handler to use.
    */
-  private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, URI pathURI) throws Exception {
+  private void publishUsingFileHandler(Publisher publisher, String fileExtension, TraversalParams params, InputStream inputStream, URI pathURI) throws Exception {
     FileHandler handler = params.handlerForExtension(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);

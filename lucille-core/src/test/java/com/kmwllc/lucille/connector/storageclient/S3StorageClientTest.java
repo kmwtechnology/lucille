@@ -401,17 +401,15 @@ public class S3StorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "fileOptions", Map.of(
-            "moveToAfterProcessing", "s3://bucket/Processed",
-            "moveToErrorFolder", "s3://bucket/Error"
+            "moveToAfterProcessing", "s3://bucket/processed/",
+            "moveToErrorFolder", "s3://bucket/error/"
         )
     ));
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     // simulate a proper s3StorageClient with valid files
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("s3://bucket/files/"), "",
-        ConfigFactory.parseMap(Map.of("moveToAfterProcessing", "s3://bucket/processed/")),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/files/"), "");
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -486,14 +484,15 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Config emptyConfig = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(emptyConfig, messenger, "run1", "pipeline1");
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of("moveToAfterProcessing", "s3://processed/")
+    ));
 
     // simulate a proper s3StorageClient with valid files
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("s3://bucket/files/"), "",
-        ConfigFactory.parseMap(Map.of("moveToAfterProcessing", "s3://processed/")),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/files/"), "");
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
