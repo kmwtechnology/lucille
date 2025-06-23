@@ -85,6 +85,7 @@ public class DictionaryLookupTest {
             "class",
             "dict_path",
             "set_only",
+            "use_any_match",
             "ignore_missing_source",
             "conditionPolicy"),
         stage.getLegalProperties());
@@ -113,6 +114,40 @@ public class DictionaryLookupTest {
     doc2.setField("field", "a");
     stage.processDocument(doc2);
     assertTrue(doc2.getBoolean("setContains"));
+
+    // default to using all match - "SOMETHING_ELSE" not in the dictionary
+    Document doc3 = Document.create("doc3");
+    doc3.setOrAdd("field", "a");
+    doc3.setOrAdd("field", "SOMETHING_ELSE");
+    stage.processDocument(doc3);
+    assertFalse(doc3.getBoolean("setContains"));
+  }
+
+  @Test
+  public void testSetLookupAnyMatch() throws StageException {
+    Stage stage = factory.get("DictionaryLookupTest/set_config_any_match.conf");
+
+    Document doc = Document.create("id");
+    doc.setField("field", "a");
+    stage.processDocument(doc);
+    assertTrue(doc.getBoolean("setContains"));
+
+    doc.setField("field", "hello world");
+    stage.processDocument(doc);
+    assertFalse(doc.getBoolean("setContains"));
+
+    // value preserved in the set after it was found
+    Document doc2 = Document.create("id2");
+    doc2.setField("field", "a");
+    stage.processDocument(doc2);
+    assertTrue(doc2.getBoolean("setContains"));
+
+    // default to using any match - "SOMETHING_ELSE" not in the dictionary
+    Document doc3 = Document.create("doc3");
+    doc3.setOrAdd("field", "a");
+    doc3.setOrAdd("field", "SOMETHING_ELSE");
+    stage.processDocument(doc3);
+    assertTrue(doc3.getBoolean("setContains"));
   }
 
   @Test
