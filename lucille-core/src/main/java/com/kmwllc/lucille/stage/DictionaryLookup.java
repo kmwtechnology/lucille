@@ -88,12 +88,12 @@ public class DictionaryLookup extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
 
-    if (config.hasPath("use_any_match") && !setOnly) {
+    if (config.hasPath("ignore_missing_source") && !setOnly) {
       log.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
     }
 
-    if (config.hasPath("ignore_missing_source") && !setOnly) {
-      log.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
+    if (config.hasPath("use_any_match") && !setOnly) {
+      log.warn("use_any_match is only valid when set_only is true. Ignoring.");
     }
 
     if (setOnly && updateMode != UpdateMode.OVERWRITE) {
