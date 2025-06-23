@@ -4,10 +4,12 @@ import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
 
+import com.azure.core.util.polling.SyncPoller;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.storage.blob.models.BlobCopyInfo;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
@@ -110,8 +112,12 @@ public class AzureStorageClient extends BaseStorageClient {
     BlobClient sourceBlobClient = serviceClient.getBlobContainerClient(sourceContainer).getBlobClient(sourceBlob);
     BlobClient destBlobClient = serviceClient.getBlobContainerClient(destContainer).getBlobClient(destBlob);
 
-    // Starts the copy in the background
-    sourceBlobClient.beginCopy(destBlobClient.getBlobUrl(), null);
+    // Start the copy, then we wait for it to complete
+    SyncPoller<BlobCopyInfo, Void> poller = sourceBlobClient.beginCopy(destBlobClient.getBlobUrl(), null);
+    poller.waitForCompletion();
+
+    // then delete the source file, completing the move
+    sourceBlobClient.delete();
   }
 
   private String getStartingDirectory(TraversalParams params) {
