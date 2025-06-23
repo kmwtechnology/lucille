@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.core.fileHandler;
+
 import static com.kmwllc.lucille.core.Document.ID_FIELD;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.Spec;
 import com.typesafe.config.Config;
 import java.io.InputStream;
 import java.util.Iterator;
@@ -19,9 +21,11 @@ public abstract class BaseFileHandler implements FileHandler {
   private static final Logger log = LoggerFactory.getLogger(BaseFileHandler.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  protected String docIdPrefix;
+  protected final String docIdPrefix;
 
-  public BaseFileHandler(Config config) {
+  public BaseFileHandler(Config config, Spec spec) {
+    spec.validate(config, this.getClass().getName());
+
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
 

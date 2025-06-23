@@ -43,8 +43,6 @@ public abstract class BaseStorageClient implements StorageClient {
 
   protected final Config config;
 
-  private Map<String, FileHandler> fileHandlers;
-
   protected final int maxNumOfPages;
   private boolean initialized = false;
 
@@ -55,7 +53,6 @@ public abstract class BaseStorageClient implements StorageClient {
   public BaseStorageClient(Config config) {
     validateOptions(config);
     this.config = config;
-    this.fileHandlers = new HashMap<>();
 
     // only matters for traversals
     this.maxNumOfPages = config.hasPath(MAX_NUM_OF_PAGES) ? config.getInt(MAX_NUM_OF_PAGES) : 100;
@@ -102,12 +99,7 @@ public abstract class BaseStorageClient implements StorageClient {
       throw new IllegalStateException("This StorageClient has not been initialized.");
     }
 
-    try {
-      this.fileHandlers = FileHandler.createFromConfig(params.getFileOptions());
-      traverseStorageClient(publisher, params);
-    } finally {
-      fileHandlers = null;
-    }
+    traverseStorageClient(publisher, params);
   }
 
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception;
@@ -155,8 +147,8 @@ public abstract class BaseStorageClient implements StorageClient {
           } else {
             String filePathFormat = fullPath + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
             // if file is a supported file type that should be handled by a file handler
-            if (params.supportedFileType(resolvedExtension)) {
-              handleStreamExtensionFiles(publisher, compressorStream, resolvedExtension, filePathFormat);
+            if (params.supportedFileExtension(resolvedExtension)) {
+              handleStreamExtensionFiles(publisher, resolvedExtension, params, compressorStream, filePathFormat);
             } else {
               Document doc = fileReference.decompressedFileAsDoc(compressorStream, filePathFormat, params);
               try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
@@ -180,11 +172,11 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // handle file types using fileHandler if needed to the end
-      if (params.supportedFileType(fileExtension)) {
+      if (params.supportedFileExtension(fileExtension)) {
         // Get a stream for the file content, so we don't have to load it all at once.
         InputStream contentStream = fileReference.getContentStream(params);
         // get the right FileHandler and publish based on content
-        publishUsingFileHandler(publisher, fileExtension, contentStream, fullPath);
+        publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPath);
 
         afterProcessingFile(fullPath, params);
         return;
@@ -239,8 +231,8 @@ public abstract class BaseStorageClient implements StorageClient {
         // checking validity only for the entries
         if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant())) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
-          if (params.supportedFileType(entryExtension)) {
-            handleStreamExtensionFiles(publisher, in, entryExtension, entryFullPathStr);
+          if (params.supportedFileExtension(entryExtension)) {
+            handleStreamExtensionFiles(publisher, entryExtension, params, in, entryFullPathStr);
           } else {
             // handle entry to be published as a normal document
             // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
@@ -278,7 +270,7 @@ public abstract class BaseStorageClient implements StorageClient {
    *                    e.g. gs://bucket-name/folder/file.zip:entry.json OR path/to/example.csv
    * @throws ConnectorException If an error occurs processing / handling the file.
    */
-  private void handleStreamExtensionFiles(Publisher publisher, InputStream in, String fileExtension, String fullPathStr)
+  private void handleStreamExtensionFiles(Publisher publisher, String fileExtension, TraversalParams params, InputStream in, String fullPathStr)
       throws ConnectorException {
     try {
       InputStream wrappedNonClosingStream = new InputStream() {
@@ -294,7 +286,7 @@ public abstract class BaseStorageClient implements StorageClient {
       };
 
 
-      FileHandler handler = fileHandlers.get(fileExtension);
+      FileHandler handler = params.handlerForExtension(fileExtension);
       handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);
     } catch (Exception e) {
       throw new ConnectorException("Error occurred while handling / processing file: " + fullPathStr, e);
@@ -306,7 +298,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @throws Exception If an error occurs or the file extension doesn't have a file handler to use.
    */
   private void publishUsingFileHandler(Publisher publisher, String fileExtension, InputStream inputStream, URI pathURI) throws Exception {
-    FileHandler handler = fileHandlers.get(fileExtension);
+    FileHandler handler = params.handlerForExtension(fileExtension);
     if (handler == null) {
       throw new ConnectorException("No file handler found for file extension: " + fileExtension);
     }

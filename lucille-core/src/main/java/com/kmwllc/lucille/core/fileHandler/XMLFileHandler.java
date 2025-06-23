@@ -6,7 +6,6 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,10 +47,6 @@ import org.xml.sax.XMLReader;
  */
 public class XMLFileHandler extends BaseFileHandler {
 
-  public static final ParentSpec PARENT_SPEC = Spec.parent("xml")
-      .withRequiredProperties("xmlRootPath")
-      .withOptionalProperties("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding", "skipEmptyId");
-
   private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
 
   private final String xmlRootPath;
@@ -66,7 +61,9 @@ public class XMLFileHandler extends BaseFileHandler {
   private XMLReader xmlReader = null;
 
   public XMLFileHandler(Config config) {
-    super(config);
+    super(config, Spec.fileHandler()
+        .withRequiredProperties("xmlRootPath")
+        .withOptionalProperties("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding", "skipEmptyId"));
 
     this.xmlRootPath = config.getString("xmlRootPath");
     this.xmlIdPath = ConfigUtils.getOrDefault(config, "xmlIdPath", null);
@@ -78,8 +75,6 @@ public class XMLFileHandler extends BaseFileHandler {
     if (config.hasPath("xmlIdPath") == config.hasPath("xpathIdPath")) {
       throw new IllegalArgumentException("Must specify exactly one of xmlIdPath and xpathIdPath.");
     }
-
-    this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
 
   @Override
