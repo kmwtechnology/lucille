@@ -55,10 +55,9 @@ public class GoogleStorageClientTest {
   public void testPublishValidFiles() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-", ConfigFactory.empty(), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("gs://bucket/"), "prefix-");
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -117,10 +116,12 @@ public class GoogleStorageClientTest {
   public void testSkipFileContent() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of(GET_FILE_CONTENT, false)
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-", ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("gs://bucket/"), "prefix-");
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -143,11 +144,12 @@ public class GoogleStorageClientTest {
   public void testTraverseWithExcludes() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of("excludes", List.of("my-object2", "my-object3"))
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of("my-object2", "my-object3"));
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-", ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("gs://bucket/"), "prefix-");
 
     BlobId blobId = BlobId.of("bucket", "my-object");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -183,8 +185,10 @@ public class GoogleStorageClientTest {
   public void testPublishUsingFileHandler() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "path/to/service/key"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileHandlers", Map.of("json", Map.of())
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     BlobId blobId = BlobId.of("bucket", "json-1.json");
     BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
@@ -199,17 +203,15 @@ public class GoogleStorageClientTest {
     BlobInfo blobInfo3 = BlobInfo.newBuilder(blobId3).build();
     storage.create(blobInfo3, "World!".getBytes());
 
-
     // google storage client
     GoogleStorageClient gStorageClient = new GoogleStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-", ConfigFactory.parseMap(Map.of("json", Map.of())), ConfigFactory.empty());
     gStorageClient.setStorageForTesting(storage);
 
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
       mockFileHandler.when(() -> FileHandler.createFromConfig(any())).thenReturn(Map.of("json", jsonFileHandler));
-      mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
-          .thenReturn(true).thenReturn(false).thenReturn(true); // .json, then object3, then .json
+
+      TraversalParams params = new TraversalParams(connectorConfig, URI.create("gs://bucket/"), "prefix-");
 
       gStorageClient.initializeForTesting();
       gStorageClient.traverse(publisher, params);
@@ -229,19 +231,20 @@ public class GoogleStorageClientTest {
   public void testPublishOnCompressedAndArchived() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of(
+            "handleArchivedFiles", true,
+            "handleCompressedFiles", true
+        ),
+        "fileHandlers", Map.of(
+            "json", Map.of(),
+            "csv", Map.of()
+        )
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
 
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-        ConfigFactory.parseMap(
-            Map.of(
-                "json", Map.of(),
-                "csv", Map.of(),
-                "handleArchivedFiles", true,
-                "handleCompressedFiles", true
-            )
-        ), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("gs://bucket/"), "prefix-");
 
     Map<String, byte[]> fileContents = readAllFilesAsBytesWithMap("src/test/resources/StorageClientTest/testCompressedAndArchived");
 
@@ -355,16 +358,15 @@ public class GoogleStorageClientTest {
   public void testErrorMovingFiles() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of(
+            "moveToAfterProcessing", "gs://bucket/processed",
+            "moveToErrorFolder", "gs://bucket/error"
+        )
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("gs://bucket/"), "prefix-",
-        ConfigFactory.parseMap(
-            Map.of(
-                "moveToAfterProcessing", "gs://bucket/processed",
-                "moveToErrorFolder", "gs://bucket/error"
-            )
-        ), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("gs://bucket/"), "prefix-");
 
 
     BlobId blobId = BlobId.of("bucket", "my-object");

@@ -4,23 +4,17 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Each implementation of the FileHandler handles a specific file type and is able to process the file and return an Iterator
  * of documents. It can also publish straight to the Lucille pipeline if given a Publisher.
  */
 public interface FileHandler {
-
-  /**
-   * Collection of file types that are supported by the FileHandler interface.
-   * Note that if you add a new file type here, you must also add it in {@link FileHandler#create(String, Config)}
-   */
-  Set<String> SUPPORTED_FILE_TYPES = Set.of("json", "jsonl", "csv", "xml");
 
   /**
    * Processes a file given an InputStream of its contents and a representation path String to it, and returns an iterator
@@ -46,73 +40,81 @@ public interface FileHandler {
   void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException;
 
   /**
-   * Returns a new FileHandler based on the file extension and file options.
+   * From the given Config, returns a map of supported file extensions to their FileHandlers.The returned map is not modifiable.
+   * Configs mapped to <code>csv</code>, <code>xml</code>, <code>json</code>, and <code>jsonl</code> without a <code>class</code>
+   * specified will use Lucille's <code>CSVFileHandler</code>, <code>XMLFileHandler</code>, or <code>JSONFileHandler</code>, respectively.
+   * Configs mapped to another file extension (a custom <code>FileHandler</code>) must include <code>class</code> in their Config, or an Exception will be thrown.
    *
-   * <p> <b>Note:</b> If you add support for a new file type, you must also add the corresponding handler here AND in
-   * {@link FileHandler#SUPPORTED_FILE_TYPES}
+   * <br> <b>Note:</b> If <code>json</code> config is included, but <code>jsonl</code> is not (or vice versa), both extensions will
+   * map to the same JSONFileHandler in the Config. If both are included, however, they will map to unique JSONFileHandlers,
+   * created using their respective Configs.
    *
-   * @param fileExtension The extension associated with the file.
-   * @param fileOptions Configuration for how you want to handle / process files. Should contain individual entries with
-   *                    configurations for the different FileHandlers you want to support.
-   *
-   * @return A FileHandler to process files with the given extension.
-   * @throws UnsupportedOperationException If you try to create a FileHandler for an unsupported file type.
-   */
-  static FileHandler create(String fileExtension, Config fileOptions) {
-    switch (fileExtension) {
-      case "json", "jsonl" -> {
-        Config jsonConfig = fileOptions.hasPath("json") ? fileOptions.getConfig("json") : fileOptions.getConfig("jsonl");
-
-        return new JsonFileHandler(jsonConfig);
-      }
-      case "csv" -> {
-        Config csvConfig = fileOptions.getConfig("csv");
-        return new CSVFileHandler(csvConfig);
-      }
-      case "xml" -> {
-        Config xmlConfig = fileOptions.getConfig("xml");
-        return new XMLFileHandler(xmlConfig);
-      }
-      default -> throw new UnsupportedOperationException("Unsupported file type: " + fileExtension);
-    }
-  }
-
-  /**
-   * Returns a Map from the given Config, creating FileHandlers that can be constructed from the given config, mapped
-   * to their corresponding file extensions. If json is included, jsonl will be as well (and vice versa) - both will map
-   * to a JSONFileHandler in the Config. The returned map is not modifiable.
-   *
-   * @param optionsWithHandlers A config that contains individual maps / configuration for the file handlers that you want
-   *                            to support.
+   * @param fileHandlersConfig The Config, typically under the key <code>fileHandlers</code>, which potentially contains Configs for various FileHandlers.
    * @return A map of file extensions to their respective file handlers, creating as many as could be built from the
    * provided config.
    */
-  static Map<String, FileHandler> createFromConfig(Config optionsWithHandlers) {
+  static Map<String, FileHandler> createFromConfig(Config fileHandlersConfig) {
     Map<String, FileHandler> handlerMap = new HashMap<>();
 
-    for (String fileExtensionSupported : SUPPORTED_FILE_TYPES) {
-      if (supportAndContainFileType(fileExtensionSupported, optionsWithHandlers)) {
-        FileHandler handler = FileHandler.create(fileExtensionSupported, optionsWithHandlers);
-        handlerMap.put(fileExtensionSupported, handler);
-      }
+    for (String fileExtension : fileHandlersConfig.root().keySet()) {
+      FileHandler handler = FileHandler.create(fileExtension, fileHandlersConfig);
+      handlerMap.put(fileExtension, handler);
+    }
+
+    // only "adding" the other if it wasn't specified in the Config. Allows JSON / JSONL to be handled differently,
+    // if need be...
+    if (handlerMap.containsKey("json") && !handlerMap.containsKey("jsonl")) {
+      handlerMap.put("jsonl", handlerMap.get("json"));
+    } else if (handlerMap.containsKey("jsonl") && !handlerMap.containsKey("json")) {
+      handlerMap.put("json", handlerMap.get("jsonl"));
     }
 
     return Collections.unmodifiableMap(handlerMap);
   }
 
   /**
-   * Returns whether the given file extension is in {@link FileHandler#SUPPORTED_FILE_TYPES} <b>and</b>
-   * the file options contain the file extension. Handles support for json and jsonl files.
+   * Returns a new FileHandler based on the file extension and file options. If the file extension is not a "default" type supported
+   * by Lucille, your Config must contain the class for the FileHandler.
    *
-   * @param fileExtension The extension of the file you want to check.
-   * @param fileOptions A config that contains individual maps / configuration for the file handlers that you want
-   *                    to support.
-   * @return Whether the file type is supported by Lucille and your fileOptions contains configuration for the file type.
+   * @param fileExtension The extension associated with the file.
+   * @param fileHandlersConfig Configuration for fileHandlers. Should contain individual entries with configurations for the
+   *                           different FileHandlers you want to support, keyed by their file extension. This config should contain
+   *                           the given fileExtension.
+   *
+   * @return A FileHandler to process files with the given extension.
+   * @throws IllegalArgumentException If you try to create a FileHandler for a non-default file type and don't specify a class, or
+   * if a reflective error occurs instantiating a custom FileHandler class.
    */
-  static boolean supportAndContainFileType(String fileExtension, Config fileOptions) {
-    return SUPPORTED_FILE_TYPES.contains(fileExtension) &&
-       (fileOptions.hasPath(fileExtension) ||
-       (fileExtension.equals("json") && fileOptions.hasPath("jsonl")) ||
-       (fileExtension.equals("jsonl") && fileOptions.hasPath("json")));
+  static FileHandler create(String fileExtension, Config fileHandlersConfig) {
+    Config fileExtensionConfig = fileHandlersConfig.getConfig(fileExtension);
+
+    // Allow for an overridden implementation, even if we provide a default implementation
+    if (fileExtensionConfig.hasPath("class")) {
+      String className = fileExtensionConfig.getString("class");
+
+      try {
+        Class<?> clazz = Class.forName(className);
+        Constructor<?> constructor = clazz.getConstructor(Config.class);
+        return (FileHandler) constructor.newInstance(fileExtensionConfig);
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalArgumentException("Couldn't create custom FileHandler (" + fileExtension + ") from Config:", e);
+      }
+    }
+
+    // No class provided, see if it is a supported type, throw an exception if it is not supported
+    switch (fileExtension) {
+      case "json", "jsonl" -> {
+        return new JsonFileHandler(fileExtensionConfig);
+      }
+      case "csv" -> {
+        return new CSVFileHandler(fileExtensionConfig);
+      }
+      case "xml" -> {
+        return new XMLFileHandler(fileExtensionConfig);
+      }
+      default -> {
+        throw new IllegalArgumentException("No \"class\" provided for FileHandler config " + fileExtension + ".");
+      }
+    }
   }
 }
