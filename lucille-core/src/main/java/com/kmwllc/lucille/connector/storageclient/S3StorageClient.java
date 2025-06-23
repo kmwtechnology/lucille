@@ -15,8 +15,6 @@ import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
@@ -33,7 +31,6 @@ import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 public class S3StorageClient extends BaseStorageClient {
 
   private S3Client s3;
-  private S3AsyncClient s3Async;
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
 
   public S3StorageClient(Config s3CloudOptions) {
@@ -52,13 +49,10 @@ public class S3StorageClient extends BaseStorageClient {
   protected void initializeStorageClient() throws IOException {
     try {
       S3ClientBuilder builder = S3Client.builder();
-      S3AsyncClientBuilder asyncBuilder = S3AsyncClient.builder();
 
       if (config.hasPath(S3_REGION)) {
         Region configRegion = Region.of(config.getString(S3_REGION));
-
         builder = builder.region(configRegion);
-        asyncBuilder = asyncBuilder.region(configRegion);
       }
 
       // use StaticCredentialsProvider when access key is provided,
@@ -66,11 +60,9 @@ public class S3StorageClient extends BaseStorageClient {
       if (config.hasPath(S3_ACCESS_KEY_ID) && config.hasPath(S3_SECRET_ACCESS_KEY)) {
         AwsBasicCredentials awsCred = AwsBasicCredentials.create(config.getString(S3_ACCESS_KEY_ID), config.getString(S3_SECRET_ACCESS_KEY));
         builder = builder.credentialsProvider(StaticCredentialsProvider.create(awsCred));
-        asyncBuilder = asyncBuilder.credentialsProvider(StaticCredentialsProvider.create(awsCred));
       }
 
       s3 = builder.build();
-      s3Async = asyncBuilder.build();
     } catch (Exception e) {
       throw new IOException("Error occurred building S3Client", e);
     }
@@ -83,14 +75,6 @@ public class S3StorageClient extends BaseStorageClient {
         s3.close();
       } catch (Exception e) {
         throw new IOException("Error occurred closing S3Client", e);
-      }
-    }
-
-    if (s3Async != null) {
-      try {
-        s3Async.close();
-      } catch (Exception e) {
-        throw new IOException("Error occurred closing S3AsyncClient", e);
       }
     }
   }
@@ -138,8 +122,8 @@ public class S3StorageClient extends BaseStorageClient {
         .build();
 
     // using the async client to prevent a slowdown. allow the object to copy, and then delete it, all async.
-    s3Async.copyObject(copyRequest)
-        .thenRun(() -> s3Async.deleteObject(deleteRequest));
+    s3.copyObject(copyRequest);
+    s3.deleteObject(deleteRequest);
   }
 
   private String getStartingDirectory(TraversalParams params) {
@@ -158,11 +142,6 @@ public class S3StorageClient extends BaseStorageClient {
   // Only for testing
   void setS3ClientForTesting(S3Client s3) {
     this.s3 = s3;
-  }
-
-  // Only for testing
-  void setS3AsyncClientForTesting(S3AsyncClient s3) {
-    this.s3Async = s3;
   }
 
 

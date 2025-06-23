@@ -62,7 +62,7 @@ import org.slf4j.LoggerFactory;
  *     / colliding keys in your target folders for moveToAfterProcessing or moveToErrorFolder.
  *   </li>
  *   <li><b>Note:</b> For Cloud Storage, it is important that your directory names end with '/'. When using Azure, you'll have to use the same storage account.</li>
- *   <li><b>Note:</b> Cloud Storage moves are not always executed synchronously. As such, the moves may not be completed before the next Connector in your run is executed.</li>
+ *   <li><b>Note:</b> File moves are executed synchronously, including on Cloud Storage. As such, the FileConnector may run slower when moves are enabled.</li>
  *
  *   <li> <b>Notes</b> on archive / compressed files:
  *      <ul>
