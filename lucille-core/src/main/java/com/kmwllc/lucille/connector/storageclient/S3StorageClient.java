@@ -121,7 +121,6 @@ public class S3StorageClient extends BaseStorageClient {
         .bucket(sourceBucket).key(sourceKey)
         .build();
 
-    // using the async client to prevent a slowdown. allow the object to copy, and then delete it, all async.
     s3.copyObject(copyRequest);
     s3.deleteObject(deleteRequest);
   }
