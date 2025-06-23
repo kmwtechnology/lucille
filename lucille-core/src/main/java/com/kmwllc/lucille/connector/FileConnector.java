@@ -190,6 +190,8 @@ public class FileConnector extends AbstractConnector {
           throw new ConnectorException("No StorageClient was available for (" + pathToTraverse + "). Did you include the necessary configuration?");
         }
 
+        // creating a new traversal params for each path, which includes rereading file/filterOptions and
+        // creating the FileHandlers map. FileHandlers are lightweight, so this is not an intensive operation.
         TraversalParams params = new TraversalParams(config, pathToTraverse, getDocIdPrefix());
 
         try {
