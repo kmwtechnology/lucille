@@ -42,8 +42,8 @@ import org.slf4j.LoggerFactory;
  *      outputting the match itself). You can control this behavior with <code>use_any_match</code> and <code>ignore_missing_source</code>.
  *      <code>set_only</code> defaults to false.
  * <p>  - use_any_match (Boolean, Optional) : Use in combination with set_only. If true, the destination field will
- *      be set to true if any values in the source field are present in the dictionary. If false, the destination field
- *      will be set to true if all the values in the source field are present in the dictionary. Defaults to false.
+ *      be set to true if any values in any source field are present in the dictionary. If false, the destination field
+ *      will be set to true if all the values in each source field are present in the dictionary. Defaults to false.
  * <p>  - ignore_missing_source (Boolean, Optional) : Use in combination with set_only. If true, the destination field
  *      will be set to true if the source field is missing. Defaults to false.
  *
@@ -106,6 +106,8 @@ public class DictionaryLookup extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    // used only for set_only + use_any_match
+    boolean anyMatchesFound = false;
 
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one dest, use it. Otherwise, use the current source/dest.
@@ -113,7 +115,6 @@ public class DictionaryLookup extends Stage {
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       if (setOnly) {
-
         // default value is true if this is the first field or if there are multiple fields
         // in case where we have one destination field and multiple source fields we want to retrieve the current value
         boolean defaultValue = true;
@@ -121,7 +122,7 @@ public class DictionaryLookup extends Stage {
           defaultValue = doc.getBoolean(destField);
         }
 
-        boolean currentValue;
+        boolean currentValue = false;
         if (!doc.has(sourceField)) {
           // if ignoreMissingSource is true, set the destination field to true if the source field is missing
           currentValue = ignoreMissingSource;
@@ -130,14 +131,15 @@ public class DictionaryLookup extends Stage {
               .map(ignoreCase ? String::toLowerCase : String::toString);
 
           if (useAnyMatch) {
-            currentValue = sourceStream.anyMatch(dict::containsKey);
+            anyMatchesFound = anyMatchesFound || sourceStream.anyMatch(dict::containsKey);
           } else {
             currentValue = sourceStream.allMatch(dict::containsKey);
           }
         }
 
-        doc.update(destField, updateMode, defaultValue && currentValue);
-
+        // always write "true" to the field if using set_only in conjunction with use_any_match,
+        // and we've found a match on any field.
+        doc.update(destField, updateMode, (defaultValue && currentValue) || anyMatchesFound);
       } else {
 
         if (!doc.has(sourceField)) {

@@ -127,27 +127,31 @@ public class DictionaryLookupTest {
   public void testSetLookupAnyMatch() throws StageException {
     Stage stage = factory.get("DictionaryLookupTest/set_config_any_match.conf");
 
+    // one field has a match, the other field (source2) is empty / not specified
     Document doc = Document.create("id");
-    doc.setField("field", "a");
+    doc.setField("source1", "a");
     stage.processDocument(doc);
     assertTrue(doc.getBoolean("setContains"));
 
-    doc.setField("field", "hello world");
-    stage.processDocument(doc);
-    assertFalse(doc.getBoolean("setContains"));
-
-    // value preserved in the set after it was found
+    // no matches
     Document doc2 = Document.create("id2");
-    doc2.setField("field", "a");
+    doc2.setField("source1", "hello world");
     stage.processDocument(doc2);
-    assertTrue(doc2.getBoolean("setContains"));
+    assertFalse(doc2.getBoolean("setContains"));
 
-    // default to using any match - "SOMETHING_ELSE" not in the dictionary
-    Document doc3 = Document.create("doc3");
-    doc3.setOrAdd("field", "a");
-    doc3.setOrAdd("field", "SOMETHING_ELSE");
+    // "SOMETHING_ELSE" not in the dictionary, no match on source2
+    Document doc3 = Document.create("id3");
+    doc3.setOrAdd("source1", "a");
+    doc3.setOrAdd("source2", "SOMETHING_ELSE");
     stage.processDocument(doc3);
     assertTrue(doc3.getBoolean("setContains"));
+
+    // both match
+    Document doc4 = Document.create("id4");
+    doc4.setOrAdd("source1", "a");
+    doc4.setOrAdd("source2", "a");
+    stage.processDocument(doc4);
+    assertTrue(doc4.getBoolean("setContains"));
   }
 
   @Test
