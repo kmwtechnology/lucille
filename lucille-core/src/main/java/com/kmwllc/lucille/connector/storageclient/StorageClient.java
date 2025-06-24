@@ -43,9 +43,6 @@ public interface StorageClient {
    * @param params Parameters / options regarding the traversal of the client's file system.
    * @throws Exception If an error occurs during traversal.
    */
-  /**
-   * Traverses through the storage client and publish files to Lucille pipeline.
-   */
   void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
 
   /**
