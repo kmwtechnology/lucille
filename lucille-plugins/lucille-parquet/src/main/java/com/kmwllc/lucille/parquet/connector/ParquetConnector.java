@@ -5,200 +5,108 @@ import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.parquet.ParquetFileIterator;
 import com.typesafe.config.Config;
+import java.util.Iterator;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.parquet.avro.AvroReadSupport;
-import org.apache.parquet.column.page.PageReadStore;
-import org.apache.parquet.example.data.Group;
-import org.apache.parquet.example.data.simple.SimpleGroup;
-import org.apache.parquet.example.data.simple.convert.GroupRecordConverter;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
-import org.apache.parquet.io.ColumnIOFactory;
-import org.apache.parquet.io.MessageColumnIO;
-import org.apache.parquet.io.RecordReader;
-import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.Type;
 
 import java.net.URI;
-import java.util.List;
 
+/**
+ * A connector for processing Parquet files, either locally, or on S3, and publishing Lucille documents from
+ * files.
+ *
+ * <p> Config Parameters:
+ * <ul>
+ *   <li>pathToStorage (String): The path to storage you want to traverse for <code>.parquet</code> files.</li>
+ *   <li>id_field (String): The name of a field found in the Parquet files you will process that can be used for Document IDs.
+ *   Must be found in the file's schema, or an Exception will be thrown.</li>
+ *   <li>fs_uri (String): A URI for the file system that you want to use (for your <code>pathToStorage</code>).</li>
+ *   <li>s3_key (String, Optional): Your key to AWS S3. Only needed if using S3.</li>
+ *   <li>s3_secret (String, Optional): Your secret to AWS S3. Only needed if using S3.</li>
+ *   <li>limit (Long, Optional): The maximum number of Documents to publish. Defaults to no limit.</li>
+ *   <li>start (Long, Optional): The number of rows to skip from the beginning of each parquet file encountered. Defaults to skipping no rows.</li>
+ * </ul>
+ *
+ * <b>Note:</b> If you are paginating (using start / limit), it is recommended you use individual Connectors for each Parquet file.
+ */
 public class ParquetConnector extends AbstractConnector {
 
   private final String path;
   private final String idField;
   private final String fsUri;
+  private final Configuration hadoopConfig;
+
+  // The row to start at in files. Can also think of this as a number of documents to skip (from the beginning of the file).
+  private final long start;
   private final long limit;
 
-  private final String s3Key;
-  private final String s3Secret;
-
-  // non final
-  private long start;
   private long count = 0L;
 
-
+  /**
+   * Creates a ParquetConnector from the given config.
+   * @param config Configuration for the ParquetConnector.
+   */
   public ParquetConnector(Config config) {
     super(config, Spec.connector()
-        .withRequiredProperties("path", "id_field", "fs_uri")
+        .withRequiredProperties("pathToStorage", "id_field", "fs_uri")
         .withOptionalProperties("s3_key", "s3_secret", "limit", "start"));
-    this.path = config.getString("path");
+
+    this.path = config.getString("pathToStorage");
     this.idField = config.getString("id_field");
     this.fsUri = config.getString("fs_uri");
 
-    this.s3Key = config.hasPath("s3_key") ? config.getString("s3_key") : null;
-    this.s3Secret = config.hasPath("s3_secret") ? config.getString("s3_secret") : null;
     this.limit = config.hasPath("limit") ? config.getLong("limit") : -1;
     this.start = config.hasPath("start") ? config.getLong("start") : 0L;
+
+    this.hadoopConfig = new Configuration();
+
+    if (config.hasPath("s3_key") && config.hasPath("s3_secret")) {
+      hadoopConfig.set("fs.s3a.access.key", config.getString("s3_key"));
+      hadoopConfig.set("fs.s3a.secret.key", config.getString("s3_secret"));
+      hadoopConfig.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem");
+      hadoopConfig.setBoolean("fs.s3a.path.style.access", true);
+      hadoopConfig.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
+    }
   }
 
   private boolean limitNotReached() {
     return limit < 0 || count < limit;
   }
 
-  private boolean canSkipAndUpdateStart(long n) {
-    if (start > n) {
-      start -= n;
-      return true;
-    }
-    return false;
-  }
-
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    Configuration conf = new Configuration();
-    if (s3Key != null && s3Secret != null) {
-      conf.set("fs.s3a.access.key", s3Key);
-      conf.set("fs.s3a.secret.key", s3Secret);
-      conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem");
-      conf.setBoolean("fs.s3a.path.style.access", true);
-      conf.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
-    }
-
-    try (FileSystem fs = FileSystem.get(new URI(fsUri), conf)) {
+    try (FileSystem fs = FileSystem.get(new URI(fsUri), hadoopConfig)) {
       RemoteIterator<LocatedFileStatus> statusIterator = fs.listFiles(new Path(path), true);
+
       while (limitNotReached() && statusIterator.hasNext()) {
         LocatedFileStatus status = statusIterator.next();
-        //only process parquet files
+        // only processing parquet files
         if (!status.getPath().getName().endsWith("parquet")) {
           continue;
         }
 
-        try (ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, conf))) {
+        ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, hadoopConfig));
+        Iterator<Document> docIterator = new ParquetFileIterator(reader, idField, start, limit - count);
 
-          // check if we can skip this file
-          if (canSkipAndUpdateStart(reader.getRecordCount())) {
-            continue;
+        while (docIterator.hasNext()) {
+          Document doc = docIterator.next();
+
+          if (doc != null) {
+            publisher.publish(doc);
+            count++;
           }
-
-          MessageType schema = reader.getFooter().getFileMetaData().getSchema();
-          List<Type> fields = schema.getFields();
-          PageReadStore pages;
-          while (limitNotReached() && (pages = reader.readNextRowGroup()) != null) {
-
-            // check if we can skip this row group
-            long nRows = pages.getRowCount();
-            if (canSkipAndUpdateStart(nRows)) {
-              continue;
-            }
-
-            MessageColumnIO columnIO = new ColumnIOFactory().getColumnIO(schema);
-            RecordReader<Group> recordReader = columnIO.getRecordReader(pages, new GroupRecordConverter(schema));
-
-            // at this point start is either 0 or < nRows, if later will update start to 0 after the loop
-            while (limitNotReached() && nRows-- > 0) {
-
-              // read record regardless of the start parameter
-              SimpleGroup simpleGroup = (SimpleGroup) recordReader.read();
-              if (canSkipAndUpdateStart(1)) {
-                continue;
-              }
-
-              String id = simpleGroup.getString(idField, 0);
-              Document doc = Document.create(id);
-              for (int j = 0; j < fields.size(); j++) {
-
-                Type field = fields.get(j);
-                String fieldName = field.getName();
-                if (fieldName.equals(idField)) {
-                  continue;
-                }
-                if (field.isPrimitive()) {
-                  setDocField(doc, field, simpleGroup, j);
-                } else {
-                  for (int k = 0; k < simpleGroup.getGroup(j, 0).getFieldRepetitionCount(0); k++) {
-                    Group group = simpleGroup.getGroup(j, 0).getGroup(0, k);
-                    Type type = group.getType().getType(0);
-                    if (type.isPrimitive()) {
-                      addToField(doc, fieldName, type, group);
-                    }
-                  }
-                }
-              }
-              publisher.publish(doc);
-              count++;
-            }
-          }
-        } catch (Exception e) {
-          throw new ConnectorException("Problem running the connector.", e);
         }
       }
     } catch (Exception e) {
       throw new ConnectorException("Problem running the ParquetConnector", e);
-    }
-  }
-
-  private static void setDocField(Document doc, Type field, SimpleGroup simpleGroup, int j) {
-
-    // check if we have a field value before setting it.
-    if (simpleGroup.getFieldRepetitionCount(j) == 0) {
-      return;
-    }
-
-    String fieldName = field.getName();
-
-    switch (field.asPrimitiveType().getPrimitiveTypeName()) {
-      case BINARY:
-        doc.setField(fieldName, simpleGroup.getString(j, 0));
-        break;
-      case FLOAT:
-        doc.setField(fieldName, simpleGroup.getFloat(j, 0));
-        break;
-      case INT32:
-        doc.setField(fieldName, simpleGroup.getInteger(j, 0));
-        break;
-      case INT64:
-        doc.setField(fieldName, simpleGroup.getLong(j, 0));
-        break;
-      case DOUBLE:
-        doc.setField(fieldName, simpleGroup.getDouble(j, 0));
-        break;
-      // todo consider adding a default case
-    }
-  }
-
-  private static void addToField(Document doc, String fieldName, Type type, Group group) {
-    switch (type.asPrimitiveType().getPrimitiveTypeName()) {
-      case BINARY:
-        doc.addToField(fieldName, group.getString(0, 0));
-        break;
-      case FLOAT:
-        doc.addToField(fieldName, group.getFloat(0, 0));
-        break;
-      case INT32:
-        doc.addToField(fieldName, group.getInteger(0, 0));
-        break;
-      case INT64:
-        doc.addToField(fieldName, group.getLong(0, 0));
-        break;
-      case DOUBLE:
-        doc.addToField(fieldName, group.getDouble(0, 0));
-        break;
-      // todo consider adding a default case
     }
   }
 }

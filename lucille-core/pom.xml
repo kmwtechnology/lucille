@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.5.6-SNAPSHOT</version>
+    <version>0.5.7-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -321,12 +321,11 @@
       <version>4.2.18</version>
     </dependency>
 
-    <!--  test dependency for db connector tests -->
+    <!-- used in tests, but expanded scope for incremental FileConnector -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <version>2.2.224</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -372,7 +371,14 @@
     <dependency>
         <groupId>io.github.ollama4j</groupId>
         <artifactId>ollama4j</artifactId>
-        <version>1.0.93</version>
+        <version>1.0.100</version>
+    </dependency>
+
+    <!-- for RSS connector -->
+    <dependency>
+      <groupId>com.apptasticsoftware</groupId>
+      <artifactId>rssreader</artifactId>
+      <version>3.9.3</version>
     </dependency>
   </dependencies>
 

@@ -31,10 +31,6 @@ import org.slf4j.LoggerFactory;
  */
 public class CSVFileHandler extends BaseFileHandler {
 
-  public static final ParentSpec PARENT_SPEC = Spec.parent("csv")
-      .withOptionalProperties("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "idFields", "docIdFormat",
-          "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms");
-
   private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);
 
   private final String lineNumField;
@@ -51,7 +47,10 @@ public class CSVFileHandler extends BaseFileHandler {
   private static final String UTF8_BOM = "\uFEFF";
 
   public CSVFileHandler(Config config) {
-    super(config);
+    super(config, Spec.fileHandler()
+        .withOptionalProperties("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "idFields", "docIdFormat",
+            "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms"));
+
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
     this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
     this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";
@@ -136,13 +135,15 @@ public class CSVFileHandler extends BaseFileHandler {
           return getDocumentFromLine(idColumns, header, line, filename, path, lineNum);
         } catch (Exception e) {
           log.error("Error processing CSV line {}", lineNum, e);
+
           try {
             csvReader.close();
           } catch (IOException ex) {
             throw new RuntimeException(ex);
           }
+
+          return null;
         }
-        return null;
       }
     };
   }
@@ -196,6 +197,12 @@ public class CSVFileHandler extends BaseFileHandler {
 
   private HashMap<String, Integer> getColumnIndexMap(String[] header) {
     HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
+
+    // If header is null, just return an empty map. (Allows for graceful handling of empty files)
+    if (header == null) {
+      return columnIndexMap;
+    }
+
     for (int i = 0; i < header.length; i++) {
       // check for BOM
       if (i == 0) {
@@ -220,7 +227,7 @@ public class CSVFileHandler extends BaseFileHandler {
         } catch (IOException e) {
           log.error("Error closing CSVReader", e);
         }
-        log.warn("CSV does not contain header row, skipping csv file");
+        log.warn("CSV does not contain header row, no Documents will be published for the file.");
       }
       if (lowercaseFields) {
         for (int i = 0; i < header.length; i++) {

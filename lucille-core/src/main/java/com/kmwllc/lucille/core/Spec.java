@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -37,7 +38,6 @@ public class Spec {
     this.optionalParentMap = new HashMap<>();
   }
 
-  // Convenience constructor to create a Spec without default legal properties.
   private Spec() {
     this(Set.of());
   }
@@ -69,6 +69,13 @@ public class Spec {
    * @return a Spec with default legal properties suitable for a specific Indexer implementation.
    */
   public static Spec indexer() { return new Spec(); }
+
+  /**
+   * Creates a Spec with default legal properties suitable for a FileHandler. Includes "class" and "docIdPrefix".
+   *
+   * @return a Spec with default legal properties suitable for a FileHandler.
+   */
+  public static Spec fileHandler() { return new Spec(Set.of("class", "docIdPrefix")); }
 
   /**
    * Creates a Spec without any default, legal properties.
@@ -225,8 +232,10 @@ public class Spec {
     Set<String> observedRequiredParentNames = new HashSet<>();
     Set<String> legalProperties = mergeSets(requiredProperties, optionalProperties, defaultLegalProperties);
     for (String key : keys) {
+
       if (!legalProperties.contains(key)) {
         String parentName = getParent(key);
+
         if (parentName == null) {
           errorMessages.add("Config contains unknown property " + key);
         } else if (requiredParentMap.containsKey(parentName)) {
@@ -260,12 +269,29 @@ public class Spec {
         }
       }
     }
+
+    // Handling of a small edge case - when a parent is just a "parentName", but the contents inside are all empty.
+    // (See ApplyFileHandlers - "jsonOnly.conf" as an example - handlerOptions is a requiredParent, and it contains "json: {}"
+    // to use it as a file handler, but no inner configuration for json. So it doesn't show up in "keys" above. We also
+    // can't just use config.root().keySet().)
+    for (Entry<String, ParentSpec> requiredEntry : requiredParentMap.entrySet()) {
+      // has no ParentSpec, and is present in the config. might be empty, so not part of "keys" above.
+      if (requiredEntry.getValue() == null && config.hasPath(requiredEntry.getKey())) {
+        observedRequiredParentNames.add(requiredEntry.getKey());
+      }
+    }
+
     if (observedRequiredParentNames.size() != requiredParentMap.size()) {
       errorMessages.add("Config is missing required parents: " + Sets.difference(requiredParentMap.keySet(), observedRequiredParentNames));
     }
 
     if (!errorMessages.isEmpty()) {
-      throw new IllegalArgumentException("Error(s) with " + displayName + " Config: " + errorMessages);
+      if (errorMessages.size() == 1) {
+        // Saying only "error", and not wrapping the list in [] brackets
+        throw new IllegalArgumentException("Error with " + displayName + " Config: " + errorMessages.iterator().next());
+      } else {
+        throw new IllegalArgumentException("Errors with " + displayName + " Config: " + errorMessages);
+      }
     }
   }
 
