@@ -186,7 +186,7 @@ public class FileConnector extends AbstractConnector {
     super(config, Spec.connector()
         .withRequiredProperties("pathsToStorage")
         .withOptionalParents(
-            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
+            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "lastModifiedCutoff", "lastPublishedCutoff"),
             Spec.parent("fileOptions").withOptionalProperties("getFileContent", "handleArchivedFiles",
                 "handleCompressedFiles", "moveToAfterProcessing", "moveToErrorFolder"),
             Spec.parent("state")
@@ -217,8 +217,8 @@ public class FileConnector extends AbstractConnector {
       throw new IllegalArgumentException("FileConnector does not support multiple pathsToStorage and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
 
-    if (filterOptions.hasPath("lastPublishedCutoff") && !config.hasPath("state")) {
-      log.warn("FilterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
+    if (config.hasPath("filterOptions.lastPublishedCutoff") && !config.hasPath("state")) {
+      log.warn("filterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
     }
   }
 

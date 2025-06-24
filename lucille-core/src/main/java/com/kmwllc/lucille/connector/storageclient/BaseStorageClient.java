@@ -105,7 +105,7 @@ public abstract class BaseStorageClient implements StorageClient {
       throw new IllegalStateException("This StorageClient has not been initialized.");
     }
 
-    traverseStorageClient(publisher, params);
+    traverseStorageClient(publisher, params, stateMgr);
   }
 
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
@@ -125,22 +125,22 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorStateManager stateMgr) {
     URI fullPath = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
     try {
       // We always mark files as encountered, even if they don't comply with filter options
       if (stateMgr != null) {
-        stateMgr.markFileEncountered(fullPathStr);
+        stateMgr.markFileEncountered(fullPath.toString());
       }
 
-      Instant lastPublished = stateMgr == null ? null : stateMgr.getLastPublished(fullPathStr);
+      Instant lastPublished = stateMgr == null ? null : stateMgr.getLastPublished(fullPath.toString());
 
       // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
       if (!fileReference.isValidFile()
-          || !params.includeFile(fileReference.getName(), fileReference.getLastModified())
+          || !params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)
           || !beforeProcessingFile(fullPath)) {
         return;
       }
@@ -183,7 +183,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
         // Regardless of what actually gets published in the above code, the compressed file itself was considered / processed by Lucille.
         if (stateMgr != null) {
-          stateMgr.successfullyPublishedFile(fullPathStr);
+          stateMgr.successfullyPublishedFile(fullPath.toString());
         }
 
         afterProcessingFile(fullPath, params);
@@ -193,12 +193,12 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle archived files if needed to the end
       if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPath.toString())) {
         try (InputStream is = fileReference.getContentStream(params)) {
-          handleArchiveFiles(publisher, is, fullPath, params, stageMgr);
+          handleArchiveFiles(publisher, is, fullPath, params, stateMgr);
         }
 
         // Regardless of what is extracted & published in handleArchiveFiles, the archive file itself was considered / processed by Lucille.
         if (stateMgr != null) {
-          stateMgr.successfullyPublishedFile(fullPathStr);
+          stateMgr.successfullyPublishedFile(fullPath.toString());
         }
 
         afterProcessingFile(fullPath, params);
@@ -213,7 +213,7 @@ public abstract class BaseStorageClient implements StorageClient {
         publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPath);
 
         if (stateMgr != null) {
-          stateMgr.successfullyPublishedFile(fullPathStr);
+          stateMgr.successfullyPublishedFile(fullPath.toString());
         }
 
         afterProcessingFile(fullPath, params);
@@ -228,7 +228,7 @@ public abstract class BaseStorageClient implements StorageClient {
       publisher.publish(doc);
 
       if (stateMgr != null) {
-        stateMgr.successfullyPublishedFile(fullPathStr);
+        stateMgr.successfullyPublishedFile(fullPath.toString());
       }
 
       afterProcessingFile(fullPath, params);

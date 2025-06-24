@@ -39,10 +39,13 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.MockedStatic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FileConnectorTest {
+
+  private static final Logger log = LoggerFactory.getLogger(FileConnectorTest.class);
 
   FileSystem mockFileSystem;
 
@@ -398,6 +401,8 @@ public class FileConnectorTest {
 
       // filtered out by state database
       assertEquals(0, messenger.getDocsSentForProcessing().size());
+    } catch (Exception e) {
+      log.error("Exception thrown in testTraversalWithStateEmbedded.", e);
     } finally {
       try {
         Files.delete(dbFile.toPath());

@@ -82,7 +82,7 @@ public class AzureStorageClient extends BaseStorageClient {
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
           AzureFileReference fileRef = new AzureFileReference(blob, params);
-          processAndPublishFileIfValid(publisher, fileRef, params, stageMgr);
+          processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
         });
   }
 

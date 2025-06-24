@@ -37,9 +37,6 @@ public abstract class BaseFileReference implements FileReference {
   }
 
   @Override
-  public String getFullPath() { return fullPathStr; }
-
-  @Override
   public String getFileExtension() {
     String fileName = getName();
     return FilenameUtils.getExtension(fileName);
