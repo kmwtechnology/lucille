@@ -57,6 +57,14 @@ public interface StorageClient {
   InputStream getFileContentStream(URI uri) throws IOException;
 
   /**
+   * Moves the file at the given String to the folder at the given URI.
+   * @param filePath The full path to the file that you want to move.
+   * @param folder A URI to the folder that you want to move the file to.
+   * @throws IOException If an error occurs moving the file.
+   */
+  void moveFile(URI filePath, URI folder) throws IOException;
+
+  /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config.
    * @param pathToStorage A URI to storage - either local or cloud - that you need a StorageClient for.
    * @param connectorConfig Configuration for your connector, which should contain configuration for cloud storage clients

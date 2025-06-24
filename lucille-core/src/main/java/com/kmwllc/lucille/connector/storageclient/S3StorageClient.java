@@ -4,9 +4,7 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -20,6 +18,8 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -52,7 +52,8 @@ public class S3StorageClient extends BaseStorageClient {
       S3ClientBuilder builder = S3Client.builder();
 
       if (config.hasPath(S3_REGION)) {
-        builder = builder.region(Region.of(config.getString(S3_REGION)));
+        Region configRegion = Region.of(config.getString(S3_REGION));
+        builder = builder.region(configRegion);
       }
 
       // use StaticCredentialsProvider when access key is provided,
@@ -104,6 +105,27 @@ public class S3StorageClient extends BaseStorageClient {
     return s3.getObject(request);
   }
 
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+    String sourceBucket = filePath.getAuthority();
+    String sourceKey = filePath.getPath().substring(1);
+
+    String destBucket = folder.getAuthority();
+    String destKey = folder.getPath().substring(1) + sourceKey;
+
+    CopyObjectRequest copyRequest = CopyObjectRequest.builder()
+        .sourceBucket(sourceBucket).sourceKey(sourceKey)
+        .destinationBucket(destBucket).destinationKey(destKey)
+        .build();
+
+    DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+        .bucket(sourceBucket).key(sourceKey)
+        .build();
+
+    s3.copyObject(copyRequest);
+    s3.deleteObject(deleteRequest);
+  }
+
   private String getStartingDirectory(TraversalParams params) {
     URI pathURI = params.getURI();
     String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
@@ -130,7 +152,7 @@ public class S3StorageClient extends BaseStorageClient {
     public S3FileReference(S3Object s3Obj, TraversalParams params) {
       // These are inexpensive calls - information stored in the s3 object.
       // "null" for creation time - this isn't available in a S3Object
-      super(getFullPathHelper(params, s3Obj), s3Obj.lastModified(), s3Obj.size(), null);
+      super(getFullPathHelper(s3Obj, params), s3Obj.lastModified(), s3Obj.size(), null);
 
       this.s3Obj = s3Obj;
     }
@@ -159,10 +181,10 @@ public class S3StorageClient extends BaseStorageClient {
       ).asByteArray();
     }
 
-    // Just here to simplify call to super().
-    private static String getFullPathHelper(TraversalParams params, S3Object s3Obj) {
+    private static URI getFullPathHelper(S3Object s3Obj, TraversalParams params) {
       URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
+      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
+      return URI.create(fullPathStr);
     }
   }
 }

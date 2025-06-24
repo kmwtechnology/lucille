@@ -9,23 +9,27 @@ import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.time.Instant;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 
 public abstract class BaseFileReference implements FileReference {
 
-  private final String fullPathStr;
+  private final URI pathToFile;
   private final Instant lastModified;
   private final Long size;
   private final Instant created;
 
-  public BaseFileReference(String fullPathStr, Instant lastModified, Long size, Instant created) {
-    this.fullPathStr = fullPathStr;
+  public BaseFileReference(URI pathToFile, Instant lastModified, Long size, Instant created) {
+    this.pathToFile = pathToFile;
     this.lastModified = lastModified;
     this.size = size;
     this.created = created;
   }
+
+  @Override
+  public URI getFullPath() { return pathToFile; }
 
   @Override
   public Instant getLastModified() {
@@ -51,7 +55,7 @@ public abstract class BaseFileReference implements FileReference {
   public Document asDoc(TraversalParams params) {
     Document doc = createEmptyDocument(params);
 
-    doc.setField(FILE_PATH, getFullPath());
+    doc.setField(FILE_PATH, getFullPath().toString());
 
     if (lastModified != null) {
       doc.setField(MODIFIED, lastModified);
@@ -104,7 +108,8 @@ public abstract class BaseFileReference implements FileReference {
    * @return An empty Document with an appropriate docId representing this file reference.
    */
   protected Document createEmptyDocument(TraversalParams params) {
-    return createEmptyDocument(params, fullPathStr);
+    String fullPath = getFullPath().toString();
+    return createEmptyDocument(params, fullPath);
   }
 
   /**

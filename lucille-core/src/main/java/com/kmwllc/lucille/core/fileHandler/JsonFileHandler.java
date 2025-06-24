@@ -26,7 +26,8 @@ public class JsonFileHandler extends BaseFileHandler {
   private final UnaryOperator<String> idUpdater;
 
   public JsonFileHandler(Config config) {
-    super(config);
+    super(config, Spec.fileHandler());
+
     this.idUpdater = (id) -> docIdPrefix + id;
   }
 

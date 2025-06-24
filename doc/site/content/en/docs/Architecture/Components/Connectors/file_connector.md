@@ -34,7 +34,8 @@ File options determine **how** you handle and process files you encounter during
 * `getFileContent`:  Whether, during traversal, the FileConnector should add an array of bytes representing the file's contents to the Lucille document it publishes.
                      **This will slow down traversal significantly and is resource intensive. On the cloud, this _will_ download the file contents.**
 * `handleArchivedFiles`/`handleCompressedFiles`: Whether you want to handle archive or compressed files, respectively, during your traversal. For cloud files, this _will_ download the file's contents.
-* File Handlers: You can include `csv`, `json`, or `xml`, enabling additional processing for these file types. Their configuration will be used to build/configure the File Handler.
+* `moveToAfterProcessing`: A path to move files to after processing.
+* `moveToErrorFolder`: A path to move files to if an error occurs.
 
 ### Filter Options
 Filter options determine **which** files will/won't be processed & published in your traversal. All filter options are optional. 

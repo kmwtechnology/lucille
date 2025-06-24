@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.storageclient;
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.time.Instant;
 
 /**
@@ -15,10 +16,9 @@ public interface FileReference {
   String getName();
 
   /**
-   * @return A String representing the full path to this file. If the file is a cloud file, it will be written as a full URI
-   * to the file. Local files will be an absolute, normalized path to the file.
+   * @return A URI representing the full path to this file.
    */
-  String getFullPath();
+  URI getFullPath();
 
   /**
    * @return The extension associated with this file.

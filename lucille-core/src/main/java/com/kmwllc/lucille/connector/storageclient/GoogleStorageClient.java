@@ -9,6 +9,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.Storage.CopyRequest;
 import com.google.cloud.storage.StorageOptions;
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
@@ -104,6 +105,22 @@ public class GoogleStorageClient extends BaseStorageClient {
     this.storage = storage;
   }
 
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+    String sourceBucket = filePath.getAuthority();
+    String sourceKey = filePath.getPath().substring(1);
+
+    String destBucket = folder.getAuthority();
+    String destKey = folder.getPath().substring(1) + sourceKey;
+
+    BlobId source = BlobId.of(sourceBucket, sourceKey);
+    BlobId target = BlobId.of(destBucket, destKey);
+
+    // copy source to target, and then delete source.
+    storage.copy(CopyRequest.newBuilder().setSource(source).setTarget(target).build());
+    storage.delete(source);
+  }
+
 
   private class GoogleFileReference extends BaseFileReference {
 
@@ -140,10 +157,10 @@ public class GoogleStorageClient extends BaseStorageClient {
       return blob.getContent();
     }
 
-    // Just here to simplify the call to super()
-    private static String getFullPathHelper(Blob blob, TraversalParams params) {
+    private static URI getFullPathHelper(Blob blob, TraversalParams params) {
       URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
+      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
+      return URI.create(fullPathStr);
     }
   }
 }

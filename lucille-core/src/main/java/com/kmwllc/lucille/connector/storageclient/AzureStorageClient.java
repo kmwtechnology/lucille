@@ -4,16 +4,16 @@ import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
 
+import com.azure.core.util.polling.SyncPoller;
+import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.storage.blob.models.BlobCopyInfo;
 import com.azure.storage.blob.models.BlobItem;
-import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -82,7 +82,7 @@ public class AzureStorageClient extends BaseStorageClient {
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
           AzureFileReference fileRef = new AzureFileReference(blob, params);
-          processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+          processAndPublishFileIfValid(publisher, fileRef, params, stageMgr);
         });
   }
 
@@ -93,6 +93,32 @@ public class AzureStorageClient extends BaseStorageClient {
 
     BlobContainerClient containerClient = serviceClient.getBlobContainerClient(containerName);
     return containerClient.getBlobClient(blobName).openInputStream();
+  }
+
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+    String sourceContainer = filePath.getPath().split("/")[1];
+    String sourceBlob = filePath.getPath().split("/")[2];
+
+    String destContainer = folder.getPath().split("/")[1];
+
+    // Special handling for if the "folder" we want to place the file into is just the bucket itself.
+    String destBlob;
+    if (folder.getPath().split("/").length > 2) {
+      destBlob = folder.getPath().split("/")[2] + "/" + sourceBlob;
+    } else {
+      destBlob = sourceBlob;
+    }
+
+    BlobClient sourceBlobClient = serviceClient.getBlobContainerClient(sourceContainer).getBlobClient(sourceBlob);
+    BlobClient destBlobClient = serviceClient.getBlobContainerClient(destContainer).getBlobClient(destBlob);
+
+    // Start the copy, then we wait for it to complete
+    SyncPoller<BlobCopyInfo, Void> poller = sourceBlobClient.beginCopy(destBlobClient.getBlobUrl(), null);
+    poller.waitForCompletion();
+
+    // then delete the source file, completing the move
+    sourceBlobClient.delete();
   }
 
   private String getStartingDirectory(TraversalParams params) {
@@ -151,11 +177,13 @@ public class AzureStorageClient extends BaseStorageClient {
           .downloadContent().toBytes();
     }
 
-    private static String getFullPathHelper(BlobItem blobItem, TraversalParams params) {
+    private static URI getFullPathHelper(BlobItem blobItem, TraversalParams params) {
       URI pathURI = params.getURI();
 
-      return String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
+      String fullURIStr = String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
           pathURI.getPath().split("/")[1], blobItem.getName());
+
+      return URI.create(fullURIStr);
     }
   }
 }

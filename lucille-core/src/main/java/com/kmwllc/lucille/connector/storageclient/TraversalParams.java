@@ -3,16 +3,17 @@ package com.kmwllc.lucille.connector.storageclient;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
-import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_AFTER_PROCESSING;
-import static com.kmwllc.lucille.connector.FileConnector.MOVE_TO_ERROR_FOLDER;
 
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -24,37 +25,63 @@ import org.slf4j.LoggerFactory;
 public class TraversalParams {
 
   private static final Logger log = LoggerFactory.getLogger(TraversalParams.class);
-  // provided arguments
-  private final URI uri;
+
+  // provided argument
   private final String docIdPrefix;
 
-  // FileOptions / its params
-  private final Config fileOptions;
+  // The path to storage to traverse through.
+  private final URI uri;
+
+  // FileOptions
   private final boolean getFileContent;
   private final boolean handleArchivedFiles;
   private final boolean handleCompressedFiles;
-  private final String moveToAfterProcessing;
-  private final String moveToErrorFolder;
 
-  // FilterOptions / its params
+  private final URI moveToAfterProcessing;
+  private final URI moveToErrorFolder;
+
+  // FilterOptions
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
   private final Duration lastModifiedCutoff;
   private final Duration lastPublishedCutoff;
 
-  public TraversalParams(URI uri, String docIdPrefix, Config fileOptions, Config filterOptions) {
-    this.uri = uri;
+  // FileHandlers
+  private final Map<String, FileHandler> fileHandlers;
+
+  public TraversalParams(Config config, URI pathToStorage, String docIdPrefix) {
+    this.uri = pathToStorage;
     this.docIdPrefix = docIdPrefix;
 
+    Config fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
     // file options / derived params
-    this.fileOptions = fileOptions;
     this.getFileContent = !fileOptions.hasPath(GET_FILE_CONTENT) || fileOptions.getBoolean(GET_FILE_CONTENT);
     this.handleArchivedFiles = fileOptions.hasPath(HANDLE_ARCHIVED_FILES) && fileOptions.getBoolean(HANDLE_ARCHIVED_FILES);
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
-    this.moveToAfterProcessing = fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING) ? fileOptions.getString(MOVE_TO_AFTER_PROCESSING) : null;
-    this.moveToErrorFolder = fileOptions.hasPath(MOVE_TO_ERROR_FOLDER) ? fileOptions.getString(MOVE_TO_ERROR_FOLDER) : null;
+
+    try {
+      if (fileOptions.hasPath("moveToAfterProcessing")) {
+        this.moveToAfterProcessing = new URI(fileOptions.getString("moveToAfterProcessing"));
+      } else {
+        this.moveToAfterProcessing = null;
+      }
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Error with moveToAfterProcessing URI.", e);
+    }
+
+    try {
+      if (fileOptions.hasPath("moveToErrorFolder")) {
+        this.moveToErrorFolder = new URI(fileOptions.getString("moveToErrorFolder"));
+      } else {
+        this.moveToErrorFolder = null;
+      }
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Error with moveToErrorFolder URI.", e);
+    }
 
     // filter options / derived params
+    Config filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
+
     List<String> includeRegex = filterOptions.hasPath("includes") ?
         filterOptions.getStringList("includes") : Collections.emptyList();
     this.includes = includeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
@@ -64,6 +91,10 @@ public class TraversalParams {
 
     this.lastModifiedCutoff = filterOptions.hasPath("lastModifiedCutoff") ? filterOptions.getDuration("lastModifiedCutoff") : null;
     this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
+
+    // fileHandlers - create a map from fileExtensions to fileHandlers. The method will handle json / jsonl.
+    Config fileHandlersConfig = config.hasPath("fileHandlers") ? config.getConfig("fileHandlers") : ConfigFactory.empty();
+    this.fileHandlers = FileHandler.createFromConfig(fileHandlersConfig);
   }
 
   /**
@@ -72,6 +103,14 @@ public class TraversalParams {
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
     return patternsAllowFile(fileName) && cutoffsAllowFile(fileLastModified, fileLastPublished);
+  }
+
+  public boolean supportedFileExtension(String fileExtension) {
+    return fileHandlers.containsKey(fileExtension);
+  }
+
+  public FileHandler handlerForExtension(String fileExtension) {
+    return fileHandlers.get(fileExtension);
   }
 
   /**
@@ -110,24 +149,12 @@ public class TraversalParams {
     return true;
   }
 
-  /**
-   * Returns whether a file with the given extension is supported, as per these TraversalParams. Handles the nuance
-   * of json supporting jsonl and vice versa.
-   */
-  public boolean supportedFileType(String fileExtension) {
-    return !getFileOptions().isEmpty() && FileHandler.supportAndContainFileType(fileExtension, getFileOptions());
-  }
-
   public URI getURI() {
     return uri;
   }
 
   public String getDocIdPrefix() {
     return docIdPrefix;
-  }
-
-  public Config getFileOptions() {
-    return fileOptions;
   }
 
   public boolean shouldGetFileContent() {
@@ -142,11 +169,11 @@ public class TraversalParams {
     return handleCompressedFiles;
   }
 
-  public String getMoveToAfterProcessing() {
+  public URI getMoveToAfterProcessing() {
     return moveToAfterProcessing;
   }
 
-  public String getMoveToErrorFolder() {
+  public URI getMoveToErrorFolder() {
     return moveToErrorFolder;
   }
 }

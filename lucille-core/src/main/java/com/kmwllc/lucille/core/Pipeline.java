@@ -77,7 +77,7 @@ public class Pipeline {
         // Construct the stage. Validation takes place in the super() constructor.
         getInstance(constructor, c);
       } catch (ReflectiveOperationException e) {
-        exceptions.add(new StageException("Reflective error with Stage " + c.getString("class") + "", e));
+        exceptions.add(new StageException("Reflective error with Stage " + c.getString("class") + ": " + e.getMessage()));
       } catch (Exception e) {
         exceptions.add(e);
       }

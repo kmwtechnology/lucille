@@ -137,7 +137,6 @@ public class FileConnectorTest {
               "gs", mockCloudClient));
 
       Connector connector = new FileConnector(config);
-
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
       doThrow(new Exception("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));

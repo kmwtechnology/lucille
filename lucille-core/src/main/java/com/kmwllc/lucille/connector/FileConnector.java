@@ -6,11 +6,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Spec.ParentSpec;
-import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
-import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
-import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -37,6 +33,7 @@ import org.slf4j.LoggerFactory;
  *   </li>
  *   <li>filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.</li>
  *   <li>fileOptions (Map, Optional): configuration for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.</li>
+ *   <li>fileHandlers (Map, Optional): Options for extracting additional Documents from files of a certain type. Example of fileHandlers below.</li>
  *   <li>state (Map, Optional): configuration to track when files are published and processed by Lucille. See example configuration and some important notes below.</li>
  *   <li>gcp (Map, Optional): options for handling Google Cloud files. See example below.</li>
  *   <li>s3 (Map, Optional): options for handling S3 files. See example below.</li>
@@ -60,12 +57,17 @@ import org.slf4j.LoggerFactory;
  *   <li>getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.</li>
  *   <li>handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. See important notes below.</li>
  *   <li>handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. See important notes below.</li>
- *   <li>moveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
- *   <li>moveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
- *   <li>csv (Map, Optional): config options for handling csv type files. Config will be passed to CSVFileHandler.</li>
- *   <li>json (Map, Optional): config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.</li>
- *   <li>xml (Map, Optional): config options for handling xml type files. Config will be passed to XMLFileHandler.</li>
- *   <li>(To configure the docIdPrefix for CSV, JSON or XML files, configure it in its respective config in <code>fileOptions</code>.)</li>
+ *   <li>moveToAfterProcessing (String, Optional): URI to move files to after processing. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
+ *   <li>moveToErrorFolder (String, Optional): URI to move files to if an error occurs during processing. If using, you can only specify one path in <code>pathsToStorage</code>.</li>
+ *   <li>
+ *     <b>Note:</b> For Cloud Storage, when a file is moved, its entire "key" moves with it. For example, the file s3://bucket/files/file1.txt has key "files/file1.txt".
+ *     So, when it moves to s3://bucket/after/ it becomes s3://bucket/after/files/file1.txt.
+ *     This prevents you from having to make sure all files in your bucket have unique names. You should still ensure there won't be any duplicate
+ *     / colliding keys in your target folders for moveToAfterProcessing or moveToErrorFolder.
+ *   </li>
+ *   <li><b>Note:</b> For Cloud Storage, it is important that your directory names end with '/'. When using Azure, you'll have to use the same storage account.</li>
+ *   <li><b>Note:</b> File moves are executed synchronously, including on Cloud Storage. As such, the FileConnector may run slower when moves are enabled.</li>
+ *
  *   <li> <b>Notes</b> on archive / compressed files:
  *      <ul>
  *         <li>Recurring is not supported.</li>
@@ -101,6 +103,15 @@ import org.slf4j.LoggerFactory;
  *   <li>The FileConnector will be slower when running with state.</li>
  *   <li>Files that get moved or renamed will always be published, regardless of lastPublishedCutoff.</li>
  *   <li>You can provide state configuration, but not a lastPublishedCutoff, and Lucille will keep your state updated.</li>
+ * </ul>
+ *
+ * <code>fileHandlers</code>:
+ * <ul>
+ *   <li>csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler (if no alternate <code>class</code> is provided).</li>
+ *   <li>json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler (if no alternate <code>class</code> is provided).</li>
+ *   <li>xml (Map, Optional): xml config options for handling xml type files. Config will be passed to XMLFileHandler (if no alternate <code>class</code> is provided).</li>
+ *   <li>Include your custom FileHandler implementations here (if any). Remember to include the <code>class</code> in their Configuration.</li>
+ *   <li>To configure the docIdPrefix for a certain file type, configure it in its respective config (under <code>docIdPrefix</code>).</li>
  * </ul>
  *
  * <code>gcp</code>:
@@ -166,8 +177,6 @@ public class FileConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
-  private final Config fileOptions;
-  private final Config filterOptions;
   private final List<URI> storageURIs;
   private final Map<String, StorageClient> storageClientMap;
 
@@ -177,23 +186,14 @@ public class FileConnector extends AbstractConnector {
     super(config, Spec.connector()
         .withRequiredProperties("pathsToStorage")
         .withOptionalParents(
-            Spec.parent("filterOptions")
-                .withOptionalProperties("includes", "excludes", "lastModifiedCutoff", "lastPublishedCutoff"),
-            Spec.parent("fileOptions")
-                .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
-                    "moveToErrorFolder")
-                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
+            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
+            Spec.parent("fileOptions").withOptionalProperties("getFileContent", "handleArchivedFiles",
+                "handleCompressedFiles", "moveToAfterProcessing", "moveToErrorFolder"),
             Spec.parent("state")
                 .withOptionalProperties("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName",
                     "performDeletions", "pathLength"),
-            GCP_PARENT_SPEC,
-            AZURE_PARENT_SPEC,
-            S3_PARENT_SPEC
-        ));
-
-    this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
-    this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
-    this.storageClientMap = StorageClient.createClients(config);
+            GCP_PARENT_SPEC, AZURE_PARENT_SPEC, S3_PARENT_SPEC)
+        .withOptionalParentNames("fileHandlers"));
 
     List<String> pathsToStorage = config.getStringList("pathsToStorage");
     this.storageURIs = new ArrayList<>();
@@ -209,6 +209,8 @@ public class FileConnector extends AbstractConnector {
     }
 
     this.stateManager = config.hasPath("state") ? new FileConnectorStateManager(config.getConfig("state"), getName()) : null;
+
+    this.storageClientMap = StorageClient.createClients(config);
 
     // Cannot specify multiple storage paths and a moveTo of some kind
     if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath("fileOptions.moveToErrorFolder"))) {
@@ -247,7 +249,9 @@ public class FileConnector extends AbstractConnector {
           throw new ConnectorException("No StorageClient was available for (" + pathToTraverse + "). Did you include the necessary configuration?");
         }
 
-        TraversalParams params = new TraversalParams(pathToTraverse, getDocIdPrefix(), fileOptions, filterOptions);
+        // creating a new traversal params for each path, which includes rereading file/filterOptions and
+        // creating the FileHandlers map. FileHandlers are lightweight, so this is not an intensive operation.
+        TraversalParams params = new TraversalParams(config, pathToTraverse, getDocIdPrefix());
 
         try {
           storageClient.traverse(publisher, params, stateManager);
