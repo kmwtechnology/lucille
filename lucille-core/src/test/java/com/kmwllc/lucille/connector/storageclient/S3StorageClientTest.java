@@ -579,7 +579,7 @@ public class S3StorageClientTest {
     TestMessenger messenger = new TestMessenger();
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         // only files modified in the last 2 hours
-        "filterOptions", Map.of("modificationCutoff", "2h")
+        "filterOptions", Map.of("lastModifiedCutoff", "2h")
     ));
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 

@@ -7,6 +7,7 @@ import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
@@ -16,8 +17,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
+import java.time.Instant;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -93,16 +93,22 @@ public abstract class BaseStorageClient implements StorageClient {
     return this.initialized;
   }
 
+  // Convenience method for traversing without state.
   @Override
   public final void traverse(Publisher publisher, TraversalParams params) throws Exception {
+    traverse(publisher, params, null);
+  }
+
+  @Override
+  public final void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
     if (!isInitialized()) {
       throw new IllegalStateException("This StorageClient has not been initialized.");
     }
 
-    traverseStorageClient(publisher, params);
+    traverseStorageClient(publisher, params, stateMgr);
   }
 
-  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception;
+  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
 
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
@@ -119,15 +125,22 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorStateManager stateMgr) {
     URI fullPath = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
     try {
+      // We always mark files as encountered, even if they don't comply with filter options
+      if (stateMgr != null) {
+        stateMgr.markFileEncountered(fullPath.toString());
+      }
+
+      Instant lastPublished = stateMgr == null ? null : stateMgr.getLastPublished(fullPath.toString());
+
       // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
       if (!fileReference.isValidFile()
-          || !params.includeFile(fileReference.getName(), fileReference.getLastModified())
+          || !params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)
           || !beforeProcessingFile(fullPath)) {
         return;
       }
@@ -143,21 +156,36 @@ public abstract class BaseStorageClient implements StorageClient {
 
           // if detected to be an archive type after decompression
           if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(decompressedPath)) {
-            handleArchiveFiles(publisher, compressorStream, fullPath, params);
+            handleArchiveFiles(publisher, compressorStream, fullPath, params, stateMgr);
           } else {
-            String filePathFormat = fullPath + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
+            String compressedFileFullPath = fullPath + ARCHIVE_FILE_SEPARATOR + FilenameUtils.getName(decompressedPath);
+
+            if (stateMgr != null) {
+              stateMgr.markFileEncountered(compressedFileFullPath);
+            }
+
             // if file is a supported file type that should be handled by a file handler
             if (params.supportedFileExtension(resolvedExtension)) {
-              handleStreamExtensionFiles(publisher, resolvedExtension, params, compressorStream, filePathFormat);
+              handleStreamExtensionFiles(publisher, resolvedExtension, params, compressorStream, compressedFileFullPath);
             } else {
-              Document doc = fileReference.decompressedFileAsDoc(compressorStream, filePathFormat, params);
+              Document doc = fileReference.decompressedFileAsDoc(compressorStream, compressedFileFullPath, params);
               try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
                 docLogger.info("StorageClient to publish Document {}.", doc.getId());
               }
               publisher.publish(doc);
             }
+
+            if (stateMgr != null) {
+              stateMgr.successfullyPublishedFile(compressedFileFullPath);
+            }
           }
         }
+
+        // Regardless of what actually gets published in the above code, the compressed file itself was considered / processed by Lucille.
+        if (stateMgr != null) {
+          stateMgr.successfullyPublishedFile(fullPath.toString());
+        }
+
         afterProcessingFile(fullPath, params);
         return;
       }
@@ -165,8 +193,14 @@ public abstract class BaseStorageClient implements StorageClient {
       // handle archived files if needed to the end
       if (params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPath.toString())) {
         try (InputStream is = fileReference.getContentStream(params)) {
-          handleArchiveFiles(publisher, is, fullPath, params);
+          handleArchiveFiles(publisher, is, fullPath, params, stateMgr);
         }
+
+        // Regardless of what is extracted & published in handleArchiveFiles, the archive file itself was considered / processed by Lucille.
+        if (stateMgr != null) {
+          stateMgr.successfullyPublishedFile(fullPath.toString());
+        }
+
         afterProcessingFile(fullPath, params);
         return;
       }
@@ -178,6 +212,10 @@ public abstract class BaseStorageClient implements StorageClient {
         // get the right FileHandler and publish based on content
         publishUsingFileHandler(publisher, fileExtension, params, contentStream, fullPath);
 
+        if (stateMgr != null) {
+          stateMgr.successfullyPublishedFile(fullPath.toString());
+        }
+
         afterProcessingFile(fullPath, params);
         return;
       }
@@ -188,6 +226,11 @@ public abstract class BaseStorageClient implements StorageClient {
         docLogger.info("StorageClient to publish Document {}.", doc.getId());
       }
       publisher.publish(doc);
+
+      if (stateMgr != null) {
+        stateMgr.successfullyPublishedFile(fullPath.toString());
+      }
+
       afterProcessingFile(fullPath, params);
     } catch (UnsupportedOperationException e) {
       throw new UnsupportedOperationException("Encountered unsupported operation", e);
@@ -217,19 +260,26 @@ public abstract class BaseStorageClient implements StorageClient {
    * @throws IOException If an error regarding file I/O occurs
    * @throws ConnectorException If an error occurs handling subsequent archive entries.
    */
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params, FileConnectorStateManager stateMgr) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
 
       while ((entry = in.getNextEntry()) != null) {
         String entryFullPathStr = getArchiveEntryFullPath(fullPathURI, entry.getName());
+
+        if (stateMgr != null) {
+          stateMgr.markFileEncountered(entryFullPathStr);
+        }
+
         if (!in.canReadEntryData(entry)) {
           log.info("Cannot read entry data for entry: '{}' in '{}'. Skipping...", entry.getName(), fullPathURI);
           continue;
         }
+
+        Instant archiveLastPublished = stateMgr == null ? null : stateMgr.getLastPublished(entryFullPathStr);
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant())) {
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), archiveLastPublished)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportedFileExtension(entryExtension)) {
             handleStreamExtensionFiles(publisher, entryExtension, params, in, entryFullPathStr);
@@ -254,6 +304,10 @@ public abstract class BaseStorageClient implements StorageClient {
               throw new ConnectorException("Error occurred while publishing archive entry: " + entry.getName() + " in " + fullPathURI, e);
             }
           }
+
+          if (stateMgr != null) {
+            stateMgr.successfullyPublishedFile(entryFullPathStr);
+          }
         }
       }
     }
@@ -267,7 +321,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @param in An InputStream for an archive / compressed file. This InputStream will <b>NOT</b> be closed by this method.
    * @param fileExtension The extension of the file you're processing.
    * @param fullPathStr can be entry full path or decompressed full path. Can be a cloud path or local path.
-   *                    e.g. gs://bucket-name/folder/file.zip:entry.json OR path/to/example.csv
+   *                    e.g. gs://bucket-name/folder/file.zip!entry.json OR path/to/example.csv
    * @throws ConnectorException If an error occurs processing / handling the file.
    */
   private void handleStreamExtensionFiles(Publisher publisher, String fileExtension, TraversalParams params, InputStream in, String fullPathStr)
@@ -284,7 +338,6 @@ public abstract class BaseStorageClient implements StorageClient {
         @Override
         public void close() {}
       };
-
 
       FileHandler handler = params.handlerForExtension(fileExtension);
       handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);

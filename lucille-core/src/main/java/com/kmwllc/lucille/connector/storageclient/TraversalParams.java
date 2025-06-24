@@ -16,11 +16,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The arguments / parameters associated with a traversal on a StorageClient.
  */
 public class TraversalParams {
+
+  private static final Logger log = LoggerFactory.getLogger(TraversalParams.class);
 
   // provided argument
   private final String docIdPrefix;
@@ -39,7 +43,8 @@ public class TraversalParams {
   // FilterOptions
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
-  private final Duration modificationCutoff;
+  private final Duration lastModifiedCutoff;
+  private final Duration lastPublishedCutoff;
 
   // FileHandlers
   private final Map<String, FileHandler> fileHandlers;
@@ -84,7 +89,8 @@ public class TraversalParams {
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
 
-    this.modificationCutoff = filterOptions.hasPath("modificationCutoff") ? filterOptions.getDuration("modificationCutoff") : null;
+    this.lastModifiedCutoff = filterOptions.hasPath("lastModifiedCutoff") ? filterOptions.getDuration("lastModifiedCutoff") : null;
+    this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
 
     // fileHandlers - create a map from fileExtensions to fileHandlers. The method will handle json / jsonl.
     Config fileHandlersConfig = config.hasPath("fileHandlers") ? config.getConfig("fileHandlers") : ConfigFactory.empty();
@@ -95,8 +101,8 @@ public class TraversalParams {
    * Returns whether the filterOptions allow for the publishing / processing of the file, described by its name
    * and the last time it was modified.
    */
-  public boolean includeFile(String fileName, Instant fileLastModified) {
-    return patternsAllowFile(fileName) && timeWithinCutoff(fileLastModified);
+  public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
+    return patternsAllowFile(fileName) && cutoffsAllowFile(fileLastModified, fileLastPublished);
   }
 
   public boolean supportedFileExtension(String fileExtension) {
@@ -116,19 +122,33 @@ public class TraversalParams {
   }
 
   /**
-   * Returns whether the given Instant indicates the file should be published / processed. Always returns true if there is no
-   * modificationCutoff set. If it is set, returns whether the file was modified recently enough to be processed/published.
+   * Returns whether the given lastModified and lastPublished instants comply with lastModifiedCutoff / lastPublishedCutoff,
+   * if they are specified.
    */
-  private boolean timeWithinCutoff(Instant fileLastModified) {
-    if (modificationCutoff == null) {
-      return true;
+  private boolean cutoffsAllowFile(Instant fileLastModified, Instant fileLastPublished) {
+    // If lastModifiedCutoff is specified, return false if it is violated
+    if (lastModifiedCutoff != null) {
+      Instant cutoffPoint = Instant.now().minus(lastModifiedCutoff);
+
+      // Only want to include files modified within the given duration (for example, within the last hour)
+      if (fileLastModified.isBefore(cutoffPoint)) {
+        return false;
+      }
     }
 
-    Instant cutoffPoint = Instant.now().minus(modificationCutoff);
-    return fileLastModified.isAfter(cutoffPoint);
+    // If lastPublishedCutoff is specified, and we found a lastPublished Instant for the file, return false if it is violated
+    if (lastPublishedCutoff != null && fileLastPublished != null) {
+      Instant cutoffPoint = Instant.now().minus(lastPublishedCutoff);
+
+      // Only want to include files last published *more* than the duration ago (for example, more than one hour ago)
+      if (fileLastPublished.isAfter(cutoffPoint)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
-  /** Returns a URI to the path to storage we are traversing through. */
   public URI getURI() {
     return uri;
   }

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -27,12 +28,22 @@ public interface StorageClient {
   void shutdown() throws IOException;
 
   /**
-   * Traverses through the storage client and publish files to Lucille pipeline
+   * Traverses through the storage client and publish files to Lucille pipeline. Does not update or use state, and
+   * FilterOptions.lastPublishedCutoff will not be enforced, if specified.
    * @param publisher The Publisher you want to publish documents to.
    * @param params Parameters / options regarding the traversal of the client's file system.
    * @throws Exception If an error occurs during traversal.
    */
   void traverse(Publisher publisher, TraversalParams params) throws Exception;
+
+  /**
+   * Traverses through the storage client and publish files to Lucille pipeline. Updates the given stateManager as files are encountered
+   * and published. Uses the {@link FileConnectorStateManager#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
+   * @param publisher The Publisher you want to publish documents to.
+   * @param params Parameters / options regarding the traversal of the client's file system.
+   * @throws Exception If an error occurs during traversal.
+   */
+  void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
 
   /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.

@@ -2,9 +2,12 @@ package com.kmwllc.lucille.connector;
 
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -27,15 +30,22 @@ import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystem;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.MockedStatic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FileConnectorTest {
+
+  private static final Logger log = LoggerFactory.getLogger(FileConnectorTest.class);
 
   FileSystem mockFileSystem;
 
@@ -62,7 +72,7 @@ public class FileConnectorTest {
       connector.execute(publisher);
 
       verify(mockCloudClient, times(1)).init();
-      verify(mockCloudClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(mockCloudClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       verify(mockCloudClient, times(1)).shutdown();
     }
   }
@@ -85,12 +95,12 @@ public class FileConnectorTest {
       Connector connector = new FileConnector(config);
       connector.execute(publisher);
       verify(mockForGoogle, times(1)).init();
-      verify(mockForGoogle, times(1)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(mockForGoogle, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       verify(mockForGoogle, times(1)).shutdown();
 
       // Azure will get started / shutdown, but not traversed
       verify(mockForAzure, times(1)).init();
-      verify(mockForAzure, times(0)).traverse(any(Publisher.class), any(TraversalParams.class));
+      verify(mockForAzure, times(0)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       verify(mockForAzure, times(1)).shutdown();
     }
   }
@@ -131,7 +141,7 @@ public class FileConnectorTest {
 
       Connector connector = new FileConnector(config);
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
-      doThrow(new Exception("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class));
+      doThrow(new Exception("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));
       // verify that shutdown is called, even after a traversal fails
       verify(mockCloudClient, times(1)).shutdown();
@@ -320,14 +330,14 @@ public class FileConnectorTest {
         publisher.publish(Document.create("b"));
         publisher.publish(Document.create("c"));
         return null;
-      }).when(s3StorageClient).traverse(any(), any());
+      }).when(s3StorageClient).traverse(any(), any(), any());
 
       doAnswer(invocationOnMock -> {
         publisher.publish(Document.create("d"));
         publisher.publish(Document.create("e"));
         publisher.publish(Document.create("f"));
         return null;
-      }).when(googleStorageClient).traverse(any(), any());
+      }).when(googleStorageClient).traverse(any(), any(), any());
 
       connector = new FileConnector(config);
     }
@@ -355,5 +365,51 @@ public class FileConnectorTest {
 
     Config config2 = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsMoveToError.conf");
     assertThrows(IllegalArgumentException.class, () -> new FileConnector(config2));
+  }
+
+  // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
+
+  // Testing when the state configuration is empty.
+  @Test
+  @Execution(ExecutionMode.SAME_THREAD)
+  public void testTraversalWithStateEmbedded() throws Exception {
+    File stateDirectory = new File("state");
+    File dbFile = new File("state/file-connector.mv.db");
+
+    assertFalse(stateDirectory.exists());
+    assertFalse(dbFile.exists());
+
+    try {
+      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
+      TestMessenger messenger = new TestMessenger();
+      Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+      Connector connector = new FileConnector(config);
+
+      // the stateManager doesn't get initialized until execution begins.
+      connector.execute(publisher);
+
+      // now the database file should exist.
+      assertTrue(stateDirectory.isDirectory());
+      assertTrue(dbFile.isFile());
+
+      assertEquals(18, messenger.getDocsSentForProcessing().size());
+
+      messenger = new TestMessenger();
+      publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+      connector.execute(publisher);
+
+      // filtered out by state database
+      assertEquals(0, messenger.getDocsSentForProcessing().size());
+    } catch (Exception e) {
+      log.error("Exception thrown in testTraversalWithStateEmbedded.", e);
+    } finally {
+      try {
+        Files.delete(dbFile.toPath());
+        Files.delete(stateDirectory.toPath());
+      } catch (IOException e) {
+        fail("The state file / directory was not found - an exception may have been thrown during the test.");
+      }
+    }
   }
 }

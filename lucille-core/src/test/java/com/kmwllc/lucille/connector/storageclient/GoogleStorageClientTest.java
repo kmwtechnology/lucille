@@ -489,7 +489,7 @@ public class GoogleStorageClientTest {
     storageClient.shutdown();
   }
 
-  // ** NOTE: There is not a test for the modificationCutoff here. Unfortunately, there doesn't appear to be an easy way
+  // ** NOTE: There is not a test for the lastModifiedCutoff here. Unfortunately, there doesn't appear to be an easy way
   // to create objects with a certain modification time (including trying to do so via Mockito). If this somehow changes
   // in the future it would be worth a revisit. **
 

@@ -558,17 +558,16 @@ public class AzureStorageClientTest {
   }
 
   @Test
-  public void testModificationCutoff() throws Exception {
+  public void testLastModifiedCutoff() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
     TestMessenger messenger = new TestMessenger();
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
-        "filterOptions", Map.of("modificationCutoff", "2h")
+        // only files modified in the last 2 hours
+        "filterOptions", Map.of("lastModifiedCutoff", "2h")
     ));
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
-    // only files modified in the last 2 hours
-    Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("https://storagename.blob.core.windows.net/folder/"), "");
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);

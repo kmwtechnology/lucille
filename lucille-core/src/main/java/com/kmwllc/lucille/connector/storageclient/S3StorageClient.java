@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -80,7 +81,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
     ListObjectsV2Request request = ListObjectsV2Request.builder()
         .bucket(getBucketOrContainerName(params))
         .prefix(getStartingDirectory(params))
@@ -90,7 +91,7 @@ public class S3StorageClient extends BaseStorageClient {
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
             S3FileReference fileRef = new S3FileReference(obj, params);
-            processAndPublishFileIfValid(publisher, fileRef, params);
+            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
           });
         });
   }

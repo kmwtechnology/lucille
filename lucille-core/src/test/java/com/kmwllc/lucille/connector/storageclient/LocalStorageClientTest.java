@@ -433,7 +433,7 @@ public class LocalStorageClientTest {
   public void testCutoff() throws Exception {
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         // Only including files modified in the last 10 hours
-        "filterOptions", Map.of("modificationCutoff", "10h")
+        "filterOptions", Map.of("lastModifiedCutoff", "10h")
     ));
 
     File oldFile = new File("src/test/resources/StorageClientTest/modifiedDateFiles/old.txt");

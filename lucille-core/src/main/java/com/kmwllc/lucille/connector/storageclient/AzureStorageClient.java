@@ -13,6 +13,7 @@ import com.azure.storage.blob.models.BlobCopyInfo;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -75,13 +76,13 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
         .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
             Duration.ofSeconds(10)).stream()
         .forEachOrdered(blob -> {
           AzureFileReference fileRef = new AzureFileReference(blob, params);
-          processAndPublishFileIfValid(publisher, fileRef, params);
+          processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
         });
   }
 
