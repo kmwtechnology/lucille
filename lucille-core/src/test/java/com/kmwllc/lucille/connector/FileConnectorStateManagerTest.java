@@ -284,7 +284,7 @@ public class FileConnectorStateManagerTest {
   // FileConnector tests taking advantage of our embedded test database
   @Test
   public void testTraversalWithStateAndExclusion() throws Exception {
-    String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/Example").toUri().toString();
+    String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/example").toUri().toString();
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateAndExclude.conf");
 
     TestMessenger messenger = new TestMessenger();
