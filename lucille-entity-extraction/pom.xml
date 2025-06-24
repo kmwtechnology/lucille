@@ -16,15 +16,8 @@
       <dependency>
         <groupId>com.kmwllc</groupId>
         <artifactId>lucille-core</artifactId>
-        <version>0.5.6-SNAPSHOT</version>
+        <version>0.5.7-SNAPSHOT</version>
         <scope>compile</scope>
-      </dependency>
-
-      <!-- Stanford CoreNLP -->
-      <dependency>
-        <groupId>edu.stanford.nlp</groupId>
-        <artifactId>stanford-corenlp</artifactId>
-        <version>4.5.9</version>
       </dependency>
     </dependencies>
     
