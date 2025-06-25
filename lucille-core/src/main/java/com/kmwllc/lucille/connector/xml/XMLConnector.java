@@ -47,9 +47,16 @@ public class XMLConnector extends AbstractConnector {
 
   public XMLConnector(Config config) {
     super(config);
+
     filePaths = config.hasPath("filePaths") ? config.getStringList("filePaths") : null;
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
-    this.xmlFileHandler = new XMLFileHandler(config);
+
+    this.xmlFileHandler = new XMLFileHandler(config
+        .withoutPath("name")
+        .withoutPath("pipeline")
+        .withoutPath("filePaths")
+        .withoutPath("urlFiles")
+        .withoutPath("collapse"));
   }
 
   @Override

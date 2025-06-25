@@ -54,7 +54,9 @@ public class CSVFileHandler extends BaseFileHandler {
   private static final String UTF8_BOM = "\uFEFF";
 
   public CSVFileHandler(Config config) {
-    super(config);
+    // TODO: Remove after file handler validation paradigm changes
+    super(config, PARENT_SPEC);
+
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
     this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
     this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";

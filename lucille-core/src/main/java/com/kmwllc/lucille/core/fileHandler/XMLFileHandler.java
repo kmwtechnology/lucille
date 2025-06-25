@@ -67,7 +67,7 @@ public class XMLFileHandler extends BaseFileHandler {
   private XMLReader xmlReader = null;
 
   public XMLFileHandler(Config config) {
-    super(config);
+    super(config, PARENT_SPEC);
 
     this.xmlRootPath = config.getString("xmlRootPath");
     this.xmlIdPath = ConfigUtils.getOrDefault(config, "xmlIdPath", null);
@@ -79,8 +79,6 @@ public class XMLFileHandler extends BaseFileHandler {
     if (config.hasPath("xmlIdPath") == config.hasPath("xpathIdPath")) {
       throw new IllegalArgumentException("Must specify exactly one of xmlIdPath and xpathIdPath.");
     }
-
-    this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
 
   @Override

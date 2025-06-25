@@ -1,12 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.CREATED;
-import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
-import static com.kmwllc.lucille.connector.FileConnector.SIZE;
-
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 
 import com.typesafe.config.Config;
@@ -21,9 +15,8 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.time.Instant;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,8 +42,8 @@ public class LocalStorageClient extends BaseStorageClient {
   protected void shutdownStorageClient() throws IOException { }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
-    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params));
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params, stateMgr));
   }
 
   @Override
@@ -62,14 +55,32 @@ public class LocalStorageClient extends BaseStorageClient {
 
   private String getStartingDirectory(TraversalParams params) { return params.getURI().getPath(); }
 
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+    Path pathForFile = Paths.get(filePath.getPath());
+    Path pathForFolder = Paths.get(folder.getPath());
+
+    // ensure target folder exists, creating it if it doesn't
+    if (!Files.exists(pathForFolder)) {
+      Files.createDirectory(pathForFolder);
+    }
+
+    // move the local file to the target folder
+    Path targetPath = pathForFolder.resolve(pathForFile.getFileName());
+    Files.move(pathForFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
+    log.debug("Moved local file to: {}", targetPath);
+  }
+
   public class LocalFileVisitor implements FileVisitor<Path> {
 
     private Publisher publisher;
     private TraversalParams params;
+    private final FileConnectorStateManager stateMgr;
 
-    public LocalFileVisitor(Publisher publisher, TraversalParams params) {
+    public LocalFileVisitor(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) {
       this.publisher = publisher;
       this.params = params;
+      this.stateMgr = stateMgr;
     }
 
     @Override
@@ -82,7 +93,7 @@ public class LocalStorageClient extends BaseStorageClient {
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       // Visit the file and actually process it!
       FileReference fileRef = new LocalFileReference(file, attrs);
-      processAndPublishFileIfValid(publisher, fileRef, params);
+      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
       return FileVisitResult.CONTINUE;
     }
 
@@ -107,18 +118,14 @@ public class LocalStorageClient extends BaseStorageClient {
 
     // The given path will become absolute and will be normalized.
     public LocalFileReference(Path path, BasicFileAttributes attributes) {
-      super(attributes.lastModifiedTime().toInstant(), attributes.size(), attributes.creationTime().toInstant());
+      super(path.toAbsolutePath().normalize().toUri(), attributes.lastModifiedTime().toInstant(), attributes.size(), attributes.creationTime().toInstant());
 
+      // Holding onto the path object since it makes some of the needed operations a bit more straightforward
       this.path = path.toAbsolutePath().normalize();
     }
 
     @Override
     public String getName() { return path.getFileName().toString(); }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      return path.toString();
-    }
 
     @Override
     public boolean isValidFile() {
