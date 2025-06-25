@@ -26,13 +26,15 @@
             <DefaultRolloverStrategy max="20" />
         </RollingFile>
 
-        <OpensearchAppender name="OpenSearch">
-          <Application>Lucille</Application>
-          <Index>logs</Index>
-          <User>admin</User>
-          <Password>admin</Password>
-          <Url>http://localhost:9200</Url>
-        </OpensearchAppender>
+        <!-- Uncomment to add an Opensearch Appender (named "OpenSearch") that sends logs to an OpenSearch index. Configure the
+         parameters below to point towards your OpenSearch index. -->
+        <!-- <OpensearchAppender name="OpenSearch">-->
+        <!-- <Application>Lucille</Application>-->
+        <!-- <Index>logs</Index>-->
+        <!-- <User>admin</User>-->
+        <!-- <Password>admin</Password>-->
+        <!-- <Url>http://localhost:9200</Url>-->
+        <!-- </OpensearchAppender>-->
     </Appenders>
     <Loggers>
 <!--    NOTE: Replace the "file" AppenderRef with "file-json" if you would like to enable json logging.  -->
@@ -40,16 +42,22 @@
         <Root level="INFO">
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
+
+        <!-- Uncomment to have the Logger statements sent to OpenSearch -->
+        <!-- <AppenderRef ref="OpenSearch" />-->
         </Root>
+
         <Logger name="com.kmwllc.lucille.core.Heartbeat" level="INFO" additivity="false">
             <AppenderRef ref="heartbeat" />
         </Logger>
 
         <!-- Will output lots of log statements about individual documents as they are processed. -->
-        <Logger name="com.kmwllc.lucille.core.DocLogger" level="INFO" additivity="false">
+        <Logger name="com.kmwllc.lucille.core.DocLogger" level="OFF" additivity="false">
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
-            <AppenderRef ref="OpenSearch" />
+
+        <!-- Uncomment to have the DocLogger statements sent to OpenSearch -->
+        <!-- <AppenderRef ref="OpenSearch" />-->
         </Logger>
 
         <!-- Higher level for logging from Ollama4j. At "INFO" it logs every time an LLM request is made and provides
