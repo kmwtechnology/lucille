@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.connector.xml;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
+import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
@@ -16,15 +18,17 @@ import java.util.List;
 
 /**
  * Connector implementation that produces documents from a given XML file.
- * Config Parameters:
+ * <p> Config Parameters:
  * <ul>
- * <li>filePaths (List&lt;String&gt;): The list of file paths to parse through.</li>
- * <li>xmlRootPath (String): The path to the XML chunk to separate as a document.</li>
- * <li>xmlIdPath (String): The path to the id for each document.</li>
- * <li>urlFiles (List&lt;String&gt;): The list of URL file paths to parse. If specified along with filePaths, urlFiles takes precedence.</li>
- * <li>encoding (String): The encoding of the XML document to parse: defaults to utf-8.</li>
- * <li>outputField (String): The field to place the XML into: defaults to "xml".</li>
+ *  <li>filePaths (List&lt;String&gt;): The list of file paths to parse through.</li>
+ *  <li>xmlRootPath (String): The path to the XML chunk to separate as a document.</li>
+ *  <li>xmlIdPath (String): The path to the id for each document.</li>
+ *  <li>urlFiles (List&lt;String&gt;): The list of URL file paths to parse. If specified along with filePaths, urlFiles takes precedence.</li>
+ *  <li>encoding (String): The encoding of the XML document to parse: defaults to utf-8.</li>
+ *  <li>outputField (String): The field to place the XML into: defaults to "xml".</li>
  * </ul>
+ *
+ * The XMLConnector has been deprecated. Use {@link FileConnector} with an {@link XMLFileHandler}.
  */
 @Deprecated
 public class XMLConnector extends AbstractConnector {
@@ -41,9 +45,16 @@ public class XMLConnector extends AbstractConnector {
     super(config, Spec.connector()
         .withRequiredProperties("xmlRootPath", "xmlIdPath", "encoding", "outputField")
         .withOptionalProperties("filePaths", "urlFiles"));
+
     filePaths = config.hasPath("filePaths") ? config.getStringList("filePaths") : null;
     urlFiles = config.hasPath("urlFiles") ? config.getStringList("urlFiles") : null;
-    this.xmlFileHandler = new XMLFileHandler(config);
+
+    this.xmlFileHandler = new XMLFileHandler(config
+        .withoutPath("name")
+        .withoutPath("pipeline")
+        .withoutPath("filePaths")
+        .withoutPath("urlFiles")
+        .withoutPath("collapse"));
   }
 
   @Override

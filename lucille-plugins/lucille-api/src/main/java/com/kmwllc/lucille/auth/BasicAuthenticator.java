@@ -7,17 +7,30 @@ import io.dropwizard.auth.basic.BasicCredentials;
 import java.util.Optional;
 
 /**
- * Authenticator for Basic Auth, only checks that the password is correct and the creates a new user with the given name
+ * Authenticator for Basic Auth. Checks that the provided password matches the expected password and creates a user principal if valid.
  */
 public class BasicAuthenticator implements Authenticator<BasicCredentials, PrincipalImpl> {
 
+  /**
+   * The expected password for authentication.
+   */
   private final String password;
 
+  /**
+   * Constructs a BasicAuthenticator with the provided password.
+   * @param password the password to check against
+   */
   public BasicAuthenticator(String password) {
     super();
     this.password = password;
   }
 
+  /**
+   * Authenticates the given credentials.
+   * @param credentials the Basic Auth credentials (username and password)
+   * @return an Optional containing a PrincipalImpl if authentication succeeds; otherwise, Optional.empty()
+   * @throws AuthenticationException if an authentication error occurs
+   */
   @Override
   public Optional<PrincipalImpl> authenticate(BasicCredentials credentials) throws AuthenticationException {
     if (password != null && password.equals(credentials.getPassword())) {

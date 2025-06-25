@@ -18,6 +18,8 @@ import java.nio.file.Path;
 
 /**
  * Connector implementation that produces documents from the rows in a given CSV file.
+ *
+ * <br> The CSVConnector has been deprecated. Use {@link FileConnector} with a {@link CSVFileHandler}.
  */
 @Deprecated
 public class CSVConnector extends AbstractConnector {
@@ -35,7 +37,13 @@ public class CSVConnector extends AbstractConnector {
             "idField", "docIdFormat", "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms"));
 
     this.pathStr = config.getString("path");
-    this.csvFileHandler = new CSVFileHandler(config);
+    this.csvFileHandler = new CSVFileHandler(config
+        .withoutPath("path")
+        .withoutPath("name")
+        .withoutPath("pipeline")
+        .withoutPath("collapse")
+        .withoutPath("moveToAfterProcessing")
+        .withoutPath("moveToErrorFolder"));
     this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
     this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
   }

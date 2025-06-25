@@ -45,8 +45,10 @@ public class XPathExtractor extends Stage {
    * @param config
    */
   public XPathExtractor(Config config) {
-    super(config, Spec.stage().withOptionalProperties("xmlField")
-        .withRequiredParents("fieldMapping"));
+    super(config, Spec.stage()
+        .withOptionalProperties("xmlField")
+        .withRequiredParentNames("fieldMapping"));
+
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();
@@ -95,7 +97,6 @@ public class XPathExtractor extends Stage {
 
       for (XPathExpression expression : expressionMapping.keySet()) {
         NodeList result = (NodeList) expression.evaluate(xmldoc, XPathConstants.NODESET);
-
         for (String field : expressionMapping.get(expression)) {
           for (int i = 0; i < result.getLength(); i++) {
             doc.setOrAdd(field, result.item(i).getTextContent());

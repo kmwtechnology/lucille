@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import com.api.jsonata4java.expressions.Expressions;
+import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
-import javax.naming.OperationNotSupportedException;
 
 
 @JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children"})
@@ -642,7 +641,8 @@ public class HashMapDocument implements Document, Serializable {
 
   @Override
   public Set<String> getFieldNames() {
-    return data.getKeys();
+    // will follow the order of iteration
+    return new LinkedHashSet<>(data.getKeys());
   }
 
   @Override
@@ -676,7 +676,7 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
-  public void transform(Expressions expr) throws DocumentException {
+  public void transform(Jsonata expr) throws DocumentException {
     throw new UnsupportedOperationException("Transform is not supported for HashMap implementation of Document");
   }
 

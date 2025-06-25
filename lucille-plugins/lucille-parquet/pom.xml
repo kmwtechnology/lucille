@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-plugins</artifactId>
-    <version>0.5.5-SNAPSHOT</version>
+    <version>0.5.7-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -33,11 +33,16 @@
     <dependency>
       <groupId>org.apache.parquet</groupId>
       <artifactId>parquet-avro</artifactId>
-      <version>1.15.0</version>
+      <version>1.15.2</version>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
+      <version>3.4.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-mapreduce-client-core</artifactId>
       <version>3.4.1</version>
     </dependency>
     <dependency>
@@ -51,7 +56,7 @@
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-aws</artifactId>
-      <version>3.3.4</version>
+      <version>3.4.1</version>
       <exclusions>
         <exclusion>
           <groupId>com.amazonaws</groupId>

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.protobuf.Struct;
@@ -61,7 +62,7 @@ public class PineconeIndexer extends Indexer {
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
         .withRequiredProperties("apiKey", "index")
-        .withOptionalParents("namespaces")
+        .withOptionalParentNames("namespaces")
         .withOptionalProperties("metadataFields", "mode", "defaultEmbeddingField"));
 
     this.client = bypass ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
@@ -107,7 +108,7 @@ public class PineconeIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws IndexerException {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws IndexerException {
     // retrieve documents to delete & upload, mapping id to document
     Map<String, Document> deleteMap = new LinkedHashMap<>();
     Map<String, Document> uploadMap = new LinkedHashMap<>();

@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.core;
 
-import com.api.jsonata4java.expressions.EvaluateException;
-import com.api.jsonata4java.expressions.Expressions;
+import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -19,7 +18,6 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
 /**
@@ -89,7 +87,6 @@ public class JsonDocument implements Document {
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
     JsonDocument doc = new JsonDocument((ObjectNode) MAPPER.readTree(json));
-    ;
     doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
   }
@@ -878,12 +875,9 @@ public class JsonDocument implements Document {
 
   @Override
   public Set<String> getFieldNames() {
-    Set<String> fieldNames = new HashSet<String>();
-    Iterator<String> it = data.fieldNames();
-    while (it.hasNext()) {
-      String fieldName = it.next();
-      fieldNames.add(fieldName);
-    }
+    LinkedHashSet<String> fieldNames = new LinkedHashSet<String>();
+    // ObjectNode uses a LinkedHashMap internally, so this iteration will follow insertion order into the ObjectNode.
+    data.fieldNames().forEachRemaining(fieldNames::add);
     return fieldNames;
   }
 
@@ -933,27 +927,37 @@ public class JsonDocument implements Document {
   }
 
   @Override
-  public void transform(Expressions expr) throws DocumentException {
+  public void transform(Jsonata expr) throws DocumentException {
     HashMap<String, JsonNode> reserved = new HashMap<>();
     RESERVED_FIELDS.stream().filter(field -> has(field)).forEach(field -> reserved.put(field, data.get(field)));
-    JsonNode transformed = null;
+
+    Object transformed;
     try {
-      transformed = expr.evaluate(data);
-    } catch (EvaluateException e) {
-      throw new DocumentException("Evaluation exception when applying transformation: " + e.getLocalizedMessage());
+      // This is in-line with Jsonata-Java's suggested ways to evaluate expressions on JSON.
+      // We aren't able to call expr.evaluate on this.asMap() directly, because byte[] is incompatible - jsonata-java wants
+      // only raw values, Maps, or Lists (not arrays).
+      Map<String, Object> dataAsMap = MAPPER.readValue(data.toString(), TYPE);
+      transformed = expr.evaluate(dataAsMap);
+    } catch (JsonProcessingException e) {
+      throw new DocumentException("Error converting JSON to Map: " + e.getMessage());
     }
 
-    if (!transformed.isObject()) {
-      throw new DocumentException("Transformation must return a JSON object, not array or literal");
+    if (transformed == null) {
+      throw new DocumentException("Transformation must return a Map (JSON object), returned null");
+    } else if (!(transformed instanceof Map)) {
+      throw new DocumentException("Transformation must return a Map (JSON object), returned " + transformed.getClass());
     }
+
+    // Jsonata-java outputs a Map, converting to ObjectNode so we can update data.
+    ObjectNode transformedNode = new ObjectMapper().valueToTree(transformed);
 
     for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
-      if (!entry.getValue().equals(transformed.get(entry.getKey()))) {
+      if (!entry.getValue().equals(transformedNode.get(entry.getKey()))) {
         throw new DocumentException("The given transformation mutates a reserved field");
       }
     }
 
-    data = (ObjectNode) transformed;
+    data = transformedNode;
   }
 
   private static ObjectNode getData(Document other) {

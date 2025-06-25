@@ -4,15 +4,13 @@ import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
-import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.Objects;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -20,6 +18,8 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -52,7 +52,8 @@ public class S3StorageClient extends BaseStorageClient {
       S3ClientBuilder builder = S3Client.builder();
 
       if (config.hasPath(S3_REGION)) {
-        builder = builder.region(Region.of(config.getString(S3_REGION)));
+        Region configRegion = Region.of(config.getString(S3_REGION));
+        builder = builder.region(configRegion);
       }
 
       // use StaticCredentialsProvider when access key is provided,
@@ -80,7 +81,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
     ListObjectsV2Request request = ListObjectsV2Request.builder()
         .bucket(getBucketOrContainerName(params))
         .prefix(getStartingDirectory(params))
@@ -89,8 +90,8 @@ public class S3StorageClient extends BaseStorageClient {
     response.stream()
         .forEachOrdered(resp -> {
           resp.contents().forEach(obj -> {
-            S3FileReference fileRef = new S3FileReference(obj);
-            processAndPublishFileIfValid(publisher, fileRef, params);
+            S3FileReference fileRef = new S3FileReference(obj, params);
+            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
           });
         });
   }
@@ -102,6 +103,27 @@ public class S3StorageClient extends BaseStorageClient {
 
     GetObjectRequest request = GetObjectRequest.builder().bucket(bucketName).key(objectKey).build();
     return s3.getObject(request);
+  }
+
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+    String sourceBucket = filePath.getAuthority();
+    String sourceKey = filePath.getPath().substring(1);
+
+    String destBucket = folder.getAuthority();
+    String destKey = folder.getPath().substring(1) + sourceKey;
+
+    CopyObjectRequest copyRequest = CopyObjectRequest.builder()
+        .sourceBucket(sourceBucket).sourceKey(sourceKey)
+        .destinationBucket(destBucket).destinationKey(destKey)
+        .build();
+
+    DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+        .bucket(sourceBucket).key(sourceKey)
+        .build();
+
+    s3.copyObject(copyRequest);
+    s3.deleteObject(deleteRequest);
   }
 
   private String getStartingDirectory(TraversalParams params) {
@@ -127,9 +149,10 @@ public class S3StorageClient extends BaseStorageClient {
 
     private final S3Object s3Obj;
 
-    public S3FileReference(S3Object s3Obj) {
-      // This is an inexpensive call, this is stored inside the S3Object
-      super(s3Obj.lastModified());
+    public S3FileReference(S3Object s3Obj, TraversalParams params) {
+      // These are inexpensive calls - information stored in the s3 object.
+      // "null" for creation time - this isn't available in a S3Object
+      super(getFullPathHelper(s3Obj, params), s3Obj.lastModified(), s3Obj.size(), null);
 
       this.s3Obj = s3Obj;
     }
@@ -137,12 +160,6 @@ public class S3StorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return s3Obj.key();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
     }
 
     @Override
@@ -158,38 +175,16 @@ public class S3StorageClient extends BaseStorageClient {
     }
 
     @Override
-    public Document asDoc(TraversalParams params) {
-      Document doc = createEmptyDocument(params);
-
-      doc.setField(FileConnector.FILE_PATH, getFullPath(params));
-      doc.setField(FileConnector.MODIFIED, getLastModified());
-      // s3 doesn't have object creation date
-      doc.setField(FileConnector.SIZE, s3Obj.size());
-
-      if (params.shouldGetFileContent()) {
-        byte[] content = s3.getObjectAsBytes(
-            GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(s3Obj.key()).build()
-        ).asByteArray();
-        doc.setField(FileConnector.CONTENT, content);
-      }
-
-      return doc;
+    protected byte[] getFileContent(TraversalParams params) {
+      return s3.getObjectAsBytes(
+          GetObjectRequest.builder().bucket(getBucketOrContainerName(params)).key(s3Obj.key()).build()
+      ).asByteArray();
     }
 
-    @Override
-    public Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-      Document doc = createEmptyDocument(params, decompressedFullPathStr);
-
-      doc.setField(FileConnector.FILE_PATH, decompressedFullPathStr);
-      doc.setField(FileConnector.MODIFIED, getLastModified());
-
-      // no creation date in S3. no compressor size. Would normally be set here...
-
-      if (params.shouldGetFileContent()) {
-        doc.setField(FileConnector.CONTENT, in.readAllBytes());
-      }
-
-      return doc;
+    private static URI getFullPathHelper(S3Object s3Obj, TraversalParams params) {
+      URI paramsURI = params.getURI();
+      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
+      return URI.create(fullPathStr);
     }
   }
 }

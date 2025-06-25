@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.storageclient;
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.time.Instant;
 
 /**
@@ -15,9 +16,9 @@ public interface FileReference {
   String getName();
 
   /**
-   * @return A String representing the full path to this file.
+   * @return A URI representing the full path to this file.
    */
-  String getFullPath(TraversalParams params);
+  URI getFullPath();
 
   /**
    * @return The extension associated with this file.
@@ -31,7 +32,7 @@ public interface FileReference {
   boolean isValidFile();
 
   /**
-   * @return The instant at which this FileReference was last modified.
+   * @return The instant at which this FileReference was last modified. May be null.
    */
   Instant getLastModified();
 
@@ -44,14 +45,16 @@ public interface FileReference {
   InputStream getContentStream(TraversalParams params);
 
   /**
-   * @return A Lucille Document from this file reference. Will get the file's contents if params.shouldGetFileContent()
-   * is true.
+   * @return A Lucille Document from this file reference. Will retrieve the file's contents if params.shouldGetFileContent()
+   * is true. Will include the file's path, and may include the file's last modified time, size, and creation time, if specified.
    */
   Document asDoc(TraversalParams params);
 
   /**
-   * @return A Lucille Document from this file reference, using the given full path string to create the Document's ID / path,
-   * and reading all bytes from the given input stream if params.shouldGetFileContent() is true.
+   * @return A Lucille Document for an archive or compressed file that came from this file reference.
+   * The Document's ID will be a hash of the given path, and the Document's "file_path" will be the given path. However,
+   * the Document's lastModified, size, and creation time will be that of this FileReference (if specified).
+   * The input stream will be used to get the file's content, if {@link TraversalParams#shouldGetFileContent()} is true.
    */
-  Document asDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException;
+  Document decompressedFileAsDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException;
 }

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -15,6 +16,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,12 +35,16 @@ import org.slf4j.LoggerFactory;
  *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
  * <p>  - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
  *       will be searched for the file. Otherwise, the local file system will be searched.
- * <p>  - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not. Defaults to true.
+ * <p>  - use_payloads (Boolean, Optional) : denotes whether payloads from the dictionary should be used or not. Defaults to true.
  * <p>  - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
  *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- * <p>  - set_only (Boolean, Optional) : If true, the destination field will be set to true if all values in the source field
- *      are present in the dictionary.
- * <p>  - ignore_missing_source (Boolean, Optional) : Intended to be used in combination with set_only. If true, the destination field
+ * <p>  - set_only (Boolean, Optional) : If true, the destination field will be set to true when a match is found (instead of
+ *      outputting the match itself). You can control this behavior with <code>use_any_match</code> and <code>ignore_missing_source</code>.
+ *      <code>set_only</code> defaults to false.
+ * <p>  - use_any_match (Boolean, Optional) : Use in combination with set_only. If true, the destination field will
+ *      be set to true if any values in any source field are present in the dictionary. If false, the destination field
+ *      will be set to true if all the values in each source field are present in the dictionary. Defaults to false.
+ * <p>  - ignore_missing_source (Boolean, Optional) : Use in combination with set_only. If true, the destination field
  *      will be set to true if the source field is missing. Defaults to false.
  *
  * <p>  - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
@@ -54,17 +60,17 @@ public class DictionaryLookup extends Stage {
   private final UpdateMode updateMode;
   private final boolean ignoreCase;
   private final boolean setOnly;
+  private final boolean useAnyMatch;
   private final boolean ignoreMissingSource;
 
-  private Map<String, String[]> dict;
+  private Map<String, List<String>> dict;
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  // Dummy value to indicate that a key is present in the HashMap
 
   public DictionaryLookup(Config config) throws StageException {
     super(config, Spec.stage().withRequiredProperties("source", "dest", "dict_path")
-        .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "ignore_missing_source")
-        .withOptionalParents("s3", "gcp", "azure"));
+        .withOptionalProperties("use_payloads", "update_mode", "ignore_case", "set_only", "use_any_match", "ignore_missing_source")
+        .withOptionalParents(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
@@ -72,6 +78,7 @@ public class DictionaryLookup extends Stage {
     this.updateMode = UpdateMode.fromConfig(config);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
     this.setOnly = ConfigUtils.getOrDefault(config, "set_only", false);
+    this.useAnyMatch = ConfigUtils.getOrDefault(config, "use_any_match", false);
     this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
     this.dictPath = config.getString("dict_path");
   }
@@ -82,9 +89,14 @@ public class DictionaryLookup extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
 
-    if (ignoreMissingSource && !setOnly) {
+    if (config.hasPath("ignore_missing_source") && !setOnly) {
       log.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
     }
+
+    if (config.hasPath("use_any_match") && !setOnly) {
+      log.warn("use_any_match is only valid when set_only is true. Ignoring.");
+    }
+
     if (setOnly && updateMode != UpdateMode.OVERWRITE) {
       throw new StageException("when set_only is true, update_mode must be set to overwrite");
     }
@@ -94,14 +106,12 @@ public class DictionaryLookup extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-
     for (int i = 0; i < sourceFields.size(); i++) {
       // If there is only one dest, use it. Otherwise, use the current source/dest.
       String sourceField = sourceFields.get(i);
       String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       if (setOnly) {
-
         // default value is true if this is the first field or if there are multiple fields
         // in case where we have one destination field and multiple source fields we want to retrieve the current value
         boolean defaultValue = true;
@@ -109,19 +119,26 @@ public class DictionaryLookup extends Stage {
           defaultValue = doc.getBoolean(destField);
         }
 
-        boolean currentValue;
+        boolean currentValue = false;
         if (!doc.has(sourceField)) {
           // if ignoreMissingSource is true, set the destination field to true if the source field is missing
           currentValue = ignoreMissingSource;
         } else {
-          // check if all values in the source field are in the dictionary
-          currentValue = doc.getStringList(sourceField).stream()
-              .map(ignoreCase ? String::toLowerCase : String::toString)
-              .allMatch(dict::containsKey);
+          Stream<String> sourceStream = doc.getStringList(sourceField).stream()
+              .map(ignoreCase ? String::toLowerCase : String::toString);
+
+          if (useAnyMatch) {
+            // once we get a match on any field, can break the loop and just update the field to true.
+            if (sourceStream.anyMatch(dict::containsKey)) {
+              doc.update(destField, updateMode, true);
+              return null;
+            }
+          } else {
+            currentValue = sourceStream.allMatch(dict::containsKey);
+          }
         }
 
         doc.update(destField, updateMode, defaultValue && currentValue);
-
       } else {
 
         if (!doc.has(sourceField)) {
@@ -135,7 +152,7 @@ public class DictionaryLookup extends Stage {
           }
           if (dict.containsKey(value)) {
             if (usePayloads) {
-              outputValues.addAll(Arrays.asList(dict.get(value)));
+              outputValues.addAll(dict.get(value));
             } else {
               outputValues.add(value);
             }

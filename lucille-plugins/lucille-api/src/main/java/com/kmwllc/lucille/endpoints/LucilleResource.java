@@ -30,24 +30,49 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 /**
- * Lucille Admin API Endpoint:
- *
+ * Lucille Admin API Endpoint.
+ * <p>
+ * Provides endpoints for managing Lucille configurations and triggering runs via the Admin API.
+ * <ul>
+ *   <li>Create and retrieve Lucille configs</li>
+ *   <li>Start and retrieve Lucille runs</li>
+ * </ul>
  */
 @Path("/v1")
 @Produces(MediaType.APPLICATION_JSON)
 public class LucilleResource {
 
+  /**
+   * Logger for the LucilleResource.
+   */
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
+  /**
+   * Runner manager instance for handling Lucille runs.
+   */
   private final RunnerManager runnerManager;
 
+  /**
+   * Auth handler for authenticating requests.
+   */
   private final AuthHandler authHandler;
 
+  /**
+   * Constructs a new LucilleResource.
+   * @param runnerManager the runner manager instance
+   * @param authHandler the authentication handler
+   */
   public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler) {
     this.runnerManager = runnerManager;
     this.authHandler = authHandler;
   }
 
+  /**
+   * Creates a new Lucille config, which can be used later by its referenced UUID.
+   * @param user the authenticated user (optional)
+   * @param configBody the config as a key-value map
+   * @return HTTP 200 with config ID, or error if invalid
+   */
   @POST
   @Tag(name = "Config")
   @Path("/config")
@@ -66,7 +91,6 @@ public class LucilleResource {
     }
 
     try {
-
       Config config = ConfigFactory.parseMap(configBody);
       String configId = runnerManager.createConfig(config);
       log.info("a lucille config has been created. Config ID: " + configId);
@@ -79,6 +103,11 @@ public class LucilleResource {
     }
   }
 
+  /**
+   * Retrieves all Lucille configurations.
+   * @param user the authenticated user (optional)
+   * @return HTTP 200 with all configs, or error if unauthorized
+   */
   @GET
   @Tag(name = "Config", description = "Retrieve Lucille configuration details.")
   @Path("/config")
@@ -97,12 +126,17 @@ public class LucilleResource {
     return Response.ok(ret).build();
   }
 
-
+  /**
+   * Retrieves a specific Lucille configuration by its ID.
+   * @param user the authenticated user (optional)
+   * @param configId the UUID of the configuration to retrieve
+   * @return HTTP 200 with config details, 404 if not found, or error if unauthorized
+   */
   @GET
   @Tag(name = "Config", description = "Retrieve Lucille configuration details.")
   @Path("/config/{configId}")
-  @Operation(summary = "Get Lucille config",
-      description = "Retrieves a specific Lucille config by ID.",
+  @Operation(summary = "Get a specific Lucille config",
+      description = "Retrieves a specific Lucille configuration by its ID.",
       security = @SecurityRequirement(name = "basicAuth"))
   public Response getConfig(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
       @Parameter(description = "The UUID of the configuration to retrieve.", required = false,
@@ -125,6 +159,12 @@ public class LucilleResource {
     }
   }
 
+  /**
+   * Starts a new Lucille run with the specified configuration.
+   * @param user the authenticated user (optional)
+   * @param requestBody request body containing the configuration ID
+   * @return HTTP 200 with run details, or error if invalid or unauthorized
+   */
   @POST
   @Tag(name = "Run")
   @Path("/run")
@@ -161,8 +201,11 @@ public class LucilleResource {
     }
   }
 
-
-
+  /**
+   * Retrieves a list of all Lucille runs.
+   * @param user the authenticated user (optional)
+   * @return HTTP 200 with all run details, or error if unauthorized
+   */
   @GET
   @Tag(name = "Run", description = "Retrieve Lucille run details")
   @Path("/run")
@@ -177,6 +220,12 @@ public class LucilleResource {
     return Response.ok(runnerManager.getRunDetails()).build();
   }
 
+  /**
+   * Retrieves the details of a specific Lucille run by its run ID.
+   * @param user the authenticated user (optional)
+   * @param runId the ID of the run to retrieve
+   * @return HTTP 200 with run details, 400 if not found, or error if unauthorized
+   */
   @GET
   @Tag(name = "Run", description = "Retrieve a specific Lucille run")
   @Path("/run/{runId}")

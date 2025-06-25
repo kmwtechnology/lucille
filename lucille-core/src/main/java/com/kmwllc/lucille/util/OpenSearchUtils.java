@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.Spec.ParentSpec;
 import com.kmwllc.lucille.indexer.OpenSearchIndexer;
 import com.typesafe.config.Config;
 import java.net.URI;
@@ -23,6 +25,10 @@ import org.slf4j.LoggerFactory;
  * Utility methods for communicating with OpenSearch.
  */
 public class OpenSearchUtils {
+
+  public static final ParentSpec OPENSEARCH_PARENT_SPEC = Spec.parent("opensearch")
+      .withRequiredProperties("url", "index")
+      .withOptionalProperties("acceptInvalidCert");
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 

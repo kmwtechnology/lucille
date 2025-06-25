@@ -4,6 +4,7 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import com.kmwllc.lucille.core.Spec.ParentSpec;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;
@@ -37,7 +38,7 @@ import java.util.stream.Collectors;
 public abstract class Stage {
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  private static final List<String> EMPTY_LIST = Collections.emptyList();
+  private static final List<ParentSpec> EMPTY_LIST = Collections.emptyList();
   private static final List<String> CONDITIONS_OPTIONAL = List.of("operator", "values");
   private static final List<String> CONDITIONS_REQUIRED = List.of("fields");
 
@@ -334,7 +335,7 @@ public abstract class Stage {
     // validate conditions
     if (config.hasPath("conditions")) {
       for (Config condition : config.getConfigList("conditions")) {
-        Spec.validateConfig(condition, getDisplayName() + " Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
+        Spec.validateConfig(condition, getDisplayName() + "'s Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
             EMPTY_LIST);
       }
     }

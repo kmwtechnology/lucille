@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -65,6 +66,7 @@ public class QueryOpensearch extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
   private static final ObjectMapper mapper = new ObjectMapper();
+  private static final HttpClient httpClient = HttpClient.newHttpClient();
 
   private final URI searchURI;
 
@@ -75,13 +77,11 @@ public class QueryOpensearch extends Stage {
   private final JsonPointer opensearchResponsePath;
   private final String destinationField;
 
-  private final HttpClient httpClient;
-
   private JsonNode searchTemplateJson;
 
   public QueryOpensearch(Config config) {
     super(config, Spec.stage()
-        .withRequiredParents("opensearch")
+        .withRequiredParents(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
         .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
             "optionalParamNames", "opensearchResponsePath", "destinationField"));
 
@@ -105,8 +105,6 @@ public class QueryOpensearch extends Stage {
     }
 
     this.destinationField = ConfigUtils.getOrDefault(config, "destinationField", "response");
-
-    httpClient = HttpClient.newHttpClient();
   }
 
   @Override
