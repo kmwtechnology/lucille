@@ -37,7 +37,13 @@ public class CSVConnector extends AbstractConnector {
             "idField", "docIdFormat", "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms"));
 
     this.pathStr = config.getString("path");
-    this.csvFileHandler = new CSVFileHandler(config);
+    this.csvFileHandler = new CSVFileHandler(config
+        .withoutPath("path")
+        .withoutPath("name")
+        .withoutPath("pipeline")
+        .withoutPath("collapse")
+        .withoutPath("moveToAfterProcessing")
+        .withoutPath("moveToErrorFolder"));
     this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
     this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
   }

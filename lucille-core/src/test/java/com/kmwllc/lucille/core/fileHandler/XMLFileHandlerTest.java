@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.Test;
 
 public class XMLFileHandlerTest {
@@ -66,10 +67,10 @@ public class XMLFileHandlerTest {
   }
 
   @Test
-  public void testNestedStaff() throws Exception {
+  public void testStaffWithInfoIDExtraction() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
         "xmlRootPath", "/Company/staff",
-        "xmlIdPath", "/Company/staff/id",
+        "xmlIdPath", "/Company/staff/info/id",
         "encoding", "utf-8",
         "outputField", "xml"
     )));
@@ -78,16 +79,13 @@ public class XMLFileHandlerTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     FileHandler xmlHandler = FileHandler.create("xml", config);
-    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/nestedstaff.xml";
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staffWithInfo.xml";
     File file = new File(filePath);
     xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
-
-    // ensure that in a nested scenario, the nested tag does not get included
-    assertEquals(2, docs.size());
-
-    assertTrue(docs.get(0).has("xml"));
+    assertEquals("1001", docs.get(0).getId());
+    assertEquals("1002", docs.get(1).getId());
   }
 
   @Test
@@ -197,5 +195,99 @@ public class XMLFileHandlerTest {
     String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/chinese.xml";
     File file = new File(filePath);
     assertThrows(FileHandlerException.class, () -> xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath));
+  }
+
+  @Test
+  public void testIdPathAttribute() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        "xpathIdPath", "@id",
+        "encoding", "utf-8",
+        "outputField", "xml_field"
+    )));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staffIDAttribute.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+
+    assertEquals(3, docs.size());
+
+    assertEquals("1001", docs.get(0).getId());
+    assertEquals("1002", docs.get(1).getId());
+
+    // Making sure the third document has a UUID for its ID.
+    // (this method would throw an exception if it wasn't a UUID.)
+    UUID.fromString(docs.get(2).getId());
+  }
+
+  @Test
+  public void testIdQualifier() throws Exception {
+    // Only the XML element with an id of 1001 should be included.
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        "xpathIdPath", "id[. = '1001']",
+        "encoding", "utf-8",
+        "outputField", "xml_field",
+        "skipEmptyId", true
+    )));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staff.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+
+    assertEquals(1, docs.size());
+    assertEquals("1001", docs.get(0).getId());
+  }
+
+  @Test
+  public void testIdAttributeQualifier() throws Exception {
+    // Only the XML element with an id attribute of 1001 should be included.
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        "xpathIdPath", "@id[. = '1001']",
+        "encoding", "utf-8",
+        "outputField", "xml_field",
+        "skipEmptyId", true
+    )));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staffIDAttribute.xml";
+    File file = new File(filePath);
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+
+    assertEquals(1, docs.size());
+    assertEquals("1001", docs.get(0).getId());
+  }
+
+  @Test
+  public void testInvalidConfig() {
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        // cannot specify both
+        "xmlIdPath", "/Company/staff/id",
+        "xpathIdPath", "@id[. = '1001']",
+        "encoding", "utf-8",
+        "outputField", "xml_field",
+        "skipEmptyId", true
+    )));
+
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("xml", config));
   }
 }

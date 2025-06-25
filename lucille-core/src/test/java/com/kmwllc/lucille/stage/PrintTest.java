@@ -8,14 +8,14 @@ import static org.mockito.Mockito.any;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import java.io.BufferedWriter;
@@ -29,14 +29,14 @@ import static org.junit.Assert.assertThrows;
 public class PrintTest {
 
   private static final StageFactory factory = StageFactory.of(Print.class);
+  private static final String outputFilePath = "src/test/resources/PrintTest/output.txt";
 
   @Test
   public void testBasic() throws StageException {
     Stage stage = factory.get("PrintTest/config.conf");
 
-    Document doc1 = Document.create("doc1");
+    Document doc1 = Document.create("doc1", "runID1");
     doc1.setField("test", "this is a test");
-    doc1.initializeRunId("runID1");
     stage.processDocument(doc1);
     stage.stop();
   }
@@ -55,20 +55,26 @@ public class PrintTest {
     Document doc = Document.create("doc1");
     doc.setField("field", "value");
 
-    Runnable runStage = () -> {
+    // NOTE: The Stage is *purposely* constructed and started in the main thread. This mimics how pipelines work in a
+    // multithreaded run. Have to make sure the threads still work / handle this... write to the correct file.
+    Stage stage1 = factory.get(appendThreadConfig);
+    Stage stage2 = factory.get(appendThreadConfig);
+
+    Thread thread1 = new Thread(() -> {
       try {
-        // have to create the Stage in the thread, otherwise, appendThreadNames won't be used correctly
-        Stage stage = factory.get(appendThreadConfig);
-        stage.processDocument(doc);
-        // Have to stop the stage to close the writer, allowing us to get the contents
-        stage.stop();
+        stage1.processDocument(doc);
       } catch (StageException e) {
         throw new RuntimeException(e);
       }
-    };
+    }, "thread-1");
 
-    Thread thread1 = new Thread(runStage, "thread-1");
-    Thread thread2 = new Thread(runStage, "thread-2");
+    Thread thread2 = new Thread(() -> {
+      try {
+        stage2.processDocument(doc);
+      } catch (StageException e) {
+        throw new RuntimeException(e);
+      }
+    }, "thread-2");
 
     thread1.start();
     thread2.start();
@@ -76,7 +82,10 @@ public class PrintTest {
     thread1.join();
     thread2.join();
 
-    // check the output files are at the appropriate paths, etc.
+    stage1.stop();
+    stage2.stop();
+
+    // check the output files are at the appropriate paths, appropriate content, etc.
     try (
         InputStream thread1Stream = new FileInputStream(thread1OutputPath.toFile());
         InputStream thread2Stream = new FileInputStream(thread2OutputPath.toFile())
@@ -105,6 +114,11 @@ public class PrintTest {
     try (MockedConstruction<BufferedWriter> mockedConstruction = mockConstruction(BufferedWriter.class);
         MockedConstruction<FileWriter> mockedWriter = mockConstruction(FileWriter.class)) {
       Stage stage = factory.get("PrintTest/full.conf");
+
+      // have to process something so the ThreadLocal FileWriter actually gets built.
+      Document doc = Document.create("test");
+      stage.processDocument(doc);
+
       stage.stop();
       verify(mockedConstruction.constructed().get(0)).close();
     }
@@ -116,6 +130,11 @@ public class PrintTest {
       doThrow(IOException.class).when(mock).close();
     }); MockedConstruction<FileWriter> mockedWriter = mockConstruction(FileWriter.class)) {
       Stage stage = factory.get("PrintTest/full.conf");
+
+      // have to process something so the ThreadLocal FileWriter actually gets built.
+      Document doc = Document.create("test");
+      stage.processDocument(doc);
+
       assertThrows(StageException.class, () -> stage.stop());
     }
   }
@@ -128,5 +147,46 @@ public class PrintTest {
       Stage stage = factory.get("PrintTest/full.conf");
       assertThrows(StageException.class, () -> stage.processDocument(Document.create("foo")));
     }
+  }
+
+  @Test
+  public void testBadOutputPath() throws StageException {
+    Stage stage = factory.get("PrintTest/badOutputPath.conf");
+
+    // error for bad file path (I/O) is not thrown until a document actually gets processed
+    Document doc = Document.create("doc1");
+    assertThrows(StageException.class, () -> stage.processDocument(doc));
+  }
+
+  @Test
+  public void testOverwriting() throws Exception {
+    Stage stage = factory.get("PrintTest/outputFileOverwrite.conf");
+
+    Document doc = Document.create("doc", "run123");
+    doc.setField("field", "value");
+
+    stage.processDocument(doc);
+    stage.stop();
+
+    // should be the doc written, as usual.
+    String contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));
+    assertTrue(contents.startsWith("{\"id\":\"doc\",\"field\":\"value\"}"));
+
+    // now, we will attempt to overwrite the file contents
+    stage = factory.get("PrintTest/outputFileOverwrite.conf");
+
+    doc = Document.create("doc", "run456");
+    doc.setField("abc", "123");
+    // in excludeFields, shouldn't be part of the response.
+    doc.setField("to_remove", "abcdef");
+
+    stage.processDocument(doc);
+    stage.stop();
+
+    // should be only the new contents - overwrite the old contents
+    contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));
+    assertTrue(contents.startsWith("{\"id\":\"doc\",\"abc\":\"123\"}"));
+
+    Files.delete(Paths.get(outputFilePath));
   }
 }

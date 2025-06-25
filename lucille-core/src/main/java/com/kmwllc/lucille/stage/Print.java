@@ -13,8 +13,6 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
-import java.lang.invoke.MethodHandles;
 import java.util.Iterator;
 import java.util.List;
 
@@ -25,20 +23,24 @@ import java.util.List;
  *   <li>shouldLog (Boolean, Optional): Whether to log the document in JSON format at INFO level. Defaults to true.</li>
  *   <li>outputFile (String, Optional): A file to append the documents to (will be created if it doesn't already exist).</li>
  *   <li>excludeFields (List&lt;String&gt;, Optional): A list of fields to exclude from the output.</li>
- *   <li>overwriteFile (Boolean, Optional): Whether the output file should overwritten if it already exists. Defaults to true.</li>
- *   <li>appendThreadName (Boolean, Optional): Whether threadNames should be appended to the outputFile path, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to false.</li>
+ *   <li>overwriteFile (Boolean, Optional): Whether the output file's contents should be overwritten if they already exist. Defaults to true.</li>
+ *   <li>appendThreadName (Boolean, Optional): Whether the current thread's name should be appended to the outputFile's filename, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to true.</li>
  * </ul>
+ *
+ * <p> <b>Note:</b> If you have multiple worker threads, it is highly recommended that you keep <code>appendThreadName</code> enabled
+ * to ensure thread-safe file writes and prevent data corruption - <i>especially</i> if <code>overwriteFile</code> is enabled.
  */
 public class Print extends Stage {
 
-  private final String outputFilePath;
-  private boolean shouldLog;
-  private boolean overwriteFile;
-  private final boolean appendThreadName;
+  private static final Logger log = LoggerFactory.getLogger(Print.class);
 
-  private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private Writer writer = null;
-  private List<String> excludeFields;
+  private final String outputFilePath;
+  private final boolean shouldLog;
+  private final boolean overwriteFile;
+  private final boolean appendThreadName;
+  private final List<String> excludeFields;
+
+  private BufferedWriter writer;
 
   public Print(Config config) {
     super(config, Spec.stage().withOptionalProperties("shouldLog", "outputFile",
@@ -48,15 +50,23 @@ public class Print extends Stage {
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
     this.excludeFields = config.hasPath("excludeFields") ? config.getStringList("excludeFields") : null;
     this.overwriteFile = config.hasPath("overwriteFile") ? config.getBoolean("overwriteFile") : true;
-    this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", false);
+    this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", true);
 
-    if (appendThreadName && outputFilePath == null) {
-      log.warn("Print Stage configured to have no outputFile but separateThreads = true. separateThreads has no effect.");
+    // if appendThreadName is *explicitly* set to true in the config, but no output file, warn it has no effect.
+    if ((config.hasPath("appendThreadName") && config.getBoolean("appendThreadName")) && outputFilePath == null) {
+      log.warn("appendThreadName was set to true in Print Config, but no outputFile was specified. appendThreadName has no effect.");
     }
   }
 
-  public void start() throws StageException {
-    if (outputFilePath != null) {
+  // we always create the writer in processDocument - not in start(). This allows us to get the name of the
+  // Worker thread that will actually be using the Stage, in case appendThreadName is true. (Since Stages/Pipelines are always
+  // constructed and start()ed in the main thread).
+
+  @Override
+  public Iterator<Document> processDocument(Document doc) throws StageException {
+    // create the file writer, if needed and not already created. this allows us to get the name of the Worker thread that
+    // will actually be using the stage, in case appendThreadName is true.
+    if (outputFilePath != null && writer == null) {
       try {
         if (appendThreadName) {
           String appendedOutputFilePath = FileUtils.appendStringToFileName(outputFilePath, Thread.currentThread().getName());
@@ -65,13 +75,10 @@ public class Print extends Stage {
           writer = new BufferedWriter(new FileWriter(outputFilePath, !overwriteFile));
         }
       } catch (IOException e) {
-        throw new StageException("Could not open the specified file.", e);
+        throw new StageException("Couldn't initialize FileWriter / BufferedWriter.", e);
       }
     }
-  }
 
-  @Override
-  public Iterator<Document> processDocument(Document doc) throws StageException {
     if (excludeFields != null) {
       doc = doc.deepCopy();
       for (String field : excludeFields) {
@@ -104,9 +111,8 @@ public class Print extends Stage {
       try {
         writer.close();
       } catch (IOException e) {
-        throw new StageException("Error closing writer.", e);
+        throw new StageException("Couldn't close a BufferedWriter.", e);
       }
     }
   }
-
 }
