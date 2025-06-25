@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
 
+import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -60,8 +61,8 @@ public class TraversalParams {
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
 
     try {
-      if (fileOptions.hasPath("moveToAfterProcessing")) {
-        this.moveToAfterProcessing = new URI(fileOptions.getString("moveToAfterProcessing"));
+      if (fileOptions.hasPath(FileConnector.MOVE_TO_AFTER_PROCESSING)) {
+        this.moveToAfterProcessing = new URI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
       } else {
         this.moveToAfterProcessing = null;
       }
@@ -70,8 +71,8 @@ public class TraversalParams {
     }
 
     try {
-      if (fileOptions.hasPath("moveToErrorFolder")) {
-        this.moveToErrorFolder = new URI(fileOptions.getString("moveToErrorFolder"));
+      if (fileOptions.hasPath(FileConnector.MOVE_TO_ERROR_FOLDER)) {
+        this.moveToErrorFolder = new URI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
       } else {
         this.moveToErrorFolder = null;
       }

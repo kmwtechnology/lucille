@@ -5,8 +5,8 @@ import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.net.URI;
@@ -192,12 +192,13 @@ public class FileConnector extends AbstractConnector {
               .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
               .optionalString("moveToAfterProcessing", "moveToErrorFolder"),
           Spec.parent("state")
-              .withOptionalProperties("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName",
-                  "performDeletions", "pathLength"),
+              .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
+              .optionalBoolean("performDeletions")
+              .optionalNumber("pathLength"),
           GCP_PARENT_SPEC,
           AZURE_PARENT_SPEC,
           S3_PARENT_SPEC)
-      .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>());
+      .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){});
 
   private final List<URI> storageURIs;
   private final Map<String, StorageClient> storageClientMap;
@@ -206,8 +207,6 @@ public class FileConnector extends AbstractConnector {
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
-
-    this.storageClientMap = StorageClient.createClients(config);
 
     List<String> pathsToStorage = config.getStringList("pathsToStorage");
     this.storageURIs = new ArrayList<>();

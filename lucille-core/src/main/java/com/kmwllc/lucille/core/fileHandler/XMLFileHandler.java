@@ -39,7 +39,7 @@ import org.xml.sax.XMLReader;
  *   or attribute that will be used to create Document IDs. This path can be a qualifier - be sure to enable <code>skipEmptyId</code>, if so!</li>
  *   <li><code>encoding</code> (String, Optional): The encoding the xml files use. Defaults to utf-8.</li>
  *   <li><code>outputField</code> (String, Optional): The field you want to put the extracted XML text into. Defaults to "xml".</li>
- *   <li><code>skipEmptyID</code> (Boolean, Optional): Whether you want to skip a document when your <code>xmlIdPath</code> or <code>xpathIdPath</code>
+ *   <li><code>skipEmptyId</code> (Boolean, Optional): Whether you want to skip a document when your <code>xmlIdPath</code> or <code>xpathIdPath</code>
  *   evaluates to an empty or null String. You should enable if using an <code>xpathIdPath</code> that is a qualifier. Defaults to false.</li>
  * </ul>
  *
@@ -48,10 +48,10 @@ import org.xml.sax.XMLReader;
  */
 public class XMLFileHandler extends BaseFileHandler {
 
-  public static final ParentSpec PARENT_SPEC = Spec.parent("xml")
+  public static final Spec SPEC = Spec.fileHandler()
       .requiredString("xmlRootPath")
       .optionalString("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding")
-      .optionalBoolean("skipEmptyID");
+      .optionalBoolean("skipEmptyId");
 
   private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
 
@@ -67,7 +67,7 @@ public class XMLFileHandler extends BaseFileHandler {
   private XMLReader xmlReader = null;
 
   public XMLFileHandler(Config config) {
-    super(config, PARENT_SPEC);
+    super(config);
 
     this.xmlRootPath = config.getString("xmlRootPath");
     this.xmlIdPath = ConfigUtils.getOrDefault(config, "xmlIdPath", null);

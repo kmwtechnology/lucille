@@ -87,6 +87,17 @@ public class Spec {
   public static Spec indexer() { return new Spec(); }
 
   /**
+   * Creates a Spec with default legal properties suitable for a FileHandler. Includes "class" and "docIdPrefix".
+   *
+   * @return a Spec with default legal properties suitable for a FileHandler.
+   */
+  public static Spec fileHandler() {
+    return new Spec(Set.of(
+      new StringProperty("class", false),
+      new StringProperty("docIdPrefix", false)));
+  }
+
+  /**
    * Creates a Spec without any default, legal properties.
    * @return a Spec without any default, legal properties.
    */

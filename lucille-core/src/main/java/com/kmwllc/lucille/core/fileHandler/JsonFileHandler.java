@@ -19,14 +19,14 @@ import org.slf4j.LoggerFactory;
 
 public class JsonFileHandler extends BaseFileHandler {
 
-  public static final ParentSpec PARENT_SPEC = Spec.parent("json").optionalString("docIdPrefix");
+  public static final Spec SPEC = Spec.fileHandler();
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 
   private final UnaryOperator<String> idUpdater;
 
   public JsonFileHandler(Config config) {
-    super(config, Spec.fileHandler());
+    super(config);
 
     this.idUpdater = (id) -> docIdPrefix + id;
   }

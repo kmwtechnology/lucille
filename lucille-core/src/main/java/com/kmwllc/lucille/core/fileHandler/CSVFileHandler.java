@@ -32,11 +32,11 @@ import org.slf4j.LoggerFactory;
  */
 public class CSVFileHandler extends BaseFileHandler {
 
-  public static final ParentSpec PARENT_SPEC = Spec.parent("csv")
-      .optionalString("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "docIdFormat")
+  public static final Spec SPEC = Spec.fileHandler()
+      .optionalString("docIdPrefix", "lineNumberField", "separatorChar", "filenameField", "filePathField", "idField", "docIdFormat")
       .optionalList("idFields", new TypeReference<List<String>>() {})
       .optionalList("ignoredTerms", new TypeReference<List<String>>() {})
-      .optionalBoolean("useTabs", "separatorChar", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields");
+      .optionalBoolean("useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields");
 
   private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);
 
@@ -54,8 +54,7 @@ public class CSVFileHandler extends BaseFileHandler {
   private static final String UTF8_BOM = "\uFEFF";
 
   public CSVFileHandler(Config config) {
-    // TODO: Remove after file handler validation paradigm changes
-    super(config, PARENT_SPEC);
+    super(config);
 
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
     this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";

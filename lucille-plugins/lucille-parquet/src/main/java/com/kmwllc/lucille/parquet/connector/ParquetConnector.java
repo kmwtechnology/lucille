@@ -56,9 +56,7 @@ public class ParquetConnector extends AbstractConnector {
       .optionalNumber("limit", "start");
 
   public ParquetConnector(Config config) {
-    super(config, Spec.connector()
-        .withRequiredProperties("path", "id_field", "fs_uri")
-        .withOptionalProperties("s3_key", "s3_secret", "limit", "start"));
+    super(config);
 
     this.path = config.getString("pathToStorage");
     this.idField = config.getString("id_field");
