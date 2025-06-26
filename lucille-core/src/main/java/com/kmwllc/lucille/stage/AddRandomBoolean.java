@@ -6,8 +6,10 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
+import com.kmwllc.lucille.core.BaseConfigException;
 
 /**
  * Adds random Booleans to documents given parameters.
@@ -20,24 +22,46 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class AddRandomBoolean extends Stage {
 
-  private final String fieldName;
-  private final int percentTrue;
+  public static class AddRandomBooleanConfig extends BaseStageConfig {
 
-  public AddRandomBoolean(Config config) throws StageException {
-    super(config, Spec.stage()
+    private String fieldName = "data";
+    private int percentTrue = 50;
+
+    public void apply(Config config) {
+      fieldName = ConfigUtils.getOrDefault(config, "field_name", fieldName);
+      percentTrue = ConfigUtils.getOrDefault(config, "percent_true", percentTrue);
+    }
+
+    public void validate() throws StageException {
+      try {
+        super.validate();
+      } catch (BaseConfigException e) {
+        throw new StageException(e);
+      }
+      if (percentTrue > 100 || percentTrue < 0) {
+        throw new StageException("Invalid value for percent_true. Must be between 0 and 100 inclusive.");
+      }
+    }
+  
+    public String getFieldName() { return fieldName; }
+    public int getPercentTrue() { return percentTrue; }
+
+  }
+
+  AddRandomBooleanConfig config;
+
+  public AddRandomBoolean(Config configIn) throws Exception {
+    super(configIn, Spec.stage()
         .withOptionalProperties("field_name", "percent_true"));
 
-    this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
-    this.percentTrue = ConfigUtils.getOrDefault(config, "percent_true", 50);
-
-    if (percentTrue > 100 || percentTrue < 0) {
-      throw new StageException("Invalid value for percent_true. Must be greater than 0 and less than 100.");
-    }
+    config = new AddRandomBooleanConfig();
+    config.apply(configIn);
+    config.validate();
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    doc.setField(fieldName, (ThreadLocalRandom.current().nextInt(100) < percentTrue));
+    doc.setField(config.fieldName, (ThreadLocalRandom.current().nextInt(100) < config.percentTrue));
 
     return null;
   }
