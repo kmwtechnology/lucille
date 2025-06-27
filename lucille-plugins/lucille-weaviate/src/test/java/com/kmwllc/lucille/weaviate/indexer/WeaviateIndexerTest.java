@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -260,7 +261,9 @@ public class WeaviateIndexerTest {
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
-  private static class CorruptedWeaviateIndexer extends WeaviateIndexer {
+  public static class CorruptedWeaviateIndexer extends WeaviateIndexer {
+
+    public static final Spec SPEC = WeaviateIndexer.SPEC;
 
     public CorruptedWeaviateIndexer(Config config, IndexerMessenger messenger,
         WeaviateClient client, String metricsPrefix) {

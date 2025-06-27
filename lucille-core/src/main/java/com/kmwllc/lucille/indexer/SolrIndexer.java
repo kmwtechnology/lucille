@@ -1,9 +1,10 @@
 package com.kmwllc.lucille.indexer;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.SSLUtils;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -31,24 +32,25 @@ import org.slf4j.LoggerFactory;
 
 public class SolrIndexer extends Indexer {
 
+  public static final Spec SPEC = Spec.indexer()
+      .optionalList("url", new TypeReference<List<String>>() {})
+      .optionalBoolean("useCloudClient", "acceptInvalidCert")
+      .optionalString("defaultCollection", "userName", "password", "zkChroot")
+      .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
+      .optionalList("zkHosts", new TypeReference<List<String>>(){});
+
   private static final Logger log = LoggerFactory.getLogger(SolrIndexer.class);
 
   private final SolrClient solrClient;
 
   public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
-            "userName", "password", "acceptInvalidCert")
-        .withOptionalProperties(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES));
+    super(config, messenger, metricsPrefix, localRunId);
 
     this.solrClient = solrClient;
   }
 
   public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
-            "userName", "password", "acceptInvalidCert")
-        .withOptionalParentNames("ssl"));
+    super(config, messenger, metricsPrefix, localRunId);
 
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.

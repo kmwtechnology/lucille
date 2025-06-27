@@ -137,7 +137,8 @@ public class QueryDatabaseTest {
             "sql",
             "connectionRetries",
             "connectionRetryPause",
-            "conditionPolicy"),
+            "conditionPolicy",
+            "fieldMapping"),
         stage.getLegalProperties());
 
     stage.stop();

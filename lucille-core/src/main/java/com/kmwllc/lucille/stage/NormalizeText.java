@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -35,6 +36,12 @@ import java.util.regex.Pattern;
  */
 public class NormalizeText extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .requiredString("mode")
+      .optionalString("update_mode");
+
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final Pattern pattern = Pattern.compile("[.?!] \\w");
 
@@ -50,8 +57,7 @@ public class NormalizeText extends Stage {
    * @param config
    */
   public NormalizeText(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "dest", "mode")
-        .withOptionalProperties("update_mode"));
+    super(config);
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.mode = config.getString("mode");
