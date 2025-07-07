@@ -88,8 +88,8 @@ public class DatabaseConnector extends AbstractConnector {
     // For MYSQL this should be set to Integer.MIN_VALUE to avoid buffering the full resultset in memory.
     // The behavior of this parameter varies from driver to driver, often it defaults to 0.
     fetchSize = config.hasPath("fetchSize") ? config.getInt("fetchSize") : null;
-    preSql = ConfigUtils.getOrDefault(config, "preSql", null);
-    postSql = ConfigUtils.getOrDefault(config, "postSql", null);
+    preSql = ConfigUtils.getOrDefault(config, "preSQL", null);
+    postSql = ConfigUtils.getOrDefault(config, "postSQL", null);
     if (config.hasPath("otherSQLs")) {
       otherSQLs = config.getStringList("otherSQLs");
       otherJoinFields = config.getStringList("otherJoinFields");
