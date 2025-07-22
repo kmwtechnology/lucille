@@ -22,7 +22,7 @@
       <!-- Apache OpenNLP... we get access through Lucille-core -->
       <dependency>
         <groupId>com.kmwllc</groupId>
-        <artifactId>lucille-core</artifactId>
+        <artifactId>lucille-plugins</artifactId>
         <version>0.5.7-SNAPSHOT</version>
         <scope>compile</scope>
       </dependency>
