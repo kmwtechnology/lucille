@@ -6,7 +6,7 @@
 
     <parent>
       <groupId>com.kmwllc</groupId>
-      <artifactId>lucille-parent</artifactId>
+      <artifactId>lucille-plugins</artifactId>
       <version>0.5.7-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
     </parent>
@@ -22,7 +22,7 @@
       <!-- Apache OpenNLP... we get access through Lucille-core -->
       <dependency>
         <groupId>com.kmwllc</groupId>
-        <artifactId>lucille-plugins</artifactId>
+        <artifactId>lucille-core</artifactId>
         <version>0.5.7-SNAPSHOT</version>
         <scope>compile</scope>
       </dependency>
