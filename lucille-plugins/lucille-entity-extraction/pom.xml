@@ -8,11 +8,11 @@
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-parent</artifactId>
       <version>0.5.7-SNAPSHOT</version>
-      <relativePath>../lucille-parent/pom.xml</relativePath>
+      <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>lucille-entity-extraction</artifactId>
-    <name>Lucille Entity Extraction</name>
+    <name>Lucille Plugins: Lucille Entity Extraction</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
