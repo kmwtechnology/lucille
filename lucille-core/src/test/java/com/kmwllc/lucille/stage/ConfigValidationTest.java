@@ -304,7 +304,6 @@ public class ConfigValidationTest {
       processDoc(stageClass, config, doc);
     } catch (StageException e) {
       Throwable cause = e.getCause().getCause();
-      System.out.println(cause.getMessage());
       assertContains(cause.getMessage(), message);
     }
   }

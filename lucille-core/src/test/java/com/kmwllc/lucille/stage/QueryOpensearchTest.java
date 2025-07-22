@@ -242,6 +242,6 @@ public class QueryOpensearchTest {
 
   @Test
   public void sandbox() throws Exception {
-    System.out.println(QueryOpensearch.SPEC.toJson().toPrettyString());
+    QueryOpensearch.SPEC.toJson().toPrettyString();
   }
 }
