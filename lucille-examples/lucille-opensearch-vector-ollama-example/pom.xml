@@ -12,9 +12,9 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>lucille-s3-ingest-example</artifactId>
+  <artifactId>lucille-opensearch-vector-ollama-example</artifactId>
   <packaging>jar</packaging>
-  <name>Lucille Examples: Ingesting Into S3</name>
+  <name>Lucille Examples: OpenSearch Vector Ollama Example</name>
 
   <dependencyManagement>
     <dependencies>
@@ -36,6 +36,7 @@
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-tika</artifactId>
+      <version>${project.version}</version>
     </dependency>
   </dependencies>
 
@@ -44,6 +45,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.1</version>
         <executions>
           <execution>
             <id>copy-dependencies</id>
@@ -69,7 +71,7 @@
               <goal>single</goal>
             </goals>
             <configuration>
-              <finalName>lucille-s3-ingest-example</finalName>
+              <finalName>lucille-opensearch-vector-ollama-example</finalName>
               <descriptors>
                 <descriptor>assembly/assembly.xml</descriptor>
               </descriptors>
