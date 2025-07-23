@@ -15,7 +15,8 @@ This example demonstrates how to use Lucille to index project files with vector 
 
 - Java 11 or higher
 - Maven for building and running the example
-- Access to the OpenSearch instance in Docker
+- Docker and Docker Compose for running OpenSearch locally
+- Ollama (for generating vector embeddings)
 
 ## Complete Setup and Running Guide
 
@@ -26,15 +27,54 @@ If you haven't already, clone the Lucille repository and build the project:
 ```bash
 git clone https://github.com/kmwtechnology/lucille.git
 cd lucille
-mvn clean install -DskipTests
+mvn clean install
 ```
 
-### 2. Remote OpenSearch Environment
+### 2. Set Up OpenSearch with Docker
 
-This example has been configured to use a remote OpenSearch instance deployed on GCP with the following details:
+This example uses Docker Compose to run OpenSearch locally. The configuration includes OpenSearch and OpenSearch Dashboards with security disabled for development purposes.
 
-- OpenSearch URL: `http://localhost:9200`
-- OpenSearch Dashboards URL: `http://localhost:5601`
+#### Start OpenSearch Services
+
+Navigate to the example directory and start the services:
+
+```bash
+cd lucille-examples/lucille-opensearch-vector-ollama-example
+docker-compose up -d
+```
+
+This will start:
+
+- **OpenSearch**: Available at `http://localhost:9200`
+- **OpenSearch Dashboards**: Available at `http://localhost:5601`
+
+#### Verify OpenSearch is Running
+
+Wait for the services to start (this may take a few minutes), then verify OpenSearch is accessible:
+
+```bash
+curl -X GET "http://localhost:9200/_cluster/health?pretty"
+```
+
+You should see a response indicating the cluster status is "green" or "yellow".
+
+#### Access OpenSearch Dashboards
+
+Open your browser and navigate to `http://localhost:5601` to access the OpenSearch Dashboards interface.
+
+#### Stop Services (when done)
+
+To stop the OpenSearch services:
+
+```bash
+docker-compose down
+```
+
+To stop and remove all data:
+
+```bash
+docker-compose down -v
+```
 
 ### 3. Create the Vector-enabled Index
 
@@ -63,10 +103,10 @@ You can check the indexed documents using OpenSearch Dashboards or with curl:
 
 ```bash
 # Get total document count
-curl -k -X GET "http://localhost:9200/lucille_code_vectors/_count?pretty"
+curl -k -X GET "http://localhost:9200/{YOUR_INDEX_NAME}/_count?pretty"
 
 # View a sample of documents 
-curl -k -X POST "http://localhost:9200/lucille_code_vectors/_search?pretty" \
+curl -k -X POST "http://localhost:9200/{YOUR_INDEX_NAME}/_search?pretty" \
   -H 'Content-Type: application/json' \
   -d '{"query": {"match_all": {}}, "size": 5}'
 ```
@@ -83,18 +123,18 @@ The indexing pipeline is defined in `conf/opensearch-vector.conf` and includes t
 6. **EmitNestedChildren**: Creates separate documents for each text chunk
 7. **OllamaEmbed**: Generates vector embeddings using Ollama and store them with the document
 
-## Local Execution 
+## Local Execution
 
 run this script from within ./lucille-opensearch-vector-ollama-example directory via ./scripts/run_ingest.sh
 
 ## Searching the Data
 
-Once indexed, you can perform various types of searches in OpenSearch. Here are some examples:
+Once indexed, you can perform various types of searches in OpenSearch. Here are some examples you can use in OpenSearch Dashboards (Dev Tools):
 
 ### Standard Text Search
 
 ```json
-GET lucille_code_vectors/_search
+GET {YOUR_INDEX_NAME}/_search
 {
   "query": {
     "match": {
@@ -107,7 +147,7 @@ GET lucille_code_vectors/_search
 ### Search by Content Type
 
 ```json
-GET lucille_code_vectors/_search
+GET {YOUR_INDEX_NAME}/_search
 {
   "query": {
     "match": {
@@ -120,7 +160,7 @@ GET lucille_code_vectors/_search
 ### Vector Similarity Search
 
 ```json
-GET lucille_code_vectors/_search
+GET {YOUR_INDEX_NAME}/_search
 {
   "query": {
     "knn": {
@@ -136,7 +176,7 @@ GET lucille_code_vectors/_search
 ### Hybrid Search (Text + Vector + Content Type)
 
 ```json
-GET lucille_code_vectors/_search
+GET {YOUR_INDEX_NAME}/_search
 {
   "query": {
     "bool": {
