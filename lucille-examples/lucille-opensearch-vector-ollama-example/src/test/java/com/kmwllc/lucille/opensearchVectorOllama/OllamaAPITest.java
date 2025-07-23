@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.example;
+package com.kmwllc.lucille.opensearchVectorOllama;
 
 import io.github.ollama4j.OllamaAPI;
 import io.github.ollama4j.models.embeddings.OllamaEmbedResponseModel;
