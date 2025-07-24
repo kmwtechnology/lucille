@@ -14,12 +14,13 @@ import org.apache.commons.lang3.StringUtils;
 /**
  * Extracts the first character from each of the given input fields and set the associated output field
  * to contain the character. If the character is not alphanumeric, then 'nonaplha' will be placed in the destination field.
- *
+ * <p>
  * Config Parameters -
- *
- *   - fieldMapping (Map&lt;String, String&gt;) : A mapping of source-&gt;destination fields
- *   - replacement (String, Optional) : The String to place in the output field if the first character is not a letter.
- *     If "SKIP" is supplied, the output field will not be set to anything. Defaults to "nonalpha".
+ * <ul>
+ *   <li>fieldMapping (Map&lt;String, String&gt;) : A mapping of source-&gt;destination fields.</li>
+ *   <li>replacement (String, Optional) : The String to place in the output field if the first character is not a letter. If "SKIP" is
+ *   supplied, the output field will not be set to anything. Defaults to "nonalpha".</li>
+ * </ul>
  */
 public class ExtractFirstCharacter extends Stage {
 

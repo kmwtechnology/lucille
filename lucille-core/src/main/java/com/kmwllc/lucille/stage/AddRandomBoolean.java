@@ -11,12 +11,12 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Adds random Booleans to documents given parameters.
- *
- * <br>
- *
- * Config Parameters:
- * <p> <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data".
- * <p> <b>percent_true</b> (Integer, Optional) : Determines the rate at which "true" is selected and placed on a document. Defaults to 50.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>field_name (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
+ *   <li>percent_true (Integer, Optional) : Determines the rate at which "true" is selected and placed on a document. Defaults to 50.</li>
+ * </ul>
  */
 public class AddRandomBoolean extends Stage {
 

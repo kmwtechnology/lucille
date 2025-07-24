@@ -15,21 +15,15 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Adds random Dates to documents given parameters.
- *
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * <p>
- * <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data"
- * </p>
- * <p>
- * <b>range_start_date</b> (String, Optional) : Date string in ISO format (2024-12-18) representing the start of the range for
- * generating random dates. Defaults to the start of Epoch time, 1970-1-1
- * </p>
- * <p>
- * <b>range_end_date</b> (String, Optional) : Date string in ISO format (2024-12-18) representing the end of the range for
- * generating random dates. Defaults to today's date/time.
- * </p>
+ * <ul>
+ *   <li>field_name (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
+ *   <li>range_start_date (String, Optional) : Date string in ISO format (2024-12-18) representing the start of the range for
+ *   generating random dates. Defaults to the start of Epoch time, 1970-1-1</li>
+ *   <li>range_end_date</b> (String, Optional) : Date string in ISO format (2024-12-18) representing the end of the range for
+ *   generating random dates. Defaults to today's date/time.</li>
+ * </ul>
  */
 public class AddRandomDate extends Stage {
 

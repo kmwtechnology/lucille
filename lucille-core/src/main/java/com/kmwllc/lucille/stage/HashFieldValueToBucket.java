@@ -14,20 +14,13 @@ import com.typesafe.config.Config;
 /**
  * This stage will use the java object hash code modulus the number of buckets as specified in the buckets parameter, 
  * the resulting label will be placed in the dest field.
- * 
- * <br/>
+ * <p>
  * Config Parameters -
- * <br/>
- * <p>
- * <b>field_name</b> (String, Required) : Field that will be used as the input for the hashing function.
- * </p>
- * <p>
- * <b>dest</b> (String, Required) : Field that will contain the hash bucket label.
- * </p>
- * <p>
- * <b>buckets</b> (List of String, Required) : list of buckets for the hash function.
- * </p>
- * 
+ * <ul>
+ *   <li>field_name (String, Required) : Field that will be used as the input for the hashing function.</li>
+ *   <li>dest (String, Required) : Field that will contain the hash bucket label.</li>
+ *   <li>buckets (List of String, Required) : list of buckets for the hash function.</li>
+ * </ul>
  */
 public class HashFieldValueToBucket extends Stage {
 
