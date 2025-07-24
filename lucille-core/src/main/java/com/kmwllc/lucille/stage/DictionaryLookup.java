@@ -21,35 +21,36 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p> Finds exact matches for given input values and extracts the payloads for each match to a given destination field.
+ * Finds exact matches for given input values and extracts the payloads for each match to a given destination field.
  * The dictionary file should have a term on each line, and can support providing payloads with
  * the syntax "term, payload". If any occurrences are found, they will be extracted and their associated payloads will
  * be appended to the destination field.
- *
- * <p> Can also be used as a Set lookup by setting the set_only parameter to true. In this case, the destination field will
+ * <p>
+ * Can also be used as a Set lookup by setting the set_only parameter to true. In this case, the destination field will
  * be set to true if all values in the source field are present in the dictionary.
- *
- * <p> Config Parameters:
- * <p>  - source (List&lt;String&gt;) : list of source field names
- * <p>  - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
- *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- * <p>  - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
- *       will be searched for the file. Otherwise, the local file system will be searched.
- * <p>  - use_payloads (Boolean, Optional) : denotes whether payloads from the dictionary should be used or not. Defaults to true.
- * <p>  - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- * <p>  - set_only (Boolean, Optional) : If true, the destination field will be set to true when a match is found (instead of
- *      outputting the match itself). You can control this behavior with <code>use_any_match</code> and <code>ignore_missing_source</code>.
- *      <code>set_only</code> defaults to false.
- * <p>  - use_any_match (Boolean, Optional) : Use in combination with set_only. If true, the destination field will
- *      be set to true if any values in any source field are present in the dictionary. If false, the destination field
- *      will be set to true if all the values in each source field are present in the dictionary. Defaults to false.
- * <p>  - ignore_missing_source (Boolean, Optional) : Use in combination with set_only. If true, the destination field
- *      will be set to true if the source field is missing. Defaults to false.
- *
- * <p>  - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
- * <p>  - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
- * <p>  - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>source (List&lt;String&gt;) : list of source field names.</li>
+ *   <li>dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination
+ *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
+ *   <li>dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath will
+ *   be searched for the file. Otherwise, the local file system will be searched.</li>
+ *   <li>use_payloads (Boolean, Optional) : denotes whether payloads from the dictionary should be used or not. Defaults to true.</li>
+ *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
+ *   be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
+ *   <li>set_only (Boolean, Optional) : If true, the destination field will be set to true when a match is found (instead of
+ *   outputting the match itself). You can control this behavior with <code>use_any_match</code> and <code>ignore_missing_source</code>.
+ *   <code>set_only</code> defaults to false.</li>
+ *   <li>use_any_match (Boolean, Optional) : Use in combination with set_only. If true, the destination field will be set to true if
+ *   any values in any source field are present in the dictionary. If false, the destination field will be set to true if all the values
+ *   in each source field are present in the dictionary. Defaults to false.</li>
+ *   <li>ignore_missing_source (Boolean, Optional) : Use in combination with set_only. If true, the destination field will be set to
+ *   true if the source field is missing. Defaults to false.</li>
+ *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ * </ul>
  */
 public class DictionaryLookup extends Stage {
 

@@ -22,16 +22,16 @@ import nl.altindag.ssl.util.internal.StringUtils;
 /**
  * Parses a JSON string and sets fields on the processed document according to the configured mapping using
  * JsonPath expressions.
- *
  * @see <a href="https://github.com/json-path/JsonPath">JsonPath</a>
- * Config Parameters
  * <p>
- * - src (String) : The field containing the JSON string to be parsed.
- * - sourceIsBase64: When set to true, indicates that the source field is base64 encoded. In this case the stage will decode
- * the field value before parsing.
- * - jsonFieldPaths (Map&lt;String, Object&gt;) : Defines the mapping from JsonPath expressions
- * to the destination fields in the processed document.
- * </p>
+ * Config Parameters -
+ * <ul>
+ *   <li>src (String) : The field containing the JSON string to be parsed.</li>
+ *   <li>sourceIsBase64: When set to true, indicates that the source field is base64 encoded. In this case the stage will decode
+ *   the field value before parsing.</li>
+ *   <li>jsonFieldPaths (Map&lt;String, Object&gt;) : Defines the mapping from JsonPath expressions to the destination fields in the
+ *   processed document.</li>
+ * </ul>
  */
 public class ParseJson extends Stage {
   private static final Base64.Decoder DECODER = Base64.getDecoder();

@@ -24,14 +24,16 @@ import java.util.regex.Pattern;
  * The desired mode should be set in the configuration file. NOTE: This stage will not preserve any capitalization from
  * the original document. As such, proper nouns, abbreviations and acronyms may not be correctly capitalized after
  * normalization.
- * Config Parameters:
- *
- *   - source (List&lt;String&gt;) : List of source field names.
- *   - dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
- *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - mode (String) : The mode for normalization: uppercase, lowercase, sentence_case, title_case.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>source (List&lt;String&gt;) : List of source field names.</li>
+ *   <li>dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
+ *   for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
+ *   <li>mode (String) : The mode for normalization: uppercase, lowercase, sentence_case, title_case.</li>
+ *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
+ * </ul>
  */
 public class NormalizeText extends Stage {
 

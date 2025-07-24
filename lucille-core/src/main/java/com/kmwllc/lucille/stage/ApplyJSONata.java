@@ -23,16 +23,16 @@ import static com.dashjoin.jsonata.Jsonata.jsonata;
 /**
  * Applies a given Jsonata expression to extract information from a Document's field or to transform a Document entirely.
  * Applying a transformation to an entire document is an experimental feature and should be used with caution.
- *
  * See <a href="https://github.com/dashjoin/jsonata-java">here</a> for Jsonata implementation.
- *
- * <br>
+ * <p>
  * Config Parameters -
- * <p> <b>source</b> (String, Optional) : The field to use for input. Defaults to applying your expression the entire Document and mutating the entire
- * Document in place. Logs warning and skips document if this transformation fails, mutates reserved fields, or returns a non-object (primitive or array).
- * <p> <b>destination</b> (String, Optional) : The destination field into which the json response should be placed. Defaults to mutating the source
- * field. Has no effect if source is not specified.
- * <p> <b>expression</b> (String) : The Jsonata expression you want to apply to each Document.
+ * <ul>
+ *   <li>source (String, Optional) : The field to use for input. Defaults to applying your expression the entire Document and mutating the entire
+ *   Document in place. Logs warning and skips document if this transformation fails, mutates reserved fields, or returns a non-object (primitive or array).</li>
+ *   <li>destination (String, Optional) : The destination field into which the json response should be placed. Defaults to mutating the source
+ *   field. Has no effect if source is not specified.</li>
+ *   <li>expression (String) : The Jsonata expression you want to apply to each Document.</li>
+ * </ul>
  */
 public class ApplyJSONata extends Stage {
 

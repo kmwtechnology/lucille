@@ -15,8 +15,8 @@ import java.util.Map;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>static_values (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
- * <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
+ *   <li>static_values (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
+ *   <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
  * </ul>
  */
 public class SetStaticValues extends Stage {

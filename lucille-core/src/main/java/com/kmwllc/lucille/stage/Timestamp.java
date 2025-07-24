@@ -15,7 +15,7 @@ import java.util.Iterator;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>dest_field (String) : The field to place the timestamp into.</li>
+ *   <li>dest_field (String) : The field to place the timestamp into.</li>
  * </ul>
  */
 public class Timestamp extends Stage {
