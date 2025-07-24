@@ -43,14 +43,14 @@ import com.typesafe.config.Config;
  *     <br> }
  *     </p></li>
  * </ul>
- * <p> <b>Note: only one of fieldPathField, stringField, or byteArrayField can be specified. If a document does not have whichever field is specified in the config,
- * then it is not modified</b>
- * <p> <b>Note: @see <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html"> Charsets </a> for information on supported charsets and conventions for
- * specifying them.</b>
- * <p> <b>Note: If a destination field already exists in the processed document it is overwritten. Otherwise, they are created. If a selector returns
+ * <p> <b>Note:</b> only one of fieldPathField, stringField, or byteArrayField can be specified. If a document does not have whichever field is specified in the config,
+ * then it is not modified
+ * <p> <b>Note:</b> @see <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html"> Charsets </a> for information on supported charsets and conventions for
+ * specifying them.
+ * <p> <b>Note:</b> If a destination field already exists in the processed document it is overwritten. Otherwise, they are created. If a selector returns
  * multiple elements the destination field receives a list of processed elements. If a selector returns no elements for a document then the
  * destination field is not created.
- * @see <a href="https://jsoup.org/cookbook/extracting-data/selector-syntax"> CSS selectors </a> for information on supported selectors</b>
+ * @see <a href="https://jsoup.org/cookbook/extracting-data/selector-syntax"> CSS selectors </a> for information on supported selectors.
  */
 public class ApplyJSoup extends Stage {
 

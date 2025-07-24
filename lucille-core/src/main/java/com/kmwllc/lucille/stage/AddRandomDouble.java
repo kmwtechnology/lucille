@@ -16,7 +16,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <ul>
  *   <li>field_name (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
  *   <li>range_start (Double, Optional) : Double representing the start of the range for generating random doubles. Defaults to 0.0.</li>
- *   <li>range_end</b> (Double, Optional) : Double representing the end of the range for generating random doubles. Defaults to 1M (1000000.0).</li>
+ *   <li>range_end (Double, Optional) : Double representing the end of the range for generating random doubles. Defaults to 1M (1000000.0).</li>
  * </ul>
  */
 public class AddRandomDouble extends Stage {

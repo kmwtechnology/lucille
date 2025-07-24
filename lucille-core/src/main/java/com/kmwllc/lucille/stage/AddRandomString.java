@@ -27,7 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *   <li>input_data_path (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
  *   defaults to numeric data based on range size (0 -&gt; rangeSize - 1). Note that duplicate entries will not be removed.</li>
  *   <li>field_name (String, Optional) : Field name of field where data is placed, defaults to "data".</li>
- *   <li>range_size</b> (int, Optional) : size of the subset of datapoints to be grabbed either from given datapath or from
+ *   <li>range_size (int, Optional) : size of the subset of datapoints to be grabbed either from given datapath or from
  *   random numbers.</li>
  *   <li>min_num_of_terms (Integer, Optional) : minimum number of terms to be in the field, defaults to 1.</li>
  *   <li>max_num_of_terms (Integer, Optional) : maximum number of terms to be in the field, defaults to 1.</li>
