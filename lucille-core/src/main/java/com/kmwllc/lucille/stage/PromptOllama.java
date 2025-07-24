@@ -38,22 +38,22 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>hostURL (String): A URL to your ollama server.</li>
- *   <li>modelName (String): The name of the model you want to communicate with. See https://ollama.ai/library for available models/
+ *   <li>hostURL (String) : A URL to your ollama server.</li>
+ *   <li>modelName (String) : The name of the model you want to communicate with. See https://ollama.ai/library for available models/
  *   the appropriate names to use.</li>
- *   <li>timeout (Long, Optional): How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
+ *   <li>timeout (Long, Optional) : How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
  *   Uses Ollama's default of 10 seconds when not specified. You may want to increase the timeout if your Lucille Configuration
  *   uses multiple Worker threads (and you are working with Ollama locally).</li>
- *   <li>systemPrompt (String, Optional): The system prompt you want to provide to your LLM. Defaults to using no system prompt,
+ *   <li>systemPrompt (String, Optional) : The system prompt you want to provide to your LLM. Defaults to using no system prompt,
  *   as you may be using a model created from a Modelfile with a System Prompt already specified. <p><b>Note:</b> It is recommended
  *   that you instruct your LLM to format its output as a JSON object, even if you are only asking for a single piece of information (like a summary).</li>
- *   <li>fields (list of Strings, Optional): The fields in the document you want to be sent to the LLM. If the list is empty or not specified,
+ *   <li>fields (list of Strings, Optional) : The fields in the document you want to be sent to the LLM. If the list is empty or not specified,
  *   defaults to sending the entire Document to the LLM for enriching.</li>
- *   <li>requireJSON (Boolean, Optional): Whether you are requiring and expecting the LLM to output a JSON-only response. When true,
+ *   <li>requireJSON (Boolean, Optional) : Whether you are requiring and expecting the LLM to output a JSON-only response. When true,
  *   Lucille will throw an Exception upon receiving a non-JSON response from the LLM. When false, Lucille will place the response's
  *   raw contents into the "ollamaResponse" field. Additionally, when set to true, your Ollama chat request will have <code>format: "json"</code>
  *   to prevent errors with Markdown formatting. Defaults to false.</li>
- *   <li>update_mode (String, Optional): How you want Lucille to update the fields in your Document, based on what it extracts from a JSON
+ *   <li>update_mode (String, Optional) : How you want Lucille to update the fields in your Document, based on what it extracts from a JSON
  *   based response. Has no effect on a textual response placed in "ollamaResponse" - that will always overwrite any existing data.
  *   Should be one of "append", "overwrite", or "skip". Defaults to overwrite.</li>
  * </ul>
