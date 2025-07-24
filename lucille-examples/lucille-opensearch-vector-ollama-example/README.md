@@ -18,6 +18,13 @@ This example demonstrates how to use Lucille to index project files with vector 
 - Docker and Docker Compose for running OpenSearch locally
 - Ollama (for generating vector embeddings)
 
+### Environment Variables
+- `PROJECT_PATH`: Path to the project files to be indexed (can be a single file or a directory)
+- `OPENSEARCH_URL`: URL of the OpenSearch instance (default: `http://localhost:9200`)
+- `OPENSEARCH_INDEX`: Name of the OpenSearch index to create (default: `tech-docs`)
+- `OLLAMA_URL`: URL of the Ollama instance (default: `http://localhost:11434`)
+- `OLLAMA_MODEL`: Ollama model to use for generating embeddings (default: `nomic-embed-text:latest`)
+
 ## Complete Setup and Running Guide
 
 ### 1. Clone and Build the Project
