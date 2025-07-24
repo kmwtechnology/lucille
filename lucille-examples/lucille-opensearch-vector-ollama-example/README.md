@@ -1,4 +1,4 @@
-# Lucille Project Indexer with Vectors to OpenSearch
+# Lucille Project Indexer with Vectors (Ollama) to OpenSearch to enable hybrid search
 
 This example demonstrates how to use Lucille to index project files with vector embeddings into OpenSearch, enabling powerful semantic search capabilities for code projects. The example processes files designated in the PROJECT_PATH environment variable, extracting text from various file types, chunking the content, generating vector embeddings using Ollama, and indexing the results in OpenSearch.
 
