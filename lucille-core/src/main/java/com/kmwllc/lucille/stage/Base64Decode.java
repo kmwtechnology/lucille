@@ -15,8 +15,8 @@ import com.typesafe.config.Config;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>input_field (String): The field containing base64 data Strings you want to decode.</li>
- *   <li>output_field (String): The field you want to place the decoded data (arrays of bytes) into.</li>
+ *   <li>input_field (String) : The field containing base64 data Strings you want to decode.</li>
+ *   <li>output_field (String) : The field you want to place the decoded data (arrays of bytes) into.</li>
  * </ul>
  */
 public class Base64Decode extends Stage {

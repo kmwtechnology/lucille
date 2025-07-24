@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  * Parses dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
  * will not be passed through to the destination field.
  * <p>
- * Config Parameters:
+ * Config Parameters -
  * <ul>
  *   <li>source (List&lt;String&gt;) : List of source field names.</li>
  *   <li>dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields

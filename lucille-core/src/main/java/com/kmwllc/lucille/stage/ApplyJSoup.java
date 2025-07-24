@@ -21,34 +21,36 @@ import com.typesafe.config.Config;
 
 /**
  * Selects elements from an HTML document and extracts the raw text from them into destination fields
- * <br>
- * Config Parameters -
- * <p> <b>filePathField</b> (String, Optional) : field name which contains a path to an html document which will be processed.
- * <p> <b>stringField</b> (String, Optional): field name which contains a string of the html which will be processed.
- * <p> <b>byteArrayField</b> (String, Optional) : field name which contains a byte array of the html which will be processed.
- * only one of fieldPathField, stringField, or byteArrayField can be specified. If a document does not have whichever field is specified in the config, 
- * then it is not modified
- * <p> <b>charset</b> (String, Optional) : the encoding of the html document. If none is provided when filePathField is provided the charset is detected from
- * the byte-order-mark (BOM) or meta tags and defaults to UTF-8 if none is found. If no charset is provided when byteArrayField is provided the charset defaults 
- * to UTF-8 immediately. Has no effect if stringField is provided.
- * @see <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html"> Charsets </a> for information on supported charsets and conventions for 
- * specifying them.
- * <p> <b>destinationFields</b> (Map&lt;String, Map&lt;String, String&gt;&gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes
- * a css selector and a `type` field which takes one of the following: 'text', 'attribute', 'html', or 'outerHtml'. When doing attribute extraction an additional `attribute` with 
- * the desired attribute must be specified. For example:
  * <p>
- *      destinationFields: {
- * <br>  destination1: {
- * <br>    type: "attribute",
- * <br>    selector: ".foo",
- * <br>    attribute: "href"
- * <br>  }
- * <br> }
- * </p>
- * If a destination field already exists in the processed document it is overwritten. Otherwise, they are created. If a selector returns 
- * multiple elements the destination field receives a list of processed elements. If a selector returns no elements for a document then the 
- * destination field is not created.  
- * @see <a href="https://jsoup.org/cookbook/extracting-data/selector-syntax"> CSS selectors </a> for information on supported selectors
+ * Config Parameters -
+ * <ul>
+ *   <li>filePathField (String, Optional) : field name which contains a path to an html document which will be processed.</li>
+ *   <li>stringField (String, Optional): field name which contains a string of the html which will be processed.</li>
+ *   <li>byteArrayField (String, Optional) : field name which contains a byte array of the html which will be processed.</li>
+ *   <li>charset (String, Optional) : the encoding of the html document. If none is provided when filePathField is provided the charset is detected from
+ *   the byte-order-mark (BOM) or meta tags and defaults to UTF-8 if none is found. If no charset is provided when byteArrayField is provided the charset defaults
+ *   to UTF-8 immediately. Has no effect if stringField is provided.</li>
+ *   <li>destinationFields (Map&lt;String, Map&lt;String, String&gt;&gt;) : defines a mapping from destination fields to selector maps. Selector maps have a `selector` field which takes
+ *   a css selector and a `type` field which takes one of the following: 'text', 'attribute', 'html', or 'outerHtml'. When doing attribute extraction an additional `attribute` with
+ *   the desired attribute must be specified. For example:
+ *   <p>
+ *     destinationFields: {
+ *     <br>  destination1: {
+ *     <br>    type: "attribute",
+ *     <br>    selector: ".foo",
+ *     <br>    attribute: "href"
+ *     <br>  }
+ *     <br> }
+ *     </p></li>
+ * </ul>
+ * <p> <b>Note: only one of fieldPathField, stringField, or byteArrayField can be specified. If a document does not have whichever field is specified in the config,
+ * then it is not modified</b>
+ * <p> <b>Note: @see <a href="https://docs.oracle.com/javase/8/docs/api/java/nio/charset/Charset.html"> Charsets </a> for information on supported charsets and conventions for
+ * specifying them.</b>
+ * <p> <b>Note: If a destination field already exists in the processed document it is overwritten. Otherwise, they are created. If a selector returns
+ * multiple elements the destination field receives a list of processed elements. If a selector returns no elements for a document then the
+ * destination field is not created.
+ * @see <a href="https://jsoup.org/cookbook/extracting-data/selector-syntax"> CSS selectors </a> for information on supported selectors</b>
  */
 public class ApplyJSoup extends Stage {
 

@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
  *   <li>source (String) : field of which the embedding Stage will retrieve content from</li>
  *   <li>dest (String, Optional) : name of the field that will hold the embeddings, defaults to "embeddings"</li>
  *   <li>embed_document (Boolean) : Embeds the document's source if set to true.</li>
- *   <li>embed_children (Boolean): Embeds the document's children source if set to true.</li>
+ *   <li>embed_children (Boolean) : Embeds the document's children source if set to true.</li>
  *   <li>api_key (String) : API key used for OpenAI requests</li>
  *   <li>model_name (String, Optional) : the name of the OpenAI embedding model to use, set default to text-embedding-3-small
  *   <ol>

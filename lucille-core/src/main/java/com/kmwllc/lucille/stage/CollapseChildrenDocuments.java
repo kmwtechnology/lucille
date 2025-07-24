@@ -16,8 +16,8 @@ import com.typesafe.config.Config;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>fieldsToCopy (List&lt;String&gt;): The fields you want to copy from a child document to the parent document.</li>
- *   <li>dropChildren (Boolean): Whether you want to drop the children Documents from their parents after processing.</li>
+ *   <li>fieldsToCopy (List&lt;String&gt;) : The fields you want to copy from a child document to the parent document.</li>
+ *   <li>dropChildren (Boolean) : Whether you want to drop the children Documents from their parents after processing.</li>
  * </ul>
  */
 public class CollapseChildrenDocuments extends Stage {
