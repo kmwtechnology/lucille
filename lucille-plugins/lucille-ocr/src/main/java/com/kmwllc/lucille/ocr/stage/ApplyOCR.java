@@ -2,7 +2,7 @@ package com.kmwllc.lucille.ocr.stage;
 
 import static org.bytedeco.leptonica.global.leptonica.pixRead;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -88,6 +88,16 @@ import com.typesafe.config.ConfigBeanFactory;
  */
 public class ApplyOCR extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .requiredString("lang", "path_field")
+      .optionalString("pages_field", "extract_all_dest")
+      .optionalList("extraction_templates", Spec.withoutDefaults()
+          .requiredString("name")
+          .requiredList("regions", Spec.withoutDefaults()
+              .requiredNumber("x", "y", "width", "height")
+              .requiredString("dest")))
+      .optionalParent("pages", new TypeReference<Map<Integer, String>>(){});
+
   public static final String TEMP_DIR = "lucille-ocr-temp";
   public static final int SOURCE_RESOLUTION = 300;
   private static final Logger log = LoggerFactory.getLogger(ApplyOCR.class);
@@ -102,9 +112,7 @@ public class ApplyOCR extends Stage {
 
 
   public ApplyOCR(Config config) throws StageException {
-    super(config, Spec.stage().withOptionalProperties("pages_field", "extraction_templates", "extract_all_dest")
-        .withRequiredProperties("lang", "path_field")
-        .withOptionalParentNames("pages"));
+    super(config);
 
     lang = config.getString("lang");
     pathField = ConfigUtils.getOrDefault(config, "path_field", null);

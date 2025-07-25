@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -20,11 +20,13 @@ import java.util.Iterator;
  */
 public class NormalizeFieldNames extends Stage {
 
+  public static final Spec SPEC = Spec.stage().optionalString("delimiter", "nonAlphanumReplacement");
+
   private final String delimeter;
   private final String nonAlphanumReplacement;
 
   public NormalizeFieldNames(Config config) {
-    super(config, Spec.stage().withOptionalProperties("delimiter", "nonAlphanumReplacement"));
+    super(config);
     this.delimeter = config.hasPath("delimeter") ? config.getString("delimeter") : "_";
     this.nonAlphanumReplacement = config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";
   }

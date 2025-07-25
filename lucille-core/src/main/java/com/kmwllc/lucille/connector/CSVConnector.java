@@ -1,8 +1,9 @@
 package com.kmwllc.lucille.connector;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
@@ -12,6 +13,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
@@ -30,11 +32,15 @@ public class CSVConnector extends AbstractConnector {
   private final String moveToAfterProcessing;
   private final String moveToErrorFolder;
 
+  public static final Spec SPEC = Spec.connector()
+      .requiredString("path")
+      .optionalString("moveToAfterProcessing", "moveToErrorFolder", "lineNumberField", "filenameField", "filePathField",
+          "idField", "docIdFormat", "separatorChar")
+      .optionalBoolean("useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields")
+      .optionalList("ignoredTerms", new TypeReference<List<String>>(){});
+
   public CSVConnector(Config config) {
-    super(config, Spec.connector()
-        .withRequiredProperties("path")
-        .withOptionalProperties("moveToAfterProcessing", "moveToErrorFolder", "lineNumberField", "filenameField", "filePathField",
-            "idField", "docIdFormat", "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms"));
+    super(config);
 
     this.pathStr = config.getString("path");
     this.csvFileHandler = new CSVFileHandler(config

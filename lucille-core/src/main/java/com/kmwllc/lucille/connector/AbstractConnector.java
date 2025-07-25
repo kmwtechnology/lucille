@@ -2,19 +2,20 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 
 /**
  * Base class for use by Connector implementations, providing basic Config parsing behavior
  * for obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.
  *
- * All Connectors will have their configuration validated by {@link Spec#validate(Config, String)}. In the Connector's constructor,
- * define the required/optional properties/parents in a {@link Spec#connector()}. Validation errors will mention the connector's <code>name</code>.
+ * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the Connector's properties. This Spec will be accessed
+ * reflectively in the super constructor, so the Connector will not function without declaring a Spec. The Config provided
+ * to <code>super()</code> will be validated against the Spec. Validation errors will reference the Connector's <code>name</code>.
  *
- * <br> A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
+ * <p> A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
  *
- * <br> Base Config Parameters:
+ * <p> Base Config Parameters:
  * <ul>
  *   <li>name (String): The name of the Connector. Connector names should be unique (within your Lucille Config).</li>
  *   <li>class (String): The class for the Connector your want to use.</li>
@@ -32,14 +33,14 @@ public abstract class AbstractConnector implements Connector {
   private String message = null;
   protected final Config config;
 
-  public AbstractConnector(Config config, Spec spec) {
+  public AbstractConnector(Config config) {
     this.config = config;
     this.name = config.getString("name");
     this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
     this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
 
-    spec.validate(config, name);
+    getSpec().validate(config, name);
   }
 
   @Override
@@ -97,4 +98,12 @@ public abstract class AbstractConnector implements Connector {
     this.message = message;
   }
 
+  @Override
+  public Spec getSpec() {
+    try {
+      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
+    }
+  }
 }

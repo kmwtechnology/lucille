@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.connector;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
@@ -55,17 +56,21 @@ public class SolrConnector extends AbstractConnector {
   private final String idField;
   private final String actionFormat;
 
+  public static final Spec SPEC = Spec.connector()
+      .requiredParent(SolrUtils.SOLR_PARENT_SPEC)
+      .optionalParent("solrParams", new TypeReference<Map<String, Object>>(){})
+      .optionalList("preActions", new TypeReference<List<String>>(){})
+      .optionalList("postActions", new TypeReference<List<String>>(){})
+      .optionalBoolean("useXml")
+      .optionalString("idField");
+
   public SolrConnector(Config config) {
     this(config, SolrUtils.getSolrClient(config));
   }
 
   public SolrConnector(Config config, SolrClient client) {
-    super(config, Spec.connector()
-        // the Solr ParentSpec has solr.url as a required property.
-        .withRequiredParents(SolrUtils.SOLR_PARENT_SPEC)
-        .withOptionalProperties("preActions", "postActions", "useXml", "idField")
-        .withOptionalParentNames("solrParams")
-    );
+    super(config);
+
     this.client = client;
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
