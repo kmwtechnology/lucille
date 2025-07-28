@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - LC-712-update-sonatype
 jobs:
   publish:
     runs-on: ubuntu-latest
