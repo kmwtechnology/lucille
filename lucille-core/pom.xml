@@ -213,7 +213,7 @@
     <dependency>
       <groupId>com.opencsv</groupId>
       <artifactId>opencsv</artifactId>
-      <version>5.4</version>
+      <version>5.11.2</version>
     </dependency>
 
      <!-- test dependency for solr integration tests -->
