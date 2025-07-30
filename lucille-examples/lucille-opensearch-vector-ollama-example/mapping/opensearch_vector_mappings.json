@@ -58,6 +58,36 @@
       },
       "content_type": {
         "type": "keyword"
+      },
+      "person": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "organization": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "location": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
       }
     }
   }
