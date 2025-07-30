@@ -1,13 +1,12 @@
 {
   "settings": {
-    "index": {
-      "number_of_shards": 1,
-      "number_of_replicas": 0,
-      "knn": true
-    },
+    "index.knn": true,
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
     "analysis": {
       "analyzer": {
         "my_english": {
+          "type": "custom",
           "tokenizer": "standard",
           "filter": ["lowercase", "stop", "snowball"]
         }
@@ -41,7 +40,7 @@
         "method": {
           "name": "hnsw",
           "space_type": "cosinesimil",
-          "engine": "nmslib",
+          "engine": "faiss",
           "parameters": {
             "ef_construction": 512,
             "m": 16
