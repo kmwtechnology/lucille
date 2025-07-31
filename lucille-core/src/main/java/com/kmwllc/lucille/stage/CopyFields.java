@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -27,14 +28,17 @@ import java.util.List;
  */
 public class CopyFields extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .optionalString("update_mode");
+
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final UpdateMode updateMode;
 
   public CopyFields(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("source", "dest")
-        .withOptionalProperties("update_mode"));
+    super(config);
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.updateMode = UpdateMode.fromConfig(config);

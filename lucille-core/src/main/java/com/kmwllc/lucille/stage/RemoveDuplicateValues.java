@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -18,10 +19,12 @@ import java.util.Map;
  */
 public class RemoveDuplicateValues extends Stage {
 
+  public static final Spec SPEC = Spec.stage().requiredParent("fieldMapping", new TypeReference<Map<String, Object>>() {});
+
   private final Map<String, Object> fieldMapping;
 
   public RemoveDuplicateValues(Config config) {
-    super(config, Spec.stage().withRequiredParentNames("fieldMapping"));
+    super(config);
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
   }
 

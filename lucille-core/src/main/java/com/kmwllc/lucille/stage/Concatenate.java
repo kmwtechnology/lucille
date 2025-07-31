@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -27,6 +28,11 @@ import org.apache.commons.text.StringSubstitutor;
  */
 public class Concatenate extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .requiredString("dest", "format_string")
+      .optionalString("update_mode")
+      .optionalParent("default_inputs", new TypeReference<Map<String, String>>(){});
+
   private final String destField;
   private final String formatStr;
   private final Map<String, Object> defaultInputs;
@@ -35,10 +41,7 @@ public class Concatenate extends Stage {
   private final List<String> fields;
 
   public Concatenate(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("dest", "format_string")
-        .withOptionalProperties("update_mode")
-        .withOptionalParentNames("default_inputs"));
+    super(config);
 
     this.destField = config.getString("dest");
     this.formatStr = config.getString("format_string");

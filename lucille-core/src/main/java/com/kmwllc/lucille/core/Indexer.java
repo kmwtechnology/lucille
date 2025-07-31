@@ -7,6 +7,8 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
@@ -30,17 +32,26 @@ import sun.misc.Signal;
 
 /**
  * Indexes documents into a target destination.
+ *
+ * <p> Indexers have two separate configurations - the generic <code>indexer</code> configuration, and configuration for the
+ * specific implementation held under a certain key. For example, <code>solr</code> holds configuration for a SolrIndexer, <code>csv</code>
+ * holds configuration for a CSVIndexer, etc.
+ *
+ * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the specific implementation's properties.
+ * This Spec will be accessed reflectively in the super constructor, so the Indexer will not function without declaring a Spec.
+ * The Config provided to <code>super()</code> will be validated against the Spec. The Indexer superclass will validate the
+ * generic <code>indexer</code> configuration and the specific implementation configuration as well.
+ *
+ * <p> The <code>public static Spec SPEC</code> should <b>not</b> include the config key in your property names. For example, you
+ * only write "url", not "solr.url", in a Spec for a SolrIndexer.
+ *
+ * <p> A {@link Spec#indexer()} does not include any default legal properties, as it is intended for use in specific Indexer
+ * implementations.
  */
 public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
-
-  // Using a String[] so it can be passed directly to varargs for a Spec
-  private static final String[] OPTIONAL_INDEXER_CONFIG_PROPERTIES = new String[]{"type", "class", "idOverrideField",
-      "indexOverrideField", "ignoreFields", "deletionMarkerField",
-      "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "batchSize", "batchTimeout", "logRate",
-      "versionType", "routingField", "sendEnabled"};
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -80,12 +91,13 @@ public abstract class Indexer implements Runnable {
    * Creates the base implementation of an Indexer from the given parameters and validates it. Runs validation on the common "indexer"
    * config as well as the specific implementation's config, as either are present.
    *
+   * <p> All Indexer implementations should declare a <code>public static final Spec SPEC</code> that defines the implementation's
+   * specific properties. For example, Elasticsearch needs <code>index</code>, <code>url</code>, etc.
+   *
    * @param config The root config for Lucille. (In other words, should potentially include both "indexer" and specific
    *               implementation config, like "solr" or "elasticsearch".)
-   * @param specificImplSpec A Spec for the specific Indexer implementation and its properties. Should define what is allowed in the
-   *                         config, for example, index, url, etc. for "elasticsearch".
    */
-  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId, Spec specificImplSpec) {
+  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
@@ -147,7 +159,7 @@ public abstract class Indexer implements Runnable {
     this.localRunId = localRunId;
 
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
-    validateIndexerConfig(config, specificImplSpec);
+    validateIndexerConfigs(config);
   }
 
   /**
@@ -403,17 +415,32 @@ public abstract class Indexer implements Runnable {
         });
   }
 
-  private void validateIndexerConfig(Config config, Spec specificImplSpec) {
-    // Validate the general "indexer" entry in the Config.
+  public Spec getImplementationSpec() {
+    try {
+      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
+    }
+  }
+
+  private void validateIndexerConfigs(Config config) {
+    // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     Config indexerConfig = config.getConfig("indexer");
     Spec.withoutDefaults()
-        .withOptionalProperties(OPTIONAL_INDEXER_CONFIG_PROPERTIES)
+        .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
+            "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
+        .optionalNumber("batchSize", "batchTimeout", "logRate")
+        .optionalBoolean("sendEnabled")
+        .optionalList("ignoreFields", new TypeReference<List<String>>(){})
         .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
-    if (getIndexerConfigKey() != null && config.hasPath(getIndexerConfigKey())) {
-      Config specificImplConfig = config.getConfig(getIndexerConfigKey());
-      specificImplSpec.validate(specificImplConfig, getIndexerConfigKey());
+    // This spec is unique to the implementation and must be public + static under "SPEC".
+    String indexerConfigKey = getIndexerConfigKey();
+
+    if (indexerConfigKey != null && config.hasPath(indexerConfigKey)) {
+      Config specificImplConfig = config.getConfig(indexerConfigKey);
+      getImplementationSpec().validate(specificImplConfig, indexerConfigKey);
     }
   }
 
