@@ -1,9 +1,10 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Spec;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.InputStream;
@@ -33,6 +34,11 @@ import opennlp.tools.util.Span;
  * </ul>
  */
 public class ApplyOpenNLPNameFinders extends Stage {
+
+  public static final Spec SPEC = Spec.stage()
+      .requiredString("textField", "tokenizerPath")
+      .requiredParent("models", new TypeReference<Map<String, String>>(){});
+
   private final String textField;
   private final String tokenizerPath;
   private final Map<String, Object> modelPathMap;
@@ -42,9 +48,7 @@ public class ApplyOpenNLPNameFinders extends Stage {
   private final Map<String, NameFinderME> finderMap;
 
   public ApplyOpenNLPNameFinders(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("textField", "tokenizerPath")
-        .withRequiredParentNames("models"));
+    super(config);
 
     this.textField = config.getString("textField");
     this.tokenizerPath = config.getString("tokenizerPath");
