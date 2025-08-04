@@ -6,7 +6,7 @@ import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.util.Map;
 import nl.altindag.ssl.SSLFactory;
@@ -24,11 +24,11 @@ import java.net.URI;
  */
 public class ElasticsearchUtils {
 
-  public static ParentSpec ELASTICSEARCH_PARENT_SPEC = Spec.parent("elasticsearch")
+  public static Spec ELASTICSEARCH_PARENT_SPEC = SpecBuilder.parent("elasticsearch")
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert")
       .optionalString("parentName")
-      .optionalParent("join", new TypeReference<Map<String, String>>(){});
+      .optionalParent("join", new TypeReference<Map<String, String>>(){}).build();
 
   public static ElasticsearchClient getElasticsearchOfficialClient(Config config) {
     URI hostUri = URI.create(getElasticsearchUrl(config));

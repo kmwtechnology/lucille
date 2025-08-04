@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -177,15 +178,15 @@ public class ConfigValidationTest {
 
   @Test
   public void testParentSpecValidation() {
-    Spec spec = Spec.connector()
+    Spec spec = SpecBuilder.connector()
         .requiredParent(
-            Spec.parent("required")
+            SpecBuilder.parent("required")
                 .requiredNumber("requiredProp")
-                .optionalNumber("optionalProp"))
+                .optionalNumber("optionalProp").build())
         .optionalParent(
-            Spec.parent("optional")
+            SpecBuilder.parent("optional")
                 .requiredNumber("requiredProp")
-                .optionalNumber("optionalProp"));
+                .optionalNumber("optionalProp").build()).build();
 
     // All of the properties allowed are present.
     spec.validate(ConfigFactory.parseResourcesAnySyntax("ConfigValidationTest/parentSpec/allPresent.conf"), "test");

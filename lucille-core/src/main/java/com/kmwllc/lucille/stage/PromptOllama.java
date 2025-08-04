@@ -11,6 +11,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import io.github.ollama4j.OllamaAPI;
 import io.github.ollama4j.models.chat.OllamaChatMessageRole;
@@ -65,12 +66,12 @@ import org.slf4j.LoggerFactory;
  */
 public class PromptOllama extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("hostURL", "modelName")
       .optionalNumber("timeout")
       .optionalBoolean("requireJSON")
       .optionalString("systemPrompt", "update_mode")
-      .optionalList("fields", new TypeReference<List<String>>() {});
+      .optionalList("fields", new TypeReference<List<String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(PromptOllama.class);
   private static final ObjectMapper mapper = new ObjectMapper();

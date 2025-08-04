@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
@@ -20,9 +21,9 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class AddRandomBoolean extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("field_name")
-      .optionalNumber("percent_true");
+      .optionalNumber("percent_true").build();
 
   private final String fieldName;
   private final int percentTrue;

@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -16,9 +17,9 @@ import org.slf4j.LoggerFactory;
 
 public class ParseFloats extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("field")
-      .optionalString("dest");
+      .optionalString("dest").build();
 
   private final String field;
   private final String dest;

@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,8 +34,8 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class AddRandomDate extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
-      .optionalString("field_name", "range_start_date", "range_end_date");
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("field_name", "range_start_date", "range_end_date").build();
 
   private final String fieldName;
   private final String rangeStartDateString;

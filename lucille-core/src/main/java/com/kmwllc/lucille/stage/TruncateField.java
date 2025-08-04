@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -33,10 +34,10 @@ import org.slf4j.LoggerFactory;
  */
 public class TruncateField extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source")
       .requiredNumber("max_size")
-      .optionalString("destination");
+      .optionalString("destination").build();
 
   private final String source;
   private final int maxSize;

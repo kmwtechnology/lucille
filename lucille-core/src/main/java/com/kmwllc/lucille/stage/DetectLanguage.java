@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
@@ -36,11 +37,11 @@ import java.util.List;
  */
 public class DetectLanguage extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredString("language_field")
       .optionalString("language_confidence_field", "update_mode")
-      .optionalNumber("min_length", "max_length", "min_probability");
+      .optionalNumber("min_length", "max_length", "min_probability").build();
 
   private final static String profileResourcesLoc = "profiles";
 

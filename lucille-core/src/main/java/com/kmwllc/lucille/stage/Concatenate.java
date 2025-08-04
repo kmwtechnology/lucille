@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 
@@ -28,10 +29,10 @@ import org.apache.commons.text.StringSubstitutor;
  */
 public class Concatenate extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("dest", "format_string")
       .optionalString("update_mode")
-      .optionalParent("default_inputs", new TypeReference<Map<String, String>>(){});
+      .optionalParent("default_inputs", new TypeReference<Map<String, String>>(){}).build();
 
   private final String destField;
   private final String formatStr;

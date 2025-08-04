@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -53,9 +54,9 @@ import com.typesafe.config.Config;
  */
 public class ApplyJSoup extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "byteArrayField", "stringField", "charset")
-      .requiredParent("destinationFields", new TypeReference<Map<String, Map<String, String>>>(){});
+      .requiredParent("destinationFields", new TypeReference<Map<String, Map<String, String>>>(){}).build();
 
   private final Map<String, Object> destinationFields;
   private final String charset;

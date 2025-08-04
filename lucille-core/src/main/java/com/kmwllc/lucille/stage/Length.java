@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import com.typesafe.config.Config;
@@ -21,7 +22,8 @@ import java.util.Map;
  */
 public class Length extends Stage {
 
-  public static final Spec SPEC = Spec.stage().requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {});
+  public static final Spec SPEC = SpecBuilder.stage().requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {})
+      .build();
 
   private final Map<String, Object> fieldMap;
 

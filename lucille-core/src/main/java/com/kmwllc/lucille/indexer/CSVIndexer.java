@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
@@ -23,10 +24,10 @@ import java.util.List;
  */
 public class CSVIndexer extends Indexer {
 
-  public static final Spec SPEC = Spec.indexer()
+  public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("path")
       .requiredList("columns", new TypeReference<List<String>>(){})
-      .optionalBoolean("includeHeader", "append");
+      .optionalBoolean("includeHeader", "append").build();
 
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
 

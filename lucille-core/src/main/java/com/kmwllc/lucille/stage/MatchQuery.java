@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
 import java.util.Map;
@@ -31,10 +32,10 @@ public class MatchQuery extends Stage {
   public static final String QUERIES_PARAM = "queries";
   public static final String MATCHEDQUERIES_PARAM = "matchedQueriesField";
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList(FIELDS_PARAM, new TypeReference<List<String>>(){})
       .requiredList(QUERIES_PARAM, new TypeReference<List<Map<String, Object>>>(){})
-      .requiredString(MATCHEDQUERIES_PARAM);
+      .requiredString(MATCHEDQUERIES_PARAM).build();
 
   // the list of fields to run the queries against
   private final List<String> fieldsList;

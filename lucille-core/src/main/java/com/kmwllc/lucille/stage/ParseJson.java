@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.io.ByteArrayInputStream;
@@ -36,10 +37,10 @@ import nl.altindag.ssl.util.internal.StringUtils;
  */
 public class ParseJson extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("src")
       .optionalBoolean("sourceIsBase64")
-      .requiredParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {});
+      .requiredParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {}).build();
 
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 

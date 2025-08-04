@@ -5,7 +5,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
@@ -16,10 +15,10 @@ public class ObjectPropertyTest {
 
   @Test
   public void testParentValidation() {
-    ParentSpec filterOptionsSpec = Spec.parent("filterOptions")
+    Spec filterOptionsSpec = SpecBuilder.parent("filterOptions")
         .optionalList("includes", new TypeReference<List<String>>(){})
         .optionalList("excludes", new TypeReference<List<String>>(){})
-        .optionalString("lastModifiedCutoff");
+        .optionalString("lastModifiedCutoff").build();
 
     Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
 
@@ -59,10 +58,10 @@ public class ObjectPropertyTest {
   @Test
   public void testTypeJson() {
     // 1. an ObjectProperty w/ a ParentSpec
-    ParentSpec filterOptionsSpec = Spec.parent("filterOptions")
+    Spec filterOptionsSpec = SpecBuilder.parent("filterOptions")
         .optionalList("includes", new TypeReference<List<String>>(){})
         .optionalList("excludes", new TypeReference<List<String>>(){})
-        .optionalString("lastModifiedCutoff");
+        .optionalString("lastModifiedCutoff").build();
 
     Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
 

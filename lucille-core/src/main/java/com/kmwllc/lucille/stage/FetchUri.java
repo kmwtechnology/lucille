@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.ExponentialBackoffRetryHandler;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.StatusCodeResponseInterceptor;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -52,12 +53,12 @@ import org.slf4j.LoggerFactory;
  */
 public class FetchUri extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source", "dest")
       .optionalString("size_suffix", "status_suffix", "error_suffix")
       .optionalNumber("max_retries", "initial_expiry_ms", "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "max_size")
       .optionalList("status_code_retry_list", new TypeReference<List<String>>(){})
-      .optionalParent("headers", new TypeReference<Map<String, Object>>(){});
+      .optionalParent("headers", new TypeReference<Map<String, Object>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(FetchUri.class);
 

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -36,9 +37,9 @@ import static com.dashjoin.jsonata.Jsonata.jsonata;
  */
 public class ApplyJSONata extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("expression")
-      .optionalString("source", "destination");
+      .optionalString("source", "destination").build();
 
   private static final Logger log = LoggerFactory.getLogger(ApplyJSONata.class);
   private static final ObjectMapper objectMapper = new ObjectMapper();

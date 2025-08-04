@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
@@ -53,14 +54,14 @@ import java.util.stream.Collectors;
  */
 public class ExtractEntities extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("dictionaries", new TypeReference<List<String>>(){})
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .optionalBoolean("ignore_case", "only_whitespace_separated", "stop_on_hit",
           "only_whole_words", "ignore_overlaps", "use_payloads")
       .optionalString("update_mode", "entity_field")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 

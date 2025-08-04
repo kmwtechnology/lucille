@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.text.WordUtils;
@@ -36,11 +37,11 @@ import java.util.regex.Pattern;
  */
 public class NormalizeText extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .requiredString("mode")
-      .optionalString("update_mode");
+      .optionalString("update_mode").build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final Pattern pattern = Pattern.compile("[.?!] \\w");

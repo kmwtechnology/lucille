@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -60,11 +61,11 @@ import org.slf4j.LoggerFactory;
  */
 public class RSSConnector extends AbstractConnector {
 
-  public static final Spec SPEC = Spec.connector()
+  public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("rssURL")
       .optionalBoolean("useGuidForDocID")
       // best to reference durations as Strings
-      .optionalString("pubDateCutoff", "runDuration", "refreshIncrement");
+      .optionalString("pubDateCutoff", "runDuration", "refreshIncrement").build();
 
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final Logger log = LoggerFactory.getLogger(RSSConnector.class);

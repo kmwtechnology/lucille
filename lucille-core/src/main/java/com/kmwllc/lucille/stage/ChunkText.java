@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.stage.util.ChunkingMethod;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -87,12 +88,12 @@ import org.slf4j.LoggerFactory;
 
 public class ChunkText extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source")
       .optionalString("dest", "chunking_method", "regex")
       .optionalNumber("chunks_to_merge", "character_limit", "overlap_percentage", "length_to_split",
           "pre_merge_min_chunk_len", "pre_merge_max_chunk_len", "chunks_to_overlap")
-      .optionalBoolean("clean_chunks");
+      .optionalBoolean("clean_chunks").build();
 
   private final String source;
   private final String dest;

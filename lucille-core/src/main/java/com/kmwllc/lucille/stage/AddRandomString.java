@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -40,10 +41,10 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class AddRandomString extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("input_data_path", "field_name")
       .optionalNumber("min_num_of_terms", "max_num_of_terms", "range_size")
-      .optionalBoolean("is_nested", "concatenate");
+      .optionalBoolean("is_nested", "concatenate").build();
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 

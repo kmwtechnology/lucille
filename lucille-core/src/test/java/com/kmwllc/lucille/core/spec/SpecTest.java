@@ -11,14 +11,14 @@ public class SpecTest {
 
   @Test
   public void testToJson() {
-    JsonNode messageJson = Spec.withoutDefaults().requiredStringWithDescription("message", "A message to send.").toJson();
+    JsonNode messageJson = SpecBuilder.withoutDefaults().requiredStringWithDescription("message", "A message to send.").build().toJson();
     JsonNode messageNode = messageJson.get("fields").get(0);
 
     assertEquals("message", messageNode.get("name").asText());
     assertTrue(messageNode.get("required").asBoolean());
     assertEquals("STRING", messageNode.get("type").get("type").asText());
 
-    JsonNode withDescriptionJson = Spec.withoutDefaults().optionalStringWithDescription("message", "A message to send.").toJson();
+    JsonNode withDescriptionJson = SpecBuilder.withoutDefaults().optionalStringWithDescription("message", "A message to send.").build().toJson();
     messageNode = withDescriptionJson.get("fields").get(0);
 
     assertEquals("message", messageNode.get("name").asText());
