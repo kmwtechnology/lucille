@@ -1,14 +1,11 @@
 package com.kmwllc.lucille.core.spec;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -144,7 +141,10 @@ public class Spec {
     return node;
   }
 
-  public String getParentName() {
+  /**
+   * Returns the name of this spec if it is a "parent"; null otherwise.
+   */
+  public String getName() {
     return name;
   }
 }

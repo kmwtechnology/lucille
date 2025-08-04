@@ -26,7 +26,7 @@ public class ObjectProperty extends Property {
   }
 
   public ObjectProperty(Spec parentSpec, boolean required, String description) {
-    super(parentSpec.getParentName(), required, description);
+    super(parentSpec.getName(), required, description);
 
     this.parentSpec = parentSpec;
     this.typeReference = null;
