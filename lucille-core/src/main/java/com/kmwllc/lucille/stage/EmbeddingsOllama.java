@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
@@ -34,6 +34,11 @@ import com.typesafe.config.Config;
  *  <p> chunk_text (String): The text you want to convert to a vector embedding.
  */
 public class EmbeddingsOllama extends Stage {
+
+  public static final Spec SPEC = Spec.stage()
+      .requiredString("hostURL", "modelName", "chunk_text")
+      .optionalString("update_mode");
+
   private static final Logger log = LoggerFactory.getLogger(EmbeddingsOllama.class);
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private OllamaAPI ollamaAPI;
@@ -42,8 +47,7 @@ public class EmbeddingsOllama extends Stage {
   private final String chunkText;
 
   public EmbeddingsOllama(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("hostURL", "modelName", "chunk_text"));
+    super(config);
 
     this.hostURL = config.getString("hostURL");
     this.modelName = config.getString("modelName");
