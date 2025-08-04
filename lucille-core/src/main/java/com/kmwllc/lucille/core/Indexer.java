@@ -46,7 +46,7 @@ import sun.misc.Signal;
  * <p> The <code>public static Spec SPEC</code> should <b>not</b> include the config key in your property names. For example, you
  * only write "url", not "solr.url", in a Spec for a SolrIndexer.
  *
- * <p> A {@link Spec#indexer()} does not include any default legal properties, as it is intended for use in specific Indexer
+ * <p> A {@link SpecBuilder#indexer()} does not include any default legal properties, as it is intended for use in specific Indexer
  * implementations.
  */
 public abstract class Indexer implements Runnable {
