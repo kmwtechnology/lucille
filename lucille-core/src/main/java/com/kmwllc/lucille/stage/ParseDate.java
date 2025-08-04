@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -39,6 +40,13 @@ import java.util.stream.Collectors;
  */
 public class ParseDate extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .optionalList("format_strs", new TypeReference<List<String>>(){})
+      .optionalList("formatters", Spec.withoutDefaults().requiredString("class"))
+      .optionalString("time_zone_id", "update_mode");
+
   private final List<BiFunction<String, ZoneId, ZonedDateTime>> formatters;
   private final List<DateTimeFormatter> formats;
   private final List<String> sourceFields;
@@ -49,8 +57,7 @@ public class ParseDate extends Stage {
   private final ZoneId zoneId;
 
   public ParseDate(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "dest")
-        .withOptionalProperties("format_strs", "update_mode", "formatters", "time_zone_id"));
+    super(config);
 
     this.formatters = new ArrayList<>();
 

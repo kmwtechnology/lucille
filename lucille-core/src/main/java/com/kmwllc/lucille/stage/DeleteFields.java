@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -17,6 +18,8 @@ import java.util.List;
  */
 public class DeleteFields extends Stage {
 
+  public static final Spec SPEC = Spec.stage().requiredList("fields", new TypeReference<List<String>>(){});
+
   private final List<String> fields;
 
   /**
@@ -24,7 +27,7 @@ public class DeleteFields extends Stage {
    * @param config Configuration for the DeleteFields stage.
    */
   public DeleteFields(Config config) {
-    super(config, Spec.stage().withRequiredProperties("fields"));
+    super(config);
     this.fields = config.getStringList("fields");
   }
 

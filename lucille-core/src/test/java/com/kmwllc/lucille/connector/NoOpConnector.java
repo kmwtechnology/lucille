@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
@@ -11,8 +11,10 @@ public class NoOpConnector extends AbstractConnector {
   // supplied to this connector without having a reference to the connector instance
   private static Publisher suppliedPublisher = null;
 
+  public static final Spec SPEC = Spec.connector();
+
   public NoOpConnector(Config config) {
-    super(config, Spec.connector());
+    super(config);
   }
 
   @Override
