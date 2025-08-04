@@ -20,18 +20,80 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
 /**
- * <p> A stage for sending a Document to an LLM for genrerating vector embeddings.
- *
- * <p> To use the stage, you'll specify some Ollama Server config (hostURL, modelName) along with the chunk_text from a document. 
- * The chunk_text will then be converted to a vector embedding and returned as json.
- *
- * <p> Parameters:
- *
- *  <p> hostURL (String): A URL to your ollama server.
- *  <p> modelName (String): The name of the model you want to communicate with. See https://ollama.ai/library for available models/
- *  the appropriate names to use.
- *
- *  <p> chunk_text (String): The text you want to convert to a vector embedding.
+ * A stage for generating vector embeddings from text content using Ollama's embedding models.
+ * 
+ * <p>This stage integrates with a locally running Ollama server to convert text content into
+ * high-dimensional vector embeddings suitable for semantic search, similarity matching, and
+ * vector database indexing. The stage is commonly used in RAG (Retrieval-Augmented Generation)
+ * pipelines and semantic search implementations.</p>
+ * 
+ * <p><strong>Key Features:</strong></p>
+ * <ul>
+ *   <li>Generates dense vector embeddings from text content</li>
+ *   <li>Supports various Ollama embedding models (e.g., nomic-embed-text, all-minilm)</li>
+ *   <li>Configurable field mapping for input text and output embeddings</li>
+ *   <li>Automatic error handling and retry logic</li>
+ *   <li>Integration with OpenSearch, Elasticsearch, and other vector databases</li>
+ * </ul>
+ * 
+ * <p><strong>Common Use Cases:</strong></p>
+ * <ul>
+ *   <li>Semantic search over document collections</li>
+ *   <li>Text similarity and clustering analysis</li>
+ *   <li>RAG pipeline preprocessing for knowledge bases</li>
+ *   <li>Content recommendation systems</li>
+ *   <li>Duplicate detection and content deduplication</li>
+ * </ul>
+ * 
+ * <p><strong>Configuration Parameters:</strong></p>
+ * <ul>
+ *   <li><code>hostURL</code> (String, required): URL of the Ollama server (e.g., "http://localhost:11434")</li>
+ *   <li><code>modelName</code> (String, required): Embedding model name (e.g., "nomic-embed-text:latest")</li>
+ *   <li><code>chunk_text</code> (String, required): Source field containing text to embed</li>
+ *   <li><code>update_mode</code> (String, optional): Field update behavior ("overwrite", "skip", "append")</li>
+ * </ul>
+ * 
+ * <p><strong>Output:</strong></p>
+ * <p>The stage stores the generated embedding as a JSON array in the "embedding" field of the document.
+ * The embedding dimensions depend on the chosen model (e.g., nomic-embed-text produces 768-dimensional vectors).</p>
+ * 
+ * <p><strong>Example Configuration:</strong></p>
+ * <pre>{@code
+ * {
+ *   name: "generateEmbeddings",
+ *   class: "com.kmwllc.lucille.stage.EmbeddingsOllama"
+ *   hostURL: "http://localhost:11434"
+ *   modelName: "nomic-embed-text:latest"
+ *   chunk_text: "content"
+ *   update_mode: "overwrite"
+ * }
+ * }</pre>
+ * 
+ * <p><strong>Pipeline Integration:</strong></p>
+ * <p>This stage is typically used after text processing stages (chunking, cleaning) and before
+ * indexing into vector databases. Common pipeline patterns:</p>
+ * <pre>{@code
+ * TextExtractor → ChunkText → EmbeddingsOllama → OpenSearchIndexer
+ * FileConnector → EntityExtraction → EmbeddingsOllama → VectorSearch
+ * }</pre>
+ * 
+ * <p><strong>Error Handling:</strong></p>
+ * <p>The stage handles various error conditions including network timeouts, model loading issues,
+ * and malformed text input. Documents with embedding failures are logged but continue through
+ * the pipeline to prevent processing interruption.</p>
+ * 
+ * <p><strong>Performance Considerations:</strong></p>
+ * <ul>
+ *   <li>Embedding generation is computationally intensive - consider batch processing</li>
+ *   <li>Network latency to Ollama server affects throughput</li>
+ *   <li>Model loading time impacts first-request latency</li>
+ *   <li>Memory usage scales with embedding dimensions and batch size</li>
+ * </ul>
+ * 
+ * @author Kevin M. Butler
+ * @since 0.5.7
+ * @see com.kmwllc.lucille.stage.ChunkText
+ * @see com.kmwllc.lucille.stage.ApplyOpenNLPNameFinders
  */
 public class EmbeddingsOllama extends Stage {
 

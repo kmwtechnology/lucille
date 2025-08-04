@@ -391,3 +391,13 @@ GET {YOUR_INDEX_NAME}/_search
 - [Docker Compose for OpenSearch](https://opensearch.org/docs/latest/install-and-configure/install-opensearch/docker/)
 - [OpenSearch Dashboards](https://opensearch.org/docs/latest/dashboards/)
 - [Maven Build Tool](https://maven.apache.org/guides/getting-started/)
+
+---
+
+## Metadata
+
+**Author**: Kevin M. Butler  
+**Date**: August 2025  
+**Last Updated**: August 2025  
+
+**Keywords**: OpenSearch, vector search, semantic search, entity extraction, OpenNLP, Ollama, embeddings, hybrid search, Apache Tika, text processing, named entity recognition, KNN search, FAISS, cosine similarity, document indexing, content extraction, text chunking, entity enrichment, confidence threshold tuning, Lucille framework
