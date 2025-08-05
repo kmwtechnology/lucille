@@ -91,7 +91,9 @@ public class JsonFileHandler extends BaseFileHandler {
 
         String line = it.next();
         try {
-          if (!idFields.isEmpty()) {
+          if (idFields.isEmpty()) {
+            return Document.createFromJson(line, idUpdater);
+          } else {
             ObjectNode node = (ObjectNode) mapper.readTree(line);
             List<String> parts = new ArrayList<>(idFields.size());
 
@@ -104,8 +106,6 @@ public class JsonFileHandler extends BaseFileHandler {
             node.put(Document.ID_FIELD, docIdPrefix + rawId);
 
             return Document.create(node);
-          } else {
-            return Document.createFromJson(line, idUpdater);
           }
         } catch (Exception e) {
           // any errors that occur during the process of creating a document, we close the LineIterator

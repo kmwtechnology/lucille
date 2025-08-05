@@ -146,35 +146,35 @@ public class JsonFileHandlerTest {
   @Test
   public void testSingleIdField() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
-        "json", Map.of("idField", "id", "docIdPrefix", "")
+        "json", Map.of("idField", "field1", "docIdPrefix", "")
     ));
     FileHandler handler = FileHandler.create("json", config);
 
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
     File file = new File(filePath);
 
     Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
     Document d1 = docs.next(), d2 = docs.next(), d3 = docs.next();
-    assertEquals("1", d1.getId());
-    assertEquals("2", d2.getId());
-    assertEquals("3", d3.getId());
+    assertEquals("one", d1.getId());
+    assertEquals("two", d2.getId());
+    assertEquals("three", d3.getId());
     assertFalse(docs.hasNext());
   }
 
   @Test
   public void testCompositeIdFieldsDefaultJoin() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
-        "json", Map.of("idFields", List.of("id", "id"), "docIdPrefix", "")
+        "json", Map.of("idFields", List.of("field1", "field2"), "docIdPrefix", "")
     ));
     FileHandler handler = FileHandler.create("json", config);
 
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
     File file = new File(filePath);
 
     Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
-    assertEquals("1_1", docs.next().getId());
-    assertEquals("2_2", docs.next().getId());
-    assertEquals("3_3", docs.next().getId());
+    assertEquals("one_1", docs.next().getId());
+    assertEquals("two_2", docs.next().getId());
+    assertEquals("three_3", docs.next().getId());
     assertFalse(docs.hasNext());
   }
 
@@ -182,14 +182,14 @@ public class JsonFileHandlerTest {
   public void testCompositeWithDocIdFormat() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
-            "idFields", List.of("id", "id"),
+            "idFields", List.of("field2", "field2"),
             "docIdFormat", "%s-%s",
             "docIdPrefix", ""
         )
     ));
     FileHandler handler = FileHandler.create("json", config);
 
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
     File file = new File(filePath);
 
     Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
@@ -203,36 +203,36 @@ public class JsonFileHandlerTest {
   public void testIdFieldPrecedenceOverIdFields() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
-            "idField", "id",
-            "idFields", List.of("field1", "id")
+            "idField", "field1",
+            "idFields", List.of("field2", "field2")
         )
     ));
     FileHandler handler = FileHandler.create("json", config);
 
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
     File file = new File(filePath);
 
     Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
-    assertEquals("1", docs.next().getId());
-    assertEquals("2", docs.next().getId());
-    assertEquals("3", docs.next().getId());
+    assertEquals("one", docs.next().getId());
+    assertEquals("two", docs.next().getId());
+    assertEquals("three", docs.next().getId());
     assertFalse(docs.hasNext());
   }
 
   @Test
   public void testMissingCompositeFieldProducesBlankSegment() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
-        "json", Map.of("idFields", List.of("field1", "id"))
+        "json", Map.of("idFields", List.of("field2", "field3"))
     ));
     FileHandler handler = FileHandler.create("json", config);
 
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
     File file = new File(filePath);
 
     Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
-    assertEquals("val1-1_1", docs.next().getId()); // first line has field1
-    assertEquals("_2", docs.next().getId()); // second line missing field1
-    assertEquals("_3", docs.next().getId()); // third line missing field1
+    assertEquals("1_test", docs.next().getId()); // first line has field3
+    assertEquals("2_", docs.next().getId()); // second line missing field3
+    assertEquals("3_", docs.next().getId()); // third line missing field3
     assertFalse(docs.hasNext());
   }
 
@@ -241,18 +241,18 @@ public class JsonFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "docIdPrefix", "PREFIX-",
-            "idFields", List.of("id", "id")
+            "idFields", List.of("field1", "field2")
         )
     ));
     FileHandler handler = FileHandler.create("json", config);
 
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
     File file = new File(filePath);
 
     Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
-    assertEquals("PREFIX-1_1", docs.next().getId());
-    assertEquals("PREFIX-2_2", docs.next().getId());
-    assertEquals("PREFIX-3_3", docs.next().getId());
+    assertEquals("PREFIX-one_1", docs.next().getId());
+    assertEquals("PREFIX-two_2", docs.next().getId());
+    assertEquals("PREFIX-three_3", docs.next().getId());
     assertFalse(docs.hasNext());
   }
 }
