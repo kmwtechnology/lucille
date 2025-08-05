@@ -365,6 +365,12 @@
       <artifactId>rssreader</artifactId>
       <version>3.9.3</version>
     </dependency>
+
+    <dependency>
+      <groupId>com.chavaillaz</groupId>
+      <artifactId>opensearch-log4j-appender</artifactId>
+      <version>1.0.1</version>
+    </dependency>
   </dependencies>
 
 
