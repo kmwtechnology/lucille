@@ -15,6 +15,15 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Parses an array of floats from a string field and emits each number individually into a Lucille document field.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>field (String) : the name of the document field containing the JSON string to parse.</li>
+ *   <li>dest (String, optional) : the name of the document field into which to write the floats.</li>
+ * </ul>
+ */
 public class ParseFloats extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()

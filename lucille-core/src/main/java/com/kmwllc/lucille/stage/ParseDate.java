@@ -27,17 +27,20 @@ import java.util.stream.Collectors;
 /**
  * Parses dates into ISO_INSTANT format to be ingested by Solr. If a given date cannot be parsed, it
  * will not be passed through to the destination field.
- * Config Parameters:
  * <p>
- * - source (List&lt;String&gt;) : List of source field names.
- * - dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
- * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- * - formatters (List&lt;Function&gt;) : List of formatter classes to be used for parsing dates. Formatters must implement
- * the Function&lt;String, LocalDate&gt; Interface.
- * - format_strs (List&lt;String&gt;, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.
- * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- * - time_zone_id (String, Optional) : The time zone ID to use when parsing dates. Defaults to the system default. <a href="https://docs.oracle.com/javase/7/docs/api/java/util/TimeZone.html">See here for more info about time zone ids</a>
+ * Config Parameters -
+ * <ul>
+ *   <li>source (List&lt;String&gt;) : List of source field names.</li>
+ *   <li>dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
+ *   for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
+ *   <li>formatters (List&lt;Function&gt;) : List of formatter classes to be used for parsing dates. Formatters must implement the
+ *   Function&lt;String, LocalDate&gt; Interface.</li>
+ *   <li>format_strs (List&lt;String&gt;, Optional) : A List of format Strings to try and apply to the dates. Defaults to an empty list.</li>
+ *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
+ *   <li>time_zone_id (String, Optional) : The time zone ID to use when parsing dates. Defaults to the system default.
+ *   <a href="https://docs.oracle.com/javase/7/docs/api/java/util/TimeZone.html">See here for more info about time zone ids</a></li>
+ * </ul>
  */
 public class ParseDate extends Stage {
 

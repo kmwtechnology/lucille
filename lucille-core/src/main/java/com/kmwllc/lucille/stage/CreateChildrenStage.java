@@ -14,7 +14,14 @@ import java.util.Iterator;
  * <br> This stage is intended for use in testing only.
  * <br> It is included in the main source tree so that it can be used in manual tests run against an artifact
  * that excludes the test tree.
- *
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>numChildren (int, optional) : the total number of child documents to emit.</li>
+ *   <li>dropParent (boolean, optional) : if true, marks the parent document as dropped.</li>
+ *   <li>failAfter (int) : if set, throws an exception once this many children have been generated.</li>
+ *   <li>dropChild (int) : if set, marks the child with this 1‑based index as dropped.</li>
+ * </ul>
  */
 public class CreateChildrenStage extends Stage {
 

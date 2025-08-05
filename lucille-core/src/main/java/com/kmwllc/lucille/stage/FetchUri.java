@@ -33,23 +33,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Fetches byte data of a given URL field and places data into a specified field
- * <br>
+ * Fetches byte data of a given URL field and places data into a specified field.
+ * <p>
  * Config Parameters -
- * <br>
- * source (String) : Field name of URL to be fetched; document will be skipped if the field with this name is absent or empty
- * dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty
- * size_suffix (String, Optional) : suffix to be appended to end of source field name for the size of data
- *  e.g. url --&gt; url_(size_suffix) where source name is url
- * status_suffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request
- * error_suffix (String, Optional) : suffix to be appended to end of source field name for any errors in process
- * max_size (Integer, Optional) : max size, in bytes, of data to be read from fetch
- * max_retries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.
- * initial_expiry_ms (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.
- * max_expiry_ms (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.
- * connection_request_timeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.
- * connect_timeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.
- * socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.
+ * <ul>
+ *   <li>source (String) : Field name of URL to be fetched; document will be skipped if the field with this name is absent or empty.</li>
+ *   <li>dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty.</li>
+ *   <li>size_suffix (String, Optional) : suffix to be appended to end of source field name for the size of data. e.g.
+ *   url --&gt; url_(size_suffix) where source name is url.</li>
+ *   <li>status_suffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request.</li>
+ *   <li>error_suffix (String, Optional) : suffix to be appended to end of source field name for any errors in process.</li>
+ *   <li>max_size (Integer, Optional) : max size, in bytes, of data to be read from fetch.</li>
+ *   <li>max_retries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.</li>
+ *   <li>initial_expiry_ms (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.</li>
+ *   <li>max_expiry_ms (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.</li>
+ *   <li>connection_request_timeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>connect_timeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ * </ul>
  */
 public class FetchUri extends Stage {
 

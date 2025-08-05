@@ -13,9 +13,11 @@ import java.util.List;
 
 /**
  * Deletes a list of given fields from each document it processes.
- * <br>
- * Config Parameters:
- * <p> fields (List&lt;String&gt;) : The list of fields to be deleted.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>fields (List&lt;String&gt;) : The list of fields to be deleted.</li>
+ * </ul>
  */
 public class DeleteFields extends Stage {
 

@@ -22,21 +22,21 @@ import java.util.concurrent.ThreadLocalRandom;
  * Adds random Strings to a document field given parameters. Note that when randomly selecting multiple values
  * from an integer range or from file contents, duplicates are possible -- this stage does not currently guarantee
  * that all random terms added to a field will be distinct.
- * <br>
- *
+ * <p>
  * Config Parameters -
- * <p> <b>input_data_path</b> (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
- *  defaults to numeric data based on range size (0 -&gt; rangeSize - 1). Note that duplicate entries will not be removed.
- * <p> <b>field_name</b> (String, Optional) : Field name of field where data is placed, defaults to "data"
- * <p> <b>range_size</b> (int, Optional) : size of the subset of datapoints to be grabbed either from
- *  given datapath or from random numbers
- * <p> <b>min_num_of_terms</b> (Integer, Optional) : minimum number of terms to be in the field, defaults to 1
- * <p> <b>max_num_of_terms</b> (Integer, Optional) : maximum number of terms to be in the field, defaults to 1
- * <p> <b>is_nested</b> (bool, Optional) : When enabled, the generated data will be output as a JSON array of objects, with
- * each object holding the data in <code>"data"</code>.
- * <p> <b>concatenate</b> (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple
- *  values, defaults to false.
- *
+ * <ul>
+ *   <li>input_data_path (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
+ *   defaults to numeric data based on range size (0 -&gt; rangeSize - 1). Note that duplicate entries will not be removed.</li>
+ *   <li>field_name (String, Optional) : Field name of field where data is placed, defaults to "data".</li>
+ *   <li>range_size (int, Optional) : size of the subset of datapoints to be grabbed either from given datapath or from
+ *   random numbers.</li>
+ *   <li>min_num_of_terms (Integer, Optional) : minimum number of terms to be in the field, defaults to 1.</li>
+ *   <li>max_num_of_terms (Integer, Optional) : maximum number of terms to be in the field, defaults to 1.</li>
+ *   <li>is_nested (bool, Optional) : When enabled, the generated data will be output as a JSON array of objects, with
+ *   each object holding the data in <code>"data"</code>.</li>
+ *   <li>concatenate (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple
+ *   values, defaults to false.</li>
+ * </ul>
  * <p> <b>Note:</b> <code>concatenate</code> and <code>is_nested</code> cannot both be <code>true</code> in your Config.
  */
 public class AddRandomString extends Stage {

@@ -14,23 +14,17 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Truncates a string field to a given number of characters. Can be inplace or return the result to a 
- * seperate field
- * <br>
+ * seperate field.
+ * <p>
  * Config Parameters -
- * <br>
- * <p>
- * <b>source</b> (String) : The field to be truncated. If this is not a string it is still parsed as a string to generate a result.
- * If a document does not have the field it will be skipped. If the fields contents cannot be interpreted as a String the document is also 
- * skipped and this is logged as a warning.
- * </p>
- * <p>
- * <b>max_size</b> (int) : The maximum number of characters to truncate the input to. If this is negative a StageException 
- * is thrown. 
- * </p>
- * <p>
- * <b>destination</b> (String, Optional) : The field where the truncated data should be placed. If this is not provided the 
- * operation is done inplace. If this field already exists it is overwritten.
- * </p>
+ * <ul>
+ *   <li>source (String) : The field to be truncated. If this is not a string it is still parsed as a string to generate a result.
+ *   If a document does not have the field it will be skipped. If the fields contents cannot be interpreted as a String the document is
+ *   also skipped and this is logged as a warning.</li>
+ *   <li>max_size (int) : The maximum number of characters to truncate the input to. If this is negative a StageException is thrown. </li>
+ *   <li>destination (String, Optional) : The field where the truncated data should be placed. If this is not provided the operation
+ *   fis done inplace. If this field already exists it is overwritten.</li>
+ * </ul>
  */
 public class TruncateField extends Stage {
 

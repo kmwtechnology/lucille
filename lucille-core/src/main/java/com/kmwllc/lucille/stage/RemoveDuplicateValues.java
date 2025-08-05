@@ -13,10 +13,11 @@ import java.util.Map;
 
 /**
  * Removes duplicate values from the given list of fields.
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * fieldMapping (Map&lt;String, Object&gt;) : A mapping of fields to remove duplicates from and the field to output the result to.
+ * <ul>
+ *   <li>fieldMapping (Map&lt;String, Object&gt;) : A mapping of fields to remove duplicates from and the field to output the result to.</li>
+ * </ul>
  */
 public class RemoveDuplicateValues extends Stage {
 

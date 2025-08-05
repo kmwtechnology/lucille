@@ -20,35 +20,33 @@ import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 
 /**
- * <p> Using a file path found on a Document, or a byte[] of its contents, applies file handlers to create children documents.
- *
- * <p> Config Parameters:
- * <p> fileHandlers (Map): Specifies which file types should be handled / processed by this stage. Valid options include:
+ * Using a file path found on a Document, or a byte[] of its contents, applies file handlers to create children documents.
+ * <p>
+ * Config Parameters:
  * <ul>
- *   <li>csv (Map, Optional): For handling CSV files. Config will be passed to CSVFileHandler (if no alternate <code>class</code> is provided).</li>
- *   <li>json (Map, Optional): For handling JSON or JSONL files. Config will be passed to JsonFileHandler (if no alternate <code>class</code> is provided).</li>
- *   <li>Custom <code>FileHandler</code> implementations.</li>
+ *   <li>
+ *     fileHandlers (Map) : Specifies which file types should be handled / processed by this stage. Valid options include:
+ *     <ul>
+ *       <li>csv (Map, Optional) : For handling CSV files. Config will be passed to CSVFileHandler (if no alternate <code>class</code> is provided).</li>
+ *       <li>json (Map, Optional) : For handling JSON or JSONL files. Config will be passed to JsonFileHandler (if no alternate <code>class</code> is provided).</li>
+ *       <li>Custom <code>FileHandler</code> implementations.</li>
+ *     </ul>
+ *     <p> <b>Note:</b> An Exception is thrown if your <code>fileHandlers</code> Config is empty.
+ *     <p> <b>Note:</b> See {@link FileHandler#createFromConfig(Config)} for notes on JSON and JSONL configuration.
+ *     <p> <b>Note:</b> Lucille's XMLFileHandler is not supported.
+ *   </li>
+ *   <li>filePathField (String, Optional) : The field in your documents which will has the file path you want to apply handlers to.
+ *   No processing will occur on documents without this field, even if they have the fileContentField present. Defaults to "file_path".</li>
+ *   <li>fileContentField (String, Optional) : The field in your documents which has the file's contents as an array of bytes.
+ *   When processing a document with a path to a supported file type, the handler will process the array of bytes found in this field,
+ *   if present, before having the FileContentFetcher to open an InputStream for the file's contents. Defaults to "file_content".</li>
+ *   <li>gcp (Map, Optional) : options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.
+ *   See FileConnector for necessary arguments.</li>
+ *   <li>s3 (Map, Optional) : options for handling S3 files. Include if you are going to process documents with the filePathField set to an S3 URI.
+ *   See FileConnector for necessary arguments.</li>
+ *   <li>azure (Map, Optional) : options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
+ *   See FileConnector for necessary arguments.</li>
  * </ul>
- *
- * <p> <b>Note:</b> An Exception is thrown if your <code>fileHandlers</code> Config is empty.
- * <p> <b>Note:</b> See {@link FileHandler#createFromConfig(Config)} for notes on JSON and JSONL configuration.
- * <p> <b>Note:</b> Lucille's XMLFileHandler is not supported.
- *
- * <p> filePathField (String, Optional): The field in your documents which will has the file path you want to apply handlers to.
- * No processing will occur on documents without this field, even if they have the fileContentField present. Defaults to "file_path".
- *
- * <p> fileContentField (String, Optional): The field in your documents which has the file's contents as an array of bytes.
- * When processing a document with a path to a supported file type, the handler will process the array of bytes found in this field,
- * if present, before having the FileContentFetcher to open an InputStream for the file's contents. Defaults to "file_content".
- *
- * <p> gcp (Map, Optional): options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.
- * See FileConnector for necessary arguments.
- *
- * <p> s3 (Map, Optional): options for handling S3 files. Include if you are going to process documents with the filePathField set to an S3 URI.
- * See FileConnector for necessary arguments.
- *
- * <p> azure (Map, Optional): options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
- * See FileConnector for necessary arguments.
  */
 public class ApplyFileHandlers extends Stage {
 

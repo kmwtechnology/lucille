@@ -15,10 +15,10 @@ import com.typesafe.config.Config;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>inputField (String) : The field to split on.</li>
- * <li>outputField (String) : The field to place the separated values into.</li>
- * <li>delimiter (String) : The String to split the field by.</li>
- * <li>trimWhitespace (Boolean) : True if separated values should trim whitespace, false otherwise.</li>
+ *   <li>inputField (String) : The field to split on.</li>
+ *   <li>outputField (String) : The field to place the separated values into.</li>
+ *   <li>delimiter (String) : The String to split the field by.</li>
+ *   <li>trimWhitespace (Boolean) : True if separated values should trim whitespace, false otherwise.</li>
  * </ul>
  */
 public class SplitFieldValues extends Stage {

@@ -26,43 +26,42 @@ import org.slf4j.LoggerFactory;
 /**
  * A stage for running a search request on an Opensearch index, specifying a field in the response, and putting that field's value
  * on a Document. The specified query can either be found in a Document's field or specified in your Config.
- *
- * opensearch (Map): Configuration for your Opensearch instance. Should contain the url to your Opensearch instance, the index
- * name you want to query on, and whether invalid certificates can be accepted. See the opensearch ingest example for an
- * example of the configuration needed. (Be sure to include it as part of the Stage's Config.)
- *
- * templateName (String, Optional): The name / id of a saved search template in your Opensearch cluster that you want to use. If not specified,
- * you must specify a searchTemplate to use for the Stage instead.
- *
- * searchTemplate (String, Optional): The query template you want to use. The parameter names you define should match field names
- * in the Documents you are processing. You can define default values if fields will not always be prevalent in Documents. See
- * Opensearch's Search Templates documentation for information about defining templates, parameters, default values, etc. If not
- * specified, you must specify a templateName to use for the Stage instead. This template will <b>not</b> be saved to your Opensearch
- * cluster.
- *
- * requiredParamNames (list of String, optional): A list of field names that you require to be found on every document. This list should...
- *   1.) Contain all parameters you defined in your search template that <b>do not</b> have default values
- *   2.) Be made of names that can be found on Documents.
- * If any of the required parameters are missing, Lucille will log a warning and put an error in "queryOpensearchError" on the Document.
- *
- * optionalParamNames (list of String, optional): A list of field names that you do not require to be found on every document, but want
- * to include in your if they are present. This list should...
- *   1.) contain all parameters in your search template that have default values
- *   2.) Be made of names that can be found on Documents.
- * If any of the optional parameters are missing, they will not be used in the search, and the default value will be used (by Opensearch) instead.
- *
- * <b>NOTE:</b> If the field names on your Document do not match the parameter names in your search template, use the
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>opensearch (Map) : Configuration for your Opensearch instance. Should contain the url to your Opensearch instance, the index
+ *   name you want to query on, and whether invalid certificates can be accepted. See the opensearch ingest example for an
+ *   example of the configuration needed. (Be sure to include it as part of the Stage's Config.)</li>
+ *   <li>templateName (String, Optional) : The name / id of a saved search template in your Opensearch cluster that you want to use. If not specified,
+ *   you must specify a searchTemplate to use for the Stage instead.</li>
+ *   <li>searchTemplate (String, Optional): The query template you want to use. The parameter names you define should match field names
+ *   in the Documents you are processing. You can define default values if fields will not always be prevalent in Documents. See
+ *   Opensearch's Search Templates documentation for information about defining templates, parameters, default values, etc. If not
+ *   specified, you must specify a templateName to use for the Stage instead. This template will <b>not</b> be saved to your Opensearch
+ *   cluster.</li>
+ *   <li>requiredParamNames (list of String, optional) : A list of field names that you require to be found on every document. This list should...
+ *   <ol>
+ *     <li>Contain all parameters you defined in your search template that <b>do not</b> have default values.</li>
+ *     <li>Be made of names that can be found on Documents.</li>
+ *   </ol>
+ *   If any of the required parameters are missing, Lucille will log a warning and put an error in "queryOpensearchError" on the Document.</li>
+ *   <li>optionalParamNames (list of String, optional) : A list of field names that you do not require to be found on every document, but want
+ *   to include in your if they are present. This list should...
+ *   <ol>
+ *     <li>Contain all parameters in your search template that have default values.</li>
+ *     <li>Be made of names that can be found on Documents.</li>
+ *   </ol>
+ *   If any of the optional parameters are missing, they will not be used in the search, and the default value will be used (by Opensearch) instead.</li>
+ *   <li>opensearchResponsePath (String, Optional) : A path to a field in the Opensearch response whose value you want to place on a Lucille Document.
+ *   Use JsonPointer notation (separating fields / array indices by a '/'). An IllegalArgumentException will be thrown if the path has invalid formatting.
+ *   Defaults to using the entire response.</li>
+ *   <li>destinationField (String, Optional): The name of the field you'll write the response value to in a Lucille Document. Defaults to "response".</li>
+ * </ul>
+ * <p> <b>NOTE:</b> If the field names on your Document do not match the parameter names in your search template, use the
  * <b>RenameFields</b> stage to match them.
- *
- * <b>NOTE:</b> If a field without a default value is missing, Opensearch does not throw an Exception. Instead, it returns a response with 0 hits,
+ * <p> <b>NOTE:</b> If a field without a default value is missing, Opensearch does not throw an Exception. Instead, it returns a response with 0 hits,
  * which can cause in undesirable results or potential JSON-related exceptions. As such, it is important to define <b>requiredParamNames</b>
  * and <b>optionalParamNames</b> very carefully!
- *
- * opensearchResponsePath (String, Optional): A path to a field in the Opensearch response whose value you want to place on a Lucille Document.
- * Use JsonPointer notation (separating fields / array indices by a '/'). An IllegalArgumentException will be thrown if the path has invalid formatting.
- * Defaults to using the entire response.
- *
- * destinationField (String, Optional): The name of the field you'll write the response value to in a Lucille Document. Defaults to "response".
  */
 public class QueryOpensearch extends Stage {
 
