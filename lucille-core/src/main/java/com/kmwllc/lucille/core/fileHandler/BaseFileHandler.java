@@ -4,7 +4,7 @@ import static com.kmwllc.lucille.core.Document.ID_FIELD;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 import java.io.InputStream;
 import java.util.Iterator;
@@ -23,8 +23,8 @@ public abstract class BaseFileHandler implements FileHandler {
 
   protected final String docIdPrefix;
 
-  public BaseFileHandler(Config config, Spec spec) {
-    spec.validate(config, this.getClass().getName());
+  public BaseFileHandler(Config config) {
+    getSpec().validate(config, this.getClass().getName());
 
     this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
   }
@@ -64,6 +64,15 @@ public abstract class BaseFileHandler implements FileHandler {
         // to "finish" the iterator and close its resources
         log.error("Error occurred while publishing file {}", pathStr, e);
       }
+    }
+  }
+
+  @Override
+  public Spec getSpec() {
+    try {
+      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
     }
   }
 }

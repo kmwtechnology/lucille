@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.typesafe.config.Config;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
@@ -71,6 +72,9 @@ public interface FileHandler {
 
     return Collections.unmodifiableMap(handlerMap);
   }
+
+  /** Returns a Spec describing this FileHandler's required/optional Config properties. */
+  Spec getSpec();
 
   /**
    * Returns a new FileHandler based on the file extension and file options. If the file extension is not a "default" type supported

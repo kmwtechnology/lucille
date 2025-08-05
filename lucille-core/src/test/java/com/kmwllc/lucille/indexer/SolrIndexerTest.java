@@ -5,21 +5,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
-import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.CloudSolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
@@ -933,7 +929,7 @@ public class SolrIndexerTest {
         equalTo(events.get(0).getType()));
   }
 
-  @Test(expected = com.typesafe.config.ConfigException.WrongType.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testUseCloudClientConfigException() {
     Config config = ConfigFactory.empty()
         .withValue("indexer.type", ConfigValueFactory.fromAnyRef("solr"))
@@ -1032,7 +1028,9 @@ public class SolrIndexerTest {
     return (String) document.getFieldValue(Document.ID_FIELD);
   }
 
-  private static class ErroringIndexer extends SolrIndexer {
+  public static class ErroringIndexer extends SolrIndexer {
+
+    public static final Spec SPEC = SolrIndexer.SPEC;
 
     public ErroringIndexer(Config config, IndexerMessenger messenger, boolean bypass) {
       super(config, messenger, bypass, "");

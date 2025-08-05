@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
 import com.kmwllc.lucille.util.LogUtils;
