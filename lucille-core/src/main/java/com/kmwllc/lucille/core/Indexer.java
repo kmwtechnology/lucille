@@ -9,6 +9,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
@@ -45,7 +46,7 @@ import sun.misc.Signal;
  * <p> The <code>public static Spec SPEC</code> should <b>not</b> include the config key in your property names. For example, you
  * only write "url", not "solr.url", in a Spec for a SolrIndexer.
  *
- * <p> A {@link Spec#indexer()} does not include any default legal properties, as it is intended for use in specific Indexer
+ * <p> A {@link SpecBuilder#indexer()} does not include any default legal properties, as it is intended for use in specific Indexer
  * implementations.
  */
 public abstract class Indexer implements Runnable {
@@ -426,12 +427,12 @@ public abstract class Indexer implements Runnable {
   private void validateIndexerConfigs(Config config) {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     Config indexerConfig = config.getConfig("indexer");
-    Spec.withoutDefaults()
+    SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
             "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
         .optionalNumber("batchSize", "batchTimeout", "logRate")
         .optionalBoolean("sendEnabled")
-        .optionalList("ignoreFields", new TypeReference<List<String>>(){})
+        .optionalList("ignoreFields", new TypeReference<List<String>>(){}).build()
         .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.

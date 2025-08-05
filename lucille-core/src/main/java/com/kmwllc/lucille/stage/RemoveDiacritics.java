@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.text.Normalizer;
 import java.util.Iterator;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -23,9 +24,9 @@ import com.typesafe.config.Config;
  */
 public class RemoveDiacritics extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source")
-      .optionalString("destination");
+      .optionalString("destination").build();
 
   private final String source;
   private final String destination;

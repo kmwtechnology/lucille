@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.SSLUtils;
 import com.kmwllc.lucille.util.SolrUtils;
@@ -32,12 +33,12 @@ import org.slf4j.LoggerFactory;
 
 public class SolrIndexer extends Indexer {
 
-  public static final Spec SPEC = Spec.indexer()
+  public static final Spec SPEC = SpecBuilder.indexer()
       .optionalList("url", new TypeReference<List<String>>() {})
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
       .optionalString("defaultCollection", "userName", "password", "zkChroot")
       .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
-      .optionalList("zkHosts", new TypeReference<List<String>>(){});
+      .optionalList("zkHosts", new TypeReference<List<String>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(SolrIndexer.class);
 

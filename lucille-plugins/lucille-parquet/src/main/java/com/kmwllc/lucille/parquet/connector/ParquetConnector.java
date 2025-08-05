@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.parquet.ParquetFileIterator;
 import com.typesafe.config.Config;
 import java.util.Iterator;
@@ -50,10 +51,10 @@ public class ParquetConnector extends AbstractConnector {
 
   private long count = 0L;
 
-  public static final Spec SPEC = Spec.connector()
+  public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("pathToStorage", "id_field", "fs_uri")
       .optionalString("s3_key", "s3_secret")
-      .optionalNumber("limit", "start");
+      .optionalNumber("limit", "start").build();
 
   public ParquetConnector(Config config) {
     super(config);

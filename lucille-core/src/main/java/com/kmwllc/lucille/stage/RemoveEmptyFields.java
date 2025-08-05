@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +18,7 @@ import org.apache.commons.lang3.StringUtils;
  */
 public class RemoveEmptyFields extends Stage {
 
-  public static final Spec SPEC = Spec.stage();
+  public static final Spec SPEC = SpecBuilder.stage().build();
 
   public RemoveEmptyFields(Config config) {
     super(config);

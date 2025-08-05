@@ -6,7 +6,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,10 +48,10 @@ import org.xml.sax.XMLReader;
  */
 public class XMLFileHandler extends BaseFileHandler {
 
-  public static final Spec SPEC = Spec.fileHandler()
+  public static final Spec SPEC = SpecBuilder.fileHandler()
       .requiredString("xmlRootPath")
       .optionalString("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding")
-      .optionalBoolean("skipEmptyId");
+      .optionalBoolean("skipEmptyId").build();
 
   private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
 

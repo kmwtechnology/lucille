@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -26,9 +27,9 @@ import java.util.Iterator;
  */
 public class FetchFileContent extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileContentField")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC);
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC).build();
 
   private final String filePathField;
   private final String fileContentField;

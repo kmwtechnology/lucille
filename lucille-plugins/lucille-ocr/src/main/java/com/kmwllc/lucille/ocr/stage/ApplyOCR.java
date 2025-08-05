@@ -3,6 +3,7 @@ package com.kmwllc.lucille.ocr.stage;
 import static org.bytedeco.leptonica.global.leptonica.pixRead;
 
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -88,15 +89,15 @@ import com.typesafe.config.ConfigBeanFactory;
  */
 public class ApplyOCR extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("lang", "path_field")
       .optionalString("pages_field", "extract_all_dest")
-      .optionalList("extraction_templates", Spec.withoutDefaults()
+      .optionalList("extraction_templates", SpecBuilder.withoutDefaults()
           .requiredString("name")
-          .requiredList("regions", Spec.withoutDefaults()
+          .requiredList("regions", SpecBuilder.withoutDefaults()
               .requiredNumber("x", "y", "width", "height")
-              .requiredString("dest")))
-      .optionalParent("pages", new TypeReference<Map<Integer, String>>(){});
+              .requiredString("dest").build()).build())
+      .optionalParent("pages", new TypeReference<Map<Integer, String>>(){}).build();
 
   public static final String TEMP_DIR = "lucille-ocr-temp";
   public static final int SOURCE_RESOLUTION = 300;

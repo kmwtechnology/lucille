@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.io.File;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -40,9 +41,9 @@ import org.slf4j.LoggerFactory;
  */
 public class ParseFilePath extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileSep")
-      .optionalBoolean("uppercaseExtension", "includeHierarchy");
+      .optionalBoolean("uppercaseExtension", "includeHierarchy").build();
 
   private final String filePathField;
   private final String fileSep;

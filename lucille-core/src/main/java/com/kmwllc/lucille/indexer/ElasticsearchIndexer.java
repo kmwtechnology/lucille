@@ -15,6 +15,7 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
@@ -33,11 +34,11 @@ import java.util.Optional;
 // TODO: upgrade the ElasticsearchIndexer to use the Elasticsearch Java API Client
 public class ElasticsearchIndexer extends Indexer {
 
-  public static final Spec SPEC = Spec.indexer()
+  public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert")
       .optionalString("parentName")
-      .optionalParent("join", new TypeReference<Map<String, String>>() {});
+      .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
 

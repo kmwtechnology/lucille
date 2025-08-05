@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 /**
@@ -13,7 +14,7 @@ import com.typesafe.config.Config;
  * reflectively in the super constructor, so the Connector will not function without declaring a Spec. The Config provided
  * to <code>super()</code> will be validated against the Spec. Validation errors will reference the Connector's <code>name</code>.
  *
- * <p> A {@link Spec#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
+ * <p> A {@link SpecBuilder#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
  *
  * <p> Base Config Parameters:
  * <ul>

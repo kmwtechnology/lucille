@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
 import java.util.List;
 
@@ -22,9 +23,9 @@ import com.typesafe.config.Config;
  */
 public class SplitFieldValues extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("inputField", "outputField", "delimiter")
-      .requiredBoolean("trimWhitespace");
+      .requiredBoolean("trimWhitespace").build();
 
   private boolean trimWhitespace = true;
   private String inputField;

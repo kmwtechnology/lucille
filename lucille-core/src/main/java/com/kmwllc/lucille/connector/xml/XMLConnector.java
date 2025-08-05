@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
@@ -40,10 +41,10 @@ public class XMLConnector extends AbstractConnector {
 
   private XMLFileHandler xmlFileHandler;
 
-  public static final Spec SPEC = Spec.connector()
+  public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("xmlRootPath", "xmlIdPath", "encoding", "outputField")
       .optionalList("filePaths", new TypeReference<List<String>>(){})
-      .optionalList("urlFiles", new TypeReference<List<String>>(){});
+      .optionalList("urlFiles", new TypeReference<List<String>>(){}).build();
 
   public XMLConnector(Config config) {
     super(config);
