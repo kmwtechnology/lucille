@@ -1,8 +1,9 @@
 package com.kmwllc.lucille.indexer;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
@@ -22,6 +23,11 @@ import java.util.List;
  */
 public class CSVIndexer extends Indexer {
 
+  public static final Spec SPEC = Spec.indexer()
+      .requiredString("path")
+      .requiredList("columns", new TypeReference<List<String>>(){})
+      .optionalBoolean("includeHeader", "append");
+
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
 
   private final boolean bypass;
@@ -36,9 +42,7 @@ public class CSVIndexer extends Indexer {
    * @param localRunId The runID for a local run, null otherwise.
    */
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withRequiredProperties("columns", "path")
-        .withOptionalProperties("includeHeader", "append"));
+    super(config, messenger, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");

@@ -2,10 +2,11 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.JsonPointer;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.BaseConfigException;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -64,6 +65,12 @@ import org.slf4j.LoggerFactory;
  * destinationField (String, Optional): The name of the field you'll write the response value to in a Lucille Document. Defaults to "response".
  */
 public class QueryOpensearch extends Stage {
+
+  public static final Spec SPEC = Spec.stage()
+      .requiredParentWithDescription(OpenSearchUtils.OPENSEARCH_PARENT_SPEC, "Configuration for your OpenSearch instance.")
+      .optionalString("templateName", "searchTemplate", "opensearchResponsePath", "destinationField")
+      .optionalList("requiredParamNames", new TypeReference<List<String>>(){})
+      .optionalList("optionalParamNames", new TypeReference<List<String>>(){});
 
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
   private static final ObjectMapper mapper = new ObjectMapper();
@@ -207,11 +214,8 @@ public class QueryOpensearch extends Stage {
   private final HttpClient httpClient;
   private JsonNode searchTemplateJson;
 
-  public QueryOpensearch(Config config) throws Exception {
-    super(config, Spec.stage()
-        .withRequiredParents(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
-        .withOptionalProperties("templateName", "searchTemplate", "requiredParamNames",
-            "optionalParamNames", "opensearchResponsePath", "destinationField"));
+  public QueryOpensearch(Config config) throws StageException {
+    super(config);
 
     this.params = new QueryOpensearchConfig();
     this.params.apply(config);

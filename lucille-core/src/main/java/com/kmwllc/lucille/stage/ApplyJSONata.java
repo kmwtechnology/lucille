@@ -5,7 +5,7 @@ import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +36,10 @@ import static com.dashjoin.jsonata.Jsonata.jsonata;
  */
 public class ApplyJSONata extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .requiredString("expression")
+      .optionalString("source", "destination");
+
   private static final Logger log = LoggerFactory.getLogger(ApplyJSONata.class);
   private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -45,7 +49,7 @@ public class ApplyJSONata extends Stage {
   private Jsonata parsedExpression;
 
   public ApplyJSONata(Config config) throws StageException {
-    super(config, Spec.stage().withOptionalProperties("source", "destination").withRequiredProperties("expression"));
+    super(config);
     this.source = ConfigUtils.getOrDefault(config, "source", null);
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);
     this.expressionStr = config.getString("expression");

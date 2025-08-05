@@ -3,9 +3,10 @@ package com.kmwllc.lucille.stage;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.GetResponse;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -21,6 +22,13 @@ import java.util.List;
 
 public class ElasticsearchLookup extends Stage {
 
+  public static final Spec SPEC = Spec.stage()
+      .requiredParent(ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .optionalString("update_mode")
+      .optionalString("update_mode");
+
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 
   private ElasticsearchClient client;
@@ -31,10 +39,7 @@ public class ElasticsearchLookup extends Stage {
   private final UpdateMode updateMode;
 
   public ElasticsearchLookup(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("update_mode")
-        .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
-        .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode"));
+    super(config);
 
     this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
