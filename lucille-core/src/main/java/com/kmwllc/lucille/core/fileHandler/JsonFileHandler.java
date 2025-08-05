@@ -1,15 +1,22 @@
 package com.kmwllc.lucille.core.fileHandler;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.typesafe.config.Config;
+import dev.langchain4j.agent.tool.P;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.function.UnaryOperator;
 import org.apache.commons.io.IOUtils;
@@ -19,14 +26,28 @@ import org.slf4j.LoggerFactory;
 
 public class JsonFileHandler extends BaseFileHandler {
 
-  public static final Spec SPEC = Spec.fileHandler();
+  public static final Spec SPEC = Spec.fileHandler()
+      .optionalString("docIdFormat", "idField")
+      .optionalList("idFields", new TypeReference<List<String>>() {
+      });
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 
   private final UnaryOperator<String> idUpdater;
+  private final List<String> idFields;
+  private final String docIdFormat;
+  private final ObjectMapper mapper = new ObjectMapper();
 
   public JsonFileHandler(Config config) {
     super(config);
+
+    if (config.hasPath("idField")) {
+      this.idFields = List.of(config.getString("idField"));
+    } else {
+      this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : List.of();
+    }
+
+    this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
 
     this.idUpdater = (id) -> docIdPrefix + id;
   }
@@ -70,12 +91,28 @@ public class JsonFileHandler extends BaseFileHandler {
 
         String line = it.next();
         try {
-          return Document.createFromJson(line, idUpdater);
+          if (!idFields.isEmpty()) {
+            ObjectNode node = (ObjectNode) mapper.readTree(line);
+            List<String> parts = new ArrayList<>(idFields.size());
+
+            for (String f : idFields) {
+              JsonNode v = node.get(f);
+              parts.add((v != null && !v.isNull()) ? v.asText() : "");
+            }
+
+            String rawId = (docIdFormat != null) ? String.format(docIdFormat, parts.toArray()) : String.join("_", parts);
+            node.put(Document.ID_FIELD, docIdPrefix + rawId);
+
+            return Document.create(node);
+          } else {
+            return Document.createFromJson(line, idUpdater);
+          }
         } catch (Exception e) {
           // any errors that occur during the process of creating a document, we close the LineIterator
           // cannot close iterator in finally, as we will called next() again if there are more elements.
           IOUtils.closeQuietly(it);
-          throw new RuntimeException("Error creating document, make sure that you have 'id' key within each line of json", e);
+          throw new RuntimeException(
+              "Error creating document, make sure that you have id field(s) properly configured within each line of json", e);
         }
       }
     };
