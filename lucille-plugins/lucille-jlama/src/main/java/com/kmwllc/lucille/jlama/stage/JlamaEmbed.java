@@ -5,10 +5,11 @@ import com.github.tjake.jlama.model.ModelSupport;
 import com.github.tjake.jlama.model.functions.Generator.PoolingType;
 import com.github.tjake.jlama.safetensors.DType;
 import com.github.tjake.jlama.safetensors.SafeTensorSupport;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.File;
 import java.io.IOException;
@@ -60,6 +61,12 @@ import org.slf4j.LoggerFactory;
  *    "Q5" (Quantized 5-bit integer)
  */
 public class JlamaEmbed extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("model", "source", "pathToStoreModel")
+      .optionalString("workingMemoryType", "workingQuantizationType", "dest")
+      .optionalBoolean("deleteModelAfter").build();
+
   private final String embeddingModel;
   private final String source;
   private final String pathToStoreModel;
@@ -72,9 +79,7 @@ public class JlamaEmbed extends Stage {
   private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
 
   public JlamaEmbed(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("model", "source", "pathToStoreModel")
-        .withOptionalProperties("workingMemoryType", "workingQuantizationType", "dest", "deleteModelAfter"));
+    super(config);
     this.pathToStoreModel = config.getString("pathToStoreModel");
     this.embeddingModel = config.getString("model");
     this.source = config.getString("source");

@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +39,14 @@ import org.slf4j.LoggerFactory;
  */
 public class QueryDatabase extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword")
+      .requiredList("keyFields", new TypeReference<List<String>>(){})
+      .requiredList("inputTypes", new TypeReference<List<String>>(){})
+      .optionalString("sql")
+      .optionalNumber("connectionRetries", "connectionRetryPause")
+      .requiredParent("fieldMapping", new TypeReference<Map<String, String>>(){}).build();
+
   private String driver;
   private String connectionString;
   private String jdbcUser;
@@ -52,11 +62,7 @@ public class QueryDatabase extends Stage {
   private static final Logger log = LoggerFactory.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("sql", "connectionRetries", "connectionRetryPause")
-        .withRequiredParentNames("fieldMapping")
-        .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
-            "keyFields", "inputTypes"));
+    super(config);
 
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");

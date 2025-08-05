@@ -4,7 +4,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
@@ -36,6 +37,10 @@ import org.slf4j.LoggerFactory;
 
 public class OpenSearchIndexer extends Indexer {
 
+  public static final Spec SPEC = SpecBuilder.indexer()
+      .requiredString("index", "url")
+      .optionalBoolean("update", "acceptInvalidCert").build();
+
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
   private final OpenSearchClient client;
@@ -49,9 +54,7 @@ public class OpenSearchIndexer extends Indexer {
   private final boolean update;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withRequiredProperties("index", "url")
-        .withOptionalProperties("update", "acceptInvalidCert"));
+    super(config, messenger, metricsPrefix, localRunId);
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(

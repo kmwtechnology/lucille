@@ -4,6 +4,8 @@ import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
 import com.kmwllc.lucille.util.LogUtils;
@@ -300,20 +302,20 @@ public class Runner {
 
       Config parentPropertyConfig = configPropertyConfig.getConfig(optionalParentName);
 
-      Spec spec = Spec.withoutDefaults();
+      SpecBuilder specBuilder = SpecBuilder.withoutDefaults();
 
       if (parentPropertyConfig.hasPath("optionalProperties")) {
         List<String> optionalProperties = parentPropertyConfig.getStringList("optionalProperties");
-        spec.withOptionalProperties(optionalProperties.toArray(new String[0]));
+        specBuilder.withOptionalProperties(optionalProperties.toArray(new String[0]));
       }
 
       if (parentPropertyConfig.hasPath("requiredProperties")) {
         List<String> requiredProperties = parentPropertyConfig.getStringList("requiredProperties");
-        spec.withRequiredProperties(requiredProperties.toArray(new String[0]));
+        specBuilder.withRequiredProperties(requiredProperties.toArray(new String[0]));
       }
 
       try {
-        spec.validate(rootConfig.getConfig(optionalParentName), optionalParentName);
+        specBuilder.build().validate(rootConfig.getConfig(optionalParentName), optionalParentName);
       } catch (IllegalArgumentException e) {
         exceptions.add(e);
       }

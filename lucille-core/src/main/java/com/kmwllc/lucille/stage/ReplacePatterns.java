@@ -1,7 +1,9 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
@@ -35,6 +37,13 @@ import java.util.regex.Pattern;
  */
 public class ReplacePatterns extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .requiredList("regex", new TypeReference<List<String>>(){})
+      .optionalString("replacement", "replacement_field", "update_mode")
+      .optionalBoolean("ignore_case", "multiline", "dotall", "literal").build();
+
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final List<String> regexExprs;
@@ -50,8 +59,7 @@ public class ReplacePatterns extends Stage {
   private List<Pattern> patterns;
 
   public ReplacePatterns(Config config) throws StageException {
-    super(config, Spec.stage().withRequiredProperties("source", "dest", "regex")
-        .withOptionalProperties("replacement", "replacement_field", "update_mode", "ignore_case", "multiline", "dotall", "literal"));
+    super(config);
 
     this.patterns = new ArrayList<>();
 

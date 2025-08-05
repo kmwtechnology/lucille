@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.connector;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.net.URI;
@@ -139,7 +140,6 @@ import org.slf4j.LoggerFactory;
  *   <li>"maxNumOfPages" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.</li>
  * </ul>
  */
-
 public class FileConnector extends AbstractConnector {
 
   public static final String FILE_PATH = "file_path";
@@ -167,15 +167,37 @@ public class FileConnector extends AbstractConnector {
   public static final String MOVE_TO_ERROR_FOLDER = "moveToErrorFolder";
 
   // parent specs for cloud provider configs
-  public static final ParentSpec GCP_PARENT_SPEC = Spec.parent("gcp")
-      .withRequiredProperties("pathToServiceKey")
-      .withOptionalProperties("maxNumOfPages");
-  public static final ParentSpec S3_PARENT_SPEC = Spec.parent("s3")
-      .withOptionalProperties("accessKeyId", "secretAccessKey", "region", "maxNumOfPages");
-  public static final ParentSpec AZURE_PARENT_SPEC = Spec.parent("azure")
-      .withOptionalProperties("connectionString", "accountName", "accountKey", "maxNumOfPages");
+  public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
+      .requiredString("pathToServiceKey")
+      .optionalNumber("maxNumOfPages").build();
+  public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
+      .optionalString("accessKeyId", "secretAccessKey", "region")
+      .optionalNumber("maxNumOfPages").build();
+  public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
+      .optionalString("connectionString", "accountName", "accountKey")
+      .optionalNumber("maxNumOfPages").build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
+
+  public static final Spec SPEC = SpecBuilder.connector()
+      .requiredList("pathsToStorage", new TypeReference<List<String>>(){})
+      .optionalParent(
+          SpecBuilder.parent("filterOptions")
+              .optionalList("includes", new TypeReference<List<String>>(){})
+              .optionalList("excludes", new TypeReference<List<String>>(){})
+              // durations are strings.
+              .optionalString("lastModifiedCutoff", "lastPublishedCutoff").build(),
+          SpecBuilder.parent("fileOptions")
+              .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+              .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
+          SpecBuilder.parent("state")
+              .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
+              .optionalBoolean("performDeletions")
+              .optionalNumber("pathLength").build(),
+          GCP_PARENT_SPEC,
+          AZURE_PARENT_SPEC,
+          S3_PARENT_SPEC)
+      .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
 
   private final List<URI> storageURIs;
   private final Map<String, StorageClient> storageClientMap;
@@ -183,17 +205,7 @@ public class FileConnector extends AbstractConnector {
   private final FileConnectorStateManager stateManager;
 
   public FileConnector(Config config) throws ConnectorException {
-    super(config, Spec.connector()
-        .withRequiredProperties("pathsToStorage")
-        .withOptionalParents(
-            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "lastModifiedCutoff", "lastPublishedCutoff"),
-            Spec.parent("fileOptions").withOptionalProperties("getFileContent", "handleArchivedFiles",
-                "handleCompressedFiles", "moveToAfterProcessing", "moveToErrorFolder"),
-            Spec.parent("state")
-                .withOptionalProperties("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName",
-                    "performDeletions", "pathLength"),
-            GCP_PARENT_SPEC, AZURE_PARENT_SPEC, S3_PARENT_SPEC)
-        .withOptionalParentNames("fileHandlers"));
+    super(config);
 
     List<String> pathsToStorage = config.getStringList("pathsToStorage");
     this.storageURIs = new ArrayList<>();

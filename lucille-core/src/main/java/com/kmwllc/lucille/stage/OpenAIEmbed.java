@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.stage.util.OpenAIEmbeddingModel;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -46,6 +47,13 @@ import org.slf4j.LoggerFactory;
  */
 
 public class OpenAIEmbed extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("source", "api_key")
+      .requiredBoolean("embed_document", "embed_children")
+      .optionalString("dest", "model_name")
+      .optionalNumber("dimensions").build();
+
   // this is the token limit for all embedding models from openai
   private static final int DEFAULT_OPENAI_TOKEN_LIMIT = 8191;
   private final String API_KEY;
@@ -61,9 +69,8 @@ public class OpenAIEmbed extends Stage {
   private static final Logger log = LoggerFactory.getLogger(OpenAIEmbed.class);
 
   public OpenAIEmbed(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withRequiredProperties("source", "embed_document", "embed_children", "api_key")
-        .withOptionalProperties("dest", "model_name", "dimensions"));
+    super(config);
+
     this.source = config.getString("source");
     this.embedDocument = config.getBoolean("embed_document");
     this.embedChildren = config.getBoolean("embed_children");

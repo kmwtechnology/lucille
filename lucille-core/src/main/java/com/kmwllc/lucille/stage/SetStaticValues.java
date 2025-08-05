@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -21,13 +23,15 @@ import java.util.Map;
  */
 public class SetStaticValues extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("update_mode")
+      .requiredParent("static_values", new TypeReference<Map<String, Object>>() {}).build();
+
   private final Map<String, Object> staticValues;
   private final UpdateMode updateMode;
 
   public SetStaticValues(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("update_mode")
-        .withRequiredParentNames("static_values"));
+    super(config);
 
     staticValues = config.getConfig("static_values").root().unwrapped();
     updateMode = UpdateMode.fromConfig(config);

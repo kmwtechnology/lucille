@@ -1,10 +1,11 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
@@ -21,13 +22,16 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class AddRandomDouble extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("field_name")
+      .optionalNumber("range_start", "range_end").build();
+
   private final String fieldName;
   private final double rangeStart;
   private final double rangeEnd;
 
   public AddRandomDouble(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withOptionalProperties("field_name", "range_start", "range_end"));
+    super(config);
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.rangeStart = ConfigUtils.getOrDefault(config, "range_start", 0.0);

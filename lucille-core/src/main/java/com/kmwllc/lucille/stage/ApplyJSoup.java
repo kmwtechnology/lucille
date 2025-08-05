@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -54,6 +56,10 @@ import com.typesafe.config.Config;
  */
 public class ApplyJSoup extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("filePathField", "byteArrayField", "stringField", "charset")
+      .requiredParent("destinationFields", new TypeReference<Map<String, Map<String, String>>>(){}).build();
+
   private final Map<String, Object> destinationFields;
   private final String charset;
   private final String activeField;
@@ -64,8 +70,7 @@ public class ApplyJSoup extends Stage {
   }
 
   public ApplyJSoup(Config config) throws StageException {
-    super(config, Spec.stage().withOptionalProperties("filePathField", "byteArrayField", "stringField", "charset")
-        .withRequiredParentNames("destinationFields"));
+    super(config);
 
     this.destinationFields = config.getConfig("destinationFields").root().unwrapped();
     this.charset = ConfigUtils.getOrDefault(config, "charset", null);

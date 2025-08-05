@@ -5,7 +5,8 @@ import com.kmwllc.lucille.connector.xml.RecordingInputStream;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,7 +39,7 @@ import org.xml.sax.XMLReader;
  *   or attribute that will be used to create Document IDs. This path can be a qualifier - be sure to enable <code>skipEmptyId</code>, if so!</li>
  *   <li><code>encoding</code> (String, Optional): The encoding the xml files use. Defaults to utf-8.</li>
  *   <li><code>outputField</code> (String, Optional): The field you want to put the extracted XML text into. Defaults to "xml".</li>
- *   <li><code>skipEmptyID</code> (Boolean, Optional): Whether you want to skip a document when your <code>xmlIdPath</code> or <code>xpathIdPath</code>
+ *   <li><code>skipEmptyId</code> (Boolean, Optional): Whether you want to skip a document when your <code>xmlIdPath</code> or <code>xpathIdPath</code>
  *   evaluates to an empty or null String. You should enable if using an <code>xpathIdPath</code> that is a qualifier. Defaults to false.</li>
  * </ul>
  *
@@ -46,6 +47,11 @@ import org.xml.sax.XMLReader;
  * roughly twice as fast as <code>xpathIdPath</code>, but is less versatile.
  */
 public class XMLFileHandler extends BaseFileHandler {
+
+  public static final Spec SPEC = SpecBuilder.fileHandler()
+      .requiredString("xmlRootPath")
+      .optionalString("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding")
+      .optionalBoolean("skipEmptyId").build();
 
   private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
 
@@ -61,9 +67,7 @@ public class XMLFileHandler extends BaseFileHandler {
   private XMLReader xmlReader = null;
 
   public XMLFileHandler(Config config) {
-    super(config, Spec.fileHandler()
-        .withRequiredProperties("xmlRootPath")
-        .withOptionalProperties("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding", "skipEmptyId"));
+    super(config);
 
     this.xmlRootPath = config.getString("xmlRootPath");
     this.xmlIdPath = ConfigUtils.getOrDefault(config, "xmlIdPath", null);

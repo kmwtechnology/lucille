@@ -2,9 +2,10 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -31,6 +32,12 @@ import org.slf4j.LoggerFactory;
  */
 public class CSVFileHandler extends BaseFileHandler {
 
+  public static final Spec SPEC = SpecBuilder.fileHandler()
+      .optionalString("docIdPrefix", "lineNumberField", "separatorChar", "filenameField", "filePathField", "idField", "docIdFormat")
+      .optionalList("idFields", new TypeReference<List<String>>() {})
+      .optionalList("ignoredTerms", new TypeReference<List<String>>() {})
+      .optionalBoolean("useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields").build();
+
   private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);
 
   private final String lineNumField;
@@ -47,9 +54,7 @@ public class CSVFileHandler extends BaseFileHandler {
   private static final String UTF8_BOM = "\uFEFF";
 
   public CSVFileHandler(Config config) {
-    super(config, Spec.fileHandler()
-        .withOptionalProperties("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "idFields", "docIdFormat",
-            "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms"));
+    super(config);
 
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
     this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";

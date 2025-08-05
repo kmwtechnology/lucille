@@ -1,8 +1,8 @@
 package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -19,14 +19,14 @@ import org.slf4j.LoggerFactory;
 
 public class JsonFileHandler extends BaseFileHandler {
 
-  public static final ParentSpec PARENT_SPEC = Spec.parent("json").withOptionalProperties("docIdPrefix");
+  public static final Spec SPEC = SpecBuilder.fileHandler().build();
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 
   private final UnaryOperator<String> idUpdater;
 
   public JsonFileHandler(Config config) {
-    super(config, Spec.fileHandler());
+    super(config);
 
     this.idUpdater = (id) -> docIdPrefix + id;
   }

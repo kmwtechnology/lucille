@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -24,12 +26,15 @@ import org.apache.commons.lang3.StringUtils;
  */
 public class ExtractFirstCharacter extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("replacement")
+      .requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {}).build();
+
   private final Map<String, Object> fieldMapping;
   private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
-    super(config, Spec.stage().withOptionalProperties("replacement")
-        .withRequiredParentNames("fieldMapping"));
+    super(config);
 
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";

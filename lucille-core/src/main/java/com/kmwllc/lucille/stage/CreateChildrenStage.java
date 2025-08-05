@@ -1,9 +1,10 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -24,13 +25,17 @@ import java.util.Iterator;
  */
 public class CreateChildrenStage extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalNumber("numChildren", "failAfter", "dropChild")
+      .optionalBoolean("dropParent").build();
+
   private final int numChildren;
   private final boolean dropParent;
   private final Integer failAfter;
   private final Integer dropChild;
 
   public CreateChildrenStage(Config config) {
-    super(config, Spec.stage().withOptionalProperties("numChildren", "dropParent", "failAfter", "dropChild"));
+    super(config);
     this.numChildren = config.hasPath("numChildren") ? config.getInt("numChildren") : 3;
     this.dropParent = config.hasPath("dropParent") ? config.getBoolean("dropParent") : false;
     this.failAfter = config.hasPath("failAfter") ? config.getInt("failAfter") : null;

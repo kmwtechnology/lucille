@@ -2,11 +2,12 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -40,6 +41,11 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class AddRandomString extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("input_data_path", "field_name")
+      .optionalNumber("min_num_of_terms", "max_num_of_terms", "range_size")
+      .optionalBoolean("is_nested", "concatenate").build();
+
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final String inputDataPath;
@@ -57,8 +63,7 @@ public class AddRandomString extends Stage {
    * @throws StageException In the event your config contains invalid values.
    */
   public AddRandomString(Config config) throws StageException {
-    super(config, Spec.stage().withOptionalProperties("input_data_path", "field_name", "range_size", "min_num_of_terms",
-        "max_num_of_terms", "is_nested", "concatenate"));
+    super(config);
 
     this.inputDataPath = ConfigUtils.getOrDefault(config, "input_data_path", null);
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");

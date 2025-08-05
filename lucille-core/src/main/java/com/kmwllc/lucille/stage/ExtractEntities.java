@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
@@ -50,6 +52,15 @@ import java.util.stream.Collectors;
  */
 public class ExtractEntities extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredList("dictionaries", new TypeReference<List<String>>(){})
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .optionalBoolean("ignore_case", "only_whitespace_separated", "stop_on_hit",
+          "only_whole_words", "ignore_overlaps", "use_payloads")
+      .optionalString("update_mode", "entity_field")
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
+
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   private PayloadTrie<String> dictTrie;
@@ -68,10 +79,7 @@ public class ExtractEntities extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public ExtractEntities(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "dest", "dictionaries")
-        .withOptionalProperties("ignore_case", "only_whitespace_separated", "stop_on_hit",
-            "only_whole_words", "ignore_overlaps", "use_payloads", "update_mode", "entity_field")
-        .withOptionalParents(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
+    super(config);
 
     // For the optional settings, we check if the config has this setting and then what the value is.
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);

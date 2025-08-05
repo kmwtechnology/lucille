@@ -12,6 +12,7 @@
     </parent>
 
     <artifactId>lucille-entity-extraction</artifactId>
+    <packaging>jar</packaging>
     <name>Lucille Plugins: Lucille Entity Extraction</name>
 
     <properties>

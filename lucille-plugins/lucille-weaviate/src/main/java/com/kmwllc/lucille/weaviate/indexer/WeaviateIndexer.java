@@ -7,7 +7,8 @@ import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.RunResult;
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.Runner.RunType;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -36,6 +37,10 @@ import org.slf4j.LoggerFactory;
 
 public class WeaviateIndexer extends Indexer {
 
+  public static final Spec SPEC = SpecBuilder.indexer()
+      .requiredString("apiKey", "host")
+      .optionalString("className", "idDestinationName", "vectorField").build();
+
   private static final Logger log = LoggerFactory.getLogger(WeaviateIndexer.class);
 
   private final WeaviateClient client;
@@ -52,9 +57,7 @@ public class WeaviateIndexer extends Indexer {
 
   public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client,
       String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withRequiredProperties("apiKey", "host")
-        .withOptionalProperties("className", "idDestinationName", "vectorField"));
+    super(config, messenger, metricsPrefix, localRunId);
 
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :

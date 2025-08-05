@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.tika.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
@@ -46,6 +48,13 @@ import org.xml.sax.SAXException;
  */
 public class TextExtractor extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("text_field", "file_path_field", "byte_array_field", "tika_config_path", "metadata_prefix")
+      .optionalList("metadata_whitelist", new TypeReference<List<String>>(){})
+      .optionalList("metadata_blacklist", new TypeReference<List<String>>(){})
+      .optionalNumber("text_content_limit")
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
+
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
   private String textField;
   private String filePathField;
@@ -60,10 +69,7 @@ public class TextExtractor extends Stage {
   private final FileContentFetcher fileFetcher;
 
   public TextExtractor(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withOptionalProperties("text_field", "file_path_field", "byte_array_field", "tika_config_path",
-            "metadata_prefix", "metadata_whitelist", "metadata_blacklist", "text_content_limit")
-        .withOptionalParents(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC));
+    super(config);
 
     textField = config.hasPath("text_field") ? config.getString("text_field") : "text";
     filePathField = config.hasPath("file_path_field") ? config.getString("file_path_field") : null;

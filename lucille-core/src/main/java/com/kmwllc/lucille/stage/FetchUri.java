@@ -1,12 +1,14 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.ExponentialBackoffRetryHandler;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.StatusCodeResponseInterceptor;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -15,6 +17,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.BoundedInputStream;
@@ -50,6 +53,14 @@ import org.slf4j.LoggerFactory;
  * </ul>
  */
 public class FetchUri extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("source", "dest")
+      .optionalString("size_suffix", "status_suffix", "error_suffix")
+      .optionalNumber("max_retries", "initial_expiry_ms", "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "max_size")
+      .optionalList("status_code_retry_list", new TypeReference<List<String>>(){})
+      .optionalParent("headers", new TypeReference<Map<String, Object>>(){}).build();
+
   private static final Logger log = LoggerFactory.getLogger(FetchUri.class);
 
   private final String source;
@@ -70,10 +81,7 @@ public class FetchUri extends Stage {
   private CloseableHttpClient client;
 
   public FetchUri(Config config) {
-    super(config, Spec.stage().withRequiredProperties("source", "dest")
-        .withOptionalProperties("size_suffix", "status_suffix", "max_size", "error_suffix", "max_retries", "initial_expiry_ms",
-            "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "status_code_retry_list")
-        .withOptionalParentNames("headers"));
+    super(config);
 
     this.source = config.getString("source");
     this.dest = config.getString("dest");

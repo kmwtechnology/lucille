@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,10 +28,14 @@ import java.util.Map;
  * Config Parameters -
  * <ul>
  *   <li>fieldMapping (Map&lt;String, List&lt;String&gt;&gt;) : A mapping of the XPath expression to the list of fields to place the evaluated expression in.</li>
- *   <li>xmlField (String) : The name of the document field which contains the XML field: defaults to "xml".</li>
+ *   <li>xmlField (String, Optional) : The name of the document field which contains the XML field: defaults to "xml".</li>
  * </ul>
  */
 public class XPathExtractor extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("xmlField")
+      .requiredParent("fieldMapping", new TypeReference<Map<String, List<String>>>(){}).build();
 
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
@@ -45,9 +51,7 @@ public class XPathExtractor extends Stage {
    * @param config
    */
   public XPathExtractor(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("xmlField")
-        .withRequiredParentNames("fieldMapping"));
+    super(config);
 
     xpaths = config.getConfig("fieldMapping").root().unwrapped();
     factory = DocumentBuilderFactory.newInstance();

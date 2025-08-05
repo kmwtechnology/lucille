@@ -2,11 +2,12 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -25,6 +26,10 @@ import org.slf4j.LoggerFactory;
  */
 public class ParseFloats extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("field")
+      .optionalString("dest").build();
+
   private final String field;
   private final String dest;
   private static final Logger log = LoggerFactory.getLogger(ParseFloats.class);
@@ -32,7 +37,7 @@ public class ParseFloats extends Stage {
   private static final TypeReference<List<Float>> TYPE_REFERENCE = new TypeReference<List<Float>>() {};
 
   public ParseFloats(Config config) {
-    super(config, Spec.stage().withRequiredProperties("field").withOptionalProperties("dest"));
+    super(config);
     this.field = config.getString("field");
     this.dest = ConfigUtils.getOrDefault(config, "dest", null);
   }

@@ -40,22 +40,7 @@
     <dependency>
       <groupId>co.elastic.clients</groupId>
       <artifactId>elasticsearch-java</artifactId>
-      <version>8.6.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.elasticsearch.client</groupId>
-      <artifactId>elasticsearch-rest-high-level-client</artifactId>
-      <version>${elasticsearch-rest-high-level-client.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.elasticsearch</groupId>
-          <artifactId>elasticsearch</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.elasticsearch.client</groupId>
-          <artifactId>elasticsearch-rest-client</artifactId>
-        </exclusion>
-      </exclusions>
+      <version>${elasticsearch.version}</version>
     </dependency>
 
   <!-- dependency to allow json logging for log4j -->
@@ -379,6 +364,12 @@
       <groupId>com.apptasticsoftware</groupId>
       <artifactId>rssreader</artifactId>
       <version>3.9.3</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.chavaillaz</groupId>
+      <artifactId>opensearch-log4j-appender</artifactId>
+      <version>1.0.1</version>
     </dependency>
   </dependencies>
 

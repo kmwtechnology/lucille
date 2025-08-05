@@ -1,11 +1,13 @@
 package com.kmwllc.lucille.connector.jdbc;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import java.util.concurrent.TimeUnit;
@@ -69,11 +71,17 @@ public class DatabaseConnector extends AbstractConnector {
   // TODO: consider moving this down to the base connector class.
   //  private ConnectorState state = null;
 
+  public static final Spec SPEC = SpecBuilder.connector()
+      .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
+      .optionalString("preSQL", "postSQL")
+      .optionalNumber("fetchSize", "connectionRetries", "connectionRetryPause")
+      .optionalList("otherSQLs", new TypeReference<List<String>>(){})
+      .optionalList("otherJoinFields", new TypeReference<List<String>>(){})
+      .optionalList("ignoreColumns", new TypeReference<List<String>>(){}).build();
+
   // The constructor that takes the config.
   public DatabaseConnector(Config config) {
-    super(config, Spec.connector()
-        .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql", "idField")
-        .withOptionalProperties("fetchSize", "preSQL", "postSQL", "otherSQLs", "otherJoinFields", "ignoreColumns", "connectionRetries", "connectionRetryPause"));
+    super(config);
 
     // required config
     driver = config.getString("driver");
@@ -88,8 +96,8 @@ public class DatabaseConnector extends AbstractConnector {
     // For MYSQL this should be set to Integer.MIN_VALUE to avoid buffering the full resultset in memory.
     // The behavior of this parameter varies from driver to driver, often it defaults to 0.
     fetchSize = config.hasPath("fetchSize") ? config.getInt("fetchSize") : null;
-    preSql = ConfigUtils.getOrDefault(config, "preSql", null);
-    postSql = ConfigUtils.getOrDefault(config, "postSql", null);
+    preSql = ConfigUtils.getOrDefault(config, "preSQL", null);
+    postSql = ConfigUtils.getOrDefault(config, "postSQL", null);
     if (config.hasPath("otherSQLs")) {
       otherSQLs = config.getStringList("otherSQLs");
       otherJoinFields = config.getStringList("otherJoinFields");

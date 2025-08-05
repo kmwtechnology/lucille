@@ -1,13 +1,15 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.jayway.jsonpath.*;
 import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.io.ByteArrayInputStream;
@@ -34,6 +36,12 @@ import nl.altindag.ssl.util.internal.StringUtils;
  * </ul>
  */
 public class ParseJson extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("src")
+      .optionalBoolean("sourceIsBase64")
+      .requiredParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {}).build();
+
   private static final Base64.Decoder DECODER = Base64.getDecoder();
 
   private final String src;
@@ -44,10 +52,7 @@ public class ParseJson extends Stage {
   private ParseContext jsonParseCtx;
 
   public ParseJson(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("src")
-        .withOptionalProperties("sourceIsBase64")
-        .withRequiredParentNames("jsonFieldPaths"));
+    super(config);
 
     this.src = config.getString("src");
     this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();

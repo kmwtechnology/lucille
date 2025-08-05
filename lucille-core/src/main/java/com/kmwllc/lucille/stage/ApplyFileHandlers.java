@@ -1,13 +1,15 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
@@ -47,6 +49,12 @@ import org.apache.commons.io.FilenameUtils;
  * </ul>
  */
 public class ApplyFileHandlers extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){})
+      .optionalParent(FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.S3_PARENT_SPEC)
+      .optionalString("filePathField", "fileContentField").build();
+
   private final Config fileHandlersConfig;
 
   private final String filePathField;
@@ -60,14 +68,7 @@ public class ApplyFileHandlers extends Stage {
    * @param config Configuration for the ApplyFileHandlers stage.
    */
   public ApplyFileHandlers(Config config) {
-    super(config, Spec.stage()
-        .withRequiredParentNames("fileHandlers")
-        .withOptionalParents(
-            FileConnector.GCP_PARENT_SPEC,
-            FileConnector.AZURE_PARENT_SPEC,
-            FileConnector.S3_PARENT_SPEC
-        )
-        .withOptionalProperties("filePathField", "fileContentField"));
+    super(config);
 
     this.fileHandlersConfig = config.getConfig("fileHandlers");
     if (fileHandlersConfig.isEmpty()) {

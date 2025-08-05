@@ -4,7 +4,8 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;
@@ -18,10 +19,14 @@ import java.util.stream.Collectors;
 /**
  * An operation that can be performed on a Document.<br>
  * This abstract class provides some base functionality which should be applicable to all Stages.
- * <br>
- * <br>
  *
- * Config Parameters (Conditions):
+ * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the Stage's properties. This Spec will be accessed
+ * reflectively in the super constructor, so the Stage will not function without declaring a Spec. The Config provided
+ * to <code>super()</code> will be validated against the Spec. Validation errors will reference the Stage's <code>name</code>.
+ *
+ * <p> A {@link SpecBuilder#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
+ *
+ * <p> Config Parameters (Conditions):
  * <ul>
  *   <li>fields (List&lt;String&gt;, Optional) : The fields which will be used to determine if
  *       this stage should be applied. Turns off conditional execution by default.
@@ -30,20 +35,11 @@ import java.util.stream.Collectors;
  *   <li>operator (String, Optional) : The operator to determine conditional execution.
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
- *
- * All stages will have their configuration, including conditions, validated by {@link Spec#validate(Config, String)}. In the Stage constructor, define
- * the required/optional properties/parents via a StageSpec. Any error messages regarding the Stage's Config will include the stage's
- * display name. A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  */
 public abstract class Stage {
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  private static final List<ParentSpec> EMPTY_LIST = Collections.emptyList();
-  private static final List<String> CONDITIONS_OPTIONAL = List.of("operator", "values");
-  private static final List<String> CONDITIONS_REQUIRED = List.of("fields");
-
   protected Config config;
-  private final Spec spec;
   private final Predicate<Document> condition;
   private String name;
 
@@ -57,10 +53,6 @@ public abstract class Stage {
    * @param config The configuration for the Stage.
    */
   public Stage(Config config) {
-    this(config, Spec.stage());
-  }
-
-  protected Stage(Config config, Spec spec) {
     if (config == null) {
       throw new IllegalArgumentException("Config cannot be null");
     }
@@ -68,10 +60,9 @@ public abstract class Stage {
     this.name = ConfigUtils.getOrDefault(config, "name", null);
 
     this.config = config;
-    this.spec = spec;
 
-    // validates the config as well as any potential conditions. throws an IllegalArgumentException if invalid.
-    validateConfigAndConditions();
+    // A spec.stage() validates the stage config AND the conditions as well
+    getSpec().validate(config, getDisplayName());
 
     this.condition = getMergedConditions();
   }
@@ -96,6 +87,14 @@ public abstract class Stage {
       return conditions.stream().reduce(c -> true, Predicate::and);
     } else {
       throw new IllegalArgumentException("Unsupported condition policy: " + conditionPolicy);
+    }
+  }
+
+  public Spec getSpec() {
+    try {
+      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
     }
   }
 
@@ -325,23 +324,7 @@ public abstract class Stage {
     return config;
   }
 
-  /**
-   * Throws an exception if this stage's config, or its conditions, are not valid
-   * @throws IllegalArgumentException If the config is not valid.
-   */
-  private void validateConfigAndConditions() {
-    spec.validate(config, getDisplayName());
-
-    // validate conditions
-    if (config.hasPath("conditions")) {
-      for (Config condition : config.getConfigList("conditions")) {
-        Spec.validateConfig(condition, getDisplayName() + "'s Condition", CONDITIONS_REQUIRED, CONDITIONS_OPTIONAL, EMPTY_LIST,
-            EMPTY_LIST);
-      }
-    }
-  }
-
   public Set<String> getLegalProperties() {
-    return spec.getLegalProperties();
+    return getSpec().getLegalProperties();
   }
 }
