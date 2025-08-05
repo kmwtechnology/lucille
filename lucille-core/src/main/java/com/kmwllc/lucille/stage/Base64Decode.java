@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
 
 import org.apache.commons.codec.binary.Base64;
@@ -19,8 +20,8 @@ import com.typesafe.config.Config;
  */
 public class Base64Decode extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
-      .requiredString("input_field", "output_field");
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("input_field", "output_field").build();
 
   private String inputField;
   private String outputField;

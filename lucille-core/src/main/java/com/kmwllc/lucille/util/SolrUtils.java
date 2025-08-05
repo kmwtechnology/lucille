@@ -3,7 +3,7 @@ package com.kmwllc.lucille.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map.Entry;
@@ -24,12 +24,12 @@ import org.slf4j.LoggerFactory;
  */
 public class SolrUtils {
 
-  public static final ParentSpec SOLR_PARENT_SPEC = Spec.parent("solr")
+  public static final Spec SOLR_PARENT_SPEC = SpecBuilder.parent("solr")
       .requiredList("url", new TypeReference<List<String>>() {})
       .optionalString("zkChroot", "defaultCollection", "userName", "password")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
       .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
-      .optionalList("zkHosts", new TypeReference<List<String>>(){});
+      .optionalList("zkHosts", new TypeReference<List<String>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(SolrUtils.class);
 

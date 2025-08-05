@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 
@@ -40,12 +41,12 @@ import java.util.regex.Pattern;
  */
 public class ApplyRegex extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .requiredString("regex")
       .optionalString("update_mode")
-      .optionalBoolean("ignore_case", "multiline", "dotall", "literal");
+      .optionalBoolean("ignore_case", "multiline", "dotall", "literal").build();
 
   private final List<String> sourceFields;
   private final List<String> destFields;

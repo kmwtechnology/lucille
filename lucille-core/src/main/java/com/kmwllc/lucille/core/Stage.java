@@ -5,6 +5,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.collections4.iterators.IteratorChain;
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
  * reflectively in the super constructor, so the Stage will not function without declaring a Spec. The Config provided
  * to <code>super()</code> will be validated against the Spec. Validation errors will reference the Stage's <code>name</code>.
  *
- * <p> A {@link Spec#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
+ * <p> A {@link SpecBuilder#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
  *
  * <p> Config Parameters (Conditions):
  * <ul>

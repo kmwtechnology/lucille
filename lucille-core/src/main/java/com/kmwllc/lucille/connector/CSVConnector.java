@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.File;
@@ -32,12 +33,12 @@ public class CSVConnector extends AbstractConnector {
   private final String moveToAfterProcessing;
   private final String moveToErrorFolder;
 
-  public static final Spec SPEC = Spec.connector()
+  public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("path")
       .optionalString("moveToAfterProcessing", "moveToErrorFolder", "lineNumberField", "filenameField", "filePathField",
           "idField", "docIdFormat", "separatorChar")
       .optionalBoolean("useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields")
-      .optionalList("ignoredTerms", new TypeReference<List<String>>(){});
+      .optionalList("ignoredTerms", new TypeReference<List<String>>(){}).build();
 
   public CSVConnector(Config config) {
     super(config);

@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -17,9 +18,9 @@ import java.util.Iterator;
  */
 public class CreateChildrenStage extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalNumber("numChildren", "failAfter", "dropChild")
-      .optionalBoolean("dropParent");
+      .optionalBoolean("dropParent").build();
 
   private final int numChildren;
   private final boolean dropParent;

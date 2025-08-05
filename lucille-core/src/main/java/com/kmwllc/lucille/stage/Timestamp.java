@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.time.Instant;
@@ -20,7 +21,7 @@ import java.util.Iterator;
  */
 public class Timestamp extends Stage {
 
-  public static final Spec SPEC = Spec.stage().requiredString("dest_field");
+  public static final Spec SPEC = SpecBuilder.stage().requiredString("dest_field").build();
 
   private final String destField;
 

@@ -2,7 +2,7 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 
 public class JsonFileHandler extends BaseFileHandler {
 
-  public static final Spec SPEC = Spec.fileHandler();
+  public static final Spec SPEC = SpecBuilder.fileHandler().build();
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 

@@ -1,19 +1,16 @@
 package com.kmwllc.lucille.core.spec;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 
 public class ObjectProperty extends Property {
 
   private final TypeReference<?> typeReference;
-  private final ParentSpec parentSpec;
+  private final Spec parentSpec;
 
-  public ObjectProperty(ParentSpec parentSpec, boolean required) {
+  public ObjectProperty(Spec parentSpec, boolean required) {
     this(parentSpec, required, null);
   }
 
@@ -28,8 +25,8 @@ public class ObjectProperty extends Property {
     this.typeReference = type;
   }
 
-  public ObjectProperty(ParentSpec parentSpec, boolean required, String description) {
-    super(parentSpec.getParentName(), required, description);
+  public ObjectProperty(Spec parentSpec, boolean required, String description) {
+    super(parentSpec.getName(), required, description);
 
     this.parentSpec = parentSpec;
     this.typeReference = null;

@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -14,10 +15,10 @@ import java.util.Random;
 
 public class RandomVector extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("fields", new TypeReference<List<String>>(){})
       .requiredNumber("dimensions")
-      .optionalString("update_mode");
+      .optionalString("update_mode").build();
 
   private final List<String> fields;
   private final int dimensions;

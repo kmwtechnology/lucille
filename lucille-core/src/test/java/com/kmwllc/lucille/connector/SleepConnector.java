@@ -3,13 +3,14 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 public class SleepConnector extends AbstractConnector {
 
   private final int duration;
 
-  public static final Spec SPEC = Spec.connector().requiredNumber("duration");
+  public static final Spec SPEC = SpecBuilder.connector().requiredNumber("duration").build();
 
   public SleepConnector(Config config) {
     super(config);

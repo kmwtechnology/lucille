@@ -11,6 +11,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
@@ -22,12 +23,12 @@ import java.util.List;
 
 public class ElasticsearchLookup extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent(ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .optionalString("update_mode")
-      .optionalString("update_mode");
+      .optionalString("update_mode").build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 

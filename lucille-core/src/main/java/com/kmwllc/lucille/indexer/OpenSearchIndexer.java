@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
@@ -38,9 +39,9 @@ import org.slf4j.LoggerFactory;
 
 public class OpenSearchIndexer extends Indexer {
 
-  public static final Spec SPEC = Spec.indexer()
+  public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
-      .optionalBoolean("update", "acceptInvalidCert");
+      .optionalBoolean("update", "acceptInvalidCert").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 

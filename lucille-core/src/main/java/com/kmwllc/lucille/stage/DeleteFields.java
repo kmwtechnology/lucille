@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -18,7 +19,7 @@ import java.util.List;
  */
 public class DeleteFields extends Stage {
 
-  public static final Spec SPEC = Spec.stage().requiredList("fields", new TypeReference<List<String>>(){});
+  public static final Spec SPEC = SpecBuilder.stage().requiredList("fields", new TypeReference<List<String>>(){}).build();
 
   private final List<String> fields;
 

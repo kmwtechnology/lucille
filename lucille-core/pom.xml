@@ -372,6 +372,11 @@
       <version>4.8.158</version>
     </dependency>
 
+    <dependency>
+      <groupId>com.chavaillaz</groupId>
+      <artifactId>opensearch-log4j-appender</artifactId>
+      <version>1.0.1</version>
+    </dependency>
   </dependencies>
 
 

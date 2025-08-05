@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
@@ -56,13 +57,13 @@ public class SolrConnector extends AbstractConnector {
   private final String idField;
   private final String actionFormat;
 
-  public static final Spec SPEC = Spec.connector()
+  public static final Spec SPEC = SpecBuilder.connector()
       .requiredParent(SolrUtils.SOLR_PARENT_SPEC)
       .optionalParent("solrParams", new TypeReference<Map<String, Object>>(){})
       .optionalList("preActions", new TypeReference<List<String>>(){})
       .optionalList("postActions", new TypeReference<List<String>>(){})
       .optionalBoolean("useXml")
-      .optionalString("idField");
+      .optionalString("idField").build();
 
   public SolrConnector(Config config) {
     this(config, SolrUtils.getSolrClient(config));
