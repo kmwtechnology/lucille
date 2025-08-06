@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
@@ -47,12 +48,12 @@ import org.xml.sax.SAXException;
  */
 public class TextExtractor extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("text_field", "file_path_field", "byte_array_field", "tika_config_path", "metadata_prefix")
       .optionalList("metadata_whitelist", new TypeReference<List<String>>(){})
       .optionalList("metadata_blacklist", new TypeReference<List<String>>(){})
       .optionalNumber("text_content_limit")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
   private String textField;

@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.ArrayList;
@@ -17,12 +18,12 @@ import java.util.List;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>fields (List&lt;String&gt;) : The list of fields to trim whitespace from.</li>
+ *   <li>fields (List&lt;String&gt;) : The list of fields to trim whitespace from.</li>
  * </ul>
  */
 public class TrimWhitespace extends Stage {
 
-  public static final Spec SPEC = Spec.stage().requiredList("fields", new TypeReference<List<String>>(){});
+  public static final Spec SPEC = SpecBuilder.stage().requiredList("fields", new TypeReference<List<String>>(){}).build();
 
   private final List<String> fields;
 

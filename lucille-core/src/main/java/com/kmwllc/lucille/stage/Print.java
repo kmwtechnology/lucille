@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
@@ -19,24 +20,24 @@ import java.util.List;
 
 /**
  * Logs all received documents in JSON format and/or writes them to a designated file.
- * <p> Config Parameters -
+ * <p>
+ * Config Parameters -
  * <ul>
- *   <li>shouldLog (Boolean, Optional): Whether to log the document in JSON format at INFO level. Defaults to true.</li>
- *   <li>outputFile (String, Optional): A file to append the documents to (will be created if it doesn't already exist).</li>
- *   <li>excludeFields (List&lt;String&gt;, Optional): A list of fields to exclude from the output.</li>
- *   <li>overwriteFile (Boolean, Optional): Whether the output file's contents should be overwritten if they already exist. Defaults to true.</li>
- *   <li>appendThreadName (Boolean, Optional): Whether the current thread's name should be appended to the outputFile's filename, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to true.</li>
+ *   <li>shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.</li>
+ *   <li>outputFile (String, Optional) : A file to append the documents to (will be created if it doesn't already exist).</li>
+ *   <li>excludeFields (List&lt;String&gt;, Optional) : A list of fields to exclude from the output.</li>
+ *   <li>overwriteFile (Boolean, Optional) : Whether the output file's contents should be overwritten if they already exist. Defaults to true.</li>
+ *   <li>appendThreadName (Boolean, Optional) : Whether the current thread's name should be appended to the outputFile's filename, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to true.</li>
  * </ul>
- *
  * <p> <b>Note:</b> If you have multiple worker threads, it is highly recommended that you keep <code>appendThreadName</code> enabled
  * to ensure thread-safe file writes and prevent data corruption - <i>especially</i> if <code>overwriteFile</code> is enabled.
  */
 public class Print extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalBoolean("shouldLog", "overwriteFile", "appendThreadName")
       .optionalString("outputFile")
-      .optionalList("excludeFields", new TypeReference<List<String>>(){});
+      .optionalList("excludeFields", new TypeReference<List<String>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(Print.class);
 

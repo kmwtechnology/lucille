@@ -11,6 +11,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import io.github.ollama4j.OllamaAPI;
 import io.github.ollama4j.models.chat.OllamaChatMessageRole;
@@ -23,54 +24,50 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p> A stage for sending a Document to an LLM for general enrichment via the use of a system prompt, with particular support for
+ * A stage for sending a Document to an LLM for general enrichment via the use of a system prompt, with particular support for
  * JSON-based responses.
- *
- * <p> To use the stage, you'll specify some Ollama Server config (hostURL, modelName) and a systemPrompt, detailing to the LLM of your
+ * <p>
+ * To use the stage, you'll specify some Ollama Server config (hostURL, modelName) and a systemPrompt, detailing to the LLM of your
  * choice what you would like it to do with the document you provide. (For example, ask it to extract all the person names in the Document,
  * or to provide a brief summary, etc.) If your system prompt has the LLM output JSON, the fields in that JSON will be integrated into
  * the Lucille Document. If not, and requireJSON is set to false, the LLM's response will be placed into the "ollamaResponse" field.
  * Fields will be updated in accordance with the given update_mode, defaulting to overwriting any existing fields if they are present
  * on both the Document and the LLM's response.
- *
- * <p> It is recommended that you instruct your LLM to output JSON, for two primary reasons:
+ * <p>
+ * It is recommended that you instruct your LLM to output JSON, for two primary reasons:
  *   <br> 1. Many LLMs tend to respond better to system prompts involving JSON.
  *   <br> 2. Lucille can automatically add the fields from the response to your Document.
- *
- * <p> Parameters:
- *
- *  <p> hostURL (String): A URL to your ollama server.
- *  <p> modelName (String): The name of the model you want to communicate with. See https://ollama.ai/library for available models/
- *  the appropriate names to use.
- *  <p> timeout (Long, Optional): How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
- *  Uses Ollama's default of 10 seconds when not specified. You may want to increase the timeout if your Lucille Configuration
- *  uses multiple Worker threads (and you are working with Ollama locally).
- *
- *  <p> systemPrompt (String, Optional): The system prompt you want to provide to your LLM. Defaults to using no system prompt,
- *  as you may be using a model created from a Modelfile with a System Prompt already specified.
- *  <p> <b>Note:</b> It is recommended that you instruct your LLM to format its output as a JSON object, even if you are only
- *  asking for a single piece of information (like a summary).
- *
- *  <p> fields (list of Strings, Optional): The fields in the document you want to be sent to the LLM. If the list is empty or not specified,
- *  defaults to sending the entire Document to the LLM for enriching.
- *
- *  <p> requireJSON (Boolean, Optional): Whether you are requiring and expecting the LLM to output a JSON-only response. When true,
- *  Lucille will throw an Exception upon receiving a non-JSON response from the LLM. When false, Lucille will place the response's
- *  raw contents into the "ollamaResponse" field. Additionally, when set to true, your Ollama chat request will have <code>format: "json"</code>
- *  to prevent errors with Markdown formatting. Defaults to false.
- *
- *  <p> update_mode (String, Optional): How you want Lucille to update the fields in your Document, based on what it extracts from a JSON
- *  based response. Has no effect on a textual response placed in "ollamaResponse" - that will always overwrite any existing data.
- *  Should be one of "append", "overwrite", or "skip". Defaults to overwrite.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>hostURL (String) : A URL to your ollama server.</li>
+ *   <li>modelName (String) : The name of the model you want to communicate with. See https://ollama.ai/library for available models/
+ *   the appropriate names to use.</li>
+ *   <li>timeout (Long, Optional) : How long you want to wait for a request to be processed before failing. Passed directly to Ollama.
+ *   Uses Ollama's default of 10 seconds when not specified. You may want to increase the timeout if your Lucille Configuration
+ *   uses multiple Worker threads (and you are working with Ollama locally).</li>
+ *   <li>systemPrompt (String, Optional) : The system prompt you want to provide to your LLM. Defaults to using no system prompt,
+ *   as you may be using a model created from a Modelfile with a System Prompt already specified. <p><b>Note:</b> It is recommended
+ *   that you instruct your LLM to format its output as a JSON object, even if you are only asking for a single piece of information (like a summary).</li>
+ *   <li>fields (list of Strings, Optional) : The fields in the document you want to be sent to the LLM. If the list is empty or not specified,
+ *   defaults to sending the entire Document to the LLM for enriching.</li>
+ *   <li>requireJSON (Boolean, Optional) : Whether you are requiring and expecting the LLM to output a JSON-only response. When true,
+ *   Lucille will throw an Exception upon receiving a non-JSON response from the LLM. When false, Lucille will place the response's
+ *   raw contents into the "ollamaResponse" field. Additionally, when set to true, your Ollama chat request will have <code>format: "json"</code>
+ *   to prevent errors with Markdown formatting. Defaults to false.</li>
+ *   <li>update_mode (String, Optional) : How you want Lucille to update the fields in your Document, based on what it extracts from a JSON
+ *   based response. Has no effect on a textual response placed in "ollamaResponse" - that will always overwrite any existing data.
+ *   Should be one of "append", "overwrite", or "skip". Defaults to overwrite.</li>
+ * </ul>
  */
 public class PromptOllama extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("hostURL", "modelName")
       .optionalNumber("timeout")
       .optionalBoolean("requireJSON")
       .optionalString("systemPrompt", "update_mode")
-      .optionalList("fields", new TypeReference<List<String>>() {});
+      .optionalList("fields", new TypeReference<List<String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(PromptOllama.class);
   private static final ObjectMapper mapper = new ObjectMapper();

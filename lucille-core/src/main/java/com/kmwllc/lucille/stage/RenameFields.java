@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -15,18 +16,19 @@ import java.util.Map.Entry;
 /**
  * Renames a given set of source fields to a given set of destination fields. You must specify the same
  * number of source and destination fields.
- *
- * Config Parameters:
- *
- *   - fieldMapping (Map&lt;String, String&gt;) : A 1-1 mapping of original field names to new field names.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- *       Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>fieldMapping (Map&lt;String, String&gt;) : A 1-1 mapping of original field names to new field names.</li>
+ *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
+ * </ul>
  */
 public class RenameFields extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("update_mode")
-      .requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {});
+      .requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {}).build();
 
   private final Map<String, Object> fieldMap;
   private final UpdateMode updateMode;

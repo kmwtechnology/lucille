@@ -6,18 +6,28 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Generates a random vector of floats for each specified field in the document.
+ * <ul>
+ *   <li>fields(List&lt;String&gt;) : the document field names to populate with random vectors.</li>
+ *   <li>dimensions (int) : the length of each generated float vector.</li>
+ *   <li>update_mode (String, optional) : how to merge the generated vector into the existing document field.
+ *   Defaults to OVERWRITE if unspecified.</li>
+ * </ul>
+ */
 public class RandomVector extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("fields", new TypeReference<List<String>>(){})
       .requiredNumber("dimensions")
-      .optionalString("update_mode");
+      .optionalString("update_mode").build();
 
   private final List<String> fields;
   private final int dimensions;

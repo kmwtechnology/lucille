@@ -36,22 +36,22 @@ Validating a list / object is a bit tricky. When you declare a required / option
 provide:
 
 1. A `TypeReference` describing what the unwrapped List/Object should deserialize/cast to.
-2. A `Spec`, for a list, or a `ParentSpec`, for an object, describing the valid properties. (Use a `Spec` for a list when you need a `List<Config>` with specific structure. For example, `Stage` conditions.)
+2. A `Spec`, for a list, or a named Spec (created via SpecBuilder.parent()), for an object, describing the valid properties. (Use a `Spec` for a list when you need a `List<Config>` with specific structure. For example, `Stage` conditions.)
 
 ## Parent / Child Validation
 
 Some configs include properties which are objects, containing _even more_ properties. For example, in the `FileConnector`, you
 can specify `fileOptions` - which includes a variety of additional arguments, like `getFileContent`, `handleArchivedFiles`, and more. 
-This is defined in a `ParentSpec`. A `ParentSpec` has a name (the key the config is held under) and has its own required/optional properties.
-The `fileOptions` `ParentSpec` is:
+This is defined in a parent Spec, created via SpecBuilder.parent(), which has a name (the key the config is held under) and has its own required/optional properties.
+The `fileOptions` parent `Spec` is:
 
 ```java
-Spec.parent("fileOptions")
+SpecBuilder.parent("fileOptions")
   .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
-  .optionalString("moveToAfterProcessing", "moveToErrorFolder");
+  .optionalString("moveToAfterProcessing", "moveToErrorFolder").build();
 ```
 
-A `ParentSpec` can be either required or optional. When the parent is present, its properties will be validated against this `ParentSpec`.
+A parent `Spec` can be either required or optional. When the parent is present, its properties will be validated against this parent `Spec`.
 
 There will be times that you can't know what the field names would be in advance. For example, a field mapping of some kind.
 In this case, you should pass in a `TypeReference` describing what type the unwrapped `ConfigObject` should deserialize/cast to.

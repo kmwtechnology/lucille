@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -12,14 +13,16 @@ import java.util.Map;
 
 /**
  * Removes duplicate values from the given list of fields.
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * fieldMapping (Map&lt;String, Object&gt;) : A mapping of fields to remove duplicates from and the field to output the result to.
+ * <ul>
+ *   <li>fieldMapping (Map&lt;String, Object&gt;) : A mapping of fields to remove duplicates from and the field to output the result to.</li>
+ * </ul>
  */
 public class RemoveDuplicateValues extends Stage {
 
-  public static final Spec SPEC = Spec.stage().requiredParent("fieldMapping", new TypeReference<Map<String, Object>>() {});
+  public static final Spec SPEC = SpecBuilder.stage().requiredParent("fieldMapping", new TypeReference<Map<String, Object>>() {})
+      .build();
 
   private final Map<String, Object> fieldMapping;
 

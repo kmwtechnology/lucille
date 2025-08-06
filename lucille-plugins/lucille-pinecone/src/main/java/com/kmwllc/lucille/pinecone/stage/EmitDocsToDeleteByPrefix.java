@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import com.typesafe.config.Config;
 import io.pinecone.clients.Index;
@@ -40,11 +41,11 @@ import java.util.stream.Collectors;
  */
 public class EmitDocsToDeleteByPrefix extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index")
       .optionalBoolean("dropOriginal")
       .optionalString("addPrefix")
-      .optionalParent("namespaces", new TypeReference<Map<String, Object>>(){});
+      .optionalParent("namespaces", new TypeReference<Map<String, Object>>(){}).build();
 
   private Pinecone client;
   private final String indexName;

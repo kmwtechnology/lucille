@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
@@ -27,40 +28,38 @@ import java.util.stream.Collectors;
  * The dictionary file should have a term on each line, and can support providing payloads with the syntax "term, payload".
  * If any occurrences are found, they will be extracted and their associated payloads will be appended to the destination
  * field.
- *
- * Config Parameters:
- *
- *   - source (List&lt;String&gt;) : list of source field names
- *   - dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination fields
- *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
- *       will be searched for the file. Otherwise, the local file system will be searched.
- *   - use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- *   - ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.
- *   - only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be
- *       candidates for matching.  Defaults to false.
- *   - stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit.  Defaults to false.
- *   - only_whole_words (Boolean, Optional) : Determines whether this matcher will trigger for matches contained within
- *       other text. ie "OMAN" in "rOMAN".  Defaults to false.
- *   - ignore_overlaps (Boolean, Optional) : Decides whether overlapping matches should both be extracted or if only the
- *       longer, left most match should be kept.  Defaults to true.
- *
- *   - s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
- *   - azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
- *   - gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>source (List&lt;String&gt;) : list of source field names.</li>
+ *   <li>dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination
+ *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
+ *   <li>dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
+ *   will be searched for the file. Otherwise, the local file system will be searched.</li>
+ *   <li>use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.</li>
+ *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
+ *   <li>ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
+ *   <li>only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be candidates for
+ *   matching.  Defaults to false.</li>
+ *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
+ *   <li>only_whole_words (Boolean, Optional) : Determines whether this matcher will trigger for matches contained within other text.
+ *   ie "OMAN" in "rOMAN".  Defaults to false.</li>
+ *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ * </ul>
  */
 public class ExtractEntities extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("dictionaries", new TypeReference<List<String>>(){})
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .optionalBoolean("ignore_case", "only_whitespace_separated", "stop_on_hit",
           "only_whole_words", "ignore_overlaps", "use_payloads")
       .optionalString("update_mode", "entity_field")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC);
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 

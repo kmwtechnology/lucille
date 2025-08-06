@@ -4,13 +4,14 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
 
 public class ErrorStage extends Stage {
 
-  public static final Spec SPEC = Spec.stage().optionalBoolean("exceptionOnStart");
+  public static final Spec SPEC = SpecBuilder.stage().optionalBoolean("exceptionOnStart").build();
 
   private boolean exceptionOnStart = false;
 

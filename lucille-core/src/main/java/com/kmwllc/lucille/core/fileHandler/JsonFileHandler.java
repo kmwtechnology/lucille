@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import dev.langchain4j.agent.tool.P;
 import java.io.BufferedReader;
@@ -26,10 +26,10 @@ import org.slf4j.LoggerFactory;
 
 public class JsonFileHandler extends BaseFileHandler {
 
-  public static final Spec SPEC = Spec.fileHandler()
+  public static final Spec SPEC = SpecBuilder.fileHandler()
       .optionalString("docIdFormat", "idField")
       .optionalList("idFields", new TypeReference<List<String>>() {
-      });
+      }).build();
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 

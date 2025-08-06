@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import com.typesafe.config.Config;
@@ -14,14 +15,16 @@ import java.util.Map;
 
 /**
  * Determines the length of a field and places the value into a specified field.
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * fieldMapping (Map&lt;String, String&gt;) : A mapping of the field to check the size of to the name of the field to place the length into.
+ * <ul>
+ *   <li>fieldMapping (Map&lt;String, String&gt;) : A mapping of the field to check the size of to the name of the field to place the length into.</li>
+ * </ul>
  */
 public class Length extends Stage {
 
-  public static final Spec SPEC = Spec.stage().requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {});
+  public static final Spec SPEC = SpecBuilder.stage().requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {})
+      .build();
 
   private final Map<String, Object> fieldMap;
 
