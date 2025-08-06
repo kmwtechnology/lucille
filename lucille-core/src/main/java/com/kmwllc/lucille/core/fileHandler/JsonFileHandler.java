@@ -8,7 +8,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
-import dev.langchain4j.agent.tool.P;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -24,6 +23,14 @@ import org.apache.commons.io.LineIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A file handler for JSON lines.
+ * <p>
+ * Reads each line as a JSON object and builds a {@link Document}.
+ * <p>
+ * <b>Note:</b> if your input JSON has its own "id" field but you've configured a different field for IDs, your original
+ * "id" will be overwritten by the generated one in the documents.
+ */
 public class JsonFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
@@ -97,9 +104,9 @@ public class JsonFileHandler extends BaseFileHandler {
             ObjectNode node = (ObjectNode) mapper.readTree(line);
             List<String> parts = new ArrayList<>(idFields.size());
 
-            for (String f : idFields) {
-              JsonNode v = node.get(f);
-              parts.add((v != null && !v.isNull()) ? v.asText() : "");
+            for (String fieldName : idFields) {
+              JsonNode valueNode = node.get(fieldName);
+              parts.add((valueNode != null && !valueNode.isNull()) ? valueNode.asText() : "");
             }
 
             String rawId = (docIdFormat != null) ? String.format(docIdFormat, parts.toArray()) : String.join("_", parts);
