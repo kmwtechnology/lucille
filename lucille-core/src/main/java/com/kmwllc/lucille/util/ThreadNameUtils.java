@@ -2,6 +2,7 @@ package com.kmwllc.lucille.util;
 
 import java.util.Collection;
 import org.apache.commons.lang3.ThreadUtils;
+import org.apache.commons.lang3.ThreadUtils.ThreadPredicate;
 
 public class ThreadNameUtils {
   public static final String THREAD_NAME_PREFIX = "Lucille";
@@ -29,7 +30,11 @@ public class ThreadNameUtils {
 
   public static boolean areLucilleThreadsRunning() {
     Collection<Thread> nonSystemThreads =
-        ThreadUtils.findThreads(t -> !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup()));
+        ThreadUtils.findThreads(
+            (ThreadPredicate) t ->
+                !ThreadUtils.getSystemThreadGroup().equals(t.getThreadGroup())
+        );
+
 
     for (Thread thread : nonSystemThreads) {
       if (isLucilleThread(thread)) {

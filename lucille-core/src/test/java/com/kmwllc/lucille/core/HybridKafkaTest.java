@@ -10,6 +10,7 @@ import com.kmwllc.lucille.util.CounterUtils;
 import com.kmwllc.lucille.util.RecordingLinkedBlockingQueue;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,13 +34,15 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Before;
-import org.junit.ClassRule;
+import org.junit.BeforeClass;
+import org.junit.AfterClass;
 import org.junit.Test;
 
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.ProducerFactory;
-import org.springframework.kafka.test.rule.EmbeddedKafkaRule;
+import org.springframework.kafka.test.EmbeddedKafkaBroker;
+import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 public class HybridKafkaTest {
@@ -49,8 +52,21 @@ public class HybridKafkaTest {
   // An embedded instance of Kafka is created for this test class -- not for each test. This allowed the test to run
   // ~10 seconds faster. As such, you need to make sure each test has its OWN, UNIQUE topic name, to prevent interference.
   // A fresh producer / consumer is exposed for each test, however.
-  @ClassRule
-  public static final EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
+  public static EmbeddedKafkaBroker embeddedKafka;
+
+  @BeforeClass
+  public static void startKafka() throws Exception {
+    embeddedKafka = new EmbeddedKafkaKraftBroker(1, 1);
+    embeddedKafka.afterPropertiesSet();
+  }
+
+
+  @AfterClass
+  public static void stopKafka() {
+    if (embeddedKafka != null) {
+      embeddedKafka.destroy();
+    }
+  }
 
   private Producer<String, String> producer;
   private Consumer<String, String> consumer;
@@ -58,15 +74,16 @@ public class HybridKafkaTest {
   @Before
   public void setUp() {
     Map<String, Object> producerProps =
-        KafkaTestUtils.producerProps(embeddedKafka.getEmbeddedKafka());
+        KafkaTestUtils.producerProps(embeddedKafka);
     producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    producerProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, false);
 
     ProducerFactory<String, String> pf =
         new DefaultKafkaProducerFactory<>(producerProps);
     producer = pf.createProducer();
 
-    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("alternate_group", "false", embeddedKafka.getEmbeddedKafka());
+    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(embeddedKafka, "alternate_group", false);
     consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 
@@ -74,12 +91,21 @@ public class HybridKafkaTest {
     consumer = cf.createConsumer();
   }
 
+  private static Config loadTestConfig(String path) {
+    String brokers = embeddedKafka.getBrokersAsString();
+    Config base = ConfigFactory.load(path);
+    return ConfigFactory.empty()
+        .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
+        .withFallback(base);
+  }
+
   @Test
   public void testRunInHybridMode() throws Exception {
-    Config config = ConfigFactory.load("HybridKafkaTest/childrenConfig.conf");
+    Config config = loadTestConfig("HybridKafkaTest/childrenConfig.conf");
+
     String topicName = config.getString("kafka.sourceTopic");
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic(topicName, 1, (short) 1));
+    embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
 
     // send doc - doc1
     sendDoc("doc1", topicName);
@@ -134,10 +160,11 @@ public class HybridKafkaTest {
   @Test
   public void testRunInKafkaHybridModeWithEvents() throws Exception {
     // this config has "kafka.events: true"
-    Config config = ConfigFactory.load("HybridKafkaTest/childrenConfigWithEvents.conf");
+    Config config = loadTestConfig("HybridKafkaTest/childrenConfigWithEvents.conf");
+
     String topicName = config.getString("kafka.sourceTopic");
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic(topicName, 1, (short) 1));
+    embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
 
     sendDoc("doc1", RUN_ID, topicName);
 
@@ -177,10 +204,11 @@ public class HybridKafkaTest {
 
   @Test
   public void testTwoWorkerIndexerPairs() throws Exception {
-    Config config = ConfigFactory.load("HybridKafkaTest/noopConfig.conf");
+    Config config = loadTestConfig("HybridKafkaTest/noopConfig.conf");
+
     String topicName = config.getString("kafka.sourceTopic");
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic(topicName, 2, (short) 1));
+    embeddedKafka.addTopics(new NewTopic(topicName, 2, (short) 1));
 
     for (int i = 0; i < 500; i++) {
       sendDoc("doc" + i, topicName);
@@ -326,10 +354,11 @@ public class HybridKafkaTest {
   @Test
   public void testCustomDeserializer() throws Exception {
     // documentDeserializer: "com.kmwllc.com.kmwllc.lucille.core.NonstandardDocumentDeserializer"
-    Config config = ConfigFactory.load("HybridKafkaTest/customDeserializer.conf");
+    Config config = loadTestConfig("HybridKafkaTest/customDeserializer.conf");
+
     String topicName = config.getString("kafka.sourceTopic");
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic(topicName, 1, (short) 1));
+    embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
 
     // inputJson does not have the "id" field required for creating a KafkaDocument
     String inputJson = "{\"myId\":\"doc1\", \"field1\":\"value1\"}";
@@ -359,10 +388,11 @@ public class HybridKafkaTest {
 
   @Test
   public void testWorkerIndexerPool() throws Exception {
-    Config config = ConfigFactory.load("HybridKafkaTest/poolConfig.conf");
+    Config config = loadTestConfig("HybridKafkaTest/poolConfig.conf");
+
     String topicName = config.getString("kafka.sourceTopic");
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic(topicName, 5, (short) 1));
+    embeddedKafka.addTopics(new NewTopic(topicName, 5, (short) 1));
 
     Set<String> idSet = CounterUtils.getThreadSafeSet();
     WorkerIndexerPool pool =
@@ -410,10 +440,10 @@ public class HybridKafkaTest {
   @Test
   public void testSourceTopicWildcard() throws Exception {
     // topicName: "test_wildcard_topic.*"
-    Config config = ConfigFactory.load("HybridKafkaTest/sourceTopicWildcard.conf");
+    Config config = loadTestConfig("HybridKafkaTest/sourceTopicWildcard.conf");
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic1", 1, (short) 1));
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic2", 1, (short) 1));
+    embeddedKafka.addTopics(new NewTopic("test_wildcard_topic1", 1, (short) 1));
+    embeddedKafka.addTopics(new NewTopic("test_wildcard_topic2", 1, (short) 1));
 
     sendDoc("doc1", "test_wildcard_topic1");
     sendDoc("doc2", "test_wildcard_topic2");
@@ -431,8 +461,8 @@ public class HybridKafkaTest {
 
     CounterUtils.waitUnique(idSet, 2, 20000, CounterUtils.DEFAULT_END_LAG_MS);
 
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic3", 1, (short) 1));
-    embeddedKafka.getEmbeddedKafka().addTopics(new NewTopic("test_wildcard_topic4", 1, (short) 1));
+    embeddedKafka.addTopics(new NewTopic("test_wildcard_topic3", 1, (short) 1));
+    embeddedKafka.addTopics(new NewTopic("test_wildcard_topic4", 1, (short) 1));
     sendDoc("doc3", "test_wildcard_topic3");
     sendDoc("doc4", "test_wildcard_topic4");
 
@@ -485,7 +515,8 @@ public class HybridKafkaTest {
 
   @Test
   public void testSettingEventTopic() {
-    Config config = ConfigFactory.load("HybridKafkaTest/eventTopic.conf");
+    Config config = loadTestConfig("HybridKafkaTest/eventTopic.conf");
+
     String eventTopic = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
 
     assertEquals("test_setting_event_topic", eventTopic);
