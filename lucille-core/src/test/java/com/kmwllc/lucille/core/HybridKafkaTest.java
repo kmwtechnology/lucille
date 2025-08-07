@@ -91,13 +91,17 @@ public class HybridKafkaTest {
     consumer = cf.createConsumer();
   }
 
-  @Test
-  public void testRunInHybridMode() throws Exception {
+  private static Config loadTestConfig(String path) {
     String brokers = embeddedKafka.getBrokersAsString();
-    Config base   = ConfigFactory.load("HybridKafkaTest/childrenConfig.conf");
-    Config config = ConfigFactory.empty()
+    Config base = ConfigFactory.load(path);
+    return ConfigFactory.empty()
         .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
         .withFallback(base);
+  }
+
+  @Test
+  public void testRunInHybridMode() throws Exception {
+    Config config = loadTestConfig("HybridKafkaTest/childrenConfig.conf");
 
     String topicName = config.getString("kafka.sourceTopic");
 
@@ -156,11 +160,8 @@ public class HybridKafkaTest {
   @Test
   public void testRunInKafkaHybridModeWithEvents() throws Exception {
     // this config has "kafka.events: true"
-    String brokers = embeddedKafka.getBrokersAsString();
-    Config base   = ConfigFactory.load("HybridKafkaTest/childrenConfigWithEvents.conf");
-    Config config = ConfigFactory.empty()
-        .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
-        .withFallback(base);
+    Config config = loadTestConfig("HybridKafkaTest/childrenConfigWithEvents.conf");
+
     String topicName = config.getString("kafka.sourceTopic");
 
     embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
@@ -203,11 +204,8 @@ public class HybridKafkaTest {
 
   @Test
   public void testTwoWorkerIndexerPairs() throws Exception {
-    String brokers = embeddedKafka.getBrokersAsString();
-    Config base   = ConfigFactory.load("HybridKafkaTest/noopConfig.conf");
-    Config config = ConfigFactory.empty()
-        .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
-        .withFallback(base);
+    Config config = loadTestConfig("HybridKafkaTest/noopConfig.conf");
+
     String topicName = config.getString("kafka.sourceTopic");
 
     embeddedKafka.addTopics(new NewTopic(topicName, 2, (short) 1));
@@ -356,11 +354,8 @@ public class HybridKafkaTest {
   @Test
   public void testCustomDeserializer() throws Exception {
     // documentDeserializer: "com.kmwllc.com.kmwllc.lucille.core.NonstandardDocumentDeserializer"
-    String brokers = embeddedKafka.getBrokersAsString();
-    Config base   = ConfigFactory.load("HybridKafkaTest/customDeserializer.conf");
-    Config config = ConfigFactory.empty()
-        .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
-        .withFallback(base);
+    Config config = loadTestConfig("HybridKafkaTest/customDeserializer.conf");
+
     String topicName = config.getString("kafka.sourceTopic");
 
     embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
@@ -393,11 +388,8 @@ public class HybridKafkaTest {
 
   @Test
   public void testWorkerIndexerPool() throws Exception {
-    String brokers = embeddedKafka.getBrokersAsString();
-    Config base   = ConfigFactory.load("HybridKafkaTest/poolConfig.conf");
-    Config config = ConfigFactory.empty()
-        .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
-        .withFallback(base);
+    Config config = loadTestConfig("HybridKafkaTest/poolConfig.conf");
+
     String topicName = config.getString("kafka.sourceTopic");
 
     embeddedKafka.addTopics(new NewTopic(topicName, 5, (short) 1));
@@ -448,11 +440,7 @@ public class HybridKafkaTest {
   @Test
   public void testSourceTopicWildcard() throws Exception {
     // topicName: "test_wildcard_topic.*"
-    String brokers = embeddedKafka.getBrokersAsString();
-    Config base   = ConfigFactory.load("HybridKafkaTest/sourceTopicWildcard.conf");
-    Config config = ConfigFactory.empty()
-        .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
-        .withFallback(base);
+    Config config = loadTestConfig("HybridKafkaTest/sourceTopicWildcard.conf");
 
     embeddedKafka.addTopics(new NewTopic("test_wildcard_topic1", 1, (short) 1));
     embeddedKafka.addTopics(new NewTopic("test_wildcard_topic2", 1, (short) 1));
@@ -527,11 +515,8 @@ public class HybridKafkaTest {
 
   @Test
   public void testSettingEventTopic() {
-    String brokers = embeddedKafka.getBrokersAsString();
-    Config base   = ConfigFactory.load("HybridKafkaTest/eventTopic.conf");
-    Config config = ConfigFactory.empty()
-        .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
-        .withFallback(base);
+    Config config = loadTestConfig("HybridKafkaTest/eventTopic.conf");
+
     String eventTopic = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
 
     assertEquals("test_setting_event_topic", eventTopic);
