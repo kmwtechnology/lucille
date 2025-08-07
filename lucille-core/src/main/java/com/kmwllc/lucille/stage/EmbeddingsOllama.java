@@ -14,9 +14,10 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 /**
@@ -93,13 +94,13 @@ import com.typesafe.config.Config;
  * @author Kevin M. Butler
  * @since 0.5.7
  * @see com.kmwllc.lucille.stage.ChunkText
- * @see com.kmwllc.lucille.stage.ApplyOpenNLPNameFinders
+ * @see com.kmwllc.lucille.stage.ExtractEntities
  */
 public class EmbeddingsOllama extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("hostURL", "modelName", "chunk_text")
-      .optionalString("update_mode");
+      .optionalString("update_mode").build();
 
   private static final Logger log = LoggerFactory.getLogger(EmbeddingsOllama.class);
   private static final ObjectMapper objectMapper = new ObjectMapper();

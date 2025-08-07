@@ -40,7 +40,7 @@ public class ApplyOpenNLPNameFinders extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("textField", "tokenizerPath")
       .requiredParent("models", new TypeReference<Map<String, String>>(){})
-      .optionalNumber("confidenceThreshold");
+      .optionalNumber("confidenceThreshold").build();
 
   private final String textField;
   private final String tokenizerPath;
