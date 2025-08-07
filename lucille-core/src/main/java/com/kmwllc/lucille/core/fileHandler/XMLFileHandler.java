@@ -89,33 +89,33 @@ public class XMLFileHandler extends BaseFileHandler {
   @Override
   public void processFileAndPublish(Publisher publisher, InputStream inputStream, String pathStr) throws FileHandlerException {
     // set up Factory, parser, reader and handler
-    ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher);
+    ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher, pathStr);
 
     RecordingInputStream ris = new RecordingInputStream(inputStream);
 
-    setEncodingAndParse(xmlHandler, ris);
+    setEncodingAndParse(xmlHandler, ris, pathStr);
   }
 
-  private void setEncodingAndParse(ChunkingXMLHandler xmlHandler, RecordingInputStream ris) throws FileHandlerException {
+  private void setEncodingAndParse(ChunkingXMLHandler xmlHandler, RecordingInputStream ris, String path) throws FileHandlerException {
     ris.setEncoding(encoding);
     try (InputStreamReader inputStreamReader = new InputStreamReader(ris, encoding)) {
       InputSource xmlSource = new InputSource(inputStreamReader);
       xmlHandler.setRis(ris);
       xmlReader.parse(xmlSource);
     } catch (UnsupportedEncodingException e) {
-      throw new FileHandlerException(encoding + " is not supported as an encoding", e);
+      throw new FileHandlerException(String.format("%s is not supported as an encoding. (%s)", encoding, path), e);
     } catch (SAXException | IOException e) {
-      throw new FileHandlerException("Unable to parse", e);
+      throw new FileHandlerException(String.format("Unable to parse. (%s)", path), e);
     }
   }
 
-  private void setUpSAXParserIfNeeded(SAXParserFactory spf) throws FileHandlerException {
+  private void setUpSAXParserIfNeeded(SAXParserFactory spf, String path) throws FileHandlerException {
     if (saxParser == null) {
       try {
         spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, false);
         saxParser = spf.newSAXParser();
       } catch (ParserConfigurationException | SAXException e) {
-        throw new FileHandlerException("SAX Parser Error", e);
+        throw new FileHandlerException(String.format("SAX Parser Error. (%s)", path), e);
       }
     }
   }
@@ -127,13 +127,13 @@ public class XMLFileHandler extends BaseFileHandler {
     }
   }
 
-  private ChunkingXMLHandler setUpParserReaderAndHandlerIfNeeded(Publisher publisher) throws FileHandlerException {
+  private ChunkingXMLHandler setUpParserReaderAndHandlerIfNeeded(Publisher publisher, String path) throws FileHandlerException {
     setUpParserFactoryIfNeeded();
-    setUpSAXParserIfNeeded(spf);
+    setUpSAXParserIfNeeded(spf, path);
     try {
       xmlReader = saxParser.getXMLReader();
     } catch (SAXException e) {
-      throw new FileHandlerException("unable to get XML Reader", e);
+      throw new FileHandlerException(String.format("unable to get XML Reader. (%s)", path), e);
     }
 
     ChunkingXMLHandler xmlHandler;
@@ -141,7 +141,7 @@ public class XMLFileHandler extends BaseFileHandler {
     try {
       xmlHandler = new ChunkingXMLHandler();
     } catch (Exception e) {
-      throw new FileHandlerException("Error setting up ChunkingXMLHandler.", e);
+      throw new FileHandlerException(String.format("Error setting up ChunkingXMLHandler. (%s)", path), e);
     }
 
     if (xmlIdPath != null) {
@@ -152,7 +152,7 @@ public class XMLFileHandler extends BaseFileHandler {
       try {
         xmlHandler.setXpathIdPath(xpathIdPath);
       } catch (XPathExpressionException e) {
-        throw new FileHandlerException("XPath related error with your xpathIdPath.", e);
+        throw new FileHandlerException(String.format("XPath related error with your xpathIdPath. (%s)", path), e);
       }
     }
 

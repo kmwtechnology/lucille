@@ -22,6 +22,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * A file handler for JSON lines.
@@ -60,23 +61,24 @@ public class JsonFileHandler extends BaseFileHandler {
   }
 
   @Override
-  public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
+  public Iterator<Document> processFile(InputStream inputStream, String path) throws FileHandlerException {
     // reader will be closed when the LineIterator is closed in getDocumentIterator
     Reader reader;
 
     try {
       reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
     } catch (Exception e) {
-      throw new FileHandlerException("Error creating reader from file: " + pathStr, e);
+      throw new FileHandlerException(String.format("Error creating reader from file. (%s)", path), e);
     }
 
-    return getDocumentIterator(reader);
+    return getDocumentIterator(reader, path);
   }
 
-  private Iterator<Document> getDocumentIterator(Reader reader) {
+  private Iterator<Document> getDocumentIterator(Reader reader, String path) {
     return new Iterator<Document>() {
       // closing LineIterator closes reader, which closes BufferedReader, InputStreamReader and the InputStream passed into InputStreamReader
       private final LineIterator it = IOUtils.lineIterator(reader);
+      private int lineNum = 0;
 
       @Override
       public boolean hasNext() {
@@ -93,10 +95,17 @@ public class JsonFileHandler extends BaseFileHandler {
         // additional safety check to ensure that the iterator has more lines to process, if hasNext returns false,
         // means we have also closed LineIterator, throw an exception
         if (!hasNext()) {
-          throw new NoSuchElementException("No more lines to process");
+          log.warn("No more lines to process. ({})", path);
+          throw new NoSuchElementException(String.format("No more lines to process. (%s)", path));
         }
 
+        lineNum++;
         String line = it.next();
+
+        if (StringUtils.isBlank(line)) {
+          log.warn("Skipping blank line {}. ({})", lineNum, path);
+          return next();
+        }
         try {
           if (idFields.isEmpty()) {
             return Document.createFromJson(line, idUpdater);
@@ -118,8 +127,9 @@ public class JsonFileHandler extends BaseFileHandler {
           // any errors that occur during the process of creating a document, we close the LineIterator
           // cannot close iterator in finally, as we will called next() again if there are more elements.
           IOUtils.closeQuietly(it);
+          log.error("Error parsing JSON line {}. ({})", lineNum, path, e);
           throw new RuntimeException(
-              "Error creating document, make sure that you have id field(s) properly configured within each line of json", e);
+              String.format("Error creating document, make sure that you have id field(s) properly configured within each line of json. (%s)", path), e);
         }
       }
     };
