@@ -8,6 +8,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -19,19 +20,22 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This stage emits attached children documents, removing them from the parent document. Will skip document if no children are found.
- *
- * Config Parameters:
- * <p> - drop_parent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false
- * <p> - fields_to_copy (Map&lt;String, String&gt;, Optional): map of fields to copy from parent to children. It's a map of the source field name to the destination field name.
- * <p> - update_mode (String, Optional): The methodology by which you want to update fields, particularly for updating
- * multivalued fields on children documents. See {@link UpdateMode} for more information.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>drop_parent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false.</li>
+ *   <li>fields_to_copy (Map&lt;String, String&gt;, Optional): map of fields to copy from parent to children. It's a map of the
+ *   source field name to the destination field name.</li>
+ *   <li>update_mode (String, Optional): The methodology by which you want to update fields, particularly for updating multivalued
+ *   fields on children documents. See {@link UpdateMode} for more information.</li>
+ * </ul>
  */
 public class EmitNestedChildren extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalParent("fields_to_copy", new TypeReference<Map<String, String>>() {})
       .optionalBoolean("drop_parent")
-      .optionalString("update_mode");
+      .optionalString("update_mode").build();
 
   private final boolean dropParent;
   private final Map<String,Object> fieldsToCopy;

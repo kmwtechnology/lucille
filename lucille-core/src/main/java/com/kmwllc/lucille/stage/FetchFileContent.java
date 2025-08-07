@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -14,21 +15,23 @@ import java.util.Iterator;
 
 /**
  * A stage for getting a file's contents (array of bytes) using a FileContentFetcher.
- *
- * filePathField (String, Optional): The document field that contains the file path. Defaults to "file_path". No processing will
- * take place on documents that do not have this field.
- * fileContentField (String, Optional): The document field to write the contents to. Defaults to "file_content".
- * This stage will overwrite any contents associated with this field.
- *
- * s3 (Map, Optional): Add if you will be fetching contents from S3 files. See FileConnector for the appropriate arguments to provide.
- * azure (Map, Optional): Add if you will be fetching contents from Azure files. See FileConnector for the appropriate arguments to provide.
- * gcp (Map, Optional): Add if you will be fetching contents from Google cloud. See FileConnector for the appropriate arguments to provide.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>filePathField (String, Optional) : The document field that contains the file path. Defaults to "file_path". No processing will
+ *   take place on documents that do not have this field.</li>
+ *   <li>fileContentField (String, Optional) : The document field to write the contents to. Defaults to "file_content". This stage will
+ *   overwrite any contents associated with this field.</li>
+ *   <li>s3 (Map, Optional) : Add if you will be fetching contents from S3 files. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>azure (Map, Optional) : Add if you will be fetching contents from Azure files. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>gcp (Map, Optional) : Add if you will be fetching contents from Google cloud. See FileConnector for the appropriate arguments to provide.</li>
+ * </ul>
  */
 public class FetchFileContent extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileContentField")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC);
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC).build();
 
   private final String filePathField;
   private final String fileContentField;

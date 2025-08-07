@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -14,13 +15,13 @@ import java.util.Iterator;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>delimiter (String) : A delimiter to replace spaces, defaults to "_".</li>
- * <li>nonAlphanumReplacement (String) : A replacement for non-alphanumeric characters, defaults to "".</li>
+ *   <li>delimiter (String) : A delimiter to replace spaces, defaults to "_".</li>
+ *   <li>nonAlphanumReplacement (String) : A replacement for non-alphanumeric characters, defaults to "".</li>
  * </ul>
  */
 public class NormalizeFieldNames extends Stage {
 
-  public static final Spec SPEC = Spec.stage().optionalString("delimiter", "nonAlphanumReplacement");
+  public static final Spec SPEC = SpecBuilder.stage().optionalString("delimiter", "nonAlphanumReplacement").build();
 
   private final String delimeter;
   private final String nonAlphanumReplacement;

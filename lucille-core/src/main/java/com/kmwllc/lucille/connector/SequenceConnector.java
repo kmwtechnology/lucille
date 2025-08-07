@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +21,9 @@ import org.slf4j.LoggerFactory;
  */
 public class SequenceConnector extends AbstractConnector {
 
-  public static final Spec SPEC = Spec.connector()
+  public static final Spec SPEC = SpecBuilder.connector()
       .requiredNumber("numDocs")
-      .optionalNumber("startWith");
+      .optionalNumber("startWith").build();
 
   private static final Logger log = LoggerFactory.getLogger(SequenceConnector.class);
   private final long numDocs;

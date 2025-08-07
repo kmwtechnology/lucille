@@ -3,6 +3,7 @@ package com.kmwllc.lucille.pinecone.indexer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import io.pinecone.clients.Pinecone;
 import io.pinecone.proto.UpsertResponse;
@@ -46,11 +47,11 @@ import static io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIn
  */
 public class PineconeIndexer extends Indexer {
 
-  public static final Spec SPEC = Spec.indexer()
+  public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("apiKey", "index")
       .optionalParent("namespaces", new TypeReference<Map<String, Object>>() {})
       .optionalList("metadataFields", new TypeReference<List<String>>(){})
-      .optionalString("mode", "defaultEmbeddingField");
+      .optionalString("mode", "defaultEmbeddingField").build();
 
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
   private static final Integer MAX_PINECONE_BATCH_SIZE = 1000;

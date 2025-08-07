@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
 import java.util.Map;
@@ -24,17 +25,27 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
-
+/**
+ * Evaluates a set of queries against specified text fields in each document and records which queries matched.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>fields(List&lt;String&gt;) : names of text fields in the Lucille document to match against.</li>
+ *   <li>queries (List&lt;Object&gt;) : list of objects each mapping a query name to a query string.</li>
+ *   <li>matchedQueriesField (String, required) : the field name under which to store the list of matched query IDs in the Lucille
+ *   document.</li>
+ * </ul>
+ */
 public class MatchQuery extends Stage {
 
   public static final String FIELDS_PARAM = "fields";
   public static final String QUERIES_PARAM = "queries";
   public static final String MATCHEDQUERIES_PARAM = "matchedQueriesField";
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList(FIELDS_PARAM, new TypeReference<List<String>>(){})
       .requiredList(QUERIES_PARAM, new TypeReference<List<Map<String, Object>>>(){})
-      .requiredString(MATCHEDQUERIES_PARAM);
+      .requiredString(MATCHEDQUERIES_PARAM).build();
 
   // the list of fields to run the queries against
   private final List<String> fieldsList;

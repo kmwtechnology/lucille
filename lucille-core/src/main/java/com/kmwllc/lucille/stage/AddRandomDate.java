@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -15,26 +16,20 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Adds random Dates to documents given parameters.
- *
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * <p>
- * <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data"
- * </p>
- * <p>
- * <b>range_start_date</b> (String, Optional) : Date string in ISO format (2024-12-18) representing the start of the range for
- * generating random dates. Defaults to the start of Epoch time, 1970-1-1
- * </p>
- * <p>
- * <b>range_end_date</b> (String, Optional) : Date string in ISO format (2024-12-18) representing the end of the range for
- * generating random dates. Defaults to today's date/time.
- * </p>
+ * <ul>
+ *   <li>field_name (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
+ *   <li>range_start_date (String, Optional) : Date string in ISO format (2024-12-18) representing the start of the range for
+ *   generating random dates. Defaults to the start of Epoch time, 1970-1-1.</li>
+ *   <li>range_end_date (String, Optional) : Date string in ISO format (2024-12-18) representing the end of the range for
+ *   generating random dates. Defaults to today's date/time.</li>
+ * </ul>
  */
 public class AddRandomDate extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
-      .optionalString("field_name", "range_start_date", "range_end_date");
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("field_name", "range_start_date", "range_end_date").build();
 
   private final String fieldName;
   private final String rangeStartDateString;

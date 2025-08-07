@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.StageUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.text.WordUtils;
@@ -25,22 +26,24 @@ import java.util.regex.Pattern;
  * The desired mode should be set in the configuration file. NOTE: This stage will not preserve any capitalization from
  * the original document. As such, proper nouns, abbreviations and acronyms may not be correctly capitalized after
  * normalization.
- * Config Parameters:
- *
- *   - source (List&lt;String&gt;) : List of source field names.
- *   - dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
- *       for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- *   - mode (String) : The mode for normalization: uppercase, lowercase, sentence_case, title_case.
- *   - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- *      Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>source (List&lt;String&gt;) : List of source field names.</li>
+ *   <li>dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
+ *   for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
+ *   <li>mode (String) : The mode for normalization: uppercase, lowercase, sentence_case, title_case.</li>
+ *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
+ * </ul>
  */
 public class NormalizeText extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .requiredString("mode")
-      .optionalString("update_mode");
+      .optionalString("update_mode").build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final Pattern pattern = Pattern.compile("[.?!] \\w");

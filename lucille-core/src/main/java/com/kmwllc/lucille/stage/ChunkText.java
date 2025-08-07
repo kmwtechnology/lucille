@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.stage.util.ChunkingMethod;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -21,36 +22,38 @@ import org.slf4j.LoggerFactory;
 /**
  * NOTE: This stage produces documents with ATTACHED children containing the chunks. To have children documents emitted as separate
  * documents, use the emitNestedChildren stage. An example of this can be seen below.
- *
+ * <p>
  * Retrieves text from a Lucille document field, then breaks it into chunks, with each chunk added as a child document attached to
  * the current document.
  * Order of processing chunks: chunking method -> cleaning -> pre-merge processing -> merge -> overlap -> character limiting
- *
- * Config Parameters:
- * <p> - source (String) : field of which Chunking Stage will chunk the text.
- * <p> - dest (String, optional): the name of the field that will hold the chunk contents in the children documents.
- *   Defaults to "chunk".
- * <p> - chunking_method (Type Enum, optional) : how to split contents in source. Defaults to Sentence chunking.
- * <p> 1. fixed chunking ("fixed"): split by variable lengthToSplit
- * <p> 2. paragraph chunking ("paragraph"): split by 2 consecutive line break sequence (\n, \r, \r\n) with optional whitespaces between,
- *     e.g. \n\n \n \n
- * <p> 3. sentence chunking ("sentence"): use openNLP sentence model for splitting
- * <p> 4. custom chunking ("custom"): regex option in config required, used to split content
- * <p> - regex (String, only for custom chunking): regEx that will be used to split chunks
- * <p> - length_to_split (Integer, only for fixed chunking): length of characters of each initial chunk before processing
- * <p> - pre_merge_min_chunk_len (Integer, optional): removes and append chunk to the neighboring chunk if below given number of characters,
- *    defaults appending to next chunk.
- * <p> - pre_merge_max_chunk_len (Integer, optional): truncates the chunks if over given amount, applies before merging and overlapping
- * <p> - chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
- *    defaults to 1, keeping the chunks as they were after splitting.
- *    e.g. chunks_to_merge: 2 -> { chunk1/chunk2, chunk3/chunk4, chunk5/chunk6}
- * <p> - overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0
- * <p> - chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk
- *    e.g. chunks_to_overlap: 1 -> { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}
- *         chunks_to_overlap: 2 -> { chunk1/chunk2/chunk3, chunk2/chunk3/chunk4, chunk3/chunk4/chunk5}
- * <p> - character_limit (Integer, optional) : hard limit number of characters in the final chunk. Truncate rest. Performed after
- *   merging and overlapping if they are set.
- *
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>source (String) : field of which Chunking Stage will chunk the text.</li>
+ *   <li>dest (String, optional) : the name of the field that will hold the chunk contents in the children documents. Defaults to "chunk".</li>
+ *   <li>chunking_method (Type Enum, optional) : how to split contents in source. Defaults to Sentence chunking.
+ *     <ol>
+ *       <li>fixed chunking ("fixed") : split by variable lengthToSplit.</li>
+ *       <li>paragraph chunking ("paragraph") : split by 2 consecutive line break sequence (\n, \r, \r\n) with optional whitespaces between,
+ *       e.g. \n\n \n \n.</li>
+ *       <li>sentence chunking ("sentence") : use openNLP sentence model for splitting.</li>
+ *       <li>custom chunking ("custom") : regex option in config required, used to split content.</li>
+ *     </ol>
+ *   </li>
+ *   <li>regex (String, only for custom chunking) : regEx that will be used to split chunks.</li>
+ *   <li>length_to_split (Integer, only for fixed chunking) : length of characters of each initial chunk before processing.</li>
+ *   <li>pre_merge_min_chunk_len (Integer, optional) : removes and append chunk to the neighboring chunk if below given number of characters,
+ *   defaults appending to next chunk.</li>
+ *   <li>pre_merge_max_chunk_len (Integer, optional) : truncates the chunks if over given amount, applies before merging and overlapping.</li>
+ *   <li>chunks_to_merge (Integer, optional) : how many chunks to merge into the final new Chunk before overlapping is taken place.
+ *   Defaults to 1, keeping the chunks as they were after splitting. e.g. chunks_to_merge: 2 -> { chunk1/chunk2, chunk3/chunk4, chunk5/chunk6}.</li>
+ *   <li>overlap_percentage (Integer, optional) : adds on neighboring chunk's content based on percentage of current chunk, defaults to 0.</li>
+ *   <li>chunks_to_overlap (Integer, optional) : indicate the number of overlap of smaller chunks to overlap while merging into final chunk.
+ *   e.g. chunks_to_overlap: 1 -> { chunk1/chunk2/chunk3, chunk3/chunk4/chunk5, chunk5/chunk6/chunk7}, chunks_to_overlap: 2 ->
+ *   { chunk1/chunk2/chunk3, chunk2/chunk3/chunk4, chunk3/chunk4/chunk5}</li>
+ *   <li>character_limit (Integer, optional) : hard limit number of characters in the final chunk. Truncate rest. Performed after
+ *   merging and overlapping if they are set.</li>
+ * </ul>
  * <p>  - child document fields:
  * <p>       - "id" : the child id, in the format of "parent_id-chunk_number"
  * <p>       - "parent_id" : id of parent Document
@@ -87,12 +90,12 @@ import org.slf4j.LoggerFactory;
 
 public class ChunkText extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source")
       .optionalString("dest", "chunking_method", "regex")
       .optionalNumber("chunks_to_merge", "character_limit", "overlap_percentage", "length_to_split",
           "pre_merge_min_chunk_len", "pre_merge_max_chunk_len", "chunks_to_overlap")
-      .optionalBoolean("clean_chunks");
+      .optionalBoolean("clean_chunks").build();
 
   private final String source;
   private final String dest;

@@ -6,6 +6,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -16,15 +17,15 @@ import java.util.Map;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>static_values (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
- * <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
+ *   <li>static_values (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
+ *   <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
  * </ul>
  */
 public class SetStaticValues extends Stage {
 
-  public static final Spec SPEC = Spec.stage()
+  public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("update_mode")
-      .requiredParent("static_values", new TypeReference<Map<String, Object>>() {});
+      .requiredParent("static_values", new TypeReference<Map<String, Object>>() {}).build();
 
   private final Map<String, Object> staticValues;
   private final UpdateMode updateMode;
