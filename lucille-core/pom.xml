@@ -359,6 +359,12 @@
       <artifactId>spring-kafka</artifactId>
       <version>4.0.0-M3</version>
       <scope>test</scope>
+        <exclusions>
+          <exclusion>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+          </exclusion>
+        </exclusions>
     </dependency>
 
     <dependency>
@@ -366,6 +372,12 @@
       <artifactId>spring-kafka-test</artifactId>
       <version>4.0.0-M3</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.junit.jupiter</groupId>
+          <artifactId>junit-jupiter</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
