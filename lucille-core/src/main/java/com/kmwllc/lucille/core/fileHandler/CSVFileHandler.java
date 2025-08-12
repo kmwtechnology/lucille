@@ -161,6 +161,20 @@ public class CSVFileHandler extends BaseFileHandler {
       for (Integer idx : idColumns) {
         idColumnData.add(line[idx]);
       }
+
+      List<String> blankIdFields = new ArrayList<>();
+      for (int fieldIndex = 0; fieldIndex < idColumnData.size(); fieldIndex++) {
+        String fieldValue = idColumnData.get(fieldIndex);
+        if (StringUtils.isBlank(fieldValue)) {
+          String fieldName = (fieldIndex < idFields.size()) ? idFields.get(fieldIndex) : ("index:" + fieldIndex);
+          blankIdFields.add(fieldName);
+        }
+      }
+
+      if (!blankIdFields.isEmpty()) {
+        log.warn("Missing/blank idFields {} at logical row {}. ({})", blankIdFields, lineNum, path);
+      }
+
       docId = createDocId(idColumnData);
     } else {
       // a default unique id for a csv file is filename + line num
