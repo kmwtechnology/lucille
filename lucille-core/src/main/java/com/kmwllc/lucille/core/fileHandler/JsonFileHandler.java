@@ -116,6 +116,10 @@ public class JsonFileHandler extends BaseFileHandler {
             for (String fieldName : idFields) {
               JsonNode valueNode = node.get(fieldName);
               parts.add((valueNode != null && !valueNode.isNull()) ? valueNode.asText() : "");
+              String value = (valueNode != null && !valueNode.isNull()) ? valueNode.asText() : null;
+              if (StringUtils.isBlank(value)) {
+                log.warn("Missing/blank idField {} at line {}. ({})", fieldName, lineNum, path);
+              }
             }
 
             String rawId = (docIdFormat != null) ? String.format(docIdFormat, parts.toArray()) : String.join("_", parts);
