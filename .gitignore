@@ -71,3 +71,6 @@ DetectLanguage/profiles
 
 # VSCode
 .vscode
+
+# Next.js
+.next
