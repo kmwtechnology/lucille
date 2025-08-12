@@ -40,16 +40,18 @@ public class SystemStatsResourceTest {
     reg.counter("test.counter").inc(3);
     SharedMetricRegistries.add(LogUtils.METRICS_REG, reg);
 
+    Response response;
     try {
-      Response response = resource.getDropwizardMetrics();
-      assertEquals(200, response.getStatus());
-      JsonNode root = (JsonNode) response.getEntity();
-      assertTrue(root.has("counters"));
-      assertEquals(3, root.get("counters").get("test.counter").get("count").asInt());
+      response = resource.getDropwizardMetrics();
     } finally {
       try {
         SharedMetricRegistries.remove(LogUtils.METRICS_REG);
       } catch (Exception ignored) {}
     }
+
+    assertEquals(200, response.getStatus());
+    JsonNode root = (JsonNode) response.getEntity();
+    assertTrue(root.has("counters"));
+    assertEquals(3, root.get("counters").get("test.counter").get("count").asInt());
   }
 }
