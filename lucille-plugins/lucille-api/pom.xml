@@ -137,47 +137,6 @@
 
     <build>
         <plugins>
-            <!-- Frontend Maven Plugin for building admin UI -->
-            <plugin>
-                <groupId>com.github.eirslett</groupId>
-                <artifactId>frontend-maven-plugin</artifactId>
-                <version>1.15.0</version>
-                <configuration>
-                    <nodeVersion>v18.18.0</nodeVersion>
-                    <npmVersion>9.6.7</npmVersion>
-                    <workingDirectory>lucille-admin-ui-source-node</workingDirectory>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>install-node-and-npm</id>
-                        <goals>
-                            <goal>install-node-and-npm</goal>
-                        </goals>
-                        <phase>initialize</phase>
-                    </execution>
-                    <execution>
-                        <id>npm-install</id>
-                        <goals>
-                            <goal>npm</goal>
-                        </goals>
-                        <phase>initialize</phase>
-                        <configuration>
-                            <arguments>install</arguments>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>npm-run-build</id>
-                        <goals>
-                            <goal>npm</goal>
-                        </goals>
-                        <phase>generate-sources</phase>
-                        <configuration>
-                            <arguments>run build</arguments>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            
             <!-- Clean plugin to remove old admin UI assets -->
             <plugin>
                 <artifactId>maven-clean-plugin</artifactId>
@@ -194,7 +153,6 @@
                     </filesets>
                 </configuration>
             </plugin>
-            
             <!-- Resources plugin to copy built admin UI to resources -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -219,7 +177,6 @@
                     </execution>
                 </executions>
             </plugin>
-            
             <!-- Maven Shade Plugin for creating executable JAR -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -257,14 +214,5 @@
                 </executions>
             </plugin>
         </plugins>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>com.github.eirslett</groupId>
-                    <artifactId>frontend-maven-plugin</artifactId>
-                    <version>1.15.0</version>
-                </plugin>
-            </plugins>
-        </pluginManagement>
     </build>
 </project>
