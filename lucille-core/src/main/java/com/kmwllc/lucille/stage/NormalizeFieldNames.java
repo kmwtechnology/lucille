@@ -15,8 +15,8 @@ import java.util.Iterator;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>delimiter (String) : A delimiter to replace spaces, defaults to "_".</li>
- * <li>nonAlphanumReplacement (String) : A replacement for non-alphanumeric characters, defaults to "".</li>
+ *   <li>delimiter (String) : A delimiter to replace spaces, defaults to "_".</li>
+ *   <li>nonAlphanumReplacement (String) : A replacement for non-alphanumeric characters, defaults to "".</li>
  * </ul>
  */
 public class NormalizeFieldNames extends Stage {

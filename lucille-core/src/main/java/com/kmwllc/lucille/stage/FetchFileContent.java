@@ -15,15 +15,17 @@ import java.util.Iterator;
 
 /**
  * A stage for getting a file's contents (array of bytes) using a FileContentFetcher.
- *
- * filePathField (String, Optional): The document field that contains the file path. Defaults to "file_path". No processing will
- * take place on documents that do not have this field.
- * fileContentField (String, Optional): The document field to write the contents to. Defaults to "file_content".
- * This stage will overwrite any contents associated with this field.
- *
- * s3 (Map, Optional): Add if you will be fetching contents from S3 files. See FileConnector for the appropriate arguments to provide.
- * azure (Map, Optional): Add if you will be fetching contents from Azure files. See FileConnector for the appropriate arguments to provide.
- * gcp (Map, Optional): Add if you will be fetching contents from Google cloud. See FileConnector for the appropriate arguments to provide.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>filePathField (String, Optional) : The document field that contains the file path. Defaults to "file_path". No processing will
+ *   take place on documents that do not have this field.</li>
+ *   <li>fileContentField (String, Optional) : The document field to write the contents to. Defaults to "file_content". This stage will
+ *   overwrite any contents associated with this field.</li>
+ *   <li>s3 (Map, Optional) : Add if you will be fetching contents from S3 files. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>azure (Map, Optional) : Add if you will be fetching contents from Azure files. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>gcp (Map, Optional) : Add if you will be fetching contents from Google cloud. See FileConnector for the appropriate arguments to provide.</li>
+ * </ul>
  */
 public class FetchFileContent extends Stage {
 

@@ -15,10 +15,11 @@ import java.util.Map;
 
 /**
  * Determines the length of a field and places the value into a specified field.
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * fieldMapping (Map&lt;String, String&gt;) : A mapping of the field to check the size of to the name of the field to place the length into.
+ * <ul>
+ *   <li>fieldMapping (Map&lt;String, String&gt;) : A mapping of the field to check the size of to the name of the field to place the length into.</li>
+ * </ul>
  */
 public class Length extends Stage {
 

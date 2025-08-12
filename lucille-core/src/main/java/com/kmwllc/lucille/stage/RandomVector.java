@@ -13,6 +13,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+/**
+ * Generates a random vector of floats for each specified field in the document.
+ * <ul>
+ *   <li>fields(List&lt;String&gt;) : the document field names to populate with random vectors.</li>
+ *   <li>dimensions (int) : the length of each generated float vector.</li>
+ *   <li>update_mode (String, optional) : how to merge the generated vector into the existing document field.
+ *   Defaults to OVERWRITE if unspecified.</li>
+ * </ul>
+ */
 public class RandomVector extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()

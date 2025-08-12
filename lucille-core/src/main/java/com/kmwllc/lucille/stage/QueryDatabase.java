@@ -21,21 +21,21 @@ import org.slf4j.LoggerFactory;
 /**
  * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
  * This stage should try and reconnect to the database in the future.
- *
- * Config Parameters:
- * - driver (String) : Driver used for creating a connection to database
- * - connectionString (String) : used for establishing a connection to the right database
- * - jdbcUser (String) : username to access database
- * - jdbcPassword (String) : password to access database
- * - sql (String, Optional) : SQL statement that would be requested to the database. Allow for "?" character for keyFields configuration
- * - keyFields (List&lt;String&gt;) : Strings to replace ? in the statement made in sql
- *   e.g. keyFields : ["123"]
- *        sql: SELECT name FROM meal WHERE id = ?
- * - inputTypes (List&lt;String&gt;) : Each input type of each of the keyField
- * - fieldMapping (Map&lt;String, String&gt;) : map of columns retrieved from result set to the name of the field in the Lucille document
- *   it will populate with.
- * - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1
- * - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>driver (String) : Driver used for creating a connection to database.</li>
+ *   <li>connectionString (String) : used for establishing a connection to the right database.</li>
+ *   <li>jdbcUser (String) : username to access database.</li>
+ *   <li>jdbcPassword (String) : password to access database.</li>
+ *   <li>sql (String, Optional) : SQL statement that would be requested to the database. Allow for "?" character for keyFields configuration.</li>
+ *   <li>keyFields (List&lt;String&gt;) : Strings to replace ? in the statement made in sql. e.g. keyFields : ["123"] sql: SELECT name FROM meal WHERE id = ?</li>
+ *   <li>inputTypes (List&lt;String&gt;) : Each input type of each of the keyField.</li>
+ *   <li>fieldMapping (Map&lt;String, String&gt;) : map of columns retrieved from result set to the name of the field in the Lucille document
+ *   it will populate with.</li>
+ *   <li>connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1.</li>
+ *   <li>connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds.</li>
+ * </ul>
  */
 public class QueryDatabase extends Stage {
 

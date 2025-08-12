@@ -11,11 +11,12 @@ import com.typesafe.config.Config;
 
 /**
  * Computes size of given byte array field and puts that size in a field on the Document.
- * <br>
+ * <p>
  * Config Parameters -
- * <p> <b>source</b> (String) : The field containing the byte array
- * <p> <b>destination</b> (String) : The name of the field which will be added to store the size. Will overwrite value if field already
- * exists
+ * <ul>
+ *   <li>source (String) : The field containing the byte array.</li>
+ *   <li>destination (String) : The name of the field which will be added to store the size. Will overwrite value if field already exists.</li>
+ * </ul>
  */
 public class ComputeFieldSize extends Stage {
 

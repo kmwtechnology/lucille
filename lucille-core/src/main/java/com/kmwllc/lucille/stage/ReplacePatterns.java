@@ -15,33 +15,25 @@ import java.util.regex.Pattern;
 
 /**
  * Replaces any of the given Patterns found in the source fields with a given replacement String.
- * <br>
- * Config Parameters:
- * <br>
- * - source (List&lt;String&gt;) : List of source field names.
- * <br>
- * - dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
- * for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.
- * <br>
- * - regex (List&lt;String&gt;) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.
- * <br>
- * - replacement (String, Optional) : The String to replace regex matches with. If null, pattern replacement will only take place if
- * a replacement_field is specified and set to a String in a document.
- * <br>
- * - replacement_field (String, Optional): Specify a field in the document that is set to a String. If non-null, replacements of a
- * pattern within a document will use the string set to the replacement_field, if present. Otherwise, we fall back onto replacement:
- * If it is not null, patterns are replaced with it; if it is null, no replacement takes place.
- * <br>
- * - update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated.
- * Can be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.
- * <br>
- * - ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.
- * <br>
- * - multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.
- * <br>
- * - dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.
- * <br>
- * - literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>source (List&lt;String&gt;) : List of source field names.</li>
+ *   <li>dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
+ *   for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
+ *   <li>regex (List&lt;String&gt;) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.</li>
+ *   <li>replacement (String, Optional) : The String to replace regex matches with. If null, pattern replacement will only take place if
+ *   a replacement_field is specified and set to a String in a document.</li>
+ *   <li>replacement_field (String, Optional): Specify a field in the document that is set to a String. If non-null, replacements of a
+ *   pattern within a document will use the string set to the replacement_field, if present. Otherwise, we fall back onto replacement:
+ *   If it is not null, patterns are replaced with it; if it is null, no replacement takes place.</li>
+ *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
+ *   be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
+ *   <li>ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.</li>
+ *   <li>multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.</li>
+ *   <li>dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.</li>
+ *   <li>literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.</li>
+ * </ul>
  */
 public class ReplacePatterns extends Stage {
 

@@ -12,15 +12,15 @@ import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
 
 /**
- * <p> This stage will iterate over the children documents that are attached to the current document.
- * The fields to copy from the children document will be copied to multi-valued fields on the parent document.
- *
- * <p> If dropChildren is set to true, the children documents will be dropped from the
- * parent before letting the parent document continue down the pipeline.
- *
- * <p> Config Parameters:
- * <p> <b>fieldsToCopy</b> (List&lt;String&gt;): The fields you want to copy from a child document to the parent document.
- * <p> <b>dropChildren</b> (Boolean): Whether you want to drop the children Documents from their parents after processing.
+ * This stage will iterate over the children documents that are attached to the current document. The fields to copy from the
+ * children document will be copied to multi-valued fields on the parent document. If dropChildren is set to true, the children
+ * documents will be dropped from the parent before letting the parent document continue down the pipeline.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>fieldsToCopy (List&lt;String&gt;) : The fields you want to copy from a child document to the parent document.</li>
+ *   <li>dropChildren (Boolean) : Whether you want to drop the children Documents from their parents after processing.</li>
+ * </ul>
  */
 public class CollapseChildrenDocuments extends Stage {
 

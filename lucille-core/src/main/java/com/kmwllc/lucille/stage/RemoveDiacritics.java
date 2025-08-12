@@ -12,15 +12,12 @@ import com.typesafe.config.Config;
 
 /**
  * Removes diacritics and accents from String fields.
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * <p>
- * <b>source</b> (String) : Name of source field.
- * </p>
- * <p>
- * <b>destination</b> (String, Optional) : Name of field where transformed string is put. If not provided the string is mutated in place.
- * </p>
+ * <ul>
+ *   <li>source (String) : Name of source field.</li>
+ *   <li>destination (String, Optional) : Name of field where transformed string is put. If not provided the string is mutated in place.</li>
+ * </ul>
  */
 public class RemoveDiacritics extends Stage {
 
