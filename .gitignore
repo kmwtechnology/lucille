@@ -7,6 +7,14 @@
 node_modules/
 dist/
 
+# Generated admin UI assets (built by Maven)
+lucille-plugins/lucille-api/src/main/resources/assets/admin/*.html
+lucille-plugins/lucille-api/src/main/resources/assets/admin/*.txt
+lucille-plugins/lucille-api/src/main/resources/assets/admin/*.png
+lucille-plugins/lucille-api/src/main/resources/assets/admin/*.jpg
+lucille-plugins/lucille-api/src/main/resources/assets/admin/*.svg
+lucille-plugins/lucille-api/src/main/resources/assets/admin/_next/
+lucille-plugins/lucille-api/src/main/resources/assets/admin/configs/
 # Compiled Java class files
 *.class
 
