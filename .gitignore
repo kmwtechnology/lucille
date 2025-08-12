@@ -5,7 +5,8 @@
 
 # Node artifact files
 node_modules/
-dist/
+.next
+out/
 
 # Generated admin UI assets (built by Maven)
 lucille-plugins/lucille-api/src/main/resources/assets/admin/*.html
@@ -15,6 +16,7 @@ lucille-plugins/lucille-api/src/main/resources/assets/admin/*.jpg
 lucille-plugins/lucille-api/src/main/resources/assets/admin/*.svg
 lucille-plugins/lucille-api/src/main/resources/assets/admin/_next/
 lucille-plugins/lucille-api/src/main/resources/assets/admin/configs/
+
 # Compiled Java class files
 *.class
 
