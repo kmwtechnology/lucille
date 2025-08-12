@@ -118,7 +118,6 @@ public class JsonFileHandler extends BaseFileHandler {
               JsonNode valueNode = node.get(fieldName);
               parts.add((valueNode != null && !valueNode.isNull()) ? valueNode.asText() : "");
               String value = (valueNode != null && !valueNode.isNull()) ? valueNode.asText() : null;
-              parts.add(value != null ? value : "");
               if (StringUtils.isBlank(value)) {
                 blankIdFields.add(fieldName);
               }
