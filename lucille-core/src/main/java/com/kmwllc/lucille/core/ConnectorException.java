@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core;
 
-public class ConnectorException extends Exception {
+public class ConnectorException extends BaseConfigException {
 
   public ConnectorException(String message) {
     super(message);

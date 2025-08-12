@@ -1,0 +1,903 @@
+[
+  {
+    "className": "com.kmwllc.lucille.connector.SequenceConnector",
+    "packageName": "com.kmwllc.lucille.connector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "execute",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Publisher"
+        ],
+        "parameterNames": [
+          "publisher"
+        ]
+      }
+    ],
+    "description": "Connector implementation that produces a certain number of empty Documents. Each Document will have a number for its ID\n (generated in order).\n\n \u003cp\u003e Config Parameters:\n \u003cul\u003e\n   \u003cli\u003enumDocs (Long): The number of Documents you want to create.\u003c/li\u003e\n   \u003cli\u003estartWith (Int, Optional): The ID you want the first Document to have. Defaults to zero.\u003c/li\u003e\n \u003c/ul\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.SequenceConnector.SequenceConnectorConfig",
+    "packageName": "com.kmwllc.lucille.connector.SequenceConnector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "apply",
+        "parameterTypes": [
+          "com.typesafe.config.Config"
+        ],
+        "parameterNames": [
+          "config"
+        ],
+        "description": "Applies configuration values from the provided {@link Config} object.\n\n @param config the configuration object containing parameters"
+      },
+      {
+        "methodName": "validate",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Validates the configuration parameters to ensure they are within acceptable ranges.\n\n @throws ConnectorException if any parameter is invalid"
+      },
+      {
+        "methodName": "getNumDocs",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Returns the total number of documents to generate.\n\n @return the number of documents"
+      },
+      {
+        "methodName": "getStartWith",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Returns the starting integer value for document IDs.\n\n @return the starting value for document IDs"
+      }
+    ],
+    "description": "Configuration class for {@link SequenceConnector}.\n \u003cp\u003e\n Holds parameters for generating a sequence of blank documents, including:\n \u003cul\u003e\n   \u003cli\u003e\u003cb\u003enumDocs\u003c/b\u003e: The total number of documents to generate.\u003c/li\u003e\n   \u003cli\u003e\u003cb\u003estartWith\u003c/b\u003e: The starting integer value for document IDs.\u003c/li\u003e\n \u003c/ul\u003e\n \u003cp\u003e\n Provides methods to apply configuration from a {@link Config} object,\n validate parameter values, and access the configured values.",
+    "fieldDocs": {
+      "numDocs": "The total number of documents to generate. Must be greater than or equal to 0.\n Default value is 100.",
+      "startWith": "The starting integer value for document IDs. Must be greater than or equal to 0.\n Default value is 0."
+    },
+    "isConfigClass": true,
+    "configForClass": "com.kmwllc.lucille.connector.SequenceConnector"
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.SequenceConnector.SequenceConnectorConfig",
+    "packageName": "com.kmwllc.lucille.connector.SequenceConnector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "apply",
+        "parameterTypes": [
+          "com.typesafe.config.Config"
+        ],
+        "parameterNames": [
+          "config"
+        ],
+        "description": "Applies configuration values from the provided {@link Config} object.\n\n @param config the configuration object containing parameters"
+      },
+      {
+        "methodName": "validate",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Validates the configuration parameters to ensure they are within acceptable ranges.\n\n @throws ConnectorException if any parameter is invalid"
+      },
+      {
+        "methodName": "getNumDocs",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Returns the total number of documents to generate.\n\n @return the number of documents"
+      },
+      {
+        "methodName": "getStartWith",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Returns the starting integer value for document IDs.\n\n @return the starting value for document IDs"
+      }
+    ],
+    "description": "Configuration class for {@link SequenceConnector}.\n \u003cp\u003e\n Holds parameters for generating a sequence of blank documents, including:\n \u003cul\u003e\n   \u003cli\u003e\u003cb\u003enumDocs\u003c/b\u003e: The total number of documents to generate.\u003c/li\u003e\n   \u003cli\u003e\u003cb\u003estartWith\u003c/b\u003e: The starting integer value for document IDs.\u003c/li\u003e\n \u003c/ul\u003e\n \u003cp\u003e\n Provides methods to apply configuration from a {@link Config} object,\n validate parameter values, and access the configured values.",
+    "fieldDocs": {
+      "numDocs": "The total number of documents to generate. Must be greater than or equal to 0.\n Default value is 100.",
+      "startWith": "The starting integer value for document IDs. Must be greater than or equal to 0.\n Default value is 0."
+    },
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.SolrConnector",
+    "packageName": "com.kmwllc.lucille.connector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "preExecute",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "runId"
+        ]
+      },
+      {
+        "methodName": "execute",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Publisher"
+        ],
+        "parameterNames": [
+          "publisher"
+        ]
+      },
+      {
+        "methodName": "postExecute",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "runId"
+        ]
+      },
+      {
+        "methodName": "close",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getLastExecutedPreActions",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getLastExecutedPostActions",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "description": "Connector for issuing requests to Solr. Requests should be formatted as JSON Strings. They can contain\n the \u003ccode\u003e{runId}\u003c/code\u003e wildcard, which will be substituted with the current runId in the actual request.\n (This is the only wildcard supported.)\n\n \u003cbr\u003e You can use XML in lieu of JSON by setting \u003ccode\u003euseXML\u003c/code\u003e to \u003ccode\u003etrue\u003c/code\u003e.\n\n \u003cbr\u003e Config Parameters:\n \u003cul\u003e\n   \u003cli\u003epreActions (List\u0026lt;String\u0026gt;, Optional): A list of requests to be issued to Solr. These actions will be performed first.\u003c/li\u003e\n   \u003cli\u003epostActions (List\u0026lt;String\u0026gt;, Optional): A list of requests to be issued to Solr. These actions will be performed second.\u003c/li\u003e\n   \u003cli\u003esolr (Map): Configuration for connecting to your Solr instance. See {@link SolrUtils#SOLR_PARENT_SPEC} for parameters.\u003c/li\u003e\n   \u003cli\u003euseXML (Boolean, Optional): Whether your requests use XML or not. Defaults to JSON requests (\u003ccode\u003efalse\u003c/code\u003e).\u003c/li\u003e\n \u003c/ul\u003e\n\n \u003cb\u003eNote:\u003c/b\u003e As Solr performs more validation on JSON commands than XML, it is recommended you use JSON requests.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.FileConnector",
+    "packageName": "com.kmwllc.lucille.connector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "execute",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Publisher"
+        ],
+        "parameterNames": [
+          "publisher"
+        ]
+      }
+    ],
+    "description": "The \u003ccode\u003eFileConnector\u003c/code\u003e traverses through a file system, starting at a given directory, and publishes a Document for each\n file it encounters. It can traverse through the local file system, Azure Blob Storage, Google Cloud, and S3.\n\n \u003cbr\u003e Config Parameters:\n \u003cul\u003e\n   \u003cli\u003epathToStorage (String): path to storage, can be local file system or cloud bucket/container. Examples:\n    \u003cul\u003e\n       \u003cli\u003e/path/to/storage/in/local/filesystem\u003c/li\u003e\n       \u003cli\u003egs://bucket-name/folder/\u003c/li\u003e\n       \u003cli\u003es3://bucket-name/folder/\u003c/li\u003e\n      \u003cli\u003ehttps://accountName.blob.core.windows.net/containerName/prefix/\u003c/li\u003e\n    \u003c/ul\u003e\n   \u003c/li\u003e\n   \u003cli\u003efilterOptions (Map, Optional): configuration for \u003ci\u003ewhich\u003c/i\u003e files should/shouldn\u0027t be processed in your traversal. Example of filterOptions below.\u003c/li\u003e\n   \u003cli\u003efileOptions (Map, Optional): configuratino for \u003ci\u003ehow\u003c/i\u003e you handle/process certain types of files in your traversal. Example of fileOptions below.\u003c/li\u003e\n   \u003cli\u003egcp (Map, Optional): options for handling Google Cloud files. See example below.\u003c/li\u003e\n   \u003cli\u003es3 (Map, Optional): options for handling S3 files. See example below.\u003c/li\u003e\n   \u003cli\u003eazure (Map, Optional): options for handling Azure files. See example below.\u003c/li\u003e\n \u003c/ul\u003e\n\n \u003cbr\u003e\n\n \u003ccode\u003efilterOptions\u003c/code\u003e:\n \u003cul\u003e\n   \u003cli\u003eincludes (List\u0026lt;String\u0026gt;, Optional): list of regex patterns to include files.\u003c/li\u003e\n   \u003cli\u003eexcludes (List\u0026lt;String\u0026gt;, Optional): list of regex patterns to exclude files.\u003c/li\u003e\n   \u003cli\u003emodificationCutoff (Duration, Optional): Filter files that haven\u0027t been modified since a certain amount of time. For example, specify \"1h\", and only files that were modified more than an hour ago will be published.\u003c/li\u003e\n \u003c/ul\u003e\n\n See the HOCON documentation for examples of a Duration - strings like \"1h\", \"2d\" and \"3s\" are accepted, for example.\n \u003cbr\u003e Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.\n\n \u003cp\u003e \u003ccode\u003efileOptions\u003c/code\u003e:\n \u003cul\u003e\n   \u003cli\u003egetFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.\u003c/li\u003e\n   \u003cli\u003ehandleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. See important notes below.\u003c/li\u003e\n   \u003cli\u003ehandleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. See important notes below.\u003c/li\u003e\n   \u003cli\u003emoveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system\u003c/li\u003e\n   \u003cli\u003emoveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system\u003c/li\u003e\n   \u003cli\u003ecsv (Map, Optional): config options for handling csv type files. Config will be passed to CSVFileHandler.\u003c/li\u003e\n   \u003cli\u003ejson (Map, Optional): config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.\u003c/li\u003e\n   \u003cli\u003exml (Map, Optional): config options for handling xml type files. Config will be passed to XMLFileHandler.\u003c/li\u003e\n   \u003cli\u003e(To configure the docIdPrefix for CSV, JSON or XML files, configure it in its respective config in \u003ccode\u003efileOptions\u003c/code\u003e.)\u003c/li\u003e\n\n   \u003cli\u003e \u003cb\u003eNotes\u003c/b\u003e on archive / compressed files:\n      \u003cul\u003e\n         \u003cli\u003eRecurring is not supported.\u003c/li\u003e\n         \u003cli\u003eIf enabled during a cloud traversal, the file\u0027s contents \u003cb\u003ewill\u003c/b\u003e be downloaded before processing.\u003c/li\u003e\n         \u003cli\u003eFor archive files, the file path field of the extracted file\u0027s Document will be in the format of \"{path/to/archive/archive.zip}!{extractedFileName}\".\u003c/li\u003e\n         \u003cli\u003eFor compressed files, the file path follows the format of \"{path/to/compressed/compressedFileName.gz}!{compressedFileName}\".\u003c/li\u003e\n       \u003c/ul\u003e\n    \u003c/li\u003e\n \u003c/ul\u003e\n\n \u003ccode\u003egcp\u003c/code\u003e:\n \u003cul\u003e\n   \u003cli\u003e\"pathToServiceKey\": \"path/To/Service/Key.json\"\u003c/li\u003e\n   \u003cli\u003e\"maxNumOfPages\" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.\u003c/li\u003e\n \u003c/ul\u003e\n\n \u003ccode\u003es3\u003c/code\u003e:\n \u003cul\u003e\n   \u003cli\u003e\"accessKeyId\": s3 key id. Not needed if secretAccessKey is not specified (using default credentials).\u003c/li\u003e\n   \u003cli\u003e\"secretAccessKey\": secret access key. Not needed if accessKeyId is not specified (using default credentials).\u003c/li\u003e\n   \u003cli\u003e\"region\": s3 storage region\u003c/li\u003e\n   \u003cli\u003e\"maxNumOfPages\" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.\u003c/li\u003e\n \u003c/ul\u003e\n\n \u003ccode\u003eazure\u003c/code\u003e:\n \u003cul\u003e\n   \u003cli\u003e\"connectionString\": azure connection string\u003c/li\u003e\n \u003c/ul\u003e\n \u003cb\u003eOr\u003c/b\u003e\n \u003cul\u003e\n   \u003cli\u003e\"accountName\": azure account name\u003c/li\u003e\n   \u003cli\u003e\"accountKey\": azure account key\u003c/li\u003e\n   \u003cli\u003e\"maxNumOfPages\" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.\u003c/li\u003e\n \u003c/ul\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.CSVConnector",
+    "packageName": "com.kmwllc.lucille.connector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "execute",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Publisher"
+        ],
+        "parameterNames": [
+          "publisher"
+        ]
+      },
+      {
+        "methodName": "toString",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "createProcessedAndErrorFoldersIfSet",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "moveFile",
+        "parameterTypes": [
+          "java.nio.file.Path",
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "absolutePath",
+          "option"
+        ]
+      }
+    ],
+    "description": "Connector implementation that produces documents from the rows in a given CSV file.\n\n \u003cbr\u003e The CSVConnector has been deprecated. Use {@link FileConnector} with a {@link CSVFileHandler}.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.AbstractConnector",
+    "packageName": "com.kmwllc.lucille.connector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "getName",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getPipelineName",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "requiresCollapsingPublisher",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "postExecute",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "runId"
+        ]
+      },
+      {
+        "methodName": "preExecute",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "runId"
+        ]
+      },
+      {
+        "methodName": "close",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getDocIdPrefix",
+        "parameterTypes": [],
+        "parameterNames": [],
+        "description": "Returns the configured prefix that this Connector will prepend to ids from the source\n data when creating Documents from that data."
+      },
+      {
+        "methodName": "createDocId",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "id"
+        ],
+        "description": "Creates an extended doc ID by adding a prefix (and possibly in the future, a suffix) to the\n given id."
+      },
+      {
+        "methodName": "getMessage",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "description": "Base class for use by Connector implementations, providing basic Config parsing behavior\n for obtaining connector name, pipeline name, doc ID prefix, and collapsing mode.\n\n All Connectors will have their configuration validated by {@link Spec#validate(Config, String)}. In the Connector\u0027s constructor,\n define the required/optional properties/parents in a {@link Spec#connector()}. Validation errors will mention the connector\u0027s \u003ccode\u003ename\u003c/code\u003e.\n\n \u003cbr\u003e A {@link Spec#connector()} always has \"name\", \"class\", \"pipeline\", \"docIdPrefix\", and \"collapse\" as legal properties.\n\n \u003cbr\u003e Base Config Parameters:\n \u003cul\u003e\n   \u003cli\u003ename (String): The name of the Connector. Connector names should be unique (within your Lucille Config).\u003c/li\u003e\n   \u003cli\u003eclass (String): The class for the Connector your want to use.\u003c/li\u003e\n   \u003cli\u003epipeline (String, Optional): The name of the pipeline to feed Documents to. Defaults to null (no pipeline).\u003c/li\u003e\n   \u003cli\u003edocIdPrefix (String, Optional): A String to prepend to Document IDs originating from this Connector. Defaults to an empty string (no prefix).\u003c/li\u003e\n   \u003cli\u003ecollapse (Boolean, Optional): Whether this Connector is \"collapsing\". Defaults to false.\u003c/li\u003e\n \u003c/ul\u003e",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.JSONConnector",
+    "packageName": "com.kmwllc.lucille.connector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "execute",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Publisher"
+        ],
+        "parameterNames": [
+          "publisher"
+        ]
+      }
+    ],
+    "description": "Connector implementation that produces documents from the rows in a given JSON or JSONL file.\n\n \u003cbr\u003e The JSONConnector has been deprecated. Use {@link FileConnector} with a {@link JsonFileHandler}.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.BaseConnectorConfig",
+    "packageName": "com.kmwllc.lucille.connector",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.jdbc.DatabaseConnector",
+    "packageName": "com.kmwllc.lucille.connector.jdbc",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "execute",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Publisher"
+        ],
+        "parameterNames": [
+          "publisher"
+        ]
+      },
+      {
+        "methodName": "stop",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "close",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "isClosed",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "description": "Database Connector - This connector can run a \u003ccode\u003eSELECT\u003c/code\u003e statement and return the rows from the database as published Documents.\n If \u003ccode\u003eotherSQLs\u003c/code\u003e is set, the \u003ccode\u003esql\u003c/code\u003e and \u003ccode\u003eotherSQLs\u003c/code\u003e must all be ordered by their join key, and\n \u003ccode\u003eotherJoinFields\u003c/code\u003e must be populated. If those parameters are populated, this connector will run the \u003ccode\u003eotherSQL\u003c/code\u003e\n statements in parallel, flattening the rows from the \u003ccode\u003eotherSQL\u003c/code\u003e statements onto the Document as a child document.\n \u003cp\u003e \u003cb\u003eNote:\u003c/b\u003e With \u003ccode\u003eotherSQL\u003c/code\u003e statements, the Connector only supports integer join keys.\n\n \u003cp\u003e Config Parameters:\n \u003cul\u003e\n   \u003cli\u003edriver (String): Driver used for creating a connection to database\u003c/li\u003e\n   \u003cli\u003econnectionString (String): used for establishing a connection to the right database\u003c/li\u003e\n   \u003cli\u003ejdbcUser (String): username to access database\u003c/li\u003e\n   \u003cli\u003ejdbcPassword (String): password to access database\u003c/li\u003e\n   \u003cli\u003esql (String): SQL statement to query the database.\u003c/li\u003e\n   \u003cli\u003eidField (String): column name used for id in the database\u003c/li\u003e\n   \u003cli\u003efetchSize (Integer, Optional): returns the desired resultSet size if set\u003c/li\u003e\n   \u003cli\u003epreSQL (String, Optional): SQL statement that returns nothing. Performed before sql is executed. e.g. INSERT, DELETE, UPDATE, SQL DDL statement.\u003c/li\u003e\n   \u003cli\u003epostSQL (String, Optional): SQL statement that returns nothing. Performed after sql is executed. e.g. INSERT, DELETE, UPDATE, SQL DDL statement.\u003c/li\u003e\n   \u003cli\u003eotherSQLs (List\u0026lt;String\u0026gt;, Optional): list of SQL statements to query and retrieve another result set of size fetchSize if set. For joining result sets.\u003c/li\u003e\n   \u003cli\u003eotherJoinFields (String, Optional): join field used for other result sets retrieved from otherSQLs. \u003cb\u003eRequired if otherSQL is provided.\u003c/b\u003e\u003c/li\u003e\n   \u003cli\u003eignoreColumns (List\u0026lt;String\u0026gt;, Optional): list of columns to ignore when populating Lucille document from sql result set.\u003c/li\u003e\n   \u003cli\u003econnectionRetries (Integer, Optional): number of retries allowed to connect to database, defaults to 1\u003c/li\u003e\n   \u003cli\u003econnectionRetryPause (Integer, Optional): duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds\u003c/li\u003e\n \u003c/ul\u003e\n\n @author kwatters",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.jdbc.ConnectorState",
+    "packageName": "com.kmwllc.lucille.connector.jdbc",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "values",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "valueOf",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "name"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.storageclient.GoogleStorageClient",
+    "packageName": "com.kmwllc.lucille.connector.storageclient",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [],
+    "description": "A storage client for Google Cloud. Create using a configuration (commonly mapped to \u003cb\u003egcp\u003c/b\u003e) which contains \"pathToServiceKey\".",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.storageclient.BaseFileReference",
+    "packageName": "com.kmwllc.lucille.connector.storageclient",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "getLastModified",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getFileExtension",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "asDoc",
+        "parameterTypes": [
+          "com.kmwllc.lucille.connector.storageclient.TraversalParams"
+        ],
+        "parameterNames": [
+          "params"
+        ]
+      },
+      {
+        "methodName": "decompressedFileAsDoc",
+        "parameterTypes": [
+          "java.io.InputStream",
+          "java.lang.String",
+          "com.kmwllc.lucille.connector.storageclient.TraversalParams"
+        ],
+        "parameterNames": [
+          "in",
+          "decompressedFullPathStr",
+          "params"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.storageclient.S3StorageClient",
+    "packageName": "com.kmwllc.lucille.connector.storageclient",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [],
+    "description": "A storage client for S3. Create using a configuration (commonly mapped to \u003cb\u003es3\u003c/b\u003e) which can contain\n \"region\" and can contain \u003cb\u003eboth\u003c/b\u003e \"accessKeyId\" and \"secretAccessKey\".",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.storageclient.AzureStorageClient",
+    "packageName": "com.kmwllc.lucille.connector.storageclient",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [],
+    "description": "A storage client for Microsoft Azure. Create using a configuration (commonly mapped to \u003cb\u003eazure\u003c/b\u003e) which contains either\n \"connectionString\" \u003ci\u003eor\u003c/i\u003e contains both \"accountName\" and \"accountKey\".",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.storageclient.TraversalParams",
+    "packageName": "com.kmwllc.lucille.connector.storageclient",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "includeFile",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.time.Instant"
+        ],
+        "parameterNames": [
+          "fileName",
+          "fileLastModified"
+        ],
+        "description": "Returns whether the filterOptions allow for the publishing / processing of the file, described by its name\n and the last time it was modified."
+      },
+      {
+        "methodName": "supportedFileType",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "fileExtension"
+        ],
+        "description": "Returns whether a file with the given extension is supported, as per these TraversalParams. Handles the nuance\n of json supporting jsonl and vice versa."
+      },
+      {
+        "methodName": "getURI",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getDocIdPrefix",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getFileOptions",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "shouldGetFileContent",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getHandleArchivedFiles",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getHandleCompressedFiles",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getMoveToAfterProcessing",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "getMoveToErrorFolder",
+        "parameterTypes": [],
+        "parameterNames": []
+      }
+    ],
+    "description": "The arguments / parameters associated with a traversal on a StorageClient.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.storageclient.BaseStorageClient",
+    "packageName": "com.kmwllc.lucille.connector.storageclient",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "init",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "shutdown",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "isInitialized",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "traverse",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Publisher",
+          "com.kmwllc.lucille.connector.storageclient.TraversalParams"
+        ],
+        "parameterNames": [
+          "publisher",
+          "params"
+        ]
+      },
+      {
+        "methodName": "getFileContentStream",
+        "parameterTypes": [
+          "java.net.URI"
+        ],
+        "parameterNames": [
+          "uri"
+        ]
+      }
+    ],
+    "description": "The base implementation for StorageClients. Must be initialized before traversal / getting a file\u0027s contents using\n {@link BaseStorageClient#init()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish\n Documents. Call {@link BaseStorageClient#getFileContentStream(URI)} to get the contents of a single file at the given URI.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.storageclient.LocalStorageClient",
+    "packageName": "com.kmwllc.lucille.connector.storageclient",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [],
+    "description": "A storage client for the local file system. Needs no configuration.",
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.storageclient.LocalStorageClient.LocalFileVisitor",
+    "packageName": "com.kmwllc.lucille.connector.storageclient.LocalStorageClient",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "preVisitDirectory",
+        "parameterTypes": [
+          "java.nio.file.Path",
+          "java.nio.file.attribute.BasicFileAttributes"
+        ],
+        "parameterNames": [
+          "dir",
+          "attrs"
+        ]
+      },
+      {
+        "methodName": "visitFile",
+        "parameterTypes": [
+          "java.nio.file.Path",
+          "java.nio.file.attribute.BasicFileAttributes"
+        ],
+        "parameterNames": [
+          "file",
+          "attrs"
+        ]
+      },
+      {
+        "methodName": "visitFileFailed",
+        "parameterTypes": [
+          "java.nio.file.Path",
+          "java.io.IOException"
+        ],
+        "parameterNames": [
+          "file",
+          "exc"
+        ]
+      },
+      {
+        "methodName": "postVisitDirectory",
+        "parameterTypes": [
+          "java.nio.file.Path",
+          "java.io.IOException"
+        ],
+        "parameterNames": [
+          "dir",
+          "exc"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.xml.ChunkingXMLHandler",
+    "packageName": "com.kmwllc.lucille.connector.xml",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "setDocumentLocator",
+        "parameterTypes": [
+          "org.xml.sax.Locator"
+        ],
+        "parameterNames": [
+          "locator"
+        ]
+      },
+      {
+        "methodName": "startDocument",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "endDocument",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "startPrefixMapping",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "prefix",
+          "uri"
+        ]
+      },
+      {
+        "methodName": "endPrefixMapping",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "prefix"
+        ]
+      },
+      {
+        "methodName": "startElement",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String",
+          "org.xml.sax.Attributes"
+        ],
+        "parameterNames": [
+          "uri",
+          "localName",
+          "qName",
+          "atts"
+        ]
+      },
+      {
+        "methodName": "endElement",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String",
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "uri",
+          "localName",
+          "qName"
+        ]
+      },
+      {
+        "methodName": "characters",
+        "parameterTypes": [
+          "char[]",
+          "int",
+          "int"
+        ],
+        "parameterNames": [
+          "ch",
+          "start",
+          "length"
+        ]
+      },
+      {
+        "methodName": "ignorableWhitespace",
+        "parameterTypes": [
+          "char[]",
+          "int",
+          "int"
+        ],
+        "parameterNames": [
+          "ch",
+          "start",
+          "length"
+        ]
+      },
+      {
+        "methodName": "processingInstruction",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "target",
+          "data"
+        ]
+      },
+      {
+        "methodName": "skippedEntity",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "name"
+        ]
+      },
+      {
+        "methodName": "setDocumentRootPath",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "documentRootPath"
+        ]
+      },
+      {
+        "methodName": "setDocumentIDPath",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "documentIDPath"
+        ]
+      },
+      {
+        "methodName": "getDocIDPrefix",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "setDocIDPrefix",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "docIDPrefix"
+        ]
+      },
+      {
+        "methodName": "setConnector",
+        "parameterTypes": [
+          "com.kmwllc.lucille.connector.AbstractConnector"
+        ],
+        "parameterNames": [
+          "connector"
+        ]
+      },
+      {
+        "methodName": "getRis",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "setRis",
+        "parameterTypes": [
+          "com.kmwllc.lucille.connector.xml.RecordingInputStream"
+        ],
+        "parameterNames": [
+          "ris"
+        ]
+      },
+      {
+        "methodName": "setPublisher",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Publisher"
+        ],
+        "parameterNames": [
+          "publisher"
+        ]
+      },
+      {
+        "methodName": "setOutputField",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "outputField"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.xml.RecordingInputStream",
+    "packageName": "com.kmwllc.lucille.connector.xml",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "read",
+        "parameterTypes": [],
+        "parameterNames": []
+      },
+      {
+        "methodName": "read",
+        "parameterTypes": [
+          "byte[]",
+          "int",
+          "int"
+        ],
+        "parameterNames": [
+          "buf",
+          "off",
+          "len"
+        ]
+      },
+      {
+        "methodName": "read",
+        "parameterTypes": [
+          "byte[]"
+        ],
+        "parameterNames": [
+          "buf"
+        ]
+      },
+      {
+        "methodName": "skip",
+        "parameterTypes": [
+          "long"
+        ],
+        "parameterNames": [
+          "len"
+        ]
+      },
+      {
+        "methodName": "clearUpTo",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "string"
+        ]
+      },
+      {
+        "methodName": "returnUpTo",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "string"
+        ]
+      },
+      {
+        "methodName": "setEncoding",
+        "parameterTypes": [
+          "java.lang.String"
+        ],
+        "parameterNames": [
+          "encoding"
+        ]
+      }
+    ],
+    "isConfigClass": false
+  },
+  {
+    "className": "com.kmwllc.lucille.connector.xml.XMLConnector",
+    "packageName": "com.kmwllc.lucille.connector.xml",
+    "interfaceNames": [],
+    "isAbstract": false,
+    "methods": [
+      {
+        "methodName": "execute",
+        "parameterTypes": [
+          "com.kmwllc.lucille.core.Publisher"
+        ],
+        "parameterNames": [
+          "publisher"
+        ]
+      }
+    ],
+    "description": "Connector implementation that produces documents from a given XML file.\n \u003cp\u003e Config Parameters:\n \u003cul\u003e\n  \u003cli\u003efilePaths (List\u0026lt;String\u0026gt;): The list of file paths to parse through.\u003c/li\u003e\n  \u003cli\u003exmlRootPath (String): The path to the XML chunk to separate as a document.\u003c/li\u003e\n  \u003cli\u003exmlIdPath (String): The path to the id for each document.\u003c/li\u003e\n  \u003cli\u003eurlFiles (List\u0026lt;String\u0026gt;): The list of URL file paths to parse. If specified along with filePaths, urlFiles takes precedence.\u003c/li\u003e\n  \u003cli\u003eencoding (String): The encoding of the XML document to parse: defaults to utf-8.\u003c/li\u003e\n  \u003cli\u003eoutputField (String): The field to place the XML into: defaults to \"xml\".\u003c/li\u003e\n \u003c/ul\u003e\n\n The XMLConnector has been deprecated. Use {@link FileConnector} with an {@link XMLFileHandler}.",
+    "isConfigClass": false
+  }
+]
