@@ -857,7 +857,7 @@ public class OpenSearchIndexerTest {
   }
 
   @Test
-  public void testCloseConnection() throws IOException, IndexerException {
+  public void testCloseConnection() throws IOException {
     OpenSearchTransport mockTransport = Mockito.mock(OpenSearchTransport.class);
     OpenSearchClient mockTransportClient = Mockito.mock(OpenSearchClient.class);
     when(mockTransportClient._transport()).thenReturn(mockTransport);
@@ -890,8 +890,7 @@ public class OpenSearchIndexerTest {
     public static final Spec SPEC = OpenSearchIndexer.SPEC;
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessenger messenger,
-        OpenSearchClient client, String metricsPrefix) throws IndexerException {
-          
+        OpenSearchClient client, String metricsPrefix) {
       super(config, messenger, client, "testing");
     }
 

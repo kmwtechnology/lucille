@@ -35,8 +35,6 @@ import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
-
 public class OpenSearchIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
@@ -46,54 +44,48 @@ public class OpenSearchIndexer extends Indexer {
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
   private final OpenSearchClient client;
+  private final String index;
 
-  private String index;
-  private String url;
-  private String routingField;
-  private boolean update;
-  private VersionType versionType;
-  private boolean acceptInvalidCert;
+  private final String routingField;
+
+  private final VersionType versionType;
+
+  //flag for using partial update API when sending documents to opensearch
+  private final boolean update;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId);
-    
-    this.index = OpenSearchUtils.getOpenSearchIndex(config);
-    this.url = OpenSearchUtils.getOpenSearchUrl(config);
-    this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
-    this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
-    this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
-    this.acceptInvalidCert = config.hasPath("acceptInvalidCert") ? config.getBoolean("acceptInvalidCert") : false;
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
     }
     this.client = client;
-    // this.index = OpenSearchUtils.getOpenSearchIndex(config);
+    this.index = OpenSearchUtils.getOpenSearchIndex(config);
     this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
     this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
     this.versionType =
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
-  public OpenSearchIndexer(Config params, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(params, messenger, getClient(params, bypass), metricsPrefix, localRunId);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
   }
 
   // Convenience Constructors
-  public OpenSearchIndexer(Config params, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix) throws IndexerException {
-    this(params, messenger, client, metricsPrefix, null);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix) {
+    this(config, messenger, client, metricsPrefix, null);
   }
 
-  public OpenSearchIndexer(Config params, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
-    this(params, messenger, getClient(params, bypass), metricsPrefix, null);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
   }
 
   @Override
   protected String getIndexerConfigKey() { return "opensearch"; }
 
-  private static OpenSearchClient getClient(Config params, boolean bypass) {
-    return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(params);
+  private static OpenSearchClient getClient(Config config, boolean bypass) {
+    return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
   }
 
   @Override
