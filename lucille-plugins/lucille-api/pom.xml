@@ -125,13 +125,13 @@
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
-        <version>1.4.12</version>
+        <version>1.4.14</version>
       </dependency>
 
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-access</artifactId>
-        <version>1.4.11</version>
+        <version>1.4.14</version>
       </dependency>
     </dependencies>
 
