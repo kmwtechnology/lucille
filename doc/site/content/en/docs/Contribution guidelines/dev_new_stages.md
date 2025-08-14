@@ -93,6 +93,8 @@ The following are standards for testing in Lucille:
 
 - Code coverage should not only encapsulate aspects of lucille-core but also modules
 
+- Include test cases for every configuration parameter defined by the Stage (required and optional)
+
 ## Extra Stage Resources:
 - The ```Stage``` class has both the ```start``` and ```stop``` method; both are helpful for when we want to set up or tear down objects 
 
