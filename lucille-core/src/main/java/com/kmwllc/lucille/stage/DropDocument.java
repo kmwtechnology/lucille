@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -7,21 +8,42 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.util.Iterator;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * A stage that drops all documents that pass through it. Intended to use with the conditional framework.
+ * A stage that drops documents that pass through it. Intended to be used with the conditional framework.
+ * By default, this stage drops 100% of documents. If an optional percentage parameter is provided each document will be dropped
+ * independently with that probability.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>percentage (Double, Optional) : the probability in the inclusive range 0.0-1.0 indicating the chance that an incoming
+ *   document will be dropped, defaults to 1.0.</li>
+ * </ul>
  */
 public class DropDocument extends Stage {
 
-  public static final Spec SPEC = SpecBuilder.stage().build();
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalNumber("percentage")
+      .build();
 
-  public DropDocument(Config config) {
+  private final double percentage;
+
+  public DropDocument(Config config) throws StageException {
     super(config);
+    this.percentage = ConfigUtils.getOrDefault(config, "percentage", 1.0);
+
+    if (percentage < 0.0 || percentage > 1.0) {
+      throw new StageException("Percentage must be between 0.0 and 1.0.");
+    }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    doc.setDropped(true);
+    if (percentage >= 1.0 || (percentage > 0.0 && ThreadLocalRandom.current().nextDouble() < percentage)) {
+      doc.setDropped(true);
+    }
+
     return null;
   }
 }
