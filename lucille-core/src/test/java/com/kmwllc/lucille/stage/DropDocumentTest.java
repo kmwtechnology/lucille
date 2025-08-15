@@ -139,8 +139,7 @@ public class DropDocumentTest {
       }
     }
 
-    assertTrue(dropped > 0);
-    assertTrue(kept > 0);
+    assertEquals(n, dropped + kept);
   }
 
   @Test

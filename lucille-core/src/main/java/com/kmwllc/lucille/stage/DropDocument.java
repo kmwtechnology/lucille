@@ -12,8 +12,10 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * A stage that drops documents that pass through it. Intended to be used with the conditional framework.
- * By default, this stage drops 100% of documents. If an optional percentage parameter is provided each document will be dropped
- * independently with that probability.
+ * By default, this stage drops 100% of documents.
+ *
+ * If an optional percentage parameter is provided each document will be dropped independently with that probability. This
+ * probabilistic behavior is used primarily for testing to simulate loss in a non-deterministic way.
  * <p>
  * Config Parameters -
  * <ul>
@@ -41,7 +43,7 @@ public class DropDocument extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (percentage >= 1.0 || (percentage > 0.0 && ThreadLocalRandom.current().nextDouble() < percentage)) {
+    if (percentage == 1.0 || (percentage > 0.0 && ThreadLocalRandom.current().nextDouble() < percentage)) {
       doc.setDropped(true);
     }
 
