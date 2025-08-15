@@ -13,7 +13,7 @@
   </parent>
 
   <artifactId>lucille</artifactId>
-
+  <name>Lucille</name>
 
   <packaging>pom</packaging>
 
