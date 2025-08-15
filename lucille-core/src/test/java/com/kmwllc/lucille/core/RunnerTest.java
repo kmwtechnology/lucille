@@ -856,4 +856,18 @@ public class RunnerTest {
     Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
     assertEquals("Pipeline Configuration is valid.", Runner.stringifyValidation(exceptions, "Pipeline"));
   }
+
+  /**
+   * Attempt to reproduce a deadlock that was seen in a pipeline that dropped a high percentage of docs, but not all docs.
+   * The deadlock is also sensitive to how many docs are processed in total, the batch size, and the logging configuration.
+   *
+   * This test will possibly hang if the deadlock potential still exists in the code. It should pass in several seconds
+   * assuming the deadlock has been fixed, otherwise it will time out and fail after 30 seconds.
+   */
+  @Test(timeout = 30000)
+  public void testDropDeadlock() throws Exception {
+    RunResult result =
+        Runner.run(ConfigFactory.load("RunnerTest/dropDeadlock.conf"), Runner.RunType.LOCAL);
+    assertTrue(result.getStatus());
+  }
 }
