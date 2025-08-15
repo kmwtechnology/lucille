@@ -867,7 +867,7 @@ public class RunnerTest {
   @Test(timeout = 30000)
   public void testDropDeadlock() throws Exception {
     RunResult result =
-        Runner.run(ConfigFactory.load("RunnerTest/dropDeadlock.conf"), Runner.RunType.TEST);
+        Runner.run(ConfigFactory.load("RunnerTest/dropDeadlock.conf"), Runner.RunType.LOCAL);
     assertTrue(result.getStatus());
   }
 }
