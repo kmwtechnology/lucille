@@ -31,7 +31,8 @@ public class DropDocument extends Stage {
 
   public DropDocument(Config config) throws StageException {
     super(config);
-    this.percentage = ConfigUtils.getOrDefault(config, "percentage", 1.0);
+    Number percent = ConfigUtils.getOrDefault(config, "percentage", 1.0);
+    this.percentage = percent.doubleValue(); // Need to convert to double here or passing in 1.0 fails.
 
     if (percentage < 0.0 || percentage > 1.0) {
       throw new StageException("Percentage must be between 0.0 and 1.0.");

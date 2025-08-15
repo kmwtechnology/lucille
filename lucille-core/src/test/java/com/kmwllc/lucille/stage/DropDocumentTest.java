@@ -119,4 +119,46 @@ public class DropDocumentTest {
     stage.processConditional(doc3);
     assertTrue(doc3.isDropped());
   }
+
+  @Test
+  public void testDropWithFiftyPercent() throws StageException {
+    Stage stage = factory.get("DropDocumentTest/p50.conf");
+
+    int n = 100;
+    int dropped = 0;
+    int kept = 0;
+
+    for (int i = 0; i < n; i++) {
+      Document doc = Document.create("doc" + i);
+      stage.processDocument(doc);
+
+      if (doc.isDropped()) {
+        dropped++;
+      } else {
+        kept++;
+      }
+    }
+
+    assertTrue(dropped > 0);
+    assertTrue(kept > 0);
+  }
+
+  @Test
+  public void testDropWithOneHundredPercent() throws StageException {
+    Stage stage = factory.get("DropDocumentTest/p100.conf");
+
+    int n = 100;
+    int dropped = 0;
+
+    for (int i = 0; i < n; i++) {
+      Document doc = Document.create("doc" + i);
+      stage.processDocument(doc);
+
+      if (doc.isDropped()) {
+        dropped++;
+      }
+    }
+
+    assertEquals(n, dropped);
+  }
 }
