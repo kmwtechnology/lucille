@@ -870,4 +870,16 @@ public class RunnerTest {
         Runner.run(ConfigFactory.load("RunnerTest/dropDeadlock.conf"), Runner.RunType.LOCAL);
     assertTrue(result.getStatus());
   }
+
+  @Test
+  public void testPreRunValidationAbortsRunOnInvalidOtherConfig() throws Exception {
+    Config base = ConfigFactory.load("RunnerTest/singleDoc.conf");
+    Config invalid = ConfigFactory.parseString("worker { threadsX = 10 }").withFallback(base);
+
+    RunResult result = Runner.run(invalid, Runner.RunType.TEST);
+
+    assertFalse(result.getStatus());
+    assertNotNull(result.getHistory());
+    assertTrue(result.getHistory().isEmpty());
+  }
 }
