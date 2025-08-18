@@ -252,10 +252,6 @@ public class Runner {
     return exceptionMap;
   }
 
-  private static String getConnectorName(String connectorName) {
-    return connectorName;
-  }
-
   /**
    * Returns a mapping from pipeline names to the list of exceptions produced when validating them. (only includes
    * a pipeline name if there are errors with its config.)
