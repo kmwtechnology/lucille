@@ -6,10 +6,10 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.kmwllc</groupId>
-    <artifactId>lucille-examples</artifactId>
-    <version>0.5.7-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-examples</artifactId>
+  <version>0.5.8-SNAPSHOT</version>
+  <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>lucille-opensearch-vector-ollama-example</artifactId>
