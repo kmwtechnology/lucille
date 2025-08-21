@@ -38,8 +38,6 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
  *       <li>Destination path segments must be non-empty (e.g., "a..b" is invalid).</li>
  *     </ul>
  *   </li>
- *   <li>include_nulls (Boolean, Optional) : If true, explicit null values are written to the nested objects and empty
- *   objects may be added to the array. Defaults to false.</li>
  *   <li>num_objects (Integer, Optional) : Fixed number of nested objects to create per document. Must be a positive integer.
  *   Cannot be used together with min_num_objects/max_num_objects. Defaults to 1 when neither option is set.</li>
  *   <li>min_num_objects (Integer, Optional) : Lower bound (inclusive) on a random number of objects to create per document.
@@ -49,7 +47,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
  *   <li>generators (Map, Optional) : A set of generator stage configs used to produce values when a source field in entries
  *   is missing. Each entry:
  *     <ul>
- *       <li>Requires class(fully qualified Stage implementation).</li>
+ *       <li>Requires class (fully qualified Stage implementation).</li>
  *       <li>May specify field_name; if omitted, a temporary field .bn_gen.&lt;key&gt; is provided.</li>
  *     </ul>
  *   </li>
@@ -60,7 +58,6 @@ public class BuildNested extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("target_field")
       .requiredParent("entries", new TypeReference<Map<String, String>>() {})
-      .optionalBoolean("include_nulls")
       .optionalNumber("num_objects")
       .optionalNumber("min_num_objects", "max_num_objects")
       .optionalParent("generators", new TypeReference<Map<String, Object>>() {})
@@ -70,7 +67,6 @@ public class BuildNested extends Stage {
 
   private final String targetField;
   private final Map<List<String>, String> parsedEntries;
-  private final boolean includeNulls;
   private final Integer numObjects; // fixed N (optional)
   private final Integer minNumObjects; // range min (optional)
   private final Integer maxNumObjects; // range max (optional)
@@ -82,7 +78,6 @@ public class BuildNested extends Stage {
   public BuildNested(Config config) throws StageException {
     super(config);
     this.targetField = ConfigUtils.getOrDefault(config, "target_field", null);
-    this.includeNulls = ConfigUtils.getOrDefault(config, "include_nulls", false);
     this.numObjects = ConfigUtils.getOrDefault(config, "num_objects", null);
     this.minNumObjects = ConfigUtils.getOrDefault(config, "min_num_objects", null);
     this.maxNumObjects = ConfigUtils.getOrDefault(config, "max_num_objects", null);
@@ -171,9 +166,11 @@ public class BuildNested extends Stage {
   // Parse entries to split paths at .
   private static Map<List<String>, String> parseEntries(Config entriesCfg) throws StageException {
     Map<List<String>, String> out = new LinkedHashMap<>(entriesCfg.root().size());
+    Map<String, Object> flat = new LinkedHashMap<>(entriesCfg.root().unwrapped());
 
-    for (String dest : entriesCfg.root().keySet()) {
-      String src = entriesCfg.getString(dest);
+    for (Map.Entry<String, Object> ent : flat.entrySet()) {
+      String dest = ent.getKey();
+      String src  = ent.getValue() == null ? "" : String.valueOf(ent.getValue());
       String trimmedDest = dest == null ? "" : dest.trim();
       String trimmedSrc = src == null ? "" : src.trim();
 
@@ -221,20 +218,20 @@ public class BuildNested extends Stage {
 
         // Get value from source field if present, otherwise generator
         Object val = null;
-        if (!isBlank(sourceField) && doc.has(sourceField)) {
+        boolean hasSource = !isBlank(sourceField) && (doc.has(sourceField) || map.containsKey(sourceField));
+        if (hasSource) {
           val = map.get(sourceField);
         } else if (genKey != null) {
           val = generateWith(genKey, doc);
         }
 
-        if (val == null && genKey == null) {
+        if (!hasSource && genKey == null) {
           String destPathStr = String.join(".", keyParts);
           throw new StageException("Missing value for '" + destPathStr +
               "' (source='" + sourceField + "') and no generator available.");
         }
 
-        // Explicit null from an existing field
-        if (val == null && !includeNulls) {
+        if (val == null) {
           continue;
         }
 
@@ -244,7 +241,7 @@ public class BuildNested extends Stage {
         wroteAny = true;
       }
 
-      if (wroteAny || includeNulls) {
+      if (wroteAny) {
         arr.add(entity);
       }
     }
