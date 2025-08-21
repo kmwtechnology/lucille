@@ -14,24 +14,52 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
-// TODO: Write class level javadocs
+/**
+ * Builds a nested JSON array of objects on each document from a mapping of destination paths to source fields,
+ * optionally using generator stages to synthesize missing values.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>target_field (String, Required) : Field name where the resulting JSON array of objects will be written.</li>
+ *   <li>entries (Map&lt;String, String&gt;, Required) : Mapping of nested destination paths to source fields.
+ *     <ul>
+ *       <li>Keys are dotted paths (e.g., "user.name") that will be created inside each object.</li>
+ *       <li>Values are either a source field name on the document (used if present) or the key of a configured
+ *       generator (used only when the source is absent). Empty strings are invalid and will raise an error.</li>
+ *       <li>Destination path segments must be non-empty (e.g., "a..b" is invalid).</li>
+ *     </ul>
+ *   </li>
+ *   <li>include_nulls (Boolean, Optional) : If true, explicit null values are written to the nested objects and empty
+ *   objects may be added to the array. Defaults to false.</li>
+ *   <li>num_objects (Integer, Optional) : Fixed number of nested objects to create per document. Must be a positive integer.
+ *   Cannot be used together with min_num_objects/max_num_objects. Defaults to 1 when neither option is set.</li>
+ *   <li>min_num_objects (Integer, Optional) : Lower bound (inclusive) on a random number of objects to create per document.
+ *   Must be provided together with max_num_objects.</li>
+ *   <li>max_num_objects (Integer, Optional) : Upper bound (inclusive) on a random number of objects to create per document.
+ *   Must be provided together with min_num_objects.</li>
+ *   <li>generators (Map, Optional) : A set of generator stage configs used to produce values when a source field in entries
+ *   is missing. Each entry:
+ *     <ul>
+ *       <li>Requires class(fully qualified Stage implementation).</li>
+ *       <li>May specify field_name; if omitted, a temporary field .bn_gen.&lt;key&gt; is provided.</li>
+ *     </ul>
+ *   </li>
+ * </ul>
+ */
 public class BuildNested extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("target_field")
-      .requiredList("entries", new TypeReference<List<String>>() {})
+      .requiredParent("entries", new TypeReference<Map<String, String>>() {})
       .optionalBoolean("include_nulls")
       .optionalNumber("num_objects")
       .optionalNumber("min_num_objects", "max_num_objects")
@@ -41,8 +69,7 @@ public class BuildNested extends Stage {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final String targetField;
-  private final List<String> entries;
-  private final List<Entry<String[], String>> parsedEntries;
+  private final Map<List<String>, String> parsedEntries;
   private final boolean includeNulls;
   private final Integer numObjects; // fixed N (optional)
   private final Integer minNumObjects; // range min (optional)
@@ -55,28 +82,33 @@ public class BuildNested extends Stage {
   public BuildNested(Config config) throws StageException {
     super(config);
     this.targetField = ConfigUtils.getOrDefault(config, "target_field", null);
-    this.entries  = config.getStringList("entries");
     this.includeNulls = ConfigUtils.getOrDefault(config, "include_nulls", false);
     this.numObjects = ConfigUtils.getOrDefault(config, "num_objects", null);
     this.minNumObjects = ConfigUtils.getOrDefault(config, "min_num_objects", null);
     this.maxNumObjects = ConfigUtils.getOrDefault(config, "max_num_objects", null);
     this.generatorsConfig = config.hasPath("generators") ? config.getConfig("generators") : null;
+    Config entriesCfg = config.getConfig("entries");
+
+    if (entriesCfg.root().isEmpty()) {
+      throw new StageException("entries must be a non-empty mapping of 'nested.path' : 'source_field' (source_field may be empty).");
+    }
 
     if (targetField == null || targetField.isEmpty()) {
       throw new StageException("target_field is required.");
     }
+
     if (Document.RESERVED_FIELDS.contains(targetField)) {
       throw new StageException("target_field '" + targetField + "' is a reserved field");
     }
-    if (entries == null || entries.isEmpty()) {
-      throw new StageException("entries must be a non-empty list of 'nested.path=source_field' strings (source_field may be empty).");
-    }
+
     if (numObjects != null && numObjects <= 0) {
       throw new StageException("num_objects must be a positive integer if provided.");
     }
+
     if ((minNumObjects != null) ^ (maxNumObjects != null)) {
       throw new StageException("Both min_num_objects and max_num_objects must be provided together.");
     }
+
     if (minNumObjects != null) {
       if (minNumObjects <= 0 || maxNumObjects <= 0) {
         throw new StageException("min_num_objects and max_num_objects must be positive integers.");
@@ -85,11 +117,12 @@ public class BuildNested extends Stage {
         throw new StageException("min_num_objects must be <= max_num_objects.");
       }
     }
+
     if (numObjects != null && (minNumObjects != null || maxNumObjects != null)) {
       throw new StageException("Specify either num_objects or (min_num_objects & max_num_objects), not both.");
     }
 
-    this.parsedEntries = Collections.unmodifiableList(parseEntries(this.entries));
+    this.parsedEntries = Collections.unmodifiableMap(parseEntries(entriesCfg));
   }
 
   // Start generator stages
@@ -99,11 +132,8 @@ public class BuildNested extends Stage {
       return;
     }
 
-    // Copy generator object into map
-    Map<String, Object> raw = new LinkedHashMap<>(generatorsConfig.root().unwrapped());
     // Iterate over each generator param
-    for (Map.Entry<String, Object> entry : raw.entrySet()) {
-      String key = entry.getKey();
+    for (String key : generatorsConfig.root().keySet()) {
       Config sub = generatorsConfig.getConfig(key);
       if (!sub.hasPath("class")) {
         throw new StageException("generators." + key + " must include a 'class' property");
@@ -138,36 +168,32 @@ public class BuildNested extends Stage {
     }
   }
 
-  // TODO: This will be changed once entries is updated to a mapping instead of using =
-  private static List<Entry<String[], String>> parseEntries(List<String> entries) throws StageException {
-    List<Entry<String[], String>> out = new ArrayList<>(entries.size());
+  // Parse entries to split paths at .
+  private static Map<List<String>, String> parseEntries(Config entriesCfg) throws StageException {
+    Map<List<String>, String> out = new LinkedHashMap<>(entriesCfg.root().size());
 
-    // Iterate over each entry
-    for (String raw : entries) {
-      String m = (raw == null) ? "" : raw.trim();
+    for (String dest : entriesCfg.root().keySet()) {
+      String src = entriesCfg.getString(dest);
+      String trimmedDest = dest == null ? "" : dest.trim();
+      String trimmedSrc = src == null ? "" : src.trim();
 
-      if (m.isEmpty()) {
-        continue;
+      if (trimmedDest.isEmpty()) {
+        throw new StageException("Invalid mapping (empty destination path).");
       }
 
-      // Ensure that the entry uses an = to assign a target and source field
-      int eq = m.indexOf('=');
-
-      if (eq < 0) {
-        throw new StageException("Invalid mapping: '" + raw + "'. Expected 'nested.path=source_field' (source_field may be empty).");
+      String[] parts = trimmedDest.split("\\.");
+      for (String p : parts) {
+        if (p.isEmpty()) {
+          throw new StageException("Invalid destination '" + trimmedDest + "' (empty segment).");
+        }
       }
 
-      // Split up the destination and source fields
-      String destPath = m.substring(0, eq).trim();
-      String source   = m.substring(eq + 1).trim();
-
-      if (destPath.isEmpty()) {
-        throw new StageException("Invalid mapping (empty destination path): '" + raw + "'");
+      List<String> key = List.of(parts);
+      if (out.containsKey(key)) {
+        throw new StageException("Duplicate destination '" + dest + "'.");
       }
 
-      // Break the destination into parts of a path at .
-      String[] parts = destPath.split("\\.");
-      out.add(new ImmutablePair<>(parts, source));
+      out.put(key, trimmedSrc);
     }
 
     return out;
@@ -186,9 +212,9 @@ public class BuildNested extends Stage {
       boolean wroteAny = false;
 
       // Iterate over each entry for the object
-      for (Entry<String[], String> mp : parsedEntries) {
-        String[] destParts = mp.getKey();
-        String sourceField = mp.getValue();
+      for (Map.Entry<List<String>, String> e : parsedEntries.entrySet()) {
+        List<String> keyParts = e.getKey();
+        String sourceField = e.getValue();
 
         // Assign if generators contains the source field name
         String genKey = (!isBlank(sourceField) && generators.containsKey(sourceField)) ? sourceField : null;
@@ -202,7 +228,7 @@ public class BuildNested extends Stage {
         }
 
         if (val == null && genKey == null) {
-          String destPathStr = String.join(".", destParts);
+          String destPathStr = String.join(".", keyParts);
           throw new StageException("Missing value for '" + destPathStr +
               "' (source='" + sourceField + "') and no generator available.");
         }
@@ -214,7 +240,7 @@ public class BuildNested extends Stage {
 
         // Write value at the destination
         JsonNode node = MAPPER.valueToTree(val);
-        setNested(entity, destParts, node);
+        setNested(entity, keyParts, node);
         wroteAny = true;
       }
 
@@ -257,7 +283,7 @@ public class BuildNested extends Stage {
     Object value = doc.asMap().get(outField);
 
     // Clean up temp field
-    if (outField != null && doc.has(outField)) {
+    if (doc.has(outField)) {
       doc.removeField(outField);
     }
 
@@ -265,16 +291,16 @@ public class BuildNested extends Stage {
   }
 
   // Create a dotted path inside the root and set the leaf to value
-  private void setNested(ObjectNode root, String[] parts, JsonNode value) throws StageException {
-    if (parts == null || parts.length == 0) {
+  private void setNested(ObjectNode root, List<String> parts, JsonNode value) throws StageException {
+    if (parts == null || parts.isEmpty()) {
       throw new StageException("Destination path cannot be empty.");
     }
 
     // Start at the root
     ObjectNode cur = root;
     // Iterate over all parent segments in the path
-    for (int i = 0; i < parts.length - 1; i++) {
-      String key = parts[i];
+    for (int i = 0; i < parts.size() - 1; i++) {
+      String key = parts.get(i);
       JsonNode existing = cur.get(key);
 
       // Create the node if it doesn't exist, otherwise just move down to that level
@@ -288,7 +314,7 @@ public class BuildNested extends Stage {
     }
 
     // Write the value at the leaf
-    cur.set(parts[parts.length - 1], value);
+    cur.set(parts.get(parts.size() - 1), value);
   }
 
   // Use reflection to create generator stage
