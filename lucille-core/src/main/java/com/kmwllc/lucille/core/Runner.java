@@ -4,7 +4,6 @@ import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
-import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
@@ -230,19 +229,23 @@ public class Runner {
       return exceptionMap;
     }
 
+    Set<String> seenNames = new HashSet<>();
+    int idx = 0;
+
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
-      String connectorName = connectorConfig.getString("name");
+      idx++;
+      String connectorName = connectorConfig.hasPath("name") ? connectorConfig.getString("name") : null;
+
       List<Exception> exceptionsForConnector = Connector.getConnectorConfigExceptions(connectorConfig);
+      if (connectorName != null && !connectorName.isEmpty()) {
+        if (!seenNames.add(connectorName)) {
+          exceptionMap.computeIfAbsent(connectorName, k -> new ArrayList<>()).add(new Exception("There are multiple connectors with the name " + connectorName));
+        }
+      }
 
       if (!exceptionsForConnector.isEmpty()) {
-        if (!exceptionMap.containsKey(connectorName)) {
-          // Still uses a List so we can support extra exceptions for duplicate pipeline names
-          exceptionMap.put(connectorName, exceptionsForConnector);
-        } else {
-          // add all the errors with this config, and another one for duplicate connectors
-          exceptionMap.get(connectorName).addAll(exceptionsForConnector);
-          exceptionMap.get(connectorName).add(new Exception("There are multiple connectors with the name " + connectorName));
-        }
+        String key = (connectorName != null && !connectorName.isEmpty()) ? connectorName : "connector[" + idx + "]";
+        exceptionMap.computeIfAbsent(key, k -> new ArrayList<>()).addAll(exceptionsForConnector);
       }
     }
 
@@ -350,7 +353,7 @@ public class Runner {
   public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
     return runWithResultLog(config, runType, null);
   }
-  
+
   /**
    * Kicks off a new Lucille run and logs information about the run to the console after completion.
    */
@@ -375,7 +378,7 @@ public class Runner {
           (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
     }
   }
-  
+
   /**
    * Non managed Run with internal generated runId
    *
@@ -403,6 +406,18 @@ public class Runner {
     }
 
     MDC.put(RUNID_FIELD, runId);
+
+    Map<String, List<Exception>> validationErrors = runInValidationMode(config);
+    if (!validationErrors.isEmpty()) {
+      log.error("Pre-run validation failed.");
+
+      Map<String, TestMessenger> history =
+          type.equals(RunType.TEST) ? new HashMap<>() : null;
+
+      return new RunResult(false,
+          Collections.emptyList(), Collections.emptyList(), history, runId);
+    }
+
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
