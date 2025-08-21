@@ -14,7 +14,6 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -22,9 +21,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ThreadLocalRandom;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
+// TODO: Write class level javadocs
 public class BuildNested extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
@@ -32,7 +34,7 @@ public class BuildNested extends Stage {
       .requiredList("entries", new TypeReference<List<String>>() {})
       .optionalBoolean("include_nulls")
       .optionalNumber("num_objects")
-      // Map<String, Object> of generator blocks
+      .optionalNumber("min_num_objects", "max_num_objects")
       .optionalParent("generators", new TypeReference<Map<String, Object>>() {})
       .build();
 
@@ -40,26 +42,31 @@ public class BuildNested extends Stage {
 
   private final String targetField;
   private final List<String> entries;
-  private final List<Entry<String[], String>> parsedEntries; // dest path pre-split once; value is sourceField (can be "")
+  private final List<Entry<String[], String>> parsedEntries;
   private final boolean includeNulls;
-  private final Integer numObjects;
+  private final Integer numObjects; // fixed N (optional)
+  private final Integer minNumObjects; // range min (optional)
+  private final Integer maxNumObjects; // range max (optional)
 
-  // Generators: key -> Stage instance
   private final Map<String, Stage> generators = new LinkedHashMap<>();
-  // Generator output field for each key (injected or user-provided)
   private final Map<String, String> genOutField = new LinkedHashMap<>();
   private final Config generatorsConfig;
 
   public BuildNested(Config config) throws StageException {
     super(config);
     this.targetField = ConfigUtils.getOrDefault(config, "target_field", null);
-    this.entries = config.getStringList("entries");
+    this.entries  = config.getStringList("entries");
     this.includeNulls = ConfigUtils.getOrDefault(config, "include_nulls", false);
     this.numObjects = ConfigUtils.getOrDefault(config, "num_objects", null);
+    this.minNumObjects = ConfigUtils.getOrDefault(config, "min_num_objects", null);
+    this.maxNumObjects = ConfigUtils.getOrDefault(config, "max_num_objects", null);
     this.generatorsConfig = config.hasPath("generators") ? config.getConfig("generators") : null;
 
     if (targetField == null || targetField.isEmpty()) {
       throw new StageException("target_field is required.");
+    }
+    if (Document.RESERVED_FIELDS.contains(targetField)) {
+      throw new StageException("target_field '" + targetField + "' is a reserved field");
     }
     if (entries == null || entries.isEmpty()) {
       throw new StageException("entries must be a non-empty list of 'nested.path=source_field' strings (source_field may be empty).");
@@ -67,28 +74,45 @@ public class BuildNested extends Stage {
     if (numObjects != null && numObjects <= 0) {
       throw new StageException("num_objects must be a positive integer if provided.");
     }
+    if ((minNumObjects != null) ^ (maxNumObjects != null)) {
+      throw new StageException("Both min_num_objects and max_num_objects must be provided together.");
+    }
+    if (minNumObjects != null) {
+      if (minNumObjects <= 0 || maxNumObjects <= 0) {
+        throw new StageException("min_num_objects and max_num_objects must be positive integers.");
+      }
+      if (minNumObjects > maxNumObjects) {
+        throw new StageException("min_num_objects must be <= max_num_objects.");
+      }
+    }
+    if (numObjects != null && (minNumObjects != null || maxNumObjects != null)) {
+      throw new StageException("Specify either num_objects or (min_num_objects & max_num_objects), not both.");
+    }
 
-    // Pre-parse "dest=source" and pre-split dest path once up-front
     this.parsedEntries = Collections.unmodifiableList(parseEntries(this.entries));
   }
 
+  // Start generator stages
   @Override
   public void start() throws StageException {
-    // Initialize configured generators (if any), injecting a unique temp field_name if not provided
-    if (generatorsConfig == null) return;
+    if (generatorsConfig == null) {
+      return;
+    }
 
-    // Keep insertion order stable
+    // Copy generator object into map
     Map<String, Object> raw = new LinkedHashMap<>(generatorsConfig.root().unwrapped());
-    for (Map.Entry<String, Object> e : raw.entrySet()) {
-      String key = e.getKey();
+    // Iterate over each generator param
+    for (Map.Entry<String, Object> entry : raw.entrySet()) {
+      String key = entry.getKey();
       Config sub = generatorsConfig.getConfig(key);
       if (!sub.hasPath("class")) {
         throw new StageException("generators." + key + " must include a 'class' property");
       }
 
-      // Inline default temp field name; respect user-provided field_name if present
+      // Inline default temp field name
       String tmpField = sub.hasPath("field_name") ? sub.getString("field_name") : ".bn_gen." + key;
 
+      // Add default name and field name
       Config injected = sub;
       if (!sub.hasPath("field_name")) {
         injected = ConfigFactory.parseMap(Map.of(
@@ -97,6 +121,7 @@ public class BuildNested extends Stage {
         )).withFallback(sub);
       }
 
+      // Create generator
       Stage gen = instantiateStage(injected);
       gen.start();
       generators.put(key, gen);
@@ -106,86 +131,88 @@ public class BuildNested extends Stage {
 
   @Override
   public void stop() throws StageException {
-    for (Stage g : generators.values()) {
-      try { g.stop(); } catch (Exception ignored) {}
+    for (Stage generator : generators.values()) {
+      try {
+        generator.stop();
+      } catch (Exception ignored) {}
     }
   }
 
+  // TODO: This will be changed once entries is updated to a mapping instead of using =
   private static List<Entry<String[], String>> parseEntries(List<String> entries) throws StageException {
     List<Entry<String[], String>> out = new ArrayList<>(entries.size());
+
+    // Iterate over each entry
     for (String raw : entries) {
       String m = (raw == null) ? "" : raw.trim();
-      if (m.isEmpty()) continue;
 
+      if (m.isEmpty()) {
+        continue;
+      }
+
+      // Ensure that the entry uses an = to assign a target and source field
       int eq = m.indexOf('=');
+
       if (eq < 0) {
         throw new StageException("Invalid mapping: '" + raw + "'. Expected 'nested.path=source_field' (source_field may be empty).");
       }
+
+      // Split up the destination and source fields
       String destPath = m.substring(0, eq).trim();
-      String source = m.substring(eq + 1).trim(); // may be empty
+      String source   = m.substring(eq + 1).trim();
+
       if (destPath.isEmpty()) {
         throw new StageException("Invalid mapping (empty destination path): '" + raw + "'");
       }
-      String[] parts = destPath.split("\\."); // regex used once at startup
-      out.add(new AbstractMap.SimpleImmutableEntry<>(parts, source));
+
+      // Break the destination into parts of a path at .
+      String[] parts = destPath.split("\\.");
+      out.add(new ImmutablePair<>(parts, source));
     }
+
     return out;
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    Map<String, Object> map = doc.asMap(); // generic types
-
-    final int n = (numObjects != null) ? numObjects : 1;
-
+    // Get doc as map so we can use previous field values
+    Map<String, Object> map = doc.asMap();
+    final int n = pickNumObjects();
     ArrayNode arr = MAPPER.createArrayNode();
 
+    // Iterate over each nested object
     for (int i = 0; i < n; i++) {
       ObjectNode entity = MAPPER.createObjectNode();
       boolean wroteAny = false;
 
+      // Iterate over each entry for the object
       for (Entry<String[], String> mp : parsedEntries) {
         String[] destParts = mp.getKey();
-        String sourceField = mp.getValue(); // may be blank
+        String sourceField = mp.getValue();
 
-        String leaf = destParts[destParts.length - 1];
-        String genKey = (!isBlank(sourceField) && generators.containsKey(sourceField)) ? sourceField
-            : (generators.containsKey(leaf) ? leaf : null);
+        // Assign if generators contains the source field name
+        String genKey = (!isBlank(sourceField) && generators.containsKey(sourceField)) ? sourceField : null;
 
-        boolean hasSource = !isBlank(sourceField) && doc.has(sourceField);
-        Object raw = hasSource ? map.get(sourceField) : null;
-
-        boolean missing = false;
+        // Get value from source field if present, otherwise generator
         Object val = null;
-
-        if (!hasSource) {
-          missing = true;
-        } else if (raw instanceof List<?>) {
-          List<?> L = (List<?>) raw;
-          if (i < L.size()) {
-            val = L.get(i);
-          } else {
-            missing = true; // list too short for this index
-          }
-        } else {
-          val = raw; // scalar (may be null)
+        if (!isBlank(sourceField) && doc.has(sourceField)) {
+          val = map.get(sourceField);
+        } else if (genKey != null) {
+          val = generateWith(genKey, doc);
         }
 
-        if (missing) {
-          // missing value must be satisfied by a generator, else hard fail
-          if (genKey != null) {
-            val = generateWith(genKey, doc);
-          }
-          if (val == null) {
-            String destPathStr = String.join(".", destParts);
-            throw new StageException("Missing value for '" + destPathStr +
-                "' (source='" + sourceField + "') and no generator available.");
-          }
+        if (val == null && genKey == null) {
+          String destPathStr = String.join(".", destParts);
+          throw new StageException("Missing value for '" + destPathStr +
+              "' (source='" + sourceField + "') and no generator available.");
         }
 
-        // explicit null from an existing field
-        if (val == null && !includeNulls) continue;
+        // Explicit null from an existing field
+        if (val == null && !includeNulls) {
+          continue;
+        }
 
+        // Write value at the destination
         JsonNode node = MAPPER.valueToTree(val);
         setNested(entity, destParts, node);
         wroteAny = true;
@@ -200,41 +227,57 @@ public class BuildNested extends Stage {
     return null;
   }
 
-  /** Run the configured generator for this key once, read its output field, then remove it. */
+  // Pick the number of objects
+  private int pickNumObjects() {
+    if (numObjects != null) {
+      return numObjects;
+    }
+
+    if (minNumObjects != null) {
+      return ThreadLocalRandom.current().nextInt(minNumObjects, maxNumObjects + 1);
+    }
+
+    return 1;
+  }
+
+  // Generate a value with the provided stage
   private Object generateWith(String genKey, Document doc) throws StageException {
     Stage gen = generators.get(genKey);
+
     if (gen == null) {
       return null;
     }
+
+    // Field that the generator writes to
     String outField = genOutField.get(genKey);
 
-    // Run the generator on the doc once; it writes to outField
+    // Run the generator on the current doc once
     gen.processDocument(doc);
 
-    Object produced;
-    Object raw = doc.asMap().get(outField); // read after generator ran
-    if (raw instanceof List) {
-      List<?> L = (List<?>) raw;
-      produced = L.isEmpty() ? null : L.get(L.size() - 1); // take the last value written
-    } else {
-      produced = raw;
-    }
+    Object value = doc.asMap().get(outField);
 
-    // Clean up temp field to avoid leaking into final doc
+    // Clean up temp field
     if (outField != null && doc.has(outField)) {
       doc.removeField(outField);
     }
-    return produced;
+
+    return value;
   }
 
+  // Create a dotted path inside the root and set the leaf to value
   private void setNested(ObjectNode root, String[] parts, JsonNode value) throws StageException {
     if (parts == null || parts.length == 0) {
       throw new StageException("Destination path cannot be empty.");
     }
+
+    // Start at the root
     ObjectNode cur = root;
+    // Iterate over all parent segments in the path
     for (int i = 0; i < parts.length - 1; i++) {
       String key = parts[i];
       JsonNode existing = cur.get(key);
+
+      // Create the node if it doesn't exist, otherwise just move down to that level
       if (!(existing instanceof ObjectNode)) {
         ObjectNode next = MAPPER.createObjectNode();
         cur.set(key, next);
@@ -243,16 +286,21 @@ public class BuildNested extends Stage {
         cur = (ObjectNode) existing;
       }
     }
+
+    // Write the value at the leaf
     cur.set(parts[parts.length - 1], value);
   }
 
+  // Use reflection to create generator stage
   private static Stage instantiateStage(Config cfg) throws StageException {
     try {
       String cls = cfg.getString("class");
       Class<?> k = Class.forName(cls);
+
       if (!Stage.class.isAssignableFrom(k)) {
         throw new StageException("Generator class is not a Stage: " + cls);
       }
+
       return (Stage) k.getConstructor(Config.class).newInstance(cfg);
     } catch (Exception e) {
       throw new StageException("Failed to instantiate generator stage", e);
