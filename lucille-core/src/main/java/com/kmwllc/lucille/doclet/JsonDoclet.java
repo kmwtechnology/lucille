@@ -50,106 +50,106 @@ public class JsonDoclet implements Doclet {
   @Override
   public Set<? extends Option> getSupportedOptions() {
     return Set.of(
-        // Option for output file name
-        new Option() {
-          @Override
-          public int getArgumentCount() {
-            return 1;
-          }
-
-          @Override
-          public String getDescription() {
-            return "Output file name (default: javadocs.json)";
-          }
-
-          @Override
-          public Kind getKind() {
-            return Kind.STANDARD;
-          }
-
-          @Override
-          public List<String> getNames() {
-            return List.of("-o", "--output");
-          }
-
-          @Override
-          public String getParameters() {
-            return "FILE";
-          }
-
-          @Override
-          public boolean process(String option, List<String> arguments) {
-            outputFile = arguments.get(0);
-            return true;
-          }
-        },
-        // Option for output directory
-        new Option() {
-          @Override
-          public int getArgumentCount() {
-            return 1;
-          }
-
-          @Override
-          public String getDescription() {
-            return "Output directory (default: target)";
-          }
-
-          @Override
-          public Kind getKind() {
-            return Kind.STANDARD;
-          }
-
-          @Override
-          public List<String> getNames() {
-            return List.of("-d", "--directory");
-          }
-
-          @Override
-          public String getParameters() {
-            return "DIR";
-          }
-
-          @Override
-          public boolean process(String option, List<String> arguments) {
-            outputPath = arguments.get(0);
-            return true;
-          }
-        },
-        // Help option
-        new Option() {
-          @Override
-          public int getArgumentCount() {
-            return 0;
-          }
-
-          @Override
-          public String getDescription() {
-            return "Display help information";
-          }
-
-          @Override
-          public Kind getKind() {
-            return Kind.STANDARD;
-          }
-
-          @Override
-          public List<String> getNames() {
-            return List.of("-h", "--help");
-          }
-
-          @Override
-          public String getParameters() {
-            return "";
-          }
-
-          @Override
-          public boolean process(String option, List<String> arguments) {
-            helpWanted = true;
-            printHelp();
-            return true;
-          }
+      // Option for output file name
+      new Option() {
+        @Override
+        public int getArgumentCount() {
+          return 1;
         }
+
+        @Override
+        public String getDescription() {
+          return "Output file name (default: javadocs.json)";
+        }
+
+        @Override
+        public Kind getKind() {
+          return Kind.STANDARD;
+        }
+
+        @Override
+        public List<String> getNames() {
+          return List.of("-o", "--output");
+        }
+
+        @Override
+        public String getParameters() {
+          return "FILE";
+        }
+
+        @Override
+        public boolean process(String option, List<String> arguments) {
+          outputFile = arguments.get(0);
+          return true;
+        }
+      },
+      // Option for output directory
+      new Option() {
+        @Override
+        public int getArgumentCount() {
+          return 1;
+        }
+
+        @Override
+        public String getDescription() {
+          return "Output directory (default: target)";
+        }
+
+        @Override
+        public Kind getKind() {
+          return Kind.STANDARD;
+        }
+
+        @Override
+        public List<String> getNames() {
+          return List.of("-d", "--directory");
+        }
+
+        @Override
+        public String getParameters() {
+          return "DIR";
+        }
+
+        @Override
+        public boolean process(String option, List<String> arguments) {
+          outputPath = arguments.get(0);
+          return true;
+        }
+      },
+      // Help option
+      new Option() {
+        @Override
+        public int getArgumentCount() {
+          return 0;
+        }
+
+        @Override
+        public String getDescription() {
+          return "Display help information";
+        }
+
+        @Override
+        public Kind getKind() {
+          return Kind.STANDARD;
+        }
+
+        @Override
+        public List<String> getNames() {
+          return List.of("-h", "--help");
+        }
+
+        @Override
+        public String getParameters() {
+          return "";
+        }
+
+        @Override
+        public boolean process(String option, List<String> arguments) {
+          helpWanted = true;
+          printHelp();
+          return true;
+        }
+      }
     );
   }
 
