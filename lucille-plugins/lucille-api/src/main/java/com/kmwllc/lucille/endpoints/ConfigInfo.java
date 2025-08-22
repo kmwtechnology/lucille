@@ -1,14 +1,13 @@
 package com.kmwllc.lucille.endpoints;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.util.ClassUtils;
-import com.kmwllc.lucille.util.ClassUtils.ClassDescriptor;
 
 import io.dropwizard.auth.Auth;
 import io.dropwizard.auth.PrincipalImpl;
@@ -21,14 +20,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.*;
 import java.io.InputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -44,49 +41,167 @@ public class ConfigInfo {
 
   private static final ObjectMapper mapper = new ObjectMapper();
   private final AuthHandler authHandler;
+
+  private String cachedConnectorListJson;
   private String cachedStageListJson;
+  private String cachedIndexerListJson;
 
   public ConfigInfo(AuthHandler authHandler) {
     this.authHandler = authHandler;
   }
 
-  /**
-   * Scans the given package for classes and extracts config parameter info.
-   * This is a placeholder implementation; in a real system, you would use a classpath scanner
-   * like Reflections or a registry of known components.
-   * @throws ClassNotFoundException
-   */
-  private Set<ClassDescriptor>getComponentInfo(String parentClassName, String packageName) throws ClassNotFoundException {
-
-    Set<ClassDescriptor> components = ClassUtils.findSubclassDescriptors(parentClassName, packageName);
-
-    return components;
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class ComponentDoc {
+    public String className;
+    public String description;
   }
 
+  // Extract the field descriptions from the javadoc
+  private static Map<String, String> extractParamDescriptionsFromHtml(String html) {
+    Map<String, String> out = new HashMap<>();
 
-  /**
-   * Returns all available connectors with their config parameters.
-   * @throws ClassNotFoundException
-   */
+    // Return on empty input
+    if (html == null || html.isEmpty()) {
+      return out;
+    }
+
+    Document jsoupDoc = Jsoup.parse(html);
+    // Select a <p> where the text matches "config parameters" and grab the immediate child <ul>
+    Elements uls = jsoupDoc.select("p:matchesOwn((?i)^\\s*config\\s*parameters\\b) + ul");
+    if (uls.isEmpty()) {
+      return out;
+    }
+
+    // Iterate over each top level <li> in the <ul>
+    for (org.jsoup.nodes.Element li : uls.first().select("> li")) {
+      String text = li.text();
+      int colon = text.indexOf(':');
+      if (colon < 0) {
+        continue;
+      }
+
+      // Extract the name and description from each <li>
+      String rawName = text.substring(0, colon).trim();
+      String description = text.substring(colon + 1).trim();
+
+      // Format the name to match that of the spec exactly
+      String baseName = rawName.replaceFirst("\\s*\\(.*\\)$", "").trim();
+      if (!baseName.isEmpty()) {
+        out.put(baseName, description);
+      }
+    }
+
+    return out;
+  }
+
+  // Load the docs from the provided json file
+  private static Map<String, ComponentDoc> loadDocs(String resourceName) throws IOException {
+    Map<String, ComponentDoc> map = new HashMap<>();
+
+    try (InputStream is = ConfigInfo.class.getClassLoader().getResourceAsStream(resourceName)) {
+      if (is == null) {
+        return map;
+      }
+
+      // Get the document stream as an array of ComponentDocs
+      List<ComponentDoc> list = Arrays.asList(mapper.readValue(is, ComponentDoc[].class));
+
+      // Put each ComponentDoc into the map with the name as the key
+      for (ComponentDoc d : list) {
+        map.put(d.className, d);
+      }
+
+      return map;
+    }
+  }
+
+  // Merges in javadoc descriptions to the specs
+  private static void mergeDescriptionsIntoFields(ObjectNode specNode, String htmlDescription) {
+    // TODO: Determine if we want this default paramsFromDescription removed
+    specNode.remove("paramsFromDescription");
+
+    if (htmlDescription == null) {
+      return;
+    }
+
+    specNode.put("description", htmlDescription);
+    Map<String, String> paramDescs = extractParamDescriptionsFromHtml(htmlDescription);
+    JsonNode fieldsNode = specNode.get("fields");
+
+    if (fieldsNode != null && fieldsNode.isArray()) {
+      ArrayNode fieldsArray = (ArrayNode) fieldsNode;
+
+      // Iterate over each field definition
+      for (JsonNode fn : fieldsArray) {
+        if (fn.isObject()) {
+          ObjectNode fieldObj = (ObjectNode) fn;
+          JsonNode nameNode = fieldObj.get("name");
+
+          if (nameNode != null) {
+            // If a matching field name is found in the html write it to the description
+            String fieldName = nameNode.asText();
+            String desc = paramDescs.get(fieldName);
+
+            if (desc != null && !desc.isEmpty()) {
+              fieldObj.put("description", desc);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Builds an array of specs for the subclasses of a base class
+  private ArrayNode buildSpecArrayForSubclasses(String baseClassName, Map<String, ComponentDoc> docs)
+      throws NoSuchFieldException, IllegalAccessException {
+    ArrayNode array = mapper.createArrayNode();
+    // Use ClassGraph to scan the classpath
+    try (ScanResult scanResult = new ClassGraph().enableAllInfo().scan()) {
+      // Find every class that is a subclass of the provided class name
+      ClassInfoList classes = scanResult.getSubclasses(baseClassName);
+      // Load whatever matches were found as class objects
+      List<Class<?>> refs = classes.loadClasses();
+
+      // Iterate over each subclass
+      for (Class<?> c : refs) {
+        // Get the specs
+        ObjectNode specNode = (ObjectNode) ((Spec) c.getDeclaredField("SPEC").get(null)).toJson();
+        specNode.put("class", c.getName());
+        array.add(specNode);
+
+        // If the class has javadoc descriptions, merge them in to the spec
+        ComponentDoc d = docs.get(c.getName());
+        mergeDescriptionsIntoFields(specNode, (d != null ? d.description : null));
+      }
+    }
+
+    return array;
+  }
+
   @GET
   @Path("/connector-list")
-  public Response getConnectors(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user) throws ClassNotFoundException {
+  public Response getConnectors(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user)
+      throws IOException, NoSuchFieldException, IllegalAccessException {
     Response authResponse = authHandler.authenticate(user);
     if (authResponse != null) {
       return authResponse;
     }
-    Set<ClassDescriptor> connectors = ClassUtils.findInterfaceDescriptors(Connector.class.getName(), "com.kmwllc.lucille.connector");
-    return Response.ok(connectors).build();
+
+    if (cachedConnectorListJson != null) {
+      return Response.ok(cachedConnectorListJson, MediaType.APPLICATION_JSON).build();
+    }
+
+    Map<String, ComponentDoc> connectorDocs = loadDocs("connector-javadocs.json");
+    ArrayNode array = buildSpecArrayForSubclasses(AbstractConnector.class.getName(), connectorDocs);
+
+    cachedConnectorListJson = mapper.writeValueAsString(array);
+    return Response.ok(array, MediaType.APPLICATION_JSON).build();
   }
 
-  /**
-   * Returns all available stages with their config parameters.
-   * @throws ClassNotFoundException
-   */
   @GET
   @Path("/stage-list")
   public Response getStages(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user)
-      throws ClassNotFoundException, IOException, NoSuchFieldException, IllegalAccessException {
+      throws IOException, NoSuchFieldException, IllegalAccessException {
     Response authResponse = authHandler.authenticate(user);
     if (authResponse != null) {
       return authResponse;
@@ -96,134 +211,45 @@ public class ConfigInfo {
       return Response.ok(cachedStageListJson, MediaType.APPLICATION_JSON).build();
     }
 
-    List<StageDoc> stageDocList =
-        Arrays.asList(mapper.readValue(ConfigInfo.class.getClassLoader().getResourceAsStream("stage-javadocs.json"),
-            StageDoc[].class));
+    Map<String, ComponentDoc> ComponentDocs = loadDocs("stage-javadocs.json");
+    ArrayNode array = buildSpecArrayForSubclasses("com.kmwllc.lucille.core.Stage", ComponentDocs);
 
-    Map<String,StageDoc> stageDocs = new HashMap<>();
-    for (StageDoc doc : stageDocList) {
-      stageDocs.put(doc.className, doc);
-    }
-
-    ArrayNode stageSpecArray = mapper.createArrayNode();
-    try (ScanResult scanResult = new ClassGraph().enableAllInfo().scan()) {
-      ClassInfoList stageClasses = scanResult.getSubclasses("com.kmwllc.lucille.core.Stage");
-      List<Class<?>> stageClassRefs = stageClasses.loadClasses();
-
-      for (Class stageClass: stageClassRefs) {
-        ObjectNode specNode = (ObjectNode) ((Spec)stageClass.getDeclaredField("SPEC").get(null)).toJson();
-
-        specNode.put("class", stageClass.getName());
-        stageSpecArray.add(specNode);
-
-        StageDoc doc = stageDocs.get(stageClass.getName());
-        if (doc != null && doc.description != null) {
-          specNode.put("description", doc.description);
-
-          Document jsoupDoc = Jsoup.parse(doc.description);
-          Elements uls = jsoupDoc.select("p:matchesOwn((?i)^\\s*config\\s*parameters\\b) + ul");
-          if (!uls.isEmpty()) {
-            ArrayNode jsonParams = mapper.createArrayNode();
-
-            for (org.jsoup.nodes.Element li : uls.first().select("> li")) {
-              String text = li.text();
-              int colon = text.indexOf(':');
-              if (colon < 0) {
-                continue;
-              }
-
-              String name = text.substring(0, colon).trim();
-              String description = text.substring(colon + 1).trim();
-
-              ObjectNode jsonParam = mapper.createObjectNode();
-              jsonParam.put("name", name);
-              jsonParam.put("description", description);
-              jsonParams.add(jsonParam);
-            }
-            specNode.set("paramsFromDescription", jsonParams);
-          }
-        }
-      }
-    }
-
-    cachedStageListJson = mapper.writeValueAsString(stageSpecArray);
-    return Response.ok(stageSpecArray, MediaType.APPLICATION_JSON).build();
+    cachedStageListJson = mapper.writeValueAsString(array);
+    return Response.ok(array, MediaType.APPLICATION_JSON).build();
   }
 
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  public static class StageDoc {
-    public String className;
-    public String description;
-  }
-
-  /**
-   * Returns all available indexers with their config parameters.
-   * @throws ClassNotFoundException
-   */
   @GET
   @Path("/indexer-list")
-  public Response getIndexers(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user) throws ClassNotFoundException {
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse;
-    }
-    Set<ClassDescriptor> indexers = getComponentInfo(Indexer.class.getName(), "com.kmwllc.lucille.indexer");
-    return Response.ok(indexers).build();
-  }
-
-  /**
-   * Returns detailed javadoc information for the specified component type.
-   * Loads the information from a JSON file in the resources directory named {componentType}-javadocs.json.
-   *
-   * @param componentType The type of component to get javadocs for. Valid values are "stage", "connector", or "indexer".
-   * @param user The authenticated user
-   * @return The javadoc information as a JSON response
-   */
-  @GET
-  @Path("/javadoc-list/{componentType}")
-  public Response getJavadocs(
-      @Parameter(description = "Component type to get javadocs for", required = true)
-      @PathParam("componentType") String componentType,
-      @Parameter(hidden = true) @Auth Optional<PrincipalImpl> user) {
-
+  public Response getIndexers(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user)
+      throws IOException, NoSuchFieldException, IllegalAccessException {
     Response authResponse = authHandler.authenticate(user);
     if (authResponse != null) {
       return authResponse;
     }
 
-    // Validate component type
-    if (!Arrays.asList("stage", "connector", "indexer").contains(componentType.toLowerCase())) {
-      return Response.status(Response.Status.BAD_REQUEST)
-          .entity("Invalid component type. Must be one of: stage, connector, indexer")
-          .build();
+    if (cachedIndexerListJson != null) {
+      return Response.ok(cachedIndexerListJson, MediaType.APPLICATION_JSON).build();
     }
 
-    String resourcePath = componentType.toLowerCase() + "-javadocs.json";
+    Map<String, ComponentDoc> indexerDocs = loadDocs("indexer-javadocs.json");
+    ArrayNode array = buildSpecArrayForSubclasses(Indexer.class.getName(), indexerDocs);
 
-    try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
-      if (is == null) {
-        return Response.status(Response.Status.NOT_FOUND)
-            .entity("Javadoc information not found for component type: " + componentType)
-            .build();
-      }
-
-      String jsonContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-      return Response.ok(jsonContent, MediaType.APPLICATION_JSON).build();
-
-    } catch (IOException e) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-          .entity("Error reading javadoc information: " + e.getMessage())
-          .build();
-    }
+    cachedIndexerListJson = mapper.writeValueAsString(array);
+    return Response.ok(array, MediaType.APPLICATION_JSON).build();
   }
 
-  public static void main(String[] args) throws ClassNotFoundException, IOException, NoSuchFieldException, IllegalAccessException {
+  public static void main(String[] args) throws IOException, NoSuchFieldException, IllegalAccessException {
     AuthHandler authHandler = new AuthHandler(false);
 
     ConfigInfo api = new ConfigInfo(authHandler);
 
+    api.getConnectors(Optional.empty());
+    api.getStages(Optional.empty());
+    api.getIndexers(Optional.empty());
 
+    System.out.println(api.getConnectors(Optional.empty()).getEntity());
     System.out.println(api.getStages(Optional.empty()).getEntity());
+    System.out.println(api.getIndexers(Optional.empty()).getEntity());
   }
 
 }
