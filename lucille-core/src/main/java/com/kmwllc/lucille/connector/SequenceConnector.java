@@ -1,5 +1,4 @@
 package com.kmwllc.lucille.connector;
-
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -8,6 +7,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 /**
  * Connector implementation that produces a certain number of empty Documents. Each Document will have a number for its ID
@@ -26,12 +26,13 @@ public class SequenceConnector extends AbstractConnector {
       .optionalNumber("startWith").build();
 
   private static final Logger log = LoggerFactory.getLogger(SequenceConnector.class);
-  private final long numDocs;
-  private final int startWith;
+
+  private long numDocs;
+  private int startWith;
 
   public SequenceConnector(Config config) {
     super(config);
-
+    
     this.numDocs = config.getLong("numDocs");
     this.startWith = config.hasPath("startWith") ? config.getInt("startWith") : 0;
   }
