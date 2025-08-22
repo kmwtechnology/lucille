@@ -26,6 +26,7 @@
     <module>lucille-opensearch-ingest-example</module>
     <module>lucille-s3-ingest-example</module>
     <module>lucille-rss-example</module>
+    <module>lucille-opensearch-vector-ollama-example</module>
   </modules>
 
   <dependencies>
