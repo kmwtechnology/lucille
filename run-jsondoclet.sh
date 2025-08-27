@@ -5,7 +5,7 @@ PROJECT_ROOT=$(pwd)
 TARGET_DIR="$PROJECT_ROOT/lucille-core/target"
 LIB_DIR="$TARGET_DIR/lib"
 CLASSES_DIR="$TARGET_DIR/classes"
-OUTPUT_DIR="$PROJECT_ROOT/lucille-plugins/lucille-api/src/main/resources"
+OUTPUT_DIR="$PROJECT_ROOT/lucille-plugins/lucille-api/target/classes"
 OUTPUT_FILE="stage-javadocs.json"
 
 # Ensure output directory exists
