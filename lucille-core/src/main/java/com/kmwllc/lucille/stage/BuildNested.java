@@ -20,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
@@ -63,6 +65,10 @@ public class BuildNested extends Stage {
       .optionalParent("generators", new TypeReference<Map<String, Object>>() {})
       .build();
 
+  private static final String GEN_OUT_FIELD = "generator_out";
+
+  private static final Logger log = LoggerFactory.getLogger(BuildNested.class);
+
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final String targetField;
@@ -72,7 +78,7 @@ public class BuildNested extends Stage {
   private final Integer maxNumObjects; // range max (optional)
 
   private final Map<String, Stage> generators = new LinkedHashMap<>();
-  private final Map<String, String> genOutField = new LinkedHashMap<>();
+  private final Document genDoc;
   private final Config generatorsConfig;
 
   public BuildNested(Config config) throws StageException {
@@ -118,6 +124,7 @@ public class BuildNested extends Stage {
     }
 
     this.parsedEntries = Collections.unmodifiableMap(parseEntries(entriesCfg));
+    this.genDoc = Document.create("__bn_gen_reserved__");
   }
 
   // Start generator stages
@@ -134,32 +141,29 @@ public class BuildNested extends Stage {
         throw new StageException("generators." + key + " must include a 'class' property");
       }
 
-      // Inline default temp field name
-      String tmpField = sub.hasPath("field_name") ? sub.getString("field_name") : ".bn_gen." + key;
-
-      // Add default name and field name
-      Config injected = sub;
-      if (!sub.hasPath("field_name")) {
-        injected = ConfigFactory.parseMap(Map.of(
-            "name", "bn_gen_" + key,
-            "field_name", tmpField
-        )).withFallback(sub);
-      }
+      Config injected = ConfigFactory.parseMap(Map.of(
+          "name", "bn_gen_" + key,
+          "field_name", GEN_OUT_FIELD
+      )).withFallback(sub);
 
       // Create generator
       Stage gen = instantiateStage(injected);
       gen.start();
       generators.put(key, gen);
-      genOutField.put(key, tmpField);
     }
   }
 
   @Override
   public void stop() throws StageException {
-    for (Stage generator : generators.values()) {
+    for (Map.Entry<String, Stage> entry : generators.entrySet()) {
+      String key = entry.getKey();
+      Stage generator = entry.getValue();
       try {
         generator.stop();
-      } catch (Exception ignored) {}
+      } catch (Exception e) {
+        log.error("Error while stopping generator '{}' ({}),",
+            key, generator != null ? generator.getClass().getName() : "null", e);
+      }
     }
   }
 
@@ -222,7 +226,7 @@ public class BuildNested extends Stage {
         if (hasSource) {
           val = map.get(sourceField);
         } else if (genKey != null) {
-          val = generateWith(genKey, doc);
+          val = generateWith(genKey);
         }
 
         if (!hasSource && genKey == null) {
@@ -264,24 +268,20 @@ public class BuildNested extends Stage {
   }
 
   // Generate a value with the provided stage
-  private Object generateWith(String genKey, Document doc) throws StageException {
+  private Object generateWith(String genKey) throws StageException {
     Stage gen = generators.get(genKey);
 
     if (gen == null) {
       return null;
     }
 
-    // Field that the generator writes to
-    String outField = genOutField.get(genKey);
-
     // Run the generator on the current doc once
-    gen.processDocument(doc);
-
-    Object value = doc.asMap().get(outField);
+    gen.processDocument(genDoc);
+    Object value = genDoc.asMap().get(GEN_OUT_FIELD);
 
     // Clean up temp field
-    if (doc.has(outField)) {
-      doc.removeField(outField);
+    if (genDoc.has(GEN_OUT_FIELD)) {
+      genDoc.removeField(GEN_OUT_FIELD);
     }
 
     return value;
