@@ -71,4 +71,40 @@ public class ConfigInfoTest {
       assertFalse(n.has("paramsFromDescription"));
     }
   }
+
+  @Test
+  public void testStages_AddRandomBoolean_containsFields() throws Exception {
+    Response resp = resource.getStages(Optional.empty());
+    assertEquals(200, resp.getStatus());
+
+    ArrayNode arr = mapper.valueToTree(resp.getEntity());
+    assertTrue(arr.size() > 0);
+
+    String className = "com.kmwllc.lucille.stage.AddRandomBoolean";
+    JsonNode stage = null;
+    for (JsonNode n : arr) {
+      if (n.has("class") && className.equals(n.get("class").asText())) {
+        stage = n;
+        break;
+      }
+    }
+    assertNotNull(stage);
+
+    assertTrue(stage.has("description"));
+    assertTrue(stage.has("javadoc"));
+    assertTrue(stage.has("fields") && stage.get("fields").isArray());
+
+    String topDesc = stage.get("description").asText();
+    assertFalse(topDesc.toLowerCase().contains("config parameters"));
+
+    JsonNode percentTrue = null;
+    for (JsonNode f : stage.get("fields")) {
+      if (f.has("name") && "percent_true".equals(f.get("name").asText())) {
+        percentTrue = f;
+        break;
+      }
+    }
+    assertNotNull(percentTrue);
+    assertTrue(percentTrue.has("description") && !percentTrue.get("description").asText().isEmpty());
+  }
 }
