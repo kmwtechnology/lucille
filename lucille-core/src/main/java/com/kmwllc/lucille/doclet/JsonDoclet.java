@@ -2,8 +2,6 @@ package com.kmwllc.lucille.doclet;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.kmwllc.lucille.util.ClassUtils.ClassDescriptor;
-import com.kmwllc.lucille.util.ClassUtils.MethodDescriptor;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
@@ -153,7 +151,7 @@ public class JsonDoclet implements Doclet {
     );
   }
 
-  private void printHelp() {
+  private static void printHelp() {
     System.out.println("JsonDoclet: Generates JSON documentation for Java classes");
     System.out.println("Usage: javadoc -doclet com.kmwllc.lucille.doclet.JsonDoclet [options]");
     System.out.println();
@@ -325,8 +323,6 @@ public class JsonDoclet implements Doclet {
 
       File outputJsonFile = new File(outputDir, outputFile);
       reporter.print(Diagnostic.Kind.NOTE, "Writing JSON documentation to " + outputJsonFile.getAbsolutePath());
-      System.out.println("WRITING JSON DOCUMENT TO " + outputJsonFile.getAbsolutePath());
-      Thread.sleep(5000);
 
       // Use standard Java file writing instead of JavaFileManager
       try (Writer writer = new java.io.FileWriter(outputJsonFile)) {
@@ -354,17 +350,7 @@ public class JsonDoclet implements Doclet {
 
     // Parse arguments for help flag
     if (Arrays.asList(args).contains("-h") || Arrays.asList(args).contains("--help")) {
-      System.out.println("JsonDoclet: Generate JSON documentation from Javadoc");
-      System.out.println("Usage: java -cp <classpath> com.kmwllc.lucille.doclet.JsonDoclet [options]");
-      System.out.println();
-      System.out.println("Options:");
-      System.out.println("  -sp, --sourcepath <paths>    Source path(s), comma-delimited (default: src/main/java)");
-      System.out.println(
-          "  -sb, --subpackages <pkgs>    Subpackages to process, comma-delimited (default: com.kmwllc.lucille.stage)");
-      System.out.println("  -o, --output <file>          Output file name (default: javadocs.json)");
-      System.out.println("  -d, --directory <dir>        Output directory (default: target)");
-      System.out.println("  -h, --help                   Display this help message");
-      System.exit(0);
+      printHelp();
     }
 
     // Process command line arguments
