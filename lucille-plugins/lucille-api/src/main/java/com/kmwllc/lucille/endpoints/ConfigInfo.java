@@ -54,6 +54,19 @@ public class ConfigInfo {
   public static class ComponentDoc {
     public String className;
     public String description;
+    public String javadoc;
+  }
+
+  // Extract the base description from the javadoc
+  private static String extractDescriptionFromHtml(String html) {
+    if (html == null || html.isEmpty()) {
+      return null;
+    }
+
+    int idx  = html.toLowerCase().indexOf("<p>");
+    String head = (idx >= 0) ? html.substring(0, idx) : html;
+
+    return Jsoup.parse(head).text().trim();
   }
 
   // Extract the field descriptions from the javadoc
@@ -115,17 +128,23 @@ public class ConfigInfo {
     }
   }
 
-  // Merges in javadoc descriptions to the specs
-  private static void mergeDescriptionsIntoFields(ObjectNode specNode, String htmlDescription) {
+  // Merges in javadoc to description and spec fields
+  private static void mergeJavadocIntoFields(ObjectNode specNode, String javadocHtml) {
     // TODO: Determine if we want this default paramsFromDescription removed
     specNode.remove("paramsFromDescription");
 
-    if (htmlDescription == null) {
+    if (javadocHtml == null) {
       return;
     }
 
-    specNode.put("description", htmlDescription);
-    Map<String, String> paramDescs = extractParamDescriptionsFromHtml(htmlDescription);
+    specNode.put("javadoc", javadocHtml);
+    String shortDesc = extractDescriptionFromHtml(javadocHtml);
+
+    if (shortDesc != null && !shortDesc.isEmpty()) {
+      specNode.put("description", shortDesc);
+    }
+
+    Map<String, String> paramDescs = extractParamDescriptionsFromHtml(javadocHtml);
     JsonNode fieldsNode = specNode.get("fields");
 
     if (fieldsNode != null && fieldsNode.isArray()) {
@@ -171,7 +190,7 @@ public class ConfigInfo {
 
         // If the class has javadoc descriptions, merge them in to the spec
         ComponentDoc d = docs.get(c.getName());
-        mergeDescriptionsIntoFields(specNode, (d != null ? d.description : null));
+        mergeJavadocIntoFields(specNode, (d != null ? d.description: null));
       }
     }
 
@@ -247,9 +266,7 @@ public class ConfigInfo {
     api.getStages(Optional.empty());
     api.getIndexers(Optional.empty());
 
-    System.out.println(api.getConnectors(Optional.empty()).getEntity());
     System.out.println(api.getStages(Optional.empty()).getEntity());
-    System.out.println(api.getIndexers(Optional.empty()).getEntity());
   }
 
 }

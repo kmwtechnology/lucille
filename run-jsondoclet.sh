@@ -15,7 +15,6 @@ mkdir -p "$OUTPUT_DIR"
 if [ ! -d "$LIB_DIR" ]; then
   echo "Library directory not found at $LIB_DIR. Running Maven to download dependencies..."
   mvn dependency:copy-dependencies -DoutputDirectory="$LIB_DIR" -f "$PROJECT_ROOT/lucille-core/pom.xml"
-  mvn dependency:copy-dependencies -DoutputDirectory="$LIB_DIR" -f "$PROJECT_ROOT/lucille-plugins/lucille-tika/pom.xml"
 fi
 
 # Build the classpath with all dependencies
