@@ -202,8 +202,6 @@ public class BuildNested extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    // Get doc as map so we can use previous field values
-    Map<String, Object> map = doc.asMap();
     final int n = pickNumObjects();
     ArrayNode arr = MAPPER.createArrayNode();
 
@@ -221,12 +219,12 @@ public class BuildNested extends Stage {
         String genKey = (!isBlank(sourceField) && generators.containsKey(sourceField)) ? sourceField : null;
 
         // Get value from source field if present, otherwise generator
-        Object val = null;
-        boolean hasSource = !isBlank(sourceField) && (doc.has(sourceField) || map.containsKey(sourceField));
+        JsonNode valNode = null;
+        boolean hasSource = !isBlank(sourceField) && doc.has(sourceField);
         if (hasSource) {
-          val = map.get(sourceField);
+          valNode = doc.getJson(sourceField);
         } else if (genKey != null) {
-          val = generateWith(genKey);
+          valNode = generateWith(genKey);
         }
 
         if (!hasSource && genKey == null) {
@@ -235,13 +233,13 @@ public class BuildNested extends Stage {
               "' (source='" + sourceField + "') and no generator available.");
         }
 
-        if (val == null) {
+        if (valNode == null || valNode.isNull()) {
+          log.warn("Value for '{}' resolved to null ({}).", sourceField, doc.getId());
           continue;
         }
 
         // Write value at the destination
-        JsonNode node = MAPPER.valueToTree(val);
-        setNested(entity, keyParts, node);
+        setNested(entity, keyParts, valNode);
         wroteAny = true;
       }
 
@@ -268,7 +266,7 @@ public class BuildNested extends Stage {
   }
 
   // Generate a value with the provided stage
-  private Object generateWith(String genKey) throws StageException {
+  private JsonNode generateWith(String genKey) throws StageException {
     Stage gen = generators.get(genKey);
 
     if (gen == null) {
@@ -277,7 +275,7 @@ public class BuildNested extends Stage {
 
     // Run the generator on the current doc once
     gen.processDocument(genDoc);
-    Object value = genDoc.asMap().get(GEN_OUT_FIELD);
+    JsonNode value = genDoc.getJson(GEN_OUT_FIELD);
 
     // Clean up temp field
     if (genDoc.has(GEN_OUT_FIELD)) {
