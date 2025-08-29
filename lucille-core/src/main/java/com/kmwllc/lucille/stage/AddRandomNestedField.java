@@ -26,8 +26,9 @@ import org.slf4j.LoggerFactory;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 
 /**
- * Builds a nested JSON array of objects on each document from a mapping of destination paths to source fields,
- * optionally using generator stages to synthesize missing values.
+ * Adds a nested JSON array of objects on each document from a mapping of destination paths to source fields.
+ * You can set a fixed number of objects or choose a random range. If a source field is missing, optional generators
+ * can supply the value. Generators or a previously defined source field can be used to supply values.
  * <p>
  * Config Parameters -
  * <ul>
@@ -50,12 +51,12 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
  *   is missing. Each entry:
  *     <ul>
  *       <li>Requires class (fully qualified Stage implementation).</li>
- *       <li>May specify field_name; if omitted, a temporary field .bn_gen.&lt;key&gt; is provided.</li>
+ *       <li>May specify field_name; if omitted, a temporary field generator_out is written to.</li>
  *     </ul>
  *   </li>
  * </ul>
  */
-public class BuildNested extends Stage {
+public class AddRandomNestedField extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("target_field")
@@ -67,7 +68,7 @@ public class BuildNested extends Stage {
 
   private static final String GEN_OUT_FIELD = "generator_out";
 
-  private static final Logger log = LoggerFactory.getLogger(BuildNested.class);
+  private static final Logger log = LoggerFactory.getLogger(AddRandomNestedField.class);
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -81,7 +82,7 @@ public class BuildNested extends Stage {
   private final Document genDoc;
   private final Config generatorsConfig;
 
-  public BuildNested(Config config) throws StageException {
+  public AddRandomNestedField(Config config) throws StageException {
     super(config);
     this.targetField = ConfigUtils.getOrDefault(config, "target_field", null);
     this.numObjects = ConfigUtils.getOrDefault(config, "num_objects", null);
@@ -124,7 +125,7 @@ public class BuildNested extends Stage {
     }
 
     this.parsedEntries = Collections.unmodifiableMap(parseEntries(entriesCfg));
-    this.genDoc = Document.create("__bn_gen_reserved__");
+    this.genDoc = Document.create("__arnf_gen_reserved__");
   }
 
   // Start generator stages
@@ -142,7 +143,7 @@ public class BuildNested extends Stage {
       }
 
       Config injected = ConfigFactory.parseMap(Map.of(
-          "name", "bn_gen_" + key,
+          "name", "arnf_gen_" + key,
           "field_name", GEN_OUT_FIELD
       )).withFallback(sub);
 

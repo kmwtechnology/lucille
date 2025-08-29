@@ -9,9 +9,9 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
 
-public class BuildNestedTest {
+public class AddRandomNestedFieldTest {
 
-  private final StageFactory factory = StageFactory.of(BuildNested.class);
+  private final StageFactory factory = StageFactory.of(AddRandomNestedField.class);
 
   @Test
   public void testValidScalarSingle() throws StageException {
@@ -166,7 +166,7 @@ public class BuildNestedTest {
 
     s.processDocument(d);
 
-    assertFalse(d.has(".bn_gen.intGen"));
+    assertFalse(d.has(".arnf_gen.intGen"));
 
     JsonNode out = d.getJson("out");
     assertEquals(1, out.size());
