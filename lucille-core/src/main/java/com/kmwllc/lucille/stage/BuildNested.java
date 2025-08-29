@@ -69,7 +69,7 @@ public class BuildNested extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(BuildNested.class);
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   private final String targetField;
   private final Map<List<String>, String> parsedEntries;
@@ -147,7 +147,13 @@ public class BuildNested extends Stage {
       )).withFallback(sub);
 
       // Create generator
-      Stage gen = instantiateStage(injected);
+      Stage gen;
+
+      try {
+        gen = Stage.fromConfig(injected);
+      } catch (Exception e) {
+        throw new StageException("Failed to instantiate generator '" + key + "'", e);
+      }
       gen.start();
       generators.put(key, gen);
     }
@@ -170,7 +176,7 @@ public class BuildNested extends Stage {
   // Parse entries to split paths at .
   private static Map<List<String>, String> parseEntries(Config entriesCfg) throws StageException {
     Map<List<String>, String> out = new LinkedHashMap<>(entriesCfg.root().size());
-    Map<String, Object> flat = new LinkedHashMap<>(entriesCfg.root().unwrapped());
+    Map<String, Object> flat = entriesCfg.root().unwrapped();
 
     for (Map.Entry<String, Object> ent : flat.entrySet()) {
       String dest = ent.getKey();
@@ -203,11 +209,11 @@ public class BuildNested extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     final int n = pickNumObjects();
-    ArrayNode arr = MAPPER.createArrayNode();
+    ArrayNode arr = mapper.createArrayNode();
 
     // Iterate over each nested object
     for (int i = 0; i < n; i++) {
-      ObjectNode entity = MAPPER.createObjectNode();
+      ObjectNode entity = mapper.createObjectNode();
       boolean wroteAny = false;
 
       // Iterate over each entry for the object
@@ -273,14 +279,14 @@ public class BuildNested extends Stage {
       return null;
     }
 
-    // Run the generator on the current doc once
-    gen.processDocument(genDoc);
-    JsonNode value = genDoc.getJson(GEN_OUT_FIELD);
-
     // Clean up temp field
     if (genDoc.has(GEN_OUT_FIELD)) {
       genDoc.removeField(GEN_OUT_FIELD);
     }
+
+    // Run the generator on the current doc once
+    gen.processDocument(genDoc);
+    JsonNode value = genDoc.getJson(GEN_OUT_FIELD);
 
     return value;
   }
@@ -300,7 +306,7 @@ public class BuildNested extends Stage {
 
       // Create the node if it doesn't exist, otherwise just move down to that level
       if (!(existing instanceof ObjectNode)) {
-        ObjectNode next = MAPPER.createObjectNode();
+        ObjectNode next = mapper.createObjectNode();
         cur.set(key, next);
         cur = next;
       } else {
@@ -310,21 +316,5 @@ public class BuildNested extends Stage {
 
     // Write the value at the leaf
     cur.set(parts.get(parts.size() - 1), value);
-  }
-
-  // Use reflection to create generator stage
-  private static Stage instantiateStage(Config cfg) throws StageException {
-    try {
-      String cls = cfg.getString("class");
-      Class<?> k = Class.forName(cls);
-
-      if (!Stage.class.isAssignableFrom(k)) {
-        throw new StageException("Generator class is not a Stage: " + cls);
-      }
-
-      return (Stage) k.getConstructor(Config.class).newInstance(cfg);
-    } catch (Exception e) {
-      throw new StageException("Failed to instantiate generator stage", e);
-    }
   }
 }
