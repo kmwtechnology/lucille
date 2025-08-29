@@ -42,9 +42,9 @@ public class ConfigInfo {
   private static final ObjectMapper mapper = new ObjectMapper();
   private final AuthHandler authHandler;
 
-  private String cachedConnectorListJson;
-  private String cachedStageListJson;
-  private String cachedIndexerListJson;
+  private ArrayNode cachedConnectorListJson;
+  private ArrayNode cachedStageListJson;
+  private ArrayNode cachedIndexerListJson;
 
   public ConfigInfo(AuthHandler authHandler) {
     this.authHandler = authHandler;
@@ -206,15 +206,12 @@ public class ConfigInfo {
       return authResponse;
     }
 
-    if (cachedConnectorListJson != null) {
-      return Response.ok(cachedConnectorListJson, MediaType.APPLICATION_JSON).build();
+    if (cachedConnectorListJson == null) {
+      Map<String, ComponentDoc> connectorDocs = loadDocs("connector-javadocs.json");
+      cachedConnectorListJson = buildSpecArrayForSubclasses(AbstractConnector.class.getName(), connectorDocs);
     }
 
-    Map<String, ComponentDoc> connectorDocs = loadDocs("connector-javadocs.json");
-    ArrayNode array = buildSpecArrayForSubclasses(AbstractConnector.class.getName(), connectorDocs);
-
-    cachedConnectorListJson = mapper.writeValueAsString(array);
-    return Response.ok(array, MediaType.APPLICATION_JSON).build();
+    return Response.ok(cachedConnectorListJson, MediaType.APPLICATION_JSON).build();
   }
 
   @GET
@@ -226,15 +223,12 @@ public class ConfigInfo {
       return authResponse;
     }
 
-    if (cachedStageListJson != null) {
-      return Response.ok(cachedStageListJson, MediaType.APPLICATION_JSON).build();
+    if (cachedStageListJson == null) {
+      Map<String, ComponentDoc> ComponentDocs = loadDocs("stage-javadocs.json");
+      cachedStageListJson = buildSpecArrayForSubclasses("com.kmwllc.lucille.core.Stage", ComponentDocs);
     }
 
-    Map<String, ComponentDoc> ComponentDocs = loadDocs("stage-javadocs.json");
-    ArrayNode array = buildSpecArrayForSubclasses("com.kmwllc.lucille.core.Stage", ComponentDocs);
-
-    cachedStageListJson = mapper.writeValueAsString(array);
-    return Response.ok(array, MediaType.APPLICATION_JSON).build();
+    return Response.ok(cachedStageListJson, MediaType.APPLICATION_JSON).build();
   }
 
   @GET
@@ -246,27 +240,11 @@ public class ConfigInfo {
       return authResponse;
     }
 
-    if (cachedIndexerListJson != null) {
-      return Response.ok(cachedIndexerListJson, MediaType.APPLICATION_JSON).build();
+    if (cachedIndexerListJson == null) {
+      Map<String, ComponentDoc> indexerDocs = loadDocs("indexer-javadocs.json");
+      cachedIndexerListJson = buildSpecArrayForSubclasses(Indexer.class.getName(), indexerDocs);
     }
 
-    Map<String, ComponentDoc> indexerDocs = loadDocs("indexer-javadocs.json");
-    ArrayNode array = buildSpecArrayForSubclasses(Indexer.class.getName(), indexerDocs);
-
-    cachedIndexerListJson = mapper.writeValueAsString(array);
-    return Response.ok(array, MediaType.APPLICATION_JSON).build();
+    return Response.ok(cachedIndexerListJson, MediaType.APPLICATION_JSON).build();
   }
-
-  public static void main(String[] args) throws IOException, NoSuchFieldException, IllegalAccessException {
-    AuthHandler authHandler = new AuthHandler(false);
-
-    ConfigInfo api = new ConfigInfo(authHandler);
-
-    api.getConnectors(Optional.empty());
-    api.getStages(Optional.empty());
-    api.getIndexers(Optional.empty());
-
-    System.out.println(api.getStages(Optional.empty()).getEntity());
-  }
-
 }

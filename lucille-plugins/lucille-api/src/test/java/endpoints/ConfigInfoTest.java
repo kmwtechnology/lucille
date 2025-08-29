@@ -72,6 +72,7 @@ public class ConfigInfoTest {
     }
   }
 
+  // THIS TEST WILL NOT PASS MANUALLY UNLESS YOU HAVE RUN THE DOCLET THROUGH MVN CLEAN INSTALL
   @Test
   public void testStages_AddRandomBoolean_containsFields() throws Exception {
     Response resp = resource.getStages(Optional.empty());

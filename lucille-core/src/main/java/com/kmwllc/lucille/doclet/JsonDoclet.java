@@ -283,35 +283,6 @@ public class JsonDoclet implements Doclet {
       if (topLevelDesc != null) {
         descriptors.add(topLevelDesc);
       }
-
-      // Process public static inner classes - especially looking for Config classes
-      for (Element enclosedElement : topLevelType.getEnclosedElements()) {
-        if (enclosedElement instanceof TypeElement) {
-          TypeElement innerType = (TypeElement) enclosedElement;
-          Set<Modifier> modifiers = innerType.getModifiers();
-
-          // Check if it's a public static inner class/enum
-          if ((innerType.getKind() == ElementKind.CLASS || innerType.getKind() == ElementKind.ENUM) &&
-              modifiers.contains(Modifier.PUBLIC) &&
-              modifiers.contains(Modifier.STATIC)) {
-
-            // Check if it follows the naming convention: OuterClassNameConfig
-            String outerName = topLevelType.getSimpleName().toString();
-            String innerName = innerType.getSimpleName().toString();
-            boolean isConfigClass = innerName.equals(outerName + "Config");
-
-            ClassDescriptor innerDesc = createClassDescriptorFromType(innerType, env);
-            if (innerDesc != null) {
-              // Mark this as a configuration class if it follows the naming convention
-              if (isConfigClass) {
-                innerDesc.setIsConfigClass(true);
-                innerDesc.setConfigForClass(topLevelType.getQualifiedName().toString());
-              }
-              descriptors.add(innerDesc);
-            }
-          }
-        }
-      }
     }
 
     try {

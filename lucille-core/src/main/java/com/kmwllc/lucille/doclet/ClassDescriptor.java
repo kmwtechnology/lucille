@@ -20,8 +20,6 @@ public class ClassDescriptor {
   private final List<MethodDescriptor> methods;
   private String description; // Optional field for description
   private Map<String, String> fieldDocs; // Field name to documentation mapping
-  private boolean isConfigClass; // Whether this is a configuration class
-  private String configForClass; // The class this config is for (if applicable)
 
   /**
    * Constructs a ClassDescriptor from a java.lang.Class.
@@ -128,42 +126,6 @@ public class ClassDescriptor {
    */
   public Map<String, String> getFieldDocs() {
     return fieldDocs;
-  }
-
-  /**
-   * Mark this class as a configuration class.
-   *
-   * @param isConfigClass True if this is a configuration class
-   */
-  public void setIsConfigClass(boolean isConfigClass) {
-    this.isConfigClass = isConfigClass;
-  }
-
-  /**
-   * Check if this is a configuration class.
-   *
-   * @return True if this is a configuration class
-   */
-  public boolean isConfigClass() {
-    return isConfigClass;
-  }
-
-  /**
-   * Set the class this config is for.
-   *
-   * @param configForClass The fully qualified name of the class this config is for
-   */
-  public void setConfigForClass(String configForClass) {
-    this.configForClass = configForClass;
-  }
-
-  /**
-   * Get the class this config is for.
-   *
-   * @return The fully qualified name of the class this config is for
-   */
-  public String getConfigForClass() {
-    return configForClass;
   }
 
   @Override
