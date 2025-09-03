@@ -15,7 +15,7 @@ public class AddRandomNestedFieldTest {
 
   @Test
   public void testValidScalarSingle() throws StageException {
-    Stage s = factory.get("BuildNestedTest/valid_scalar.conf");
+    Stage s = factory.get("AddRandomNestedFieldTest/valid_scalar.conf");
     Document d = Document.create("d1");
     d.setField("name", "Alice");
     d.setField("age", 30);
@@ -32,7 +32,7 @@ public class AddRandomNestedFieldTest {
 
   @Test
   public void testNumObjectsFixedTwo() throws StageException {
-    Stage s = factory.get("BuildNestedTest/num_objects_2.conf");
+    Stage s = factory.get("AddRandomNestedFieldTest/num_objects_2.conf");
     Document d = Document.create("d2");
     d.setField("city", "Boston");
 
@@ -47,7 +47,7 @@ public class AddRandomNestedFieldTest {
 
   @Test
   public void testRangeMinMaxThree() throws StageException {
-    Stage s = factory.get("BuildNestedTest/range_minmax_3.conf");
+    Stage s = factory.get("AddRandomNestedFieldTest/range_minmax_3.conf");
     Document d = Document.create("d3");
     d.setField("title", "Engineer");
 
@@ -64,14 +64,14 @@ public class AddRandomNestedFieldTest {
   /** Missing source and no generator configured -> should throw at process time. */
   @Test
   public void testMissingValueNoGenerator() throws StageException {
-    Stage s = factory.get("BuildNestedTest/missing_no_generator.conf");
+    Stage s = factory.get("AddRandomNestedFieldTest/missing_no_generator.conf");
     Document d = Document.create("d4");
     assertThrows(StageException.class, () -> s.processDocument(d));
   }
 
   @Test
   public void testGeneratorScalar_UsingAddRandomInt() throws StageException {
-    Stage s = factory.get("BuildNestedTest/generator_scalar_int.conf");
+    Stage s = factory.get("AddRandomNestedFieldTest/generator_scalar_int.conf");
     Document d = Document.create("d5");
 
     s.processDocument(d);
@@ -83,7 +83,7 @@ public class AddRandomNestedFieldTest {
 
   @Test
   public void testGeneratorList_UsingAddRandomString() throws StageException {
-    Stage s = factory.get("BuildNestedTest/generator_list_strings.conf");
+    Stage s = factory.get("AddRandomNestedFieldTest/generator_list_strings.conf");
     Document d = Document.create("d6");
 
     s.processDocument(d);
@@ -100,42 +100,42 @@ public class AddRandomNestedFieldTest {
   @Test
   public void testInvalidNumObjectsZero() {
     assertThrows(StageException.class,
-        () -> factory.get("BuildNestedTest/invalid_num_zero.conf"));
+        () -> factory.get("AddRandomNestedFieldTest/invalid_num_zero.conf"));
   }
 
   @Test
   public void testInvalidOnlyMin() {
     assertThrows(StageException.class,
-        () -> factory.get("BuildNestedTest/invalid_only_min.conf"));
+        () -> factory.get("AddRandomNestedFieldTest/invalid_only_min.conf"));
   }
 
   @Test
   public void testInvalidOnlyMax() {
     assertThrows(StageException.class,
-        () -> factory.get("BuildNestedTest/invalid_only_max.conf"));
+        () -> factory.get("AddRandomNestedFieldTest/invalid_only_max.conf"));
   }
 
   @Test
   public void testInvalidNumAndRange() {
     assertThrows(StageException.class,
-        () -> factory.get("BuildNestedTest/invalid_num_and_range.conf"));
+        () -> factory.get("AddRandomNestedFieldTest/invalid_num_and_range.conf"));
   }
 
   @Test
   public void testInvalidGeneratorMissingClass() {
     assertThrows(StageException.class,
-        () -> factory.get("BuildNestedTest/invalid_generator_missing_class.conf"));
+        () -> factory.get("AddRandomNestedFieldTest/invalid_generator_missing_class.conf"));
   }
 
   @Test
   public void testInvalidEmptyEntries() {
     assertThrows(StageException.class,
-        () -> factory.get("BuildNestedTest/invalid_empty_entries.conf"));
+        () -> factory.get("AddRandomNestedFieldTest/invalid_empty_entries.conf"));
   }
 
   @Test
   public void testNullSourceSkipped() throws StageException {
-    Stage s = factory.get("BuildNestedTest/null_source_skipped.conf");
+    Stage s = factory.get("AddRandomNestedFieldTest/null_source_skipped.conf");
     Document d = Document.create("d7");
     d.setField("deleted_src", NullNode.instance);
 
@@ -148,7 +148,7 @@ public class AddRandomNestedFieldTest {
 
   @Test
   public void testSourceWinsOverGenerator() throws StageException {
-    Stage s = factory.get("BuildNestedTest/source_wins_over_generator.conf");
+    Stage s = factory.get("AddRandomNestedFieldTest/source_wins_over_generator.conf");
     Document d = Document.create("d8");
     d.setField("intGen", 42);
 
@@ -161,7 +161,7 @@ public class AddRandomNestedFieldTest {
 
   @Test
   public void testGeneratorTempFieldIsCleaned() throws StageException {
-    Stage s = factory.get("BuildNestedTest/generator_scalar_int.conf");
+    Stage s = factory.get("AddRandomNestedFieldTest/generator_scalar_int.conf");
     Document d = Document.create("d9");
 
     s.processDocument(d);
