@@ -480,31 +480,4 @@ public class ExtractEntitiesFST extends Stage {
     }
     return irb.get();
   }
-
-  private static final List<String> DICTS = List.of(
-      "/Users/henry/Desktop/generated/duns_company_to_duns_number_remapped.csv",
-      "/Users/henry/Desktop/generated/duns_company_to_duns_number_standard.csv",
-      "/Users/henry/Desktop/generated/duns_number_city_to_duns_number.csv",
-      "/Users/henry/Desktop/generated/duns_number_country_to_duns_number.csv",
-      "/Users/henry/Desktop/generated/duns_number_state_to_duns_number.csv",
-      "/Users/henry/Desktop/generated/duns_number_to_duns_company.csv",
-      "/Users/henry/Desktop/generated/ultimateparentduns_to_industry_segmentation_city.csv",
-      "/Users/henry/Desktop/generated/ultimateparentduns_to_industry_segmentation_country.csv",
-      "/Users/henry/Desktop/generated/ultimateparentduns_to_industry_segmentation_global.csv",
-      "/Users/henry/Desktop/generated/ultimateparentduns_to_industry_segmentation_state.csv"
-  );
-
-  public static void main(String[] args) throws Exception {
-    Config cfg = ConfigFactory.parseMap(Map.of(
-        "dictionaries", DICTS,
-        "source", List.of("text"),
-        "dest", List.of("entities")
-    ));
-
-    ExtractEntitiesFST stage = new ExtractEntitiesFST(cfg);
-    stage.start();
-    System.out.println("LOOP STARTING");
-    while (true) Thread.sleep(30_000);
-  }
-
 }
