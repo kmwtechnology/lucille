@@ -23,6 +23,30 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.*;
 
+/**
+ * Extracts dictionary-based entities from document text fields using a Lucene FST. Matches can optionally map to
+ * payload values, control overlap behavior, and quit on first hit.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>dictionaries (List&lt;String&gt;, Required) : Paths to CSV dictionary files. Each row’s first column is the extraction term
+ *   and the second column (optional) is the payload.</li>
+ *   <li>source (List&lt;String&gt;, Required) : List of source field names.</li>
+ *   <li>dest (List&lt;String&gt;, Required) : List of destination field names. You can either supply the same number of source and destination
+ *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
+ *   <li>use_payloads (Boolean, Optional) : Denotes whether payloads from the dictionary should be used or not.</li>
+ *   <li>ignore_overlaps (Boolean, Optional) : If true, emits only the single longest match starting at a position; if false, emits
+ *   all overlapping matches that start at that position. Defaults to false.</li>
+ *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
+ *   <li>update_mode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
+ *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
+ *   <li>entity_field (String, Optional) : When set and use_payloads=true, also writes the matched normalized surface terms
+ *   to this field.</li>
+ *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ * </ul>
+ */
 public class ExtractEntitiesFST extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
