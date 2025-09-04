@@ -61,8 +61,7 @@ public class AddRandomNestedField extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("target_field")
       .requiredParent("entries", new TypeReference<Map<String, String>>() {})
-      .optionalNumber("num_objects")
-      .optionalNumber("min_num_objects", "max_num_objects")
+      .optionalNumber("num_objects", "min_num_objects", "max_num_objects")
       .optionalParent("generators", new TypeReference<Map<String, Object>>() {})
       .build();
 
