@@ -25,7 +25,7 @@ public class ExtractEntitiesFSTTest {
         doc.getStringList("output").get(0));
 
     Document doc2 = Document.create("doc2");
-    doc2.setField("input1", "I live in China but am from taiwan");
+    doc2.setField("input1", "I live in China but am from Taiwan");
     doc2.setField("input2", "I live in Canada");
     doc2.setField("input3", "I live in USSR");
     stage.processDocument(doc2);
@@ -43,26 +43,8 @@ public class ExtractEntitiesFSTTest {
     Stage stage = factory.get("ExtractEntitiesFSTTest/configEntityAndPayload.conf");
     stage.processDocument(doc);
     assertEquals("North America", doc.getString("payload"));
-    assertEquals("united states", doc.getString("entity"));
+    assertEquals("United States", doc.getString("entity"));
   }
-
-
-  @Test
-  public void testCaseInsensitivity() throws StageException {
-    Document capitalized = Document.create("uppercased");
-    capitalized.setField("input1", "I live in the United States.");
-
-    Document lowercased = Document.create("lowercased");
-    lowercased.setField("input1", "i live in the united states.");
-
-    Stage stage = factory.get("ExtractEntitiesFSTTest/config.conf");
-    stage.processDocument(capitalized);
-    stage.processDocument(lowercased);
-
-    assertEquals("North America", capitalized.getString("output"));
-    assertEquals("North America", lowercased.getString("output"));
-  }
-
 
   @Test
   public void testExtractEntitiesSkipsMalformedLine() throws Exception {
@@ -81,7 +63,7 @@ public class ExtractEntitiesFSTTest {
     doc2.setField("input1", "I live in Canada.");
     stage.processDocument(doc2);
 
-    assertEquals("canada", doc2.getString("entity"));
+    assertEquals("Canada", doc2.getString("entity"));
     assertEquals("North America", doc2.getString("payload"));
   }
 
@@ -113,8 +95,8 @@ public class ExtractEntitiesFSTTest {
     stage.processDocument(doc);
 
     List<String> terms = doc.getStringList("dest");
-    assertTrue(terms.contains("united states"));
-    assertTrue(terms.contains("canada"));
+    assertTrue(terms.contains("United States"));
+    assertTrue(terms.contains("Canada"));
   }
 
   @Test
@@ -129,6 +111,7 @@ public class ExtractEntitiesFSTTest {
             "use_payloads",
             "update_mode",
             "stop_on_hit",
+            "ignore_case",
             "name",
             "conditions",
             "class",
@@ -144,5 +127,53 @@ public class ExtractEntitiesFSTTest {
   public void testBadDictionaryPath() {
     assertThrows(StageException.class,
         () -> factory.get("ExtractEntitiesFSTTest/badDictionaryFilePath.conf"));
+  }
+
+  @Test
+  public void testIgnoreCase() throws StageException {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configIgnoreCase.conf");
+
+    Document cap = Document.create("cap");
+    cap.setField("input1", "I live in the United States.");
+    stage.processDocument(cap);
+    assertEquals("North America", cap.getString("output"));
+
+    Document low = Document.create("low");
+    low.setField("input1", "i live in the united states.");
+    stage.processDocument(low);
+    assertEquals("North America", low.getString("output"));
+  }
+
+  @Test
+  public void testIgnoreOverlapsFalseEmitsAll() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configOverlapFalse.conf");
+    Document doc = Document.create("doc");
+    doc.setField("text", "I moved to New York City last year.");
+    stage.processDocument(doc);
+    List<String> out = doc.getStringList("out");
+    assertTrue(out.contains("NY"));
+    assertTrue(out.contains("NYC"));
+  }
+
+  @Test
+  public void testIgnoreOverlapsTrueEmitsLongest() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configOverlapTrue.conf");
+    Document doc = Document.create("doc");
+    doc.setField("text", "I moved to New York City last year.");
+    stage.processDocument(doc);
+    List<String> out = doc.getStringList("out");
+    assertEquals(1, out.size());
+    assertEquals("NYC", out.get(0));
+  }
+
+  @Test
+  public void testStopOnHitOnlyFirst() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configStopOnHit.conf");
+    Document doc = Document.create("doc");
+    doc.setField("input1", "United States and Canada are neighbors.");
+    stage.processDocument(doc);
+    List<String> out = doc.getStringList("output");
+    assertEquals(1, out.size());
+    assertEquals("North America", out.get(0));
   }
 }

@@ -9,10 +9,10 @@ import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.standard.StandardTokenizer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IntsRef;
@@ -38,10 +38,10 @@ import java.util.*;
  *   <li>ignore_overlaps (Boolean, Optional) : If true, emits only the single longest match starting at a position; if false, emits
  *   all overlapping matches that start at that position. Defaults to false.</li>
  *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
+ *   <li>ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
  *   <li>update_mode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>entity_field (String, Optional) : When set and use_payloads=true, also writes the matched normalized surface terms
- *   to this field.</li>
+ *   <li>entity_field (String, Optional) : When set and use_payloads=true, also writes the matched normalized surface terms to this field.</li>
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
@@ -53,7 +53,7 @@ public class ExtractEntitiesFST extends Stage {
       .requiredList("dictionaries", new TypeReference<List<String>>() {})
       .requiredList("source", new TypeReference<List<String>>() {})
       .requiredList("dest", new TypeReference<List<String>>() {})
-      .optionalBoolean("use_payloads", "ignore_overlaps", "stop_on_hit")
+      .optionalBoolean("use_payloads", "ignore_overlaps", "stop_on_hit", "ignore_case")
       .optionalString("update_mode", "entity_field")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .build();
@@ -65,6 +65,7 @@ public class ExtractEntitiesFST extends Stage {
   private final boolean usePayloads;
   private final boolean ignoreOverlaps;
   private final boolean stopOnHit;
+  private final boolean ignoreCase;
   private final String entityField;
   private final UpdateMode updateMode;
 
@@ -72,7 +73,7 @@ public class ExtractEntitiesFST extends Stage {
   private final FileContentFetcher fileFetcher;
 
   // Analysis
-  private final Analyzer analyzer = new StandardAnalyzer();
+  private final Analyzer analyzer;
 
   // FSTs
   private FST<Object> fstNoPayloads;   // used when use_payloads=false
@@ -86,9 +87,19 @@ public class ExtractEntitiesFST extends Stage {
     this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
     this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignore_overlaps", false);
     this.stopOnHit = ConfigUtils.getOrDefault(config, "stop_on_hit", false);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
     this.entityField = ConfigUtils.getOrDefault(config, "entity_field", null);
     this.updateMode = UpdateMode.fromConfig(config);
     this.fileFetcher = new FileContentFetcher(config);
+
+    if (ignoreCase) {
+      this.analyzer = new StandardAnalyzer();
+    } else {
+      this.analyzer = new Analyzer() {
+        @Override
+        protected TokenStreamComponents createComponents(String fieldName) { return new TokenStreamComponents(new StandardTokenizer()); }
+      };
+    }
   }
 
   @Override
@@ -114,9 +125,9 @@ public class ExtractEntitiesFST extends Stage {
     fileFetcher.shutdown();
   }
 
-  private void buildFSTNoPayloads() throws IOException, StageException {
-    // Used to de-duplicate terms across all dictionaries
-    HashSet<String> termsSet = new HashSet<>();
+  // Load and normalize terms with payloads
+  private LinkedHashMap<String, String> loadTermsAndPayloads() throws IOException, StageException {
+    LinkedHashMap<String, String> termToPayload = new LinkedHashMap<>();
 
     // Read each dict in our list
     for (String dictFile : dictionaries) {
@@ -135,27 +146,32 @@ public class ExtractEntitiesFST extends Stage {
           }
 
           // Skip empty rows
-          if (line.length == 0) {
-            continue;
-          }
-
-          // Get only the term column
-          String raw = line[0];
-          if (raw == null) {
+          if (line.length == 0 || line[0] == null) {
             continue;
           }
 
           // Normalize term with trim and lowercase
-          final String term = raw.trim().toLowerCase(Locale.ROOT);
-          if (!term.isEmpty()) {
-            termsSet.add(term);
+          String term = normalizeKey(line[0].trim());
+          if (term.isEmpty() || termToPayload.containsKey(term)) {
+            continue;
           }
+
+          // Get the payload string
+          String payload = (line.length > 1 && line[1] != null && !line[1].trim().isEmpty())
+              ? line[1].trim()
+              : null;
+
+          termToPayload.put(term, payload);
         }
       }
     }
 
+    return termToPayload;
+  }
+
+  private void buildFSTNoPayloads() throws IOException, StageException {
     // Sort terms lexicographically
-    List<String> terms = new ArrayList<>(termsSet);
+    List<String> terms = new ArrayList<>(loadTermsAndPayloads().keySet());
     terms.sort(Comparator.naturalOrder());
 
     // Initialize FST builder with no payloads
@@ -182,48 +198,8 @@ public class ExtractEntitiesFST extends Stage {
   }
 
   private void buildFSTWithPayloads() throws IOException, StageException {
-    // Used to store term -> payload
-    LinkedHashMap<String, String> termToPayload = new LinkedHashMap<>();
-
-    // Read each dict in our list
-    for (String dictFile : dictionaries) {
-      try (CSVReader reader = new CSVReader(fileFetcher.getReader(dictFile))) {
-        String[] line;
-        while (true) {
-          try {
-            line = reader.readNext();
-          } catch (Exception e) {
-            throw new StageException("Error reading dictionary file: " + dictFile, e);
-          }
-
-          // End of file
-          if (line == null) {
-            break;
-          }
-
-          // Skip empty rows
-          if (line.length == 0 || line[0] == null) {
-            continue;
-          }
-
-          // Normalize term with trim and lowercase
-          final String term = line[0].trim().toLowerCase(Locale.ROOT);
-          if (term.isEmpty() || termToPayload.containsKey(term)) {
-            continue;
-          }
-
-          // Get the payload string
-          String payloadKey = (line.length > 1 && line[1] != null && !line[1].trim().isEmpty())
-              ? line[1].trim()
-              : term;
-
-          termToPayload.put(term, payloadKey);
-        }
-      }
-    }
-
     // Convert map entries into a list and sort lexicographically
-    List<Map.Entry<String, String>> rows = new ArrayList<>(termToPayload.entrySet());
+    List<Map.Entry<String, String>> rows = new ArrayList<>(loadTermsAndPayloads().entrySet());
     rows.sort(Map.Entry.comparingByKey());
 
     // Initialize FST builder with ByteSequenceOutputs
@@ -243,6 +219,7 @@ public class ExtractEntitiesFST extends Stage {
       }
       last = t;
       String payload = e.getValue();
+      if (payload == null || payload.isEmpty()) payload = t;
       builder.add(toIntsRef(new BytesRef(t)), new BytesRef(payload));
     }
 
@@ -368,7 +345,7 @@ public class ExtractEntitiesFST extends Stage {
   // Append a matched token sequence into the outputs list
   private void appendMatch(List<String> tokens, List<String> out, List<String> matchedTerms) {
     // Join tokens in to normalized lowercase string
-    String key = String.join(" ", tokens).toLowerCase(Locale.ROOT);
+    String key = normalizeKey(String.join(" ", tokens));
 
     if (usePayloads) {
       BytesRef br;
@@ -400,7 +377,7 @@ public class ExtractEntitiesFST extends Stage {
   // Check if a sequence of tokens forms a complete dictionary match
   private boolean isCompleteMatch(List<String> tokens) {
     // Join tokens in to normalized lowercase string
-    String key = String.join(" ", tokens).toLowerCase(Locale.ROOT);
+    String key = normalizeKey(String.join(" ", tokens));
     if (usePayloads) {
       try {
         // Look up exact key in FST with outputs to get payload if found
@@ -441,7 +418,7 @@ public class ExtractEntitiesFST extends Stage {
   // Wrapper that joins tokens into a normalized string and checks for any dictionary prefix
   private boolean hasPrefix(List<String> tokens) {
     // Join tokens to a single lowercase key
-    String key = String.join(" ", tokens).toLowerCase(Locale.ROOT);
+    String key = normalizeKey(String.join(" ", tokens));
 
     return (usePayloads)
         ? hasPrefixBytes(fstPayloads, new BytesRef(key))
@@ -479,5 +456,11 @@ public class ExtractEntitiesFST extends Stage {
       irb.append(b.bytes[b.offset + i] & 0xFF);
     }
     return irb.get();
+  }
+
+  // Normalize a key based on the ignore case option
+  private String normalizeKey(String s) {
+    String t = (s == null) ? "" : s.trim();
+    return ignoreCase ? t.toLowerCase(Locale.ROOT) : t;
   }
 }
