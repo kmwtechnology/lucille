@@ -6,7 +6,6 @@ TARGET_DIR="$PROJECT_ROOT/lucille-core/target"
 LIB_DIR="$TARGET_DIR/lib"
 CLASSES_DIR="$TARGET_DIR/classes"
 OUTPUT_DIR="$PROJECT_ROOT/lucille-plugins/lucille-api/target/classes"
-OUTPUT_FILE="stage-javadocs.json"
 
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
@@ -18,50 +17,43 @@ if [ ! -d "$LIB_DIR" ]; then
 fi
 
 # Build the classpath with all dependencies
-CLASSPATH="$CLASSES_DIR"
+CLASSPATH="$CLASSES_DIR:$LIB_DIR/*"
+DOCPATH="$CLASSES_DIR"
 
-# Add all JARs in the lib directory
-for JAR in "$LIB_DIR"/*.jar; do
-  CLASSPATH="$CLASSPATH:$JAR"
-done
-
-# Run javadoc with the JsonDoclet
 # stages
 javadoc \
   -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "$CLASSPATH" \
+  -docletpath "$DOCPATH" \
   -classpath "$CLASSPATH" \
-  -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java:" \
+  -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java" \
   -subpackages com.kmwllc.lucille.stage \
-  -o "$OUTPUT_FILE" \
+  -o "stage-javadocs.json" \
   -d "$OUTPUT_DIR"
 
 # connectors
-OUTPUT_FILE="connector-javadocs.json"
 javadoc \
   -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "$CLASSPATH" \
+  -docletpath "$DOCPATH" \
   -classpath "$CLASSPATH" \
   -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java" \
   -subpackages com.kmwllc.lucille.connector \
-  -o "$OUTPUT_FILE" \
+  -o "connector-javadocs.json" \
   -d "$OUTPUT_DIR"
 
 # indexers
-OUTPUT_FILE="indexer-javadocs.json"
 javadoc \
   -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "$CLASSPATH" \
+  -docletpath "$DOCPATH" \
   -classpath "$CLASSPATH" \
   -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java" \
   -subpackages com.kmwllc.lucille.indexer \
-  -o "$OUTPUT_FILE" \
+  -o "indexer-javadocs.json" \
   -d "$OUTPUT_DIR"
 
 
 # Check if the command was successful
 if [ $? -eq 0 ]; then
-  echo "Documentation successfully generated at $OUTPUT_DIR/$OUTPUT_FILE"
+  echo "Documentation successfully generated"
 else
   echo "Failed to generate documentation"
   exit 1

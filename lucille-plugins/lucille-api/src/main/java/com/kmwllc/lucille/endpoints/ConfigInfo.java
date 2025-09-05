@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.spec.Spec;
 
 import io.dropwizard.auth.Auth;
@@ -224,8 +225,8 @@ public class ConfigInfo {
     }
 
     if (cachedStageListJson == null) {
-      Map<String, ComponentDoc> ComponentDocs = loadDocs("stage-javadocs.json");
-      cachedStageListJson = buildSpecArrayForSubclasses("com.kmwllc.lucille.core.Stage", ComponentDocs);
+      Map<String, ComponentDoc> stageDocs = loadDocs("stage-javadocs.json");
+      cachedStageListJson = buildSpecArrayForSubclasses(Stage.class.getName(), stageDocs);
     }
 
     return Response.ok(cachedStageListJson, MediaType.APPLICATION_JSON).build();

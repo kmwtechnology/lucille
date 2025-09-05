@@ -27,18 +27,9 @@ public class ClassDescriptor {
    * @param clazz the Class to describe
    */
   public ClassDescriptor(Class<?> clazz) {
-    this.className = clazz.getName();
-    Package pkg = clazz.getPackage();
-    this.packageName = (pkg != null) ? pkg.getName() : "";
-    Class<?> superCls = clazz.getSuperclass();
-    this.superClassName = (superCls != null) ? superCls.getName() : null;
-    this.interfaceNames = Arrays.stream(clazz.getInterfaces())
-        .map(Class::getName)
-        .collect(Collectors.toList());
-    this.isAbstract = Modifier.isAbstract(clazz.getModifiers());
-    this.methods = Arrays.stream(clazz.getDeclaredMethods())
-        .map(method -> new MethodDescriptor(method, null)) // Placeholder for parameter names
-        .collect(Collectors.toList());
+    this(clazz, Arrays.stream(clazz.getDeclaredMethods())
+        .map(method -> new MethodDescriptor(method, null))
+        .collect(Collectors.toList()));
   }
 
   /**
@@ -64,10 +55,9 @@ public class ClassDescriptor {
    * Constructs a ClassDescriptor without loading the class, using string information.
    *
    * @param className The fully qualified name of the class
-   * @param simpleClassName The simple name of the class
    * @param methods The list of methods for this class
    */
-  public ClassDescriptor(String className, String simpleClassName, List<MethodDescriptor> methods) {
+  public ClassDescriptor(String className, List<MethodDescriptor> methods) {
     this.className = className;
     // Extract package from className
     this.packageName = className.contains(".") ?

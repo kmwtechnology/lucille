@@ -223,7 +223,7 @@ public class JsonDoclet implements Doclet {
     }
 
     // Create ClassDescriptor without loading the class
-    ClassDescriptor classDesc = new ClassDescriptor(className, simpleClassName, methodDescriptors);
+    ClassDescriptor classDesc = new ClassDescriptor(className, methodDescriptors);
 
     // Add class-level documentation
     String classDocComment = env.getElementUtils().getDocComment(type);
