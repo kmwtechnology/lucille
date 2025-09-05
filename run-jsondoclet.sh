@@ -17,13 +17,18 @@ if [ ! -d "$LIB_DIR" ]; then
 fi
 
 # Build the classpath with all dependencies
-CLASSPATH="$CLASSES_DIR:$LIB_DIR/*"
-DOCPATH="$CLASSES_DIR"
+CLASSPATH="$CLASSES_DIR"
 
+# Add all JARs in the lib directory
+for JAR in "$LIB_DIR"/*.jar; do
+  CLASSPATH="$CLASSPATH:$JAR"
+done
+
+# Run javadoc with the JsonDoclet
 # stages
 javadoc \
   -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "$DOCPATH" \
+  -docletpath "$CLASSPATH" \
   -classpath "$CLASSPATH" \
   -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java" \
   -subpackages com.kmwllc.lucille.stage \
@@ -33,7 +38,7 @@ javadoc \
 # connectors
 javadoc \
   -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "$DOCPATH" \
+  -docletpath "$CLASSPATH" \
   -classpath "$CLASSPATH" \
   -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java" \
   -subpackages com.kmwllc.lucille.connector \
@@ -43,7 +48,7 @@ javadoc \
 # indexers
 javadoc \
   -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "$DOCPATH" \
+  -docletpath "$CLASSPATH" \
   -classpath "$CLASSPATH" \
   -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java" \
   -subpackages com.kmwllc.lucille.indexer \
