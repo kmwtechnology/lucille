@@ -7,8 +7,10 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
+
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
+
 
 /**
  * Adds random Booleans to documents given parameters.
@@ -30,12 +32,12 @@ public class AddRandomBoolean extends Stage {
 
   public AddRandomBoolean(Config config) throws StageException {
     super(config);
-
+    
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.percentTrue = ConfigUtils.getOrDefault(config, "percent_true", 50);
-
+    
     if (percentTrue > 100 || percentTrue < 0) {
-      throw new StageException("Invalid value for percent_true. Must be greater than 0 and less than 100.");
+      throw new StageException("Invalid value for percent_true. Must be between 0 and 100 inclusive.");
     }
   }
 
