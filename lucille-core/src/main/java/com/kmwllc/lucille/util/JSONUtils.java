@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 
 public class JSONUtils {
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   /**
    * Adds a value to a given JsonNode at a nested key array where "a.b.c.d" would be ["a", "b", "c", "d"].
@@ -39,18 +39,18 @@ public class JSONUtils {
       if (isInteger(curKey)) {
         int curKeyInt = Integer.parseInt(curKey);
         if (node == null) {
-          node = MAPPER.createArrayNode();
+          node = mapper.createArrayNode();
         }
         if (!node.has(curKeyInt)) {
-          ((ArrayNode) node).insert(curKeyInt, MAPPER.createObjectNode());
+          ((ArrayNode) node).insert(curKeyInt, mapper.createObjectNode());
         }
         node = node.get(curKeyInt);
       } else {
         if (node == null) {
-          node = MAPPER.createObjectNode();
+          node = mapper.createObjectNode();
         }
         if (!node.has(curKey)) {
-          ((ObjectNode) node).set(curKey, MAPPER.createObjectNode());
+          ((ObjectNode) node).set(curKey, mapper.createObjectNode());
         }
         node = node.get(curKey);
       }

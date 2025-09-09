@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  */
 public class CopyFields extends Stage {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {})
@@ -105,7 +105,7 @@ public class CopyFields extends Stage {
         // get dest json field value, if exists
         String[] nestedDestField = dest.split("[.]");
         if (!doc.has(nestedDestField[0])) {
-          doc.setField(nestedDestField[0], MAPPER.createObjectNode());
+          doc.setField(nestedDestField[0], mapper.createObjectNode());
         }
         JsonNode destJson = doc.getJson(nestedDestField[0]);
 

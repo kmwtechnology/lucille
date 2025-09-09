@@ -15,7 +15,7 @@ import static org.junit.Assert.assertNull;
 public class CopyFieldsTest {
 
   private final StageFactory factory = StageFactory.of(CopyFields.class);
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   @Test
   public void testCopyFieldsReplace() throws Exception {
@@ -72,10 +72,10 @@ public class CopyFieldsTest {
 
     // Ensure that a nested field is correctly copied over to another nested field
     Document doc = Document.create("doc");
-    JsonNode inputNode = MAPPER.createObjectNode().put("nested", "This will be copied to output1");
+    JsonNode inputNode = mapper.createObjectNode().put("nested", "This will be copied to output1");
     doc.setField("input1", inputNode);
-    doc.setField("output1", MAPPER.createObjectNode().set("also",
-        MAPPER.createObjectNode().put("nested", "Current output1 value.")));
+    doc.setField("output1", mapper.createObjectNode().set("also",
+        mapper.createObjectNode().put("nested", "Current output1 value.")));
     stage.processDocument(doc);
     assertEquals("Value from input1.nested should be copied to output1.also.nested", inputNode, doc.getJson("output1").get("also"));
 
@@ -83,8 +83,8 @@ public class CopyFieldsTest {
     Document doc2 = Document.create("doc2");
     String inputVal = "This will be copied to output2";
     doc2.setField("input2", inputVal);
-    doc2.setField("output2",  MAPPER.createObjectNode().set("nested",
-        MAPPER.createObjectNode().put("moreNested", "here's some junk data.")));
+    doc2.setField("output2",  mapper.createObjectNode().set("nested",
+        mapper.createObjectNode().put("moreNested", "here's some junk data.")));
     stage.processDocument(doc2);
     assertEquals("Value from input2 should be copied to output2.nested", inputVal, doc2.getJson("output2").get("nested").textValue());
 
@@ -97,7 +97,7 @@ public class CopyFieldsTest {
     stage.processDocument(doc3);
     assertNull(doc3.getJson("output1"));
     assertEquals("Value from input2 should be copied to output2.nested",
-        MAPPER.createObjectNode().put("nested",  inputVal2),
+        mapper.createObjectNode().put("nested",  inputVal2),
         doc3.getJson("output2"));
     assertEquals("Value from input3 should be copied to output3", inputVal3, doc3.getJson("output3").asBoolean());
 

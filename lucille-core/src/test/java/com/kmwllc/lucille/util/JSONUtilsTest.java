@@ -10,7 +10,7 @@ import java.io.IOException;
 import org.junit.Test;
 
 public class JSONUtilsTest {
-  private final ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   @Test
   public void testPutNestedValue() throws IOException {
