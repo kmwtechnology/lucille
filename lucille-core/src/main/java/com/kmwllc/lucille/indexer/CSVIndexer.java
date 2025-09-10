@@ -20,7 +20,15 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * An indexer that stores documents in a CSV file.
+ * Stores documents in a CSV file by writing selected fields as rows.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>path (String, Required) : Output CSV file path.</li>
+ *   <li>columns (List&lt;String&gt;, Required) : Ordered list of document fields to write as CSV columns.</li>
+ *   <li>includeHeader (Boolean, Optional) : Write a header row with column names on connect. Defaults to true.</li>
+ *   <li>append (Boolean, Optional) : Open the CSV in append mode instead of overwriting. Defaults to false.</li>
+ * </ul>
  */
 public class CSVIndexer extends Indexer {
 
