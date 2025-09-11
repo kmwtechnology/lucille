@@ -14,7 +14,6 @@ import java.util.Arrays;
 import static org.junit.Assert.*;
 import static org.junit.Assert.assertThrows;
 
-// TODO: Add tests for raw doc
 public class ApplyJavascriptTest {
 
   private final StageFactory factory = StageFactory.of(ApplyJavascript.class);
@@ -191,5 +190,60 @@ public class ApplyJavascriptTest {
     stage.processDocument(d);
 
     assertFalse(d.has("gone"));
+  }
+
+  @Test
+  public void testRawDocSetFieldWritesToDoc() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      rawDoc.setField("x", "ok");
+    """);
+
+    Document d = Document.create("d");
+    stage.processDocument(d);
+
+    assertEquals("ok", d.getString("x"));
+  }
+
+  @Test
+  public void testRawDocUpdateOverwriteMultivalued() throws StageException {
+    Stage stage = stageWithInlineScript("""
+    var UpdateMode = Java.type('com.kmwllc.lucille.core.UpdateMode');
+      rawDoc.update("tags", UpdateMode.OVERWRITE, "a", "b", "c");
+    """);
+
+    Document d = Document.create("d");
+    stage.processDocument(d);
+
+    assertEquals(Arrays.asList("a","b","c"), d.getStringList("tags"));
+  }
+
+
+  @Test
+  public void testRawDocRemoveField() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      rawDoc.removeField("gone");
+    """);
+
+    Document d = Document.create("d");
+    d.setField("gone", "x");
+    stage.processDocument(d);
+
+    assertFalse(d.has("gone"));
+  }
+
+
+  @Test
+  public void testRawDocRemoveChildren() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      rawDoc.removeChildren();
+    """);
+
+    Document d = Document.create("parent");
+    d.addChild(Document.create("child1"));
+    d.addChild(Document.create("child2"));
+
+    assertTrue(d.hasChildren());
+    stage.processDocument(d);
+    assertFalse(d.hasChildren());
   }
 }

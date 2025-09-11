@@ -22,7 +22,22 @@ import com.fasterxml.jackson.databind.node.NullNode;
 import java.io.Reader;
 import java.util.Iterator;
 
-// TODO: add class level javadoc
+/**
+ * Executes a JavaScript snippet or file against each document. The script runs once per document using GraalJS.
+ * The current document is available as doc; the underlying Lucille Document is also available as rawDoc. Reading a missing field
+ * returns null. Assigning null stores a JSON null. delete doc.field removes the field.</li>
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>script (String, Optional) : Inline JavaScript to run per document. Cannot be used with script_path.</li>
+ *   <li>script_path (String, Optional) : Path to the JavaScript file. If the dict_path begins with "classpath:" the classpath
+ *   will be searched for the file. Otherwise, the local file system will be searched. Cannot be used with script.</li>
+ *   <li>s3 (Map, Optional) : If your script is held in S3. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>azure (Map, Optional) : If your script is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>gcp (Map, Optional) : If your script is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ * </ul>
+ * <p>
+ */
 public class ApplyJavascript extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
