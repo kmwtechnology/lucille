@@ -383,8 +383,22 @@
       <artifactId>opensearch-log4j-appender</artifactId>
       <version>1.0.1</version>
     </dependency>
-  </dependencies>
 
+    <!-- GraalVM SDK -->
+    <dependency>
+       <groupId>org.graalvm.sdk</groupId>
+       <artifactId>graal-sdk</artifactId>
+       <version>24.2.2</version>
+    </dependency>
+
+    <!-- GraalVM JavaScript -->
+    <dependency>
+       <groupId>org.graalvm.js</groupId>
+       <artifactId>js</artifactId>
+       <version>24.2.2</version>
+       <type>pom</type>
+    </dependency>
+  </dependencies>
 
   <build>
     <plugins>
