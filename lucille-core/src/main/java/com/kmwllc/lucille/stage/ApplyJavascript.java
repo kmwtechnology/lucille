@@ -36,7 +36,6 @@ import java.util.Iterator;
  *   <li>azure (Map, Optional) : If your script is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your script is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
- * <p>
  */
 public class ApplyJavascript extends Stage {
 
