@@ -25,7 +25,7 @@ import java.util.Iterator;
 /**
  * Executes a JavaScript snippet or file against each document. The script runs once per document using GraalJS.
  * The current document is available as doc; the underlying Lucille Document is also available as rawDoc. Reading a missing field
- * returns null. Assigning null stores a JSON null. delete doc.field removes the field.</li>
+ * returns null. Assigning null stores a JSON null. delete doc.field removes the field.
  * <p>
  * Config Parameters -
  * <ul>
