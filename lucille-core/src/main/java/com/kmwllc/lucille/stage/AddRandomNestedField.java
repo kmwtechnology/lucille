@@ -209,16 +209,17 @@ public class AddRandomNestedField extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     final int n = pickNumObjects();
-    ArrayNode arr = mapper.createArrayNode();
+    // set new array node on doc
+    doc.setNestedJson(this.targetField, mapper.createArrayNode());
+    int index = 0;
 
     // Iterate over each nested object
     for (int i = 0; i < n; i++) {
-      ObjectNode entity = mapper.createObjectNode();
-      boolean wroteAny = false;
+      String targetFieldPath = this.targetField + "." + index;
 
       // Iterate over each entry for the object
       for (Map.Entry<List<String>, String> e : parsedEntries.entrySet()) {
-        List<String> keyParts = e.getKey();
+        String destPathStr = String.join(".", e.getKey());
         String sourceField = e.getValue();
 
         // Assign if generators contains the source field name
@@ -234,7 +235,6 @@ public class AddRandomNestedField extends Stage {
         }
 
         if (!hasSource && genKey == null) {
-          String destPathStr = String.join(".", keyParts);
           throw new StageException("Missing value for '" + destPathStr +
               "' (source='" + sourceField + "') and no generator available.");
         }
@@ -245,16 +245,11 @@ public class AddRandomNestedField extends Stage {
         }
 
         // Write value at the destination
-        setNested(entity, keyParts, valNode);
-        wroteAny = true;
+        doc.setNestedJson(targetFieldPath + "." + destPathStr, valNode);
       }
-
-      if (wroteAny) {
-        arr.add(entity);
-      }
+      index++;
     }
 
-    doc.setField(targetField, arr);
     return null;
   }
 
@@ -286,35 +281,7 @@ public class AddRandomNestedField extends Stage {
 
     // Run the generator on the current doc once
     gen.processDocument(genDoc);
-    JsonNode value = genDoc.getJson(GEN_OUT_FIELD);
 
-    return value;
-  }
-
-  // Create a dotted path inside the root and set the leaf to value
-  private void setNested(ObjectNode root, List<String> parts, JsonNode value) throws StageException {
-    if (parts == null || parts.isEmpty()) {
-      throw new StageException("Destination path cannot be empty.");
-    }
-
-    // Start at the root
-    ObjectNode cur = root;
-    // Iterate over all parent segments in the path
-    for (int i = 0; i < parts.size() - 1; i++) {
-      String key = parts.get(i);
-      JsonNode existing = cur.get(key);
-
-      // Create the node if it doesn't exist, otherwise just move down to that level
-      if (!(existing instanceof ObjectNode)) {
-        ObjectNode next = mapper.createObjectNode();
-        cur.set(key, next);
-        cur = next;
-      } else {
-        cur = (ObjectNode) existing;
-      }
-    }
-
-    // Write the value at the leaf
-    cur.set(parts.get(parts.size() - 1), value);
+    return genDoc.getJson(GEN_OUT_FIELD);
   }
 }
