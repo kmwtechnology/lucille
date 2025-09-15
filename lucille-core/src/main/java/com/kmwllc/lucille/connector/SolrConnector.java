@@ -26,7 +26,9 @@ import java.util.stream.Collectors;
 // TODO : Honor and return children documents
 
 /**
- * Issues requests to Solr and optionally publishes query results as Documents.
+ * Issues requests to Solr and optionally publishes query results as Documents. Requests should be formatted as JSON strings
+ * and may include the runId wildcard, which is substituted with the current runId at execution time. To send XML instead of JSON,
+ * set useXML to true.
  * <p>
  * Config Parameters -
  * <ul>

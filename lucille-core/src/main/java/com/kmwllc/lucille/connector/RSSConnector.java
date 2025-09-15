@@ -27,13 +27,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Reads items from an RSS feed and publishes a Document for each item.
+ * Reads items from an RSS feed and publishes a Document for each item. Each document stores the item's payload under
+ * the rss_item field. Can be configured to publish only items with a recent pubDate. Supports incremental runs
+ * via runDuration and refreshIncrement. Durations use HOCON-style strings such as "1h", "2d", and "3s".
  * <p>
  * Config Parameters -
  * <ul>
  *   <li>rssURL (String, Required) : URL of the RSS feed.</li>
- *   <li>useGuidForDocID (Boolean, Optional) : Use the RSS item GUID as the Document ID. Defaults to true.</li>
- *   <li>pubDateCutoff (String, Optional) : Duration string; only publish items with a pubDate within this period.</li>
+ *   <li>useGuidForDocID (Boolean, Optional) : Use the RSS item GUID as the Document ID. Defaults to true; if false, a UUID is generated per Document.</li>
+ *   <li>pubDateCutoff (String, Optional) : Duration string; only publish items with a pubDate within this period. Defaults to including all items.
+ *   If the pubDate is missing, the item will be included.</li>
  *   <li>runDuration (String, Optional) : Total time to run when refreshing incrementally; must be used with refreshIncrement.</li>
  *   <li>refreshIncrement (String, Optional) : Interval between feed refreshes; must be used with runDuration.</li>
  * </ul>

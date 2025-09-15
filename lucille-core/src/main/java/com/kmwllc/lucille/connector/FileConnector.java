@@ -20,8 +20,19 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Traverses local and cloud storage (S3, GCP, Azure) from one or more roots and publishes a Document for each file encountered.
- * Supports include/exclude filters, recency cutoffs, optional content fetching, archive/compressed file handling, file moves
- * after processing or on error, and optional JDBC-backed state to avoid republishing recently handled files.
+ * Supports include/exclude regex filters, recency cutoffs, optional content fetching, archive/compressed file handling, file moves
+ * after processing or on error, and optional JDBC-backed state to avoid republishing recently handled files. Only files matching
+ * all filter criteria are processed. Durations use HOCON-style strings like "1h", "2d", "3s".
+ *
+ * For archive/compressed files, modification/publish cutoffs apply to both the container and its entries. When state is enabled,
+ * traversal may be slower. Files that are moved/renamed are always  republished regardless of lastPublishedCutoff. You can enable
+ * state without specifying lastPublishedCutoff to keep publish times updated.
+ *
+ * State tracks file paths and last publish timestamps to support filterOptions.lastPublishedCutoff and to avoid duplicate publications
+ * across runs. You can connect to your own JDBC database by providing driver, connectionString, jdbcUser, and tableName. If
+ * connectionString is omitted, an embedded database is created at ./state/{CONNECTOR_NAME}. With state enabled, traversal may be
+ * slower, and files that are moved or renamed are always republished. The lastPublishedCutoff setting has no effect unless state is
+ * configured. You may enable state without lastPublishCutoff and publish times will still be updated.
  * <p>
  * Config Parameters -
  * <ul>
@@ -52,7 +63,9 @@ import org.slf4j.LoggerFactory;
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
  *   <li>azure.accountKey (String, Optional) : Azure account key.</li>
  *   <li>azure.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
- *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).</li>
+ *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).
+ *   Supply a class to override the default handler. Otherwise the built-in handler for csv/json/xml is used. Configure docIdPrefix inside
+ *   each handler's config as needed.</li>
  * </ul>
  */
 public class FileConnector extends AbstractConnector {
