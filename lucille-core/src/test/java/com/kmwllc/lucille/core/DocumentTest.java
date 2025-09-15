@@ -1655,6 +1655,60 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testGetAndSetNestedJson() {
+    ObjectMapper mapper = new ObjectMapper();
+    Document document = createDocument("doc");
+
+    // test nested field that does not contain a list
+    JsonNode jsonNode = mapper.createObjectNode()
+        .set("b", mapper.createObjectNode()
+            .set("c", mapper.createObjectNode()
+                .set("d", mapper.createObjectNode()
+                    .put("e", 234))));
+    document.setNestedJson(("a.b.c.d"), mapper.createObjectNode().put("e", 234));
+    assertEquals(jsonNode, document.getJson("a"));
+    assertEquals(234, document.getNestedJson("a.b.c.d.e").asInt());
+
+    // test nested field that contains a list in a top level field
+    JsonNode jsonList = mapper.createArrayNode()
+        .add(mapper.createObjectNode()
+                .put("name", "thing1")
+                .put("age", 50))
+        .add(mapper.createObjectNode()
+                .put("name", "thing2")
+                .put("age", 25));
+    document.setNestedJson("list.0", mapper.createObjectNode().put("name", "temp").put("age", 87));
+    document.setNestedJson("list.1", mapper.createObjectNode().put("name", "thing2").put("age", 25));
+    document.setNestedJson("list.0", mapper.createObjectNode().put("name", "thing1").put("age", 50));
+    assertEquals(jsonList, document.getJson("list"));
+    assertEquals("thing2", document.getNestedJson("list.1.name").asText());
+
+    // test nested field with a list that is more nested
+    JsonNode moreNestedJsonList = mapper.createObjectNode().set("list", mapper.createArrayNode()
+        .add(mapper.createObjectNode()
+            .put("name", "thing1")
+            .put("age", 50))
+        .add(mapper.createObjectNode()
+            .put("name", "thing2")
+            .put("age", 25)
+            .set("phone", mapper.createObjectNode()
+                .put("number", "123-4567")
+                .put("areaCode", "303"))));
+    document.setNestedJson("doc.list.0", mapper.createObjectNode().put("name", "thing1").put("age", 50));
+    document.setNestedJson("doc.list.1", mapper.createObjectNode().put("name", "thing2").put("age", 25));
+    document.setNestedJson("doc.list.1.phone", mapper.createObjectNode().put("number", "123-4567").put("areaCode", "303"));
+    assertEquals(moreNestedJsonList, document.getJson("doc"));
+    assertEquals("thing2", document.getNestedJson("doc.list.1.name").asText());
+
+    // test non nested field
+    document.setNestedJson("simple", mapper.createObjectNode().put("field", "simpleValue"));
+    assertEquals("simpleValue", document.getNestedJson("simple.field").asText());
+
+    // test non-existing field
+    assertNull(document.getNestedJson("a.does.not.exist"));
+  }
+
+  @Test
   public void testValidateFieldNames() {
 
     Document doc = createDocument("doc");

@@ -10,10 +10,8 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.util.JSONUtils;
 import com.typesafe.config.Config;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.Iterator;
 import java.util.Map;
@@ -80,45 +78,11 @@ public class CopyFields extends Stage {
         doc.update(dest, updateMode, doc.getStringList(source).toArray(new String[0]));
       } else {
         // deal with nested case
-        String[] nestedSourceField = source.split("[.]");
-        JsonNode sourceJson = doc.getJson(nestedSourceField[0]);
-        if (sourceJson == null) {
-          continue;
-        }
-        JsonNode sourceVal;
-        if (nestedSourceField.length == 1) {
-          sourceVal = sourceJson;
-        } else {
-          try {
-            sourceVal = JSONUtils.getNestedValue(nestedSourceField, sourceJson, 1);
-          } catch (IOException e) {
-            log.error("Cannot copy field {} for doc {}: {}", source,
-                doc.getId(), e.getMessage());
-            return null;
-          }
-        }
-
+        JsonNode sourceVal = doc.getNestedJson(source);
         if (sourceVal == null) {
           continue;
         }
-
-        // get dest json field value, if exists
-        String[] nestedDestField = dest.split("[.]");
-        if (!doc.has(nestedDestField[0])) {
-          doc.setField(nestedDestField[0], mapper.createObjectNode());
-        }
-        JsonNode destJson = doc.getJson(nestedDestField[0]);
-
-        if (nestedDestField.length == 1) {
-          doc.setField(nestedDestField[0], sourceVal);
-        } else {
-          try {
-            JSONUtils.putNestedFieldValue(destJson, nestedDestField, sourceVal, 1);
-          }  catch (IOException e) {
-            log.error("Cannot update json field {} with value {} for doc {}: {}", dest, sourceVal, doc.getId(), e.getMessage());
-            return null;
-          }
-        }
+        doc.setNestedJson(dest, sourceVal);
       }
     }
 
