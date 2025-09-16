@@ -80,20 +80,21 @@ public class Runner {
    * no args: pipelines workers and indexers will be executed in separate threads within the same JVM; communication
    * between components will take place in memory and Kafka will not be used
    * <p>
-   * -usekafka: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
+   * -useKafka: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
    * and indexers will not be run. The assumption is that these have been deployed as separate processes.
    * <p>
-   * -local: modifies -usekafka so that workers and indexers are started as separate threads within the same JVM;
+   * -local: modifies -useKafka so that workers and indexers are started as separate threads within the same JVM;
    * kafka is still used for communication between them.
    * <p>
    * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
    */
   public static void main(String[] args) throws Exception {
     Options cliOptions = new Options()
-        .addOption(Option.builder("usekafka").hasArg(false)
-            .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
+        .addOption(Option.builder("usekafka").hasArg(false).build())
+        .addOption(Option.builder("useKafka").hasArg(false)
+            .desc("Use Kafka for inter-component communication and don't execute pipelines locally. NOTE: This param is not case sensitive.").build())
         .addOption(Option.builder("local").hasArg(false)
-            .desc("Modifies usekafka mode to execute pipelines locally").build())
+            .desc("Modifies useKafka mode to execute pipelines locally").build())
         .addOption(Option.builder("validate").hasArg(false)
             .desc("Validate the configuration and exit").build())
         .addOption(Option.builder("render").hasArg(false)
@@ -127,7 +128,7 @@ public class Runner {
       return;
     }
 
-    RunType runType = getRunType(cli.hasOption("useKafka"), cli.hasOption("local"));
+    RunType runType = getRunType(cli.hasOption("useKafka") || cli.hasOption("usekafka"), cli.hasOption("local"));
 
     // Kick off the run with a log of the result
     RunResult result = runWithResultLog(config, runType);
