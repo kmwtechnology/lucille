@@ -3,8 +3,6 @@ package com.kmwllc.lucille.stage;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -245,7 +243,12 @@ public class AddRandomNestedField extends Stage {
         }
 
         // Write value at the destination
-        doc.setNestedJson(targetFieldPath + "." + destPathStr, valNode);
+        try {
+          doc.setNestedJson(targetFieldPath + "." + destPathStr, valNode);
+        } catch(IllegalArgumentException ex) {
+          throw new StageException("Failed to set field '" + targetFieldPath + "." + destPathStr + "' on doc " + doc.getId() +
+              ". Field is not valid.\n" + ex.getMessage());
+        }
       }
       index++;
     }

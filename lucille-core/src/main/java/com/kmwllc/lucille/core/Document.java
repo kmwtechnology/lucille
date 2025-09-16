@@ -627,7 +627,7 @@ public interface Document {
    * @param name the nested field path to set the JsonNode at
    * @param value the JsonNode to set at the nested path
    */
-  default void setNestedJson(String name, JsonNode value) {
+  default void setNestedJson(String name, JsonNode value) throws IllegalArgumentException {
     setNestedJson(name.split("\\."), value);
   }
 
@@ -638,7 +638,7 @@ public interface Document {
    * @param pathSegments the nested field path segments to set the JsonNode at
    * @param value the JsonNode to set at the nested path
    */
-  default void setNestedJson(String[] pathSegments, JsonNode value) {
+  default void setNestedJson(String[] pathSegments, JsonNode value) throws IllegalArgumentException {
     if (pathSegments.length == 0) {
       return;
     }
@@ -684,12 +684,13 @@ public interface Document {
   static private void setFieldSegment(JsonNode node, String segment, JsonNode value) {
     if (node.isArray()) {
       int index = Integer.parseInt(segment);
-      if (index < 0 || index > node.size() - 1) {
-        // just add to end of array
+      // check if index is within the existing array and overwrite if so
+      if (index >= 0 && index < node.size()) {
+        ((ArrayNode) node).set(index, value);
+      } else if (index == node.size()) { // add to end of array (including creating as array if index==0)
         ((ArrayNode) node).add(value);
       } else {
-        // insert at index
-        ((ArrayNode) node).set(index, value);
+        throw new IllegalArgumentException("Cannot set index " + index + " on array of size " + node.size());
       }
     } else {
       ((ObjectNode) node).set(segment, value);

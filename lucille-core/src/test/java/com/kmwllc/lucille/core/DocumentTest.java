@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.Timestamp;
@@ -1706,6 +1707,29 @@ public abstract class DocumentTest {
 
     // test non-existing field
     assertNull(document.getNestedJson("a.does.not.exist"));
+  }
+
+  @Test
+  public void testNestedArrayUpdate() {
+    Document doc = Document.create("id1");
+    doc.setNestedJson("a.b.0", IntNode.valueOf(50));
+    doc.setNestedJson("a.b.0", IntNode.valueOf(60));
+    assertEquals(1, doc.getNestedJson("a.b").size());
+    assertEquals(60, doc.getNestedJson("a.b.0").intValue());
+    assertNull(doc.getNestedJson("a.b.1"));
+  }
+
+  @Test
+  public void testNestedArrayUpdateConfusingArrayIndexScenario() throws IllegalArgumentException {
+    Document doc = Document.create("id1");
+    assertThrows(IllegalArgumentException.class, () -> doc.setNestedJson("a.b.1", IntNode.valueOf(50))); // since a.b doesn't exist, this will throw an error
+    doc.setNestedJson("a.b.0", IntNode.valueOf(60)); // since a.b still doesn't exist, it will create a new array and add as the first element
+    assertThrows(IllegalArgumentException.class, () -> doc.setNestedJson("a.b.20", IntNode.valueOf(50))); // since a.b does not have 20 or more values, this will throw an error
+    doc.setNestedJson("a.b.1", IntNode.valueOf(50)); // now that a.b has one value, this will be added as the next value with index 1
+    assertEquals(2, doc.getNestedJson("a.b").size());
+    assertEquals(60, doc.getNestedJson("a.b.0").intValue());
+    assertEquals(50, doc.getNestedJson("a.b.1").intValue());
+    assertNull(doc.getNestedJson("a.b.2"));
   }
 
   @Test

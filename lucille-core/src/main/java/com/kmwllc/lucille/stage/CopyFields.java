@@ -82,7 +82,11 @@ public class CopyFields extends Stage {
         if (sourceVal == null) {
           continue;
         }
-        doc.setNestedJson(dest, sourceVal);
+        try {
+          doc.setNestedJson(dest, sourceVal);
+        } catch(IllegalArgumentException ex) {
+          throw new StageException("Failed to set field '" + dest + "' on doc " + doc.getId() + ". Field is not valid.\n" + ex.getMessage());
+        }
       }
     }
 
