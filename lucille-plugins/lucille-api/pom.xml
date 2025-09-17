@@ -172,6 +172,26 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+              <groupId>org.codehaus.mojo</groupId>
+              <artifactId>exec-maven-plugin</artifactId>
+              <version>3.5.1</version>
+              <executions>
+                <execution>
+                  <id>generate-json-docs</id>
+                  <phase>generate-resources</phase>
+                  <goals><goal>exec</goal></goals>
+                  <configuration>
+                    <executable>bash</executable>
+                    <workingDirectory>${project.basedir}/../../</workingDirectory>
+                    <arguments>
+                      <argument>./run-jsondoclet.sh</argument>
+                    </arguments>
+                  </configuration>
+                </execution>
+              </executions>
+            </plugin>
         </plugins>
     </build>
 </project>
