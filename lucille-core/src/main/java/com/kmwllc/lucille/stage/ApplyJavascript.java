@@ -1,42 +1,23 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.*;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
-import com.kmwllc.lucille.core.UpdateMode;
 import com.typesafe.config.Config;
-import java.util.Set;
-import org.graalvm.polyglot.Engine;
-import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.Source;
-import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.*;
 import org.graalvm.polyglot.proxy.ProxyArray;
 import org.graalvm.polyglot.proxy.ProxyObject;
-import com.fasterxml.jackson.databind.node.NullNode;
 
 import java.io.Reader;
-import java.util.Iterator;
+import java.util.*;
 
-/**
- * Executes a JavaScript snippet or file against each document. The script runs once per document using GraalJS.
- * The current document is available as doc; the underlying Lucille Document is also available as rawDoc. Reading a missing field
- * returns null. Assigning null stores a JSON null. delete doc.field removes the field.
- * <p>
- * Config Parameters -
- * <ul>
- *   <li>script (String, Optional) : Inline JavaScript to run per document. Cannot be used with script_path.</li>
- *   <li>script_path (String, Optional) : Path to the JavaScript file. If the dict_path begins with "classpath:" the classpath
- *   will be searched for the file. Otherwise, the local file system will be searched. Cannot be used with script.</li>
- *   <li>s3 (Map, Optional) : If your script is held in S3. See FileConnector for the appropriate arguments to provide.</li>
- *   <li>azure (Map, Optional) : If your script is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
- *   <li>gcp (Map, Optional) : If your script is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
- * </ul>
- */
 public class ApplyJavascript extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
@@ -76,7 +57,7 @@ public class ApplyJavascript extends Stage {
       } catch (Exception e) {
         throw new StageException("Error initializing FileContentFetcher.", e);
       }
-      try (Reader reader = fileFetcher.getReader(scriptPath)){
+      try (Reader reader = fileFetcher.getReader(scriptPath)) {
         this.source = Source.newBuilder("js", reader, scriptPath).build();
       } catch (Exception e) {
         throw new StageException("Failed to read JavaScript from '" + scriptPath + "'.", e);
@@ -84,7 +65,6 @@ public class ApplyJavascript extends Stage {
     }
 
     try {
-      // Disable graal logging spam.
       Engine engine = Engine.newBuilder()
           .option("engine.WarnInterpreterOnly", "false")
           .option("log.level", "OFF")
@@ -105,7 +85,6 @@ public class ApplyJavascript extends Stage {
       context.close();
       context = null;
     }
-
     if (scriptPath != null) {
       fileFetcher.shutdown();
     }
@@ -114,9 +93,8 @@ public class ApplyJavascript extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
-      context.getBindings("js").putMember("doc", JsDocProxy.wrap(doc));
+      context.getBindings("js").putMember("doc", JsDocProxy.root(doc));
       context.getBindings("js").putMember("rawDoc", doc);
-
       context.eval(source);
       return null;
     } catch (Exception e) {
@@ -124,96 +102,307 @@ public class ApplyJavascript extends Stage {
     }
   }
 
-  static final class JsDocProxy implements ProxyObject {
-    private final Document doc;
+  // Proxy implementation exposed to JS
 
-    private JsDocProxy(Document doc) {
+  static final class JsDocProxy implements ProxyObject {
+    private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
+
+    private final Document doc;
+    private final String path; // null for root, otherwise "a.b"
+
+    private JsDocProxy(Document doc, String path) {
       this.doc = doc;
+      this.path = path;
     }
 
-    static JsDocProxy wrap(Document d) {
-      return new JsDocProxy(d);
+    static JsDocProxy root(Document d) {
+      return new JsDocProxy(d, null);
+    }
+
+    private boolean isRoot() {
+      return path == null;
+    }
+    private String join(String key) {
+      return isRoot() ? key : (path + "." + key);
     }
 
     @Override
     public Object getMember(String key) {
+      return isRoot() ? getRootMember(key) : getNestedMember(key);
+    }
+
+    private Object getRootMember(String key) {
       if (!doc.has(key)) {
         return null;
       }
 
-      Object val = doc.asMap().get(key);
-      if (val instanceof JsonNode && ((JsonNode) val).isNull()) {
+      JsonNode json = doc.getJson(key);
+
+      if (json != null) {
+        if (json.isNull()) return null;
+        if (json.isArray()) return jsonArrayToProxyArray(json, key);
+        if (json.isContainerNode()) return new JsDocProxy(doc, key);
+        return jsonNodeToJsValue(json);
+      }
+
+      Object raw = doc.asMap().get(key);
+      if (raw instanceof List<?>) {
+        return lucilleListToProxyArray((List<?>) raw);
+      }
+
+      return lucilleScalarToJsValue(raw);
+    }
+
+    private Object getNestedMember(String key) {
+      JsonNode current = doc.getNestedJson(path);
+      if (current == null || current.isNull()) {
         return null;
       }
 
-      return val;
+      if (current.isObject()) {
+        JsonNode child = current.get(key);
+
+        if (child == null) {
+          return null;
+        }
+
+        return child.isContainerNode() ? new JsDocProxy(doc, join(key)) : jsonNodeToJsValue(child);
+      }
+
+      if (current.isArray()) {
+        int idx = parseArrayIndex(key);
+
+        if (idx < 0 || idx >= current.size()) {
+          return null;
+        }
+
+        JsonNode child = current.get(idx);
+
+        return child.isContainerNode() ? new JsDocProxy(doc, join(key)) : jsonNodeToJsValue(child);
+      }
+      return null;
     }
 
     @Override
     public void putMember(String key, Value v) {
+      String full = join(key);
+
       if (v == null || v.isNull()) {
-        doc.setField(key, NullNode.getInstance());
+        if (isRoot()) {
+          doc.setField(key, NullNode.getInstance());
+        } else {
+          doc.setNestedJson(full, NullNode.getInstance());
+        }
         return;
       }
 
-      // Arrays
       if (v.hasArrayElements()) {
-        int n = (int) v.getArraySize();
-        Object[] items = new Object[n];
-        for (int i = 0; i < n; i++) {
-          items[i] = coerce(v.getArrayElement(i));
+        if (isRoot()) {
+          int n = (int) v.getArraySize();
+          Object[] items = new Object[n];
+
+          for (int i = 0; i < n; i++) {
+            items[i] = jsValueToJavaScalar(v.getArrayElement(i));
+          }
+
+          doc.update(key, UpdateMode.OVERWRITE, items);
+        } else {
+          doc.setNestedJson(full, jsArrayToArrayNode(v));
         }
-        doc.update(key, UpdateMode.OVERWRITE, items);
+        return;
+      }
+
+      if (v.hasMembers()) {
+        ObjectNode obj = jsObjectToObjectNode(v);
+        if (isRoot()) {
+          doc.setField(key, obj);
+        } else {
+          doc.setNestedJson(full, obj);
+        }
         return;
       }
 
       // Scalars
-      doc.setField(key, coerce(v));
+      if (isRoot()) {
+        doc.setField(key, jsValueToJavaScalar(v));
+      } else {
+        doc.setNestedJson(full, jsValueToJsonNode(v));
+      }
     }
 
     @Override
     public boolean removeMember(String key) {
-      if (!doc.has(key)) {
-        return false;
+      String full = join(key);
+
+      if (isRoot()) {
+        if (!doc.has(key)) {
+          return false;
+        }
+        
+        try {
+          doc.validateFieldNames(key);
+        } catch (IllegalArgumentException e) {
+          return false;
+        }
+        
+        doc.removeField(key);
+        return true;
       }
 
-      try {
-        doc.validateFieldNames(key);
-      } catch (IllegalArgumentException e) {
+      if (doc.getNestedJson(full) == null) {
         return false;
       }
-
-      doc.removeField(key);
+      
+      doc.removeNestedJson(full);
       return true;
-    }
-
-    private static Object coerce(Value v) {
-      if (v == null || v.isNull())
-        return NullNode.getInstance();
-      if (v.isBoolean())
-        return v.asBoolean();
-      if (v.fitsInInt())
-        return v.asInt();
-      if (v.fitsInLong())
-        return v.asLong();
-      if (v.fitsInDouble())
-        return v.asDouble();
-      if (v.isString())
-        return v.asString();
-
-      // Resort to string otherwise
-      return v.toString();
     }
 
     @Override
     public boolean hasMember(String key) {
-      return doc.has(key);
+      if (isRoot()) return doc.has(key);
+
+      JsonNode current = doc.getNestedJson(path);
+      if (current == null || current.isNull()) {
+        return false;
+      }
+
+      if (current.isObject()) {
+        return ((ObjectNode) current).has(key);
+      }
+      
+      if (current.isArray()) {
+        int idx = parseArrayIndex(key);
+        return idx >= 0 && idx < current.size();
+      }
+      
+      return false;
     }
 
     @Override
     public Object getMemberKeys() {
-      Set<String> names = doc.getFieldNames();
-      return ProxyArray.fromArray(names.toArray(new String[0]));
+      if (isRoot()) {
+        Set<String> names = doc.getFieldNames();
+        return ProxyArray.fromArray(names.toArray(new String[0]));
+      }
+
+      JsonNode node = doc.getNestedJson(path);
+      if (node == null || node.isNull()) {
+        return ProxyArray.fromArray(new String[0]);
+      }
+
+      if (node.isObject()) {
+        List<String> keys = new ArrayList<>();
+        node.fieldNames().forEachRemaining(keys::add);
+        return ProxyArray.fromArray(keys.toArray(new String[0]));
+      }
+
+      if (node.isArray()) {
+        String[] idx = new String[node.size()];
+
+        for (int i = 0; i < node.size(); i++) {
+          idx[i] = Integer.toString(i);
+        }
+
+        return ProxyArray.fromArray(idx);
+      }
+
+      return ProxyArray.fromArray(new String[0]);
+    }
+
+    // Typing conversions
+
+    // Document -> JS (JSON): convert JSON scalar node to a JS compatible Java value
+    private static Object jsonNodeToJsValue(JsonNode node) {
+      if (node.isBoolean()) return node.booleanValue();
+      if (node.isNumber()) {
+        if (node.canConvertToInt()) return node.intValue();
+        if (node.canConvertToLong()) return node.longValue();
+        return node.doubleValue();
+      }
+      if (node.isTextual()) return node.asText();
+      return node.toString();
+    }
+
+    // Document -> JS: convert field to a JS compatible primitive/string
+    private static Object lucilleScalarToJsValue(Object v) {
+      if (v == null) return null;
+      if (v instanceof Boolean || v instanceof Integer || v instanceof Long || v instanceof Double || v instanceof String) return v;
+      return v.toString();
+    }
+
+    // Document -> JS: convert a JSON array to a ProxyArray and make containers nested proxies
+    private Object jsonArrayToProxyArray(JsonNode jsonArray, String baseKey) {
+      int n = jsonArray.size();
+      Object[] arr = new Object[n];
+
+      for (int i = 0; i < n; i++) {
+        JsonNode child = jsonArray.get(i);
+        arr[i] = child.isContainerNode() ? new JsDocProxy(doc, baseKey + "." + i) : jsonNodeToJsValue(child);
+      }
+
+      return ProxyArray.fromArray(arr);
+    }
+
+    // Document -> JS: convert a Lucille multivalued field to a ProxyArray
+    private Object lucilleListToProxyArray(List<?> list) {
+      Object[] arr = new Object[list.size()];
+
+      for (int i = 0; i < list.size(); i++) {
+        arr[i] = lucilleScalarToJsValue(list.get(i));
+      }
+
+      return ProxyArray.fromArray(arr);
+    }
+
+    // JS -> Document: convert JS value to Java scalar for setField/update
+    private static Object jsValueToJavaScalar(Value v) {
+      if (v == null || v.isNull()) return NullNode.getInstance();
+      if (v.isBoolean()) return v.asBoolean();
+      if (v.fitsInInt()) return v.asInt();
+      if (v.fitsInLong()) return v.asLong();
+      if (v.fitsInDouble()) return v.asDouble();
+      if (v.isString()) return v.asString();
+      return v.toString();
+    }
+
+    // JS -> Document: convert JS value to JsonNode
+    private static JsonNode jsValueToJsonNode(Value v) {
+      if (v == null || v.isNull()) return NullNode.getInstance();
+      if (v.hasArrayElements()) return jsArrayToArrayNode(v);
+      if (v.hasMembers()) return jsObjectToObjectNode(v);
+      if (v.isBoolean()) return BooleanNode.valueOf(v.asBoolean());
+      if (v.fitsInInt()) return IntNode.valueOf(v.asInt());
+      if (v.fitsInLong()) return LongNode.valueOf(v.asLong());
+      if (v.fitsInDouble()) return DoubleNode.valueOf(v.asDouble());
+      if (v.isString()) return TextNode.valueOf(v.asString());
+      return TextNode.valueOf(v.toString());
+    }
+
+    // JS -> Document: build ArrayNode from JS array
+    private static ArrayNode jsArrayToArrayNode(Value v) {
+      ArrayNode arr = JSON.arrayNode();
+
+      for (int i = 0; i < v.getArraySize(); i++) {
+        arr.add(jsValueToJsonNode(v.getArrayElement(i)));
+      }
+
+      return arr;
+    }
+
+    // JS -> Document: build ObjectNode from JS object
+    private static ObjectNode jsObjectToObjectNode(Value v) {
+      ObjectNode obj = JSON.objectNode();
+
+      for (String k : v.getMemberKeys()) {
+        obj.set(k, jsValueToJsonNode(v.getMember(k)));
+      }
+
+      return obj;
+    }
+
+    // Check if the key is an array index or default to -1
+    private static int parseArrayIndex(String s) {
+      try { return Integer.parseInt(s); } catch (NumberFormatException e) { return -1; }
     }
   }
 }
