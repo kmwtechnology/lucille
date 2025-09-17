@@ -690,7 +690,7 @@ public interface Document {
       } else if (index == node.size()) { // add to end of array (including creating as array if index==0)
         ((ArrayNode) node).add(value);
       } else {
-        throw new IllegalArgumentException("Cannot set index " + index + " on array of size " + node.size());
+        throw new ArrayIndexOutOfBoundsException("Cannot set index " + index + " on array of size " + node.size());
       }
     } else {
       ((ObjectNode) node).set(segment, value);
