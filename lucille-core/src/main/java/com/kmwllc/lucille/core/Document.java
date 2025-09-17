@@ -671,13 +671,7 @@ public interface Document {
 
   // if the given segment is an integer, it will create a new ArrayNode, otherwise an ObjectNode
   private static JsonNode createNewNode(String segment) {
-    try { // deal with possible array nodes
-      Integer.parseInt(segment);
-      return JsonDocument.MAPPER.createArrayNode();
-    } catch (NumberFormatException nfe) {
-      // not an integer, so leave as ObjectNode
-      return JsonDocument.MAPPER.createObjectNode();
-    }
+    return (segment.chars().allMatch(c -> c >= '0' && c <= '9')) ? JsonDocument.MAPPER.createArrayNode() : JsonDocument.MAPPER.createObjectNode();
   }
 
   // sets the given value on the given field segment with either an ObjectNode or ArrayNode
