@@ -627,7 +627,7 @@ public interface Document {
    * @param name the nested field path to set the JsonNode at
    * @param value the JsonNode to set at the nested path
    */
-  default void setNestedJson(String name, JsonNode value) throws IllegalArgumentException {
+  default void setNestedJson(String name, JsonNode value) {
     setNestedJson(name.split("\\."), value);
   }
 
@@ -638,7 +638,7 @@ public interface Document {
    * @param pathSegments the nested field path segments to set the JsonNode at
    * @param value the JsonNode to set at the nested path
    */
-  default void setNestedJson(String[] pathSegments, JsonNode value) throws IllegalArgumentException {
+  default void setNestedJson(String[] pathSegments, JsonNode value) {
     if (pathSegments.length == 0) {
       return;
     }
@@ -670,7 +670,7 @@ public interface Document {
   }
 
   // if the given segment is an integer, it will create a new ArrayNode, otherwise an ObjectNode
-  static private JsonNode createNewNode(String segment) {
+  private static JsonNode createNewNode(String segment) {
     try { // deal with possible array nodes
       Integer.parseInt(segment);
       return JsonDocument.MAPPER.createArrayNode();
@@ -681,7 +681,7 @@ public interface Document {
   }
 
   // sets the given value on the given field segment with either an ObjectNode or ArrayNode
-  static private void setFieldSegment(JsonNode node, String segment, JsonNode value) {
+  private static void setFieldSegment(JsonNode node, String segment, JsonNode value) {
     if (node.isArray()) {
       int index = Integer.parseInt(segment);
       // check if index is within the existing array and overwrite if so
@@ -698,7 +698,7 @@ public interface Document {
   }
 
   // gets the value on the given field segment
-  static private JsonNode getFieldSegment(JsonNode node, String segment) {
+  private static JsonNode getFieldSegment(JsonNode node, String segment) {
     if (node.isArray()) {
       int index = Integer.parseInt(segment);
       if (index < 0 || index > node.size() - 1) {
@@ -712,7 +712,7 @@ public interface Document {
   }
 
   // checks if the given field segment exists on the given node
-  static private boolean hasFieldSegment(JsonNode node, String segment) {
+  private static boolean hasFieldSegment(JsonNode node, String segment) {
     if (node.isArray()) {
       int index = Integer.parseInt(segment);
       return !(index < 0 || index > node.size() - 1);

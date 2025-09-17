@@ -84,8 +84,8 @@ public class CopyFields extends Stage {
         }
         try {
           doc.setNestedJson(dest, sourceVal);
-        } catch(IllegalArgumentException ex) {
-          throw new StageException("Failed to set field '" + dest + "' on doc " + doc.getId() + ". Field is not valid.\n" + ex.getMessage());
+        } catch (IllegalArgumentException ex) {
+          log.error("Failed to set field '{}' on doc {}.\n {}", dest, doc.getId(), ex.getMessage());
         }
       }
     }

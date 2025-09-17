@@ -245,7 +245,7 @@ public class AddRandomNestedField extends Stage {
         // Write value at the destination
         try {
           doc.setNestedJson(targetFieldPath + "." + destPathStr, valNode);
-        } catch(IllegalArgumentException ex) {
+        } catch (IllegalArgumentException ex) {
           throw new StageException("Failed to set field '" + targetFieldPath + "." + destPathStr + "' on doc " + doc.getId() +
               ". Field is not valid.\n" + ex.getMessage());
         }
