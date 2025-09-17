@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.lang.invoke.MethodHandles;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -46,6 +47,7 @@ public class CopyFields extends Stage {
   private final Map<String, Object> fieldMapping;
   private final UpdateMode updateMode;
   private final boolean isNested;
+  private Map<String, String[]> sourceToDestParts = new HashMap<>();
 
   public CopyFields(Config config) {
     super(config);
@@ -63,19 +65,26 @@ public class CopyFields extends Stage {
     if (this.isNested && this.updateMode != null) {
       log.info("Cannot set both isNested and update_mode in Copy Fields at the same time. Ignoring update_mode, fields will be overwritten.");
     }
+
+    // create set of destination field parts so we don't have to split them up for every doc
+    for (Entry<String, Object> fieldPair : this.fieldMapping.entrySet()) {
+      String source = fieldPair.getKey();
+      String[] dest = ((String) fieldPair.getValue()).split("\\.");
+      this.sourceToDestParts.put(source, dest);
+    }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    for (Entry<String, Object> fieldPair : this.fieldMapping.entrySet()) {
+    for (Entry<String, String[]> fieldPair : this.sourceToDestParts.entrySet()) {
       String source = fieldPair.getKey();
-      String dest = (String) fieldPair.getValue();
+      String[] dest = fieldPair.getValue();
 
       if (!this.isNested) {
         if (!doc.has(source)) {
           continue;
         }
-        doc.update(dest, updateMode, doc.getStringList(source).toArray(new String[0]));
+        doc.update(String.join(".", dest), updateMode, doc.getStringList(source).toArray(new String[0]));
       } else {
         // deal with nested case
         JsonNode sourceVal = doc.getNestedJson(source);
