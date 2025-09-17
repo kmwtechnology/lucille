@@ -228,12 +228,23 @@ public class ExtractEntitiesFST extends Stage {
     fstPayloads = FST.fromFSTReader(meta, builder.getFSTReader());
   }
 
+  private static final class MatchHit {
+    final String key; // normalized "token1 token2"
+    final String payload;
+    final int length; // number of tokens in the match
+    MatchHit(String key, String payload, int length) {
+      this.key = key;
+      this.payload = payload;
+      this.length = length;
+    }
+  }
+
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // Iterate over each configured source field
     for (int i = 0; i < sourceFields.size(); i++) {
       String sourceField = sourceFields.get(i);
-      String destField   = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
+      String destField = destFields.size() == 1 ? destFields.get(0) : destFields.get(i);
 
       // Skip if the doc is missing the source field
       if (!doc.has(sourceField)) {
@@ -256,56 +267,105 @@ public class ExtractEntitiesFST extends Stage {
           continue;
         }
 
-        // Tokenize the text with the Analyzer
+        // Tokenize once
         List<String> tokens = tokenize(raw);
 
         int idx = 0;
-        // Walk over tokens, growing the phrases as long as the prefixes exists in the FST
         while (idx < tokens.size()) {
           int mark = idx;
-          // The current growing phrase
-          List<String> cur = new ArrayList<>();
-          // All full matches starting at the index
-          List<List<String>> matchesHere = new ArrayList<>();
 
-          // Grow the phrase while it remains a prefix of at least one dictionary entry
-          do {
-            cur.add(tokens.get(mark++));
-            if (isCompleteMatch(cur)) {
-              matchesHere.add(new ArrayList<>(cur));
-            }
-          } while (hasPrefix(cur) && mark < tokens.size());
+          // Build the growing phrase with a StringBuilder
+          StringBuilder sb = new StringBuilder();
 
-          // Decide what to emit from matches found at the start position
-          List<String> chosen = null;
-          if (matchesHere.isEmpty()) {
-            // Nothing matched
-          } else if (!ignoreOverlaps) {
-            // Emit all matches that start here
-            for (List<String> m : matchesHere) {
-              appendMatch(m, outputs, matchedTerms);
+          // Collect full matches that start at idx
+          List<MatchHit> matchesHere = new ArrayList<>(2);
+
+          boolean hasPrefix = true;
+          while (hasPrefix && mark < tokens.size()) {
+            if (sb.length() > 0) {
+              sb.append(' ');
             }
-          } else {
-            // Pick the single longest match that starts here
-            for (List<String> m : matchesHere) {
-              if (chosen == null || m.size() > chosen.size()) chosen = m;
+            String tok = tokens.get(mark++);
+            sb.append(tok);
+
+            // Normalize once and reuse
+            String key = normalizeKey(sb.toString());
+
+            // Check complete match once, store payload if applicable
+            if (usePayloads) {
+              BytesRef br;
+              try {
+                br = Util.get(fstPayloads, new BytesRef(key));
+              } catch (Exception e) {
+                throw new RuntimeException("FST lookup failed", e);
+              }
+              if (br != null) {
+                String payload = br.utf8ToString();
+                if (payload != null && !payload.isEmpty()) {
+                  matchesHere.add(new MatchHit(key, payload, (mark - idx)));
+                }
+              }
+            } else {
+              if (matchesCompletely(fstNoPayloads, new BytesRef(key))) {
+                matchesHere.add(new MatchHit(key, null, (mark - idx)));
+              }
             }
-            appendMatch(chosen, outputs, matchedTerms);
+
+            // Continue only while we still have a dictionary prefix
+            hasPrefix = (usePayloads)
+                ? hasPrefixBytes(fstPayloads, new BytesRef(key))
+                : hasPrefixBytes(fstNoPayloads, new BytesRef(key));
           }
 
-          // Advance the left index for the next attempt
+          // Emit according to overlap rules using precomputed results
+          MatchHit chosen = null;
+          if (!matchesHere.isEmpty()) {
+            if (!ignoreOverlaps) {
+              for (MatchHit m : matchesHere) {
+                if (usePayloads) {
+                  outputs.add(m.payload);
+                  if (matchedTerms != null) {
+                    matchedTerms.add(m.key);
+                  }
+                } else {
+                  outputs.add(m.key);
+                }
+              }
+            } else {
+              for (MatchHit m : matchesHere) {
+                if (chosen == null || m.length > chosen.length) {
+                  chosen = m;
+                }
+              }
+              if (chosen != null) {
+                if (usePayloads) {
+                  outputs.add(chosen.payload);
+                  if (matchedTerms != null) {
+                    matchedTerms.add(chosen.key);
+                  }
+                } else {
+                  outputs.add(chosen.key);
+                }
+              }
+            }
+          }
+
+          // Advance
           if (ignoreOverlaps && chosen != null) {
-            idx += Math.max(1, chosen.size());
+            idx += Math.max(1, chosen.length);
           } else {
             idx++;
           }
 
-          // Exit early if we have matches
-          if (stopOnHit && !outputs.isEmpty()) break;
+          // Early exit
+          if (stopOnHit && !outputs.isEmpty()) {
+            break;
+          }
         }
 
-        // Exit early if we have matches
-        if (stopOnHit && !outputs.isEmpty()) break;
+        if (stopOnHit && !outputs.isEmpty()) {
+          break;
+        }
       }
 
       // If we found any matches, write them to the document
@@ -340,38 +400,6 @@ public class ExtractEntitiesFST extends Stage {
     }
 
     return out;
-  }
-
-  // Append a matched token sequence into the outputs list
-  private void appendMatch(List<String> tokens, List<String> out, List<String> matchedTerms) {
-    // Join tokens in to normalized lowercase string
-    String key = normalizeKey(String.join(" ", tokens));
-
-    if (usePayloads) {
-      BytesRef br;
-      try {
-        br = Util.get(fstPayloads, new BytesRef(key));
-      } catch (Exception e) {
-        throw new RuntimeException("FST lookup failed", e);
-      }
-
-      // If a mapping exists for the key
-      if (br != null) {
-        String payload = br.utf8ToString();
-
-        if (payload == null || payload.isEmpty()) {
-          // Skip if payload is empty or null
-        } else {
-          out.add(payload);
-        }
-        if (matchedTerms != null) matchedTerms.add(key);
-      }
-    } else {
-      // Add the surface term itself if it's a complete match with no payloads
-      if (isCompleteMatch(tokens)) {
-        out.add(key);
-      }
-    }
   }
 
   // Check if a sequence of tokens forms a complete dictionary match
@@ -413,16 +441,6 @@ public class ExtractEntitiesFST extends Stage {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  // Wrapper that joins tokens into a normalized string and checks for any dictionary prefix
-  private boolean hasPrefix(List<String> tokens) {
-    // Join tokens to a single lowercase key
-    String key = normalizeKey(String.join(" ", tokens));
-
-    return (usePayloads)
-        ? hasPrefixBytes(fstPayloads, new BytesRef(key))
-        : hasPrefixBytes(fstNoPayloads, new BytesRef(key));
   }
 
   // Test if the input has a valid prefix of any term
