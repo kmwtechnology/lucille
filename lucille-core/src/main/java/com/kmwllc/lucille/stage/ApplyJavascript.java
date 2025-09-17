@@ -18,6 +18,36 @@ import org.graalvm.polyglot.proxy.ProxyObject;
 import java.io.Reader;
 import java.util.*;
 
+/**
+ * Executes a JavaScript program (via GraalVM) against each document. The stage exposes a structured
+ * proxy doc for safe field access and mutation, as well as rawDoc for direct access to the underlying
+ * Document. Reading a missing field from doc yields null. Assigning null to a field stores a
+ * JSON null. Using the JavaScript delete operator removes fields (including nested fields and array
+ * indices). Exactly one of an inline script or a script file path must be provided.
+ * <br>
+ * Field and container behavior:
+ * <ul>
+ *   <li>Root fields: Access with doc.field. Writing a JS array at the root (e.g., doc.tags = ["a","b"];)
+ *   creates/overwrites a multivalued field.</li>
+ *   <li>Nested objects: Use dot notation (e.g., doc.a.b). Intermediate parents are not auto-created; you
+ *   must initialize them first (e.g., doc.a = doc.a || {}; doc.a.b = 1;).</li>
+ *   <li>Nested arrays: Use bracket indices (e.g., doc.a.list[1]). Writing a JS array into a nested path stores a
+ *   JSON array at that path (e.g., doc.payload.items = ["x","y"] becomes a JSON array).</li>
+ *   <li>Deletion: delete doc.field removes a root field. delete doc.a.b removes a nested field.
+ *   delete doc.a.list[1] removes the indexed element from a JSON array and compacts remaining elements.</li>
+ *   <li>Types: Numbers map to int/long/double when possible. Strings, booleans, null, objects, and arrays map to
+ *   their JSON or Lucille equivalents per the rules above.</li>
+ * </ul>
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>script_path (String, Optional) : Path to a JavaScript file to execute. Exactly one of script_path or script must be set.</li>
+ *   <li>script (String, Optional) : Inline JavaScript source to execute. Exactly one of script_path or script must be set.</li>
+ *   <li>s3 (Map, Optional) : If your javascript file is held in S3. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>azure (Map, Optional) : If your javascript file is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>gcp (Map, Optional) : If your javascript file is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ * </ul>
+ */
 public class ApplyJavascript extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
