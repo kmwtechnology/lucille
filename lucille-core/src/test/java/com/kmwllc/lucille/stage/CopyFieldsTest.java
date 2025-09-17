@@ -49,7 +49,7 @@ public class CopyFieldsTest {
     assertEquals("Value from input2 should be copied to output2", inputVal2, doc3.getStringList("output2").get(0));
     assertEquals("Value from input3 should be copied to output3", inputVal3, doc3.getStringList("output3").get(0));
 
-    // Ensure that if isNested is false, dotted fields will be treated as liters
+    // Ensure that if isNested is false, dotted fields will be treated as literals
     Document doc4 = Document.create("doc4");
     doc4.setField("input4.nested", "This will be copied to output4.nested (literal field)");
     stage.processDocument(doc4);

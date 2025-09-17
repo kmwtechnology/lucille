@@ -160,9 +160,8 @@ public class AddRandomNestedField extends Stage {
 
     // create set of destination field parts so we don't have to split them on every doc
     final int n = pickNumObjects();
-    int index = 0;
     for (int i = 0; i < n; i++) {
-      List<String> targetFieldPath = Arrays.asList(targetField, Integer.toString(index));
+      List<String> targetFieldPath = Arrays.asList(targetField, Integer.toString(i));
 
       for (Map.Entry<List<String>, String> e : parsedEntries.entrySet()) {
         // create final array of dest field parts from the target field and dest field in parsedEntries
@@ -173,7 +172,6 @@ public class AddRandomNestedField extends Stage {
         String[] destFieldParts = fullDestFieldList.toArray(new String[0]);
         nestedFieldPairs.add(Pair.of(e.getValue(), destFieldParts));
       }
-      index++;
     }
   }
 

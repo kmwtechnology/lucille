@@ -1712,19 +1712,10 @@ public abstract class DocumentTest {
   @Test
   public void testNestedArrayUpdate() {
     Document doc = Document.create("id1");
-    doc.setNestedJson("a.b.0", IntNode.valueOf(50));
-    doc.setNestedJson("a.b.0", IntNode.valueOf(60));
-    assertEquals(1, doc.getNestedJson("a.b").size());
-    assertEquals(60, doc.getNestedJson("a.b.0").intValue());
-    assertNull(doc.getNestedJson("a.b.1"));
-  }
-
-  @Test
-  public void testNestedArrayUpdateConfusingArrayIndexScenario() throws IllegalArgumentException {
-    Document doc = Document.create("id1");
-    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b.1", IntNode.valueOf(50))); // since a.b doesn't exist, this will throw an error
-    doc.setNestedJson("a.b.0", IntNode.valueOf(60)); // since a.b still doesn't exist, it will create a new array and add as the first element
-    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b.20", IntNode.valueOf(50))); // since a.b does not have 20 or more values, this will throw an error
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b.1", IntNode.valueOf(50))); // a.b doesn't exist, this will throw an error
+    doc.setNestedJson("a.b.0", IntNode.valueOf(50)); // a.b still doesn't exist, it will create a new array and add as the first element
+    doc.setNestedJson("a.b.0", IntNode.valueOf(60)); // a.b.0 exists, this will update the value at index 0
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b.20", IntNode.valueOf(50))); // a.b does not have 20 or more values, this will throw an error
     doc.setNestedJson("a.b.1", IntNode.valueOf(50)); // now that a.b has one value, this will be added as the next value with index 1
     assertEquals(2, doc.getNestedJson("a.b").size());
     assertEquals(60, doc.getNestedJson("a.b.0").intValue());
