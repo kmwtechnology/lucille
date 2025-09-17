@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.Timestamp;
@@ -1652,6 +1653,74 @@ public abstract class DocumentTest {
     doc.removeChildren();
     // validate no children exist after we remove them.
     assertFalse(doc.hasChildren());
+  }
+
+  @Test
+  public void testGetAndSetNestedJson() {
+    ObjectMapper mapper = new ObjectMapper();
+    Document document = createDocument("doc");
+
+    // test nested field that does not contain a list
+    JsonNode jsonNode = mapper.createObjectNode()
+        .set("b", mapper.createObjectNode()
+            .set("c", mapper.createObjectNode()
+                .set("d", mapper.createObjectNode()
+                    .put("e", 234))));
+    document.setNestedJson(("a.b.c.d"), mapper.createObjectNode().put("e", 234));
+    assertEquals(jsonNode, document.getJson("a"));
+    assertEquals(234, document.getNestedJson("a.b.c.d.e").asInt());
+
+    // test nested field that contains a list in a top level field
+    JsonNode jsonList = mapper.createArrayNode()
+        .add(mapper.createObjectNode()
+                .put("name", "thing1")
+                .put("age", 50))
+        .add(mapper.createObjectNode()
+                .put("name", "thing2")
+                .put("age", 25));
+    document.setNestedJson("list.0", mapper.createObjectNode().put("name", "temp").put("age", 87));
+    document.setNestedJson("list.1", mapper.createObjectNode().put("name", "thing2").put("age", 25));
+    document.setNestedJson("list.0", mapper.createObjectNode().put("name", "thing1").put("age", 50));
+    assertEquals(jsonList, document.getJson("list"));
+    assertEquals("thing2", document.getNestedJson("list.1.name").asText());
+
+    // test nested field with a list that is more nested
+    JsonNode moreNestedJsonList = mapper.createObjectNode().set("list", mapper.createArrayNode()
+        .add(mapper.createObjectNode()
+            .put("name", "thing1")
+            .put("age", 50))
+        .add(mapper.createObjectNode()
+            .put("name", "thing2")
+            .put("age", 25)
+            .set("phone", mapper.createObjectNode()
+                .put("number", "123-4567")
+                .put("areaCode", "303"))));
+    document.setNestedJson("doc.list.0", mapper.createObjectNode().put("name", "thing1").put("age", 50));
+    document.setNestedJson("doc.list.1", mapper.createObjectNode().put("name", "thing2").put("age", 25));
+    document.setNestedJson("doc.list.1.phone", mapper.createObjectNode().put("number", "123-4567").put("areaCode", "303"));
+    assertEquals(moreNestedJsonList, document.getJson("doc"));
+    assertEquals("thing2", document.getNestedJson("doc.list.1.name").asText());
+
+    // test non nested field
+    document.setNestedJson("simple", mapper.createObjectNode().put("field", "simpleValue"));
+    assertEquals("simpleValue", document.getNestedJson("simple.field").asText());
+
+    // test non-existing field
+    assertNull(document.getNestedJson("a.does.not.exist"));
+  }
+
+  @Test
+  public void testNestedArrayUpdate() {
+    Document doc = Document.create("id1");
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b.1", IntNode.valueOf(50))); // a.b doesn't exist, this will throw an error
+    doc.setNestedJson("a.b.0", IntNode.valueOf(50)); // a.b still doesn't exist, it will create a new array and add as the first element
+    doc.setNestedJson("a.b.0", IntNode.valueOf(60)); // a.b.0 exists, this will update the value at index 0
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b.20", IntNode.valueOf(50))); // a.b does not have 20 or more values, this will throw an error
+    doc.setNestedJson("a.b.1", IntNode.valueOf(50)); // now that a.b has one value, this will be added as the next value with index 1
+    assertEquals(2, doc.getNestedJson("a.b").size());
+    assertEquals(60, doc.getNestedJson("a.b.0").intValue());
+    assertEquals(50, doc.getNestedJson("a.b.1").intValue());
+    assertNull(doc.getNestedJson("a.b.2"));
   }
 
   @Test
