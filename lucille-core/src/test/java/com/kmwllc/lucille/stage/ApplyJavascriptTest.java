@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -111,7 +115,6 @@ public class ApplyJavascriptTest {
     assertEquals(3.14, d.getDouble("pi"), 1e-9);
   }
 
-
   @Test
   public void testSetArrayFromJs() throws StageException {
     Stage stage = stageWithInlineScript("""
@@ -123,7 +126,6 @@ public class ApplyJavascriptTest {
 
     assertEquals(Arrays.asList("a", "b", "c"), d.getStringList("tags"));
   }
-
 
   @Test
   public void testCopyMultiValuedField() throws StageException {
@@ -217,7 +219,6 @@ public class ApplyJavascriptTest {
     assertEquals(Arrays.asList("a","b","c"), d.getStringList("tags"));
   }
 
-
   @Test
   public void testRawDocRemoveField() throws StageException {
     Stage stage = stageWithInlineScript("""
@@ -230,7 +231,6 @@ public class ApplyJavascriptTest {
 
     assertFalse(d.has("gone"));
   }
-
 
   @Test
   public void testRawDocRemoveChildren() throws StageException {
@@ -245,5 +245,137 @@ public class ApplyJavascriptTest {
     assertTrue(d.hasChildren());
     stage.processDocument(d);
     assertFalse(d.hasChildren());
+  }
+
+  @Test
+  public void testNestedWriteWithoutParent() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      doc.a.b = 100; 
+    """); // a does not exist
+
+    Document d = Document.create("d");
+
+    assertThrows(StageException.class, () -> stage.processDocument(d));
+  }
+
+  @Test
+  public void testNestedWriteWithParentInitialization() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      doc.a = doc.a || {}; doc.a.b = 100;
+    """);
+
+    Document d = Document.create("d");
+    stage.processDocument(d);
+
+    JsonNode n = d.getNestedJson("a.b");
+    assertNotNull(n);
+    assertTrue(n.isNumber());
+    assertEquals(100, n.asInt());
+    assertTrue(d.getJson("a").isObject());
+  }
+
+  @Test
+  public void testAssignNestedNullStoresJsonNull() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      doc.meta = doc.meta || {}; doc.meta.flag = null;
+    """);
+
+    Document d = Document.create("d");
+    d.setNestedJson("meta.x", TextNode.valueOf("existing"));
+
+    stage.processDocument(d);
+
+    JsonNode flag = d.getNestedJson("meta.flag");
+    assertNotNull(flag);
+    assertTrue(flag.isNull());
+    assertEquals("existing", d.getNestedJson("meta.x").asText());
+  }
+
+  @Test
+  public void testDeleteNestedFieldKeepsSiblings() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      delete doc.a.b;
+    """);
+
+    Document d = Document.create("d");
+    d.setNestedJson("a.b", IntNode.valueOf(5));
+    d.setNestedJson("a.c", TextNode.valueOf("keep"));
+
+    stage.processDocument(d);
+
+    assertNull(d.getNestedJson("a.b"));
+    assertNotNull(d.getNestedJson("a.c"));
+    assertEquals("keep", d.getNestedJson("a.c").asText());
+    assertTrue(d.getJson("a").isObject());
+  }
+
+  @Test
+  public void testDeleteNestedArrayIndex() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      delete doc.a.list[1];
+    """);
+
+    Document d = Document.create("d");
+    ObjectMapper m = new ObjectMapper();
+    d.setNestedJson("a.list", m.createArrayNode().add(10).add(20).add(30));
+
+    stage.processDocument(d);
+
+    JsonNode list = d.getNestedJson("a.list");
+    assertNotNull(list);
+    assertTrue(list.isArray());
+    assertEquals(2, list.size());
+    assertEquals(10, list.get(0).asInt());
+    assertEquals(30, list.get(1).asInt());
+  }
+
+  @Test
+  public void testSetNestedArrayFromJs() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      doc.payload = doc.payload || {}; doc.payload.items = [\"a\", \"b\", \"c\"];
+    """);
+    Document d = Document.create("d");
+    stage.processDocument(d);
+
+    JsonNode arr = d.getNestedJson("payload.items");
+    assertNotNull(arr);
+    assertTrue(arr.isArray());
+    assertEquals(3, arr.size());
+    assertEquals("a", arr.get(0).asText());
+    assertEquals("b", arr.get(1).asText());
+    assertEquals("c", arr.get(2).asText());
+  }
+
+  @Test
+  public void testSetNestedObjectFromJs() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      doc.a = doc.a || {}; doc.a.meta = { build: 42, ok: true, tags: [\"x\", \"y\"] };
+    """);
+
+    Document d = Document.create("d");
+    stage.processDocument(d);
+
+    JsonNode meta = d.getNestedJson("a.meta");
+    assertNotNull(meta);
+    assertTrue(meta.isObject());
+    assertEquals(42, meta.get("build").asInt());
+    assertTrue(meta.get("ok").asBoolean());
+    assertEquals("x", meta.get("tags").get(0).asText());
+    assertEquals("y", meta.get("tags").get(1).asText());
+  }
+
+  @Test
+  public void testDeleteNestedMissingField() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      delete doc.meta.missing;
+    """);
+
+    Document d = Document.create("d");
+    d.setNestedJson("meta.x", TextNode.valueOf("existing"));
+
+    stage.processDocument(d);
+
+    assertEquals("existing", d.getNestedJson("meta.x").asText());
+    assertNull(d.getNestedJson("meta.missing"));
   }
 }
