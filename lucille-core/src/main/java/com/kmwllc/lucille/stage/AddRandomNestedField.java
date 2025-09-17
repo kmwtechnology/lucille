@@ -12,6 +12,9 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -78,6 +81,7 @@ public class AddRandomNestedField extends Stage {
   private final Map<String, Stage> generators = new LinkedHashMap<>();
   private final Document genDoc;
   private final Config generatorsConfig;
+  private List<SimpleEntry<String, String[]>> sourceToDestParts = new ArrayList<>(); // use list to maintain order for ArrayNode indices
 
   public AddRandomNestedField(Config config) throws StageException {
     super(config);
@@ -128,32 +132,48 @@ public class AddRandomNestedField extends Stage {
   // Start generator stages
   @Override
   public void start() throws StageException {
-    if (generatorsConfig == null) {
-      return;
+    if (generatorsConfig != null) {
+      // Iterate over each generator param
+      for (String key : generatorsConfig.root().keySet()) {
+        Config sub = generatorsConfig.getConfig(key);
+        if (!sub.hasPath("class")) {
+          throw new StageException("generators." + key + " must include a 'class' property");
+        }
+
+        Config injected = ConfigFactory.parseMap(Map.of(
+            "name", "arnf_gen_" + key,
+            "field_name", GEN_OUT_FIELD
+        )).withFallback(sub);
+
+        // Create generator
+        Stage gen;
+
+        try {
+          gen = Stage.fromConfig(injected);
+        } catch (Exception e) {
+          throw new StageException("Failed to instantiate generator '" + key + "'", e);
+        }
+        gen.start();
+        generators.put(key, gen);
+      }
     }
 
-    // Iterate over each generator param
-    for (String key : generatorsConfig.root().keySet()) {
-      Config sub = generatorsConfig.getConfig(key);
-      if (!sub.hasPath("class")) {
-        throw new StageException("generators." + key + " must include a 'class' property");
+    // create set of destination field parts so we don't have to split them on every doc
+    final int n = pickNumObjects();
+    int index = 0;
+    for (int i = 0; i < n; i++) {
+      List<String> targetFieldPath = Arrays.asList(targetField, Integer.toString(index));
+
+      for (Map.Entry<List<String>, String> e : parsedEntries.entrySet()) {
+        // create final array of dest field parts from the target field and dest field in parsedEntries
+        List<String> partialDestFieldList = e.getKey();
+        List<String> fullDestFieldList = new ArrayList<>(targetFieldPath.size() + partialDestFieldList.size());
+        fullDestFieldList.addAll(targetFieldPath);
+        fullDestFieldList.addAll(partialDestFieldList);
+        String[] destFieldParts = fullDestFieldList.toArray(new String[0]);
+        sourceToDestParts.add(new SimpleEntry<>(e.getValue(), destFieldParts));
       }
-
-      Config injected = ConfigFactory.parseMap(Map.of(
-          "name", "arnf_gen_" + key,
-          "field_name", GEN_OUT_FIELD
-      )).withFallback(sub);
-
-      // Create generator
-      Stage gen;
-
-      try {
-        gen = Stage.fromConfig(injected);
-      } catch (Exception e) {
-        throw new StageException("Failed to instantiate generator '" + key + "'", e);
-      }
-      gen.start();
-      generators.put(key, gen);
+      index++;
     }
   }
 
@@ -206,51 +226,43 @@ public class AddRandomNestedField extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    final int n = pickNumObjects();
     // set new array node on doc
     doc.setNestedJson(this.targetField, mapper.createArrayNode());
-    int index = 0;
 
     // Iterate over each nested object
-    for (int i = 0; i < n; i++) {
-      String targetFieldPath = this.targetField + "." + index;
+    for (SimpleEntry<String, String[]> fieldPair : this.sourceToDestParts) {
+      String sourceField = fieldPair.getKey();
+      String[] destFieldParts = fieldPair.getValue();
 
-      // Iterate over each entry for the object
-      for (Map.Entry<List<String>, String> e : parsedEntries.entrySet()) {
-        String destPathStr = String.join(".", e.getKey());
-        String sourceField = e.getValue();
+      // Assign if generators contains the source field name
+      String genKey = (!isBlank(sourceField) && generators.containsKey(sourceField)) ? sourceField : null;
 
-        // Assign if generators contains the source field name
-        String genKey = (!isBlank(sourceField) && generators.containsKey(sourceField)) ? sourceField : null;
-
-        // Get value from source field if present, otherwise generator
-        JsonNode valNode = null;
-        boolean hasSource = !isBlank(sourceField) && doc.has(sourceField);
-        if (hasSource) {
-          valNode = doc.getJson(sourceField);
-        } else if (genKey != null) {
-          valNode = generateWith(genKey);
-        }
-
-        if (!hasSource && genKey == null) {
-          throw new StageException("Missing value for '" + destPathStr +
-              "' (source='" + sourceField + "') and no generator available.");
-        }
-
-        if (valNode == null || valNode.isNull()) {
-          log.warn("Value for '{}' resolved to null ({}).", sourceField, doc.getId());
-          continue;
-        }
-
-        // Write value at the destination
-        try {
-          doc.setNestedJson(targetFieldPath + "." + destPathStr, valNode);
-        } catch (IllegalArgumentException ex) {
-          throw new StageException("Failed to set field '" + targetFieldPath + "." + destPathStr + "' on doc " + doc.getId() +
-              ". Field is not valid.\n" + ex.getMessage());
-        }
+      // Get value from source field if present, otherwise generator
+      JsonNode valNode = null;
+      boolean hasSource = !isBlank(sourceField) && doc.has(sourceField);
+      if (hasSource) {
+        valNode = doc.getJson(sourceField);
+      } else if (genKey != null) {
+        valNode = generateWith(genKey);
       }
-      index++;
+
+      if (!hasSource && genKey == null) {
+        throw new StageException("Missing value for '" + String.join(".", destFieldParts) +
+            "' (source='" + sourceField + "') and no generator available.");
+      }
+
+      if (valNode == null || valNode.isNull()) {
+        log.warn("Value for '{}' resolved to null ({}).", sourceField, doc.getId());
+        continue;
+      }
+
+      // Write value at the destination
+      try {
+        doc.setNestedJson(destFieldParts, valNode);
+      } catch (IllegalArgumentException ex) {
+        throw new StageException("Failed to set field '" + String.join(".", destFieldParts) + "' on doc " + doc.getId() +
+            ". Field is not valid.\n" + ex.getMessage());
+      }
     }
 
     return null;
