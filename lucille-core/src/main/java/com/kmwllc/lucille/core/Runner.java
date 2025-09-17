@@ -90,9 +90,8 @@ public class Runner {
    */
   public static void main(String[] args) throws Exception {
     Options cliOptions = new Options()
-        .addOption(Option.builder("usekafka").hasArg(false).build())
-        .addOption(Option.builder("useKafka").hasArg(false)
-            .desc("Use Kafka for inter-component communication and don't execute pipelines locally. NOTE: This param is not case sensitive.").build())
+        .addOption(Option.builder("usekafka").hasArg(false)
+            .desc("Use Kafka for inter-component communication and don't execute pipelines locally.").build())
         .addOption(Option.builder("local").hasArg(false)
             .desc("Modifies useKafka mode to execute pipelines locally").build())
         .addOption(Option.builder("validate").hasArg(false)
@@ -102,6 +101,7 @@ public class Runner {
 
     CommandLine cli = null;
     try {
+      args = Arrays.stream(args).map(String::toLowerCase).toArray(String[]::new);
       cli = new DefaultParser().parse(cliOptions, args);
     } catch (UnrecognizedOptionException | MissingOptionException e) {
       try (StringWriter writer = new StringWriter();
@@ -128,7 +128,7 @@ public class Runner {
       return;
     }
 
-    RunType runType = getRunType(cli.hasOption("useKafka") || cli.hasOption("usekafka"), cli.hasOption("local"));
+    RunType runType = getRunType(cli.hasOption("usekafka"), cli.hasOption("local"));
 
     // Kick off the run with a log of the result
     RunResult result = runWithResultLog(config, runType);
