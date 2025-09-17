@@ -75,7 +75,7 @@ public class Runner {
   }
 
   /**
-   * Runs the configured connectors.
+   * Runs the configured connectors. NOTE: parameters are case insensitive.
    * <p>
    * no args: pipelines workers and indexers will be executed in separate threads within the same JVM; communication
    * between components will take place in memory and Kafka will not be used
