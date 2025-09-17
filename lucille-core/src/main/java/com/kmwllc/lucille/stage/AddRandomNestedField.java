@@ -224,8 +224,6 @@ public class AddRandomNestedField extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    // set new array node on doc
-    doc.setNestedJson(targetField, mapper.createArrayNode());
 
     // Iterate over each nested object
     for (Pair<String, String[]> fieldPair : nestedFieldPairs) {
@@ -257,10 +255,15 @@ public class AddRandomNestedField extends Stage {
       // Write value at the destination
       try {
         doc.setNestedJson(destFieldParts, valNode);
-      } catch (IllegalArgumentException ex) {
+      } catch (ArrayIndexOutOfBoundsException ex) {
         throw new StageException("Failed to set field '" + String.join(".", destFieldParts) + "' on doc " + doc.getId() +
             ". Field is not valid.\n" + ex.getMessage());
       }
+    }
+
+    if (doc.getNestedJson(targetField) == null) {
+      // set new array node on doc
+      doc.setNestedJson(targetField, mapper.createArrayNode());
     }
 
     return null;
