@@ -669,6 +669,36 @@ public interface Document {
     setField(pathSegments[0], node);
   }
 
+  default void removeNestedJson(String path) {
+    String[] parts = path.split("\\.");
+
+    if (parts.length == 0) {
+      return;
+    }
+    if (parts.length == 1) {
+      removeField(parts[0]);
+      return;
+    }
+
+    JsonNode parent = getNestedJson(String.join(".",
+        java.util.Arrays.copyOf(parts, parts.length - 1)));
+    if (parent == null) {
+      return;
+    }
+
+    String last = parts[parts.length - 1];
+    if (parent.isObject()) {
+      ((ObjectNode) parent).remove(last);
+    } else if (parent.isArray()) {
+      try {
+        int idx = Integer.parseInt(last);
+        ((ArrayNode) parent).remove(idx);
+      } catch (NumberFormatException ignored) {}
+    }
+
+    setField(parts[0], getJson(parts[0]));
+  }
+
   // if the given segment is an integer, it will create a new ArrayNode, otherwise an ObjectNode
   private static JsonNode createNewNode(String segment) {
     return (segment.chars().allMatch(c -> c >= '0' && c <= '9')) ? JsonDocument.MAPPER.createArrayNode() : JsonDocument.MAPPER.createObjectNode();
