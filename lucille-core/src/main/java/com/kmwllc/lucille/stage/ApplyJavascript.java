@@ -58,15 +58,14 @@ public class ApplyJavascript extends Stage {
 
   private final String scriptPath;
   private final String inlineScript;
-  private final FileContentFetcher fileFetcher;
   private Source source;
   private Context context;
+  private Engine engine;
 
   public ApplyJavascript(Config config) {
     super(config);
     this.scriptPath = config.hasPath("script_path") ? config.getString("script_path") : null;
     this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
-    this.fileFetcher = new FileContentFetcher(config);
   }
 
   @Override
@@ -82,12 +81,7 @@ public class ApplyJavascript extends Stage {
         throw new StageException("Failed to build inline JavaScript source.", e);
       }
     } else {
-      try {
-        fileFetcher.startup();
-      } catch (Exception e) {
-        throw new StageException("Error initializing FileContentFetcher.", e);
-      }
-      try (Reader reader = fileFetcher.getReader(scriptPath)) {
+      try (Reader reader = FileContentFetcher.getOneTimeReader(scriptPath)) {
         this.source = Source.newBuilder("js", reader, scriptPath).build();
       } catch (Exception e) {
         throw new StageException("Failed to read JavaScript from '" + scriptPath + "'.", e);
@@ -95,7 +89,7 @@ public class ApplyJavascript extends Stage {
     }
 
     try {
-      Engine engine = Engine.newBuilder()
+      this.engine = Engine.newBuilder()
           .option("engine.WarnInterpreterOnly", "false")
           .option("log.level", "OFF")
           .build();
@@ -115,8 +109,10 @@ public class ApplyJavascript extends Stage {
       context.close();
       context = null;
     }
-    if (scriptPath != null) {
-      fileFetcher.shutdown();
+
+    if (engine != null) {
+      engine.close();
+      engine = null;
     }
   }
 
@@ -134,7 +130,7 @@ public class ApplyJavascript extends Stage {
 
   // Proxy implementation exposed to JS
 
-  static final class JsDocProxy implements ProxyObject {
+  private static final class JsDocProxy implements ProxyObject {
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
     private final Document doc;
