@@ -12,7 +12,6 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -21,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +81,7 @@ public class AddRandomNestedField extends Stage {
   private final Map<String, Stage> generators = new LinkedHashMap<>();
   private final Document genDoc;
   private final Config generatorsConfig;
-  private List<SimpleEntry<String, String[]>> sourceToDestParts = new ArrayList<>(); // use list to maintain order for ArrayNode indices
+  private List<Pair<String, String[]>> nestedFieldPairs = new ArrayList<>(); // use list to maintain order for ArrayNode indices
 
   public AddRandomNestedField(Config config) throws StageException {
     super(config);
@@ -171,7 +171,7 @@ public class AddRandomNestedField extends Stage {
         fullDestFieldList.addAll(targetFieldPath);
         fullDestFieldList.addAll(partialDestFieldList);
         String[] destFieldParts = fullDestFieldList.toArray(new String[0]);
-        sourceToDestParts.add(new SimpleEntry<>(e.getValue(), destFieldParts));
+        nestedFieldPairs.add(Pair.of(e.getValue(), destFieldParts));
       }
       index++;
     }
@@ -227,10 +227,10 @@ public class AddRandomNestedField extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // set new array node on doc
-    doc.setNestedJson(this.targetField, mapper.createArrayNode());
+    doc.setNestedJson(targetField, mapper.createArrayNode());
 
     // Iterate over each nested object
-    for (SimpleEntry<String, String[]> fieldPair : this.sourceToDestParts) {
+    for (Pair<String, String[]> fieldPair : nestedFieldPairs) {
       String sourceField = fieldPair.getKey();
       String[] destFieldParts = fieldPair.getValue();
 

@@ -13,10 +13,12 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.lang.invoke.MethodHandles;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +49,8 @@ public class CopyFields extends Stage {
   private final Map<String, Object> fieldMapping;
   private final UpdateMode updateMode;
   private final boolean isNested;
-  private Map<String, String[]> sourceToDestParts = new HashMap<>();
+
+  private List<Pair<String[],String[]>> nestedFieldPairs = new ArrayList<>();
 
   public CopyFields(Config config) {
     super(config);
@@ -58,47 +61,46 @@ public class CopyFields extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (this.fieldMapping.size() == 0) {
+    if (fieldMapping.size() == 0) {
       throw new StageException("fieldMapping must have at least one source-dest pair for Copy Fields");
     }
 
-    if (this.isNested && this.updateMode != null) {
+    if (isNested && updateMode != null) {
       log.info("Cannot set both isNested and update_mode in Copy Fields at the same time. Ignoring update_mode, fields will be overwritten.");
     }
 
-    // create set of destination field parts so we don't have to split them up for every doc
-    for (Entry<String, Object> fieldPair : this.fieldMapping.entrySet()) {
-      String source = fieldPair.getKey();
-      String[] dest = ((String) fieldPair.getValue()).split("\\.");
-      this.sourceToDestParts.put(source, dest);
+    // create source and destination field parts if nested so we don't have to split them up for every doc
+    if (isNested) {
+      for (Entry<String, Object> entry : fieldMapping.entrySet()) {
+        String[] source = entry.getKey().split("\\.");
+        String[] dest = ((String) entry.getValue()).split("\\.");
+        nestedFieldPairs.add(Pair.of(source, dest));
+      }
     }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    for (Entry<String, String[]> fieldPair : this.sourceToDestParts.entrySet()) {
-      String source = fieldPair.getKey();
-      String[] dest = fieldPair.getValue();
-
-      if (!this.isNested) {
-        if (!doc.has(source)) {
-          continue;
-        }
-        doc.update(String.join(".", dest), updateMode, doc.getStringList(source).toArray(new String[0]));
-      } else {
-        // deal with nested case
-        JsonNode sourceVal = doc.getNestedJson(source);
+    if (isNested) {
+      for (Pair<String[],String[]> fieldPair : nestedFieldPairs) {
+        JsonNode sourceVal = doc.getNestedJson(fieldPair.getKey());
         if (sourceVal == null) {
           continue;
         }
         try {
-          doc.setNestedJson(dest, sourceVal);
+          doc.setNestedJson(fieldPair.getValue(), sourceVal);
         } catch (IllegalArgumentException ex) {
-          log.error("Failed to set field '{}' on doc {}.\n {}", dest, doc.getId(), ex.getMessage());
+          log.error("Failed to set field '{}' on doc {}.\n {}", String.join(".", fieldPair.getKey()), doc.getId(), ex.getMessage());
         }
       }
+    } else {
+      for (Entry<String, Object> fieldPair : fieldMapping.entrySet()) {
+        if (!doc.has(fieldPair.getKey())) {
+          continue;
+        }
+        doc.update((String) fieldPair.getValue(), updateMode, doc.getStringList(fieldPair.getKey()).toArray(new String[0]));
+      }
     }
-
     return null;
   }
 }
