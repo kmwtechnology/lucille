@@ -62,10 +62,13 @@ public class ApplyJavascript extends Stage {
   private Context context;
   private Engine engine;
 
+  private final Config config;
+
   public ApplyJavascript(Config config) {
     super(config);
     this.scriptPath = config.hasPath("script_path") ? config.getString("script_path") : null;
     this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
+    this.config = config;
   }
 
   @Override
@@ -81,7 +84,7 @@ public class ApplyJavascript extends Stage {
         throw new StageException("Failed to build inline JavaScript source.", e);
       }
     } else {
-      try (Reader reader = FileContentFetcher.getOneTimeReader(scriptPath)) {
+      try (Reader reader = FileContentFetcher.getOneTimeReader(scriptPath, config)) {
         this.source = Source.newBuilder("js", reader, scriptPath).build();
       } catch (Exception e) {
         throw new StageException("Failed to read JavaScript from '" + scriptPath + "'.", e);
@@ -107,12 +110,10 @@ public class ApplyJavascript extends Stage {
   public void stop() throws StageException {
     if (context != null) {
       context.close();
-      context = null;
     }
 
     if (engine != null) {
       engine.close();
-      engine = null;
     }
   }
 

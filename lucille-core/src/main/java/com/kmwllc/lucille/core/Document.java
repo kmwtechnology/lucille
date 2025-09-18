@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.invoke.MethodHandles;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -669,24 +670,26 @@ public interface Document {
     setField(pathSegments[0], node);
   }
 
-  default void removeNestedJson(String path) {
-    String[] parts = path.split("\\.");
+  default void removeNestedJson(String name) {
+    removeNestedJson(name.split("\\."));
+  }
 
-    if (parts.length == 0) {
-      return;
-    }
-    if (parts.length == 1) {
-      removeField(parts[0]);
+  default void removeNestedJson(String[] pathSegments) {
+    if (pathSegments == null || pathSegments.length == 0) {
       return;
     }
 
-    JsonNode parent = getNestedJson(String.join(".",
-        java.util.Arrays.copyOf(parts, parts.length - 1)));
+    if (pathSegments.length == 1) {
+      removeField(pathSegments[0]);
+      return;
+    }
+
+    JsonNode parent = getNestedJson(Arrays.copyOf(pathSegments, pathSegments.length - 1));
     if (parent == null) {
       return;
     }
 
-    String last = parts[parts.length - 1];
+    String last = pathSegments[pathSegments.length - 1];
     if (parent.isObject()) {
       ((ObjectNode) parent).remove(last);
     } else if (parent.isArray()) {
@@ -696,7 +699,7 @@ public interface Document {
       } catch (NumberFormatException ignored) {}
     }
 
-    setField(parts[0], getJson(parts[0]));
+    setField(pathSegments[0], getJson(pathSegments[0]));
   }
 
   // if the given segment is an integer, it will create a new ArrayNode, otherwise an ObjectNode
