@@ -693,10 +693,8 @@ public interface Document {
     if (parent.isObject()) {
       ((ObjectNode) parent).remove(last);
     } else if (parent.isArray()) {
-      try {
-        int idx = Integer.parseInt(last);
-        ((ArrayNode) parent).remove(idx);
-      } catch (NumberFormatException ignored) {}
+      int idx = Integer.parseInt(last);
+      ((ArrayNode) parent).remove(idx);
     }
 
     setField(pathSegments[0], getJson(pathSegments[0]));
