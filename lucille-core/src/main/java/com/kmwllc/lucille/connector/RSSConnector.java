@@ -28,8 +28,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Reads items from an RSS feed and publishes a Document for each item. Each document includes the item's fields:
- * author (String), categories (List<String>), comments (String), content (String), description (String),
- * enclosures (List<ObjectNode: {type:String, url:String, length?:Long})), guid (String), isPermaLink (Boolean),
+ * author (String), categories (List&lt;String&gt;), comments (String), content (String), description (String),
+ * enclosures (List&lt;ObjectNode&gt;: {type:String, url:String, length?:Long})), guid (String), isPermaLink (Boolean),
  * link (String), title (String), pubDate (Instant). Each document stores the item's payload under
  * the rss_item field. Can be configured to publish only items with a recent pubDate. Supports incremental runs
  * via runDuration and refreshIncrement. Durations use HOCON-style strings such as "1h", "2d", and "3s".
