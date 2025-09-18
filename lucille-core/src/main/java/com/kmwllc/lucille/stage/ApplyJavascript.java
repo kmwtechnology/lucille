@@ -329,13 +329,26 @@ public class ApplyJavascript extends Stage {
 
     // Document -> JS (JSON): convert JSON scalar node to a JS compatible Java value
     private static Object jsonNodeToJsValue(JsonNode node) {
-      if (node.isBoolean()) return node.booleanValue();
+      if (node.isBoolean()) {
+        return node.booleanValue();
+      }
+
       if (node.isNumber()) {
-        if (node.canConvertToInt()) return node.intValue();
-        if (node.canConvertToLong()) return node.longValue();
+        if (node.canConvertToInt()) {
+          return node.intValue();
+        }
+
+        if (node.canConvertToLong()) {
+          return node.longValue();
+        }
+
         return node.doubleValue();
       }
-      if (node.isTextual()) return node.asText();
+
+      if (node.isTextual()) {
+        return node.asText();
+      }
+
       return node.toString();
     }
 
@@ -354,14 +367,38 @@ public class ApplyJavascript extends Stage {
 
     // JS -> Document: convert JS value to JsonNode
     private static JsonNode jsValueToJsonNode(Value v) {
-      if (v == null || v.isNull()) return NullNode.getInstance();
-      if (v.hasArrayElements()) return jsArrayToArrayNode(v);
-      if (v.hasMembers()) return jsObjectToObjectNode(v);
-      if (v.isBoolean()) return BooleanNode.valueOf(v.asBoolean());
-      if (v.fitsInInt()) return IntNode.valueOf(v.asInt());
-      if (v.fitsInLong()) return LongNode.valueOf(v.asLong());
-      if (v.fitsInDouble()) return DoubleNode.valueOf(v.asDouble());
-      if (v.isString()) return TextNode.valueOf(v.asString());
+      if (v == null || v.isNull()) {
+        return NullNode.getInstance();
+      }
+
+      if (v.hasArrayElements()) {
+        return jsArrayToArrayNode(v);
+      }
+
+      if (v.hasMembers()) {
+        return jsObjectToObjectNode(v);
+      }
+
+      if (v.isBoolean()) {
+        return BooleanNode.valueOf(v.asBoolean());
+      }
+
+      if (v.fitsInInt()) {
+        return IntNode.valueOf(v.asInt());
+      }
+
+      if (v.fitsInLong()) {
+        return LongNode.valueOf(v.asLong());
+      }
+
+      if (v.fitsInDouble()) {
+        return DoubleNode.valueOf(v.asDouble());
+      }
+
+      if (v.isString()) {
+        return TextNode.valueOf(v.asString());
+      }
+
       return TextNode.valueOf(v.toString());
     }
 
@@ -389,7 +426,11 @@ public class ApplyJavascript extends Stage {
 
     // Check if the key is an array index or default to -1
     private static int parseArrayIndex(String s) {
-      try { return Integer.parseInt(s); } catch (NumberFormatException e) { return -1; }
+      try {
+        return Integer.parseInt(s);
+      } catch (NumberFormatException e) {
+        return -1;
+      }
     }
   }
 }
