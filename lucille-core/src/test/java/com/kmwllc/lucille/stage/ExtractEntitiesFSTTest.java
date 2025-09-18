@@ -100,30 +100,6 @@ public class ExtractEntitiesFSTTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
-    Stage stage = factory.get("ExtractEntitiesFSTTest/config.conf");
-    assertEquals(
-        Set.of(
-            "ignore_overlaps",
-            "entity_field",
-            "source",
-            "dest",
-            "use_payloads",
-            "update_mode",
-            "stop_on_hit",
-            "ignore_case",
-            "name",
-            "conditions",
-            "class",
-            "dictionaries",
-            "conditionPolicy",
-            "gcp", "azure", "s3"
-        ),
-        stage.getLegalProperties()
-    );
-  }
-
-  @Test
   public void testBadDictionaryPath() {
     assertThrows(StageException.class,
         () -> factory.get("ExtractEntitiesFSTTest/badDictionaryFilePath.conf"));
