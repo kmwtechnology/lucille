@@ -378,4 +378,35 @@ public class ApplyJavascriptTest {
     assertEquals("existing", d.getNestedJson("meta.x").asText());
     assertNull(d.getNestedJson("meta.missing"));
   }
+
+  @Test
+  public void testCreateNestedPath() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      doc.val1 = doc.tags[1];
+      doc.a = {"b": {"c": {"d": doc.val1}}};      
+      delete doc.val1;      
+    """);
+
+    Document d = Document.create("doc1");
+    d.update("tags", UpdateMode.OVERWRITE, "x", "y", "z");
+    stage.processDocument(d);
+
+    assertEquals("y", d.getNestedJson("a.b.c.d").asText());
+  }
+
+  // This convenience implementation for one line nested assignment is currently not implemented.
+  @Test
+  public void testCreateNestedPathConvenientSyntax() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      doc.val1 = doc.tags[1];
+      doc.a.b.c.d = doc.val1;
+      delete doc.val1;      
+    """); // parents not auto created
+
+    Document d = Document.create("doc1");
+    d.update("tags", UpdateMode.OVERWRITE, "x", "y", "z");
+
+    assertThrows(StageException.class, () -> stage.processDocument(d));
+    assertNull(d.getNestedJson("a.b.c.d"));
+  }
 }

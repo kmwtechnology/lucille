@@ -6,7 +6,6 @@ import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
@@ -28,7 +27,7 @@ import java.util.*;
  * Field and container behavior:
  * <ul>
  *   <li>Root fields: Access with doc.field. Writing a JS array at the root (e.g., doc.tags = ["a","b"];)
- *   creates/overwrites a multivalued field.</li>
+ *   stores a JSON array at the root.</li>
  *   <li>Nested objects: Use dot notation (e.g., doc.a.b). Intermediate parents are not auto-created; you
  *   must initialize them first (e.g., doc.a = doc.a || {}; doc.a.b = 1;).</li>
  *   <li>Nested arrays: Use bracket indices (e.g., doc.a.list[1]). Writing a JS array into a nested path stores a
@@ -222,14 +221,7 @@ public class ApplyJavascript extends Stage {
 
       if (v.hasArrayElements()) {
         if (isRoot()) {
-          int n = (int) v.getArraySize();
-          Object[] items = new Object[n];
-
-          for (int i = 0; i < n; i++) {
-            items[i] = jsValueToJavaScalar(v.getArrayElement(i));
-          }
-
-          doc.update(key, UpdateMode.OVERWRITE, items);
+          doc.setField(key, jsArrayToArrayNode(v));
         } else {
           doc.setNestedJson(full, jsArrayToArrayNode(v));
         }
@@ -248,7 +240,7 @@ public class ApplyJavascript extends Stage {
 
       // Scalars
       if (isRoot()) {
-        doc.setField(key, jsValueToJavaScalar(v));
+        doc.setField(key, jsValueToJsonNode(v));
       } else {
         doc.setNestedJson(full, jsValueToJsonNode(v));
       }
@@ -358,17 +350,6 @@ public class ApplyJavascript extends Stage {
       }
 
       return ProxyArray.fromArray(arr);
-    }
-
-    // JS -> Document: convert JS value to Java scalar for setField/update
-    private static Object jsValueToJavaScalar(Value v) {
-      if (v == null || v.isNull()) return NullNode.getInstance();
-      if (v.isBoolean()) return v.asBoolean();
-      if (v.fitsInInt()) return v.asInt();
-      if (v.fitsInLong()) return v.asLong();
-      if (v.fitsInDouble()) return v.asDouble();
-      if (v.isString()) return v.asString();
-      return v.toString();
     }
 
     // JS -> Document: convert JS value to JsonNode
