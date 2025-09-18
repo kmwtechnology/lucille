@@ -79,8 +79,6 @@ public class ExtractEntitiesFST extends Stage {
   private FST<Object> fstNoPayloads;   // used when use_payloads=false
   private FST<BytesRef> fstPayloads; // used when use_payloads=true
 
-  private final Config config;
-
   public ExtractEntitiesFST(Config config) {
     super(config);
     this.dictionaries = config.getStringList("dictionaries"); // Dict files to load
@@ -93,7 +91,6 @@ public class ExtractEntitiesFST extends Stage {
     this.dictsSorted = ConfigUtils.getOrDefault(config, "dicts_sorted", false);
     this.entityField = ConfigUtils.getOrDefault(config, "entity_field", null);
     this.updateMode = UpdateMode.fromConfig(config);
-    this.config = config;
 
     if (ignoreCase) {
       this.analyzer = new StandardAnalyzer();
