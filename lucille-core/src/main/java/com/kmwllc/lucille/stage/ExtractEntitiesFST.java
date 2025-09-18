@@ -22,6 +22,7 @@ import org.apache.lucene.util.fst.*;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.*;
+import org.apache.lucene.util.fst.FSTCompiler.Builder;
 
 /**
  * Extracts dictionary-based entities from document text fields using a Lucene FST. Matches can optionally map to
@@ -174,6 +175,10 @@ public class ExtractEntitiesFST extends Stage {
     }
 
     // Initialize FST builder with no payloads
+    /**
+     * blockBits passed in is the block size in bits used by Lucene during FST building (15 bits = 32kb). 15 is default.
+     * {@link Builder#build()}
+     */
     var rw = FSTCompiler.getOnHeapReaderWriter(15);
     var outputs = NoOutputs.getSingleton();
     FSTCompiler<Object> builder = new FSTCompiler.Builder<>(FST.INPUT_TYPE.BYTE1, outputs)
