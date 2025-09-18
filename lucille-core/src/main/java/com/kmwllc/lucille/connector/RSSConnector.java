@@ -27,36 +27,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p> Reads the item(s) from an RSS feed, and publishes Documents with each RSS item's content in the "rss_item" field on the Document.
- * Can be configured to only publish items with a recent &lt;pubDate&gt;. Can be configured to run incrementally, by specifying
- * both <code>runDuration</code> and <code>refreshIncrement</code>. When running incrementally, the RSSConnector will avoid
- * publishing a Document for the same RSS item twice.
- *
- * <p> Config Parameters:
+ * Reads items from an RSS feed and publishes a Document for each item. Each document includes the item's fields:
+ * author (String), categories (List&lt;String&gt;), comments (String), content (String), description (String),
+ * enclosures (List&lt;ObjectNode&gt;: {type:String, url:String, length?:Long})), guid (String), isPermaLink (Boolean),
+ * link (String), title (String), pubDate (Instant). Each document stores the item's payload under
+ * the rss_item field. Can be configured to publish only items with a recent pubDate. Supports incremental runs
+ * via runDuration and refreshIncrement. Durations use HOCON-style strings such as "1h", "2d", and "3s".
+ * <p>
+ * Config Parameters -
  * <ul>
- *   <li>rssURL (String): The URL to the RSS feed you want to publish Documents for.</li>
- *   <li>useGuidForDocID (Boolean, Optional): Whether you want the GUID of RSS Items to be the IDs for their corresponding Documents. Defaults to true. If set to false, UUIDs are created for each Document.</li>
- *   <li>pubDateCutoff (Duration, Optional): Specify a duration to only publish Documents for recent RSS items. For example, "1h" means only RSS items with a &lt;pubDate&gt; within the last hour will be published as Documents.
- *   Defaults to including all files. If &lt;pubDate&gt; is not found in an item, it will be published.</li>
- *   <li>runDuration (Duration, Optional): How long you want the RSSConnector to run for. You must also specify <code>refreshIncrement</code>. (The Connector will stop after a refresh completes, and has been running for at least the runDuration.)</li>
- *   <li>refreshIncrement (Duration, Optional): Specify the frequency with which the Connector should check for updates from the RSS feed. You must also specify <code>runDuration</code>.</li>
- * </ul>
- *
- * See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
- *
- * <p> Document Fields (All Optional):
- * <ul>
- *   <li><code>author</code> (String)</li>
- *   <li><code>categories</code> (List&lt;String&gt;)</li>
- *   <li><code>comments</code> (List&lt;String&gt;)</li>
- *   <li><code>content</code> (String)</li>
- *   <li><code>description</code> (String)</li>
- *   <li><code>enclosures</code> (List&lt;JsonNode&gt;). Each JsonNode <i>will</i> have <code>type</code> (String) and <code>url</code> (String), and <i>may</i> have "length" (Long).</li>
- *   <li><code>guid</code> (String)</li>
- *   <li><code>isPermaLink</code> (Boolean)</li>
- *   <li><code>link</code> (String)</li>
- *   <li><code>title</code> (String)</li>
- *   <li><code>pubDate</code> (Instant)</li>
+ *   <li>rssURL (String, Required) : URL of the RSS feed.</li>
+ *   <li>useGuidForDocID (Boolean, Optional) : Use the RSS item GUID as the Document ID. Defaults to true; if false, a UUID is generated per Document.</li>
+ *   <li>pubDateCutoff (String, Optional) : Duration string; only publish items with a pubDate within this period. Defaults to including all items.
+ *   If the pubDate is missing, the item will be included.</li>
+ *   <li>runDuration (String, Optional) : Total time to run when refreshing incrementally; must be used with refreshIncrement.</li>
+ *   <li>refreshIncrement (String, Optional) : Interval between feed refreshes; must be used with runDuration.</li>
  * </ul>
  */
 public class RSSConnector extends AbstractConnector {

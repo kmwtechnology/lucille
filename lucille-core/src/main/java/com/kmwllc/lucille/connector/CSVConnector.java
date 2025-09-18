@@ -20,10 +20,27 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 
 /**
- * Connector implementation that produces documents from the rows in a given CSV file.
- *
- * <br> The CSVConnector has been deprecated. Use {@link FileConnector} with a {@link CSVFileHandler}.
+ * Deprecated connector that produces documents from a CSV file; use FileConnector with CSVFileHandler.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>path (String, Required) : Path to the CSV file to read.</li>
+ *   <li>moveToAfterProcessing (String, Optional) : Destination directory to move the file after successful processing.</li>
+ *   <li>moveToErrorFolder (String, Optional) : Destination directory to move the file if processing fails.</li>
+ *   <li>lineNumberField (String, Optional) : Document field to store the CSV row number.</li>
+ *   <li>filenameField (String, Optional) : Document field to store the file name.</li>
+ *   <li>filePathField (String, Optional) : Document field to store the full file path.</li>
+ *   <li>idField (String, Optional) : Document field to use as the document ID.</li>
+ *   <li>docIdFormat (String, Optional) : Format string for constructing document IDs when idField is used.</li>
+ *   <li>separatorChar (String, Optional) : Column separator character to use.</li>
+ *   <li>useTabs (Boolean, Optional) : Treat tab as the delimiter.</li>
+ *   <li>interpretQuotes (Boolean, Optional) : Treat quotes as field wrappers.</li>
+ *   <li>ignoreEscapeChar (Boolean, Optional) : Ignore the escape character during parsing.</li>
+ *   <li>lowercaseFields (Boolean, Optional) : Lowercase header names before mapping to fields.</li>
+ *   <li>ignoredTerms (List&lt;String&gt;, Optional) : Terms that cause rows to be skipped when matched.</li>
+ * </ul>
  */
+
 @Deprecated
 public class CSVConnector extends AbstractConnector {
 
