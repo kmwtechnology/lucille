@@ -22,7 +22,6 @@ import org.apache.lucene.util.fst.*;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.*;
-import org.apache.lucene.util.fst.FSTCompiler.Builder;
 
 /**
  * Extracts dictionary-based entities from document text fields using a Lucene FST. Matches can optionally map to
@@ -42,7 +41,7 @@ import org.apache.lucene.util.fst.FSTCompiler.Builder;
  *   <li>ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
  *   <li>update_mode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>dict_sorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed and lowercased
+ *   <li>dicts_sorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed and lowercased
  *   if ignore_case=true). Skips sorting to reduce startup time. Defaults to false.</li>
  *   <li>entity_field (String, Optional) : When set and use_payloads=true, also writes the matched normalized surface terms to this field.</li>
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
@@ -121,7 +120,7 @@ public class ExtractEntitiesFST extends Stage {
   }
 
   // Load and normalize terms with payloads
-  private LinkedHashMap<String, String> loadTermsAndPayloads() throws IOException, StageException {
+  private LinkedHashMap<String, String> loadTermsAndPayloads() throws StageException {
     LinkedHashMap<String, String> termToPayload = new LinkedHashMap<>();
 
     // Read each dict in our list
@@ -175,10 +174,8 @@ public class ExtractEntitiesFST extends Stage {
     }
 
     // Initialize FST builder with no payloads
-    /**
-     * blockBits passed in is the block size in bits used by Lucene during FST building (15 bits = 32kb). 15 is default.
-     * {@link Builder#build()}
-     */
+    // blockBits controls the block size used by the FST builder where 15 is default
+    // (15 bits = 32kb) More information can be found in org.apache.lucene.util.fst.FSTCompiler.Builder
     var rw = FSTCompiler.getOnHeapReaderWriter(15);
     var outputs = NoOutputs.getSingleton();
     FSTCompiler<Object> builder = new FSTCompiler.Builder<>(FST.INPUT_TYPE.BYTE1, outputs)
@@ -274,101 +271,7 @@ public class ExtractEntitiesFST extends Stage {
           continue;
         }
 
-        // Tokenize once
-        List<String> tokens = tokenize(raw);
-
-        int idx = 0;
-        while (idx < tokens.size()) {
-          int mark = idx;
-
-          // Build the growing phrase with a StringBuilder
-          StringBuilder sb = new StringBuilder();
-
-          // Collect full matches that start at idx
-          List<MatchHit> matchesHere = new ArrayList<>(2);
-
-          boolean hasPrefix = true;
-          while (hasPrefix && mark < tokens.size()) {
-            if (sb.length() > 0) {
-              sb.append(' ');
-            }
-            String tok = tokens.get(mark++);
-            sb.append(tok);
-
-            // Normalize once and reuse
-            String key = normalizeKey(sb.toString());
-
-            // Check complete match once, store payload if applicable
-            if (usePayloads) {
-              BytesRef br;
-              try {
-                br = Util.get(fstPayloads, new BytesRef(key));
-              } catch (Exception e) {
-                throw new RuntimeException("FST lookup failed", e);
-              }
-              if (br != null) {
-                String payload = br.utf8ToString();
-                if (payload != null && !payload.isEmpty()) {
-                  matchesHere.add(new MatchHit(key, payload, (mark - idx)));
-                }
-              }
-            } else {
-              if (matchesCompletely(fstNoPayloads, new BytesRef(key))) {
-                matchesHere.add(new MatchHit(key, null, (mark - idx)));
-              }
-            }
-
-            // Continue only while we still have a dictionary prefix
-            hasPrefix = (usePayloads)
-                ? hasPrefixBytes(fstPayloads, new BytesRef(key))
-                : hasPrefixBytes(fstNoPayloads, new BytesRef(key));
-          }
-
-          // Emit according to overlap rules using precomputed results
-          MatchHit chosen = null;
-          if (!matchesHere.isEmpty()) {
-            if (!ignoreOverlaps) {
-              for (MatchHit m : matchesHere) {
-                if (usePayloads) {
-                  outputs.add(m.payload);
-                  if (matchedTerms != null) {
-                    matchedTerms.add(m.key);
-                  }
-                } else {
-                  outputs.add(m.key);
-                }
-              }
-            } else {
-              for (MatchHit m : matchesHere) {
-                if (chosen == null || m.length > chosen.length) {
-                  chosen = m;
-                }
-              }
-              if (chosen != null) {
-                if (usePayloads) {
-                  outputs.add(chosen.payload);
-                  if (matchedTerms != null) {
-                    matchedTerms.add(chosen.key);
-                  }
-                } else {
-                  outputs.add(chosen.key);
-                }
-              }
-            }
-          }
-
-          // Advance
-          if (ignoreOverlaps && chosen != null) {
-            idx += Math.max(1, chosen.length);
-          } else {
-            idx++;
-          }
-
-          // Early exit
-          if (stopOnHit && !outputs.isEmpty()) {
-            break;
-          }
-        }
+        findMatches(raw, outputs, matchedTerms);
 
         if (stopOnHit && !outputs.isEmpty()) {
           break;
@@ -385,6 +288,104 @@ public class ExtractEntitiesFST extends Stage {
     }
 
     return null;
+  }
+
+  private void findMatches(String raw, List<String> outputs, List<String> matchedTerms) {
+    // Tokenize once
+    List<String> tokens = tokenize(raw);
+
+    int idx = 0;
+    while (idx < tokens.size()) {
+      int mark = idx;
+
+      // Build the growing phrase with a StringBuilder
+      StringBuilder sb = new StringBuilder();
+
+      // Collect full matches that start at idx
+      List<MatchHit> matchesHere = new ArrayList<>(2);
+
+      boolean hasPrefix = true;
+      while (hasPrefix && mark < tokens.size()) {
+        if (sb.length() > 0) {
+          sb.append(' ');
+        }
+        String tok = tokens.get(mark++);
+        sb.append(tok);
+
+        // Normalize once and reuse
+        String key = normalizeKey(sb.toString());
+
+        // Check complete match once, store payload if applicable
+        if (usePayloads) {
+          BytesRef br;
+          try {
+            br = Util.get(fstPayloads, new BytesRef(key));
+          } catch (Exception e) {
+            throw new RuntimeException("FST lookup failed", e);
+          }
+          if (br != null) {
+            String payload = br.utf8ToString();
+            if (payload != null && !payload.isEmpty()) {
+              matchesHere.add(new MatchHit(key, payload, (mark - idx)));
+            }
+          }
+        } else {
+          if (matchesCompletely(fstNoPayloads, new BytesRef(key))) {
+            matchesHere.add(new MatchHit(key, null, (mark - idx)));
+          }
+        }
+
+        // Continue only while we still have a dictionary prefix
+        hasPrefix = (usePayloads)
+            ? hasPrefixBytes(fstPayloads, new BytesRef(key))
+            : hasPrefixBytes(fstNoPayloads, new BytesRef(key));
+      }
+
+      // Emit according to overlap rules using precomputed results
+      MatchHit chosen = null;
+      if (!matchesHere.isEmpty()) {
+        if (!ignoreOverlaps) {
+          for (MatchHit m : matchesHere) {
+            if (usePayloads) {
+              outputs.add(m.payload);
+              if (matchedTerms != null) {
+                matchedTerms.add(m.key);
+              }
+            } else {
+              outputs.add(m.key);
+            }
+          }
+        } else {
+          for (MatchHit m : matchesHere) {
+            if (chosen == null || m.length > chosen.length) {
+              chosen = m;
+            }
+          }
+          if (chosen != null) {
+            if (usePayloads) {
+              outputs.add(chosen.payload);
+              if (matchedTerms != null) {
+                matchedTerms.add(chosen.key);
+              }
+            } else {
+              outputs.add(chosen.key);
+            }
+          }
+        }
+      }
+
+      // Advance
+      if (ignoreOverlaps && chosen != null) {
+        idx += Math.max(1, chosen.length);
+      } else {
+        idx++;
+      }
+
+      // Early exit
+      if (stopOnHit && !outputs.isEmpty()) {
+        break;
+      }
+    }
   }
 
   // Tokenize a provided string
@@ -409,37 +410,12 @@ public class ExtractEntitiesFST extends Stage {
     return out;
   }
 
-  // Verify that input matches a complete entry
-  private static boolean matchesCompletely(FST<Object> fst, BytesRef input) {
-    try {
-      // Get a reader to traverse FST
-      FST.BytesReader r = fst.getBytesReader();
-      // Start from the root
-      FST.Arc<Object> arc = fst.getFirstArc(new FST.Arc<>());
-
-      // Walk through each byte in the input
-      for (int i = 0; i < input.length; i++) {
-        int label = input.bytes[input.offset + i] & 0xFF;
-        // If there is no arc for this byte it's not a match
-        if (fst.findTargetArc(label, arc, arc, r) == null) {
-          return false;
-        }
-      }
-
-      // Must end on a final arc
-      return arc.isFinal();
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  // Test if the input has a valid prefix of any term
-  private static <T> boolean hasPrefixBytes(FST<T> fst, BytesRef input) {
+  private static FST.Arc walk(FST fst, BytesRef input) {
     try {
       // Reader over the compiled FST bytes
       FST.BytesReader r = fst.getBytesReader();
       // Start at the root
-      FST.Arc<T> arc = fst.getFirstArc(new FST.Arc<>());
+      FST.Arc arc = fst.getFirstArc(new FST.Arc<>());
 
       // Walk byte by byte through the input string
       for (int i = 0; i < input.length; i++) {
@@ -447,13 +423,25 @@ public class ExtractEntitiesFST extends Stage {
 
         // If there's no valid transition for this byte then it's not a prefix
         if (fst.findTargetArc(label, arc, arc, r) == null) {
-          return false;
+          return null;
         }
       }
-      return true;
+
+      return arc;
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  // Verify that input matches a complete entry
+  private static boolean matchesCompletely(FST<Object> fst, BytesRef input) {
+    FST.Arc arc = walk(fst, input);
+    return (arc != null) && arc.isFinal();
+  }
+
+  // Test if the input has a valid prefix of any term
+  private static <T> boolean hasPrefixBytes(FST<T> fst, BytesRef input) {
+    return walk(fst, input) != null;
   }
 
   private static IntsRef toIntsRef(BytesRef b) {
