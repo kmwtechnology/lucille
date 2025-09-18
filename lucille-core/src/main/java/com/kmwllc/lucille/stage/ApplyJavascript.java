@@ -62,13 +62,10 @@ public class ApplyJavascript extends Stage {
   private Context context;
   private Engine engine;
 
-  private final Config config;
-
   public ApplyJavascript(Config config) {
     super(config);
     this.scriptPath = config.hasPath("script_path") ? config.getString("script_path") : null;
     this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
-    this.config = config;
   }
 
   @Override
