@@ -27,14 +27,14 @@ import java.util.stream.Collectors;
 
 /**
  * Issues requests to Solr and optionally publishes query results as Documents. Requests should be formatted as JSON strings
- * and may include the runId wildcard, which is substituted with the current runId at execution time. To send XML instead of JSON,
- * set useXML to true.
+ * and may include the <code>{runId}</code> wildcard, which is substituted with the current runId at execution time. To send XML instead of JSON,
+ * set useXML to true. As Solr performs more validation on JSON commands than XML, it is recommended you use JSON requests.
  * <p>
  * Config Parameters -
  * <ul>
  *   <li>solr (Map, Required) : Connection parameters for Solr; see SolrUtils.SOLR_PARENT_SPEC.</li>
- *   <li>preActions (List&lt;String&gt;, Optional) : Requests to issue before execution; supports the runId wildcard.</li>
- *   <li>postActions (List&lt;String&gt;, Optional) : Requests to issue after execution; supports the runId wildcard.</li>
+ *   <li>preActions (List&lt;String&gt;, Optional) : Requests to issue before execution; supports the <code>{runId}</code> wildcard.</li>
+ *   <li>postActions (List&lt;String&gt;, Optional) : Requests to issue after execution; supports the <code>{runId}</code> wildcard.</li>
  *   <li>solrParams (Map&lt;String, Object&gt;, Optional) : Query parameters to use when a pipeline is configured.</li>
  *   <li>useXml (Boolean, Optional) : Send XML requests instead of JSON. Defaults to false.</li>
  *   <li>idField (String, Optional) : Field to use for document IDs when publishing. Defaults to "id".</li>
