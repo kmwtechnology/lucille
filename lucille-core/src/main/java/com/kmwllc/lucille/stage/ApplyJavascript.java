@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.graalvm.polyglot.*;
 import org.graalvm.polyglot.proxy.ProxyArray;
 import org.graalvm.polyglot.proxy.ProxyObject;
@@ -146,7 +147,9 @@ public class ApplyJavascript extends Stage {
       return path == null;
     }
     private String join(String key) {
-      return isRoot() ? key : (path + "." + key);
+      // TODO: revisit -- is there a better way to know whether we are receiving a key that's meant as an index?
+      // instead of storing a path string can we store Segment[]
+      return isRoot() ? key : path + (NumberUtils.isDigits(key) ? ("[" + key + "]") : "." + key);
     }
 
     @Override

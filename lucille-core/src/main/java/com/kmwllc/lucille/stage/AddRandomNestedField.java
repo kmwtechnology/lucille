@@ -81,7 +81,7 @@ public class AddRandomNestedField extends Stage {
   private final Map<String, Stage> generators = new LinkedHashMap<>();
   private final Document genDoc;
   private final Config generatorsConfig;
-  private List<Pair<String, String[]>> nestedFieldPairs = new ArrayList<>(); // use list to maintain order for ArrayNode indices
+  private List<Pair<String, Document.Segment[]>> nestedFieldPairs = new ArrayList<>(); // use list to maintain order for ArrayNode indices
 
   public AddRandomNestedField(Config config) throws StageException {
     super(config);
@@ -169,8 +169,11 @@ public class AddRandomNestedField extends Stage {
         List<String> fullDestFieldList = new ArrayList<>(targetFieldPath.size() + partialDestFieldList.size());
         fullDestFieldList.addAll(targetFieldPath);
         fullDestFieldList.addAll(partialDestFieldList);
-        String[] destFieldParts = fullDestFieldList.toArray(new String[0]);
-        nestedFieldPairs.add(Pair.of(e.getValue(), destFieldParts));
+        List<Document.Segment> fullDestFieldSegments = new ArrayList<>();
+        for (String s : fullDestFieldList) {
+          fullDestFieldSegments.add(new Document.Segment(s));
+        }
+        nestedFieldPairs.add(Pair.of(e.getValue(), fullDestFieldSegments.toArray(new Document.Segment[]{})));
       }
     }
   }
@@ -226,9 +229,9 @@ public class AddRandomNestedField extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
 
     // Iterate over each nested object
-    for (Pair<String, String[]> fieldPair : nestedFieldPairs) {
+    for (Pair<String, Document.Segment[]> fieldPair : nestedFieldPairs) {
       String sourceField = fieldPair.getKey();
-      String[] destFieldParts = fieldPair.getValue();
+      Document.Segment[] destFieldParts = fieldPair.getValue();
 
       // Assign if generators contains the source field name
       String genKey = (!isBlank(sourceField) && generators.containsKey(sourceField)) ? sourceField : null;
@@ -243,7 +246,8 @@ public class AddRandomNestedField extends Stage {
       }
 
       if (!hasSource && genKey == null) {
-        throw new StageException("Missing value for '" + String.join(".", destFieldParts) +
+        // TODO String.join(".", destFieldParts)
+        throw new StageException("Missing value " +
             "' (source='" + sourceField + "') and no generator available.");
       }
 
@@ -256,7 +260,8 @@ public class AddRandomNestedField extends Stage {
       try {
         doc.setNestedJson(destFieldParts, valNode);
       } catch (ArrayIndexOutOfBoundsException ex) {
-        throw new StageException("Failed to set field '" + String.join(".", destFieldParts) + "' on doc " + doc.getId() +
+        // TODO String.join(".", destFieldParts)
+        throw new StageException("Failed to set field on doc " + doc.getId() +
             ". Field is not valid.\n" + ex.getMessage());
       }
     }

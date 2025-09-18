@@ -394,6 +394,37 @@ public class ApplyJavascriptTest {
     assertEquals("y", d.getNestedJson("a.b.c.d").asText());
   }
 
+  @Test
+  public void testCreateNestedPath2() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      doc.a = {"b": [{},{},{},{},{"c":[{},{},{},{"d":{"e":{"f":[0,1,2,3,4,5,6,7,8,9,10] }}}]}]}; 
+      doc.a.b[4].c[3].d.e.f[10] = 200;
+    """);
+
+    Document d = Document.create("doc1");
+    stage.processDocument(d);
+
+    assertEquals(200, d.getNestedJson("a.b[4].c[3].d.e.f[10]").intValue());
+  }
+
+  @Test
+  public void testCreateNestedArrays() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      doc.a = [10,20,[30,40,[50,60,[70]]]]; 
+    """);
+
+    Document d = Document.create("doc1");
+    stage.processDocument(d);
+    assertEquals(70, d.getNestedJson("a[2][2][2][0]").intValue());
+
+    Stage stage2 = stageWithInlineScript("""
+      doc.a[2][2][2][0] = 200;
+    """);
+    stage2.processDocument(d);
+    assertEquals(100, d.getNestedJson("a[2][2][2][0]").intValue());
+  }
+
+
   // This convenience implementation for one line nested assignment is currently not implemented.
   @Test
   public void testCreateNestedPathConvenientSyntax() throws StageException {
@@ -409,4 +440,5 @@ public class ApplyJavascriptTest {
     assertThrows(StageException.class, () -> stage.processDocument(d));
     assertNull(d.getNestedJson("a.b.c.d"));
   }
+
 }

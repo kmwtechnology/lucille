@@ -50,7 +50,7 @@ public class CopyFields extends Stage {
   private final UpdateMode updateMode;
   private final boolean isNested;
 
-  private List<Pair<String[],String[]>> nestedFieldPairs = new ArrayList<>();
+  private List<Pair<Document.Segment[],Document.Segment[]>> nestedFieldPairs = new ArrayList<>();
 
   public CopyFields(Config config) {
     super(config);
@@ -72,8 +72,8 @@ public class CopyFields extends Stage {
     // create source and destination field parts if nested so we don't have to split them up for every doc
     if (isNested) {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
-        String[] source = entry.getKey().split("\\.");
-        String[] dest = ((String) entry.getValue()).split("\\.");
+        Document.Segment[] source = Document.Segment.parse(entry.getKey());
+        Document.Segment[] dest = Document.Segment.parse((String) entry.getValue());
         nestedFieldPairs.add(Pair.of(source, dest));
       }
     }
@@ -82,7 +82,7 @@ public class CopyFields extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     if (isNested) {
-      for (Pair<String[],String[]> fieldPair : nestedFieldPairs) {
+      for (Pair<Document.Segment[],Document.Segment[]> fieldPair : nestedFieldPairs) {
         JsonNode sourceVal = doc.getNestedJson(fieldPair.getKey());
         if (sourceVal == null) {
           continue;
@@ -90,7 +90,8 @@ public class CopyFields extends Stage {
         try {
           doc.setNestedJson(fieldPair.getValue(), sourceVal);
         } catch (IllegalArgumentException ex) {
-          log.error("Failed to set field '{}' on doc {}.\n {}", String.join(".", fieldPair.getKey()), doc.getId(), ex.getMessage());
+          // TODO add field name to error by converting Segment[] back to name
+          log.error("Failed to set field on doc {}.\n {}", doc.getId(), ex.getMessage());
         }
       }
     } else {
