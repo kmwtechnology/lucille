@@ -1724,6 +1724,45 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testRemoveNestedJson() {
+    ObjectMapper mapper = new ObjectMapper();
+    Document document = createDocument("doc");
+
+    document.setNestedJson("a.b.c", IntNode.valueOf(1));
+    document.setNestedJson("a.b.d", IntNode.valueOf(2));
+    document.setNestedJson("a.list", mapper.createArrayNode().add(10).add(20).add(30));
+    document.setNestedJson("a.meta", mapper.createObjectNode().put("flag", true));
+
+    document.removeNestedJson("a.b.c");
+    assertNull(document.getNestedJson("a.b.c"));
+    assertNotNull(document.getNestedJson("a.b.d"));
+    assertTrue(document.getNestedJson("a.b").isObject());
+
+    document.removeNestedJson("a.list.1");
+    JsonNode list = document.getNestedJson("a.list");
+    assertNotNull(list);
+    assertTrue(list.isArray());
+    assertEquals(2, list.size());
+    assertEquals(10, list.get(0).asInt());
+    assertEquals(30, list.get(1).asInt());
+
+    document.removeNestedJson("a.list");
+    assertNull(document.getNestedJson("a.list"));
+    assertTrue(document.getNestedJson("a").isObject());
+
+    document.removeNestedJson("a.missing.child");
+    assertNotNull(document.getNestedJson("a.b.d"));
+    assertTrue(document.getNestedJson("a.meta").isObject());
+
+    document.removeNestedJson("a.b");
+    assertNull(document.getNestedJson("a.b"));
+    JsonNode aNode = document.getJson("a");
+    assertNotNull(aNode);
+    assertTrue(aNode.isObject());
+    assertNotNull(document.getNestedJson("a.meta"));
+  }
+
+  @Test
   public void testValidateFieldNames() {
 
     Document doc = createDocument("doc");

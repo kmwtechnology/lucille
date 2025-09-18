@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.invoke.MethodHandles;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -667,6 +668,36 @@ public interface Document {
     setFieldSegment(currentNode, pathSegments[pathSegments.length-1], value);
 
     setField(pathSegments[0], node);
+  }
+
+  default void removeNestedJson(String name) {
+    removeNestedJson(name.split("\\."));
+  }
+
+  default void removeNestedJson(String[] pathSegments) {
+    if (pathSegments == null || pathSegments.length == 0) {
+      return;
+    }
+
+    if (pathSegments.length == 1) {
+      removeField(pathSegments[0]);
+      return;
+    }
+
+    JsonNode parent = getNestedJson(Arrays.copyOf(pathSegments, pathSegments.length - 1));
+    if (parent == null) {
+      return;
+    }
+
+    String last = pathSegments[pathSegments.length - 1];
+    if (parent.isObject()) {
+      ((ObjectNode) parent).remove(last);
+    } else if (parent.isArray()) {
+      int idx = Integer.parseInt(last);
+      ((ArrayNode) parent).remove(idx);
+    }
+
+    setField(pathSegments[0], getJson(pathSegments[0]));
   }
 
   // if the given segment is an integer, it will create a new ArrayNode, otherwise an ObjectNode
