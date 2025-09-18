@@ -162,19 +162,19 @@ public class ApplyJavascript extends Stage {
 
       JsonNode json = doc.getJson(key);
 
-      if (json != null) {
-        if (json.isNull()) return null;
-        if (json.isArray()) return jsonArrayToProxyArray(json, key);
-        if (json.isContainerNode()) return new JsDocProxy(doc, key);
-        return jsonNodeToJsValue(json);
+      if (json.isNull()) {
+        return null;
       }
 
-      Object raw = doc.asMap().get(key);
-      if (raw instanceof List<?>) {
-        return lucilleListToProxyArray((List<?>) raw);
+      if (json.isArray()) {
+        return jsonArrayToProxyArray(json, key);
       }
 
-      return lucilleScalarToJsValue(raw);
+      if (json.isContainerNode()) {
+        return new JsDocProxy(doc, key);
+      }
+
+      return jsonNodeToJsValue(json);
     }
 
     private Object getNestedMember(String key) {
@@ -347,13 +347,6 @@ public class ApplyJavascript extends Stage {
       return node.toString();
     }
 
-    // Document -> JS: convert field to a JS compatible primitive/string
-    private static Object lucilleScalarToJsValue(Object v) {
-      if (v == null) return null;
-      if (v instanceof Boolean || v instanceof Integer || v instanceof Long || v instanceof Double || v instanceof String) return v;
-      return v.toString();
-    }
-
     // Document -> JS: convert a JSON array to a ProxyArray and make containers nested proxies
     private Object jsonArrayToProxyArray(JsonNode jsonArray, String baseKey) {
       int n = jsonArray.size();
@@ -362,17 +355,6 @@ public class ApplyJavascript extends Stage {
       for (int i = 0; i < n; i++) {
         JsonNode child = jsonArray.get(i);
         arr[i] = child.isContainerNode() ? new JsDocProxy(doc, baseKey + "." + i) : jsonNodeToJsValue(child);
-      }
-
-      return ProxyArray.fromArray(arr);
-    }
-
-    // Document -> JS: convert a Lucille multivalued field to a ProxyArray
-    private Object lucilleListToProxyArray(List<?> list) {
-      Object[] arr = new Object[list.size()];
-
-      for (int i = 0; i < list.size(); i++) {
-        arr[i] = lucilleScalarToJsValue(list.get(i));
       }
 
       return ProxyArray.fromArray(arr);
