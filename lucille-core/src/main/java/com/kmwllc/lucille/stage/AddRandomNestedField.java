@@ -13,14 +13,12 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +79,6 @@ public class AddRandomNestedField extends Stage {
   private final Map<String, Stage> generators = new LinkedHashMap<>();
   private final Document genDoc;
   private final Config generatorsConfig;
-  private List<Pair<String, List<Document.Segment>>> nestedFieldPairs = new ArrayList<>(); // use list to maintain order for ArrayNode indices
 
   public AddRandomNestedField(Config config) throws StageException {
     super(config);
@@ -155,29 +152,6 @@ public class AddRandomNestedField extends Stage {
         }
         gen.start();
         generators.put(key, gen);
-      }
-    }
-
-    // create set of destination field parts so we don't have to split them on every doc
-    final int n = pickNumObjects();
-    for (int i = 0; i < n; i++) {
-      List<String> targetFieldPath = Arrays.asList(targetField, Integer.toString(i));
-
-      for (Map.Entry<List<String>, String> e : parsedEntries.entrySet()) {
-        // create final array of dest field parts from the target field and dest field in parsedEntries
-        List<String> partialDestFieldList = e.getKey();
-        List<String> fullDestFieldList = new ArrayList<>(targetFieldPath.size() + partialDestFieldList.size());
-        fullDestFieldList.addAll(targetFieldPath);
-        fullDestFieldList.addAll(partialDestFieldList);
-        List<Document.Segment> fullDestFieldSegments = new ArrayList<>();
-        for (String s : fullDestFieldList) {
-          if (s.chars().allMatch(c -> c >= '0' && c <= '9')) {
-            fullDestFieldSegments.add(new Document.Segment(Integer.parseInt(s)));
-          } else {
-            fullDestFieldSegments.add(new Document.Segment(s));
-          }
-        }
-        nestedFieldPairs.add(Pair.of(e.getValue(), fullDestFieldSegments));
       }
     }
   }
