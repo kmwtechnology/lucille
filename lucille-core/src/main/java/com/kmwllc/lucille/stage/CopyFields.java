@@ -90,8 +90,8 @@ public class CopyFields extends Stage {
         try {
           doc.setNestedJson(fieldPair.getValue(), sourceVal);
         } catch (IllegalArgumentException ex) {
-          // TODO add field name to error by converting Segment[] back to name
-          log.error("Failed to set field on doc {}.\n {}", doc.getId(), ex.getMessage());
+          log.error("Failed to set field {} on doc {}.\n {}",
+              Document.Segment.stringify(fieldPair.getValue()), doc.getId(), ex.getMessage());
         }
       }
     } else {

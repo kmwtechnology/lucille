@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.kmwllc.lucille.core.Document.Segment;
 import java.sql.Timestamp;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1768,6 +1769,13 @@ public abstract class DocumentTest {
     assertNotNull(aNode);
     assertTrue(aNode.isObject());
     assertNotNull(document.getNestedJson("a.meta"));
+  }
+
+  @Test
+  public void testParseAndStringifyNestedPath() {
+    String path = "a.b.c[5].d[4][6][7].e.f[4].x";
+    List<Segment> segments = Segment.parse(path);
+    assertEquals(path, Segment.stringify(segments));
   }
 
   @Test

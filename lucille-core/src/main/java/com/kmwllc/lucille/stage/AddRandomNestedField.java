@@ -250,8 +250,7 @@ public class AddRandomNestedField extends Stage {
       }
 
       if (!hasSource && genKey == null) {
-        // TODO String.join(".", destFieldParts)
-        throw new StageException("Missing value " +
+        throw new StageException("Missing value for '" + Document.Segment.stringify(destFieldParts) +
             "' (source='" + sourceField + "') and no generator available.");
       }
 
@@ -264,8 +263,7 @@ public class AddRandomNestedField extends Stage {
       try {
         doc.setNestedJson(destFieldParts, valNode);
       } catch (ArrayIndexOutOfBoundsException ex) {
-        // TODO String.join(".", destFieldParts)
-        throw new StageException("Failed to set field on doc " + doc.getId() +
+        throw new StageException("Failed to set field " + Document.Segment.stringify(destFieldParts) + " on doc " + doc.getId() +
             ". Field is not valid.\n" + ex.getMessage());
       }
     }

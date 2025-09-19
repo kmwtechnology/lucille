@@ -644,6 +644,31 @@ public interface Document {
       }
       return segments;
     }
+
+    public static String stringify(List<Segment> segments) {
+      StringBuffer result = new StringBuffer();
+      if (segments.isEmpty()) {
+        return "";
+      }
+      if (segments.size() == 1) {
+        return segments.get(0).name;
+      }
+      boolean first = true;
+      for (Segment segment : segments) {
+        if (segment.isIndex()) {
+          result.append("[");
+          result.append(segment.index);
+          result.append("]");
+        } else {
+          if (!first) {
+            result.append(".");
+          }
+          result.append(segment.name);
+        }
+        first = false;
+      }
+      return result.toString();
+    }
   }
 
   /**
