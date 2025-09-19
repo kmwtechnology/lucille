@@ -171,7 +171,11 @@ public class AddRandomNestedField extends Stage {
         fullDestFieldList.addAll(partialDestFieldList);
         List<Document.Segment> fullDestFieldSegments = new ArrayList<>();
         for (String s : fullDestFieldList) {
-          fullDestFieldSegments.add(new Document.Segment(s));
+          if (s.chars().allMatch(c -> c >= '0' && c <= '9')) {
+            fullDestFieldSegments.add(new Document.Segment(Integer.parseInt(s)));
+          } else {
+            fullDestFieldSegments.add(new Document.Segment(s));
+          }
         }
         nestedFieldPairs.add(Pair.of(e.getValue(), fullDestFieldSegments.toArray(new Document.Segment[]{})));
       }
