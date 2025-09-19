@@ -421,7 +421,7 @@ public class ApplyJavascriptTest {
       doc.a[2][2][2][0] = 200;
     """);
     stage2.processDocument(d);
-    assertEquals(100, d.getNestedJson("a[2][2][2][0]").intValue());
+    assertEquals(200, d.getNestedJson("a[2][2][2][0]").intValue());
   }
 
 
