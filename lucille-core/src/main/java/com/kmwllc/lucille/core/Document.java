@@ -608,8 +608,10 @@ public interface Document {
       boolean insideBrackets = false;
       for (int i = 0; i < name.length(); i++) {
         char ch = name.charAt(i);
-        if (ch == '[') {
-          if (insideBrackets) {
+        if (Character.isWhitespace(ch)) {
+          throw new IllegalArgumentException();
+        } else if (ch == '[') {
+          if (insideBrackets || i == 0) {
             throw new IllegalArgumentException();
           }
           if (!current.isEmpty()) {

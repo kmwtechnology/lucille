@@ -1783,6 +1783,31 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testParseIllegalSyntax() {
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.[].d")); // empty []
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.[")); // unbalanced [
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.]")); // unbalanced ]
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.[a]")); // non-integer index
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.[.]")); // non-integer index
+    assertThrows(Exception.class, () -> Segment.parse("a.b[[1]]")); // nested index
+    assertThrows(Exception.class, () -> Segment.parse(" a")); // whitespace
+    assertThrows(Exception.class, () -> Segment.parse("a ")); // whitespace
+    assertThrows(Exception.class, () -> Segment.parse("a. b")); // whitespace
+    assertThrows(Exception.class, () -> Segment.parse("[1]")); // index only
+  }
+
+  @Test
+  public void testLenientParsing() {
+    // these are some cases where Segment.parse() accepts syntax that is not legal javascript
+    // we may want to tighten the parser to reject these cases, but they are corrected in predictable ways
+    assertEquals("a", Segment.stringify(Segment.parse(".a"))); // initial dot ignored
+    assertEquals("a", Segment.stringify(Segment.parse("a."))); // trailing dot ignored
+    assertEquals("a.b", Segment.stringify(Segment.parse("a...b"))); // several dots in a row ignored
+    assertEquals("a[1].b", Segment.stringify(Segment.parse("a[1]b"))); // missing dot after ] added
+    assertEquals("a[1]", Segment.stringify(Segment.parse("a.[1]"))); // dot before [ ignored
+  }
+
+  @Test
   public void testValidateFieldNames() {
 
     Document doc = createDocument("doc");
