@@ -603,21 +603,46 @@ public interface Document {
     }
 
     public static Segment[] parse(String name) {
-      String[] parts = name.split("\\.");
-      List<Segment> result = new ArrayList();
-      for (int i = 0; i < parts.length; i++) {
-        String part = parts[i];
-        if (!part.contains("[")) {
-          result.add(new Segment(part));
-        } else {
-          result.add(new Segment(part.substring(0, part.indexOf("["))));
-          while (!part.isEmpty()) { // TODO: make sure this loop always terminates!
-            result.add(new Segment(Integer.parseInt(part.substring(part.indexOf("[")+1, part.indexOf("]")))));
-            part = part.substring(part.indexOf("]")+1,part.length());
+      List<Segment> segments = new ArrayList();
+      StringBuffer current = new StringBuffer();
+      boolean insideBrackets = false;
+      for (int i = 0; i < name.length(); i++) {
+        char ch = name.charAt(i);
+        if (ch == '[') {
+          if (insideBrackets) {
+            throw new IllegalArgumentException();
           }
+          if (!current.isEmpty()) {
+            segments.add(new Segment(current.toString()));
+            current = new StringBuffer();
+          }
+          insideBrackets = true;
+        } else if (ch == ']') {
+          if (!insideBrackets || current.isEmpty()) {
+            throw new IllegalArgumentException();
+          }
+          segments.add(new Segment(Integer.parseInt(current.toString())));
+          current = new StringBuffer();
+          insideBrackets = false;
+        } else if (ch == '.') {
+          if (insideBrackets) {
+            throw new IllegalArgumentException();
+          }
+          if (!current.isEmpty()) {
+            segments.add(new Segment(current.toString()));
+            current = new StringBuffer();
+          }
+        } else {
+          current.append(ch);
         }
       }
-      return result.toArray(new Segment[]{});
+      if (insideBrackets) {
+        throw new IllegalArgumentException();
+      }
+      if (!current.isEmpty()) {
+        segments.add(new Segment(current.toString()));
+      }
+      return segments.toArray(new Segment[] {});
     }
   }
 
