@@ -152,4 +152,70 @@ public class ExtractEntitiesFSTTest {
     assertEquals(1, out.size());
     assertEquals("North America", out.get(0));
   }
+
+  @Test
+  public void testWhitespace() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configOverlapTrue.conf");
+    Document doc = Document.create("doc");
+    doc.setField("text", "I moved to         New      York      City      last year.");
+    stage.processDocument(doc);
+    List<String> out = doc.getStringList("out");
+    assertEquals(1, out.size());
+    assertEquals("NYC", out.get(0));
+  }
+
+  @Test
+  public void testNearMatch() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configOverlapTrue.conf");
+    Document doc = Document.create("doc");
+    doc.setField("text", "New Yorkk City New City York Neww York City Neww York City New NewYork NewYorkCity NewYork City");
+    stage.processDocument(doc);
+    assertFalse(doc.has("out"));
+  }
+
+  @Test
+  public void testMultipleSameMatches() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configOverlapTrue.conf");
+    Document doc = Document.create("doc");
+    doc.setField("text", "New York New York New York New York");
+    stage.processDocument(doc);
+    List<String> out = doc.getStringList("out");
+    assertEquals(4, out.size());
+  }
+
+  @Test
+  public void testPunctuationStripping() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configOverlapTrue.conf");
+    Document doc = Document.create("doc");
+    // the first 5 versions of "New York" are treated as matches, the remaining 4 are not
+    doc.setField("text", "New|York New-York New,York New York New;York | New_York New:York New'York NewYork");
+    stage.processDocument(doc);
+    List<String> out = doc.getStringList("out");
+    assertEquals(5, out.size());
+  }
+
+  @Test
+  public void testPayloadFallbackWhenMissingPayload() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configMissingPayloadFallback.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("input1", "I live in Taiwan.");
+    stage.processDocument(doc);
+
+    assertEquals("Taiwan", doc.getString("payload"));
+    assertEquals("Taiwan", doc.getString("entity"));
+  }
+
+  @Test
+  public void testDuplicateKeysAcrossMultipleDictionariesDeduped() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configDupAcrossDicts.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("text", "Canada borders the United States. Canada is north.");
+    stage.processDocument(doc);
+
+    List<String> out = doc.getStringList("out");
+    long count = out.stream().filter("North America"::equals).count();
+    assertEquals(2, count);
+  }
 }
