@@ -648,13 +648,13 @@ public interface Document {
     }
 
     public static String stringify(List<Segment> segments) {
-      StringBuffer result = new StringBuffer();
-      if (segments.isEmpty()) {
+      if (segments == null || segments.isEmpty()) {
         return "";
       }
       if (segments.size() == 1) {
         return segments.get(0).name;
       }
+      StringBuffer result = new StringBuffer();
       boolean first = true;
       for (Segment segment : segments) {
         if (segment.isIndex()) {
@@ -675,7 +675,7 @@ public interface Document {
 
   /**
    * Gets a nested JsonNode at a path like "a.b.c.d" where the path is split on '.' and each part is treated as a level of nesting.
-   * This also works for nested values that contain a list, such as "a.b.2.c" where 'b' is an ArrayNode. The indices are 0 based.
+   * This also works for nested values that contain a list, such as "a.b[2].c" where 'b' is an ArrayNode. The indices are 0 based.
    *
    * @param name the nested field path to get the JsonNode from
    * @return the JsonNode at the nested path or null if not found
