@@ -602,7 +602,7 @@ public interface Document {
       return index != null;
     }
 
-    public static Segment[] parse(String name) {
+    public static List<Segment> parse(String name) {
       List<Segment> segments = new ArrayList();
       StringBuffer current = new StringBuffer();
       boolean insideBrackets = false;
@@ -642,7 +642,7 @@ public interface Document {
       if (!current.isEmpty()) {
         segments.add(new Segment(current.toString()));
       }
-      return segments.toArray(new Segment[] {});
+      return segments;
     }
   }
 
@@ -664,15 +664,13 @@ public interface Document {
    * @param segments the nested field path segments to get the JsonNode from
    * @return the JsonNode at the nested path or null if not found
    */
-  default JsonNode getNestedJson(Segment[] segments) {
-    if (segments.length == 0 || !has(segments[0].name)) {
+  default JsonNode getNestedJson(List<Segment> segments) {
+    if (segments.isEmpty()|| !has(segments.get(0).name)) {
       return null;
     }
-    JsonNode node = getJson(segments[0].name);
+    JsonNode node = getJson(segments.get(0).name);
 
-    for (int i = 1; i < segments.length; i++) {
-      Segment segment = segments[i];
-
+    for (Segment segment : segments.subList(1,segments.size())) {
       if (!hasFieldSegment(node, segment)) {
         return null;
       } else {
@@ -701,64 +699,63 @@ public interface Document {
    * @param segments the nested field path segments to set the JsonNode at
    * @param value the JsonNode to set at the nested path
    */
-  default void setNestedJson(Segment[] segments, JsonNode value) {
-    if (segments.length == 0) {
+  default void setNestedJson(List<Segment> segments, JsonNode value) {
+    if (segments.isEmpty()) {
       return;
     }
-    if (segments.length == 1) {
-      setField(segments[0].name, value);
+    if (segments.size() == 1) {
+      setField(segments.get(0).name, value);
       return;
     }
 
     // if necessary, create a default fresh node where the type is based off of the child field, either ArrayNode or ObjectNode
-    JsonNode node = has(segments[0].name) ? getJson(segments[0].name) : createNewNode(segments[1]);
+    JsonNode node = has(segments.get(0).name) ? getJson(segments.get(0).name) : createNewNode(segments.get(1));
 
     JsonNode currentNode = node;
-    for (int i = 1; i < segments.length-1; i++) {
-      Segment segment = segments[i];
-
+    for (int i = 1; i < segments.size()-1; i++) {
+      Segment segment = segments.get(i);
       if (hasFieldSegment(currentNode, segment)) {
         currentNode = getFieldSegment(currentNode,segment);
       } else {
-        JsonNode childNode = createNewNode(segments[i+1]);
+        JsonNode childNode = createNewNode(segments.get(i+1));
         setFieldSegment(currentNode, segment, childNode);
         currentNode = childNode;
       }
     }
 
     // set last node
-    setFieldSegment(currentNode, segments[segments.length-1], value);
+    setFieldSegment(currentNode, segments.get(segments.size()-1), value);
 
-    setField(segments[0].name, node);
+    setField(segments.get(0).name, node);
   }
 
   default void removeNestedJson(String name) {
     removeNestedJson(Segment.parse(name));
   }
 
-  default void removeNestedJson(Segment[] segments) {
-    if (segments == null || segments.length == 0) {
+  default void removeNestedJson(List<Segment> segments) {
+    if (segments == null || segments.isEmpty()) {
       return;
     }
 
-    if (segments.length == 1) {
-      removeField(segments[0].name);
+    if (segments.size() == 1) {
+      removeField(segments.get(0).name);
       return;
     }
 
-    JsonNode parent = getNestedJson(Arrays.copyOf(segments, segments.length - 1));
+    JsonNode parent = getNestedJson(segments.subList(0, segments.size()-1));
     if (parent == null) {
       return;
     }
 
-    Segment last = segments[segments.length - 1];
+    Segment last = segments.get(segments.size() - 1);
     if (parent.isObject()) {
       ((ObjectNode) parent).remove(last.name);
     } else if (parent.isArray()) {
       ((ArrayNode) parent).remove(last.index);
     }
 
-    setField(segments[0].name, getJson(segments[0].name));
+    setField(segments.get(0).name, getJson(segments.get(0).name));
   }
 
   // if the given segment is an integer, it will create a new ArrayNode, otherwise an ObjectNode

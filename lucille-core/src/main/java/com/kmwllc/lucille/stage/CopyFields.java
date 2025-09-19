@@ -50,7 +50,7 @@ public class CopyFields extends Stage {
   private final UpdateMode updateMode;
   private final boolean isNested;
 
-  private List<Pair<Document.Segment[],Document.Segment[]>> nestedFieldPairs = new ArrayList<>();
+  private List<Pair<List<Document.Segment>,List<Document.Segment>>> nestedFieldPairs = new ArrayList<>();
 
   public CopyFields(Config config) {
     super(config);
@@ -72,8 +72,8 @@ public class CopyFields extends Stage {
     // create source and destination field parts if nested so we don't have to split them up for every doc
     if (isNested) {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
-        Document.Segment[] source = Document.Segment.parse(entry.getKey());
-        Document.Segment[] dest = Document.Segment.parse((String) entry.getValue());
+        List<Document.Segment> source = Document.Segment.parse(entry.getKey());
+        List<Document.Segment> dest = Document.Segment.parse((String) entry.getValue());
         nestedFieldPairs.add(Pair.of(source, dest));
       }
     }
@@ -82,7 +82,7 @@ public class CopyFields extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     if (isNested) {
-      for (Pair<Document.Segment[],Document.Segment[]> fieldPair : nestedFieldPairs) {
+      for (Pair<List<Document.Segment>,List<Document.Segment>> fieldPair : nestedFieldPairs) {
         JsonNode sourceVal = doc.getNestedJson(fieldPair.getKey());
         if (sourceVal == null) {
           continue;

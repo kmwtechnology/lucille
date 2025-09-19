@@ -81,7 +81,7 @@ public class AddRandomNestedField extends Stage {
   private final Map<String, Stage> generators = new LinkedHashMap<>();
   private final Document genDoc;
   private final Config generatorsConfig;
-  private List<Pair<String, Document.Segment[]>> nestedFieldPairs = new ArrayList<>(); // use list to maintain order for ArrayNode indices
+  private List<Pair<String, List<Document.Segment>>> nestedFieldPairs = new ArrayList<>(); // use list to maintain order for ArrayNode indices
 
   public AddRandomNestedField(Config config) throws StageException {
     super(config);
@@ -177,7 +177,7 @@ public class AddRandomNestedField extends Stage {
             fullDestFieldSegments.add(new Document.Segment(s));
           }
         }
-        nestedFieldPairs.add(Pair.of(e.getValue(), fullDestFieldSegments.toArray(new Document.Segment[]{})));
+        nestedFieldPairs.add(Pair.of(e.getValue(), fullDestFieldSegments));
       }
     }
   }
@@ -233,9 +233,9 @@ public class AddRandomNestedField extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
 
     // Iterate over each nested object
-    for (Pair<String, Document.Segment[]> fieldPair : nestedFieldPairs) {
+    for (Pair<String, List<Document.Segment>> fieldPair : nestedFieldPairs) {
       String sourceField = fieldPair.getKey();
-      Document.Segment[] destFieldParts = fieldPair.getValue();
+      List<Document.Segment> destFieldParts = fieldPair.getValue();
 
       // Assign if generators contains the source field name
       String genKey = (!isBlank(sourceField) && generators.containsKey(sourceField)) ? sourceField : null;
