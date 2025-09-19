@@ -1773,6 +1773,10 @@ public abstract class DocumentTest {
 
   @Test
   public void testParseAndStringifyNestedPath() {
+    // simple path
+    assertEquals("a", Segment.stringify(Segment.parse("a")));
+
+    // complex path
     String path = "a.b.c[5].d[4][6][7].e.f[4].x";
     List<Segment> segments = Segment.parse(path);
     assertEquals(path, Segment.stringify(segments));
