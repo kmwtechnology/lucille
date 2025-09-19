@@ -131,22 +131,33 @@ public class ApplyJavascript extends Stage {
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
     private final Document doc;
-    private final String path; // null for root, otherwise "a.b"
+    private final List<Document.Segment> segments; // null for root, otherwise "a.b"
 
-    private JsDocProxy(Document doc, String path) {
+    private JsDocProxy(Document doc, List<Document.Segment> segments) {
       this.doc = doc;
-      this.path = path;
+      this.segments = segments;
     }
 
     static JsDocProxy root(Document d) {
-      return new JsDocProxy(d, null);
+      return new JsDocProxy(d, new ArrayList());
     }
 
     private boolean isRoot() {
-      return path == null;
+      return segments.isEmpty();
     }
-    private String join(String key) {
-      return isRoot() ? key : (path + "." + key);
+
+    private List<Document.Segment> join(String key) {
+      if (isRoot()) {
+        return List.of(new Document.Segment(key));
+      }
+      List<Document.Segment> result = new ArrayList(segments);
+      // assume an all-digit key is an array index
+      if (key.chars().allMatch(c -> c >= '0' && c <= '9')) {
+        result.add(new Document.Segment(Integer.parseInt(key)));
+      } else {
+        result.add(new Document.Segment(key));
+      }
+      return result;
     }
 
     @Override
@@ -166,18 +177,18 @@ public class ApplyJavascript extends Stage {
       }
 
       if (json.isArray()) {
-        return jsonArrayToProxyArray(json, key);
+        return jsonArrayToProxyArray(json, List.of(new Document.Segment(key)));
       }
 
       if (json.isContainerNode()) {
-        return new JsDocProxy(doc, key);
+        return new JsDocProxy(doc, List.of(new Document.Segment(key)));
       }
 
       return jsonNodeToJsValue(json);
     }
 
     private Object getNestedMember(String key) {
-      JsonNode current = doc.getNestedJson(path);
+      JsonNode current = doc.getNestedJson(segments);
       if (current == null || current.isNull()) {
         return null;
       }
@@ -208,7 +219,7 @@ public class ApplyJavascript extends Stage {
 
     @Override
     public void putMember(String key, Value v) {
-      String full = join(key);
+      List<Document.Segment> full = join(key);
 
       if (v == null || v.isNull()) {
         if (isRoot()) {
@@ -248,7 +259,7 @@ public class ApplyJavascript extends Stage {
 
     @Override
     public boolean removeMember(String key) {
-      String full = join(key);
+      List<Document.Segment> full = join(key);
 
       if (isRoot()) {
         if (!doc.has(key)) {
@@ -275,15 +286,17 @@ public class ApplyJavascript extends Stage {
 
     @Override
     public boolean hasMember(String key) {
-      if (isRoot()) return doc.has(key);
+      if (isRoot()) {
+        return doc.has(key);
+      }
 
-      JsonNode current = doc.getNestedJson(path);
+      JsonNode current = doc.getNestedJson(segments);
       if (current == null || current.isNull()) {
         return false;
       }
 
       if (current.isObject()) {
-        return ((ObjectNode) current).has(key);
+        return current.has(key);
       }
       
       if (current.isArray()) {
@@ -301,7 +314,7 @@ public class ApplyJavascript extends Stage {
         return ProxyArray.fromArray(names.toArray(new String[0]));
       }
 
-      JsonNode node = doc.getNestedJson(path);
+      JsonNode node = doc.getNestedJson(segments);
       if (node == null || node.isNull()) {
         return ProxyArray.fromArray(new String[0]);
       }
@@ -353,13 +366,19 @@ public class ApplyJavascript extends Stage {
     }
 
     // Document -> JS: convert a JSON array to a ProxyArray and make containers nested proxies
-    private Object jsonArrayToProxyArray(JsonNode jsonArray, String baseKey) {
+    private Object jsonArrayToProxyArray(JsonNode jsonArray, List<Document.Segment> baseKey) {
       int n = jsonArray.size();
       Object[] arr = new Object[n];
 
       for (int i = 0; i < n; i++) {
         JsonNode child = jsonArray.get(i);
-        arr[i] = child.isContainerNode() ? new JsDocProxy(doc, baseKey + "." + i) : jsonNodeToJsValue(child);
+        if (child.isContainerNode()) {
+          List<Document.Segment> extendedKey = new ArrayList(baseKey);
+          extendedKey.add(new Document.Segment(i));
+          arr[i] = new JsDocProxy(doc, extendedKey);
+        } else {
+          arr[i] = jsonNodeToJsValue(child);
+        }
       }
 
       return ProxyArray.fromArray(arr);

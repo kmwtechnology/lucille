@@ -13,14 +13,12 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +79,6 @@ public class AddRandomNestedField extends Stage {
   private final Map<String, Stage> generators = new LinkedHashMap<>();
   private final Document genDoc;
   private final Config generatorsConfig;
-  private List<Pair<String, String[]>> nestedFieldPairs = new ArrayList<>(); // use list to maintain order for ArrayNode indices
 
   public AddRandomNestedField(Config config) throws StageException {
     super(config);
@@ -157,22 +154,6 @@ public class AddRandomNestedField extends Stage {
         generators.put(key, gen);
       }
     }
-
-    // create set of destination field parts so we don't have to split them on every doc
-    final int n = pickNumObjects();
-    for (int i = 0; i < n; i++) {
-      List<String> targetFieldPath = Arrays.asList(targetField, Integer.toString(i));
-
-      for (Map.Entry<List<String>, String> e : parsedEntries.entrySet()) {
-        // create final array of dest field parts from the target field and dest field in parsedEntries
-        List<String> partialDestFieldList = e.getKey();
-        List<String> fullDestFieldList = new ArrayList<>(targetFieldPath.size() + partialDestFieldList.size());
-        fullDestFieldList.addAll(targetFieldPath);
-        fullDestFieldList.addAll(partialDestFieldList);
-        String[] destFieldParts = fullDestFieldList.toArray(new String[0]);
-        nestedFieldPairs.add(Pair.of(e.getValue(), destFieldParts));
-      }
-    }
   }
 
   @Override
@@ -224,11 +205,26 @@ public class AddRandomNestedField extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    final int n = pickNumObjects();
 
-    // Iterate over each nested object
-    for (Pair<String, String[]> fieldPair : nestedFieldPairs) {
-      String sourceField = fieldPair.getKey();
-      String[] destFieldParts = fieldPair.getValue();
+    // For each object index, build destination segments
+    for (int i = 0; i < n; i++) {
+      final List<Document.Segment> prefix = new ArrayList<>(2);
+      prefix.add(new Document.Segment(targetField));
+      prefix.add(new Document.Segment(i));
+
+      for (Map.Entry<List<String>, String> e : parsedEntries.entrySet()) {
+        String sourceField = e.getValue();
+
+        final List<Document.Segment> destFieldParts = new ArrayList<>(prefix.size() + e.getKey().size());
+        destFieldParts.addAll(prefix);
+        for (String s : e.getKey()) {
+          if (s.chars().allMatch(c -> c >= '0' && c <= '9')) {
+            destFieldParts.add(new Document.Segment(Integer.parseInt(s)));
+          } else {
+            destFieldParts.add(new Document.Segment(s));
+          }
+        }
 
       // Assign if generators contains the source field name
       String genKey = (!isBlank(sourceField) && generators.containsKey(sourceField)) ? sourceField : null;
@@ -243,7 +239,7 @@ public class AddRandomNestedField extends Stage {
       }
 
       if (!hasSource && genKey == null) {
-        throw new StageException("Missing value for '" + String.join(".", destFieldParts) +
+        throw new StageException("Missing value for '" + Document.Segment.stringify(destFieldParts) +
             "' (source='" + sourceField + "') and no generator available.");
       }
 
@@ -252,12 +248,13 @@ public class AddRandomNestedField extends Stage {
         continue;
       }
 
-      // Write value at the destination
-      try {
-        doc.setNestedJson(destFieldParts, valNode);
-      } catch (ArrayIndexOutOfBoundsException ex) {
-        throw new StageException("Failed to set field '" + String.join(".", destFieldParts) + "' on doc " + doc.getId() +
-            ". Field is not valid.\n" + ex.getMessage());
+        // Write value at the destination
+        try {
+          doc.setNestedJson(destFieldParts, valNode);
+        } catch (ArrayIndexOutOfBoundsException | IllegalArgumentException ex) {
+          throw new StageException("Failed to set field " + Document.Segment.stringify(destFieldParts) + " on doc " + doc.getId() +
+              ". Field is not valid.\n" + ex.getMessage());
+        }
       }
     }
 
