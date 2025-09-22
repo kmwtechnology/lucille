@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.kmwllc.lucille.core.Document.Segment;
 import java.sql.Timestamp;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1678,11 +1679,11 @@ public abstract class DocumentTest {
         .add(mapper.createObjectNode()
                 .put("name", "thing2")
                 .put("age", 25));
-    document.setNestedJson("list.0", mapper.createObjectNode().put("name", "temp").put("age", 87));
-    document.setNestedJson("list.1", mapper.createObjectNode().put("name", "thing2").put("age", 25));
-    document.setNestedJson("list.0", mapper.createObjectNode().put("name", "thing1").put("age", 50));
+    document.setNestedJson("list[0]", mapper.createObjectNode().put("name", "temp").put("age", 87));
+    document.setNestedJson("list[1]", mapper.createObjectNode().put("name", "thing2").put("age", 25));
+    document.setNestedJson("list[0]", mapper.createObjectNode().put("name", "thing1").put("age", 50));
     assertEquals(jsonList, document.getJson("list"));
-    assertEquals("thing2", document.getNestedJson("list.1.name").asText());
+    assertEquals("thing2", document.getNestedJson("list[1].name").asText());
 
     // test nested field with a list that is more nested
     JsonNode moreNestedJsonList = mapper.createObjectNode().set("list", mapper.createArrayNode()
@@ -1695,11 +1696,11 @@ public abstract class DocumentTest {
             .set("phone", mapper.createObjectNode()
                 .put("number", "123-4567")
                 .put("areaCode", "303"))));
-    document.setNestedJson("doc.list.0", mapper.createObjectNode().put("name", "thing1").put("age", 50));
-    document.setNestedJson("doc.list.1", mapper.createObjectNode().put("name", "thing2").put("age", 25));
-    document.setNestedJson("doc.list.1.phone", mapper.createObjectNode().put("number", "123-4567").put("areaCode", "303"));
+    document.setNestedJson("doc.list[0]", mapper.createObjectNode().put("name", "thing1").put("age", 50));
+    document.setNestedJson("doc.list[1]", mapper.createObjectNode().put("name", "thing2").put("age", 25));
+    document.setNestedJson("doc.list[1].phone", mapper.createObjectNode().put("number", "123-4567").put("areaCode", "303"));
     assertEquals(moreNestedJsonList, document.getJson("doc"));
-    assertEquals("thing2", document.getNestedJson("doc.list.1.name").asText());
+    assertEquals("thing2", document.getNestedJson("doc.list[1].name").asText());
 
     // test non nested field
     document.setNestedJson("simple", mapper.createObjectNode().put("field", "simpleValue"));
@@ -1712,15 +1713,23 @@ public abstract class DocumentTest {
   @Test
   public void testNestedArrayUpdate() {
     Document doc = Document.create("id1");
-    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b.1", IntNode.valueOf(50))); // a.b doesn't exist, this will throw an error
-    doc.setNestedJson("a.b.0", IntNode.valueOf(50)); // a.b still doesn't exist, it will create a new array and add as the first element
-    doc.setNestedJson("a.b.0", IntNode.valueOf(60)); // a.b.0 exists, this will update the value at index 0
-    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b.20", IntNode.valueOf(50))); // a.b does not have 20 or more values, this will throw an error
-    doc.setNestedJson("a.b.1", IntNode.valueOf(50)); // now that a.b has one value, this will be added as the next value with index 1
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b[1]", IntNode.valueOf(50))); // a.b doesn't exist, this will throw an error
+    doc.setNestedJson("a.b[0]", IntNode.valueOf(50)); // a.b still doesn't exist, it will create a new array and add as the first element
+    doc.setNestedJson("a.b[0]", IntNode.valueOf(60)); // a.b.0 exists, this will update the value at index 0
+    assertThrows(ArrayIndexOutOfBoundsException.class, () -> doc.setNestedJson("a.b[20]", IntNode.valueOf(50))); // a.b does not have 20 or more values, this will throw an error
+    doc.setNestedJson("a.b[1]", IntNode.valueOf(50)); // now that a.b has one value, this will be added as the next value with index 1
     assertEquals(2, doc.getNestedJson("a.b").size());
-    assertEquals(60, doc.getNestedJson("a.b.0").intValue());
-    assertEquals(50, doc.getNestedJson("a.b.1").intValue());
-    assertNull(doc.getNestedJson("a.b.2"));
+    assertEquals(60, doc.getNestedJson("a.b[0]").intValue());
+    assertEquals(50, doc.getNestedJson("a.b[1]").intValue());
+    assertNull(doc.getNestedJson("a.b[2]"));
+  }
+
+  @Test
+  public void testDeeplyNestedArrayUpdate() {
+    Document doc = Document.create("id1");
+    doc.setNestedJson("a.b.c[0].d[0][0][0].e[0][0]", IntNode.valueOf(101));
+    assertEquals(101, doc.getNestedJson("a.b.c[0].d[0][0][0].e[0][0]").intValue());
+    assertEquals(doc.getJson("a").toString(), "{\"b\":{\"c\":[{\"d\":[[[{\"e\":[[101]]}]]]}]}}");
   }
 
   @Test
@@ -1738,7 +1747,7 @@ public abstract class DocumentTest {
     assertNotNull(document.getNestedJson("a.b.d"));
     assertTrue(document.getNestedJson("a.b").isObject());
 
-    document.removeNestedJson("a.list.1");
+    document.removeNestedJson("a.list[1]");
     JsonNode list = document.getNestedJson("a.list");
     assertNotNull(list);
     assertTrue(list.isArray());
@@ -1760,6 +1769,42 @@ public abstract class DocumentTest {
     assertNotNull(aNode);
     assertTrue(aNode.isObject());
     assertNotNull(document.getNestedJson("a.meta"));
+  }
+
+  @Test
+  public void testParseAndStringifyNestedPath() {
+    // simple path
+    assertEquals("a", Segment.stringify(Segment.parse("a")));
+
+    // complex path
+    String path = "a.b.c[5].d[4][6][7].e.f[4].x";
+    List<Segment> segments = Segment.parse(path);
+    assertEquals(path, Segment.stringify(segments));
+  }
+
+  @Test
+  public void testParseIllegalSyntax() {
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.[].d")); // empty []
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.[")); // unbalanced [
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.]")); // unbalanced ]
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.[a]")); // non-integer index
+    assertThrows(Exception.class, () -> Segment.parse("a.b.c.[.]")); // non-integer index
+    assertThrows(Exception.class, () -> Segment.parse("a.b[[1]]")); // nested index
+    assertThrows(Exception.class, () -> Segment.parse(" a")); // whitespace
+    assertThrows(Exception.class, () -> Segment.parse("a ")); // whitespace
+    assertThrows(Exception.class, () -> Segment.parse("a. b")); // whitespace
+    assertThrows(Exception.class, () -> Segment.parse("[1]")); // index only
+  }
+
+  @Test
+  public void testLenientParsing() {
+    // these are some cases where Segment.parse() accepts syntax that is not legal javascript
+    // we may want to tighten the parser to reject these cases, but they are corrected in predictable ways
+    assertEquals("a", Segment.stringify(Segment.parse(".a"))); // initial dot ignored
+    assertEquals("a", Segment.stringify(Segment.parse("a."))); // trailing dot ignored
+    assertEquals("a.b", Segment.stringify(Segment.parse("a...b"))); // several dots in a row ignored
+    assertEquals("a[1].b", Segment.stringify(Segment.parse("a[1]b"))); // missing dot after ] added
+    assertEquals("a[1]", Segment.stringify(Segment.parse("a.[1]"))); // dot before [ ignored
   }
 
   @Test
