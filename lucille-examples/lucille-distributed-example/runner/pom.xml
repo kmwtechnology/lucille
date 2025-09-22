@@ -14,7 +14,7 @@ errors relating to the container's limited context.) -->
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-examples</artifactId>
-    <version>0.5.8-SNAPSHOT</version>
+    <version>0.5.9-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
