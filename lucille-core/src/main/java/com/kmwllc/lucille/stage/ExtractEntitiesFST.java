@@ -25,7 +25,8 @@ import java.util.*;
 
 /**
  * Extracts dictionary-based entities from document text fields using a Lucene FST. Matches can optionally map to
- * payload values, control overlap behavior, and quit on first hit.
+ * payload values, control overlap behavior, and quit on first hit. Dictionaries are read as UTF-8 meaning all files
+ * must be UTF-8 encoded. Any invalid bytes will prevent those entries from matching during extraction.
  * <p>
  * Config Parameters -
  * <ul>
