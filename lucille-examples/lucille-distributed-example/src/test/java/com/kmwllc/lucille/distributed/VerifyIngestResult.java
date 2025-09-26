@@ -20,10 +20,6 @@ public class VerifyIngestResult {
 
   @Test
   public void verifyIngestResult() throws Exception {
-    for (int i = 0; i < 50; i++) {
-      System.out.println("TEST");
-    }
-
     ObjectMapper mapper = new ObjectMapper();
     String fileName = "/output/dest.json";
     int numDocs = 6;
