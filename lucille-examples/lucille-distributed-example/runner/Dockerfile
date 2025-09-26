@@ -15,4 +15,4 @@ RUN mkdir /output/
 ENTRYPOINT chmod +x /scripts/run.sh && /scripts/run.sh && \
     curl -f 'http://solr:8983/solr/quickstart/update?commit=true' && \
     curl -f 'http://solr:8983/solr/quickstart/query?q=*:*' > /output/dest.json && \
-    mvn test -Dtest=VerifyIngestResult
+    mvn test -DfailIfNoTests=true

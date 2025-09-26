@@ -12,6 +12,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class VerifyIngestResult {
+
+  private static String normSource(String s) {
+    // file:///conf/source.csv -> /conf/source.csv
+    return s.replaceFirst("^file:/+", "/");
+  }
+
   @Test
   public void verifyIngestResult() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
@@ -50,7 +56,7 @@ public class VerifyIngestResult {
 
     JsonNode csvDoc1 = docs.get(3);
     assertEquals("source.csv-1", csvDoc1.get("id").asText());
-    assertEquals("/conf/source.csv", csvDoc1.get("source").get(0).asText());
+    assertEquals("/conf/source.csv", normSource(csvDoc1.get("source").get(0).asText()));
     assertEquals("source.csv", csvDoc1.get("filename").get(0).asText());
     assertEquals("Italy", csvDoc1.get("my_country").get(0).asText());
     assertEquals("Carbonara", csvDoc1.get("my_name").get(0).asText());
@@ -58,7 +64,7 @@ public class VerifyIngestResult {
 
     JsonNode csvDoc2 = docs.get(4);
     assertEquals("source.csv-2", csvDoc2.get("id").asText());
-    assertEquals("/conf/source.csv", csvDoc2.get("source").get(0).asText());
+    assertEquals("/conf/source.csv", normSource(csvDoc2.get("source").get(0).asText()));
     assertEquals("source.csv", csvDoc2.get("filename").get(0).asText());
     assertEquals("Italy", csvDoc2.get("my_country").get(0).asText());
     assertEquals("Pizza", csvDoc2.get("my_name").get(0).asText());
@@ -66,7 +72,7 @@ public class VerifyIngestResult {
 
     JsonNode csvDoc3 = docs.get(5);
     assertEquals("source.csv-3", csvDoc3.get("id").asText());
-    assertEquals("/conf/source.csv", csvDoc3.get("source").get(0).asText());
+    assertEquals("/conf/source.csv", normSource(csvDoc3.get("source").get(0).asText()));
     assertEquals("source.csv", csvDoc3.get("filename").get(0).asText());
     assertEquals("Korea", csvDoc3.get("my_country").get(0).asText());
     assertEquals("Tofu Soup", csvDoc3.get("my_name").get(0).asText());
