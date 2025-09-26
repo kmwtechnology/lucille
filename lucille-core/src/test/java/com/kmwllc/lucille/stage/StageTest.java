@@ -298,4 +298,30 @@ public class StageTest {
     Document doc3 = Document.create("doc3");
     assertProcessed(stage, doc3, false);
   }
+
+  @Test
+  public void testValuesPathMust() throws StageException {
+    Stage stage = factory.get("StageTest/valuesPathMust.conf");
+
+    Document hit = Document.create("hit");
+    hit.setField("user_id", "1234");
+    assertProcessed(stage, hit, true);
+
+    Document miss = Document.create("miss");
+    miss.setField("user_id", "n/a");
+    assertProcessed(stage, miss, false);
+  }
+
+  @Test
+  public  void testValuesPathOverridesInline() throws StageException {
+    Stage stage = factory.get("StageTest/valuesPathOverridesInline.conf");
+
+    Document inFileOnly = Document.create("inFileOnly");
+    inFileOnly.setField("user_id", "file-only");
+    assertProcessed(stage, inFileOnly, true);
+
+    Document inInLineOnly = Document.create("inInLineOnly");
+    inInLineOnly.setField("user_id", "inline-only");
+    assertProcessed(stage, inInLineOnly, false);
+  }
 }

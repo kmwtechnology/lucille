@@ -39,16 +39,16 @@ public class Condition implements Predicate<Document> {
 
   public Condition(Config config) {
     this(config.getStringList("fields"),
-        config.hasPath("values_path") ? loadValuesFromPath(config) : createValueSet(config),
+        config.hasPath("valuesPath") ? loadValuesFromPath(config) : createValueSet(config),
         config.hasPath("operator") ? Operator.get(config.getString("operator")) : Operator.MUST);
   }
 
   private static Set<String> loadValuesFromPath(Config config) {
-    if (!config.hasPath("values_path")) {
+    if (!config.hasPath("valuesPath")) {
       return null;
     }
 
-    String path = config.getString("values_path");
+    String path = config.getString("valuesPath");
     HashSet<String> set = new HashSet<>();
 
     try (BufferedReader reader = FileContentFetcher.getOneTimeReader(path, config)) {
@@ -62,7 +62,7 @@ public class Condition implements Predicate<Document> {
         }
       }
     } catch (IOException e) {
-      throw new IllegalArgumentException("Failed to load values from values_path: " + path, e);
+      throw new IllegalArgumentException("Failed to load values from valuesPath: " + path, e);
     }
 
     return set;

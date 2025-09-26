@@ -39,6 +39,7 @@ public class SpecBuilder {
         new StringProperty("class", false),
         new ListProperty("conditions", false, SpecBuilder.withoutDefaults()
             .optionalString("operator")
+            .optionalString("valuesPath")
             .optionalList("values", new TypeReference<List<String>>(){})
             .requiredList("fields", new TypeReference<List<String>>(){}).build()),
         new StringProperty("conditionPolicy", false)));
