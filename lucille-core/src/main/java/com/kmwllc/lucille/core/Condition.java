@@ -1,9 +1,12 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigList;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
+import java.io.BufferedReader;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -35,8 +38,44 @@ public class Condition implements Predicate<Document> {
   }
 
   public Condition(Config config) {
-    this(config.getStringList("fields"), createValueSet(config),
+    this(config.getStringList("fields"),
+        resolveValues(config),
         config.hasPath("operator") ? Operator.get(config.getString("operator")) : Operator.MUST);
+  }
+
+  private static Set<String> resolveValues(Config config) {
+    boolean inline = config.hasPath("values");
+    boolean path = config.hasPath("valuesPath");
+    if (inline && path) {
+      throw new IllegalArgumentException("Specify either 'values' or 'valuesPath', not both.");
+    }
+
+    return path ? loadValuesFromPath(config) : createValueSet(config);
+  }
+
+  private static Set<String> loadValuesFromPath(Config config) {
+    if (!config.hasPath("valuesPath")) {
+      return null;
+    }
+
+    String path = config.getString("valuesPath");
+    HashSet<String> set = new HashSet<>();
+
+    try (BufferedReader reader = FileContentFetcher.getOneTimeReader(path, config)) {
+      String line;
+
+      while ((line = reader.readLine()) != null) {
+        String v = line.trim();
+
+        if (!v.isEmpty()) {
+          set.add(v);
+        }
+      }
+    } catch (IOException e) {
+      throw new IllegalArgumentException("Failed to load values from valuesPath: " + path, e);
+    }
+
+    return set;
   }
 
   private static Set<String> createValueSet(Config config) {
