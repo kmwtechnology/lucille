@@ -313,15 +313,7 @@ public class StageTest {
   }
 
   @Test
-  public  void testValuesPathOverridesInline() throws StageException {
-    Stage stage = factory.get("StageTest/valuesPathOverridesInline.conf");
-
-    Document inFileOnly = Document.create("inFileOnly");
-    inFileOnly.setField("user_id", "file-only");
-    assertProcessed(stage, inFileOnly, true);
-
-    Document inInLineOnly = Document.create("inInLineOnly");
-    inInLineOnly.setField("user_id", "inline-only");
-    assertProcessed(stage, inInLineOnly, false);
+  public  void testValuesAndPathMutuallyExclusive() throws StageException {
+    assertThrows(StageException.class, () -> factory.get("StageTest/valuesAndPath.conf"));
   }
 }

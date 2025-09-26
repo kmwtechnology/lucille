@@ -39,8 +39,18 @@ public class Condition implements Predicate<Document> {
 
   public Condition(Config config) {
     this(config.getStringList("fields"),
-        config.hasPath("valuesPath") ? loadValuesFromPath(config) : createValueSet(config),
+        resolveValues(config),
         config.hasPath("operator") ? Operator.get(config.getString("operator")) : Operator.MUST);
+  }
+
+  private static Set<String> resolveValues(Config config) {
+    boolean inline = config.hasPath("values");
+    boolean path = config.hasPath("valuesPath");
+    if (inline && path) {
+      throw new IllegalArgumentException("Specify either 'values' or 'valuesPath', not both.");
+    }
+
+    return path ? loadValuesFromPath(config) : createValueSet(config);
   }
 
   private static Set<String> loadValuesFromPath(Config config) {
