@@ -29,7 +29,8 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>fieldMapping (Map&lt;String, String&gt;) : A 1-1 mapping of source field names to destination field names.</li>
+ *   <li>fieldMapping (Map&lt;String, Object&gt;) : A mapping of source field names to destination field names where the destination
+ *      field names can be a string or list.</li>
  *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'. Cannot be set with isNested.</li>
  *   <li>isNested (Boolean, Optional) : Sets whether or not to treat the given field name as nested json or a literal field name.
@@ -42,7 +43,7 @@ public class CopyFields extends Stage {
   private static final ObjectMapper mapper = new ObjectMapper();
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {})
+      .requiredParent("fieldMapping", new TypeReference<Map<String, Object>>() {})
       .optionalString("update_mode")
       .optionalBoolean("isNested").build();
 
@@ -51,12 +52,16 @@ public class CopyFields extends Stage {
   private final boolean isNested;
 
   private List<Pair<List<Document.Segment>,List<Document.Segment>>> nestedFieldPairs = new ArrayList<>();
+  private List<Pair<String,String>> nonNestedFieldPairs = new ArrayList<>();
 
   public CopyFields(Config config) {
     super(config);
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
     this.isNested = ConfigUtils.getOrDefault(config, "isNested", false);
+    if (isNested && config.hasPath("update_mode")) {
+      log.info("Cannot set both isNested and update_mode in Copy Fields at the same time. Ignoring update_mode, fields will be overwritten.");
+    }
   }
 
   @Override
@@ -65,16 +70,33 @@ public class CopyFields extends Stage {
       throw new StageException("fieldMapping must have at least one source-dest pair for Copy Fields");
     }
 
-    if (isNested && updateMode != null) {
-      log.info("Cannot set both isNested and update_mode in Copy Fields at the same time. Ignoring update_mode, fields will be overwritten.");
-    }
-
-    // create source and destination field parts if nested so we don't have to split them up for every doc
+    // create field pairs, and deal with nested vs non-nested here so we don't have to check the type for every doc
     if (isNested) {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
         List<Document.Segment> source = Document.Segment.parse(entry.getKey());
-        List<Document.Segment> dest = Document.Segment.parse((String) entry.getValue());
-        nestedFieldPairs.add(Pair.of(source, dest));
+        if (entry.getValue() instanceof String) {
+          List<Document.Segment> dest = Document.Segment.parse((String) entry.getValue());
+          nestedFieldPairs.add(Pair.of(source, dest));
+        } else if (entry.getValue() instanceof List) {
+          for (String val : (List<String>) entry.getValue()) {
+            List<Document.Segment> dest = Document.Segment.parse(val);
+            nestedFieldPairs.add(Pair.of(source, dest));
+          }
+        } else {
+          throw new StageException("fieldMapping must be a mapping of String to List or String to String for Copy Fields");
+        }
+      }
+    } else {
+      for (Entry<String, Object> entry : fieldMapping.entrySet()) {
+        if (entry.getValue() instanceof String) {
+          nonNestedFieldPairs.add(Pair.of(entry.getKey(), (String) entry.getValue()));
+        } else if (entry.getValue() instanceof List) {
+          for (String val : (List<String>) entry.getValue()) {
+            nonNestedFieldPairs.add(Pair.of(entry.getKey(), val));
+          }
+        } else {
+          throw new StageException("fieldMapping must be a mapping of String to List or String to String for Copy Fields");
+        }
       }
     }
   }
@@ -95,11 +117,11 @@ public class CopyFields extends Stage {
         }
       }
     } else {
-      for (Entry<String, Object> fieldPair : fieldMapping.entrySet()) {
+      for (Pair<String, String> fieldPair : nonNestedFieldPairs) {
         if (!doc.has(fieldPair.getKey())) {
           continue;
         }
-        doc.update((String) fieldPair.getValue(), updateMode, doc.getStringList(fieldPair.getKey()).toArray(new String[0]));
+        doc.update(fieldPair.getValue(), updateMode, doc.getStringList(fieldPair.getKey()).toArray(new String[0]));
       }
     }
     return null;
