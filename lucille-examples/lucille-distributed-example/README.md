@@ -12,3 +12,5 @@
 5. If the test fails, the runner container exits with a status exit code 1, which causes mvn verify to fail.
 
 Note: running ```docker-compose up --abort-on-container-exit```would run the internal test in runner, but it will not verify the test results.
+
+**Local runs:** After each run, remove containers to avoid a stale state, otherwise the test will error.
