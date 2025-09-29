@@ -24,4 +24,4 @@ jobs:
         with:
           compose-file: "./lucille-examples/lucille-distributed-example/docker-compose.yml"
           test-container: "runner"
-          test-command: "mvn test -Dtest=VerifyIngestResult"
+          test-command: "mvn test -Dtest=VerifyIngestResult -DfailIfNoTests=true"
