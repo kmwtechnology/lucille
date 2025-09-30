@@ -35,6 +35,7 @@ public class CopyFieldsTest {
     doc2.setField("output2", "here's some junk data.");
     stage.processDocument(doc2);
     assertEquals("Value from input2 should be copied to output2", inputVal, doc2.getStringList("output2").get(0));
+    assertEquals("Value from input2 should be copied to alsoOutput2", inputVal, doc2.getStringList("alsoOutput2").get(0));
 
     // Ensure that several fields can be copied at the same time.
     Document doc3 = Document.create("doc3");
@@ -47,6 +48,7 @@ public class CopyFieldsTest {
     stage.processDocument(doc3);
     assertEquals("Value from input1 should be copied to output1", inputVal1, doc3.getStringList("output1").get(0));
     assertEquals("Value from input2 should be copied to output2", inputVal2, doc3.getStringList("output2").get(0));
+    assertEquals("Value from input2 should be copied to alsoOutput2", inputVal2, doc3.getStringList("alsoOutput2").get(0));
     assertEquals("Value from input3 should be copied to output3", inputVal3, doc3.getStringList("output3").get(0));
 
     // Ensure that if isNested is false, dotted fields will be treated as literals
@@ -67,10 +69,13 @@ public class CopyFieldsTest {
     doc.setField("input3", "This will be skipped along with input 1.");
     doc.setField("output1", "input1 should be skipped.");
     doc.setField("output3", "input3 should be skipped.");
+    doc.setField("output5", "input3 should be skipped.");
     stage.processDocument(doc);
     assertEquals("input1 should be skipped.", doc.getStringList("output1").get(0));
     assertEquals("Here is another input.", doc.getStringList("output2").get(0));
     assertEquals("input3 should be skipped.", doc.getStringList("output3").get(0));
+    assertEquals("Here is another input.", doc.getStringList("output4").get(0));
+    assertEquals("input3 should be skipped.", doc.getStringList("output5").get(0));
   }
 
   @Test
@@ -108,10 +113,21 @@ public class CopyFieldsTest {
         doc3.getJson("output2"));
     assertEquals("Value from input3 should be copied to output3", inputVal3, doc3.getJson("output3").asBoolean());
 
-    // Ensure that if the source field doesn't exist, nothing happens
+    // Ensure that nested fields mapped to list are copied
     Document doc4 = Document.create("doc4");
+    doc4.setField("input4", mapper.createObjectNode().put("nested","This will be copied to two places under output4"));
     stage.processDocument(doc4);
-    assertNull(doc4.getJson("output4"));
+    assertEquals("Value from input4 should be copied to output4.nested.one",
+        "This will be copied to two places under output4",
+        doc4.getJson("output4").get("nested").get("one").textValue());
+    assertEquals("Value from input4 should be copied to output4.nested.two",
+        "This will be copied to two places under output4",
+        doc4.getJson("output4").get("nested").get("two").textValue());
+
+    // Ensure that if the source field doesn't exist, nothing happens
+    Document doc5 = Document.create("doc5");
+    stage.processDocument(doc5);
+    assertNull(doc5.getJson("output5"));
   }
 
   @Test
