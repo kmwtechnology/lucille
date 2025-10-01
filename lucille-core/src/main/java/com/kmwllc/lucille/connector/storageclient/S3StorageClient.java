@@ -183,8 +183,12 @@ public class S3StorageClient extends BaseStorageClient {
 
     private static URI getFullPathHelper(S3Object s3Obj, TraversalParams params) {
       URI paramsURI = params.getURI();
-      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + s3Obj.key();
-      return URI.create(fullPathStr);
+
+      try {
+        return new URI(paramsURI.getScheme(), paramsURI.getAuthority(), "/" + s3Obj.key(), null);
+      } catch (Exception e) {
+        throw new IllegalArgumentException("Unable to build S3 URI for key: " + s3Obj.key(), e);
+      }
     }
   }
 }
