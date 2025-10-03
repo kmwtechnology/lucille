@@ -6,15 +6,15 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.kmwllc</groupId>
-    <artifactId>lucille-examples</artifactId>
-    <version>0.5.9-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-examples</artifactId>
+  <version>0.5.8-SNAPSHOT</version>
+  <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>lucille-s3-ingest-example</artifactId>
+  <artifactId>lucille-opensearch-vector-ollama-example</artifactId>
   <packaging>jar</packaging>
-  <name>Lucille Examples: Ingesting Into S3</name>
+  <name>Lucille Examples: OpenSearch Vector Ollama Example</name>
 
   <dependencyManagement>
     <dependencies>
@@ -36,6 +36,12 @@
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-tika</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-entity-extraction</artifactId>
+      <version>${project.version}</version>
     </dependency>
   </dependencies>
 
@@ -44,10 +50,11 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.1</version>
         <executions>
           <execution>
             <id>copy-dependencies</id>
-            <phase>install</phase>
+            <phase>package</phase>
             <goals>
               <goal>copy-dependencies</goal>
             </goals>
@@ -69,7 +76,7 @@
               <goal>single</goal>
             </goals>
             <configuration>
-              <finalName>lucille-s3-ingest-example</finalName>
+              <finalName>lucille-opensearch-vector-ollama-example</finalName>
               <descriptors>
                 <descriptor>assembly/assembly.xml</descriptor>
               </descriptors>
