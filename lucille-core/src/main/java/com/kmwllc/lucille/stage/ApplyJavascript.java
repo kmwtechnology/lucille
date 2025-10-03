@@ -167,7 +167,7 @@ public class ApplyJavascript extends Stage {
 
     private Object getRootMember(String key) {
       if (!doc.has(key)) {
-        return null;
+        return new JsDocProxy(doc, List.of(new Document.Segment(key)));
       }
 
       JsonNode json = doc.getJson(key);
@@ -190,14 +190,14 @@ public class ApplyJavascript extends Stage {
     private Object getNestedMember(String key) {
       JsonNode current = doc.getNestedJson(segments);
       if (current == null || current.isNull()) {
-        return null;
+        return new JsDocProxy(doc, join(key));
       }
 
       if (current.isObject()) {
         JsonNode child = current.get(key);
 
         if (child == null) {
-          return null;
+          return new JsDocProxy(doc, join(key));
         }
 
         return child.isContainerNode() ? new JsDocProxy(doc, join(key)) : jsonNodeToJsValue(child);
@@ -207,7 +207,7 @@ public class ApplyJavascript extends Stage {
         int idx = parseArrayIndex(key);
 
         if (idx < 0 || idx >= current.size()) {
-          return null;
+          return new JsDocProxy(doc, join(key));
         }
 
         JsonNode child = current.get(idx);
@@ -287,12 +287,12 @@ public class ApplyJavascript extends Stage {
     @Override
     public boolean hasMember(String key) {
       if (isRoot()) {
-        return doc.has(key);
+        return true;
       }
 
       JsonNode current = doc.getNestedJson(segments);
       if (current == null || current.isNull()) {
-        return false;
+        return true;
       }
 
       if (current.isObject()) {
