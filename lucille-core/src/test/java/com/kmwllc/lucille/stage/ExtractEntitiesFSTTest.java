@@ -106,21 +106,6 @@ public class ExtractEntitiesFSTTest {
   }
 
   @Test
-  public void testIgnoreCase() throws StageException {
-    Stage stage = factory.get("ExtractEntitiesFSTTest/configIgnoreCase.conf");
-
-    Document cap = Document.create("cap");
-    cap.setField("input1", "I live in the United States.");
-    stage.processDocument(cap);
-    assertEquals("North America", cap.getString("output"));
-
-    Document low = Document.create("low");
-    low.setField("input1", "i live in the united states.");
-    stage.processDocument(low);
-    assertEquals("North America", low.getString("output"));
-  }
-
-  @Test
   public void testIgnoreOverlapsFalseEmitsAll() throws Exception {
     Stage stage = factory.get("ExtractEntitiesFSTTest/configOverlapFalse.conf");
     Document doc = Document.create("doc");
@@ -184,17 +169,6 @@ public class ExtractEntitiesFSTTest {
   }
 
   @Test
-  public void testPunctuationStripping() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesFSTTest/configOverlapTrue.conf");
-    Document doc = Document.create("doc");
-    // the first 5 versions of "New York" are treated as matches, the remaining 4 are not
-    doc.setField("text", "New|York New-York New,York New York New;York | New_York New:York New'York NewYork");
-    stage.processDocument(doc);
-    List<String> out = doc.getStringList("out");
-    assertEquals(5, out.size());
-  }
-
-  @Test
   public void testPayloadFallbackWhenMissingPayload() throws Exception {
     Stage stage = factory.get("ExtractEntitiesFSTTest/configMissingPayloadFallback.conf");
 
@@ -218,4 +192,64 @@ public class ExtractEntitiesFSTTest {
     long count = out.stream().filter("North America"::equals).count();
     assertEquals(2, count);
   }
+
+  @Test
+  public void testLowercaseOnlyPunctSplitAndLowercase() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configLowercaseOnly.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("input1", "i live in the united-states.");
+    stage.processDocument(doc);
+
+    assertEquals("North America", doc.getString("payload"));
+    assertEquals("united states", doc.getString("entity"));
+  }
+
+  @Test
+  public void testCustomBreaksWhitespaceOnlyNoRegex() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configCustomWhitespaceOnly.conf");
+
+    Document docA = Document.create("docA");
+    docA.setField("input1", "I live in United States");
+    stage.processDocument(docA);
+    assertEquals("North America", docA.getString("payload"));
+
+    Document docB = Document.create("docB");
+    docB.setField("input1", "I live in United-States");
+    stage.processDocument(docB);
+    assertFalse(docB.has("payload"));
+  }
+
+  @Test
+  public void testCustomBreaksWithAllPunctRegex() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configCustomRegexAllPunct.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("input1", "United,States United-States United;States,, United States");
+    stage.processDocument(doc);
+
+    List<String> payloads = doc.getStringList("payload");
+    assertNotNull(payloads);
+    assertEquals(4, payloads.size());
+    for (String p : payloads) {
+      assertEquals("North America", p);
+    }
+  }
+
+  @Test
+  public void testDefaultNoLowercaseCaseSensitive() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/configDefaultCaseSensitive.conf");
+
+    Document doc = Document.create("doc");
+    doc.setField("input1", "i live in the united states.");
+    stage.processDocument(doc);
+
+    assertFalse("Default should be case-sensitive without ignore_case=true", doc.has("payload"));
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("input1", "I live in the United States.");
+    stage.processDocument(doc2);
+    assertEquals("North America", doc2.getString("payload"));
+  }
+
 }
