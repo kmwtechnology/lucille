@@ -9,10 +9,14 @@ import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
+import java.io.Reader;
+import java.util.regex.Pattern;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
+import org.apache.lucene.analysis.core.WhitespaceTokenizer;
+import org.apache.lucene.analysis.core.LowerCaseFilter;
+import org.apache.lucene.analysis.pattern.PatternReplaceCharFilter;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IntsRef;
@@ -40,6 +44,10 @@ import java.util.*;
  *   all overlapping matches that start at that position. Defaults to false.</li>
  *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
  *   <li>ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
+ *   <li>use_custom_breaks (Boolean, Optional) : If true, tokenization uses a whitespace tokenizer. Optionally, if token_break_regex is provided
+ *   a pattern replace filter applies first to replace matches with a single space. Defaults to false.</li>
+ *   <li>token_break_regex (String, Optional) : Regex for characters/sequences to replace with spaces prior to tokenization. If omitted, no
+ *   replacements are applied (pure whitespace tokenization).</li>
  *   <li>update_mode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
  *   <li>dicts_sorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed and lowercased
@@ -56,8 +64,8 @@ public class ExtractEntitiesFST extends Stage {
       .requiredList("dictionaries", new TypeReference<List<String>>() {})
       .requiredList("source", new TypeReference<List<String>>() {})
       .requiredList("dest", new TypeReference<List<String>>() {})
-      .optionalBoolean("use_payloads", "ignore_overlaps", "stop_on_hit", "ignore_case", "dicts_sorted")
-      .optionalString("update_mode", "entity_field")
+      .optionalBoolean("use_payloads", "ignore_overlaps", "stop_on_hit", "ignore_case", "use_custom_breaks", "dicts_sorted")
+      .optionalString("update_mode", "entity_field", "token_break_regex")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .build();
 
@@ -75,6 +83,8 @@ public class ExtractEntitiesFST extends Stage {
 
   // Analysis
   private final Analyzer analyzer;
+  private final boolean useCustomBreaks;
+  private final Pattern tokenBreakPattern;
 
   // FSTs
   private FST<Object> fstNoPayloads;   // used when use_payloads=false
@@ -92,15 +102,55 @@ public class ExtractEntitiesFST extends Stage {
     this.dictsSorted = ConfigUtils.getOrDefault(config, "dicts_sorted", false);
     this.entityField = ConfigUtils.getOrDefault(config, "entity_field", null);
     this.updateMode = UpdateMode.fromConfig(config);
+    this.useCustomBreaks = ConfigUtils.getOrDefault(config, "use_custom_breaks", false);
 
-    if (ignoreCase) {
-      this.analyzer = new StandardAnalyzer();
+    if (useCustomBreaks) {
+      if (config.hasPath("token_break_regex")) {
+        String regex = config.getString("token_break_regex");
+        this.tokenBreakPattern = Pattern.compile(regex, Pattern.UNICODE_CHARACTER_CLASS);
+      } else {
+        this.tokenBreakPattern = null;
+      }
     } else {
-      this.analyzer = new Analyzer() {
+      this.tokenBreakPattern = null;
+    }
+
+    this.analyzer = buildAnalyzer();
+  }
+
+  private Analyzer buildAnalyzer() {
+    if (useCustomBreaks) {
+      return new Analyzer() {
         @Override
-        protected TokenStreamComponents createComponents(String fieldName) { return new TokenStreamComponents(new StandardTokenizer()); }
+        protected Reader initReader(String fieldName, Reader reader) {
+          return (tokenBreakPattern == null)
+              ? reader
+              : new PatternReplaceCharFilter(tokenBreakPattern, " ", reader);
+        }
+
+        @Override
+        protected TokenStreamComponents createComponents(String s) {
+          WhitespaceTokenizer tokenizer = new WhitespaceTokenizer();
+          TokenStream stream = tokenizer;
+          if (ignoreCase) {
+            stream = new LowerCaseFilter(stream);
+          }
+          return new TokenStreamComponents(tokenizer, stream);
+        }
       };
     }
+
+    return new Analyzer() {
+      @Override
+      protected TokenStreamComponents createComponents(String s) {
+        StandardTokenizer tokenizer = new StandardTokenizer();
+        TokenStream stream = tokenizer;
+        if (ignoreCase) {
+          stream = new LowerCaseFilter(stream);
+        }
+        return new TokenStreamComponents(tokenizer, stream);
+      }
+    };
   }
 
   @Override
