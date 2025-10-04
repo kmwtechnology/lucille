@@ -107,7 +107,7 @@ public class ExtractEntitiesFST extends Stage {
     if (useCustomBreaks) {
       if (config.hasPath("token_break_regex")) {
         String regex = config.getString("token_break_regex");
-        this.tokenBreakPattern = Pattern.compile(regex, Pattern.UNICODE_CHARACTER_CLASS);
+        this.tokenBreakPattern = Pattern.compile(regex);
       } else {
         this.tokenBreakPattern = null;
       }
