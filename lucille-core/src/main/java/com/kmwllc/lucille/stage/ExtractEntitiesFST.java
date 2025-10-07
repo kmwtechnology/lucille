@@ -44,8 +44,9 @@ import java.util.*;
  *   all overlapping matches that start at that position. Defaults to false.</li>
  *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
  *   <li>ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
- *   <li>use_whitespace_tokenizer (Boolean, Optional) : If true, tokenization uses a whitespace tokenizer. If token_break_regex is provided
- *   a pattern replace filter applies first to replace matches with a single space. Defaults to false.</li>
+ *   <li>use_whitespace_tokenizer (Boolean, Optional) : If true, tokenization uses Lucene's WhitespaceTokenizer. If token_break_regex is provided
+ *   a pattern replace filter applies first to replace matches with a single space. If false, tokenization uses Lucene's StandardTokenizer.
+ *   Defaults to false.</li>
  *   <li>token_break_regex (String, Optional) : Regex for characters/sequences to replace with spaces prior to tokenization. If omitted, no
  *   replacements are applied (pure whitespace tokenization). Requires use_whitespace_tokenizer=true.</li>
  *   <li>update_mode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
