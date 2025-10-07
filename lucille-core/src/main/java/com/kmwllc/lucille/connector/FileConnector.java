@@ -36,7 +36,8 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>pathsToStorage (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs).</li>
+ *   <li>pathsToStorage (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
+ *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.lastModifiedCutoff (String, Optional) : Duration string to include only files modified within this period (e.g., "1h").</li>
