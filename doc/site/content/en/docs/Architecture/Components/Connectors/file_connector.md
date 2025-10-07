@@ -17,7 +17,7 @@ specify the maximum number of files (`maxNumOfPages`) that Lucille will load int
 
 * **Azure**: Specify the needed options in `azure` in your Config. You must provide `connectionString`, or you must provide `accountName` and `accountKey`.
 * **Google**: Specify the needed options in `gcp` in your Config. You must provide `pathToServiceKey`.
-* **S3**: Specify the needed options in `s3` in your Config. You must provide `accessKeyId`, `secretAccessKey`, and `region`.
+* **S3**: Specify the needed options in `s3` in your Config. You must provide `accessKeyId`, `secretAccessKey`, and `region`. For URIs, `pathsToStorage` must be percent-encoded for special characters (e.g., `s3://test/folder%20with%20spaces`).
 * For each of these providers, in their configuration, you can optionally include `maxNumOfPages` as well.
 
 ### Applying FileHandlers
