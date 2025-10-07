@@ -44,10 +44,10 @@ import java.util.*;
  *   all overlapping matches that start at that position. Defaults to false.</li>
  *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
  *   <li>ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
- *   <li>use_custom_breaks (Boolean, Optional) : If true, tokenization uses a whitespace tokenizer. Optionally, if token_break_regex is provided
+ *   <li>use_whitespace_tokenizer (Boolean, Optional) : If true, tokenization uses a whitespace tokenizer. If token_break_regex is provided
  *   a pattern replace filter applies first to replace matches with a single space. Defaults to false.</li>
  *   <li>token_break_regex (String, Optional) : Regex for characters/sequences to replace with spaces prior to tokenization. If omitted, no
- *   replacements are applied (pure whitespace tokenization).</li>
+ *   replacements are applied (pure whitespace tokenization). Requires use_whitespace_tokenizer=true.</li>
  *   <li>update_mode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
  *   <li>dicts_sorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed and lowercased
@@ -64,7 +64,7 @@ public class ExtractEntitiesFST extends Stage {
       .requiredList("dictionaries", new TypeReference<List<String>>() {})
       .requiredList("source", new TypeReference<List<String>>() {})
       .requiredList("dest", new TypeReference<List<String>>() {})
-      .optionalBoolean("use_payloads", "ignore_overlaps", "stop_on_hit", "ignore_case", "use_custom_breaks", "dicts_sorted")
+      .optionalBoolean("use_payloads", "ignore_overlaps", "stop_on_hit", "ignore_case", "use_whitespace_tokenizer", "dicts_sorted")
       .optionalString("update_mode", "entity_field", "token_break_regex")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .build();
@@ -83,14 +83,14 @@ public class ExtractEntitiesFST extends Stage {
 
   // Analysis
   private final Analyzer analyzer;
-  private final boolean useCustomBreaks;
+  private final boolean useWhitespaceTokenizer;
   private final Pattern tokenBreakPattern;
 
   // FSTs
   private FST<Object> fstNoPayloads;   // used when use_payloads=false
   private FST<BytesRef> fstPayloads; // used when use_payloads=true
 
-  public ExtractEntitiesFST(Config config) {
+  public ExtractEntitiesFST(Config config) throws StageException {
     super(config);
     this.dictionaries = config.getStringList("dictionaries"); // Dict files to load
     this.sourceFields = config.getStringList("source"); // Fields in the input doc to read from
@@ -102,9 +102,9 @@ public class ExtractEntitiesFST extends Stage {
     this.dictsSorted = ConfigUtils.getOrDefault(config, "dicts_sorted", false);
     this.entityField = ConfigUtils.getOrDefault(config, "entity_field", null);
     this.updateMode = UpdateMode.fromConfig(config);
-    this.useCustomBreaks = ConfigUtils.getOrDefault(config, "use_custom_breaks", false);
+    this.useWhitespaceTokenizer = ConfigUtils.getOrDefault(config, "use_whitespace_tokenizer", false);
 
-    if (useCustomBreaks) {
+    if (useWhitespaceTokenizer) {
       if (config.hasPath("token_break_regex")) {
         String regex = config.getString("token_break_regex");
         this.tokenBreakPattern = Pattern.compile(regex);
@@ -115,11 +115,15 @@ public class ExtractEntitiesFST extends Stage {
       this.tokenBreakPattern = null;
     }
 
+    if (!useWhitespaceTokenizer && config.hasPath("token_break_regex")) {
+      throw new StageException("token_break_regex requires use_whitespace_tokenizer=true.");
+    }
+
     this.analyzer = buildAnalyzer();
   }
 
   private Analyzer buildAnalyzer() {
-    if (useCustomBreaks) {
+    if (useWhitespaceTokenizer) {
       return new Analyzer() {
         @Override
         protected Reader initReader(String fieldName, Reader reader) {
@@ -143,6 +147,8 @@ public class ExtractEntitiesFST extends Stage {
     return new Analyzer() {
       @Override
       protected TokenStreamComponents createComponents(String s) {
+        // Use StandardTokenizer with custom TokenStreamComponents instead of StandardAnalyzer
+        // StandardAnalyzer has a set of common stopwords (which we don't want here) and always applies lowercasing (which we want to toggle here)
         StandardTokenizer tokenizer = new StandardTokenizer();
         TokenStream stream = tokenizer;
         if (ignoreCase) {
