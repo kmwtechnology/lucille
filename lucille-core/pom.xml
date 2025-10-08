@@ -418,8 +418,9 @@
             <goals>
               <goal>test-jar</goal>
             </goals>
-            <!-- only create test jars for builds and not releases-->
-            <phase>install</phase>
+            <configuration>
+              <skip>${skipTestsJar}</skip>
+            </configuration>
           </execution>
         </executions>
       </plugin>
