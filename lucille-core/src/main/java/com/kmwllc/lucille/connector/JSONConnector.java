@@ -1,11 +1,12 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.FileContentFetcher;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.InputStream;
 

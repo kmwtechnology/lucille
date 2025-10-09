@@ -7,7 +7,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -66,7 +66,7 @@ public class TextExtractor extends Stage {
   private List<String> metadataBlacklist;
   private Parser parser;
   private ParseContext parseCtx;
-  private final FileContentFetcher fileFetcher;
+  private final DefaultFileContentFetcher fileFetcher;
 
   public TextExtractor(Config config) throws StageException {
     super(config);
@@ -90,7 +90,7 @@ public class TextExtractor extends Stage {
     }
     parseCtx = new ParseContext();
 
-    this.fileFetcher = new FileContentFetcher(config);
+    this.fileFetcher = new DefaultFileContentFetcher(config);
   }
 
   @Override

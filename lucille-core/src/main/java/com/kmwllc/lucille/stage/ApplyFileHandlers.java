@@ -10,7 +10,7 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -59,7 +59,7 @@ public class ApplyFileHandlers extends Stage {
 
   private final String filePathField;
   private final String fileContentField;
-  private final FileContentFetcher fileFetcher;
+  private final DefaultFileContentFetcher fileFetcher;
 
   private Map<String, FileHandler> fileHandlers;
 
@@ -78,7 +78,7 @@ public class ApplyFileHandlers extends Stage {
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");
 
-    this.fileFetcher = new FileContentFetcher(config);
+    this.fileFetcher = new DefaultFileContentFetcher(config);
   }
 
   @Override

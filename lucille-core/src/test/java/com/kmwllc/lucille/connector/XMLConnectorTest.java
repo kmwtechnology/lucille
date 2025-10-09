@@ -5,7 +5,7 @@ import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StageFactory;
 import com.kmwllc.lucille.stage.XPathExtractor;
-import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;

@@ -5,7 +5,7 @@ import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
@@ -76,7 +76,7 @@ public class ExtractEntities extends Stage {
   private final boolean ignoreOverlaps;
   private final boolean usePayloads;
   private final String entityField;
-  private final FileContentFetcher fileFetcher;
+  private final DefaultFileContentFetcher fileFetcher;
 
   public ExtractEntities(Config config) {
     super(config);
@@ -94,7 +94,7 @@ public class ExtractEntities extends Stage {
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
     this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
-    this.fileFetcher = new FileContentFetcher(config);
+    this.fileFetcher = new DefaultFileContentFetcher(config);
   }
 
   @Override

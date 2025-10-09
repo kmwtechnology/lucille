@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage.util;
 
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
@@ -107,7 +107,7 @@ public class DictionaryManager {
    * @return the populated HashMap
    */
   private static HashMap<String, List<String>> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config config) throws IOException {
-    FileContentFetcher fetcher = new FileContentFetcher(config);
+    DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(config);
     fetcher.startup();
 
     try (CSVReader reader = new CSVReader(fetcher.getReader(dictPath))) {

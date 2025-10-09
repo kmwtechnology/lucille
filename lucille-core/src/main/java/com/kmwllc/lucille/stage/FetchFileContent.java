@@ -7,7 +7,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,7 +36,7 @@ public class FetchFileContent extends Stage {
   private final String filePathField;
   private final String fileContentField;
 
-  private final FileContentFetcher fileFetcher;
+  private final DefaultFileContentFetcher fileFetcher;
 
   public FetchFileContent(Config config) {
     super(config);
@@ -44,7 +44,7 @@ public class FetchFileContent extends Stage {
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");
 
-    this.fileFetcher = new FileContentFetcher(config);
+    this.fileFetcher = new DefaultFileContentFetcher(config);
   }
 
   @Override

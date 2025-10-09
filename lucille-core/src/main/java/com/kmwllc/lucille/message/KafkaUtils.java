@@ -2,8 +2,9 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.FileContentFetcher;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;

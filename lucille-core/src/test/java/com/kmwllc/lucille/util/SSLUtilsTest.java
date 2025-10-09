@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.core.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.After;
