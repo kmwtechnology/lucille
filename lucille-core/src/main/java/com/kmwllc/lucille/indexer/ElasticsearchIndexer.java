@@ -110,7 +110,7 @@ public class ElasticsearchIndexer extends Indexer {
   @Override
   public boolean validateConnection() {
     if (client == null) {
-      return false;
+      return true;
     }
     BooleanResponse response;
     try {
