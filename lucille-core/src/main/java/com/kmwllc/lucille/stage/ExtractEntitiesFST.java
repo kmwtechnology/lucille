@@ -51,8 +51,8 @@ import java.util.*;
  *   replacements are applied (pure whitespace tokenization). Requires use_whitespace_tokenizer=true.</li>
  *   <li>update_mode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>dicts_sorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed and lowercased
- *   if ignore_case=true). Skips sorting to reduce startup time. Defaults to false.</li>
+ *   <li>dicts_sorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed, tokenized,
+ *   and lowercased if ignore_case=true). Skips sorting to reduce startup time. Defaults to false.</li>
  *   <li>entity_field (String, Optional) : When set and use_payloads=true, also writes the matched normalized surface terms to this field.</li>
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
@@ -203,7 +203,7 @@ public class ExtractEntitiesFST extends Stage {
           }
 
           // Normalize term with trim and lowercase
-          String term = normalizeKey(line[0]);
+          String term = normalizeDictKey(line[0]);
           if (term.isEmpty() || termToPayload.containsKey(term)) {
             continue;
           }
@@ -212,6 +212,10 @@ public class ExtractEntitiesFST extends Stage {
           String payload = (line.length > 1 && line[1] != null && !line[1].trim().isEmpty())
               ? line[1].trim()
               : null;
+
+          if (payload == null || payload.isEmpty()) {
+            payload = term;
+          }
 
           termToPayload.put(term, payload);
         }
@@ -516,5 +520,19 @@ public class ExtractEntitiesFST extends Stage {
   private String normalizeKey(String s) {
     String t = (s == null) ? "" : s.trim();
     return ignoreCase ? t.toLowerCase(Locale.ROOT) : t;
+  }
+
+  private String normalizeDictKey(String s) {
+    if (s == null) {
+      return "";
+    }
+
+    List<String> toks = tokenize(s);
+
+    if (toks.isEmpty()) {
+      return "";
+    }
+
+    return String.join(" ", toks);
   }
 }
