@@ -202,6 +202,18 @@ public class ExtractEntitiesFST extends Stage {
             continue;
           }
 
+          boolean ignore = false;
+          for (String cell : line) {
+            if (cell != null && cell.contains("\uFFFD")) {
+              ignore = true;
+              break;
+            }
+          }
+
+          if (ignore) {
+            continue;
+          }
+
           // Normalize term with trim and lowercase
           String term = normalizeDictKey(line[0]);
           if (term.isEmpty() || termToPayload.containsKey(term)) {
