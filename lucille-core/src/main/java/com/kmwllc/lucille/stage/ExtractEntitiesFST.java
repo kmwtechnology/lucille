@@ -374,8 +374,7 @@ public class ExtractEntitiesFST extends Stage {
         String tok = tokens.get(mark++);
         sb.append(tok);
 
-        // Normalize once and reuse
-        String key = normalizeKey(sb.toString());
+        String key = sb.toString();
 
         // Check complete match once, store payload if applicable
         if (usePayloads) {
@@ -516,23 +515,17 @@ public class ExtractEntitiesFST extends Stage {
     return irb.get();
   }
 
-  // Normalize a key based on the ignore case option
-  private String normalizeKey(String s) {
-    String t = (s == null) ? "" : s.trim();
-    return ignoreCase ? t.toLowerCase(Locale.ROOT) : t;
-  }
-
   private String normalizeDictKey(String s) {
     if (s == null) {
       return "";
     }
 
-    List<String> toks = tokenize(s);
+    List<String> tokens = tokenize(s);
 
-    if (toks.isEmpty()) {
+    if (tokens.isEmpty()) {
       return "";
     }
 
-    return String.join(" ", toks);
+    return String.join(" ", tokens);
   }
 }
