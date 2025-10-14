@@ -369,11 +369,86 @@ public class ApplyPython extends Stage {
     private static ObjectNode pyObjectToObjectNode(Value v) {
       ObjectNode obj = JSON.objectNode();
 
+      try {
+        if (v.canInvokeMember("items")) {
+          Value items = v.invokeMember("items");
+
+          if (items.hasArrayElements()) {
+            long n = items.getArraySize();
+
+            for (int i = 0; i < n; i++) {
+              Value pair = items.getArrayElement(i);
+              String keyStr = keyToString(pair.getArrayElement(0));
+              Value val = pair.getArrayElement(1);
+              obj.set(keyStr, pyValueToJsonNode(val));
+            }
+
+            return obj;
+          }
+
+          Value it = items.invokeMember("__iter__");
+          while (true) {
+            Value pair;
+
+            try {
+              pair = it.invokeMember("__next__");
+            } catch (PolyglotException pe) {
+              if (isStopIteration(pe)) {
+                break;
+              }
+
+              throw pe;
+            }
+
+            String keyStr = keyToString(pair.getArrayElement(0));
+            Value val = pair.getArrayElement(1);
+            obj.set(keyStr, pyValueToJsonNode(val));
+          }
+
+          return obj;
+        }
+      } catch (Throwable ignore) {
+
+      }
+
       for (String k : v.getMemberKeys()) {
+        if (k.startsWith("__") && k.endsWith("__")) {
+          continue;
+        }
+
         obj.set(k, pyValueToJsonNode(v.getMember(k)));
       }
 
       return obj;
+    }
+
+    private static String keyToString(Value v) {
+      try {
+        if (v.isString()) {
+          return v.asString();
+        }
+        Object o = v.as(Object.class);
+        return String.valueOf(o);
+      } catch (Throwable t) {
+        return String.valueOf(v);
+      }
+    }
+
+    private static boolean isStopIteration(PolyglotException e) {
+      try {
+        Value guest = e.getGuestObject();
+
+        if (guest != null) {
+          Value meta = guest.getMetaObject();
+          String ms = (meta != null ? meta.toString() : "");
+          if (ms != null && ms.contains("StopIteration")) {
+            return true;
+          }
+        }
+      } catch (Throwable ignore) {}
+
+      String msg = e.getMessage();
+      return msg != null && msg.contains("StopIteration");
     }
 
     private static JsonNode pyValueToJsonNode(Value v) {

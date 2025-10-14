@@ -1,8 +1,6 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -26,22 +24,22 @@ public class ApplyPythonTest {
     return factory.get(conf);
   }
 
-//  @Test
-//  public void testValidExternalScript() throws StageException {
-//    Stage stage = factory.get("ApplyPythonTest/valid.conf");
-//
-//    Document d1 = Document.create("d1");
-//    d1.setField("a", 2);
-//    d1.setField("b", 3);
-//    stage.processDocument(d1);
-//    assertEquals(Integer.valueOf(5), d1.getInt("sum"));
-//
-//    Document d2 = Document.create("d2");
-//    d2.setField("a", 100);
-//    d2.setField("b", 250);
-//    stage.processDocument(d2);
-//    assertEquals(Integer.valueOf(350), d2.getInt("sum"));
-//  }
+  @Test
+  public void testValidExternalScript() throws StageException {
+    Stage stage = factory.get("ApplyPythonTest/valid.conf");
+
+    Document d1 = Document.create("d1");
+    d1.setField("a", 2);
+    d1.setField("b", 3);
+    stage.processDocument(d1);
+    assertEquals(Integer.valueOf(5), d1.getInt("sum"));
+
+    Document d2 = Document.create("d2");
+    d2.setField("a", 100);
+    d2.setField("b", 250);
+    stage.processDocument(d2);
+    assertEquals(Integer.valueOf(350), d2.getInt("sum"));
+  }
 
   @Test
   public void testRuntimeError() throws StageException {
