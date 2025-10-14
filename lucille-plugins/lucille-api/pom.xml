@@ -7,7 +7,7 @@
     <parent>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-plugins</artifactId>
-      <version>0.5.7-SNAPSHOT</version>
+      <version>0.5.9-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -125,13 +125,13 @@
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
-        <version>1.4.11</version>
+        <version>1.4.14</version>
       </dependency>
 
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-access</artifactId>
-        <version>1.4.11</version>
+        <version>1.4.14</version>
       </dependency>
     </dependencies>
 
@@ -212,6 +212,26 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+              <groupId>org.codehaus.mojo</groupId>
+              <artifactId>exec-maven-plugin</artifactId>
+              <version>3.5.1</version>
+              <executions>
+                <execution>
+                  <id>generate-json-docs</id>
+                  <phase>generate-resources</phase>
+                  <goals><goal>exec</goal></goals>
+                  <configuration>
+                    <executable>bash</executable>
+                    <workingDirectory>${project.basedir}/../../</workingDirectory>
+                    <arguments>
+                      <argument>./run-jsondoclet.sh</argument>
+                    </arguments>
+                  </configuration>
+                </execution>
+              </executions>
             </plugin>
         </plugins>
     </build>

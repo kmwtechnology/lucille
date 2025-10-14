@@ -8,7 +8,7 @@
   <groupId>com.kmwllc</groupId>
   <artifactId>lucille-parent</artifactId>
   <name>Lucille Parent</name>
-  <version>0.5.7-SNAPSHOT</version>
+  <version>0.5.9-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>Lucille is a production-grade Search ETL solution.</description>
   <url>https://github.com/kmwtechnology/lucille</url>
@@ -56,7 +56,7 @@
     <aws-java-sdk.version>1.12.769</aws-java-sdk.version>
     <log4j.version>2.20.0</log4j.version>
     <slf4j.version>2.0.7</slf4j.version>
-    <apache-commons-lang3.version>3.12.0</apache-commons-lang3.version>
+    <apache-commons-lang3.version>3.18.0</apache-commons-lang3.version>
     <apache-commons-text.version>1.10.0</apache-commons-text.version>
     <protobuf.version>3.25.5</protobuf.version>
     <netty.version>4.1.119.Final</netty.version>

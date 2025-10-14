@@ -138,10 +138,25 @@ public class PublisherImpl implements Publisher {
 
   public void sendForProcessing(Document document) throws Exception {
     document.initializeRunId(runId);
+
     // capture the docId before we make the document available for update by other threads
     String docId = document.getId();
-    messenger.sendForProcessing(document);
+
+    // It is important to add the docId to docIdsToTrack before sending it for processing, not after.
+    // As soon as the document has been sent for processing, the publisher could begin receiving Events relating to that document.
+    // If the publisher quickly receives a DROP event, for example, we want to be sure that the docId has already been
+    // added to docIdsToTrack so that it can be found there and removed, not mistakenly added to docIdsIndexedBeforeTracking
     docIdsToTrack.add(docId);
+
+    try {
+      messenger.sendForProcessing(document);
+    } catch (Exception e) {
+      // we assume that if an exception was encountered here, the doc was not actually made available for processing,
+      // and that we won't be receiving any Events relating to it, so we can stop tracking its docId now
+      docIdsToTrack.remove(docId);
+      throw e;
+    }
+
     numPublished++;
   }
 

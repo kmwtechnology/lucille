@@ -31,6 +31,21 @@ import org.apache.solr.common.util.SimpleOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Indexes documents to Solr using SolrJ.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>url (List&lt;String&gt;, Optional) : One or more Solr base URLs (e.g., https://localhost:8983).</li>
+ *   <li>useCloudClient (Boolean, Optional) : Use the SolrCloud client. Defaults to false.</li>
+ *   <li>zkHosts (List&lt;String&gt;, Optional) : ZooKeeper connection strings when using SolrCloud.</li>
+ *   <li>zkChroot (String, Optional) : ZooKeeper chroot used with SolrCloud.</li>
+ *   <li>defaultCollection (String, Optional) : Default Solr collection to index into when no index override is present.</li>
+ *   <li>userName (String, Optional) : Username for HTTP authentication.</li>
+ *   <li>password (String, Optional) : Password for HTTP authentication.</li>
+ *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
+ * </ul>
+ */
 public class SolrIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()

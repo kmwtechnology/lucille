@@ -68,16 +68,7 @@ public class Pipeline {
     List<Exception> exceptions = new ArrayList<>();
     for (Config c : stages) {
       try {
-        if (!c.hasPath("class")) {
-          throw new IllegalArgumentException("No Stage class specified");
-        }
-
-        Class<?> clazz = Class.forName(c.getString("class"));
-        Constructor<?> constructor = clazz.getConstructor(Config.class);
-        // Construct the stage. Validation takes place in the super() constructor.
-        getInstance(constructor, c);
-      } catch (ReflectiveOperationException e) {
-        exceptions.add(new StageException("Reflective error with Stage " + c.getString("class") + ": " + e.getMessage()));
+        Stage.fromConfig(c);
       } catch (Exception e) {
         exceptions.add(e);
       }
@@ -94,29 +85,11 @@ public class Pipeline {
       Exception {
     Pipeline pipeline = new Pipeline();
     for (Config c : stages) {
-      Class<?> clazz = Class.forName(c.getString("class"));
-      Constructor<?> constructor = clazz.getConstructor(Config.class);
-      Stage stage = getInstance(constructor, c);
+      Stage stage = Stage.fromConfig(c);
       pipeline.addStage(stage, metricsPrefix);
     }
     pipeline.startStages();
     return pipeline;
-  }
-
-  // Constructs a Stage from the given constructor, using the given Config. All Stage constructors run
-  // validation. Will throw the target exception (cause) of an InvocationTargetException, if thrown, to clearly
-  // state what properties were missing / illegal.
-  private static Stage getInstance(Constructor<?> constructor, Config c)
-      throws Exception {
-    try {
-      return (Stage) constructor.newInstance(c);
-    } catch (InvocationTargetException e) {
-      if (e.getCause() instanceof Exception) {
-        throw (Exception) e.getCause();
-      } else {
-        throw e;
-      }
-    }
   }
 
   /**
