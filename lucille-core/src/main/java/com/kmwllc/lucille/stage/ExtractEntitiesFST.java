@@ -2,73 +2,49 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.util.StageUtils;
 import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
-import java.io.Reader;
-import java.util.regex.Pattern;
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.standard.StandardTokenizer;
-import org.apache.lucene.analysis.core.WhitespaceTokenizer;
-import org.apache.lucene.analysis.core.LowerCaseFilter;
-import org.apache.lucene.analysis.pattern.PatternReplaceCharFilter;
-import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Iterator;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IntsRef;
 import org.apache.lucene.util.IntsRefBuilder;
-import org.apache.lucene.util.fst.*;
+import org.apache.lucene.util.fst.ByteSequenceOutputs;
+import org.apache.lucene.util.fst.FST;
+import org.apache.lucene.util.fst.FSTCompiler;
+import org.apache.lucene.util.fst.NoOutputs;
+import org.apache.lucene.util.fst.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.*;
-
-/**
- * Extracts dictionary-based entities from document text fields using a Lucene FST. Matches can optionally map to
- * payload values, control overlap behavior, and quit on first hit. Dictionaries are read as UTF-8 meaning all files
- * must be UTF-8 encoded. Any invalid bytes will prevent those entries from matching during extraction.
- * <p>
- * Config Parameters -
- * <ul>
- *   <li>dictionaries (List&lt;String&gt;, Required) : Paths to CSV dictionary files. Each row’s first column is the extraction term
- *   and the second column (optional) is the payload.</li>
- *   <li>source (List&lt;String&gt;, Required) : List of source field names.</li>
- *   <li>dest (List&lt;String&gt;, Required) : List of destination field names. You can either supply the same number of source and destination
- *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
- *   <li>use_payloads (Boolean, Optional) : Denotes whether payloads from the dictionary should be used or not.</li>
- *   <li>ignore_overlaps (Boolean, Optional) : If true, emits only the single longest match starting at a position; if false, emits
- *   all overlapping matches that start at that position. Defaults to false.</li>
- *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
- *   <li>ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
- *   <li>use_whitespace_tokenizer (Boolean, Optional) : If true, tokenization uses Lucene's WhitespaceTokenizer. If token_break_regex is provided
- *   a pattern replace filter applies first to replace matches with a single space. If false, tokenization uses Lucene's StandardTokenizer.
- *   Defaults to false.</li>
- *   <li>token_break_regex (String, Optional) : Regex for characters/sequences to replace with spaces prior to tokenization. If omitted, no
- *   replacements are applied (pure whitespace tokenization). Requires use_whitespace_tokenizer=true.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
- *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>dicts_sorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed, tokenized,
- *   and lowercased if ignore_case=true). Skips sorting to reduce startup time. Defaults to false.</li>
- *   <li>entity_field (String, Optional) : When set and use_payloads=true, also writes the matched normalized surface terms to this field.</li>
- *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
- *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
- *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
- * </ul>
- */
 public class ExtractEntitiesFST extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("dictionaries", new TypeReference<List<String>>() {})
       .requiredList("source", new TypeReference<List<String>>() {})
       .requiredList("dest", new TypeReference<List<String>>() {})
-      .optionalBoolean("use_payloads", "ignore_overlaps", "stop_on_hit", "ignore_case", "use_whitespace_tokenizer", "dicts_sorted")
-      .optionalString("update_mode", "entity_field", "token_break_regex")
+      .optionalBoolean("use_payloads", "ignore_overlaps", "stop_on_hit", "ignore_case", "dicts_sorted")
+      .optionalString("update_mode", "entity_field")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .build();
+
+  private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   // Config
   private final List<String> dictionaries;
@@ -82,13 +58,8 @@ public class ExtractEntitiesFST extends Stage {
   private final String entityField;
   private final UpdateMode updateMode;
 
-  // Analysis
-  private final Analyzer analyzer;
-  private final boolean useWhitespaceTokenizer;
-  private final Pattern tokenBreakPattern;
-
   // FSTs
-  private FST<Object> fstNoPayloads;   // used when use_payloads=false
+  private FST<Object> fstNoPayloads; // used when use_payloads=false
   private FST<BytesRef> fstPayloads; // used when use_payloads=true
 
   public ExtractEntitiesFST(Config config) throws StageException {
@@ -103,61 +74,6 @@ public class ExtractEntitiesFST extends Stage {
     this.dictsSorted = ConfigUtils.getOrDefault(config, "dicts_sorted", false);
     this.entityField = ConfigUtils.getOrDefault(config, "entity_field", null);
     this.updateMode = UpdateMode.fromConfig(config);
-    this.useWhitespaceTokenizer = ConfigUtils.getOrDefault(config, "use_whitespace_tokenizer", false);
-
-    if (useWhitespaceTokenizer) {
-      if (config.hasPath("token_break_regex")) {
-        String regex = config.getString("token_break_regex");
-        this.tokenBreakPattern = Pattern.compile(regex);
-      } else {
-        this.tokenBreakPattern = null;
-      }
-    } else {
-      this.tokenBreakPattern = null;
-    }
-
-    if (!useWhitespaceTokenizer && config.hasPath("token_break_regex")) {
-      throw new StageException("token_break_regex requires use_whitespace_tokenizer=true.");
-    }
-
-    this.analyzer = buildAnalyzer();
-  }
-
-  private Analyzer buildAnalyzer() {
-    if (useWhitespaceTokenizer) {
-      return new Analyzer() {
-        @Override
-        protected Reader initReader(String fieldName, Reader reader) {
-          return (tokenBreakPattern == null)
-              ? reader
-              : new PatternReplaceCharFilter(tokenBreakPattern, " ", reader);
-        }
-
-        @Override
-        protected TokenStreamComponents createComponents(String s) {
-          WhitespaceTokenizer tokenizer = new WhitespaceTokenizer();
-          TokenStream stream = tokenizer;
-          if (ignoreCase) {
-            stream = new LowerCaseFilter(stream);
-          }
-          return new TokenStreamComponents(tokenizer, stream);
-        }
-      };
-    }
-
-    return new Analyzer() {
-      @Override
-      protected TokenStreamComponents createComponents(String s) {
-        // Use StandardTokenizer with custom TokenStreamComponents instead of StandardAnalyzer
-        // StandardAnalyzer has a set of common stopwords (which we don't want here) and always applies lowercasing (which we want to toggle here)
-        StandardTokenizer tokenizer = new StandardTokenizer();
-        TokenStream stream = tokenizer;
-        if (ignoreCase) {
-          stream = new LowerCaseFilter(stream);
-        }
-        return new TokenStreamComponents(tokenizer, stream);
-      }
-    };
   }
 
   @Override
@@ -177,12 +93,12 @@ public class ExtractEntitiesFST extends Stage {
     }
   }
 
-  // Load and normalize terms with payloads
+  // Load and normalize terms with payloads (trim + optional lowercase)
   private LinkedHashMap<String, String> loadTermsAndPayloads() throws StageException {
     LinkedHashMap<String, String> termToPayload = new LinkedHashMap<>();
 
-    // Read each dict in our list
     for (String dictFile : dictionaries) {
+      log.info("loading Dictionary from {}", dictFile);
       try (CSVReader reader = new CSVReader(FileContentFetcher.getOneTimeReader(dictFile, config))) {
         String[] line;
         while (true) {
@@ -205,6 +121,7 @@ public class ExtractEntitiesFST extends Stage {
           boolean ignore = false;
           for (String cell : line) {
             if (cell != null && cell.contains("\uFFFD")) {
+              log.warn("Dictionary entry contained malformed characters and will be ignored. FILE={}, LINE={}", dictFile, reader.getLinesRead());
               ignore = true;
               break;
             }
@@ -307,9 +224,9 @@ public class ExtractEntitiesFST extends Stage {
   }
 
   private static final class MatchHit {
-    final String key; // normalized "token1 token2"
-    final String payload;
-    final int length; // number of tokens in the match
+    final String key;     // normalized key
+    final String payload; // payload or null if use_payloads=false
+    final int length;     // length in characters
     MatchHit(String key, String payload, int length) {
       this.key = key;
       this.payload = payload;
@@ -364,63 +281,108 @@ public class ExtractEntitiesFST extends Stage {
     return null;
   }
 
+  // --- Character-based matching ---
+
+  private static boolean isLeftBoundary(String s, int start) {
+    if (start <= 0) {
+      return true;
+    }
+    
+    int cp = s.codePointBefore(start);
+    return !Character.isLetter(cp);
+  }
+
+  private static boolean isRightBoundary(String s, int end) {
+    if (end >= s.length()) {
+      return true;
+    }
+    
+    int cp = s.codePointAt(end);
+    return !Character.isLetter(cp);
+  }
+
   private void findMatches(String raw, List<String> outputs, List<String> matchedTerms) {
-    // Tokenize once
-    List<String> tokens = tokenize(raw);
+    String converted = ignoreCase ? raw.toLowerCase(Locale.ROOT) : raw;
+    int n = converted.length();
 
-    int idx = 0;
-    while (idx < tokens.size()) {
-      int mark = idx;
-
-      // Build the growing phrase with a StringBuilder
-      StringBuilder sb = new StringBuilder();
-
-      // Collect full matches that start at idx
-      List<MatchHit> matchesHere = new ArrayList<>(2);
-
+    int i = 0;
+    while (i < n) {
+      int j = i + 1;
       boolean hasPrefix = true;
-      while (hasPrefix && mark < tokens.size()) {
-        if (sb.length() > 0) {
-          sb.append(' ');
-        }
-        String tok = tokens.get(mark++);
-        sb.append(tok);
 
-        String key = sb.toString();
+      MatchHit longest = null;
+      List<MatchHit> allAtI = ignoreOverlaps ? null : new ArrayList<>();
 
-        // Check complete match once, store payload if applicable
-        if (usePayloads) {
-          BytesRef br;
-          try {
-            br = Util.get(fstPayloads, new BytesRef(key));
-          } catch (Exception e) {
-            throw new RuntimeException("FST lookup failed", e);
-          }
-          if (br != null) {
-            String payload = br.utf8ToString();
-            if (payload != null && !payload.isEmpty()) {
-              matchesHere.add(new MatchHit(key, payload, (mark - idx)));
+      while (hasPrefix && j <= n) {
+        String window = converted.substring(i, j);
+
+        if (!window.isEmpty()) {
+          if (usePayloads) {
+            BytesRef br;
+            
+            try {
+              br = Util.get(fstPayloads, new BytesRef(window));
+            } catch (Exception e) {
+              throw new RuntimeException("FST lookup failed", e);
+            }
+            
+            if (br != null && isLeftBoundary(raw, i) && isRightBoundary(raw, j)) {
+              String payload = br.utf8ToString();
+              String key = window;
+              MatchHit hit = new MatchHit(key, payload, j - i);
+              
+              if (ignoreOverlaps) {
+                if (longest == null || hit.length > longest.length) {
+                  longest = hit;
+                }
+              } else {
+                allAtI.add(hit);
+              }
+            }
+          } else {
+            if (matchesCompletely(fstNoPayloads, new BytesRef(window))
+                && isLeftBoundary(raw, i) && isRightBoundary(raw, j)) {
+              String key = window;
+              MatchHit hit = new MatchHit(key, null, j - i);
+              
+              if (ignoreOverlaps) {
+                if (longest == null || hit.length > longest.length) longest = hit;
+              } else {
+                allAtI.add(hit);
+              }
             }
           }
-        } else {
-          if (matchesCompletely(fstNoPayloads, new BytesRef(key))) {
-            matchesHere.add(new MatchHit(key, null, (mark - idx)));
-          }
         }
 
-        // Continue only while we still have a dictionary prefix
-        hasPrefix = (usePayloads)
-            ? hasPrefixBytes(fstPayloads, new BytesRef(key))
-            : hasPrefixBytes(fstNoPayloads, new BytesRef(key));
-      }
+        // Early exit
+        hasPrefix = usePayloads
+            ? hasPrefixBytes(fstPayloads, new BytesRef(window))
+            : hasPrefixBytes(fstNoPayloads, new BytesRef(window));
 
-      // Emit according to overlap rules using precomputed results
-      MatchHit chosen = null;
-      if (!matchesHere.isEmpty()) {
-        if (!ignoreOverlaps) {
-          for (MatchHit m : matchesHere) {
+        j++;
+      }
+      
+      if (ignoreOverlaps) {
+        if (longest != null) {
+          if (usePayloads) {
+            outputs.add(longest.payload);
+            
+            if (matchedTerms != null) {
+              matchedTerms.add(longest.key);
+            }
+          } else {
+            outputs.add(longest.key);
+          }
+          i += Math.max(1, longest.length);
+        } else {
+          i++;
+        }
+      } else {
+        if (allAtI != null && !allAtI.isEmpty()) {
+          for (MatchHit m : allAtI) {
             if (usePayloads) {
               outputs.add(m.payload);
+              
               if (matchedTerms != null) {
                 matchedTerms.add(m.key);
               }
@@ -428,60 +390,18 @@ public class ExtractEntitiesFST extends Stage {
               outputs.add(m.key);
             }
           }
-        } else {
-          for (MatchHit m : matchesHere) {
-            if (chosen == null || m.length > chosen.length) {
-              chosen = m;
-            }
-          }
-          if (chosen != null) {
-            if (usePayloads) {
-              outputs.add(chosen.payload);
-              if (matchedTerms != null) {
-                matchedTerms.add(chosen.key);
-              }
-            } else {
-              outputs.add(chosen.key);
-            }
-          }
         }
+        
+        i++;
       }
 
-      // Advance
-      if (ignoreOverlaps && chosen != null) {
-        idx += Math.max(1, chosen.length);
-      } else {
-        idx++;
-      }
-
-      // Early exit
       if (stopOnHit && !outputs.isEmpty()) {
         break;
       }
     }
   }
 
-  // Tokenize a provided string
-  private List<String> tokenize(String input) {
-    // Used to hold extracted tokens
-    List<String> out = new ArrayList<>();
-
-    // Create a TokenStream using the input string
-    try (TokenStream ts = analyzer.tokenStream(null, new StringReader(input))) {
-      ts.reset();
-      CharTermAttribute term = ts.getAttribute(CharTermAttribute.class);
-      // Iterate through all tokens in the stream
-      while (ts.incrementToken()) {
-        out.add(term.toString());
-      }
-      ts.end();
-    } catch (IOException e) {
-      // StringReader -> shouldn't happen
-      throw new RuntimeException(e);
-    }
-
-    return out;
-  }
+  // --- FST helpers ---
 
   private static FST.Arc walk(FST fst, BytesRef input) {
     try {
@@ -532,12 +452,12 @@ public class ExtractEntitiesFST extends Stage {
       return "";
     }
 
-    List<String> tokens = tokenize(s);
+    String key = s.trim();
 
-    if (tokens.isEmpty()) {
-      return "";
+    if (ignoreCase) {
+      key = key.toLowerCase(Locale.ROOT);
     }
 
-    return String.join(" ", tokens);
+    return key;
   }
 }
