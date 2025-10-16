@@ -465,4 +465,15 @@ public class ExtractEntitiesFSTTest {
 
     assertEquals(List.of("X3"), doc.getStringList("output"));
   }
+
+  @Test
+  public void testLaterStartAfterDeadPrefix() throws Exception {
+    Stage stage = factory.get("ExtractEntitiesFSTTest/laterStartAfterDeadPrefix.conf");
+
+    Document doc = Document.create("docLater");
+    doc.setField("input1", "alpha & beta");
+    stage.processDocument(doc);
+
+    assertEquals(List.of("&BETA"), doc.getStringList("output"));
+  }
 }
