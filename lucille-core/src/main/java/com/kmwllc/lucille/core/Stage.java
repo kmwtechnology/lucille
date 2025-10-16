@@ -8,6 +8,8 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import org.apache.commons.collections4.iterators.IteratorChain;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -326,5 +328,40 @@ public abstract class Stage {
 
   public Set<String> getLegalProperties() {
     return getSpec().getLegalProperties();
+  }
+
+  /**
+   * Construct a Stage from a config that includes a clas property.
+   */
+  public static Stage fromConfig(Config config) throws Exception {
+    if (config == null) {
+      throw new IllegalArgumentException("Config cannot be null");
+    }
+    if (!config.hasPath("class")) {
+      throw new IllegalArgumentException("No Stage class specified");
+    }
+
+    String className = config.getString("class");
+    Class<?> raw = Class.forName(className);
+    if (!Stage.class.isAssignableFrom(raw)) {
+      throw new IllegalArgumentException("Class " + className + " is not a Stage");
+    }
+
+    Class<? extends Stage> cls = (Class<? extends Stage>) raw;
+    Constructor<? extends Stage> constructor = cls.getConstructor(Config.class);
+
+    return newInstance(constructor, config);
+  }
+
+  private static Stage newInstance(Constructor<? extends Stage> constructor, Config config) throws Exception {
+    try {
+      return constructor.newInstance(config);
+    } catch (InvocationTargetException e) {
+      if (e.getCause() instanceof Exception) {
+        throw (Exception) e.getCause();
+      } else {
+        throw e;
+      }
+    }
   }
 }

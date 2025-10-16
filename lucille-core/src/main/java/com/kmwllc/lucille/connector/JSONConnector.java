@@ -13,9 +13,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Connector implementation that produces documents from the rows in a given JSON or JSONL file.
- *
- * <br> The JSONConnector has been deprecated. Use {@link FileConnector} with a {@link JsonFileHandler}.
+ * Deprecated connector that produces documents from a JSON or JSONL file; use FileConnector with JsonFileHandler.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>jsonPath (String, Required) : Path to the JSON or JSONL file to read.</li>
+ * </ul>
  */
 @Deprecated
 public class JSONConnector extends AbstractConnector {

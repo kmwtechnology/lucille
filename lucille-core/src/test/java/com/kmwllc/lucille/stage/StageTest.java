@@ -298,4 +298,22 @@ public class StageTest {
     Document doc3 = Document.create("doc3");
     assertProcessed(stage, doc3, false);
   }
+
+  @Test
+  public void testValuesPathMust() throws StageException {
+    Stage stage = factory.get("StageTest/valuesPathMust.conf");
+
+    Document hit = Document.create("hit");
+    hit.setField("user_id", "1234");
+    assertProcessed(stage, hit, true);
+
+    Document miss = Document.create("miss");
+    miss.setField("user_id", "n/a");
+    assertProcessed(stage, miss, false);
+  }
+
+  @Test
+  public  void testValuesAndPathMutuallyExclusive() throws StageException {
+    assertThrows(StageException.class, () -> factory.get("StageTest/valuesAndPath.conf"));
+  }
 }

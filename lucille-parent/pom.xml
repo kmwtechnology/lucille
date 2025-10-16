@@ -8,7 +8,7 @@
   <groupId>com.kmwllc</groupId>
   <artifactId>lucille-parent</artifactId>
   <name>Lucille Parent</name>
-  <version>0.5.8-SNAPSHOT</version>
+  <version>0.5.9-SNAPSHOT</version>
   <packaging>pom</packaging>
   <description>Lucille is a production-grade Search ETL solution.</description>
   <url>https://github.com/kmwtechnology/lucille</url>

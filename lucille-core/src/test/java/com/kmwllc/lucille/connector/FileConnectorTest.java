@@ -412,4 +412,26 @@ public class FileConnectorTest {
       }
     }
   }
+
+  @Test
+  public void testLocalTraversal_DirWithSpacesAndSpecials_FromConf() throws Exception {
+    Config cfg = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/specialsLocal.conf").resolve();
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(cfg, messenger, "run", "pipeline1");
+    Connector connector = new FileConnector(cfg);
+
+    connector.execute(publisher);
+    List<Document> docs = messenger.getDocsSentForProcessing();
+
+    assertEquals(3, docs.size());
+
+    boolean sawText1 = docs.stream().anyMatch(d -> d.getString(FILE_PATH).endsWith("/directory%20with%20spaces/text%201.txt"));
+    boolean sawWeird = docs.stream().anyMatch(d -> d.getString(FILE_PATH).endsWith("/directory%20with%20spaces/name(with)@special%20chars.txt"));
+    boolean sawNormal = docs.stream().anyMatch(d -> d.getString(FILE_PATH).endsWith("/directory%20with%20spaces/normal.txt"));
+
+    assertTrue(sawText1);
+    assertTrue(sawWeird);
+    assertTrue(sawNormal);
+  }
 }

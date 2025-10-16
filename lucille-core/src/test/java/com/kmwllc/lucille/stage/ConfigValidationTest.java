@@ -280,8 +280,8 @@ public class ConfigValidationTest {
     // that there are multiple connectors named connector1
     assertEquals(3, exceptions.get("connector1").size());
     assertTrue(exceptions.get("connector1").get(0).getMessage().contains("bad_prop_first_time"));
-    assertTrue(exceptions.get("connector1").get(1).getMessage().contains("bad_prop_second_time"));
-    assertTrue(exceptions.get("connector1").get(2).getMessage().contains("multiple connectors with"));
+    assertTrue(exceptions.get("connector1").get(1).getMessage().contains("multiple connectors with"));
+    assertTrue(exceptions.get("connector1").get(2).getMessage().contains("bad_prop_second_time"));
   }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)

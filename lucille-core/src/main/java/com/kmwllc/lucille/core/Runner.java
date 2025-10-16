@@ -4,7 +4,6 @@ import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
-import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
@@ -76,15 +75,15 @@ public class Runner {
   }
 
   /**
-   * Runs the configured connectors.
+   * Runs the configured connectors. NOTE: parameters are case insensitive.
    * <p>
    * no args: pipelines workers and indexers will be executed in separate threads within the same JVM; communication
    * between components will take place in memory and Kafka will not be used
    * <p>
-   * -usekafka: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
+   * -useKafka: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
    * and indexers will not be run. The assumption is that these have been deployed as separate processes.
    * <p>
-   * -local: modifies -usekafka so that workers and indexers are started as separate threads within the same JVM;
+   * -local: modifies -useKafka so that workers and indexers are started as separate threads within the same JVM;
    * kafka is still used for communication between them.
    * <p>
    * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
@@ -92,9 +91,9 @@ public class Runner {
   public static void main(String[] args) throws Exception {
     Options cliOptions = new Options()
         .addOption(Option.builder("usekafka").hasArg(false)
-            .desc("Use Kafka for inter-component communication and don't execute pipelines locally").build())
+            .desc("Use Kafka for inter-component communication and don't execute pipelines locally.").build())
         .addOption(Option.builder("local").hasArg(false)
-            .desc("Modifies usekafka mode to execute pipelines locally").build())
+            .desc("Modifies useKafka mode to execute pipelines locally").build())
         .addOption(Option.builder("validate").hasArg(false)
             .desc("Validate the configuration and exit").build())
         .addOption(Option.builder("render").hasArg(false)
@@ -102,6 +101,7 @@ public class Runner {
 
     CommandLine cli = null;
     try {
+      args = Arrays.stream(args).map(String::toLowerCase).toArray(String[]::new);
       cli = new DefaultParser().parse(cliOptions, args);
     } catch (UnrecognizedOptionException | MissingOptionException e) {
       try (StringWriter writer = new StringWriter();
@@ -128,7 +128,7 @@ public class Runner {
       return;
     }
 
-    RunType runType = getRunType(cli.hasOption("useKafka"), cli.hasOption("local"));
+    RunType runType = getRunType(cli.hasOption("usekafka"), cli.hasOption("local"));
 
     // Kick off the run with a log of the result
     RunResult result = runWithResultLog(config, runType);
@@ -230,19 +230,23 @@ public class Runner {
       return exceptionMap;
     }
 
+    Set<String> seenNames = new HashSet<>();
+    int idx = 0;
+
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
-      String connectorName = connectorConfig.getString("name");
+      idx++;
+      String connectorName = connectorConfig.hasPath("name") ? connectorConfig.getString("name") : null;
+
       List<Exception> exceptionsForConnector = Connector.getConnectorConfigExceptions(connectorConfig);
+      if (connectorName != null && !connectorName.isEmpty()) {
+        if (!seenNames.add(connectorName)) {
+          exceptionMap.computeIfAbsent(connectorName, k -> new ArrayList<>()).add(new Exception("There are multiple connectors with the name " + connectorName));
+        }
+      }
 
       if (!exceptionsForConnector.isEmpty()) {
-        if (!exceptionMap.containsKey(connectorName)) {
-          // Still uses a List so we can support extra exceptions for duplicate pipeline names
-          exceptionMap.put(connectorName, exceptionsForConnector);
-        } else {
-          // add all the errors with this config, and another one for duplicate connectors
-          exceptionMap.get(connectorName).addAll(exceptionsForConnector);
-          exceptionMap.get(connectorName).add(new Exception("There are multiple connectors with the name " + connectorName));
-        }
+        String key = (connectorName != null && !connectorName.isEmpty()) ? connectorName : "connector[" + idx + "]";
+        exceptionMap.computeIfAbsent(key, k -> new ArrayList<>()).addAll(exceptionsForConnector);
       }
     }
 
@@ -350,7 +354,7 @@ public class Runner {
   public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
     return runWithResultLog(config, runType, null);
   }
-  
+
   /**
    * Kicks off a new Lucille run and logs information about the run to the console after completion.
    */
@@ -375,7 +379,7 @@ public class Runner {
           (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
     }
   }
-  
+
   /**
    * Non managed Run with internal generated runId
    *
@@ -403,6 +407,18 @@ public class Runner {
     }
 
     MDC.put(RUNID_FIELD, runId);
+
+    Map<String, List<Exception>> validationErrors = runInValidationMode(config);
+    if (!validationErrors.isEmpty()) {
+      log.error("Pre-run validation failed.");
+
+      Map<String, TestMessenger> history =
+          type.equals(RunType.TEST) ? new HashMap<>() : null;
+
+      return new RunResult(false,
+          Collections.emptyList(), Collections.emptyList(), history, runId);
+    }
+
     log.info("Starting run with id " + runId);
 
     List<Connector> connectors = Connector.fromConfig(config);

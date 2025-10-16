@@ -3,19 +3,25 @@ package com.kmwllc.lucille.core;
 import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.lang.invoke.MethodHandles;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A record from a source system to be passed through an enrichment pipeline and sent to a destination system.
@@ -39,6 +45,7 @@ import java.util.function.UnaryOperator;
  *
  */
 public interface Document {
+  Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   /* --- NAMES OF RESERVED FIELDS --- */
 
@@ -570,4 +577,263 @@ public interface Document {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
+  /* --- JSON Getters/Setters --- */
+
+  /**
+   * Represents a segment of a path to a nested json value within a Document.
+   * A Segment may be an index or a name.
+   * For example, if the full path the nested json value is a.b.c[4].d[10].e.f[0], the segments would be a, b, c, 4, d, 10, e, f, 0
+   */
+  class Segment {
+    final String name;
+    final Integer index;
+
+    public Segment(String name) {
+      this.name = name;
+      this.index = null;
+    }
+
+    public Segment(int index) {
+      this.name = null;
+      this.index = index;
+    }
+
+    public boolean isIndex() {
+      return index != null;
+    }
+
+    public static List<Segment> parse(String name) {
+      List<Segment> segments = new ArrayList();
+      StringBuffer current = new StringBuffer();
+      boolean insideBrackets = false;
+      for (int i = 0; i < name.length(); i++) {
+        char ch = name.charAt(i);
+        if (Character.isWhitespace(ch)) {
+          throw new IllegalArgumentException();
+        } else if (ch == '[') {
+          if (insideBrackets || i == 0) {
+            throw new IllegalArgumentException();
+          }
+          if (!current.isEmpty()) {
+            segments.add(new Segment(current.toString()));
+            current = new StringBuffer();
+          }
+          insideBrackets = true;
+        } else if (ch == ']') {
+          if (!insideBrackets || current.isEmpty()) {
+            throw new IllegalArgumentException();
+          }
+          segments.add(new Segment(Integer.parseInt(current.toString())));
+          current = new StringBuffer();
+          insideBrackets = false;
+        } else if (ch == '.') {
+          if (insideBrackets) {
+            throw new IllegalArgumentException();
+          }
+          if (!current.isEmpty()) {
+            segments.add(new Segment(current.toString()));
+            current = new StringBuffer();
+          }
+        } else {
+          current.append(ch);
+        }
+      }
+      if (insideBrackets) {
+        throw new IllegalArgumentException();
+      }
+      if (!current.isEmpty()) {
+        segments.add(new Segment(current.toString()));
+      }
+      return segments;
+    }
+
+    public static String stringify(List<Segment> segments) {
+      if (segments == null || segments.isEmpty()) {
+        return "";
+      }
+      if (segments.size() == 1) {
+        return segments.get(0).name;
+      }
+      StringBuffer result = new StringBuffer();
+      boolean first = true;
+      for (Segment segment : segments) {
+        if (segment.isIndex()) {
+          result.append("[");
+          result.append(segment.index);
+          result.append("]");
+        } else {
+          if (!first) {
+            result.append(".");
+          }
+          result.append(segment.name);
+        }
+        first = false;
+      }
+      return result.toString();
+    }
+  }
+
+  /**
+   * Gets a nested JsonNode at a path like "a.b.c.d" where the path is split on '.' and each part is treated as a level of nesting.
+   * This also works for nested values that contain a list, such as "a.b[2].c" where 'b' is an ArrayNode. The indices are 0 based.
+   *
+   * @param name the nested field path to get the JsonNode from
+   * @return the JsonNode at the nested path or null if not found
+   */
+  default JsonNode getNestedJson(String name) {
+    return getNestedJson(Segment.parse(name));
+  }
+
+  /**
+   * Gets a nested JsonNode at the given path segments where each part is treated as a level of nesting.
+   * This works for nested values that contain a list, such as ["a","b","2","c"] where 'b' is an ArrayNode. The indices are 0 based.
+   *
+   * @param segments the nested field path segments to get the JsonNode from
+   * @return the JsonNode at the nested path or null if not found
+   */
+  default JsonNode getNestedJson(List<Segment> segments) {
+    if (segments.isEmpty()|| !has(segments.get(0).name)) {
+      return null;
+    }
+    JsonNode node = getJson(segments.get(0).name);
+
+    for (Segment segment : segments.subList(1,segments.size())) {
+      if (!hasFieldSegment(node, segment)) {
+        return null;
+      } else {
+        node = getFieldSegment(node, segment);
+      }
+    }
+
+    return node;
+  }
+
+  /**
+   * Sets a nested JsonNode at a path like "a.b.c.d" where the path is split on '.' and each part is treated as a level of nesting.
+   * This also works for nested values that contain a list, such as "a.b[2].c" where 'b' is an ArrayNode. The indices are 0 based.
+   *
+   * @param name the nested field path to set the JsonNode at
+   * @param value the JsonNode to set at the nested path
+   */
+  default void setNestedJson(String name, JsonNode value) {
+    setNestedJson(Segment.parse(name), value);
+  }
+
+  /**
+   * Sets a nested JsonNode at the given path segments where each part is treated as a level of nesting.
+   * This works for nested values that contain a list, such as ["a","b","2","c"] where 'b' is an ArrayNode. The indices are 0 based.
+   *
+   * @param segments the nested field path segments to set the JsonNode at
+   * @param value the JsonNode to set at the nested path
+   */
+  default void setNestedJson(List<Segment> segments, JsonNode value) {
+    if (segments.isEmpty()) {
+      return;
+    }
+    if (segments.size() == 1) {
+      setField(segments.get(0).name, value);
+      return;
+    }
+
+    // if necessary, create a default fresh node where the type is based off of the child field, either ArrayNode or ObjectNode
+    JsonNode node = has(segments.get(0).name) ? getJson(segments.get(0).name) : createNewNode(segments.get(1));
+
+    JsonNode currentNode = node;
+    for (int i = 1; i < segments.size()-1; i++) {
+      Segment segment = segments.get(i);
+      if (hasFieldSegment(currentNode, segment)) {
+        currentNode = getFieldSegment(currentNode,segment);
+      } else {
+        JsonNode childNode = createNewNode(segments.get(i+1));
+        setFieldSegment(currentNode, segment, childNode);
+        currentNode = childNode;
+      }
+    }
+
+    // set last node
+    setFieldSegment(currentNode, segments.get(segments.size()-1), value);
+
+    setField(segments.get(0).name, node);
+  }
+
+  default void removeNestedJson(String name) {
+    removeNestedJson(Segment.parse(name));
+  }
+
+  default void removeNestedJson(List<Segment> segments) {
+    if (segments == null || segments.isEmpty()) {
+      return;
+    }
+
+    if (segments.size() == 1) {
+      removeField(segments.get(0).name);
+      return;
+    }
+
+    JsonNode parent = getNestedJson(segments.subList(0, segments.size()-1));
+    if (parent == null) {
+      return;
+    }
+
+    Segment last = segments.get(segments.size() - 1);
+    if (parent.isObject()) {
+      ((ObjectNode) parent).remove(last.name);
+    } else if (parent.isArray()) {
+      ((ArrayNode) parent).remove(last.index);
+    }
+
+    setField(segments.get(0).name, getJson(segments.get(0).name));
+  }
+
+  // if the given segment is an integer, it will create a new ArrayNode, otherwise an ObjectNode
+  private static JsonNode createNewNode(Segment segment) {
+    return segment.isIndex() ? JsonDocument.MAPPER.createArrayNode() : JsonDocument.MAPPER.createObjectNode();
+  }
+
+  // sets the given value on the given field segment with either an ObjectNode or ArrayNode
+  private static void setFieldSegment(JsonNode node, Segment segment, JsonNode value) {
+    if (node.isArray()) {
+      if (!segment.isIndex()) {
+        throw new IllegalArgumentException();
+      }
+      // check if index is within the existing array and overwrite if so
+      if (segment.index >= 0 && segment.index < node.size()) {
+        ((ArrayNode) node).set(segment.index, value);
+      } else if (segment.index == node.size()) { // add to end of array (including creating as array if index==0)
+        ((ArrayNode) node).add(value);
+      } else {
+        throw new ArrayIndexOutOfBoundsException("Cannot set index " + segment.index + " on array of size " + node.size());
+      }
+    } else {
+      ((ObjectNode) node).set(segment.name, value);
+    }
+  }
+
+  // gets the value on the given field segment
+  private static JsonNode getFieldSegment(JsonNode node, Segment segment) {
+    if (node.isArray()) {
+      if (!segment.isIndex()) {
+        throw new IllegalArgumentException();
+      }
+      if (segment.index < 0 || segment.index > node.size() - 1) {
+        return null;
+      } else {
+        return node.get(segment.index);
+      }
+    } else {
+      return node.get(segment.name);
+    }
+  }
+
+  // checks if the given field segment exists on the given node
+  private static boolean hasFieldSegment(JsonNode node, Segment segment) {
+    if (node.isArray()) {
+      if (!segment.isIndex()) {
+        throw new IllegalArgumentException();
+      }
+      return !(segment.index < 0 || segment.index > node.size() - 1);
+    } else {
+      return node.has(segment.name);
+    }
+  }
 }

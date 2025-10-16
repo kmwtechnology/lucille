@@ -23,24 +23,23 @@ import java.lang.invoke.MethodHandles;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Connector for issuing requests to Solr. Requests should be formatted as JSON Strings. They can contain
- * the <code>{runId}</code> wildcard, which will be substituted with the current runId in the actual request.
- * (This is the only wildcard supported.)
- *
- * <br> You can use XML in lieu of JSON by setting <code>useXML</code> to <code>true</code>.
- *
- * <br> Config Parameters:
- * <ul>
- *   <li>preActions (List&lt;String&gt;, Optional): A list of requests to be issued to Solr. These actions will be performed first.</li>
- *   <li>postActions (List&lt;String&gt;, Optional): A list of requests to be issued to Solr. These actions will be performed second.</li>
- *   <li>solr (Map): Configuration for connecting to your Solr instance. See {@link SolrUtils#SOLR_PARENT_SPEC} for parameters.</li>
- *   <li>useXML (Boolean, Optional): Whether your requests use XML or not. Defaults to JSON requests (<code>false</code>).</li>
- * </ul>
- *
- * <b>Note:</b> As Solr performs more validation on JSON commands than XML, it is recommended you use JSON requests.
- */
 // TODO : Honor and return children documents
+
+/**
+ * Issues requests to Solr and optionally publishes query results as Documents. Requests should be formatted as JSON strings
+ * and may include the <code>{runId}</code> wildcard, which is substituted with the current runId at execution time. To send XML instead of JSON,
+ * set useXML to true. As Solr performs more validation on JSON commands than XML, it is recommended you use JSON requests.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>solr (Map, Required) : Connection parameters for Solr; see SolrUtils.SOLR_PARENT_SPEC.</li>
+ *   <li>preActions (List&lt;String&gt;, Optional) : Requests to issue before execution; supports the <code>{runId}</code> wildcard.</li>
+ *   <li>postActions (List&lt;String&gt;, Optional) : Requests to issue after execution; supports the <code>{runId}</code> wildcard.</li>
+ *   <li>solrParams (Map&lt;String, Object&gt;, Optional) : Query parameters to use when a pipeline is configured.</li>
+ *   <li>useXml (Boolean, Optional) : Send XML requests instead of JSON. Defaults to false.</li>
+ *   <li>idField (String, Optional) : Field to use for document IDs when publishing. Defaults to "id".</li>
+ * </ul>
+ */
 public class SolrConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
