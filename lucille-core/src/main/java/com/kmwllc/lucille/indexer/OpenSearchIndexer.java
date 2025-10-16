@@ -81,7 +81,7 @@ public class OpenSearchIndexer extends Indexer {
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
   }
 
@@ -90,15 +90,19 @@ public class OpenSearchIndexer extends Indexer {
     this(config, messenger, client, metricsPrefix, null);
   }
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
     this(config, messenger, getClient(config, bypass), metricsPrefix, null);
   }
 
   @Override
   protected String getIndexerConfigKey() { return "opensearch"; }
 
-  private static OpenSearchClient getClient(Config config, boolean bypass) {
-    return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
+  private static OpenSearchClient getClient(Config config, boolean bypass) throws IndexerException {
+    try {
+      return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
+    } catch (Exception e) {
+      throw new IndexerException("Couldn't create OpenSearch client", e);
+    }
   }
 
   @Override
