@@ -87,8 +87,8 @@ public class OpenSearchIndexer extends Indexer {
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
-  public OpenSearchIndexer(Config params, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(params, messenger, getClient(params, bypass), metricsPrefix, localRunId);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
   }
 
   // Convenience Constructors
@@ -96,15 +96,19 @@ public class OpenSearchIndexer extends Indexer {
     this(params, messenger, client, metricsPrefix, null);
   }
 
-  public OpenSearchIndexer(Config params, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
-    this(params, messenger, getClient(params, bypass), metricsPrefix, null);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
+    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
   }
 
   @Override
   protected String getIndexerConfigKey() { return "opensearch"; }
 
-  private static OpenSearchClient getClient(Config params, boolean bypass) {
-    return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(params);
+  private static OpenSearchClient getClient(Config config, boolean bypass) throws IndexerException {
+    try {
+      return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
+    } catch (Exception e) {
+      throw new IndexerException("Couldn't create OpenSearch client", e);
+    }
   }
 
   @Override
