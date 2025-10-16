@@ -8,26 +8,21 @@ import com.typesafe.config.ConfigValueFactory;
 
 import java.lang.reflect.Constructor;
 
-public class ExtractEntitiesFSTTest extends ExtractEntitiesTest {
+public class ExtractEntitiesAhoTest extends ExtractEntitiesTest {
 
   @Override
   protected Stage newStage(String hoconBody) {
     try {
       Config cfg = ConfigFactory.parseString(hoconBody).resolve()
-          .withValue("class", ConfigValueFactory.fromAnyRef("com.kmwllc.lucille.stage.ExtractEntitiesFST"));
-      Class<? extends Stage> cls = com.kmwllc.lucille.stage.ExtractEntitiesFST.class;
+          .withValue("class", ConfigValueFactory.fromAnyRef("com.kmwllc.lucille.stage.ExtractEntities"));
+      Class<? extends Stage> cls = com.kmwllc.lucille.stage.ExtractEntities.class;
       Constructor<? extends Stage> ctor = cls.getConstructor(com.typesafe.config.Config.class);
       Stage stage = ctor.newInstance(cfg);
       stage.start();
 
       return stage;
     } catch (Exception e) {
-      throw new RuntimeException(new StageException("Failed to instantiate stage: ExtractEntitiesFST", e));
+      throw new RuntimeException(new StageException("Failed to instantiate stage: ExtractEntities", e));
     }
   }
 }
-
-
-
-
-

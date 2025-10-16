@@ -2,20 +2,27 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
-import org.junit.Ignore;
+import java.util.ArrayList;
+import java.util.Collections;
 import org.junit.Test;
 
 import java.util.List;
 
 import static org.junit.Assert.*;
 
-public class ExtractEntitiesTest {
+public abstract class ExtractEntitiesTest {
 
-  private StageFactory factory = StageFactory.of(com.kmwllc.lucille.stage.ExtractEntities.class);
+  protected abstract Stage newStage(String raw);
 
+  // United States,North America
   @Test
   public void testStartOfStringBoundary() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/startOfString.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/startOfString.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc1");
     doc.setField("input1", "United States is large");
@@ -24,9 +31,15 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("North America"), doc.getStringList("output"));
   }
 
+  // Canada,North America
   @Test
   public void testEndOfStringBoundary() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/endOfString.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/endOfString.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc2");
     doc.setField("input1", "I live in Canada");
@@ -35,9 +48,15 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("North America"), doc.getStringList("output"));
   }
 
+  // United States,North America
   @Test
   public void testPunctuationBoundaries() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/punctBoundaries.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/punctBoundaries.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc3");
     doc.setField("input1", "I live in the (United States).");
@@ -46,20 +65,32 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("North America"), doc.getStringList("output"));
   }
 
+  // Vexa,Brand
   @Test
   public void testLetterOnRightBlocks() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/letterRightBlocks.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/letterRightBlocks.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc4");
     doc.setField("input1", "Vexatronics");
     stage.processDocument(doc);
 
-    assertFalse("Should not match when a letter immediately follows the term", doc.has("output"));
+    assertFalse(doc.has("output"));
   }
 
+  // Z5,Code
   @Test
   public void testDigitOnRightDoesNotBlock() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/digitRightOk.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/digitRightOk.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc5");
     doc.setField("input1", "Model Z57 is discontinued"); // right neighbor of "Z5" is a digit
@@ -68,48 +99,70 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("Code"), doc.getStringList("output"));
   }
 
+  // 0731,Batch
   @Test
   public void testDigitOnlyInsideNumber() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/digitInside.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/digitInside.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    // Embedded within a longer number, left boundary present
     Document docA = Document.create("doc6A");
     docA.setField("input1", "The code is 90731 today.");
     stage.processDocument(docA);
     assertEquals(List.of("Batch"), docA.getStringList("output"));
 
-    // Followed by punctuation, right boundary present
     Document docB = Document.create("doc6B");
     docB.setField("input1", "Use 0731.");
     stage.processDocument(docB);
     assertEquals(List.of("Batch"), docB.getStringList("output"));
   }
 
+  // kilo,Unit
   @Test
   public void testLetterOnLeftBlocks() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/letterLeftBlocks.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/letterLeftBlocks.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc7");
-    doc.setField("input1", "akilo"); // left neighbor before "kilo" is a letter 'a'
+    doc.setField("input1", "akilo");
     stage.processDocument(doc);
 
-    assertFalse("Should not match when a letter precedes the term", doc.has("output"));
+    assertFalse(doc.has("output"));
   }
 
+  // kilo,Unit
   @Test
   public void testDigitOnLeftDoesNotBlock() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/digitLeftOk.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/digitLeftOk.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc8");
-    doc.setField("input1", "5kilo"); // left neighbor before "kilo" is a digit '5'
+    doc.setField("input1", "5kilo");
     stage.processDocument(doc);
 
     assertEquals(List.of("Unit"), doc.getStringList("output"));
   }
 
+  // alpha,TAG
   @Test
   public void testApostropheBoundary() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/apostropheBoundary.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/apostropheBoundary.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc9");
     doc.setField("input1", "alpha's release is tomorrow");
@@ -118,9 +171,15 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("TAG"), doc.getStringList("output"));
   }
 
+  // ipsum,Hit
   @Test
   public void testHyphenBoundary() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/hyphenBoundary.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/hyphenBoundary.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc10");
     doc.setField("input1", "lorem-ipsum text");
@@ -129,9 +188,15 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("Hit"), doc.getStringList("output"));
   }
 
+  // alpha,Hit
   @Test
   public void testSlashBoundary() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/slashBoundary.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/slashBoundary.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc11");
     doc.setField("input1", "alpha/beta gamma");
@@ -140,9 +205,15 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("Hit"), doc.getStringList("output"));
   }
 
+  // one,Hit
   @Test
   public void testUnderscoreBoundary() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/underscoreBoundary.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/underscoreBoundary.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc12");
     doc.setField("input1", "one_two three");
@@ -151,9 +222,16 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("Hit"), doc.getStringList("output"));
   }
 
+  // city,HitCity
+  // town,HitTown
   @Test
   public void testPunctPeriodCommaBoundary() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/punctPeriodComma.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/punctPeriodComma.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document docA = Document.create("doc13A");
     docA.setField("input1", "city,town");
@@ -166,9 +244,15 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("HitTown"), docB.getStringList("output"));
   }
 
+  // world,HIT
   @Test
   public void testEmojiBoundary() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/emojiBoundary.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/emojiBoundary.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc14");
     doc.setField("input1", "world🙂");
@@ -177,57 +261,88 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("HIT"), doc.getStringList("output"));
   }
 
+  // 東京,Hit
   @Test
   public void testCjkBoundary() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/cjkBoundary.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/cjkBoundary.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc15");
-    doc.setField("input1", "東京。"); // right neighbor is punct
+    doc.setField("input1", "東京。");
     stage.processDocument(doc);
 
     assertEquals(List.of("Hit"), doc.getStringList("output"));
   }
 
+  // Blue Sky,Hit
   @Test
   public void testCaseSensitiveDefault() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/caseSensitiveDefault.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/caseSensitiveDefault.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc16");
-    doc.setField("input1", "blue sky over town"); // lowercased text
+    doc.setField("input1", "blue sky over town");
     stage.processDocument(doc);
 
     assertFalse(doc.has("output"));
   }
 
+  // Blue Sky,Hit
   @Test
   public void testIgnoreCaseTrue() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/ignoreCaseTrue.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/ignoreCaseTrue.dict\"]\n" +
+        "  ignore_case = true\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc17");
-    doc.setField("input1", "blue sky over town"); // lowercased text
+    doc.setField("input1", "blue sky over town");
     stage.processDocument(doc);
 
     assertEquals(List.of("Hit"), doc.getStringList("output"));
   }
 
+  // new town,Hit
   @Test
   public void testNoCrossPunctuationForMultiword() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/noCrossPunct.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/noCrossPunct.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc18");
-    doc.setField("input1", "new-town"); // hyphen breaks the exact substring "new town"
+    doc.setField("input1", "new-town");
     stage.processDocument(doc);
     assertFalse(doc.has("output"));
 
     Document doc2 = Document.create("doc18b");
-    doc2.setField("input1", "new, town"); // comma + space breaks the exact substring "new town"
+    doc2.setField("input1", "new, town");
     stage.processDocument(doc2);
     assertFalse(doc2.has("output"));
   }
 
+  // new town,Hit
   @Test
   public void testExactSpacesMultiword() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/exactSpaces.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/exactSpaces.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc19");
     doc.setField("input1", "we moved to new town recently");
@@ -236,103 +351,150 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("Hit"), doc.getStringList("output"));
   }
 
+  // new,T1
+  // new town,T2
   @Test
   public void testOverlapsEmitAll() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/overlapsEmitAll.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/overlapsEmitAll.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc20");
     doc.setField("input1", "new town center");
     stage.processDocument(doc);
 
-    // Matches at same start "new", "new town"
     assertEquals(List.of("T1", "T2"), doc.getStringList("output"));
   }
 
+  // new,T1
+  // new town,T2
   @Test
   public void testOverlapsEmitLongestOnly() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/overlapsLongest.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/overlapsLongest.dict\"]\n" +
+        "  ignore_overlaps = true\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc21");
     doc.setField("input1", "new town center");
     stage.processDocument(doc);
 
-    // Only the longest match that starts at the same position should be emitted
     assertEquals(List.of("T2"), doc.getStringList("output"));
   }
 
+  // alpha,Alpha
+  // beta,Beta
+  // gamma,Gamma
   @Test
   public void testStopOnHit() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/stopOnHit.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/stopOnHit.dict\"]\n" +
+        "  stop_on_hit = true\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc22");
     doc.setField("input1", "alpha beta gamma");
     stage.processDocument(doc);
 
-    // Only the first match should appear
     assertEquals(List.of("Alpha"), doc.getStringList("output"));
   }
 
+  // delta,DeltaPayload
   @Test
   public void testUsePayloadsWithEntityField() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/usePayloadsWithEntity.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/usePayloadsWithEntity.dict\"]\n" +
+        "  entity_field = \"entity\"\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc23");
     doc.setField("input1", "delta");
     stage.processDocument(doc);
 
-    // entity_field gets the matched key
     assertEquals(List.of("DeltaPayload"), doc.getStringList("output"));
     assertEquals(List.of("delta"), doc.getStringList("entity"));
   }
 
+  // alpha,PA
+  // beta,PB
   @Test
   public void testDontUsePayloads() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/dontUsePayloads.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/dontUsePayloads.dict\"]\n" +
+        "  use_payloads = false\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
     Document doc = Document.create("doc24");
     doc.setField("input1", "alpha beta");
     stage.processDocument(doc);
 
-    // Keys should be written, ignoring payloads in the dict
     assertEquals(List.of("alpha", "beta"), doc.getStringList("output"));
   }
 
-  //
-  //
-  // DIFFERENCE
-  //
-  //
-  @Ignore("Current difference")
-  @Test
-  public void testEmptyPayloadDefaultsToTerm() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/emptyPayloadDefaults.conf");
 
-    Document doc = Document.create("doc25");
-    doc.setField("input1", "omega");
-    stage.processDocument(doc);
+  // WIP ----------------------------
+//  @Test
+//  public void testEmptyPayloadDefaultsToTerm() throws Exception {
+//    Stage stage = factory.get("ExtractEntitiesFSTTest/emptyPayloadDefaults.conf");
+//
+//    Document doc = Document.create("doc25");
+//    doc.setField("input1", "omega");
+//    stage.processDocument(doc);
+//
+//    // Payload column is empty, stage should use the term itself
+//    assertEquals(List.of("omega"), doc.getStringList("output"));
+//  }
+  // --------------------------------
 
-    // Payload column is empty, stage should use the term itself
-    assertEquals(List.of("omega"), doc.getStringList("output"));
-  }
-
+  // alpha,A
+  // beta,B
+  // gamma,C
   @Test
   public void testManySourcesOneDestOrder() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/manySourcesOneDest.conf");
+    String config = "{\n" +
+        "  source = [\"s1\", \"s2\", \"s3\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/manySourcesOneDest.dict\"]\n" +
+        "  update_mode = \"append\"\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc26");
+    Document doc = Document.create("doc25");
     doc.setField("s1", "alpha");
     doc.setField("s2", "beta");
     doc.setField("s3", "gamma");
     stage.processDocument(doc);
 
-    assertEquals(List.of("A", "B", "C"), doc.getStringList("out"));
+    assertEquals(List.of("A", "B", "C"), doc.getStringList("output"));
   }
 
+  // alpha,A
+  // beta,B
   @Test
   public void testOneToOneSourceDest() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/oneToOne.conf");
+    String config = "{\n" +
+        "  source = [\"s1\", \"s2\"]\n" +
+        "  dest = [\"o1\", \"o2\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/oneToOne.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc27");
+    Document doc = Document.create("doc26");
     doc.setField("s1", "alpha");
     doc.setField("s2", "beta");
     stage.processDocument(doc);
@@ -341,146 +503,222 @@ public class ExtractEntitiesTest {
     assertEquals(List.of("B"), doc.getStringList("o2"));
   }
 
+  //   apple  ,Fruit
   @Test
   public void testTrimAsciiSpacesInDict() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/trimSpaces.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/trimSpaces.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc28");
+    Document doc = Document.create("doc27");
     doc.setField("input1", "apple pie");
     stage.processDocument(doc);
 
     assertEquals(List.of("Fruit"), doc.getStringList("output"));
   }
 
+  // alpha,One
+  // alpha,Two
   @Test
   public void testDuplicateKeysFirstWins() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/dupKeysFirstWins.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/dupKeysFirstWins.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc29");
+    Document doc = Document.create("doc28");
     doc.setField("input1", "alpha");
     stage.processDocument(doc);
 
-    // The first occurrence of "alpha" should win
     assertEquals(List.of("One"), doc.getStringList("output"));
   }
 
+  // alp�ha,One
+  // beta,Two
   @Test
   public void testMalformedEntryIgnored() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/malformedIgnored.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/malformedIgnored.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    // This should NOT match because the dict row contains � and is skipped
-    Document docA = Document.create("doc30A");
+    Document docA = Document.create("doc29A");
     docA.setField("input1", "alpha");
     stage.processDocument(docA);
     assertFalse(docA.has("output"));
 
-    // A valid row still works
-    Document docB = Document.create("doc30B");
+    Document docB = Document.create("doc29B");
     docB.setField("input1", "beta");
     stage.processDocument(docB);
     assertEquals(List.of("Two"), docB.getStringList("output"));
   }
 
+  // München,City
   @Test
   public void testUtf8NonAsciiTerm() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/utf8NonAscii.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/utf8NonAscii.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc31");
+    Document doc = Document.create("doc30");
     doc.setField("input1", "We visited München last year.");
     stage.processDocument(doc);
 
     assertEquals(List.of("City"), doc.getStringList("output"));
   }
 
+  // alpha,One
+
+  // alpha,Two
   @Test
   public void testMultiDictFirstWins() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/multiDictFirstWins.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/multiA.dict\", \"classpath:ExtractEntitiesTest/multiB.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc32");
+    Document doc = Document.create("doc31");
     doc.setField("input1", "alpha");
     stage.processDocument(doc);
 
-    // Should take payload from the first dictionary listed in config
     assertEquals(List.of("One"), doc.getStringList("output"));
   }
 
+  // C++,Hit
   @Test
   public void testPunctuationInKey() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/punctInKey.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/punctInKey.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc33");
+    Document doc = Document.create("doc32");
     doc.setField("input1", "we use C++ daily");
     stage.processDocument(doc);
 
     assertEquals(List.of("Hit"), doc.getStringList("output"));
   }
 
+  // O'Malley,Hit
   @Test
   public void testApostropheInKey() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/apostropheInKey.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/apostropheInKey.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc34");
+    Document doc = Document.create("doc33");
     doc.setField("input1", "meet O'Malley today");
     stage.processDocument(doc);
 
     assertEquals(List.of("Hit"), doc.getStringList("output"));
   }
 
+  // man,Hit
   @Test
   public void testSubstringInsideWordNoMatch() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/substringNoMatch.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/substringNoMatch.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc35");
+    Document doc = Document.create("doc34");
     doc.setField("input1", "human anatomy");
     stage.processDocument(doc);
 
-    // "man" appears inside "human"
     assertFalse(doc.has("output"));
   }
 
+  // United States,Hit
   @Test
   public void testOffByOneNearMiss() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/offByOne.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/offByOne.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc36");
+    Document doc = Document.create("doc35");
     doc.setField("input1", "United State.");
     stage.processDocument(doc);
 
     assertFalse(doc.has("output"));
   }
 
-  //
-  //
-  // DIFFERENCE IN ORDER
-  //
-  //
+  // a,X1
+  // a a,X2
+  // a a a,X3
   @Test
   public void testLadderPrefixesEmitAll() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/ladderEmitAll.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/ladderEmitAll.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc37");
+    Document doc = Document.create("doc36");
     doc.setField("input1", "a a a!");
     stage.processDocument(doc);
 
-    assertEquals(List.of("X1","X1","X2","X1","X2","X3"), doc.getStringList("output"));
+    List<String> expected = List.of("X1", "X1", "X1", "X2", "X2", "X3");
+    List<String> actual = new ArrayList<>(doc.getStringList("output"));
+    Collections.sort(actual);
+
+    assertEquals(expected, actual);
   }
 
+  // a,X1
+  // a a,X2
+  // a a a,X3
   @Test
   public void testLadderPrefixesLongestOnly() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/ladderLongest.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/ladderLongest.dict\"]\n" +
+        "  ignore_overlaps = true\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("doc38");
+    Document doc = Document.create("doc37");
     doc.setField("input1", "a a a!");
     stage.processDocument(doc);
 
     assertEquals(List.of("X3"), doc.getStringList("output"));
   }
 
+  // alpha & bet,ALPHA&BET
+  // & beta,&BETA
   @Test
   public void testLaterStartAfterDeadPrefix() throws Exception {
-    Stage stage = factory.get("ExtractEntitiesTest/laterStartAfterDeadPrefix.conf");
+    String config = "{\n" +
+        "  source = [\"input1\"]\n" +
+        "  dest = [\"output\"]\n" +
+        "  dictionaries = [\"classpath:ExtractEntitiesTest/laterStartAfterDeadPrefix.dict\"]\n" +
+        "}\n";
+    Stage stage = newStage(config);
 
-    Document doc = Document.create("docLater");
+    Document doc = Document.create("doc38");
     doc.setField("input1", "alpha & beta");
     stage.processDocument(doc);
 
