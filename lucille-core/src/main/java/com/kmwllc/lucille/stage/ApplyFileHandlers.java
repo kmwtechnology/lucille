@@ -2,6 +2,8 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.FileContentFetcher;
+import com.kmwllc.lucille.core.FileContentFetcherFactory;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -59,9 +61,11 @@ public class ApplyFileHandlers extends Stage {
 
   private final String filePathField;
   private final String fileContentField;
-  private final DefaultFileContentFetcher fileFetcher;
+  private final FileContentFetcher fileFetcher;
 
   private Map<String, FileHandler> fileHandlers;
+
+
 
   /**
    * Creates the ApplyFileHandlers stage from the given config.
@@ -77,8 +81,7 @@ public class ApplyFileHandlers extends Stage {
 
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");
-
-    this.fileFetcher = new DefaultFileContentFetcher(config);
+    this.fileFetcher = new FileContentFetcherFactory().create(config);
   }
 
   @Override

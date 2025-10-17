@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.FileContentFetcher;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -116,6 +116,12 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
     return is;
   }
 
+  @Override
+  public InputStream getInputStream(String path, Document doc) throws IOException {
+    // The default file content fetcher does not consider document attributes when retrieving file content.
+    return getInputStream(path);
+  }
+
   /**
    * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
    * and the file will be read from the classpath. Otherwise, it will be read from the local file system. Will use UTF-8
@@ -129,6 +135,11 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
   @Override
   public BufferedReader getReader(String path) throws IOException {
     return getReader(path, "utf-8");
+  }
+
+  public BufferedReader getReader(String path, Document doc) throws IOException {
+    // The default file content fetcher does not consider document attributes when retrieving file content.
+    return getReader(path);
   }
 
   /**
@@ -149,6 +160,11 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
     // chars, rather than throwing an Exception.
     // https://stackoverflow.com/questions/26268132/all-inclusive-charset-to-avoid-java-nio-charset-malformedinputexception-input
     return new BufferedReader(new InputStreamReader(stream, encoding));
+  }
+
+  public BufferedReader getReader(String path, String encoding, Document doc) throws IOException {
+    // The default file content fetcher does not consider document attributes when retrieving file content.
+    return getReader(path, encoding);
   }
 
   /**
@@ -172,4 +188,8 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
     }
   }
 
+  public int countLines(String path, Document doc) throws IOException {
+    // The default file content fetcher does not consider document attributes when retrieving file content.
+    return countLines(path);
+  }
 }

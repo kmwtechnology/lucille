@@ -76,7 +76,7 @@ public class ExtractEntities extends Stage {
   private final boolean ignoreOverlaps;
   private final boolean usePayloads;
   private final String entityField;
-  private final DefaultFileContentFetcher fileFetcher;
+  private final FileContentFetcher fileFetcher;
 
   public ExtractEntities(Config config) {
     super(config);
@@ -94,7 +94,7 @@ public class ExtractEntities extends Stage {
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
     this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
-    this.fileFetcher = new DefaultFileContentFetcher(config);
+    this.fileFetcher = new FileContentFetcherFactory().create(config);
   }
 
   @Override

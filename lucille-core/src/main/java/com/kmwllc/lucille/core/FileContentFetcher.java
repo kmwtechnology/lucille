@@ -14,11 +14,107 @@ import java.net.URI;
 
 public interface FileContentFetcher {
   public void startup() throws IOException;
-  public void shutdown() throws IOException;
+  public void shutdown();
+
+  /**
+   * Attempts to return an InputStream for the file at the given path. If the path begins with "classpath:" the prefix will be removed
+   * and the file will be read from the classpath. Otherwise, if the path is a URI, a corresponding storage client will be used;
+   * if not, the local file system will be used. Will not return a null InputStream - instead, an exception will be thrown.
+   *
+   * @param path A String representation of a path to a file whose contents you want to receive. Can be a classpath / local file path,
+   *             or a URI to a cloud storage file.
+   * @return An InputStream for the file's contents.
+   * @throws IOException If an error occurs getting the file's contents.
+   */
   public InputStream getInputStream(String path) throws IOException;
+
+  /**
+   * Attempts to return an InputStream for the file at the given path. If the path begins with "classpath:" the prefix will be removed
+   * and the file will be read from the classpath. Otherwise, if the path is a URI, a corresponding storage client will be used;
+   * if not, the local file system will be used. Will not return a null InputStream - instead, an exception will be thrown.
+   *
+   * @param path A String representation of a path to a file whose contents you want to receive. Can be a classpath / local file path,
+   *             or a URI to a cloud storage file.
+   * @param doc A document containing additional information about the file. This can be used by the fetcher to determine how the path
+   *            is interpreted to retrieve an input stream.
+   * @return An InputStream for the file's contents.
+   * @throws IOException If an error occurs getting the file's contents.
+   */
+  public InputStream getInputStream(String path, Document doc) throws IOException;
+
+  /**
+   * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
+   * and the file will be read from the classpath. Otherwise, it will be read from the local file system. Will use UTF-8
+   * encoding.
+   *
+   * @param path A String representation of a path to a file whose contents you want to receive. Can be a classpath / local file path,
+   *             or a URI to a cloud storage file.
+   * @return A Reader for the file's contents, using UTF-8 encoding.
+   * @throws IOException If an error occurs getting the file's contents.
+   */
   public BufferedReader getReader(String path) throws IOException;
+
+  /**
+   * Returns a Reader for the file at the given path. If the path begins with "classpath:" the prefix will be removed
+   * and the file will be read from the classpath. Otherwise, it will be read from the local file system. Will use UTF-8
+   * encoding.
+   *
+   * @param path A String representation of a path to a file whose contents you want to receive. Can be a classpath / local file path,
+   *             or a URI to a cloud storage file.
+   * @param doc A document containing additional information about the file. This can be used by the fetcher to determine how the path
+   *            is interpreted to retrieve a reader.
+   * @return A Reader for the file's contents, using UTF-8 encoding.
+   * @throws IOException If an error occurs getting the file's contents.
+   */
+  public BufferedReader getReader(String path, Document doc) throws IOException;
+
+  /**
+   * Returns a Reader for the file at the given path using the given encoding. If the path begins with "classpath:"
+   * the prefix will be removed and the file will be read from the classpath. Otherwise, it will be read from the local file system.
+   *
+   * @param path A String representation of a path to a file whose contents you want to receive. Can be a classpath / local file path,
+   *             or a URI to a cloud storage file.
+   * @param encoding The encoding you want the Reader to use.
+   * @return A Reader for the file's contents, using the given encoding.
+   * @throws IOException If an error occurs getting the file's contents.
+   */
   public BufferedReader getReader(String path, String encoding) throws IOException;
+
+  /**
+   * Returns a Reader for the file at the given path using the given encoding. If the path begins with "classpath:"
+   * the prefix will be removed and the file will be read from the classpath. Otherwise, it will be read from the local file system.
+   *
+   * @param path A String representation of a path to a file whose contents you want to receive. Can be a classpath / local file path,
+   *             or a URI to a cloud storage file.
+   * @param encoding The encoding you want the Reader to use.
+   * @param doc A document containing additional information about the file. This can be used by the fetcher to determine how the path
+   *            is interpreted to retrieve a reader.   *
+   * @return A Reader for the file's contents, using the given encoding.
+   * @throws IOException If an error occurs getting the file's contents.
+   */
+  public BufferedReader getReader(String path, String encoding, Document doc) throws IOException;
+
+  /**
+   * Counts the number of lines in the file at the given path.
+   *
+   * @param path A String representation of a path to a file whose contents you want to receive. Can be a classpath / local file path,
+   *             or a URI to a cloud storage file.
+   * @return The number of lines in the given file.
+   * @throws IOException If an error occurs getting the file's contents.
+   */
   public int countLines(String path) throws IOException;
+
+  /**
+   * Counts the number of lines in the file at the given path.
+   *
+   * @param path A String representation of a path to a file whose contents you want to receive. Can be a classpath / local file path,
+   *             or a URI to a cloud storage file.
+   * @param doc A document containing additional information about the file. This can be used by the fetcher to determine how the path
+   *            is interpreted to retrieve the file's lines.
+   * @return The number of lines in the given file.
+   * @throws IOException If an error occurs getting the file's contents.
+   */
+  public int countLines(String path, Document doc) throws IOException;
 
   // -- Convenience / Static Methods - For One-Time Use to Avoid Managing an Instance --
   /**
