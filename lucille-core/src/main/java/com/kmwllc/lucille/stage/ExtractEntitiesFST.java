@@ -165,11 +165,14 @@ public class ExtractEntitiesFST extends Stage {
           }
 
           // Get the payload string
-          String payload = (line.length > 1 && line[1] != null && !line[1].trim().isEmpty())
-              ? line[1].trim()
-              : null;
-
-          if (payload == null || payload.isEmpty()) {
+          String payload;
+          if (line.length > 1) {
+            String p = line[1];
+            payload = (p == null) ? "" : p.trim();
+          } else {
+            payload = null;
+          }
+          if (payload == null) {
             payload = term;
           }
 
@@ -239,9 +242,13 @@ public class ExtractEntitiesFST extends Stage {
       if (last != null && t.equals(last)) {
         continue;
       }
+
       last = t;
       String payload = e.getValue();
-      if (payload == null || payload.isEmpty()) payload = t;
+      if (payload == null) {
+        payload = t;
+      }
+
       builder.add(toIntsRef(new BytesRef(t)), new BytesRef(payload));
     }
 

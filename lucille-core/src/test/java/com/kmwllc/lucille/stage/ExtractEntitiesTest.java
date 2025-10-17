@@ -494,21 +494,6 @@ public abstract class ExtractEntitiesTest {
     assertEquals(List.of("alpha", "beta"), doc.getStringList("output"));
   }
 
-
-  // WIP ----------------------------
-//  @Test
-//  public void testEmptyPayloadDefaultsToTerm() throws Exception {
-//    Stage stage = factory.get("ExtractEntitiesFSTTest/emptyPayloadDefaults.conf");
-//
-//    Document doc = Document.create("doc25");
-//    doc.setField("input1", "omega");
-//    stage.processDocument(doc);
-//
-//    // Payload column is empty, stage should use the term itself
-//    assertEquals(List.of("omega"), doc.getStringList("output"));
-//  }
-  // --------------------------------
-
   // alpha,A
   // beta,B
   // gamma,C
@@ -799,5 +784,45 @@ public abstract class ExtractEntitiesTest {
     stage.processDocument(doc);
 
     assertEquals(List.of("&BETA"), doc.getStringList("output"));
+  }
+
+  // omega
+  @Test
+  public void testMissingPayloadDefaultsToTerm() throws Exception {
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/missingPayloadDefaults.dict"]
+        }
+        """;
+    Stage stage = newStage(config);
+
+    Document doc = Document.create("doc39");
+    doc.setField("input1", "omega");
+    stage.processDocument(doc);
+
+    // Payload column is missing, stage should use the term itself
+    assertEquals(List.of("omega"), doc.getStringList("output"));
+  }
+
+  // omega
+  @Test
+  public void testEmptyPayloadDefaultsToEmpty() throws Exception {
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/emptyPayloadDefaults.dict"]
+        }
+        """;
+    Stage stage = newStage(config);
+
+    Document doc = Document.create("doc40");
+    doc.setField("input1", "omega");
+    stage.processDocument(doc);
+
+    // Payload column is blank, stage should use ""
+    assertEquals(List.of(""), doc.getStringList("output"));
   }
 }
