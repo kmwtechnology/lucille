@@ -46,6 +46,8 @@ import org.slf4j.LoggerFactory;
  *   <li>dest (List&lt;String&gt;, Required) : List of destination field names. You can either supply the same number of source and destination
  *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
  *   <li>use_payloads (Boolean, Optional) : Denotes whether payloads from the dictionary should be used or not.</li>
+ *   <li>only_whole_words (Boolean, Optional) : If true, matches must be bounded by non-letters on both sides (word boundaries). If
+ *   false, substrings inside larger words are allowed. Defaults to true.</li>
  *   <li>ignore_overlaps (Boolean, Optional) : If true, emits only the single longest match starting at a position; if false, emits
  *   all overlapping matches that start at that position. Defaults to false.</li>
  *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
@@ -66,7 +68,7 @@ public class ExtractEntitiesFST extends Stage {
       .requiredList("dictionaries", new TypeReference<List<String>>() {})
       .requiredList("source", new TypeReference<List<String>>() {})
       .requiredList("dest", new TypeReference<List<String>>() {})
-      .optionalBoolean("use_payloads", "ignore_overlaps", "stop_on_hit", "ignore_case", "dicts_sorted")
+      .optionalBoolean("use_payloads", "only_whole_words", "ignore_overlaps", "stop_on_hit", "ignore_case", "dicts_sorted")
       .optionalString("update_mode", "entity_field")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .build();
@@ -78,6 +80,7 @@ public class ExtractEntitiesFST extends Stage {
   private final List<String> sourceFields;
   private final List<String> destFields;
   private final boolean usePayloads;
+  private final boolean onlyWholeWords;
   private final boolean ignoreOverlaps;
   private final boolean stopOnHit;
   private final boolean ignoreCase;
@@ -95,6 +98,7 @@ public class ExtractEntitiesFST extends Stage {
     this.sourceFields = config.getStringList("source"); // Fields in the input doc to read from
     this.destFields = config.getStringList("dest"); // Fields in the doc to write matched results to
     this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
+    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "only_whole_words", true);
     this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignore_overlaps", false);
     this.stopOnHit = ConfigUtils.getOrDefault(config, "stop_on_hit", false);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
@@ -360,7 +364,7 @@ public class ExtractEntitiesFST extends Stage {
               throw new RuntimeException("FST lookup failed", e);
             }
             
-            if (br != null && isLeftBoundary(raw, i) && isRightBoundary(raw, j)) {
+            if (br != null && (!onlyWholeWords || (isLeftBoundary(raw, i) && isRightBoundary(raw, j)))) {
               String payload = br.utf8ToString();
               String key = window;
               MatchHit hit = new MatchHit(key, payload, j - i);
@@ -375,7 +379,7 @@ public class ExtractEntitiesFST extends Stage {
             }
           } else {
             if (matchesCompletely(fstNoPayloads, new BytesRef(window))
-                && isLeftBoundary(raw, i) && isRightBoundary(raw, j)) {
+                && (!onlyWholeWords || (isLeftBoundary(raw, i) && isRightBoundary(raw, j)))) {
               String key = window;
               MatchHit hit = new MatchHit(key, null, j - i);
               

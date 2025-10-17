@@ -825,4 +825,24 @@ public abstract class ExtractEntitiesTest {
     // Payload column is blank, stage should use ""
     assertEquals(List.of(""), doc.getStringList("output"));
   }
+
+  // man,Hit
+  @Test
+  public void testSubstringInsideWordOnlyWholeWordsFalse() throws Exception {
+    String config = """
+      {
+        source = ["input1"]
+        dest = ["output"]
+        dictionaries = ["classpath:ExtractEntitiesTest/nonWholeWord.dict"]
+        only_whole_words = false
+      }
+      """;
+    Stage stage = newStage(config);
+
+    Document doc = Document.create("doc41");
+    doc.setField("input1", "human anatomy");
+    stage.processDocument(doc);
+
+    assertEquals(List.of("Hit"), doc.getStringList("output"));
+  }
 }
