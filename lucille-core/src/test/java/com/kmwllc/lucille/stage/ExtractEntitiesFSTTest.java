@@ -15,9 +15,7 @@ public class ExtractEntitiesFSTTest extends ExtractEntitiesTest {
     try {
       Config cfg = ConfigFactory.parseString(hoconBody).resolve()
           .withValue("class", ConfigValueFactory.fromAnyRef("com.kmwllc.lucille.stage.ExtractEntitiesFST"));
-      Class<? extends Stage> cls = com.kmwllc.lucille.stage.ExtractEntitiesFST.class;
-      Constructor<? extends Stage> ctor = cls.getConstructor(com.typesafe.config.Config.class);
-      Stage stage = ctor.newInstance(cfg);
+      Stage stage = new ExtractEntitiesFST(cfg);
       stage.start();
 
       return stage;

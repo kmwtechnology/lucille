@@ -15,9 +15,7 @@ public class ExtractEntitiesAhoTest extends ExtractEntitiesTest {
     try {
       Config cfg = ConfigFactory.parseString(hoconBody).resolve()
           .withValue("class", ConfigValueFactory.fromAnyRef("com.kmwllc.lucille.stage.ExtractEntities"));
-      Class<? extends Stage> cls = com.kmwllc.lucille.stage.ExtractEntities.class;
-      Constructor<? extends Stage> ctor = cls.getConstructor(com.typesafe.config.Config.class);
-      Stage stage = ctor.newInstance(cfg);
+      Stage stage = new ExtractEntities(cfg);
       stage.start();
 
       return stage;

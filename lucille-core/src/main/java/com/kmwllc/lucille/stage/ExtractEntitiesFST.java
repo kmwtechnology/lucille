@@ -373,7 +373,9 @@ public class ExtractEntitiesFST extends Stage {
               MatchHit hit = new MatchHit(key, null, j - i);
               
               if (ignoreOverlaps) {
-                if (longest == null || hit.length > longest.length) longest = hit;
+                if (longest == null || hit.length > longest.length) {
+                  longest = hit;
+                }
               } else {
                 allAtI.add(hit);
               }

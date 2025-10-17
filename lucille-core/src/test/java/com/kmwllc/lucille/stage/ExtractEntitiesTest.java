@@ -17,11 +17,13 @@ public abstract class ExtractEntitiesTest {
   // United States,North America
   @Test
   public void testStartOfStringBoundary() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/startOfString.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/startOfString.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc1");
@@ -34,11 +36,13 @@ public abstract class ExtractEntitiesTest {
   // Canada,North America
   @Test
   public void testEndOfStringBoundary() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/endOfString.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/endOfString.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc2");
@@ -51,11 +55,13 @@ public abstract class ExtractEntitiesTest {
   // United States,North America
   @Test
   public void testPunctuationBoundaries() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/punctBoundaries.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/punctBoundaries.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc3");
@@ -68,11 +74,13 @@ public abstract class ExtractEntitiesTest {
   // Vexa,Brand
   @Test
   public void testLetterOnRightBlocks() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/letterRightBlocks.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/letterRightBlocks.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc4");
@@ -85,11 +93,13 @@ public abstract class ExtractEntitiesTest {
   // Z5,Code
   @Test
   public void testDigitOnRightDoesNotBlock() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/digitRightOk.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/digitRightOk.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc5");
@@ -102,11 +112,13 @@ public abstract class ExtractEntitiesTest {
   // 0731,Batch
   @Test
   public void testDigitOnlyInsideNumber() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/digitInside.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/digitInside.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document docA = Document.create("doc6A");
@@ -123,11 +135,13 @@ public abstract class ExtractEntitiesTest {
   // kilo,Unit
   @Test
   public void testLetterOnLeftBlocks() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/letterLeftBlocks.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/letterLeftBlocks.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc7");
@@ -140,11 +154,13 @@ public abstract class ExtractEntitiesTest {
   // kilo,Unit
   @Test
   public void testDigitOnLeftDoesNotBlock() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/digitLeftOk.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/digitLeftOk.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc8");
@@ -157,11 +173,13 @@ public abstract class ExtractEntitiesTest {
   // alpha,TAG
   @Test
   public void testApostropheBoundary() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/apostropheBoundary.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/apostropheBoundary.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc9");
@@ -174,11 +192,13 @@ public abstract class ExtractEntitiesTest {
   // ipsum,Hit
   @Test
   public void testHyphenBoundary() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/hyphenBoundary.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/hyphenBoundary.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc10");
@@ -191,11 +211,13 @@ public abstract class ExtractEntitiesTest {
   // alpha,Hit
   @Test
   public void testSlashBoundary() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/slashBoundary.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/slashBoundary.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc11");
@@ -208,11 +230,13 @@ public abstract class ExtractEntitiesTest {
   // one,Hit
   @Test
   public void testUnderscoreBoundary() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/underscoreBoundary.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/underscoreBoundary.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc12");
@@ -226,11 +250,13 @@ public abstract class ExtractEntitiesTest {
   // town,HitTown
   @Test
   public void testPunctPeriodCommaBoundary() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/punctPeriodComma.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/punctPeriodComma.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document docA = Document.create("doc13A");
@@ -247,11 +273,13 @@ public abstract class ExtractEntitiesTest {
   // world,HIT
   @Test
   public void testEmojiBoundary() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/emojiBoundary.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/emojiBoundary.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc14");
@@ -264,11 +292,13 @@ public abstract class ExtractEntitiesTest {
   // 東京,Hit
   @Test
   public void testCjkBoundary() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/cjkBoundary.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/cjkBoundary.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc15");
@@ -281,11 +311,13 @@ public abstract class ExtractEntitiesTest {
   // Blue Sky,Hit
   @Test
   public void testCaseSensitiveDefault() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/caseSensitiveDefault.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/caseSensitiveDefault.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc16");
@@ -298,12 +330,14 @@ public abstract class ExtractEntitiesTest {
   // Blue Sky,Hit
   @Test
   public void testIgnoreCaseTrue() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/ignoreCaseTrue.dict\"]\n" +
-        "  ignore_case = true\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/ignoreCaseTrue.dict"]
+          ignore_case = true
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc17");
@@ -316,11 +350,13 @@ public abstract class ExtractEntitiesTest {
   // new town,Hit
   @Test
   public void testNoCrossPunctuationForMultiword() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/noCrossPunct.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/noCrossPunct.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc18");
@@ -337,11 +373,13 @@ public abstract class ExtractEntitiesTest {
   // new town,Hit
   @Test
   public void testExactSpacesMultiword() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/exactSpaces.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/exactSpaces.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc19");
@@ -355,11 +393,13 @@ public abstract class ExtractEntitiesTest {
   // new town,T2
   @Test
   public void testOverlapsEmitAll() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/overlapsEmitAll.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/overlapsEmitAll.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc20");
@@ -373,12 +413,14 @@ public abstract class ExtractEntitiesTest {
   // new town,T2
   @Test
   public void testOverlapsEmitLongestOnly() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/overlapsLongest.dict\"]\n" +
-        "  ignore_overlaps = true\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/overlapsLongest.dict"]
+          ignore_overlaps = true
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc21");
@@ -393,12 +435,14 @@ public abstract class ExtractEntitiesTest {
   // gamma,Gamma
   @Test
   public void testStopOnHit() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/stopOnHit.dict\"]\n" +
-        "  stop_on_hit = true\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/stopOnHit.dict"]
+          stop_on_hit = true
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc22");
@@ -411,12 +455,14 @@ public abstract class ExtractEntitiesTest {
   // delta,DeltaPayload
   @Test
   public void testUsePayloadsWithEntityField() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/usePayloadsWithEntity.dict\"]\n" +
-        "  entity_field = \"entity\"\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/usePayloadsWithEntity.dict"]
+          entity_field = "entity"
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc23");
@@ -431,12 +477,14 @@ public abstract class ExtractEntitiesTest {
   // beta,PB
   @Test
   public void testDontUsePayloads() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/dontUsePayloads.dict\"]\n" +
-        "  use_payloads = false\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/dontUsePayloads.dict"]
+          use_payloads = false
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc24");
@@ -466,12 +514,14 @@ public abstract class ExtractEntitiesTest {
   // gamma,C
   @Test
   public void testManySourcesOneDestOrder() throws Exception {
-    String config = "{\n" +
-        "  source = [\"s1\", \"s2\", \"s3\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/manySourcesOneDest.dict\"]\n" +
-        "  update_mode = \"append\"\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["s1", "s2", "s3"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/manySourcesOneDest.dict"]
+          update_mode = "append"
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc25");
@@ -487,11 +537,13 @@ public abstract class ExtractEntitiesTest {
   // beta,B
   @Test
   public void testOneToOneSourceDest() throws Exception {
-    String config = "{\n" +
-        "  source = [\"s1\", \"s2\"]\n" +
-        "  dest = [\"o1\", \"o2\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/oneToOne.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["s1", "s2"]
+          dest = ["o1", "o2"]
+          dictionaries = ["classpath:ExtractEntitiesTest/oneToOne.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc26");
@@ -506,11 +558,13 @@ public abstract class ExtractEntitiesTest {
   //   apple  ,Fruit
   @Test
   public void testTrimAsciiSpacesInDict() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/trimSpaces.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/trimSpaces.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc27");
@@ -524,11 +578,13 @@ public abstract class ExtractEntitiesTest {
   // alpha,Two
   @Test
   public void testDuplicateKeysFirstWins() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/dupKeysFirstWins.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/dupKeysFirstWins.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc28");
@@ -542,11 +598,13 @@ public abstract class ExtractEntitiesTest {
   // beta,Two
   @Test
   public void testMalformedEntryIgnored() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/malformedIgnored.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/malformedIgnored.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document docA = Document.create("doc29A");
@@ -563,11 +621,13 @@ public abstract class ExtractEntitiesTest {
   // München,City
   @Test
   public void testUtf8NonAsciiTerm() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/utf8NonAscii.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/utf8NonAscii.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc30");
@@ -582,11 +642,13 @@ public abstract class ExtractEntitiesTest {
   // alpha,Two
   @Test
   public void testMultiDictFirstWins() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/multiA.dict\", \"classpath:ExtractEntitiesTest/multiB.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/multiA.dict", "classpath:ExtractEntitiesTest/multiB.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc31");
@@ -599,11 +661,13 @@ public abstract class ExtractEntitiesTest {
   // C++,Hit
   @Test
   public void testPunctuationInKey() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/punctInKey.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/punctInKey.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc32");
@@ -616,11 +680,13 @@ public abstract class ExtractEntitiesTest {
   // O'Malley,Hit
   @Test
   public void testApostropheInKey() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/apostropheInKey.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/apostropheInKey.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc33");
@@ -633,11 +699,13 @@ public abstract class ExtractEntitiesTest {
   // man,Hit
   @Test
   public void testSubstringInsideWordNoMatch() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/substringNoMatch.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/substringNoMatch.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc34");
@@ -650,11 +718,13 @@ public abstract class ExtractEntitiesTest {
   // United States,Hit
   @Test
   public void testOffByOneNearMiss() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/offByOne.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/offByOne.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc35");
@@ -669,11 +739,13 @@ public abstract class ExtractEntitiesTest {
   // a a a,X3
   @Test
   public void testLadderPrefixesEmitAll() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/ladderEmitAll.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/ladderEmitAll.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc36");
@@ -692,12 +764,14 @@ public abstract class ExtractEntitiesTest {
   // a a a,X3
   @Test
   public void testLadderPrefixesLongestOnly() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/ladderLongest.dict\"]\n" +
-        "  ignore_overlaps = true\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/ladderLongest.dict"]
+          ignore_overlaps = true
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc37");
@@ -711,11 +785,13 @@ public abstract class ExtractEntitiesTest {
   // & beta,&BETA
   @Test
   public void testLaterStartAfterDeadPrefix() throws Exception {
-    String config = "{\n" +
-        "  source = [\"input1\"]\n" +
-        "  dest = [\"output\"]\n" +
-        "  dictionaries = [\"classpath:ExtractEntitiesTest/laterStartAfterDeadPrefix.dict\"]\n" +
-        "}\n";
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/laterStartAfterDeadPrefix.dict"]
+        }
+        """;
     Stage stage = newStage(config);
 
     Document doc = Document.create("doc38");
