@@ -12,9 +12,9 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>lucille-opensearch-ingest-example</artifactId>
+  <artifactId>lucille-document-generation-example</artifactId>
   <packaging>jar</packaging>
-  <name>Lucille Examples: Ingesting Into Opensearch</name>
+  <name>Lucille Examples: Lucille Document Generation Example</name>
 
   <dependencyManagement>
     <dependencies>
@@ -32,10 +32,6 @@
     <dependency>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.kmwllc</groupId>
-      <artifactId>lucille-tika</artifactId>
     </dependency>
   </dependencies>
 

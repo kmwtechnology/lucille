@@ -224,7 +224,7 @@ public class ElasticsearchIndexerTest {
     Assert.assertFalse(indexer.validateConnection());
 
     ElasticsearchIndexer nullClientIndexer = new ElasticsearchIndexer(config, messenger, null, "testing");
-    Assert.assertFalse(nullClientIndexer.validateConnection());
+    Assert.assertTrue(nullClientIndexer.validateConnection());
 
     ElasticsearchIndexer failPingClientIndexer = new ElasticsearchIndexer(config, messenger, mockFailPingClient, "testing");
     Assert.assertFalse(failPingClientIndexer.validateConnection());

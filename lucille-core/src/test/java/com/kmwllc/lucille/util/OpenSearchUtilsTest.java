@@ -183,7 +183,8 @@ public class OpenSearchUtilsTest {
     badUrlMap.put("opensearch.url", "bad-url");
     Config badUrlConfig = ConfigFactory.parseMap(badUrlMap);
 
-    // Exceptions get caught and null is returned.
-    assertNull(OpenSearchUtils.getOpenSearchRestClient(badUrlConfig));
+    // Exceptions with a bad url should be caught.
+    assertThrows(Exception.class, () -> OpenSearchUtils.getOpenSearchRestClient(badUrlConfig));
+
   }
 }
