@@ -3,13 +3,11 @@ package com.kmwllc.lucille.tika.stage;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.FileContentFetcher;
-import com.kmwllc.lucille.core.FileContentFetcherFactory;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -92,7 +90,7 @@ public class TextExtractor extends Stage {
     }
     parseCtx = new ParseContext();
 
-    this.fileFetcher = new FileContentFetcherFactory().create(config);
+    this.fileFetcher = FileContentFetcher.create(config);
   }
 
   @Override

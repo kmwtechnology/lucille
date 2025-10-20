@@ -3,7 +3,6 @@ package com.kmwllc.lucille.stage;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.FileContentFetcher;
-import com.kmwllc.lucille.core.FileContentFetcherFactory;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -12,7 +11,6 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -81,7 +79,7 @@ public class ApplyFileHandlers extends Stage {
 
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");
-    this.fileFetcher = new FileContentFetcherFactory().create(config);
+    this.fileFetcher = FileContentFetcher.create(config);
   }
 
   @Override

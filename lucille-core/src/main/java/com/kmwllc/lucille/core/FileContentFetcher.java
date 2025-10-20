@@ -10,6 +10,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Constructor;
 import java.net.URI;
 
 public interface FileContentFetcher {
@@ -262,5 +263,26 @@ public interface FileContentFetcher {
    */
   public static BufferedReader getOneTimeReader(String path, String encoding) throws IOException {
     return getOneTimeReader(path, encoding, ConfigFactory.empty());
+  }
+
+  /**
+   * Returns a FileContentFetcher from the given config. A custom FileContentFetcher can be specified by setting the "fetcherClass".
+   * If the provided config does not specify a custom FileContentFetcher, the default FileContentFetcher implementation will be used.
+   * @param config A Config object containing the fetcherClass setting if a custom implementation is desired.
+   * @return A FileContentFetcher instance.
+   */
+  public static FileContentFetcher create(Config config) {
+    if (config == null || !config.hasPath("fetcherClass")) {
+      return new DefaultFileContentFetcher(config);
+    }
+
+    String fetcherClass = config.getString("fetcherClass");
+    try {
+      Class<?> clazz = Class.forName(fetcherClass);
+      Constructor<?> constructor = clazz.getConstructor(Config.class);
+      return (FileContentFetcher) constructor.newInstance(config);
+    } catch (Exception e) {
+      throw new RuntimeException("Could not instantiate FileContentFetcher of type " + fetcherClass, e);
+    }
   }
 }

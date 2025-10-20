@@ -14,17 +14,12 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.connector.storageclient.GoogleStorageClient;
 import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
-import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.FileContentFetcher;
-import com.kmwllc.lucille.core.FileContentFetcherFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.net.URI;
 import java.nio.file.Paths;
 import org.apache.commons.io.IOUtils;
@@ -178,7 +173,7 @@ public class FileContentFetcherTest {
   public void testCustomFetcher() throws IOException {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileContentFetcherTest/customFetcher.conf");
 
-    FileContentFetcher fetcher = new FileContentFetcherFactory().create(config);
+    FileContentFetcher fetcher = FileContentFetcher.create(config);
 
     try(InputStream io = fetcher.getInputStream("test")) {
       assertEquals("Content of fetched content from custom fetcher should be \"Test.\"", "Test.", IOUtils.toString(io, "UTF-8"));
