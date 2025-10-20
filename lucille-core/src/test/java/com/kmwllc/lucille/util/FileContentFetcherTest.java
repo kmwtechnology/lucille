@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Paths;
+import org.apache.commons.io.IOUtils;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -29,7 +30,7 @@ public class FileContentFetcherTest {
 
   @Test
   public void testGetInputStream() throws Exception {
-    FileContentFetcher fetcher = new FileContentFetcher(ConfigFactory.empty());
+    DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(ConfigFactory.empty());
     fetcher.startup();
 
     // 1. Classpath file
@@ -58,7 +59,7 @@ public class FileContentFetcherTest {
     assertThrows(IOException.class, () -> fetcher.getInputStream("classpath:FileContentFetcherTest/hello.txt"));
 
     // 6. Trying to get a file after never calling startup
-    FileContentFetcher unstartedFetcher = new FileContentFetcher(ConfigFactory.empty());
+    DefaultFileContentFetcher unstartedFetcher = new DefaultFileContentFetcher(ConfigFactory.empty());
     assertThrows(IOException.class, () -> unstartedFetcher.getInputStream("classpath:FileContentFetcherTest/hello.txt"));
   }
 
@@ -81,7 +82,7 @@ public class FileContentFetcherTest {
           when(mock.isInitialized()).thenReturn(true);
         });
     ) {
-      FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
+      DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(cloudOptions);
       fetcher.startup();
 
       URI localPathURI = Paths.get("src/test/resources/FileContentFetcherTest/hello.txt").toUri();
@@ -106,7 +107,7 @@ public class FileContentFetcherTest {
       doThrow(new IOException("Mock Init Exception")).when(mock).init();
       doThrow(new IOException("Mock Shutdown Exception")).when(mock).shutdown();
     })) {
-      FileContentFetcher fetcher = new FileContentFetcher(cloudOptions);
+      DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(cloudOptions);
       assertThrows(IOException.class, () -> fetcher.startup());
 
       // an error in fetcher.startup() should call shutdown automatically, which will shutdown each storage client.
@@ -164,6 +165,17 @@ public class FileContentFetcherTest {
 
       // the storage client gets shutdown by the file fetcher.
       verify(mockS3StorageClient, times(1)).shutdown();
+    }
+  }
+
+  @Test
+  public void testCustomFetcher() throws IOException {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileContentFetcherTest/customFetcher.conf");
+
+    FileContentFetcher fetcher = FileContentFetcher.create(config);
+
+    try(InputStream io = fetcher.getInputStream("test")) {
+      assertEquals("Content of fetched content from custom fetcher should be \"Test.\"", "Test.", IOUtils.toString(io, "UTF-8"));
     }
   }
 }
