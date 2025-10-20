@@ -18,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -139,9 +138,9 @@ public class OpenSearchIndexer extends Indexer {
       return Set.of();
     }
 
-    Map<IndexAndField, Document> documentsToUpload = new LinkedHashMap<>();
-    Set<IndexAndField> idsToDelete = new LinkedHashSet<>();
-    Map<IndexAndField, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
+    Map<Pair<String, String>, Document> documentsToUpload = new LinkedHashMap<>();
+    Set<Pair<String, String>> idsToDelete = new LinkedHashSet<>();
+    Map<Pair<String, String>, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
 
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
@@ -154,7 +153,7 @@ public class OpenSearchIndexer extends Indexer {
       String indexOverride = getIndexOverride(doc);
       final String indexToSend = indexOverride != null ? indexOverride : index;
 
-      IndexAndField indexAndId = new IndexAndField(indexToSend, id);
+      Pair<String, String> indexAndId = Pair.of(indexToSend, id);
 
       if (!isMarkedForDeletion(doc)) {
         idsToDelete.remove(indexAndId);
@@ -164,7 +163,7 @@ public class OpenSearchIndexer extends Indexer {
         if (!isMarkedForDeletionByField(doc)) {
           idsToDelete.add(indexAndId);
         } else {
-          IndexAndField indexAndDeleteByField = new IndexAndField(indexToSend, doc.getString(deleteByFieldField));
+          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
           if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
             termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }
@@ -180,17 +179,17 @@ public class OpenSearchIndexer extends Indexer {
     return failedDocs;
   }
 
-  private void deleteById(List<IndexAndField> idsToDelete) throws Exception {
+  private void deleteById(List<Pair<String, String>> idsToDelete) throws Exception {
     if (idsToDelete.isEmpty()) {
       return;
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
-    for (IndexAndField indexAndId : idsToDelete) {
+    for (Pair<String, String> indexAndId : idsToDelete) {
       br.operations(op -> op
           .delete(d -> d
-              .index(indexAndId.getIndex())
-              .id(indexAndId.getField())
+              .index(indexAndId.getLeft())
+              .id(indexAndId.getRight())
           )
       );
     }
@@ -206,7 +205,7 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private void deleteByQuery(Map<IndexAndField, List<String>> termsToDeleteByQuery) throws Exception {
+  private void deleteByQuery(Map<Pair<String, String>, List<String>> termsToDeleteByQuery) throws Exception {
     if (termsToDeleteByQuery.isEmpty()) {
       return;
     }
@@ -245,19 +244,19 @@ public class OpenSearchIndexer extends Indexer {
     // Send a separate delete by query for each index.
     Map<String, BoolQuery.Builder> boolQueryBuilders = new HashMap<>();
 
-    for (Map.Entry<IndexAndField, List<String>> entry : termsToDeleteByQuery.entrySet()) {
-      IndexAndField indexAndField = entry.getKey();
+    for (Map.Entry<Pair<String, String>, List<String>> entry : termsToDeleteByQuery.entrySet()) {
+      Pair<String, String> indexAndField = entry.getKey();
       List<String> values = entry.getValue();
       BoolQuery.Builder boolQuery;
-      if ( boolQueryBuilders.containsKey(indexAndField.getIndex()) ) {
-        boolQuery = boolQueryBuilders.get(indexAndField.getIndex());
+      if ( boolQueryBuilders.containsKey(indexAndField.getLeft()) ) {
+        boolQuery = boolQueryBuilders.get(indexAndField.getLeft());
       } else {
         boolQuery = new BoolQuery.Builder();
-        boolQueryBuilders.put(indexAndField.getIndex(), boolQuery);
+        boolQueryBuilders.put(indexAndField.getLeft(), boolQuery);
       }
       boolQuery.should(s -> s
           .terms(t -> t
-              .field(indexAndField.getField())
+              .field(indexAndField.getRight())
               .terms(tt -> tt.value(values.stream()
                   .map(FieldValue::of)
                   .collect(Collectors.toList()))
@@ -407,31 +406,5 @@ public class OpenSearchIndexer extends Indexer {
         && doc.has(deleteByFieldField)
         && deleteByFieldValue != null
         && doc.has(deleteByFieldValue);
-  }
-
-  private class IndexAndField {
-    private final String index;
-    private final String field;
-
-    public IndexAndField(String index, String field) {
-      this.index = index;
-      this.field = field;
-    }
-
-    public String getIndex() { return index; }
-    public String getField() { return field; }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
-      IndexAndField that = (IndexAndField) o;
-      return index.equals(that.index) && field.equals(that.field);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(index, field);
-    }
   }
 }
