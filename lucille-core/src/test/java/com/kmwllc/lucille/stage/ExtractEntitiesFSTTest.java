@@ -6,8 +6,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 
-import java.lang.reflect.Constructor;
-
 public class ExtractEntitiesFSTTest extends ExtractEntitiesTest {
 
   @Override
