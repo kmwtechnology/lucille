@@ -6,9 +6,8 @@ import java.lang.reflect.Constructor;
 
 public class FileContentFetcherFactory {
 
-  public FileContentFetcher create(Config config)
-  {
-    if(config == null || !config.hasPath("fetcherClass")) {
+  public FileContentFetcher create(Config config) {
+    if (config == null || !config.hasPath("fetcherClass")) {
       return new DefaultFileContentFetcher(config);
     }
 
