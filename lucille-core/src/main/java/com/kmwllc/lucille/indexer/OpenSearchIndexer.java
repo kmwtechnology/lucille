@@ -249,7 +249,7 @@ public class OpenSearchIndexer extends Indexer {
       IndexAndField indexAndField = entry.getKey();
       List<String> values = entry.getValue();
       BoolQuery.Builder boolQuery;
-      if( boolQueryBuilders.containsKey(indexAndField.getIndex()) ) {
+      if ( boolQueryBuilders.containsKey(indexAndField.getIndex()) ) {
         boolQuery = boolQueryBuilders.get(indexAndField.getIndex());
       } else {
         boolQuery = new BoolQuery.Builder();
@@ -266,7 +266,7 @@ public class OpenSearchIndexer extends Indexer {
       );
     }
 
-    for ( Map.Entry<String, BoolQuery.Builder> entry: boolQueryBuilders.entrySet() ) {
+    for (Map.Entry<String, BoolQuery.Builder> entry : boolQueryBuilders.entrySet()) {
       BoolQuery.Builder boolQuery = entry.getValue();
 
       boolQuery.minimumShouldMatch("1");
