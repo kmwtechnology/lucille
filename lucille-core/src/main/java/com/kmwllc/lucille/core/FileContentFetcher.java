@@ -13,8 +13,23 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Constructor;
 import java.net.URI;
 
+
+/**
+ * Responsible for working with StorageClients to repeatedly fetch the contents of String paths, determining the appropriate
+ * storage provider.
+ */
 public interface FileContentFetcher {
+
+  /**
+   * Initialize the underlying resources associated with this FileContentFetcher.
+   *
+   * @throws IOException If an error occurs initializing this FileContentFetcher.
+   */
   public void startup() throws IOException;
+
+  /**
+   * Shutdown all the underlying resources associated with this FileContentFetcher.
+   */
   public void shutdown();
 
   /**
