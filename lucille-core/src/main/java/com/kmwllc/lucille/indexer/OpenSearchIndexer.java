@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -142,9 +143,9 @@ public class OpenSearchIndexer extends Indexer {
       return Set.of();
     }
 
-    Map<String, Document> documentsToUpload = new LinkedHashMap<>();
-    Set<String> idsToDelete = new LinkedHashSet<>();
-    Map<String, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
+    Map<IndexAndField, Document> documentsToUpload = new LinkedHashMap<>();
+    Set<IndexAndField> idsToDelete = new LinkedHashSet<>();
+    Map<IndexAndField, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
 
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
@@ -152,19 +153,26 @@ public class OpenSearchIndexer extends Indexer {
     // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
     for (Document doc : documents) {
       String id = doc.getId();
+
+      // if an index override field has been specified, use its value as the index to send to opensearch,
+      String indexOverride = getIndexOverride(doc);
+      final String indexToSend = indexOverride != null ? indexOverride : index;
+
+      IndexAndField indexAndId = new IndexAndField(indexToSend, id);
+
       if (!isMarkedForDeletion(doc)) {
-        idsToDelete.remove(id);
-        documentsToUpload.put(id, doc);
+        idsToDelete.remove(indexAndId);
+        documentsToUpload.put(indexAndId, doc);
       } else {
-        documentsToUpload.remove(id);
+        documentsToUpload.remove(indexAndId);
         if (!isMarkedForDeletionByField(doc)) {
-          idsToDelete.add(id);
+          idsToDelete.add(indexAndId);
         } else {
-          String field = doc.getString(deleteByFieldField);
-          if (!termsToDeleteByQuery.containsKey(field)) {
-            termsToDeleteByQuery.put(field, new ArrayList<>());
+          IndexAndField indexAndDeleteByField= new IndexAndField(indexToSend, doc.getString(deleteByFieldField));
+          if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
+            termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }
-          termsToDeleteByQuery.get(field).add(doc.getString(deleteByFieldValue));
+          termsToDeleteByQuery.get(indexAndDeleteByField).add(doc.getString(deleteByFieldValue));
         }
       }
     }
@@ -176,17 +184,17 @@ public class OpenSearchIndexer extends Indexer {
     return failedDocs;
   }
 
-  private void deleteById(List<String> idsToDelete) throws Exception {
+  private void deleteById(List<IndexAndField> idsToDelete) throws Exception {
     if (idsToDelete.isEmpty()) {
       return;
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
-    for (String id : idsToDelete) {
+    for (IndexAndField indexAndId : idsToDelete) {
       br.operations(op -> op
           .delete(d -> d
-              .index(index)
-              .id(id)
+              .index(indexAndId.getIndex())
+              .id(indexAndId.getField())
           )
       );
     }
@@ -202,7 +210,7 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private void deleteByQuery(Map<String, List<String>> termsToDeleteByQuery) throws Exception {
+  private void deleteByQuery(Map<IndexAndField, List<String>> termsToDeleteByQuery) throws Exception {
     if (termsToDeleteByQuery.isEmpty()) {
       return;
     }
@@ -237,33 +245,48 @@ public class OpenSearchIndexer extends Indexer {
         }
       }
      */
-    BoolQuery.Builder boolQuery = new BoolQuery.Builder();
-    for (Map.Entry<String, List<String>> entry : termsToDeleteByQuery.entrySet()) {
-      String field = entry.getKey();
+
+    // Send a separate delete by query for each index.
+    Map<String, BoolQuery.Builder> boolQueryBuilders = new HashMap<>();
+
+    for (Map.Entry<IndexAndField, List<String>> entry : termsToDeleteByQuery.entrySet()) {
+      IndexAndField indexAndField = entry.getKey();
       List<String> values = entry.getValue();
+      BoolQuery.Builder boolQuery;
+      if( boolQueryBuilders.containsKey(indexAndField.getIndex()) ) {
+        boolQuery = boolQueryBuilders.get(indexAndField.getIndex());
+      } else {
+        boolQuery = new BoolQuery.Builder();
+        boolQueryBuilders.put(indexAndField.getIndex(), boolQuery);
+      }
       boolQuery.should(s -> s
-        .terms(t -> t
-          .field(field)
-          .terms(tt -> tt.value(values.stream()
-              .map(FieldValue::of)
-              .collect(Collectors.toList()))
+          .terms(t -> t
+              .field(indexAndField.getField())
+              .terms(tt -> tt.value(values.stream()
+                  .map(FieldValue::of)
+                  .collect(Collectors.toList()))
+              )
           )
-        )
       );
     }
-    boolQuery.minimumShouldMatch("1");
 
-    DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest.Builder()
-        .index(index)
-        .query(q -> q.bool(boolQuery.build()))
-        .build();
-    DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+    for ( Map.Entry<String, BoolQuery.Builder> entry: boolQueryBuilders.entrySet() ) {
+      BoolQuery.Builder boolQuery = entry.getValue();
 
-    if (!response.failures().isEmpty()) {
-      for (BulkIndexByScrollFailure failure : response.failures()) {
-        log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+      boolQuery.minimumShouldMatch("1");
+
+      DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest.Builder()
+          .index(entry.getKey())
+          .query(q -> q.bool(boolQuery.build()))
+          .build();
+      DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+
+      if (!response.failures().isEmpty()) {
+        for (BulkIndexByScrollFailure failure : response.failures()) {
+          log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+        }
+        throw new IndexerException("encountered errors while deleting by query");
       }
-      throw new IndexerException("encountered errors while deleting by query");
     }
   }
 
@@ -276,6 +299,10 @@ public class OpenSearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documentsToUpload) {
+
+      // if an index override field has been specified, use its value as the index to send to opensearch,
+      String indexOverride = getIndexOverride(doc);
+      final String indexToSend = indexOverride != null ? indexOverride : index;
 
       // removing the fields mentioned in the ignoreFields setting in configurations
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
@@ -306,7 +333,7 @@ public class OpenSearchIndexer extends Indexer {
       if (update) {
         br.operations(op -> op
             .update((up) -> {
-              up.index(index).id(docId);
+              up.index(indexToSend).id(docId);
               if (routingField != null) {
                 up.routing(doc.getString(routingField));
               }
@@ -318,7 +345,7 @@ public class OpenSearchIndexer extends Indexer {
       } else {
         br.operations(op -> op
             .index((up) -> {
-              up.index(index).id(docId);
+              up.index(indexToSend).id(docId);
               if (routingField != null) {
                 up.routing(doc.getString(routingField));
               }
@@ -384,5 +411,31 @@ public class OpenSearchIndexer extends Indexer {
         && doc.has(deleteByFieldField)
         && deleteByFieldValue != null
         && doc.has(deleteByFieldValue);
+  }
+
+  private class IndexAndField {
+    private final String index;
+    private final String field;
+
+    public IndexAndField(String index, String field) {
+      this.index = index;
+      this.field = field;
+    }
+
+    public String getIndex() { return index; }
+    public String getField() { return field; }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      IndexAndField that = (IndexAndField) o;
+      return index.equals(that.index) && field.equals(that.field);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(index, field);
+    }
   }
 }
