@@ -6,7 +6,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import com.kmwllc.lucille.core.FileContentFetcher;
 import com.typesafe.config.ConfigValueFactory;
 import java.io.IOException;
 import java.util.HashMap;

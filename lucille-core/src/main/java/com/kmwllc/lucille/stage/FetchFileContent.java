@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.FileContentFetcher;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;

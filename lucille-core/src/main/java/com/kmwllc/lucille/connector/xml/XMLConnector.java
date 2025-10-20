@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.FileContentFetcher;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;

@@ -1,8 +1,7 @@
-package com.kmwllc.lucille.core;
+package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
-import com.kmwllc.lucille.util.DefaultFileContentFetcher;
-import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.BufferedReader;

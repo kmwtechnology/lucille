@@ -2,7 +2,7 @@ package com.kmwllc.lucille.tika.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.FileContentFetcher;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;

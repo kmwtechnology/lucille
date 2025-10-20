@@ -2,7 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConnectorException;
-import com.kmwllc.lucille.core.FileContentFetcher;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;

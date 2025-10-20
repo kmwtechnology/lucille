@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.connector.storageclient.GoogleStorageClient;
 import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
-import com.kmwllc.lucille.core.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;

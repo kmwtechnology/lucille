@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.connector.xml.XMLConnector;
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.message.TestMessenger;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;

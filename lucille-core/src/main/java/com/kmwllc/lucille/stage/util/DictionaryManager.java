@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage.util;
 
-import com.kmwllc.lucille.core.FileContentFetcher;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.StageException;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
