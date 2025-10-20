@@ -70,10 +70,6 @@ public class OpenSearchIndexer extends Indexer {
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
     super(config, messenger, metricsPrefix, localRunId);
 
-    if (this.indexOverrideField != null) {
-      throw new IllegalArgumentException(
-          "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
-    }
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
     this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
