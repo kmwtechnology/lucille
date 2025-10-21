@@ -236,8 +236,8 @@
     <!-- SSL Context Kickstart -->
     <dependency>
       <groupId>io.github.hakky54</groupId>
-      <artifactId>sslcontext-kickstart</artifactId>
-      <version>${sslcontext-kickstart.version}</version>
+      <artifactId>ayza</artifactId>
+      <version>${ayza.version}</version>
     </dependency>
 
     <!-- FileConnector -->
