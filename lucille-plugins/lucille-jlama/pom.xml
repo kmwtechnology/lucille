@@ -33,11 +33,17 @@
       <artifactId>slf4j-api</artifactId>
     </dependency>
 
-    <!-- Jlamma -->
+    <!-- Jlama -->
     <dependency>
       <groupId>com.github.tjake</groupId>
       <artifactId>jlama-core</artifactId>
       <version>${jlama.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.hubspot.jinjava</groupId>
+          <artifactId>jinjava</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -45,6 +51,12 @@
       <artifactId>jlama-native</artifactId>
       <classifier>${os.detected.name}-${os.detected.arch}</classifier>
       <version>${jlama.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.hubspot.jinjava</groupId>
+      <artifactId>jinjava</artifactId>
+      <version>2.8.1</version>
     </dependency>
   </dependencies>
 

@@ -60,12 +60,13 @@
     <apache-commons-lang3.version>3.18.0</apache-commons-lang3.version>
     <apache-commons-text.version>1.10.0</apache-commons-text.version>
     <protobuf.version>3.25.5</protobuf.version>
-    <netty.version>4.1.119.Final</netty.version>
+    <netty.version>4.1.125.Final</netty.version>
     <grpc.version>1.66.0</grpc.version>
     <dropwizard-core.version>4.0.12</dropwizard-core.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit4.version>4.13.2</junit4.version>
-    <aws-sdk.version>2.29.1</aws-sdk.version>
+    <aws-sdk.version>2.33.13</aws-sdk.version>
+    <hadoop.version>3.4.2</hadoop.version>
 
   </properties>
 
