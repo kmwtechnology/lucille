@@ -15,6 +15,10 @@
     <packaging>jar</packaging>
     <name>Lucille Examples: RSS Example</name>
 
+   <properties>
+       <maven.deploy.skip>true</maven.deploy.skip>
+   </properties>
+
     <dependencyManagement>
       <dependencies>
         <dependency>

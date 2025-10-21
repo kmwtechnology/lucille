@@ -16,6 +16,10 @@
   <packaging>jar</packaging>
   <name>Lucille Examples: Joining Database Connector Ingest Example</name>
 
+   <properties>
+       <maven.deploy.skip>true</maven.deploy.skip>
+   </properties>
+
   <dependencyManagement>
     <dependencies>
       <dependency>

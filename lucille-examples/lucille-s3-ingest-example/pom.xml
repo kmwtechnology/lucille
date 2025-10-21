@@ -16,6 +16,10 @@
   <packaging>jar</packaging>
   <name>Lucille Examples: Ingesting Into S3</name>
 
+   <properties>
+       <maven.deploy.skip>true</maven.deploy.skip>
+   </properties>
+
   <dependencyManagement>
     <dependencies>
       <dependency>
