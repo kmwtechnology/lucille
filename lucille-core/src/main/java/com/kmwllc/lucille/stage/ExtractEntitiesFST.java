@@ -29,7 +29,6 @@ import org.apache.lucene.util.fst.ByteSequenceOutputs;
 import org.apache.lucene.util.fst.FST;
 import org.apache.lucene.util.fst.FSTCompiler;
 import org.apache.lucene.util.fst.NoOutputs;
-import org.apache.lucene.util.fst.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -174,9 +173,6 @@ public class ExtractEntitiesFST extends Stage {
             String p = line[1];
             payload = (p == null) ? "" : p.trim();
           } else {
-            payload = null;
-          }
-          if (payload == null) {
             payload = term;
           }
 
@@ -198,14 +194,8 @@ public class ExtractEntitiesFST extends Stage {
       terms.sort(Comparator.naturalOrder());
     }
 
-    // Initialize FST builder with no payloads
-    // blockBits controls the block size used by the FST builder where 15 is default
-    // (15 bits = 32kb) More information can be found in org.apache.lucene.util.fst.FSTCompiler.Builder
-    var rw = FSTCompiler.getOnHeapReaderWriter(15);
     var outputs = NoOutputs.getSingleton();
-    FSTCompiler<Object> builder = new FSTCompiler.Builder<>(FST.INPUT_TYPE.BYTE1, outputs)
-        .dataOutput(rw)
-        .build();
+    FSTCompiler<Object> builder = new FSTCompiler.Builder<>(FST.INPUT_TYPE.BYTE2, outputs).build();
 
     // Add each unique sorted term into the FST
     String last = null;
@@ -215,7 +205,7 @@ public class ExtractEntitiesFST extends Stage {
         continue;
       }
       last = t;
-      builder.add(toIntsRef(new BytesRef(t)), outputs.getNoOutput());
+      builder.add(toIntsRef(t), outputs.getNoOutput());
     }
 
     // Compile and load the FST
@@ -231,12 +221,8 @@ public class ExtractEntitiesFST extends Stage {
       rows.sort(Map.Entry.comparingByKey());
     }
 
-    // Initialize FST builder with ByteSequenceOutputs
-    var rw = FSTCompiler.getOnHeapReaderWriter(15);
     var outputs = ByteSequenceOutputs.getSingleton();
-    FSTCompiler<BytesRef> builder = new FSTCompiler.Builder<>(FST.INPUT_TYPE.BYTE1, outputs)
-        .dataOutput(rw)
-        .build();
+    FSTCompiler<BytesRef> builder = new FSTCompiler.Builder<>(FST.INPUT_TYPE.BYTE2, outputs).build();
 
     // Add each unique sorted term and payload pair into the FST
     String last = null;
@@ -253,7 +239,7 @@ public class ExtractEntitiesFST extends Stage {
         payload = t;
       }
 
-      builder.add(toIntsRef(new BytesRef(t)), new BytesRef(payload));
+      builder.add(toIntsRef(t), new BytesRef(payload));
     }
 
     // Compile and load the FST
@@ -340,150 +326,150 @@ public class ExtractEntitiesFST extends Stage {
   }
 
   private void findMatches(String raw, List<String> outputs, List<String> matchedTerms) {
-    String converted = ignoreCase ? raw.toLowerCase(Locale.ROOT) : raw;
-    int n = converted.length();
+    String text = ignoreCase ? raw.toLowerCase(Locale.ROOT) : raw;
+    int n = text.length();
 
-    int i = 0;
-    while (i < n) {
-      int j = i + 1;
-      boolean hasPrefix = true;
+    if (usePayloads) {
+      FST<BytesRef> fst = fstPayloads;
+      for (int i = 0; i < n; ) {
+        FST.BytesReader r = fst.getBytesReader();
+        FST.Arc<BytesRef> arc = fst.getFirstArc(new FST.Arc<>());
+        BytesRef out = fst.outputs.getNoOutput();
 
-      MatchHit longest = null;
-      List<MatchHit> allAtI = ignoreOverlaps ? null : new ArrayList<>();
+        MatchHit longest = null;
+        List<MatchHit> allAtI = ignoreOverlaps ? null : new ArrayList<>(2);
 
-      while (hasPrefix && j <= n) {
-        String window = converted.substring(i, j);
+        int j = i;
+        while (j < n) {
+          int label = text.charAt(j);
 
-        if (!window.isEmpty()) {
-          if (usePayloads) {
-            BytesRef br;
-            
-            try {
-              br = Util.get(fstPayloads, new BytesRef(window));
-            } catch (Exception e) {
-              throw new RuntimeException("FST lookup failed", e);
+          try {
+            if (fst.findTargetArc(label, arc, arc, r) == null) {
+              break;
             }
-            
-            if (br != null && (!onlyWholeWords || (isLeftBoundary(raw, i) && isRightBoundary(raw, j)))) {
-              String payload = br.utf8ToString();
-              String key = window;
-              MatchHit hit = new MatchHit(key, payload, j - i);
-              
-              if (ignoreOverlaps) {
-                if (longest == null || hit.length > longest.length) {
-                  longest = hit;
-                }
-              } else {
-                allAtI.add(hit);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+
+          out = fst.outputs.add(out, arc.output());
+          int j1 = j + 1;
+
+          if (arc.isFinal() && (!onlyWholeWords || (isLeftBoundary(raw, i) && isRightBoundary(raw, j1)))) {
+            BytesRef payloadBR = fst.outputs.add(out, arc.nextFinalOutput());
+            String payload = payloadBR == null ? "" : payloadBR.utf8ToString();
+            String key = text.substring(i, j1);
+            MatchHit hit = new MatchHit(key, payload, j1 - i);
+
+            if (ignoreOverlaps) {
+              if (longest == null || hit.length > longest.length) {
+                longest = hit;
               }
-            }
-          } else {
-            if (matchesCompletely(fstNoPayloads, new BytesRef(window))
-                && (!onlyWholeWords || (isLeftBoundary(raw, i) && isRightBoundary(raw, j)))) {
-              String key = window;
-              MatchHit hit = new MatchHit(key, null, j - i);
-              
-              if (ignoreOverlaps) {
-                if (longest == null || hit.length > longest.length) {
-                  longest = hit;
-                }
-              } else {
-                allAtI.add(hit);
-              }
+            } else {
+              allAtI.add(hit);
             }
           }
+
+          j = j1;
         }
 
-        // Early exit
-        hasPrefix = usePayloads
-            ? hasPrefixBytes(fstPayloads, new BytesRef(window))
-            : hasPrefixBytes(fstNoPayloads, new BytesRef(window));
-
-        j++;
-      }
-      
-      if (ignoreOverlaps) {
-        if (longest != null) {
-          if (usePayloads) {
+        if (ignoreOverlaps) {
+          if (longest != null) {
             outputs.add(longest.payload);
-            
+
             if (matchedTerms != null) {
               matchedTerms.add(longest.key);
             }
+            i += Math.max(1, longest.length);
           } else {
-            outputs.add(longest.key);
+            i++;
           }
-          i += Math.max(1, longest.length);
         } else {
-          i++;
-        }
-      } else {
-        if (allAtI != null && !allAtI.isEmpty()) {
-          for (MatchHit m : allAtI) {
-            if (usePayloads) {
+          if (allAtI != null && !allAtI.isEmpty()) {
+            for (MatchHit m : allAtI) {
               outputs.add(m.payload);
-              
               if (matchedTerms != null) {
                 matchedTerms.add(m.key);
               }
+            }
+          }
+          i++;
+        }
+
+        if (stopOnHit && !outputs.isEmpty()) {
+          break;
+        }
+      }
+    } else {
+      FST<Object> fst = fstNoPayloads;
+
+      for (int i = 0; i < n; ) {
+        FST.BytesReader r = fst.getBytesReader();
+        FST.Arc<Object> arc = fst.getFirstArc(new FST.Arc<>());
+
+        MatchHit longest = null;
+        List<MatchHit> allAtI = ignoreOverlaps ? null : new ArrayList<>(2);
+
+        int j = i;
+        while (j < n) {
+          int label = text.charAt(j);
+          try {
+            if (fst.findTargetArc(label, arc, arc, r) == null) {
+              break;
+            }
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+          int j1 = j + 1;
+
+          if (arc.isFinal() && (!onlyWholeWords || (isLeftBoundary(raw, i) && isRightBoundary(raw, j1)))) {
+            String key = text.substring(i, j1);
+            MatchHit hit = new MatchHit(key, null, j1 - i);
+
+            if (ignoreOverlaps) {
+              if (longest == null || hit.length > longest.length) {
+                longest = hit;
+              }
             } else {
+              allAtI.add(hit);
+            }
+          }
+
+          j = j1;
+        }
+
+        if (ignoreOverlaps) {
+          if (longest != null) {
+            outputs.add(longest.key);
+            i += Math.max(1, longest.length);
+          } else {
+            i++;
+          }
+        } else {
+          if (allAtI != null && !allAtI.isEmpty()) {
+            for (MatchHit m : allAtI) {
               outputs.add(m.key);
             }
           }
-        }
-        
-        i++;
-      }
 
-      if (stopOnHit && !outputs.isEmpty()) {
-        break;
+          i++;
+        }
+
+        if (stopOnHit && !outputs.isEmpty()) {
+          break;
+        }
       }
     }
   }
 
-  // --- FST helpers ---
-
-  private static FST.Arc walk(FST fst, BytesRef input) {
-    try {
-      // Reader over the compiled FST bytes
-      FST.BytesReader r = fst.getBytesReader();
-      // Start at the root
-      FST.Arc arc = fst.getFirstArc(new FST.Arc<>());
-
-      // Walk byte by byte through the input string
-      for (int i = 0; i < input.length; i++) {
-        int label = input.bytes[input.offset + i] & 0xFF;
-
-        // If there's no valid transition for this byte then it's not a prefix
-        if (fst.findTargetArc(label, arc, arc, r) == null) {
-          return null;
-        }
-      }
-
-      return arc;
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  // Verify that input matches a complete entry
-  private static boolean matchesCompletely(FST<Object> fst, BytesRef input) {
-    FST.Arc arc = walk(fst, input);
-    return (arc != null) && arc.isFinal();
-  }
-
-  // Test if the input has a valid prefix of any term
-  private static <T> boolean hasPrefixBytes(FST<T> fst, BytesRef input) {
-    return walk(fst, input) != null;
-  }
-
-  private static IntsRef toIntsRef(BytesRef b) {
+  private static IntsRef toIntsRef(String s) {
     IntsRefBuilder irb = new IntsRefBuilder();
-    irb.grow(b.length);
+    irb.grow(s.length());
     irb.clear();
-    for (int i = 0; i < b.length; i++) {
-      irb.append(b.bytes[b.offset + i] & 0xFF);
+
+    for (int i = 0; i < s.length(); i++) {
+      irb.append(s.charAt(i));
     }
+
     return irb.get();
   }
 

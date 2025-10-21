@@ -806,7 +806,7 @@ public abstract class ExtractEntitiesTest {
     assertEquals(List.of("omega"), doc.getStringList("output"));
   }
 
-  // omega
+  // omega,
   @Test
   public void testEmptyPayloadDefaultsToEmpty() throws Exception {
     String config = """
