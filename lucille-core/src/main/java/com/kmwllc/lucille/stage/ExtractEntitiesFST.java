@@ -286,7 +286,11 @@ public class ExtractEntitiesFST extends Stage {
           continue;
         }
 
-        findMatches(raw, outputs, matchedTerms);
+        try {
+          findMatches(raw, outputs, matchedTerms);
+        } catch (IOException e) {
+          throw new StageException("Error in traversing FST", e);
+        }
 
         if (stopOnHit && !outputs.isEmpty()) {
           break;
@@ -304,8 +308,6 @@ public class ExtractEntitiesFST extends Stage {
 
     return null;
   }
-
-  // --- Character-based matching ---
 
   private static boolean isLeftBoundary(String s, int start) {
     if (start <= 0) {
@@ -325,138 +327,75 @@ public class ExtractEntitiesFST extends Stage {
     return !Character.isLetter(cp);
   }
 
-  private void findMatches(String raw, List<String> outputs, List<String> matchedTerms) {
+  private void findMatches(String raw, List<String> outputs, List<String> matchedTerms) throws IOException {
     String text = ignoreCase ? raw.toLowerCase(Locale.ROOT) : raw;
-    int n = text.length();
+    FST fst = usePayloads ? fstPayloads : fstNoPayloads;
 
-    if (usePayloads) {
-      FST<BytesRef> fst = fstPayloads;
-      for (int i = 0; i < n; ) {
-        FST.BytesReader r = fst.getBytesReader();
-        FST.Arc<BytesRef> arc = fst.getFirstArc(new FST.Arc<>());
-        BytesRef out = fst.outputs.getNoOutput();
+    for (int startPosition = 0; startPosition < text.length(); ) {
+      FST.BytesReader r = fst.getBytesReader();
+      FST.Arc arc = fst.getFirstArc(new FST.Arc<>());
+      BytesRef out = usePayloads ? (BytesRef)fst.outputs.getNoOutput() : null;
 
-        MatchHit longest = null;
-        List<MatchHit> allAtI = ignoreOverlaps ? null : new ArrayList<>(2);
+      MatchHit longestMatch = null;
+      List<MatchHit> matches = ignoreOverlaps ? null : new ArrayList<>(); // all matches beginning at startPosition
 
-        int j = i;
-        while (j < n) {
-          int label = text.charAt(j);
+      for (int endPosition = startPosition; endPosition < text.length(); ) {
+        int label = text.charAt(endPosition);
 
-          try {
-            if (fst.findTargetArc(label, arc, arc, r) == null) {
-              break;
-            }
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
-
-          out = fst.outputs.add(out, arc.output());
-          int j1 = j + 1;
-
-          if (arc.isFinal() && (!onlyWholeWords || (isLeftBoundary(raw, i) && isRightBoundary(raw, j1)))) {
-            BytesRef payloadBR = fst.outputs.add(out, arc.nextFinalOutput());
-            String payload = payloadBR == null ? "" : payloadBR.utf8ToString();
-            String key = text.substring(i, j1);
-            MatchHit hit = new MatchHit(key, payload, j1 - i);
-
-            if (ignoreOverlaps) {
-              if (longest == null || hit.length > longest.length) {
-                longest = hit;
-              }
-            } else {
-              allAtI.add(hit);
-            }
-          }
-
-          j = j1;
-        }
-
-        if (ignoreOverlaps) {
-          if (longest != null) {
-            outputs.add(longest.payload);
-
-            if (matchedTerms != null) {
-              matchedTerms.add(longest.key);
-            }
-            i += Math.max(1, longest.length);
-          } else {
-            i++;
-          }
-        } else {
-          if (allAtI != null && !allAtI.isEmpty()) {
-            for (MatchHit m : allAtI) {
-              outputs.add(m.payload);
-              if (matchedTerms != null) {
-                matchedTerms.add(m.key);
-              }
-            }
-          }
-          i++;
-        }
-
-        if (stopOnHit && !outputs.isEmpty()) {
+        if (fst.findTargetArc(label, arc, arc, r) == null) {
           break;
+        }
+
+        if (usePayloads) {
+          out = (BytesRef)fst.outputs.add(out, arc.output());
+        }
+
+        endPosition += 1;
+
+        if (arc.isFinal() && (!onlyWholeWords || (isLeftBoundary(raw, startPosition) && isRightBoundary(raw, endPosition)))) {
+          String key = text.substring(startPosition, endPosition);
+          String payload = null;
+          if (usePayloads) {
+            BytesRef payloadBR = (BytesRef)fst.outputs.add(out, arc.nextFinalOutput());
+            payload = payloadBR == null ? "" : payloadBR.utf8ToString();
+          }
+          MatchHit hit = new MatchHit(key, payload, endPosition - startPosition);
+
+          if (ignoreOverlaps) {
+            if (longestMatch == null || hit.length > longestMatch.length) {
+              longestMatch = hit;
+            }
+          } else {
+            matches.add(hit);
+          }
         }
       }
-    } else {
-      FST<Object> fst = fstNoPayloads;
 
-      for (int i = 0; i < n; ) {
-        FST.BytesReader r = fst.getBytesReader();
-        FST.Arc<Object> arc = fst.getFirstArc(new FST.Arc<>());
+      if (ignoreOverlaps) {
+        if (longestMatch != null) {
+          outputs.add(usePayloads ? longestMatch.payload : longestMatch.key);
 
-        MatchHit longest = null;
-        List<MatchHit> allAtI = ignoreOverlaps ? null : new ArrayList<>(2);
-
-        int j = i;
-        while (j < n) {
-          int label = text.charAt(j);
-          try {
-            if (fst.findTargetArc(label, arc, arc, r) == null) {
-              break;
-            }
-          } catch (IOException e) {
-            throw new RuntimeException(e);
+          if (matchedTerms != null) {
+            matchedTerms.add(longestMatch.key);
           }
-          int j1 = j + 1;
-
-          if (arc.isFinal() && (!onlyWholeWords || (isLeftBoundary(raw, i) && isRightBoundary(raw, j1)))) {
-            String key = text.substring(i, j1);
-            MatchHit hit = new MatchHit(key, null, j1 - i);
-
-            if (ignoreOverlaps) {
-              if (longest == null || hit.length > longest.length) {
-                longest = hit;
-              }
-            } else {
-              allAtI.add(hit);
-            }
-          }
-
-          j = j1;
-        }
-
-        if (ignoreOverlaps) {
-          if (longest != null) {
-            outputs.add(longest.key);
-            i += Math.max(1, longest.length);
-          } else {
-            i++;
-          }
+          startPosition += Math.max(1, longestMatch.length);
         } else {
-          if (allAtI != null && !allAtI.isEmpty()) {
-            for (MatchHit m : allAtI) {
-              outputs.add(m.key);
+          startPosition++;
+        }
+      } else {
+        if (matches != null && !matches.isEmpty()) {
+          for (MatchHit m : matches) {
+            outputs.add(usePayloads ? m.payload : m.key);
+            if (matchedTerms != null) {
+              matchedTerms.add(m.key);
             }
           }
-
-          i++;
         }
+        startPosition++;
+      }
 
-        if (stopOnHit && !outputs.isEmpty()) {
-          break;
-        }
+      if (stopOnHit && !outputs.isEmpty()) {
+        break;
       }
     }
   }
