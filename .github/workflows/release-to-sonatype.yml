@@ -36,7 +36,8 @@ jobs:
         run: mvn versions:set -DnewVersion=${{ env.release }} -f lucille-parent/pom.xml
 
       - name: Publish package
-        run: mvn --batch-mode deploy -Dgpg.passphrase="$MAVEN_GPG_PASSPHRASE" -Ddeploy -pl '!:lucille-examples' -Dassembly.skipAssembly=true -DskipTestsJar
+        run: > 
+          mvn --batch-mode deploy -Dgpg.passphrase="$MAVEN_GPG_PASSPHRASE" -Ddeploy -Dassembly.skipAssembly=true
         env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
