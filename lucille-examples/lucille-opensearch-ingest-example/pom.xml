@@ -16,10 +16,6 @@
   <packaging>jar</packaging>
   <name>Lucille Examples: Ingesting Into Opensearch</name>
 
-   <properties>
-       <maven.deploy.skip>true</maven.deploy.skip>
-   </properties>
-
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -62,14 +58,6 @@
             </configuration>
           </execution>
         </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-deploy-plugin</artifactId>
-        <version>3.1.4</version>
-        <configuration>
-          <skip>true</skip>
-        </configuration>
       </plugin>
     </plugins>
   </build>
