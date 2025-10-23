@@ -1,15 +1,14 @@
 ---
 title: Publisher
-date: 2024-10-15
-description: A short lead description about this content page.
+date: 2025-10-23
+description: Provides a way to publish documents for processing by the pipeline.
 ---
 
-{{% pageinfo %}}
-This is a placeholder page. Replace it with your own content.
-{{% /pageinfo %}}
+*Publisher* provides a way to publish documents for processing by the pipeline. When published, a Lucille document becomes available for consumption by any active pipeline Worker.
 
-Text can be **bold**, _italic_, or ~~strikethrough~~. [Links](https://gohugo.io) should be blue with no underlines (unless hovered over).
+The Publisher is aware of every document in the run that needs to be indexed, and determines when to end a run by reading all the specific document events.
 
-```
-This is the final element on the page and there should be no margin below this.
-```
+Publisher also:
+* Is responsible for stamping a designated `run_id` on each published document and maintaining accounting details specific to a run.
+* Accepts incoming events related to published documents and their children (via in-memory queue or Kafka Event Topic).
+
