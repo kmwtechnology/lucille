@@ -1,15 +1,9 @@
 ---
 title: Pipeline
 date: 2024-10-15
-description: A short lead description about this content page.
+description: The end-to-end sequence of stages that transform documents. 
 ---
 
-{{% pageinfo %}}
-This is a placeholder page. Replace it with your own content.
-{{% /pageinfo %}}
+A *Pipeline* refers to the complete sequence of stages that can be configured to transform documents with Lucille.
 
-Text can be **bold**, _italic_, or ~~strikethrough~~. [Links](https://gohugo.io) should be blue with no underlines (unless hovered over).
-
-```
-This is the final element on the page and there should be no margin below this.
-```
+In most the most common architecture, a Pipeline is fed by a Connector and emits documents to an Indexer.
