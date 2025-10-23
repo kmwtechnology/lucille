@@ -9,28 +9,28 @@ resources:
       byline: "Photo of Dashboards"
 ---
 
-### Lucille Logs
+## Lucille Logs
 
 **There are many ways you can use the logs output by Lucille.** Lucille has, essentially, two main loggers for tracking your Lucille run: 
 the `Root` logger, and the `DocLogger`. 
 
-##### The Root Logger
+### The Root Logger
 The `Root` logger outputs log statements from a variety of sources, allowing you to track your Lucille run. For example, the `Root` logger
 is where you'll get intermittent updates about your pipeline's performance, warnings from Stages or Indexers in certain situations, etc.
 
-##### The Doc Logger
+### The Doc Logger
 The `DocLogger` is very verbose - it tracks the lifecycle of _each Document_ in your Lucille pipeline.
 For example, a log statement is made when a Document is created, before it is published, before & after a Stage operates on it... etc. 
 As you can imagine, this results in _many_ log statements - it is recommended these logs are stored in a file, rather than just
 having them printed to the console.
 Logs from the `DocLogger` will primarily be `INFO`-level logs - very rarely, an `ERROR`-level log will be made for a Document.
 
-### Log Files
+## Log Files
 Lucille can store logs in a file as plain text or as JSON objects. When storing logs as JSON, each line will be a JSON object representing
 a log statement in accordance with the `EcsLayout`. By modifying the `log4j2.xml`, you can control which Loggers are enabled/disabled,
 where their logs get stored, and what level of logs you want to process.
 
-### Logstash & OpenSearch
+## Logstash & OpenSearch
 If you store your logs as JSON, you can easily run Logstash on the file(s), allowing you to index them into a Search Engine of your
 choice for enhanced discovery and analysis. This can be particularly informative when working with the `DocLogger`. For example,
 you might:
@@ -99,7 +99,7 @@ created from a JSON, CSV, or XML FileHandler.
 By filling an OpenSearch Index with your JSON log statements, you can also build OpenSearch Dashboards to monitor your Lucille runs 
 and analyze their performance. 
 
-##### Setting up the Index Pattern
+### Setting up the Index Pattern
 
 Once you have OpenSearch Dashboards open, click on the menu in the top left. Select **Dashboards Management**, and then, on this new
 page, select **Index Patterns**. Create an Index Pattern for your **logs** index. As you click through, be sure to choose **@Timestamp**
@@ -107,7 +107,7 @@ in the dropdown for "Time Field".
 
 (Timestamps are very important in OpenSearch Dashboards. Many features will use the timestamp of a Document in some form.)
 
-##### Discovery
+### Discovery
 
 OpenSearch Dashboards has two major "features" - **Dashboards** and **Discover**. We'll start with **Discover**. 
 
@@ -122,7 +122,7 @@ You can select certain fields on the left side of your screen to get a more focu
 You can also sort the statements in a certain order. If you hover over **Time** at the top of the table, you can click the arrow to
 sort the logs by their timestamps.
 
-##### Dashboards
+### Dashboards
 
 Now, let's see how Dashboards could help you monitor a certain Lucille run. Imagine you have scheduled a Lucille run to execute
 every day. We can create a Dashboard that will help us quickly see how many warnings/errors took place. 

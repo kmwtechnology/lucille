@@ -13,8 +13,6 @@ This guide covers the basics of how to develop a new stage for Lucille and what 
 ## Prerequisite(s)
 - An up-to-date version of Lucille that has been appropriately installed 
 
-- Please refer to **Quick Start Guides - Lucille Local Mode** for more info on how to set up Lucille
-
 - Understanding of Java programming language
 
 - Understanding of Lucille 

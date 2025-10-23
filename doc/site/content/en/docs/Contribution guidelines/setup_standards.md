@@ -5,11 +5,8 @@ date: 2024-10-15
 description: >
   Coding standards for Lucille and how to set up for local development.
 ---
-
-## Coding Standards
-
-
 ## Local Developer Setup
+
 ### Prerequisite(s):
 - IntelliJ application installed on machine
 - Java project 
