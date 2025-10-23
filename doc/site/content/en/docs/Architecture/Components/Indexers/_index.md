@@ -6,11 +6,16 @@ description: An Indexer sends processed Documents to a specific destination.
 
 ## Indexers
 
-An indexer sends processed Documents to a specific destination. Only one Indexer can be defined in a Lucille run. 
+An *Indexer* is a thread that retrieves processed Documents from the end of a Pipeline and sends them in batches to a specific destination. For users of Lucille, this destination will most commonly be a search engine.
+ 
+Only one Indexer can be defined in a Lucille run. 
 All pipelines will feed to the same Indexer.
 
-Indexer configuration has two parts: the generic `indexer` configuration, and configuration for the implementation you are using.
-For example, if you are using Solr, you'd provide `solr` config, or `elastic` for Elasticsearch, `csv` for CSV, etc.
+Indexer configuration has two parts:
+* the generic `indexer` configuration
+* configuration for the implementation you are using.
+
+* For example, if you are using Solr, you'd provide `solr` config, or `elastic` for Elasticsearch, `csv` for CSV, etc.
 
 Here's what using the SolrIndexer might look like:
 ```hocon

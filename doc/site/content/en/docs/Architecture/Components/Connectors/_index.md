@@ -1,7 +1,7 @@
 ---
 title: Connectors
 date: 2024-10-15
-description: A component that retrieves data from a source system, packages the data into  “documents,” and publishes them.
+description: A component that retrieves data from a source system and packages the data into Documents in preparation for transformation.
 ---
 
 ## Lucille Connectors
