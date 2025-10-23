@@ -404,6 +404,13 @@
        <version>24.2.2</version>
        <type>pom</type>
     </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.graalvm.python/python-language -->
+    <dependency>
+        <groupId>org.graalvm.python</groupId>
+        <artifactId>python-language</artifactId>
+        <version>24.2.2</version>
+    </dependency>
   </dependencies>
 
   <build>
