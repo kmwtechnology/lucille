@@ -1,7 +1,7 @@
 ---
 title: File Handlers
 date: 2025-02-28
-description: File Handlers extract Lucille documents from individual files, like CSV or JSON files, which themselves contain data which can be transformed into Lucille Documents.
+description: File Handlers extract Lucille Documents from individual files, like CSV or JSON files, which themselves contain data which can be transformed into Lucille Documents.
 ---
 
 File Handlers accept an InputStream for processing, and return the Documents they extract in an Iterator. 

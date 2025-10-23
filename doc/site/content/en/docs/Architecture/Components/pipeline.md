@@ -1,7 +1,7 @@
 ---
 title: Pipeline
 date: 2024-10-15
-description: The end-to-end sequence of stages that transform documents. 
+description: The end-to-end sequence of stages that transform Documents. 
 ---
 
 A *Pipeline* refers to the complete sequence of stages that can be configured to transform documents with Lucille.
