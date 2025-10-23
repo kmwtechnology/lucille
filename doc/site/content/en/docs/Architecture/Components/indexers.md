@@ -1,6 +1,6 @@
 ---
 title: Indexers
-date: 2024-10-15
+date: 2025-10-23
 description: A thread that retrieves completed documents and sends them in batches to a search engine.
 ---
 

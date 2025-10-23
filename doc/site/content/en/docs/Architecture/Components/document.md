@@ -1,15 +1,9 @@
 ---
 title: Document
-date: 2024-10-15
-description: All about the concept of a Document in lucille.
+date: 2025-10-23
+description: The basic unit of data that is sent through a pipeline and eventually indexed into a search engine.
 ---
 
-{{% pageinfo %}}
-This is a placeholder page. Replace it with your own content.
-{{% /pageinfo %}}
+A Lucille *Document* is the basic unit of data that gets sent through a pipeline and indexed.
 
-Text can be **bold**, _italic_, or ~~strikethrough~~. [Links](https://gohugo.io) should be blue with no underlines (unless hovered over).
-
-```
-This is the final element on the page and there should be no margin below this. TEST
-```
+Documents are set of named fields which may contain single or list values represented in JSON. Each Document has a unique id. 
