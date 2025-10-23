@@ -1,7 +1,7 @@
 ---
 title: Publisher
 date: 2025-10-23
-description: Provides a way to publish documents for processing by the pipeline.
+description: Provides a way to publish Documents for processing by the pipeline.
 ---
 
 *Publisher* provides a way to publish documents for processing by the pipeline. When published, a Lucille document becomes available for consumption by any active pipeline Worker.
