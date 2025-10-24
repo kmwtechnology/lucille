@@ -1,6 +1,8 @@
 ---
 title: Getting Started
 weight: 2
+description: >
+ Understanding the basics to quickly get started.
 ---
 
 ## Prerequisites
