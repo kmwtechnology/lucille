@@ -143,10 +143,12 @@ public class FileConnectorStateManager {
    */
   public void markFileEncountered(String fullPathStr) {
     // First, we try an update statement, see if it updates an existing file.
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name='" + fullPathStr + "'";
+    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name= ?";
 
-    try (Statement statement = jdbcConnection.createStatement()) {
-      int rowsChanged = statement.executeUpdate(updateSQL);
+    // use PreparedStatement to avoid SQL injection with file paths.
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(updateSQL)) {
+      ps.setString(1, fullPathStr);
+      int rowsChanged = ps.executeUpdate();
 
       // if it doesn't change any rows, then we need to insert this file - it is "new".
       if (rowsChanged == 0) {
@@ -166,15 +168,18 @@ public class FileConnectorStateManager {
    * on this file.
    */
   public Instant getLastPublished(String fullPathStr) {
-    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name='" + fullPathStr + "'";
+    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name= ?";
 
-    try (Statement statement = jdbcConnection.createStatement();
-        ResultSet rs = statement.executeQuery(querySQL)) {
-      if (rs.next()) {
-        Timestamp timestamp = rs.getTimestamp("last_published");
+    // use PreparedStatement to avoid SQL injection with file paths.
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(querySQL)) {
+      ps.setString(1, fullPathStr);
+      try (ResultSet rs = ps.executeQuery()) {
+        if (rs.next()) {
+          Timestamp timestamp = rs.getTimestamp("last_published");
 
-        if (timestamp != null) {
-          return timestamp.toInstant();
+          if (timestamp != null) {
+            return timestamp.toInstant();
+          }
         }
       }
     } catch (SQLException e) {
