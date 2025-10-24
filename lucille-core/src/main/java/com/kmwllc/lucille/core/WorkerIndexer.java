@@ -40,6 +40,14 @@ public class WorkerIndexer {
   public static void main(String[] args) throws Exception {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
+    // sanitize pipelineName because it may be used as part of a Kafka topic name passed through as a Pattern
+    if (pipelineName != null && pipelineName.length() > 100) {
+      throw new IllegalArgumentException("Invalid pipeline name because it is too long (max 100 characters): " + pipelineName);
+    }
+    if (pipelineName != null && !pipelineName.matches("^[A-Za-z\\d._\\-]+$")) {
+      throw new IllegalArgumentException("Invalid characters in pipelineName: " + pipelineName);
+    }
+
     WorkerIndexerPool pool = new WorkerIndexerPool(config, pipelineName, false, null);
     pool.start();
 
