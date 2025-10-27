@@ -57,6 +57,8 @@ public class FileConnectorStateManager {
   private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
 
   private Connection jdbcConnection;
+  private PreparedStatement psQuerySQL;
+  private PreparedStatement psUpdateSQL;
 
   /**
    * Creates a FileConnectorStateManager from the given config.
@@ -108,6 +110,13 @@ public class FileConnectorStateManager {
       int rowsAffected = statement.executeUpdate(allNotEncounteredSQL);
       log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
     }
+
+    // create PreparedStatements to be used for sql queries that take input
+    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
+    psQuerySQL = jdbcConnection.prepareStatement(querySQL);
+
+    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
+    psUpdateSQL = jdbcConnection.prepareStatement(updateSQL);
   }
 
   /**
@@ -143,12 +152,9 @@ public class FileConnectorStateManager {
    */
   public void markFileEncountered(String fullPathStr) {
     // First, we try an update statement, see if it updates an existing file.
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name= ?";
-
-    // use PreparedStatement to avoid SQL injection with file paths.
-    try (PreparedStatement ps = jdbcConnection.prepareStatement(updateSQL)) {
-      ps.setString(1, fullPathStr);
-      int rowsChanged = ps.executeUpdate();
+    try {
+      psUpdateSQL.setString(1, fullPathStr);
+      int rowsChanged = psUpdateSQL.executeUpdate();
 
       // if it doesn't change any rows, then we need to insert this file - it is "new".
       if (rowsChanged == 0) {
@@ -168,12 +174,9 @@ public class FileConnectorStateManager {
    * on this file.
    */
   public Instant getLastPublished(String fullPathStr) {
-    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name= ?";
-
-    // use PreparedStatement to avoid SQL injection with file paths.
-    try (PreparedStatement ps = jdbcConnection.prepareStatement(querySQL)) {
-      ps.setString(1, fullPathStr);
-      try (ResultSet rs = ps.executeQuery()) {
+    try {
+      psQuerySQL.setString(1, fullPathStr);
+      try (ResultSet rs = psQuerySQL.executeQuery()) {
         if (rs.next()) {
           Timestamp timestamp = rs.getTimestamp("last_published");
 
