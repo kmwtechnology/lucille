@@ -236,11 +236,7 @@ public class FileConnectorStateManager {
   // Insert a file with the given name into the database. It will have no "last_published" time, but will
   // be marked as encountered.
   private void insertFile(String fullPathStr) throws SQLException {
-    try {
-      insertNewFileStatement.setString(1, fullPathStr);
-      insertNewFileStatement.executeUpdate();
-    } catch (SQLException e) {
-      log.warn("SQL error occurred while inserting file, {}, into the database.", fullPathStr, e);
-    }
+    insertNewFileStatement.setString(1, fullPathStr);
+    insertNewFileStatement.executeUpdate();
   }
 }
