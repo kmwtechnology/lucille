@@ -136,9 +136,23 @@ public class KafkaUtils {
   }
 
   public static String getSourceTopicName(String pipelineName, Config config) {
-    return config.hasPath("kafka.sourceTopic")
-        ? config.getString("kafka.sourceTopic")
-        : pipelineName + "_source";
+    String topicName;
+    if (config.hasPath("kafka.sourceTopic")) {
+      topicName = config.getString("kafka.sourceTopic");
+    } else {
+      // sanitize pipelineName because it may be used as part of the Kafka topic name passed through as a Pattern
+      if (pipelineName != null && !pipelineName.matches("^[A-Za-z\\d._\\-]+$")) {
+        throw new IllegalArgumentException("Invalid characters in pipelineName: " + pipelineName);
+      }
+      topicName = pipelineName + "_source";
+    }
+
+    // make sure topicName does not exceed 249 characters, also limited by kafka
+    if (topicName != null && topicName.length() > 249) {
+      throw new IllegalArgumentException("Invalid topic name because it is too long (max 249 characters): " + topicName);
+    }
+
+    return topicName;
   }
 
   public static String getDestTopicName(String pipelineName) {
