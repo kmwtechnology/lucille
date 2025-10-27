@@ -57,8 +57,8 @@ public class FileConnectorStateManager {
   private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
 
   private Connection jdbcConnection;
-  private PreparedStatement psQuerySQL;
-  private PreparedStatement psUpdateSQL;
+  private PreparedStatement queryStatement;
+  private PreparedStatement updateStatement;
 
   /**
    * Creates a FileConnectorStateManager from the given config.
@@ -113,10 +113,10 @@ public class FileConnectorStateManager {
 
     // create PreparedStatements to be used for sql queries that take input
     String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
-    psQuerySQL = jdbcConnection.prepareStatement(querySQL);
+    queryStatement = jdbcConnection.prepareStatement(querySQL);
 
     String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
-    psUpdateSQL = jdbcConnection.prepareStatement(updateSQL);
+    updateStatement = jdbcConnection.prepareStatement(updateSQL);
   }
 
   /**
@@ -133,6 +133,22 @@ public class FileConnectorStateManager {
         jdbcConnection.close();
       } catch (SQLException e) {
         log.warn("Couldn't close connection to database.", e);
+      }
+    }
+
+    if (queryStatement != null) {
+      try {
+        queryStatement.close();
+      } catch (SQLException e) {
+        log.warn("Couldn't close query statement (PreparedStatement).", e);
+      }
+    }
+
+    if (updateStatement != null) {
+      try {
+        updateStatement.close();
+      } catch (SQLException e) {
+        log.warn("Couldn't close update statement (PreparedStatement).", e);
       }
     }
   }
@@ -153,8 +169,8 @@ public class FileConnectorStateManager {
   public void markFileEncountered(String fullPathStr) {
     // First, we try an update statement, see if it updates an existing file.
     try {
-      psUpdateSQL.setString(1, fullPathStr);
-      int rowsChanged = psUpdateSQL.executeUpdate();
+      updateStatement.setString(1, fullPathStr);
+      int rowsChanged = updateStatement.executeUpdate();
 
       // if it doesn't change any rows, then we need to insert this file - it is "new".
       if (rowsChanged == 0) {
@@ -175,8 +191,8 @@ public class FileConnectorStateManager {
    */
   public Instant getLastPublished(String fullPathStr) {
     try {
-      psQuerySQL.setString(1, fullPathStr);
-      try (ResultSet rs = psQuerySQL.executeQuery()) {
+      queryStatement.setString(1, fullPathStr);
+      try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
           Timestamp timestamp = rs.getTimestamp("last_published");
 
