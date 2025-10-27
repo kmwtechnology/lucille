@@ -60,13 +60,13 @@ public class SolrIndexer extends Indexer {
   private final SolrClient solrClient;
 
   public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, false, metricsPrefix, localRunId);
 
     this.solrClient = solrClient;
   }
 
   public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, bypass, metricsPrefix, localRunId);
 
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
@@ -91,7 +91,7 @@ public class SolrIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    if (solrClient == null) {
+    if (bypass) {
       return true;
     }
     if (solrClient instanceof Http2SolrClient) {

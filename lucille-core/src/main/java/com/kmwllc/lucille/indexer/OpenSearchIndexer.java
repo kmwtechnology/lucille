@@ -67,7 +67,7 @@ public class OpenSearchIndexer extends Indexer {
   private final boolean update;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, client == null, metricsPrefix, localRunId);
 
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
@@ -103,7 +103,7 @@ public class OpenSearchIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    if (client == null) {
+    if (bypass) {
       return true;
     }
     boolean response;

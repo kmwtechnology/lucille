@@ -68,7 +68,7 @@ public class PineconeIndexer extends Indexer {
   }
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, bypass, metricsPrefix, localRunId);
 
     this.client = bypass ? null : new Pinecone.Builder(config.getString("pinecone.apiKey")).build();
     this.indexName = config.getString("pinecone.index");
@@ -96,7 +96,7 @@ public class PineconeIndexer extends Indexer {
   }
 
   public PineconeIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
-    this(config, messenger, metricsPrefix, null);
+    this(config, messenger, bypass, metricsPrefix, null);
   }
 
   @Override
@@ -104,6 +104,9 @@ public class PineconeIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
+    if (bypass) {
+      return true;
+    }
     try {
       return PineconeUtils.isClientStable(client, indexName);
     } catch (Exception e) {

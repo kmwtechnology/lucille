@@ -72,7 +72,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client,
       String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, client == null, metricsPrefix, localRunId);
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
@@ -109,7 +109,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    if (client == null) {
+    if (bypass) {
       return true;
     }
     BooleanResponse response;
