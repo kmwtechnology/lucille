@@ -59,6 +59,7 @@ public class FileConnectorStateManager {
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
   private PreparedStatement updateStatement;
+  private PreparedStatement insertNewFileStatement;
 
   /**
    * Creates a FileConnectorStateManager from the given config.
@@ -117,6 +118,9 @@ public class FileConnectorStateManager {
 
     String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
     updateStatement = jdbcConnection.prepareStatement(updateSQL);
+
+    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE)";
+    insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
   }
 
   /**
@@ -232,10 +236,11 @@ public class FileConnectorStateManager {
   // Insert a file with the given name into the database. It will have no "last_published" time, but will
   // be marked as encountered.
   private void insertFile(String fullPathStr) throws SQLException {
-    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES ('" + fullPathStr + "', NULL, TRUE)";
-
-    try (Statement statement = jdbcConnection.createStatement()) {
-      statement.executeUpdate(insertNewFileSQL);
+    try {
+      insertNewFileStatement.setString(1, fullPathStr);
+      insertNewFileStatement.executeUpdate();
+    } catch (SQLException e) {
+      log.warn("SQL error occurred while inserting file, {}, into the database.", fullPathStr, e);
     }
   }
 }
