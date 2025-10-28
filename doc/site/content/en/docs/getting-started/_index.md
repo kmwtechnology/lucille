@@ -36,3 +36,63 @@ This script executes Lucille with a configuration file named `simple-csv-solr-ex
 
 Run a commit with `openSearcher=true` on your `quickstart` collection to make the documents visible. Go to your Solr admin dashboard, execute a `*:*` query and you should see the songs from the source file now visible as Solr documents.
 
+
+## Quick Start Guide - Local Mode
+
+### What is Local Mode?
+
+Local mode runs the Lucille engine entirely on your system with no external services required. You provide a configuration file that defines your connector, pipeline, and indexer. Lucille executes that pipeline locally and exits the run when complete.
+
+This guide focuses on running Lucille itself. For details on configuration structure and component options, see the corresponding docs.
+
+### Prerequisites
+
+* Java 17+
+* Maven
+* Git
+
+### 1) Clone and Build
+
+```bash
+# clone
+git clone https://github.com/kmwtechnology/lucille.git
+cd lucille
+
+# build all modules
+mvn clean install
+```
+
+This compiles the modules and produces build artifacts under each module's target directory.
+
+### 2) Prepare a Configuration File
+
+You'll run Lucille by pointing it at a config file that declares your pipeline. See the configuration docs for the full schema and supported components.
+
+### 3) Run Lucille Locally
+
+From the repository root, navigate to the core module's build output and run the Runner with your config file:
+
+```bash
+cd lucille-core/target
+
+java \
+  -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
+  -cp 'lucille.jar:lib/*' \
+  com.kmwllc.lucille.core.Runner
+```
+
+**What this Does**
+* `-Dconfig.file=<PATH/TO/YOUR/CONFIG.conf>` tells Lucille where to find your configuration.
+* `-cp 'lucille.jar:lib/*'` loads Lucille and its dependencies.
+* `com.kmwllc.lucille.core.Runner` boots the Lucille engine in local mode and runs the configured pipeline to completion.
+
+### 4) Verify the Run
+
+* **Logs:** You should see Lucille start up, load your configuration, report component initialization, record counts, and completion status.
+* **Output:** View your target service (e.g., Elasticsearch) to verify your index.
+### Troubleshooting
+
+* **Java/Maven not found:** Confirm `java -version` is 17+ and `mvn -v` is available in your PATH.
+* **ClassPath issues:** Ensure you are in `lucille-core/target` when running the command and that `lucille.jar` and `lib/` exist after the Maven build.
+* **Config parsing errors:** Double-check your config path and syntax. Consult the config docs for valid fields and component names.
+
