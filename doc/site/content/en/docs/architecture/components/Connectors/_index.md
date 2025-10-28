@@ -30,11 +30,11 @@ The `lucille-core` module contains a number of commonly used connectors. Additio
 ### Lucille Connectors (Core)
 
 * [Abstract Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/AbstractConnector.java) - Base implementation for a `Connector`.
-* [Database Connector](database_connector.md)
-* [File Connector](file_connector.md)
+* [Database Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/jdbc/DatabaseConnector.java)
+* [File Connector](/docs/architecture/components/connectors/file_connector.md)
 * [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java) - Generates a certain number of empty Documents.
 * [Solr Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SolrConnector.java)
-* [RSS Connector](rss_connector.md)
+* [RSS Connector](/docs/architecture/components/connectors/rss_connector.md)
 
 **The following connectors are deprecated.** Use FileConnector instead, along with a corresponding FileHandler.
 
