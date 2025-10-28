@@ -141,10 +141,15 @@ public class KafkaUtils {
       topicName = config.getString("kafka.sourceTopic");
     } else {
       // sanitize pipelineName because it may be used as part of the Kafka topic name passed through as a Pattern
-      if (pipelineName != null && !pipelineName.matches("^[A-Za-z\\d._\\-]+$")) {
+      if (pipelineName == null) {
+        throw new IllegalArgumentException("Pipeline name cannot be null when using it for a kafka topic name.");
+      }
+      if (pipelineName.matches("^[A-Za-z\\d\\._\\-]+$")) {
+        topicName = pipelineName + "_source";
+      } else {
         throw new IllegalArgumentException("Invalid characters in pipelineName: " + pipelineName);
       }
-      topicName = pipelineName + "_source";
+
     }
 
     // make sure topicName does not exceed 249 characters, also limited by kafka
