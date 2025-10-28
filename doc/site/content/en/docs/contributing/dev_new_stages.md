@@ -7,88 +7,180 @@ description: >
 ---
 
 ## Introduction
-This guide covers the basics of how to develop new components for Lucille along with an understanding of required and optional components. After reading this, you should be able to start development with a good foundation on how testing works, how configuration is handled, and what features the base classes affords us. 
+This guide covers the basics of how to develop new components for Lucille along with an understanding of required and optional components. After reading this, you should be able to start development with a good foundation on how testing works, how configuration is handled, and what features the base classes afford us. 
 
 
 ## Prerequisites
 - An up-to-date version of Lucille that has been appropriately installed 
 
-- Understanding of Java programming language
+- Understanding of the Java programming language
 
 - Understanding of Lucille 
 
 ## Developing Stages
 
-### Creating a Stage
-> *Note: Angle brackets `<…>` are used to show placeholder information that is meant to be replaced by you when using the code snippets.*
+### Project and Package Layout
 
-1. Create a new Java class underneath the following directory in Lucille. Name should be in PascalCase.
-   -  ```lucille/lucille-core/src/main/java/com/kmw/lucille/stage/```
-2. The new class should extend the Stage abstract class that can be found in `/lucille-core/src/main/java/com/kmwllc/lucille`
-   - The class declaration should look like the following:
-   - ```public class <StageName> extends Stage {```
-3. Create a constructor. Your constructor should take in a config variable of type Config.
-   - The constructor declaration should look similar to: 
-   - `public <StageName>(Config config) {`
-4. Call `super()` to reference the protected super constructor from the Stage class.
-   - We want to provide this constructor with the aforementioned config, but also with the names of any required or optional parameters / parents that we want to make configurable via the config
-   - Note that the properties should be in camelCase
-   - Example provided below:
-    ```
-    super(config, new StageSpec()
-      .withRequiredProperties("<requiredProperty>")
-      .withOptionalProperties("<optionalProperty>")
-      .withRequiredParents("<requiredParent>"));
-    ```
-5. Define instance variables that correlate to config properties you wish to request from the user (both required and optional). The following code shows examples of common patterns used to extract config parameters; reference the Config code for more methods
-    - `config.getConfig("<nameOfProperty>").root().unwrapped(); // for required properties`
-    - `config.hasPath("<nameOfProperty>") ? config.getInt("<nameOfProperty>") : <defaultValue>;`
-    - `ConfigUtils.getOrDefault(config, "<nameOfProperty>", <defaultValue>;`
+Create your stage under:
 
-6. Add the abstract method `processDocument()` to your class.
-   - This method is where we want to make changes to fields on the document and potentially create child documents. 
-   - This method should return null assuming we are not intending to generate child documents. Reference the Javadoc in the Stage class for more information on how to support this functionality
+```
+lucille/lucille-core/src/main/java/com/kmwllc/lucille/stage/
+```
 
-7. Add appropriate comments to explain any important code in the class and add Javadoc before the class declaration.
-   - Javadoc should explain the behaviour of this Stage and also should list config parameters, their types, whether they are optional, and a short description
+### Stage Skeleton
+
+Every Stage must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time.
+
+```java
+package com.kmwllc.lucille.stage;
+
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.typesafe.config.Config;
+import java.util.Iterator;
+import com.kmwllc.lucille.core.Document;
+
+/**
+ * One‑line summary.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>foo (String, Required) : Description.</li>
+ *   <li>bar (Integer, Optional) : Description. Defaults to 10.</li>
+ * </ul>
+ */
+public class ExampleStage extends Stage {
+  
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("foo")
+      .optionalNumber("bar")
+      .build();
+  
+  private final String foo;
+  private final int bar;
+
+  public ExampleStage(Config config) throws StageException {
+    super(config);
+    this.foo = config.getString("foo");
+    this.bar = ConfigUtils.getOrDefault(config, "bar", 10);
+  }
+
+  @Override
+  public Iterator<Document> processDocument(Document doc) throws StageException {
+    // mutate doc as needed
+    doc.setField("out", foo + ":" + bar);
+    // return null unless emitting child docs
+    return null;
+  }
+}
+```
+
+#### Common Spec Helpers
+
+* `requiredString/Number/Boolean` for scalar fields.
+* `requiredList("field", new TypeReference<List<String>>() {})` for typed lists.
+* `requiredParent("field", new TypeReference<Map<String,Object>>() {})` for nested objects.
+* `optionalX(...)` variants mirror the above.
+* `FileConnector.S3_PARENT_SPEC`/`AZURE_PARENT_SPEC`/`GCP_PARENT_SPEC` for cloud file parent specs.
+
+### Lifecycle Methods
+
+* `start()` for allocating resources and precomputing data structures.
+* `processDocument(Document doc)` for transforming the current document and (optionally) returning child docs.
+* `stop()` for releasing resources on shutdown.
+
+### Reading & Writing Fields
+
+Lucille's `Document` API supports **single-valued** and **multi-valued** fields with strong typing and convenience updaters.
+
+**Supported types:** `String`, `Boolean`, `Integer`, `Double`, `Float`, `Long`, `Instant`, `byte[]`, `JsonNode`, `Timestamp`, `Date`.
+
+#### Getting Values
+
+* **Single Value:** `getString(name)`, `getInt(name)`, etc.
+* **Lists:** `getStringList(name)`, `getIntList(name)`, etc.
+* **Nested JSON:** `getNestedJson("a.b[2].c")` or `getNestedJson(List<Segment>)`.
+
+#### Writing Values
+
+* **Overwrite (single-valued):** `setField(name, value)` replaces any existing values and makes the field single valued.
+* **Append (multi-valued):** `addToField(name, value)` converts to a list if needed and appends.
+* **Create or append:** `setOrAdd(name, value)` creates as single-valued if missing, otherwise appends.
+
+
+#### Updating Values
+
+Use `update(name, mode, values...)`:
+
+* `OVERWRITE`: first value overwrites, the rest append
+* `APPEND`: all values append
+* `SKIP`: no‑op if the field already exists
+
+#### Nested JSON (Objects & Arrays)
+
+* **Set:** `setNestedJson("a.b[2].c", jsonNode)` or `setNestedJson(List<Segment>, jsonNode)`.
+* **Remove:** `removeNestedJson("a.b[2].c")` removes the last segment from its parent.
+* **Segments:** `Document.Segment.parse("a.b[2].c")` ⇄ `Document.Segment.stringify(segments)` helps convert between string paths and structured paths.
 
 ### Unit Testing
 
-#### Creating unit tests for a Stage
-> *Lucille uses JUnit as its testing framework, please refer to JUnit best practices when making tests.* 
+#### Locations
 
-1. Create a new Java class underneath the `lucille/lucille-core/src/test/java/com/kmw/lucille/stage/` directory. Name should be the same as the Stage’s name, with `Test` appended to the end
-2. Create a new directory underneath the `lucille/lucille-core/src/test/resources/` directory. Name should same as the testing class' name
-3. Underneath this directory create a new file called `config.conf`. This will be an example config that will be used in our test class. You can create more for further testing.
-4. The following code snippet can be used to create a new Stage with the provided config name:
-   - `StageFactory.of(<StageName>.class).get("<StageTestName>/config.conf");`
-4. The following code snippet will process a given Document. Reference the Document class for more information.
-   - `s.processDocument(d); // where s is the Stage and d is the Document`
- 
+* Tests:
 
-#### Unit Testing Standards
-The following are standards for testing in Lucille:
+```bash
+lucille/lucille-core/src/test/java/com/kmwllc/lucille/stage/
+```
 
-- There should be at least one unit test for a Stage
+* Per-test resources:
+```bash
+lucille/lucille-core/src/test/resources/<StageName>Test/
+```
 
-- Recommended to aim for 80% code coverage, but not a hard cutoff
+#### Instantiating a Stage in Tests
 
-- When testing services, use mocks and spys
+```java
+import com.kmwllc.lucille.core.Stage;
+Stage s = StageFactory.of(MyStage.class).get("MyStageTest/config.conf");
+```
 
-- Tests should test notable exceptions thrown by Stage class code
+#### Processing a Document
 
-- Tests should cover all logical aspects of a Stage’s function
+```java
+Document d = Document.create("doc1");
+s.processDocument(d);
+```
 
-- Tests should be deterministic
+#### Testing Standards
 
-- Code coverage should not only encapsulate aspects of lucille-core but also modules
+* There should be at least one unit test for a Stage.
+* Recommended to aim for 80% code coverage.
+* When testing services, use mocks and spys.
+* Tests should test notable exceptions thrown by Stage class code.
+* Tests should cover all logical aspects of a Stage’s function.
+* Tests should be deterministic.
+* Code coverage should not only encapsulate aspects of lucille-core but also modules.
+* Include test cases for every configuration parameter defined by the Stage (required and optional).
 
-- Include test cases for every configuration parameter defined by the Stage (required and optional)
+### Javadoc Style
 
-### Extra Stage Resources:
-- The ```Stage``` class has both the ```start``` and ```stop``` method; both are helpful for when we want to set up or tear down objects 
+Use this exact structure for class-level Javadoc:
 
-- Lucille also has a ```StageUtils``` class that has some methods that may prove useful in development
+```java
+/**
+ * Description can be multi‑sentence and may include details above the p tag.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>name (String, Required) : What it does.</li>
+ *   <li>limit (Integer, Optional) : How it’s used. Defaults to 10.</li>
+ *   <li>flags (List<String>, Optional) : Notes on values.</li>
+ * </ul>
+ */
+```
 
 ## Developing Connectors
 [TODO]
