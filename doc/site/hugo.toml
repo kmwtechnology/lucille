@@ -66,7 +66,7 @@ languageName ="English"
 weight = 1
 [languages.en.params]
 title = "Lucille"
-description = "A Docsy example site"
+description = "The best practices in Search Engine ETL, codified into a single solution"
 
 [markup]
   [markup.goldmark]
@@ -87,8 +87,8 @@ description = "A Docsy example site"
 section = ["HTML", "print", "RSS"]
 
 [params]
-copyright = "The Docsy Authors"
-privacy_policy = "https://policies.google.com/privacy"
+copyright = "KMW Technology, LLC."
+# privacy_policy = "https://policies.google.com/privacy"
 
 # First one is picked as the Twitter card image if not set on page.
 # images = ["images/project-illustration.png"]
@@ -140,9 +140,9 @@ prism_syntax_highlighting = false
 #  Set to true to disable breadcrumb navigation.
 breadcrumb_disable = false
 # Set to true to disable the About link in the site footer
-footer_about_disable = false
+footer_about_disable = true
 # Set to false if you don't want to display a logo (/assets/icons/logo.svg) in the top navbar
-navbar_logo = true
+navbar_logo = false
 # Set to true if you don't want the top navbar to be translucent when over a `block/cover`, like on the homepage.
 navbar_translucent_over_cover_disable = false
 # Enable to show the side bar menu in its compact state.
@@ -155,7 +155,7 @@ sidebar_search_disable = false
 # If you want this feature, but occasionally need to remove the "Feedback" section from a single page,
 # add "hide_feedback: true" to the page's front matter.
 [params.ui.feedback]
-enable = true
+enable = false
 # The responses that the user sees after clicking "yes" (the page was helpful) or "no" (the page was not helpful).
 yes = 'Glad to hear it! Please <a href="https://github.com/USERNAME/REPOSITORY/issues/new">tell us how we can improve</a>.'
 no = 'Sorry to hear that. Please <a href="https://github.com/USERNAME/REPOSITORY/issues/new">tell us how we can improve</a>.'
@@ -166,39 +166,39 @@ no = 'Sorry to hear that. Please <a href="https://github.com/USERNAME/REPOSITORY
 [params.ui.readingtime]
 enable = false
 
-[params.links]
+# [params.links]
 # End user relevant links. These will show up on left side of footer and in the community page if you have one.
-[[params.links.user]]
-  name = "User mailing list"
-  url = "https://example.org/mail"
-  icon = "fa fa-envelope"
-  desc = "Discussion and help from your fellow users"
-[[params.links.user]]
-  name ="Twitter"
-  url = "https://example.org/twitter"
-  icon = "fab fa-twitter"
-  desc = "Follow us on Twitter to get the latest news!"
-[[params.links.user]]
-  name = "Stack Overflow"
-  url = "https://example.org/stack"
-  icon = "fab fa-stack-overflow"
-  desc = "Practical questions and curated answers"
+# [[params.links.user]]
+#  name = "User mailing list"
+#  url = "https://example.org/mail"
+#  icon = "fa fa-envelope"
+#  desc = "Discussion and help from your fellow users"
+# [[params.links.user]]
+#  name ="Twitter"
+#  url = "https://example.org/twitter"
+#  icon = "fab fa-twitter"
+#  desc = "Follow us on Twitter to get the latest news!"
+# [[params.links.user]]
+#  name = "Stack Overflow"
+# url = "https://example.org/stack"
+#  icon = "fab fa-stack-overflow"
+#  desc = "Practical questions and curated answers"
 # Developer relevant links. These will show up on right side of footer and in the community page if you have one.
-[[params.links.developer]]
-  name = "GitHub"
-  url = "https://github.com/google/docsy"
-  icon = "fab fa-github"
-  desc = "Development takes place here!"
-[[params.links.developer]]
-  name = "Slack"
-  url = "https://example.org/slack"
-  icon = "fab fa-slack"
-  desc = "Chat with other project developers"
-[[params.links.developer]]
-  name = "Developer mailing list"
-  url = "https://example.org/mail"
-  icon = "fa fa-envelope"
-  desc = "Discuss development issues around the project"
+# [[params.links.developer]]
+#  name = "GitHub"
+#  url = "https://github.com/google/docsy"
+#  icon = "fab fa-github"
+#  desc = "Development takes place here!"
+# [[params.links.developer]]
+#  name = "Slack"
+#  url = "https://example.org/slack"
+#  icon = "fab fa-slack"
+#  desc = "Chat with other project developers"
+# [[params.links.developer]]
+#  name = "Developer mailing list"
+#  url = "https://example.org/mail"
+#  icon = "fa fa-envelope"
+ # desc = "Discuss development issues around the project"
 
 # hugo module configuration
 
