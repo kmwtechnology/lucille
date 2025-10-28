@@ -155,6 +155,14 @@ public class FileConnectorStateManager {
         log.warn("Couldn't close update statement (PreparedStatement).", e);
       }
     }
+
+    if (insertNewFileStatement != null) {
+      try {
+        insertNewFileStatement.close();
+      } catch (SQLException e) {
+        log.warn("Couldn't close insert statement (PreparedStatement).", e);
+      }
+    }
   }
 
   private void deleteFilesNotEncounteredAndResetTable() throws SQLException {
