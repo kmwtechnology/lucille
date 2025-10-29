@@ -157,13 +157,20 @@ s.processDocument(d);
 #### Testing Standards
 
 * There should be at least one unit test for a Stage.
-* Recommended to aim for 80% code coverage.
+* Every stage should target 100% code coverage.
+* 80% or higher is acceptable, but anything below 80% must be raised before a PR can be considered complete.
 * When testing services, use mocks and spys.
 * Tests should test notable exceptions thrown by Stage class code.
 * Tests should cover all logical aspects of a Stage’s function.
 * Tests should be deterministic.
 * Code coverage should not only encapsulate aspects of lucille-core but also modules.
 * Include test cases for every configuration parameter defined by the Stage (required and optional).
+
+#### Coverage Reports
+
+* Run a full build `mvn clean install`.
+* Open the report at `lucille-core/target/jacoco-ut/index.html`.
+* Check coverage before opening a PR.
 
 ### Javadoc Style
 
@@ -181,6 +188,8 @@ Use this exact structure for class-level Javadoc:
  * </ul>
  */
 ```
+
+This structure is required because Lucille's documentation tooling parses the description before the p tag and the config parameter list after it.
 
 ## Developing Connectors
 [TODO]
