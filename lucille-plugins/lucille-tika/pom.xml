@@ -17,7 +17,7 @@
      <name>Lucille Plugins: Lucille Tika</name>
 
     <properties>
-      <tika.version>2.9.3</tika.version>
+      <tika.version>3.2.3</tika.version>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 

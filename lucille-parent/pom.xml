@@ -67,6 +67,7 @@
     <junit4.version>4.13.2</junit4.version>
     <aws-sdk.version>2.33.13</aws-sdk.version>
     <hadoop.version>3.4.2</hadoop.version>
+    <http2.version>10.0.26</http2.version>
 
   </properties>
 
