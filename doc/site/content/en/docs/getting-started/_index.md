@@ -75,7 +75,7 @@ java \
 
 **What this Does**
 * `-Dconfig.file=<PATH/TO/YOUR/CONFIG.conf>` tells Lucille where to find your configuration.
-* `-cp 'lucille.jar:lib/*'` loads Lucille and its dependencies.
+* `-cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*'` loads Lucille and its dependencies.
 * `com.kmwllc.lucille.core.Runner` boots the Lucille engine in local mode and runs the configured pipeline to completion.
 
 ### 4) Verify the Run
@@ -85,6 +85,6 @@ java \
 ### Troubleshooting
 
 * **Java/Maven not found:** Confirm `java -version` is 17+ and `mvn -v` is available in your PATH. Ensure that `JAVA_HOME` is set to a JDK 17+ installation.
-* **ClassPath issues:** Ensure you are in `lucille-core/target` when running the command and that `lucille.jar` and `lib/` exist after the Maven build.
+**Classpath issues:** Ensure `lucille-core/target/lucille.jar` and `lucille-core/target/lib/` exist after the Maven build. Avoid running *from inside* `target/`, since `mvn clean` removes it and can cause issues.
 * **Config parsing errors:** Double-check your config path and syntax. Consult the config docs for valid fields and component names.
 
