@@ -36,3 +36,86 @@ This script executes Lucille with a configuration file named `simple-csv-solr-ex
 
 Run a commit with `openSearcher=true` on your `quickstart` collection to make the documents visible. Go to your Solr admin dashboard, execute a `*:*` query and you should see the songs from the source file now visible as Solr documents.
 
+
+## Quick Start Guide - Distributed Mode
+
+### What is Distributed Mode?
+
+Distributed mode runs each Lucille component in its own JVM and uses Kafka for document transport and event tracking. You start:
+* A **Runner** (Publisher + Connectors) to publish documents onto Kafka.
+* One or more **Workers** to process the documents through a pipeline.
+* An **Indexer** to write the processed documents to your destination (Solr, OpenSearch, Elasticsearch, CSV, etc.).
+
+This guide assumes Kafka and your destination system are already running and reachable. This guide focuses on running Lucille itself. For details on configuration structure and component options, see the corresponding docs.
+
+### 1) Clone and Build
+
+```bash
+# clone
+git clone https://github.com/kmwtechnology/lucille.git
+cd lucille
+
+# build all modules
+mvn clean install
+```
+
+This compiles the modules and produces build artifacts under each module's target directory.
+
+### 2) Prepare a Configuration File
+
+You'll run Lucille by pointing it at a config file that declares your pipeline. See the configuration docs for the full schema and supported components.
+
+Use a single config that defines: your **connector(s)**, your **pipeline(s)**, **kafka** configuration, and your **indexer** and its backend config (e.g., `solr {}`, `opensearch {}`, etc).
+
+### 3) Start Components (Separate JVMs)
+
+#### A) Start the Runner (publishes to Kafka)
+
+```bash
+java \
+ -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
+ -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+ com.kmwllc.lucille.core.Runner \
+ -useKafka
+```
+
+#### B) Start one or more Workers
+
+```bash
+java \
+ -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
+ -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+ com.kmwllc.lucille.core.Worker \
+ simple_pipeline
+```
+
+#### C) Start the Indexer
+
+```bash
+java \
+ -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
+ -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+ com.kmwllc.lucille.core.Indexer \
+ simple_pipeline
+```
+
+**What this Does**
+
+* `-Dconfig.file=<PATH/TO/YOUR/CONFIG.conf>` tells Lucille where to find your configuration.
+* `-cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*'` loads Lucille and its dependencies.
+* `com.kmwllc.lucille.core.Runner -usekafka` starts the Publisher and Connectors and publishes documents to Kafka topics.
+* `com.kmwllc.lucille.core.Worker <pipelineName>` polls documents from Kafka, executes the configured pipeline, and forwards them for indexing.
+* `com.kmwllc.lucille.core.Indexer <pipelineName>` consumes processed documents from Kafka, batches them, and writes to your destination.
+
+### 4) Verify the Run
+
+- **Logs:** Each process should show startup and processing output.
+- **Output:** View your target service (e.g., Elasticsearch) to verify your index.
+
+### Troubleshooting
+
+* **Java/Maven not found:** Confirm `java -version` is 17+ and `mvn -v` is available in your PATH. Ensure that `JAVA_HOME` is set to a JDK 17+ installation.
+* **Classpath issues:** Ensure `lucille-core/target/lucille.jar` and `lucille-core/target/lib/` exist after the Maven build. Avoid running *from inside* `target/`, since `mvn clean` removes it and can cause issues.
+* **Kafka connectivity:** Check `kafka.bootstrapServers` and any client property files if used.
+* **Indexer connection issues:** Ensure destination config (Solr/OpenSearch/Elasticsearch/CSV) matches a reachable backend.
+* **Config parsing errors:** Double-check your config path and syntax. Consult the config docs for valid fields and component names.
