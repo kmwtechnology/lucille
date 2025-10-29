@@ -45,12 +45,6 @@ Local mode runs all Lucille components (connector, pipeline, and indexer) inside
 
 This guide focuses on running Lucille itself. For details on configuration structure and component options, see the corresponding docs.
 
-### Prerequisites
-
-* Java 17+
-* Maven
-* Git
-
 ### 1) Clone and Build
 
 ```bash
@@ -70,14 +64,12 @@ You'll run Lucille by pointing it at a config file that declares your pipeline. 
 
 ### 3) Run Lucille Locally
 
-From the repository root, navigate to the core module's build output and run the Runner with your config file:
+From the repository root, run the Runner with your config file:
 
 ```bash
-cd lucille-core/target
-
 java \
   -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
-  -cp 'lucille.jar:lib/*' \
+  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
   com.kmwllc.lucille.core.Runner
 ```
 
@@ -92,7 +84,7 @@ java \
 * **Output:** View your target service (e.g., Elasticsearch) to verify your index.
 ### Troubleshooting
 
-* **Java/Maven not found:** Confirm `java -version` is 17+ and `mvn -v` is available in your PATH.
+* **Java/Maven not found:** Confirm `java -version` is 17+ and `mvn -v` is available in your PATH. Ensure that `JAVA_HOME` is set to a JDK 17+ installation.
 * **ClassPath issues:** Ensure you are in `lucille-core/target` when running the command and that `lucille.jar` and `lib/` exist after the Maven build.
 * **Config parsing errors:** Double-check your config path and syntax. Consult the config docs for valid fields and component names.
 
