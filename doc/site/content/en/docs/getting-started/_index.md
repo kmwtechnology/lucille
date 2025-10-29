@@ -41,7 +41,7 @@ Run a commit with `openSearcher=true` on your `quickstart` collection to make th
 
 ### What is Local Mode?
 
-Local mode runs the Lucille engine entirely on your system with no external services required. You provide a configuration file that defines your connector, pipeline, and indexer. Lucille executes that pipeline locally and exits the run when complete.
+Local mode runs all Lucille components, connector pipeline, and indexer, inside a single JVM process that you start locally. Your configuration may still interact with external systems (e.g., S3, Solr, OpenSearch/Elasticsearch), but the Lucille runtime itself executes entirely within that single JVM.
 
 This guide focuses on running Lucille itself. For details on configuration structure and component options, see the corresponding docs.
 
