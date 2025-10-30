@@ -1,6 +1,6 @@
 ---
 title: Topology
-weight: 3
+weight: 2
 description: >
  Lucille can be configured to best support your use case.
 ---
