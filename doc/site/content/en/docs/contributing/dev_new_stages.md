@@ -100,10 +100,168 @@ The following are standards for testing in Lucille:
 ### Extra Connector Resources
 
 ## Developing Indexers
-[TODO]
 
-### Creating an Indexer
+### Project and Package Layout
+
+Create your indexer under:
+
+```
+lucille/lucille-core/src/main/java/com/kmwllc/lucille/indexer/
+```
+
+### Indexer Skeleton
+
+Every Indexer must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time.
+
+```java
+package com.kmwllc.lucille.indexer;
+
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.typesafe.config.Config;
+import java.util.List;
+import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
+
+/**
+ * One-line summary of what this Indexer does and where it sends documents. Additional details may go here as needed.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>url (String, Required) : Destination endpoint (e.g., base URL).</li>
+ *   <li>index (String, Optional) : Default index/collection name. Defaults to "index1".</li>
+ *   <li>batchSize (Integer, Optional) : Max docs per request. Defaults to 100.</li>
+ * </ul>
+ */
+public class ExampleIndexer extends Indexer {
+  
+  public static final Spec SPEC = SpecBuilder.indexer()
+      .requiredString("url")
+      .optionalString("index")
+      .optionalNumber("batchSize")
+      .build();
+  
+  private final String url;
+  private final String defaultIndex;
+  private final int batchSize;
+  
+  public ExampleIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
+    this.url = config.getString("url");
+    this.defaultIndex = ConfigUtils.getOrDefault(config, "index", "index1");
+    this.batchSize = ConfigUtils.getOrDefault(config, "batchSize", 100);
+  }
+
+  @Override
+  public boolean validateConnection() {
+    // Health check to the destination
+    return true;
+  }
+
+  @Override
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+    // Send the batch using your destination client
+    // Return any failed docs as pairs of (Document, reason)
+    return Set.of();
+  }
+
+  @Override
+  public void closeConnection() {
+    // Close client resources
+  }
+}
+```
+
+#### Common Spec Helpers
+
+* `requiredString/Number/Boolean` for scalar fields.
+* `requiredList("field", new TypeReference<List<String>>() {})` for typed lists.
+* `requiredParent("field", new TypeReference<Map<String,Object>>() {})` for nested objects.
+* `optionalX(...)` variants mirror the above.
+
+### Lifecycle Methods
+
+* `validateConnection()` for a quick destination availability check before starting the main loop.
+* `sendToIndex(List<Document> docs)` to perform a write and return any per-document failures.
+* `closeConnection()` for releasing resources on shutdown.
 
 ### Unit Testing
 
-### Extra Indexer Resources
+#### Locations
+
+```bash
+lucille/lucille-core/src/test/java/com/kmwllc/lucille/indexer/
+```
+
+* Per-test resources:
+```bash
+lucille/lucille-core/src/test/resources/<IndexerName>Test/
+```
+
+#### Instantiating an Indexer in Tests
+
+```java
+import com.kmwllc.lucille.message.TestMessenger;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+// import your destination client's mock as needed (e.g., Mockito)
+
+TestMessenger messenger = new TestMessenger();
+Config config = ConfigFactory.load("MyIndexerTest/config.conf");
+
+// Example with a mocked client and a metrics prefix of "testing"
+MyIndexer indexer = new MyIndexer(config, messenger, mockClient, "testing");
+```
+
+#### Driving the Indexer Loop
+
+Enqueue docs onto the messenger and let the indexer poll them. In most tests we use the bounded `run(iterations)` helper:
+
+```java
+messenger.sendForIndexing(Document.create("doc1", "test_run"));
+messenger.sendForIndexing(Document.create("doc2", "test_run"));
+
+// Process exactly 2 polled documents
+indexer.run(2);
+```
+
+#### Testing Standards
+
+* There should be at least one unit test for an Indexer.
+* Every indexer should target 100% code coverage.
+* 80% or higher is acceptable, but anything below 80% must be raised before a PR can be considered complete.
+* When testing services, use mocks and spies.
+* Tests should test notable exceptions thrown by Indexer class code.
+* Tests should cover all logical aspects of an Indexer’s function.
+* Tests should be deterministic.
+* Code coverage should not only encapsulate aspects of lucille-core but also modules.
+* Include test cases for every configuration parameter defined by the Indexer (required and optional).
+
+#### Coverage Reports
+
+* Run a full build `mvn clean install`.
+* Open the report at `lucille-core/target/jacoco-ut/index.html`.
+* Check coverage before opening a PR.
+
+### Javadoc Style
+
+Use this exact structure for class-level Javadoc:
+
+```java
+/**
+ * Description can be multi-sentence and may include details above the p tag.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>url (String, Required) : Destination endpoint.</li>
+ *   <li>index (String, Optional) : Default index/collection. Defaults to "index1".</li>
+ *   <li>batchSize (Integer, Optional) : Batch size per request. Defaults to 100.</li>
+ * </ul>
+ */
+```
+
+This structure is required because Lucille's documentation tooling parses the description before the p tag and the config parameter list after it.
