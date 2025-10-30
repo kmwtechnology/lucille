@@ -59,7 +59,8 @@ public class SolrIndexer extends Indexer {
 
   private final SolrClient solrClient;
 
-  public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
+  public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass,
+      String metricsPrefix, String localRunId, SolrClient solrClient) {
     super(config, messenger, false, metricsPrefix, localRunId);
 
     this.solrClient = solrClient;
@@ -74,12 +75,8 @@ public class SolrIndexer extends Indexer {
   }
 
   // Convenience Constructors
-  public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
-    this(config, messenger, solrClient, metricsPrefix, null);
-  }
-
-  public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, bypass, metricsPrefix, null);
+  public SolrIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, SolrClient solrClient) {
+    this(config, messenger, false, metricsPrefix, null, solrClient);
   }
 
   @Override
@@ -138,7 +135,7 @@ public class SolrIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (solrClient != null) {
+    if (!bypass && solrClient != null) {
       try {
         solrClient.close();
       } catch (Exception e) {
@@ -149,7 +146,7 @@ public class SolrIndexer extends Indexer {
 
   @Override
   protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
-    if (solrClient == null) {
+    if (bypass) {
       log.debug("sendToSolr bypassed for documents: " + documents);
       return Set.of();
     }

@@ -80,7 +80,7 @@ public class ElasticsearchIndexerTest {
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -108,7 +108,7 @@ public class ElasticsearchIndexerTest {
     doc2.addChild(childDoc2);
     childDoc2.addChild(Document.create("child_childDoc2", "test_run"));
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -124,7 +124,7 @@ public class ElasticsearchIndexerTest {
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     indexer.run(2);
@@ -150,7 +150,7 @@ public class ElasticsearchIndexerTest {
     Document doc4 = Document.create("doc4", "test_run");
     Document doc5 = Document.create("doc5", "test_run");
 
-    ElasticsearchIndexer indexer = new ErroringElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ErroringElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -203,7 +203,7 @@ public class ElasticsearchIndexerTest {
     Document doc3 = Document.create("doc3", "test_run");
     doc3.setField("other_id", "something_else");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient2, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient2);
     Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
     assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
@@ -218,15 +218,15 @@ public class ElasticsearchIndexerTest {
 
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     Assert.assertTrue(indexer.validateConnection()); // should only work the first time with the mockClient
     Assert.assertFalse(indexer.validateConnection());
     Assert.assertFalse(indexer.validateConnection());
 
-    ElasticsearchIndexer nullClientIndexer = new ElasticsearchIndexer(config, messenger, true, "testing");
-    Assert.assertTrue(nullClientIndexer.validateConnection());
+    ElasticsearchIndexer bypassClientIndexer = new ElasticsearchIndexer(config, messenger, true, "testing", null);
+    Assert.assertTrue(bypassClientIndexer.validateConnection());
 
-    ElasticsearchIndexer failPingClientIndexer = new ElasticsearchIndexer(config, messenger, mockFailPingClient, "testing");
+    ElasticsearchIndexer failPingClientIndexer = new ElasticsearchIndexer(config, messenger, "testing", mockFailPingClient);
     Assert.assertFalse(failPingClientIndexer.validateConnection());
   }
 
@@ -234,7 +234,7 @@ public class ElasticsearchIndexerTest {
   public void testMultipleBatches() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
@@ -279,7 +279,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -313,7 +313,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": [{\"aa\":1}, {\"aa\": 2}] }");
     doc.setField("myJsonField", jsonNode);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -346,7 +346,7 @@ public class ElasticsearchIndexerTest {
     JsonNode jsonNode = mapper.readTree("{\"a\": {\"aa\":1}, \"b\":{\"ab\": 2} }");
     doc.setField("myJsonField", jsonNode);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -379,7 +379,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("routing", "routing1");
     doc.setField("field1", "value1");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -408,7 +408,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("routing", "routing1");
     doc.setField("field1", "value1");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
     ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
@@ -434,7 +434,7 @@ public class ElasticsearchIndexerTest {
             .put("field1", "value1"));
     doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -463,7 +463,7 @@ public class ElasticsearchIndexerTest {
             .put("field1", "value1"));
     doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -483,7 +483,7 @@ public class ElasticsearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load(configPath);
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -557,7 +557,7 @@ public class ElasticsearchIndexerTest {
     Document doc2 = Document.create("doc2", "test_run");
     Document doc3 = Document.create("doc3", "test_run");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient2, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient2);
     messenger.sendForIndexing(doc);
     messenger.sendForIndexing(doc2);
     messenger.sendForIndexing(doc3);
@@ -591,7 +591,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("ignoreField2", "value2");
     doc.setField("normalField", "normalValue");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -623,7 +623,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -653,7 +653,7 @@ public class ElasticsearchIndexerTest {
     doc.setField("normalField", "normalValue");
     doc.setField("other_id", "otherId");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -682,7 +682,7 @@ public class ElasticsearchIndexerTest {
     Document doc = Document.create("doc1");
     doc.setField("other_id", "otherId");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     messenger.sendForIndexing(doc);
     indexer.run(1);
 
@@ -705,7 +705,7 @@ public class ElasticsearchIndexerTest {
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/invalidConfig.conf");
 
     assertThrows(IllegalArgumentException.class,
-        () -> new ElasticsearchIndexer(config, messenger, mockClient, "testing")
+        () -> new ElasticsearchIndexer(config, messenger, "testing", mockClient)
     );
   }
 
@@ -718,16 +718,16 @@ public class ElasticsearchIndexerTest {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/testOverride.conf");
 
-    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, null, "testing");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", null);
     // will print out to the logs but no errors despite null client.
     indexer.closeConnection();
 
     // only the call to check if it is null
-    indexer = new ElasticsearchIndexer(config, messenger, mockClient, "testing");
+    indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
     indexer.closeConnection();
     verify(mockClient, times(1))._transport();
 
-    indexer = new ElasticsearchIndexer(config, messenger, mockTransportClient, "testing");
+    indexer = new ElasticsearchIndexer(config, messenger, "testing", mockTransportClient);
     indexer.closeConnection();
     // call to check if null (it isn't) and then a call to close.
     verify(mockTransportClient, times(2))._transport();
@@ -743,8 +743,8 @@ public class ElasticsearchIndexerTest {
     public static final Spec SPEC = ElasticsearchIndexer.SPEC;
 
     public ErroringElasticsearchIndexer(Config config, IndexerMessenger messenger,
-        ElasticsearchClient client, String metricsPrefix) {
-      super(config, messenger, client, "testing");
+        String metricsPrefix, ElasticsearchClient client) {
+      super(config, messenger, "testing", client);
     }
 
     @Override
