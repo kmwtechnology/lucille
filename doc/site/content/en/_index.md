@@ -1,5 +1,5 @@
 ---
-title: Goldydocs
+title: Lucille
 ---
 
 {{< blocks/cover title="Welcome to Lucille" image_anchor="top" height="full" >}}
