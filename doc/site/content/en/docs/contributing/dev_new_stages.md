@@ -29,7 +29,7 @@ lucille/lucille-core/src/main/java/com/kmwllc/lucille/stage/
 
 ### Stage Skeleton
 
-Every Stage must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time.
+Every Stage must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/Config/_index" >}}) docs for information on specs.
 
 Every stage must follow the [Javadoc Standards](#javadoc-standards).
 
@@ -80,14 +80,6 @@ public class ExampleStage extends Stage {
 }
 ```
 
-#### Common Spec Helpers
-
-* `requiredString/Number/Boolean` for scalar fields.
-* `requiredList("field", new TypeReference<List<String>>() {})` for typed lists.
-* `requiredParent("field", new TypeReference<Map<String,Object>>() {})` for nested objects.
-* `optionalX(...)` variants mirror the above.
-* `FileConnector.S3_PARENT_SPEC`/`AZURE_PARENT_SPEC`/`GCP_PARENT_SPEC` for cloud file parent specs.
-
 ### Lifecycle Methods
 
 * `start()` for allocating resources and precomputing data structures.
@@ -112,7 +104,6 @@ Lucille's `Document` API supports **single-valued** and **multi-valued** fields 
 * **Append (multi-valued):** `addToField(name, value)` converts to a list if needed and appends.
 * **Create or append:** `setOrAdd(name, value)` creates as single-valued if missing, otherwise appends.
 
-
 #### Updating Values
 
 Use `update(name, mode, values...)`:
@@ -132,13 +123,86 @@ Use `update(name, mode, values...)`:
 See the [Testing Standards](#testing-standards).
 
 ## Developing Connectors
-[TODO]
 
-### Creating a Connector
+### Project and Package Layout
+
+Create your connector under:
+
+```
+lucille/lucille-core/src/main/java/com/kmwllc/lucille/connector/
+```
+
+### Connector Skeleton
+
+Every Connector must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/Config/_index" >}}) docs for information on specs.
+
+Every connector must follow the [Javadoc Standards](#javadoc-standards).
+
+```java
+package com.kmwllc.lucille.connector;
+
+import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.typesafe.config.Config;
+
+/**
+* One-line summary of what this Connector reads and how it emits Documents.
+* <p>
+* Config Parameters -
+* <ul>
+*   <li>sourceUri (String, Required) : Where to read from (file://, s3://, http://, etc.).</li>
+*   <li>batchSize (Integer, Optional) : Max items to read before publishing a batch. Defaults to 100.</li>
+* </ul>
+*/
+public class ExampleConnector extends AbstractConnector {
+
+  public static final Spec SPEC = SpecBuilder.connector()
+      .requiredString("sourceUri")
+      .optionalNumber("batchSize")
+      .build();
+
+  private final String sourceUri;
+  private final int batchSize;
+
+  public ExampleConnector(Config config) {
+    super(config);
+    this.sourceUri = config.getString("sourceUri");
+    this.batchSize = config.hasPath("batchSize") ? config.getInt("batchSize") : 100;
+  }
+  
+  @Override
+  public void execute(Publisher publisher) throws ConnectorException {
+    // Read from sourceUri and publish Documents.
+    for (int i = 0; i < batchSize; i++) {
+      Document d = Document.create(createDocId("item-" + i));
+      // Populate fields on d as needed, e.g.: d.setField("source_uri", sourceUri);
+      try {
+        publisher.publish(d);
+      } catch (Exception e) {
+        throw new ConnectorException("Failed to publish document " + d.getId(), e);
+      }
+    }
+    
+  @Override
+  public void close() throws ConnectorException {
+    // Optional: Close network or file handlers.
+  }
+}
+```
+
+#### Lifecycle & Behavior Tips
+
+* `preExecute(runId)` for preparing external connections.
+* `execute(publisher)` for reading from your source and call `publisher.publish(doc)` for each `Document`.
+* `postExecute(runId)` for optional cleanup or follow-up actions after `execute` completes successfully.
+* `close()` for releasing resources.
 
 ### Unit Testing
 
-### Extra Connector Resources
+See the [Testing Standards](#testing-standards).
 
 ## Developing Indexers
 
@@ -152,7 +216,7 @@ lucille/lucille-core/src/main/java/com/kmwllc/lucille/indexer/
 
 ### Indexer Skeleton
 
-Every Indexer must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time.
+Every Indexer must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/Config/_index" >}}) docs for information on specs.
 
 Every indexer must follow the [Javadoc Standards](#javadoc-standards).
 
@@ -218,13 +282,6 @@ public class ExampleIndexer extends Indexer {
   }
 }
 ```
-
-#### Common Spec Helpers
-
-* `requiredString/Number/Boolean` for scalar fields.
-* `requiredList("field", new TypeReference<List<String>>() {})` for typed lists.
-* `requiredParent("field", new TypeReference<Map<String,Object>>() {})` for nested objects.
-* `optionalX(...)` variants mirror the above.
 
 ### Lifecycle Methods
 
