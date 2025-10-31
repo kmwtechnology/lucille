@@ -45,4 +45,4 @@ Run a commit with `openSearcher=true` on your `quickstart` collection to make th
 The Lucille project is developed and maintained by KMW Technology ([kmwllc.com](https://kmwllc.com/)).
 For more information regarding Lucille, please [contact us](https://kmwllc.com/index.php/contact-us/).
 
-For documentation, setup information, and configuration reference, please visit the Lucille [documentation site](https://kmwtechnology.github.io/lucille/docs/introduction/).
+For documentation, setup information, and configuration reference, please visit the Lucille [documentation site](https://kmwtechnology.github.io/lucille/docs/).
