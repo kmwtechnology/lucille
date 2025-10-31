@@ -31,6 +31,8 @@ lucille/lucille-core/src/main/java/com/kmwllc/lucille/stage/
 
 Every Stage must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time.
 
+Every stage must follow the [Javadoc Standards](#javadoc-standards).
+
 ```java
 package com.kmwllc.lucille.stage;
 
@@ -129,25 +131,6 @@ Use `update(name, mode, values...)`:
 
 See the [Testing Standards](#testing-standards).
 
-### Javadoc Style
-
-Use this exact structure for class-level Javadoc:
-
-```java
-/**
- * Description can be multi‑sentence and may include details above the p tag.
- * <p>
- * Config Parameters -
- * <ul>
- *   <li>name (String, Required) : What it does.</li>
- *   <li>limit (Integer, Optional) : How it’s used. Defaults to 10.</li>
- *   <li>flags (List<String>, Optional) : Notes on values.</li>
- * </ul>
- */
-```
-
-This structure is required because Lucille's documentation tooling parses the description before the p tag and the config parameter list after it.
-
 ## Developing Connectors
 [TODO]
 
@@ -170,6 +153,8 @@ lucille/lucille-core/src/main/java/com/kmwllc/lucille/indexer/
 ### Indexer Skeleton
 
 Every Indexer must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time.
+
+Every indexer must follow the [Javadoc Standards](#javadoc-standards).
 
 ```java
 package com.kmwllc.lucille.indexer;
@@ -251,25 +236,6 @@ public class ExampleIndexer extends Indexer {
 
 See the [Testing Standards](#testing-standards).
 
-### Javadoc Style
-
-Use this exact structure for class-level Javadoc:
-
-```java
-/**
- * Description can be multi-sentence and may include details above the p tag.
- * <p>
- * Config Parameters -
- * <ul>
- *   <li>url (String, Required) : Destination endpoint.</li>
- *   <li>index (String, Optional) : Default index/collection. Defaults to "index1".</li>
- *   <li>batchSize (Integer, Optional) : Batch size per request. Defaults to 100.</li>
- * </ul>
- */
-```
-
-This structure is required because Lucille's documentation tooling parses the description before the p tag and the config parameter list after it.
-
 ## Testing Standards
 
 ### Test Layout & Naming
@@ -305,3 +271,34 @@ lucille/lucille-core/src/test/resources/<StageName || IndexerName || ConnectorNa
 * **Run:** `mvn clean install`.
 * **Open report:** `lucille-core/target/jacoco-ut/index.html`.
 * **Interpretation:** Focus on closing meaningful gaps in coverage and covering as much as possible.
+
+## Javadoc Standards
+
+The Lucille docs parser expects strict, class-level Javadoc in the following format so it can render cleanly in the UI.
+
+**Rules:**
+
+* Put a clear description before the `<p>` tag (can be multi-sentence).
+* After `<p>`, include the literal heading `Config Parameters -` and a `<ul>` list.
+* Each item must be:
+  * `name (Type, Required | Optional) : Description`.
+  * Use exact casing.
+  * Use escape generics (e.g., List&lt;String&gt;).
+* Don't add extra blank lines. Keep consistent punctuation.
+
+**Template:**
+
+```java
+/**
+ * Description of what this stage/connector/indexer does. This text can span
+ * multiple sentences and be as long as you want as long as it appears before <p>.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>paramA (String, Required) : Example description.</li>
+ *   <li>paramB (Integer, Optional) : Example description.</li>
+ *   <li>flags (List&lt;String&gt;, Optional) : Example description.</li>
+ *   <li>options (Map&lt;String, Object&gt;, Optional) : Example description.</li>
+ * </ul>
+ */
+```
