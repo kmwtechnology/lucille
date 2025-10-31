@@ -37,7 +37,7 @@ Local mode runs all Lucille components (connector, pipeline, and indexer) inside
 
 ### Prepare a Configuration File
 
-You'll run Lucille by pointing it at a config file that declares your **connectors**, **pipelines**, and **indexers**. See the [configuration docs]({{< relref "docs/architecture/components/Config/_index" >}}) for the full schema and supported components.
+You'll run Lucille by pointing it at a config file that declares your **connectors**, **pipelines**, and **indexers**. See the [configuration]({{< relref "docs/architecture/components/Config/_index" >}}) docs for the full schema and supported components.
 
 ### Run Lucille Locally
 
@@ -55,11 +55,9 @@ java \
 * `-cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*'` loads Lucille and its dependencies.
 * `com.kmwllc.lucille.core.Runner` boots the Lucille engine in local mode and runs the configured pipeline to completion.
 
-### Troubleshooting
+**Trouble Running Lucille?**
 
-* **Java/Maven not found:** Confirm `java -version` is 17+ and `mvn -v` is available in your PATH. Ensure that `JAVA_HOME` is set to a JDK 17+ installation.
-* *Classpath issues:** Ensure `lucille-core/target/lucille.jar` and `lucille-core/target/lib/` exist after the Maven build. Avoid running *from inside* `target/`, since `mvn clean` removes it and can cause issues.
-* **Config parsing errors:** Double-check your config path and syntax. Consult the config docs for valid fields and component names.
+See the [troubleshooting]({{< relref "docs/getting-started/troubleshooting" >}}) guide for common pitfalls.
 
 ## Quick Start Guide - Distributed Mode
 
@@ -74,7 +72,7 @@ This guide assumes Kafka and your destination system are already running and rea
 
 ### Prepare a Configuration File
 
-You'll run Lucille by pointing it at a config file that declares your pipeline. See the [configuration docs]({{< relref "docs/architecture/components/Config/_index" >}}) for the full schema and supported components.
+You'll run Lucille by pointing it at a config file that declares your pipeline. See the [configuration]({{< relref "docs/architecture/components/Config/_index" >}}) docs for the full schema and supported components.
 
 Use a single config that defines: your **connector(s)**, your **pipeline(s)**, **kafka** configuration, and your **indexer** and its backend config (e.g., `solr {}`, `opensearch {}`, etc).
 
@@ -124,13 +122,9 @@ java \
 * `com.kmwllc.lucille.core.Worker <pipelineName>` processes documents through the configured pipeline as described above.
 * `com.kmwllc.lucille.core.Indexer <pipelineName>` writes processed documents to the configured backend as described above.
 
-### Troubleshooting
+**Trouble Running Lucille?**
 
-* **Java/Maven not found:** Confirm `java -version` is 17+ and `mvn -v` is available in your PATH. Ensure that `JAVA_HOME` is set to a JDK 17+ installation.
-* **Classpath issues:** Ensure `lucille-core/target/lucille.jar` and `lucille-core/target/lib/` exist after the Maven build. Avoid running *from inside* `target/`, since `mvn clean` removes it and can cause issues.
-* **Kafka connectivity:** Check `kafka.bootstrapServers` and any client property files if used.
-* **Indexer connection issues:** Ensure destination config (Solr/OpenSearch/Elasticsearch/CSV) matches a reachable backend.
-* **Config parsing errors:** Double-check your config path and syntax. Consult the config docs for valid fields and component names.
+See the [troubleshooting]({{< relref "docs/getting-started/troubleshooting" >}}) guide for common pitfalls.
 
 ## Verifying Your Lucille Run
 
