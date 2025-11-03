@@ -9,7 +9,13 @@ description: The Config is a HOCON file where you define the settings for runnin
 When you run Lucille, you provide a path to a file which provides configuration for your run. Configuration (Config) files use HOCON, 
 a superset of JSON. This file defines all the components in your Lucille run. 
 
-A complete config file must contain three elements:
+**Quick references**
+
+* Example (local single-process): [application-example.conf](https://github.com/kmwtechnology/lucille/blob/main/application-example.conf)
+* Example (S3 OpenSearch): [s3-opensearch.conf](https://github.com/kmwtechnology/lucille/blob/main/lucille-examples/lucille-s3-ingest-example/conf/s3-opensearch.conf)
+* HOCON / Typesafe Config docs: [lightbend/config](https://github.com/lightbend/config)
+
+A complete config file must contain three elements (Connector(s), Pipeline(s), Indexer):
 
 ### Connectors
 
@@ -17,7 +23,7 @@ Connectors read data from a source and emit it as a sequence of individual Docum
 
 `connectors` should be populated with a list of Connector configurations. 
 
-See [Connectors](docs/architecture/components/connectors) for more information about configuring Connectors.
+See [Connectors]({{< relref "docs/architecture/components/Connectors/_index" >}}) for more information about configuring Connectors.
 
 ### Pipeline and Stages
 
@@ -27,16 +33,16 @@ As each Connector executes, the Documents it publishes can be processed by a Pip
 `pipelines` should be populated with a list of Pipeline configurations. Each Pipeline needs two values: `name`, 
 the name of the Pipeline, and `stages`, a list of the Stages to use. Multiple connectors may feed to the same Pipeline. 
 
-See [Stages](docs/architecture/components/stages) for more information about configuring Stages.
+See [Stages]({{< relref "docs/architecture/components/Stages/_index" >}}) for more information about configuring Stages.
 
 ### Indexer
 
 An indexer sends processed Documents to a specific destination. Only one Indexer can be defined; all pipelines will feed to the same Indexer.
 
-A full indexer configuration has two parts: first, the generic `indexer` configuration, and second, configuration for the specific indexer
-used in your run. For example, to use the `SolrIndexer`, you provide `indexer` and `solr` config.
+A full indexer configuration has two separate config blocks: first, the generic `indexer` configuration, and second, configuration for the specific indexer
+used in your run. For example, to use the `SolrIndexer`, you provide separate `indexer` and `solr` config blocks.
 
-See [Indexers](docs/architecture/components/indexers) for more information about configuring your Indexer.
+See [Indexers]({{< relref "docs/architecture/components/Indexers/_index" >}}) for more information about configuring your Indexer.
 
 ### Other Run Configuration
 
@@ -68,9 +74,10 @@ also declare what type each property is (number, boolean, string, etc.). For exa
 to specify the `numDocs` you want to create, and optionally, the number you want IDs to `startWith`. So, the `Spec` looks like this:
 
 ```java
-public static final Spec SPEC = Spec.connector()
+public static final Spec SPEC = SpecBuilder.connector()
       .requiredNumber("numDocs")
-      .optionalNumber("startWith");
+      .optionalNumber("startWith")
+      .build();
 ```
 
 ### Declaring a Spec
@@ -79,8 +86,8 @@ Lucille is designed to access Specs reflectively. If you build a Stage/Indexer/C
 named `SPEC` (exactly). Failure to do so will not result in a _compile-time_ error. However, you will not be able
 to instantiate your component - even in unit tests - as the reflective access (which takes place in the super / abstract class) will always fail.
 
-When you declare the `public static Spec SPEC`, you'll want to call the appropriate `Spec` method which provides appropriate
-default arguments for your component. For example, if you are building a Stage, you should call `Spec.stage()`, which allows
+When you declare the `public static Spec SPEC`, you'll want to call the appropriate `SpecBuilder` method which provides appropriate
+default arguments for your component. For example, if you are building a Stage, you should call `SpecBuilder.stage()`, which allows
 the config to include `name`, `class`, `conditions`, and `conditionPolicy`. 
 
 ### Lists and Objects
