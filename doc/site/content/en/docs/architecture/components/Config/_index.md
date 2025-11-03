@@ -23,7 +23,7 @@ Connectors read data from a source and emit it as a sequence of individual Docum
 
 `connectors` should be populated with a list of Connector configurations. 
 
-See [Connectors]({{< relref "docs/architecture/components/Connectors/_index" >}}) for more information about configuring Connectors.
+See [Connectors]({{< relref "docs/architecture/components/connectors" >}}) for more information about configuring Connectors.
 
 ### Pipeline and Stages
 
@@ -33,7 +33,7 @@ As each Connector executes, the Documents it publishes can be processed by a Pip
 `pipelines` should be populated with a list of Pipeline configurations. Each Pipeline needs two values: `name`, 
 the name of the Pipeline, and `stages`, a list of the Stages to use. Multiple connectors may feed to the same Pipeline. 
 
-See [Stages]({{< relref "docs/architecture/components/Stages/_index" >}}) for more information about configuring Stages.
+See [Stages]({{< relref "docs/architecture/components/stages" >}}) for more information about configuring Stages.
 
 ### Indexer
 
@@ -42,7 +42,7 @@ An indexer sends processed Documents to a specific destination. Only one Indexer
 A full indexer configuration has two separate config blocks: first, the generic `indexer` configuration, and second, configuration for the specific indexer
 used in your run. For example, to use the `SolrIndexer`, you provide separate `indexer` and `solr` config blocks.
 
-See [Indexers]({{< relref "docs/architecture/components/Indexers/_index" >}}) for more information about configuring your Indexer.
+See [Indexers]({{< relref "docs/architecture/components/indexers" >}}) for more information about configuring your Indexer.
 
 ### Other Run Configuration
 

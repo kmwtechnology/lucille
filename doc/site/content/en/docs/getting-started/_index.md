@@ -37,7 +37,7 @@ Local mode runs all Lucille components (connector, pipeline, and indexer) inside
 
 ### Prepare a Configuration File
 
-You'll run Lucille by pointing it at a config file that declares your **connectors**, **pipelines**, and **indexers**. See the [configuration]({{< relref "docs/architecture/components/Config/_index" >}}) docs for the full schema and supported components.
+You'll run Lucille by pointing it at a config file that declares your **connectors**, **pipelines**, and **indexers**. See the [configuration]({{< relref "docs/architecture/components/config" >}}) docs for the full schema and supported components.
 
 ### Run Lucille Locally
 
@@ -72,7 +72,7 @@ This guide assumes Kafka and your destination system are already running and rea
 
 ### Prepare a Configuration File
 
-You'll run Lucille by pointing it at a config file that declares your pipeline. See the [configuration]({{< relref "docs/architecture/components/Config/_index" >}}) docs for the full schema and supported components.
+You'll run Lucille by pointing it at a config file that declares your pipeline. See the [configuration]({{< relref "docs/architecture/components/config" >}}) docs for the full schema and supported components.
 
 Use a single config that defines: your **connector(s)**, your **pipeline(s)**, **kafka** configuration, and your **indexer** and its backend config (e.g., `solr {}`, `opensearch {}`, etc).
 
