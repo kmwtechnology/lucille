@@ -13,7 +13,7 @@ See the [installation guide]({{< relref "docs/getting-started/installation" >}})
 
 Lucille includes a few examples in the `lucille-examples` module to help you get started.
 
-To see how to ingest the contents of a local CSV file into an instance of Apache Solr, refer to `lucille-examples/simple-csv-solr-example`.
+To see how to ingest the contents of a local CSV file into an instance of Apache Solr, refer to the [simple-csv-solr-example](https://github.com/kmwtechnology/lucille/tree/main/lucille-examples/lucille-simple-csv-solr-example).
 
 To run this example, start an instance of Apache Solr on port 8983 and create a collection called `quickstart`. For more information about how to use Solr, see the [Apache Solr Reference Guide](https://solr.apache.org/guide/solr/latest/getting-started/introduction.html)).
 
@@ -57,7 +57,7 @@ java \
 
 **Trouble Running Lucille?**
 
-See the [troubleshooting]({{< relref "docs/getting-started/troubleshooting" >}}) guide for common pitfalls.
+See the [troubleshooting]({{< relref "docs/prod/troubleshooting" >}}) guide for common pitfalls.
 
 ## Quick Start Guide - Distributed Mode
 
@@ -124,7 +124,7 @@ java \
 
 **Trouble Running Lucille?**
 
-See the [troubleshooting]({{< relref "docs/getting-started/troubleshooting" >}}) guide for common pitfalls.
+See the [troubleshooting]({{< relref "docs/prod/troubleshooting" >}}) guide for common pitfalls.
 
 ## Verifying Your Lucille Run
 

@@ -15,7 +15,7 @@ a superset of JSON. This file defines all the components in your Lucille run.
 * Example (S3 OpenSearch): [s3-opensearch.conf](https://github.com/kmwtechnology/lucille/blob/main/lucille-examples/lucille-s3-ingest-example/conf/s3-opensearch.conf)
 * HOCON / Typesafe Config docs: [lightbend/config](https://github.com/lightbend/config)
 
-A complete config file must contain three elements:
+A complete config file must contain three elements (Connector(s), Pipeline(s), Indexer):
 
 ### Connectors
 
@@ -39,8 +39,8 @@ See [Stages]({{< relref "docs/architecture/components/Stages/_index" >}}) for mo
 
 An indexer sends processed Documents to a specific destination. Only one Indexer can be defined; all pipelines will feed to the same Indexer.
 
-A full indexer configuration has two parts: first, the generic `indexer` configuration, and second, configuration for the specific indexer
-used in your run. For example, to use the `SolrIndexer`, you provide `indexer` and `solr` config.
+A full indexer configuration has two separate config blocks: first, the generic `indexer` configuration, and second, configuration for the specific indexer
+used in your run. For example, to use the `SolrIndexer`, you provide separate `indexer` and `solr` config blocks.
 
 See [Indexers]({{< relref "docs/architecture/components/Indexers/_index" >}}) for more information about configuring your Indexer.
 

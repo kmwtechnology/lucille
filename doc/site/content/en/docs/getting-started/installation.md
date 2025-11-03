@@ -12,7 +12,6 @@ To build and run Lucille from source, you need:
 
 * **Java 17+ JDK** (not just a JRE)
 * **Maven** (recent version)
-* Internet access to fetch dependencies
 
 ## Java Setup (JDK 17+ Required)
 

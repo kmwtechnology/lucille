@@ -15,17 +15,37 @@ This guide covers the basics of how to develop new components for Lucille along 
 
 - Understanding of Java programming language
 
-- Understanding of Lucille 
+- Understanding of Lucille
+
+## Project and Package Layout
+
+You can add Stages, Connectors, and Indexers to Lucille in many ways. All approaches require you to reference the component’s **fully qualified class name** (`class = "..."`) in the config.
+
+1) **Contribute to lucille-core (PR to core)**
+    * Stages: `lucille/lucille-core/src/main/java/com/kmwllc/lucille/stage/`
+    * Connectors: `lucille/lucille-core/src/main/java/com/kmwllc/lucille/connector/`
+    * Indexers: `lucille/lucille-core/src/main/java/com/kmwllc/lucille/indexer/`
+    * Tests/resources mirror these under `src/test/java` and `src/test/resources`.
+
+2) **Create a Lucille plugin (PR to lucille repo under lucille-plugins)**
+    * Example layout:
+      ```
+      lucille-plugins/
+      my-plugin/
+      src/main/java/com/kmwllc/lucille/my-plugin/stage/...
+      src/main/java/com/name/lucille/my-plugin/connector/...
+      src/main/java/com/name/lucille/my-plugin/indexer/...
+      src/test/java/...
+      src/test/resources/...
+      pom.xml
+      ```
+      
+3) **Use your own local code**
+    * Put classes anywhere in your own package; e.g., `com.name.ingest.MyStage`.
+    * **Requirement:** Ensure the compiled JAR is on the **classpath** when running Lucille and reference the fully qualified class name in your config.
+    *
 
 ## Developing Stages
-
-### Project and Package Layout
-
-Create your stage under:
-
-```
-lucille/lucille-core/src/main/java/com/kmwllc/lucille/stage/
-```
 
 ### Stage Skeleton
 
@@ -124,14 +144,6 @@ See the [Testing Standards](#testing-standards).
 
 ## Developing Connectors
 
-### Project and Package Layout
-
-Create your connector under:
-
-```
-lucille/lucille-core/src/main/java/com/kmwllc/lucille/connector/
-```
-
 ### Connector Skeleton
 
 Every Connector must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/Config/_index" >}}) docs for information on specs.
@@ -205,14 +217,6 @@ public class ExampleConnector extends AbstractConnector {
 See the [Testing Standards](#testing-standards).
 
 ## Developing Indexers
-
-### Project and Package Layout
-
-Create your indexer under:
-
-```
-lucille/lucille-core/src/main/java/com/kmwllc/lucille/indexer/
-```
 
 ### Indexer Skeleton
 
@@ -327,11 +331,11 @@ lucille/lucille-core/src/test/resources/<StageName || IndexerName || ConnectorNa
 
 * **Run:** `mvn clean install`.
 * **Open report:** `lucille-core/target/jacoco-ut/index.html`.
-* **Interpretation:** Focus on closing meaningful gaps in coverage and covering as much as possible.
+* **Interpretation:** Summarizes test coverage across packages and classes, highlighting covered and missed lines and branches so you can see what executed during the test run at a glance.
 
 ## Javadoc Standards
 
-The Lucille docs parser expects strict, class-level Javadoc in the following format so it can render cleanly in the UI.
+Lucille includes a small internal parser used during documentation builds to extract class-level Javadoc from components (Connectors, Stages, Indexers) and render their config fields in the UI. It runs as part of the docs generation tooling, not at runtime, and expects the exact formatting described below so the parameters can be displayed correctly. For reference, see the [parser implementation](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-api/src/main/java/com/kmwllc/lucille/endpoints/ConfigInfo.java).
 
 **Rules:**
 
