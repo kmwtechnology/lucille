@@ -49,7 +49,7 @@ You can add Stages, Connectors, and Indexers to Lucille in many ways. All approa
 
 ### Stage Skeleton
 
-Every Stage must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/config/_index" >}}) docs for information on specs.
+Every Stage must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/config" >}}) docs for information on specs.
 
 Every stage must follow the [Javadoc Standards](#javadoc-standards).
 
@@ -146,7 +146,7 @@ See the [Testing Standards](#testing-standards).
 
 ### Connector Skeleton
 
-Every Connector must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/config/_index" >}}) docs for information on specs.
+Every Connector must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/config" >}}) docs for information on specs.
 
 Every connector must follow the [Javadoc Standards](#javadoc-standards).
 
@@ -220,7 +220,7 @@ See the [Testing Standards](#testing-standards).
 
 ### Indexer Skeleton
 
-Every Indexer must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/config/_index" >}}) docs for information on specs.
+Every Indexer must expose a static `SPEC` that declares its config schema. Use `SpecBuilder` to define **required/optional** fields, lists, parents, and types. The base class consumes this to validate user config at load time. See the [configuration]({{< relref "docs/architecture/components/config" >}}) docs for information on specs.
 
 Every indexer must follow the [Javadoc Standards](#javadoc-standards).
 
