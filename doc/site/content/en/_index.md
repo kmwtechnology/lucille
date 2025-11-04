@@ -9,7 +9,7 @@ title: Lucille
 <p class="lead mt-7"> Lucille is designed to reduce or eliminate these pain points.</p>
 
 <div class="text-center mt-5">
-  <a class="btn btn-lg btn-primary me-3 mb-4" href="/lucille/docs/">
+  <a class="btn btn-lg btn-primary me-3 mb-4" href="{{< relref "docs/" >}}">
     Learn More <i class="fas fa-arrow-alt-circle-right ms-2"></i>
   </a>
   <a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/kmwtechnology/lucille">
