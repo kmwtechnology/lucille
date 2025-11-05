@@ -394,22 +394,27 @@
     <dependency>
        <groupId>org.graalvm.sdk</groupId>
        <artifactId>graal-sdk</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.0</version>
     </dependency>
 
     <!-- GraalVM JavaScript -->
     <dependency>
        <groupId>org.graalvm.js</groupId>
        <artifactId>js</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.0</version>
        <type>pom</type>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/org.graalvm.python/python-language -->
+    <!-- GraalVM Python -->
     <dependency>
         <groupId>org.graalvm.python</groupId>
         <artifactId>python-language</artifactId>
-        <version>24.2.2</version>
+        <version>25.0.0</version>
+    </dependency>
+    <dependency>
+        <groupId>org.graalvm.python</groupId>
+        <artifactId>python-embedding</artifactId>
+        <version>25.0.0</version>
     </dependency>
   </dependencies>
 

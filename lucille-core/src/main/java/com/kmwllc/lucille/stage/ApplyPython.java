@@ -14,19 +14,23 @@ import org.graalvm.polyglot.*;
 import org.graalvm.polyglot.proxy.ProxyArray;
 import org.graalvm.polyglot.proxy.ProxyObject;
 
+import org.graalvm.python.embedding.GraalPyResources;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import java.io.Reader;
 import java.util.*;
 
 public class ApplyPython extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("script_path")
-      .optionalString("script")
+      .optionalString("script_path", "script", "python_root")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .build();
 
   private final String scriptPath;
   private final String inlineScript;
+  private final String pythonRoot;
 
   private Source source;
   private Context context;
@@ -36,6 +40,7 @@ public class ApplyPython extends Stage {
     super(config);
     this.scriptPath = config.hasPath("script_path") ? config.getString("script_path") : null;
     this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
+    this.pythonRoot = config.hasPath("python_root") ? config.getString("python_root") : null;
   }
 
   @Override
@@ -64,10 +69,21 @@ public class ApplyPython extends Stage {
           .option("log.level", "OFF")
           .build();
 
-      this.context = Context.newBuilder("python")
-          .engine(engine)
-          .allowAllAccess(true)
-          .build();
+      if (pythonRoot != null) {
+        Path pyRoot = Paths.get(pythonRoot);
+        this.context = GraalPyResources.contextBuilder(pyRoot)
+            .engine(engine)
+            .out(System.out)
+            .err(System.err)
+            .build();
+      } else {
+        this.context = Context.newBuilder("python")
+            .engine(engine)
+            .allowAllAccess(true)
+            .out(System.out)
+            .err(System.err)
+            .build();
+      }
     } catch (Exception e) {
       throw new StageException("Failed to initialize Python context.", e);
     }
