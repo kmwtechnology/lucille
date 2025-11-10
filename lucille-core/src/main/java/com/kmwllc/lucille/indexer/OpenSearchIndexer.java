@@ -79,7 +79,7 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(config, messenger, bypass, metricsPrefix, localRunId, null);
+    this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
   }
 
   // Convenience Constructors

@@ -61,7 +61,7 @@ public class SolrIndexer extends Indexer {
 
   public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass,
       String metricsPrefix, String localRunId, SolrClient solrClient) {
-    super(config, messenger, false, metricsPrefix, localRunId);
+    super(config, messenger, bypass, metricsPrefix, localRunId);
 
     this.solrClient = solrClient;
   }

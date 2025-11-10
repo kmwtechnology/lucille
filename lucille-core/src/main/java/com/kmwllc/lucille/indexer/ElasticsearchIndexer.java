@@ -88,7 +88,7 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, bypass, metricsPrefix, localRunId, null);
+    this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
   }
 
   // Convenience Constructors
