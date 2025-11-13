@@ -392,8 +392,8 @@ public final class Py4JRuntime {
     }
   }
 
-  private static synchronized int allocatePort(int configured) throws StageException {
-    if (configured > 0) {
+  private static synchronized int allocatePort(Integer configured) throws StageException {
+    if (configured != null && configured > 0) {
       if (!isPortAvailable(configured)) {
         throw new StageException("Requested port " + configured + " is not available");
       }
