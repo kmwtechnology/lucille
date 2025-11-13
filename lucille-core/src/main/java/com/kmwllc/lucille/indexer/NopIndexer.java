@@ -19,7 +19,7 @@ public class NopIndexer extends Indexer {
   public static final Spec SPEC = SpecBuilder.indexer().build();
 
   public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, bypass, metricsPrefix, localRunId);
   }
 
   public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
