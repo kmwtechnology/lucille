@@ -2,7 +2,8 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.stage.util.Py4JRuntime;
@@ -13,6 +14,12 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 public final class PythonStage extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("scriptPath")
+      .optionalString("pythonExecutable", "functionName", "port", "requirementsPath")
+      .optionalNumber("port", "timeoutMs")
+      .build();
 
   private static final Logger log = LoggerFactory.getLogger(PythonStage.class);
 
@@ -27,16 +34,14 @@ public final class PythonStage extends Stage {
   private final ObjectMapper mapper = new ObjectMapper();
 
   public PythonStage(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("scriptPath")
-        .withOptionalProperties("pythonExecutable", "function_name", "port", "requirementsPath", "timeout_ms"));
+    super(config);
 
     this.scriptPath = config.getString("scriptPath");
     this.pythonExecutable = config.hasPath("pythonExecutable") ? config.getString("pythonExecutable") : "python3";
     this.requirementsPath = config.hasPath("requirementsPath") ? config.getString("requirementsPath") : null;
-    this.functionName = config.hasPath("function_name") ? config.getString("function_name") : "process_document";
+    this.functionName = config.hasPath("functionName") ? config.getString("functionName") : "process_document";
     this.port = config.hasPath("port") ? config.getInt("port") : null;
-    this.readinessTimeoutMs = config.hasPath("timeout_ms") ? config.getInt("timeout_ms") : 5000;
+    this.readinessTimeoutMs = config.hasPath("timeoutMs") ? config.getInt("timeoutMs") : 5000;
   }
 
   @Override
