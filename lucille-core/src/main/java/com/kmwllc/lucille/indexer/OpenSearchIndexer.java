@@ -4,7 +4,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
 import org.opensearch.client.opensearch._types.FieldValue;
@@ -33,7 +35,24 @@ import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Indexes documents to OpenSearch using the Java client.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>index (String, Required) : Target OpenSearch index name.</li>
+ *   <li>url (String, Required) : OpenSearch HTTP endpoint (e.g., https://localhost:9200).</li>
+ *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
+ *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
+ *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
+ *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
+ * </ul>
+ */
 public class OpenSearchIndexer extends Indexer {
+
+  public static final Spec SPEC = SpecBuilder.indexer()
+      .requiredString("index", "url")
+      .optionalBoolean("update", "acceptInvalidCert").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
@@ -48,14 +67,8 @@ public class OpenSearchIndexer extends Indexer {
   private final boolean update;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withRequiredProperties("index", "url")
-        .withOptionalProperties("update", "acceptInvalidCert"));
+    super(config, messenger, metricsPrefix, localRunId);
 
-    if (this.indexOverrideField != null) {
-      throw new IllegalArgumentException(
-          "Cannot create OpenSearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by OpenSearchIndexer.");
-    }
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
     this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
@@ -64,7 +77,7 @@ public class OpenSearchIndexer extends Indexer {
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
   }
 
@@ -73,15 +86,19 @@ public class OpenSearchIndexer extends Indexer {
     this(config, messenger, client, metricsPrefix, null);
   }
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
     this(config, messenger, getClient(config, bypass), metricsPrefix, null);
   }
 
   @Override
   protected String getIndexerConfigKey() { return "opensearch"; }
 
-  private static OpenSearchClient getClient(Config config, boolean bypass) {
-    return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
+  private static OpenSearchClient getClient(Config config, boolean bypass) throws IndexerException {
+    try {
+      return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);
+    } catch (Exception e) {
+      throw new IndexerException("Couldn't create OpenSearch client", e);
+    }
   }
 
   @Override
@@ -115,15 +132,15 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
       return Set.of();
     }
 
-    Map<String, Document> documentsToUpload = new LinkedHashMap<>();
-    Set<String> idsToDelete = new LinkedHashSet<>();
-    Map<String, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
+    Map<Pair<String, String>, Document> documentsToUpload = new LinkedHashMap<>();
+    Set<Pair<String, String>> idsToDelete = new LinkedHashSet<>();
+    Map<Pair<String, String>, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
 
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
@@ -131,41 +148,48 @@ public class OpenSearchIndexer extends Indexer {
     // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
     for (Document doc : documents) {
       String id = doc.getId();
+
+      // if an index override field has been specified, use its value as the index to send to opensearch,
+      String indexOverride = getIndexOverride(doc);
+      final String indexToSend = indexOverride != null ? indexOverride : index;
+
+      Pair<String, String> indexAndId = Pair.of(indexToSend, id);
+
       if (!isMarkedForDeletion(doc)) {
-        idsToDelete.remove(id);
-        documentsToUpload.put(id, doc);
+        idsToDelete.remove(indexAndId);
+        documentsToUpload.put(indexAndId, doc);
       } else {
-        documentsToUpload.remove(id);
+        documentsToUpload.remove(indexAndId);
         if (!isMarkedForDeletionByField(doc)) {
-          idsToDelete.add(id);
+          idsToDelete.add(indexAndId);
         } else {
-          String field = doc.getString(deleteByFieldField);
-          if (!termsToDeleteByQuery.containsKey(field)) {
-            termsToDeleteByQuery.put(field, new ArrayList<>());
+          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
+          if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
+            termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }
-          termsToDeleteByQuery.get(field).add(doc.getString(deleteByFieldValue));
+          termsToDeleteByQuery.get(indexAndDeleteByField).add(doc.getString(deleteByFieldValue));
         }
       }
     }
 
-    Set<Document> failedDocs = uploadDocuments(documentsToUpload.values());
+    Set<Pair<Document, String>> failedDocs = uploadDocuments(documentsToUpload.values());
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
 
     return failedDocs;
   }
 
-  private void deleteById(List<String> idsToDelete) throws Exception {
+  private void deleteById(List<Pair<String, String>> idsToDelete) throws Exception {
     if (idsToDelete.isEmpty()) {
       return;
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
-    for (String id : idsToDelete) {
+    for (Pair<String, String> indexAndId : idsToDelete) {
       br.operations(op -> op
           .delete(d -> d
-              .index(index)
-              .id(id)
+              .index(indexAndId.getLeft())
+              .id(indexAndId.getRight())
           )
       );
     }
@@ -181,7 +205,7 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private void deleteByQuery(Map<String, List<String>> termsToDeleteByQuery) throws Exception {
+  private void deleteByQuery(Map<Pair<String, String>, List<String>> termsToDeleteByQuery) throws Exception {
     if (termsToDeleteByQuery.isEmpty()) {
       return;
     }
@@ -216,37 +240,52 @@ public class OpenSearchIndexer extends Indexer {
         }
       }
      */
-    BoolQuery.Builder boolQuery = new BoolQuery.Builder();
-    for (Map.Entry<String, List<String>> entry : termsToDeleteByQuery.entrySet()) {
-      String field = entry.getKey();
+
+    // Send a separate delete by query for each index.
+    Map<String, BoolQuery.Builder> boolQueryBuilders = new HashMap<>();
+
+    for (Map.Entry<Pair<String, String>, List<String>> entry : termsToDeleteByQuery.entrySet()) {
+      Pair<String, String> indexAndField = entry.getKey();
       List<String> values = entry.getValue();
+      BoolQuery.Builder boolQuery;
+      if ( boolQueryBuilders.containsKey(indexAndField.getLeft()) ) {
+        boolQuery = boolQueryBuilders.get(indexAndField.getLeft());
+      } else {
+        boolQuery = new BoolQuery.Builder();
+        boolQueryBuilders.put(indexAndField.getLeft(), boolQuery);
+      }
       boolQuery.should(s -> s
-        .terms(t -> t
-          .field(field)
-          .terms(tt -> tt.value(values.stream()
-              .map(FieldValue::of)
-              .collect(Collectors.toList()))
+          .terms(t -> t
+              .field(indexAndField.getRight())
+              .terms(tt -> tt.value(values.stream()
+                  .map(FieldValue::of)
+                  .collect(Collectors.toList()))
+              )
           )
-        )
       );
     }
-    boolQuery.minimumShouldMatch("1");
 
-    DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest.Builder()
-        .index(index)
-        .query(q -> q.bool(boolQuery.build()))
-        .build();
-    DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+    for (Map.Entry<String, BoolQuery.Builder> entry : boolQueryBuilders.entrySet()) {
+      BoolQuery.Builder boolQuery = entry.getValue();
 
-    if (!response.failures().isEmpty()) {
-      for (BulkIndexByScrollFailure failure : response.failures()) {
-        log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+      boolQuery.minimumShouldMatch("1");
+
+      DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest.Builder()
+          .index(entry.getKey())
+          .query(q -> q.bool(boolQuery.build()))
+          .build();
+      DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+
+      if (!response.failures().isEmpty()) {
+        for (BulkIndexByScrollFailure failure : response.failures()) {
+          log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+        }
+        throw new IndexerException("encountered errors while deleting by query");
       }
-      throw new IndexerException("encountered errors while deleting by query");
     }
   }
 
-  private Set<Document> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Pair<Document, String>> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }
@@ -255,6 +294,10 @@ public class OpenSearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documentsToUpload) {
+
+      // if an index override field has been specified, use its value as the index to send to opensearch,
+      String indexOverride = getIndexOverride(doc);
+      final String indexToSend = indexOverride != null ? indexOverride : index;
 
       // removing the fields mentioned in the ignoreFields setting in configurations
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
@@ -285,7 +328,7 @@ public class OpenSearchIndexer extends Indexer {
       if (update) {
         br.operations(op -> op
             .update((up) -> {
-              up.index(index).id(docId);
+              up.index(indexToSend).id(docId);
               if (routingField != null) {
                 up.routing(doc.getString(routingField));
               }
@@ -297,7 +340,7 @@ public class OpenSearchIndexer extends Indexer {
       } else {
         br.operations(op -> op
             .index((up) -> {
-              up.index(index).id(docId);
+              up.index(indexToSend).id(docId);
               if (routingField != null) {
                 up.routing(doc.getString(routingField));
               }
@@ -309,7 +352,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Document> failedDocs = new HashSet<>();
+    Set<Pair<Document, String>> failedDocs = new HashSet<>();
 
     BulkResponse response = client.bulk(br.build());
 
@@ -320,7 +363,7 @@ public class OpenSearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (uploadedDocuments.containsKey(item.id())) {
             Document failedDoc = uploadedDocuments.get(item.id());
-            failedDocs.add(failedDoc);
+            failedDocs.add(Pair.of(failedDoc, item.error().reason()));
           } else {
             throw new IndexerException(item.error().reason());
           }

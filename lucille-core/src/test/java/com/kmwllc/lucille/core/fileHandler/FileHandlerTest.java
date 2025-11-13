@@ -1,10 +1,10 @@
 package com.kmwllc.lucille.core.fileHandler;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
@@ -25,46 +25,79 @@ public class FileHandlerTest {
     FileHandler xmlHandler = FileHandler.create("xml", xmlConfig);
     assertInstanceOf(XMLFileHandler.class, xmlHandler);
     // test xml without required configs
-    assertThrows(ConfigException.class, () -> FileHandler.create("xml", ConfigFactory.parseMap(Map.of("xml", Map.of()))));
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("xml", ConfigFactory.parseMap(Map.of("xml", Map.of()))));
     // test json
-    Config jsonConfig = ConfigFactory.parseMap(Map.of("jsonl", Map.of()));
+    Config jsonConfig = ConfigFactory.parseMap(Map.of("json", Map.of()));
     FileHandler jsonHandler = FileHandler.create("json", jsonConfig);
     assertInstanceOf(JsonFileHandler.class, jsonHandler);
     // test jsonl
     jsonConfig = ConfigFactory.parseMap(Map.of("json", Map.of()));
-    jsonHandler = FileHandler.create("jsonl", jsonConfig);
+    jsonHandler = FileHandler.create("json", jsonConfig);
     assertInstanceOf(JsonFileHandler.class, jsonHandler);
     // test unsupported file type
-    assertThrows(UnsupportedOperationException.class, () -> FileHandler.create("unsupported", ConfigFactory.parseMap(Map.of())));
+    assertThrows(ConfigException.class, () -> FileHandler.create("unsupported", ConfigFactory.parseMap(Map.of())));
+
+    Config customHandler = ConfigFactory.parseMap(Map.of(
+        "txt", Map.of(
+            "class", "com.jakesq24.fileHandler.TextFileHandler",
+            "docIdPrefix", "text-handled"
+        )));
+    // reflective error will occur... this TextFileHandler isn't anywhere.
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("txt", customHandler));
+
+    // A bit weird, but an easy way to make sure reflection works
+    Config withCSVOnOtherType = ConfigFactory.parseMap(Map.of(
+        "tsv", Map.of(
+            "class", "com.kmwllc.lucille.core.fileHandler.CSVFileHandler",
+            "useTabs", true
+        )));
+    assertInstanceOf(CSVFileHandler.class, FileHandler.create("tsv", withCSVOnOtherType));
   }
 
-
   @Test
-  public void testSupportAndContainFileType() {
-    // json file
-    String jsonExtension = "json";
-    assertTrue(FileHandler.supportAndContainFileType(jsonExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
-    assertTrue(FileHandler.supportAndContainFileType(jsonExtension, ConfigFactory.parseMap(Map.of("jsonl", "content"))));
-    assertTrue(
-        FileHandler.supportAndContainFileType(jsonExtension, ConfigFactory.parseMap(Map.of("json", "content", "jsonl", "content"))));
-    assertFalse(FileHandler.supportAndContainFileType(jsonExtension, ConfigFactory.parseMap(Map.of("csv", "content"))));
-    // jsonl file
-    String jsonlExtension = "jsonl";
-    assertTrue(FileHandler.supportAndContainFileType(jsonlExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
-    assertTrue(FileHandler.supportAndContainFileType(jsonlExtension, ConfigFactory.parseMap(Map.of("jsonl", "content"))));
-    assertTrue(
-        FileHandler.supportAndContainFileType(jsonlExtension, ConfigFactory.parseMap(Map.of("json", "content", "jsonl", "content"))));
-    assertFalse(FileHandler.supportAndContainFileType(jsonlExtension, ConfigFactory.parseMap(Map.of("csv", "content"))));
-    // csv file
-    String csvExtension = "csv";
-    assertTrue(FileHandler.supportAndContainFileType(csvExtension, ConfigFactory.parseMap(Map.of("csv", "content"))));
-    assertFalse(FileHandler.supportAndContainFileType(csvExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
-    // xml file
-    String xmlExtension = "xml";
-    assertTrue(FileHandler.supportAndContainFileType(xmlExtension, ConfigFactory.parseMap(Map.of("xml", "content"))));
-    assertFalse(FileHandler.supportAndContainFileType(xmlExtension, ConfigFactory.parseMap(Map.of("json", "content"))));
+  public void testCreateFromConfig() {
+    Map<String, FileHandler> result = FileHandler.createFromConfig(ConfigFactory.empty());
+    assertTrue(result.isEmpty());
 
-    // test unsupported file type
-    assertFalse(FileHandler.supportAndContainFileType("unsupported", ConfigFactory.parseMap(Map.of("unsupported", "content"))));
+    result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/csv_only.conf"));
+    assertEquals(1, result.size());
+    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+
+    result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/all_three.conf"));
+    assertEquals(4, result.size());
+    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+    assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
+    // small detail... when you only specify one (json, jsonl), they are the *same* JSONFileHandler.
+    assertEquals(result.get("json"), result.get("jsonl"));
+    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
+
+    result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/csv_on_other_type.conf"));
+    assertEquals(5, result.size());
+    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+    assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
+    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
+    assertInstanceOf(CSVFileHandler.class, result.get("tsv"));
+
+    result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/jsonAndJsonl.conf"));
+    assertEquals(2, result.size());
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+    assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
+    // small detail... when you explicitly specify both, each is its own unique JSONFileHandler... in case you want to
+    // handle one differently than the other.
+    assertNotEquals(result.get("json"), result.get("jsonl"));
+
+    Config missingCustom = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/missing_custom.conf");
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.createFromConfig(missingCustom));
+
+    // custom file handler implementation missing "class" field triggers IllegalArgumentException
+    Config missingClass = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/missing_class.conf");
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.createFromConfig(missingClass));
+
+    // manually overriding csv to have a different type (in this case, a JsonFileHandler... for some reason)
+    Config overrideCSV = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/override_csv.conf");
+    result = FileHandler.createFromConfig(overrideCSV);
+    assertInstanceOf(JsonFileHandler.class, result.get("csv"));
   }
 }

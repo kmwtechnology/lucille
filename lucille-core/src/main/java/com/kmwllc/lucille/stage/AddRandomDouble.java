@@ -1,32 +1,37 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Adds random Dates to documents given parameters.
- *
- * <br>
+ * <p>
  * Config Parameters -
- * <p> <b>field_name</b> (String, Optional) : Field name of field where data is placed. Defaults to "data"
- * <p> <b>range_start</b> (Double, Optional) : Double representing the start of the range for generating random doubles. Defaults to 0.0.
- * <p> <b>range_end</b> (Double, Optional) : Double representing the end of the range for generating random doubles. Defaults to 1M (1000000.0).
+ * <ul>
+ *   <li>field_name (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
+ *   <li>range_start (Double, Optional) : Double representing the start of the range for generating random doubles. Defaults to 0.0.</li>
+ *   <li>range_end (Double, Optional) : Double representing the end of the range for generating random doubles. Defaults to 1M (1000000.0).</li>
+ * </ul>
  */
 public class AddRandomDouble extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("field_name")
+      .optionalNumber("range_start", "range_end").build();
 
   private final String fieldName;
   private final double rangeStart;
   private final double rangeEnd;
 
   public AddRandomDouble(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withOptionalProperties("field_name", "range_start", "range_end"));
+    super(config);
 
     this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
     this.rangeStart = ConfigUtils.getOrDefault(config, "range_start", 0.0);

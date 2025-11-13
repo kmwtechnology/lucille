@@ -1,7 +1,9 @@
 package com.kmwllc.lucille.connector;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.*;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
@@ -21,29 +23,28 @@ import java.lang.invoke.MethodHandles;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Connector for issuing requests to Solr. Requests should be formatted as JSON Strings. They can contain
- * the <code>{runId}</code> wildcard, which will be substituted with the current runId in the actual request.
- * (This is the only wildcard supported.)
- *
- * <br> You can use XML in lieu of JSON by setting <code>useXML</code> to <code>true</code>.
- *
- * <br> Config Parameters:
- * <ul>
- *   <li>preActions (List&lt;String&gt;, Optional): A list of requests to be issued to Solr. These actions will be performed first.</li>
- *   <li>postActions (List&lt;String&gt;, Optional): A list of requests to be issued to Solr. These actions will be performed second.</li>
- *   <li>solr (Map): Configuration for connecting to your Solr instance. See {@link SolrUtils#SOLR_PARENT_SPEC} for parameters.</li>
- *   <li>useXML (Boolean, Optional): Whether your requests use XML or not. Defaults to JSON requests (<code>false</code>).</li>
- * </ul>
- *
- * <b>Note:</b> As Solr performs more validation on JSON commands than XML, it is recommended you use JSON requests.
- */
 // TODO : Honor and return children documents
+
+/**
+ * Issues requests to Solr and optionally publishes query results as Documents. Requests should be formatted as JSON strings
+ * and may include the <code>{runId}</code> wildcard, which is substituted with the current runId at execution time. To send XML instead of JSON,
+ * set useXML to true. As Solr performs more validation on JSON commands than XML, it is recommended you use JSON requests.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>solr (Map, Required) : Connection parameters for Solr; see SolrUtils.SOLR_PARENT_SPEC.</li>
+ *   <li>preActions (List&lt;String&gt;, Optional) : Requests to issue before execution; supports the <code>{runId}</code> wildcard.</li>
+ *   <li>postActions (List&lt;String&gt;, Optional) : Requests to issue after execution; supports the <code>{runId}</code> wildcard.</li>
+ *   <li>solrParams (Map&lt;String, Object&gt;, Optional) : Query parameters to use when a pipeline is configured.</li>
+ *   <li>useXml (Boolean, Optional) : Send XML requests instead of JSON. Defaults to false.</li>
+ *   <li>idField (String, Optional) : Field to use for document IDs when publishing. Defaults to "id".</li>
+ * </ul>
+ */
 public class SolrConnector extends AbstractConnector {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  private SolrClient client;
+  private final SolrClient client;
   private final GenericSolrRequest request;
   private List<String> replacedPreActions;
   private List<String> replacedPostActions;
@@ -55,17 +56,21 @@ public class SolrConnector extends AbstractConnector {
   private final String idField;
   private final String actionFormat;
 
+  public static final Spec SPEC = SpecBuilder.connector()
+      .requiredParent(SolrUtils.SOLR_PARENT_SPEC)
+      .optionalParent("solrParams", new TypeReference<Map<String, Object>>(){})
+      .optionalList("preActions", new TypeReference<List<String>>(){})
+      .optionalList("postActions", new TypeReference<List<String>>(){})
+      .optionalBoolean("useXml")
+      .optionalString("idField").build();
+
   public SolrConnector(Config config) {
     this(config, SolrUtils.getSolrClient(config));
   }
 
   public SolrConnector(Config config, SolrClient client) {
-    super(config, Spec.connector()
-        // the Solr ParentSpec has solr.url as a required property.
-        .withRequiredParents(SolrUtils.SOLR_PARENT_SPEC)
-        .withOptionalProperties("preActions", "postActions", "useXml", "idField")
-        .withOptionalParentNames("solrParams")
-    );
+    super(config);
+
     this.client = client;
     this.preActions = ConfigUtils.getOrDefault(config, "preActions", new ArrayList<>());
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
@@ -91,7 +96,6 @@ public class SolrConnector extends AbstractConnector {
         this.solrParams.put(e.getKey(), Collections.singletonList(String.valueOf(rawValues)));
       }
     }
-
   }
 
   @Override

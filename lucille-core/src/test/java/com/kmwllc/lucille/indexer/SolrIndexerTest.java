@@ -5,15 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
-import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.CloudSolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
@@ -752,13 +751,14 @@ public class SolrIndexerTest {
 
     SolrIndexer indexer = new SolrIndexer(config, messenger, solrClient, "");
 
-    Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
-    assertTrue(failedDocs.contains(doc));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
 
     // not sure what is, internally to solr, controlling the ordering behind which document is sent first/not.
     // so, will just check that both of them do not have the same status (failed/succeeded)
-    assertNotEquals(failedDocs.contains(doc2), failedDocs.contains(doc3));
+    assertNotEquals(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc2)),
+        failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc3)));
   }
 
   @Test
@@ -929,30 +929,15 @@ public class SolrIndexerTest {
         equalTo(events.get(0).getType()));
   }
 
-  @Test(expected = com.typesafe.config.ConfigException.WrongType.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testUseCloudClientConfigException() {
     Config config = ConfigFactory.empty()
+        .withValue("indexer.type", ConfigValueFactory.fromAnyRef("solr"))
         .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
         // This should be a list of strings
         .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef("hello"));
     TestMessenger messenger = new TestMessenger();
     new SolrIndexer(config, messenger, false, "");
-  }
-
-  @Test
-  public void testClientInstance() throws IOException {
-
-    Config httpConfig = ConfigFactory.empty()
-        .withValue("solr.url", ConfigValueFactory.fromAnyRef("localhost:8983/solr"));
-
-    Config cloudConfig = ConfigFactory.empty()
-        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
-        .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
-
-    try (SolrClient httpClient = SolrUtils.getSolrClient(httpConfig); SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);){
-      assertTrue(httpClient instanceof Http2SolrClient);
-      assertTrue(cloudClient instanceof CloudSolrClient);
-    }
   }
 
   /**
@@ -999,20 +984,60 @@ public class SolrIndexerTest {
     assertTrue(capturedDoc.containsKey("id"));
   }
 
+  @Test
+  public void testAllowInvalidCertAndAuthHttp() {
+    String originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
+    System.clearProperty("solr.ssl.checkPeerName");
+
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrIndexerTest/acceptInvalidCert.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Indexer indexer = new SolrIndexer(config, messenger, false, "");
+    // should be set when we acceptInvalidCert w/ username/password in config
+    assertEquals("false", System.getProperty("solr.ssl.checkPeerName"));
+
+    indexer.closeConnection();
+
+    if (originalCheckPeerName != null) {
+      System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
+    }
+  }
+
+  @Test
+  public void testAllowInvalidCertCloud() {
+    String originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
+    System.clearProperty("solr.ssl.checkPeerName");
+
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrIndexerTest/acceptInvalidCertCloud.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Indexer indexer = new SolrIndexer(config, messenger, false, "");
+    // should be set when we acceptInvalidCert for an HTTP client
+    assertEquals("false", System.getProperty("solr.ssl.checkPeerName"));
+
+    indexer.closeConnection();
+
+    if (originalCheckPeerName != null) {
+      System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
+    }
+  }
+
+
   private static String getCapturedID(ArgumentCaptor<Collection<SolrInputDocument>> captor, int index, int arrIndex) {
     SolrInputDocument document = (SolrInputDocument) captor.getAllValues().get(index).toArray()[arrIndex];
     return (String) document.getFieldValue(Document.ID_FIELD);
   }
 
+  public static class ErroringIndexer extends SolrIndexer {
 
-  private static class ErroringIndexer extends SolrIndexer {
+    public static final Spec SPEC = SolrIndexer.SPEC;
 
     public ErroringIndexer(Config config, IndexerMessenger messenger, boolean bypass) {
       super(config, messenger, bypass, "");
     }
 
     @Override
-    public Set<Document> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, String>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to Solr are correctly handled");
     }
   }

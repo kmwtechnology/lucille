@@ -2,9 +2,10 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -31,9 +32,11 @@ import org.slf4j.LoggerFactory;
  */
 public class CSVFileHandler extends BaseFileHandler {
 
-  public static final ParentSpec PARENT_SPEC = Spec.parent("csv")
-      .withOptionalProperties("docIdPrefix", "lineNumberField", "filenameField", "filePathField", "idField", "idFields", "docIdFormat",
-          "separatorChar", "useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields", "ignoredTerms");
+  public static final Spec SPEC = SpecBuilder.fileHandler()
+      .optionalString("docIdPrefix", "lineNumberField", "separatorChar", "filenameField", "filePathField", "idField", "docIdFormat")
+      .optionalList("idFields", new TypeReference<List<String>>() {})
+      .optionalList("ignoredTerms", new TypeReference<List<String>>() {})
+      .optionalBoolean("useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields").build();
 
   private static final Logger log = LoggerFactory.getLogger(CSVFileHandler.class);
 
@@ -52,6 +55,7 @@ public class CSVFileHandler extends BaseFileHandler {
 
   public CSVFileHandler(Config config) {
     super(config);
+
     this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
     this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
     this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";
@@ -77,7 +81,7 @@ public class CSVFileHandler extends BaseFileHandler {
 
   @Override
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
-    CSVReader csvReader = getCsvReader(inputStream);
+    CSVReader csvReader = getCsvReader(inputStream, pathStr);
     String fileName = FilenameUtils.getName(pathStr);
 
     if (pathStr.contains(ARCHIVE_FILE_SEPARATOR)) {
@@ -91,9 +95,9 @@ public class CSVFileHandler extends BaseFileHandler {
   private Iterator<Document> getDocumentIterator(CSVReader reader, String filename, String path) throws FileHandlerException {
     return new Iterator<Document>() {;
       final CSVReader csvReader = reader;
-      final String[] header = getHeaderFromCSV(csvReader);
-      final HashMap<String, Integer> columnIndexMap = getColumnIndexMap(header);
-      final List<Integer> idColumns = getIdColumns(columnIndexMap);
+      final String[] header = getHeaderFromCSV(csvReader, path);
+      final HashMap<String, Integer> columnIndexMap = getColumnIndexMap(header, path);
+      final List<Integer> idColumns = getIdColumns(columnIndexMap, path);
       Integer lineNum = 0;
       String[] line;
       final Iterator<String[]> csvIterator = csvReader.iterator();
@@ -105,7 +109,7 @@ public class CSVFileHandler extends BaseFileHandler {
           try {
             csvReader.close();
           } catch (IOException e) {
-            log.error("Error closing CSVReader", e);
+            log.error("Error closing CSVReader. ({})", path, e);
           }
         }
         return hasNext;
@@ -115,34 +119,36 @@ public class CSVFileHandler extends BaseFileHandler {
       public Document next() {
         try {
           if (!hasNext()) {
-            log.warn("No more lines to process");
-            throw new IllegalStateException("No more lines to process");
+            log.warn("No more lines to process. ({})", path);
+            throw new IllegalStateException(String.format("No more lines to process. (%s)", path));
           }
 
           line = csvIterator.next();
           lineNum++;
 
           if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
-            log.warn("Skipping blank line {}", lineNum);
+            log.warn("Skipping blank line {}. ({})", lineNum, path);
             return next();
           }
           if (line.length != header.length) {
             // the line/row number reported here may differ from the physical line number in the file, if the CSV contains
             // a quoted value that spans multiple lines
-            log.warn("Logical row {} of the csv has a different number of columns than the header. Skipping line.", lineNum);
+            log.warn("Logical row {} has {} columns but the header has {}. Skipping line. ({})", lineNum, line.length, header.length, path);
             return next();
           }
 
           return getDocumentFromLine(idColumns, header, line, filename, path, lineNum);
         } catch (Exception e) {
-          log.error("Error processing CSV line {}", lineNum, e);
+          log.error("Error processing CSV line {}. ({})", lineNum, path, e);
+
           try {
             csvReader.close();
           } catch (IOException ex) {
             throw new RuntimeException(ex);
           }
+
+          return null;
         }
-        return null;
       }
     };
   }
@@ -155,6 +161,15 @@ public class CSVFileHandler extends BaseFileHandler {
       for (Integer idx : idColumns) {
         idColumnData.add(line[idx]);
       }
+
+      for (int fieldIndex = 0; fieldIndex < idColumnData.size(); fieldIndex++) {
+        String fieldValue = idColumnData.get(fieldIndex);
+        if (StringUtils.isBlank(fieldValue)) {
+          String fieldName = (fieldIndex < idFields.size()) ? idFields.get(fieldIndex) : ("index:" + fieldIndex);
+          log.warn("Missing/blank idField {} at line {}. ({})", fieldName, lineNum, path);
+        }
+      }
+
       docId = createDocId(idColumnData);
     } else {
       // a default unique id for a csv file is filename + line num
@@ -178,7 +193,7 @@ public class CSVFileHandler extends BaseFileHandler {
     return doc;
   }
 
-  private List<Integer> getIdColumns(HashMap<String, Integer> columnIndexMap) {
+  private List<Integer> getIdColumns(HashMap<String, Integer> columnIndexMap, String path) {
     List<Integer> idColumns = new ArrayList<Integer>();
     for (String field : idFields) {
       if (lowercaseFields) {
@@ -189,13 +204,19 @@ public class CSVFileHandler extends BaseFileHandler {
     }
     // verify that we found all the columns.
     if (idColumns.size() != idFields.size()) {
-      log.warn("Mismatch in idFields to column map.");
+      log.warn("Mismatch in idFields to column map. ({})", path);
     }
     return idColumns;
   }
 
-  private HashMap<String, Integer> getColumnIndexMap(String[] header) {
+  private HashMap<String, Integer> getColumnIndexMap(String[] header, String path) {
     HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
+
+    // If header is null, just return an empty map. (Allows for graceful handling of empty files)
+    if (header == null) {
+      return columnIndexMap;
+    }
+
     for (int i = 0; i < header.length; i++) {
       // check for BOM
       if (i == 0) {
@@ -203,7 +224,7 @@ public class CSVFileHandler extends BaseFileHandler {
       }
 
       if (columnIndexMap.containsKey(header[i])) {
-        log.warn("Multiple columns with the name {} were discovered in the source csv file.", header[i]);
+        log.warn("Multiple columns with the name {} were discovered in the source csv file. ({})", header[i], path);
         continue;
       }
       columnIndexMap.put(header[i], i);
@@ -211,16 +232,16 @@ public class CSVFileHandler extends BaseFileHandler {
     return columnIndexMap;
   }
 
-  private String[] getHeaderFromCSV(CSVReader csvReader) throws FileHandlerException {
+  private String[] getHeaderFromCSV(CSVReader csvReader, String path) throws FileHandlerException {
     try {
       String[] header = csvReader.readNext();
       if (header == null || header.length == 0) {
         try {
           csvReader.close();
         } catch (IOException e) {
-          log.error("Error closing CSVReader", e);
+          log.error("Error closing CSVReader. ({})", path, e);
         }
-        log.warn("CSV does not contain header row, skipping csv file");
+        log.warn("CSV does not contain header row, no Documents will be published for the file. ({})", path);
       }
       if (lowercaseFields) {
         for (int i = 0; i < header.length; i++) {
@@ -232,20 +253,20 @@ public class CSVFileHandler extends BaseFileHandler {
       try {
         csvReader.close();
       } catch (IOException ex) {
-        log.error("Error closing CSVReader", ex);
+        log.error("Error closing CSVReader. ({})", path, ex);
       }
-      throw new FileHandlerException("Error reading header from CSV", e);
+      throw new FileHandlerException(String.format("Error reading header from CSV. (%s)", path), e);
     }
   }
 
-  private CSVReader getCsvReader(InputStream inputStream) throws FileHandlerException {
+  private CSVReader getCsvReader(InputStream inputStream, String path) throws FileHandlerException {
     try {
       return new CSVReaderBuilder(new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)))
           .withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();
     } catch (Exception e) {
-      throw new FileHandlerException("Error creating CSVReader from InputStream", e);
+      throw new FileHandlerException(String.format("Error creating CSVReader from InputStream. (%s)", path), e);
     }
   }
 

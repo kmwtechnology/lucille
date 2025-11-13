@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.pinecone.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.pinecone.util.PineconeUtils;
 import com.typesafe.config.Config;
 import io.pinecone.clients.Index;
@@ -39,6 +41,12 @@ import java.util.stream.Collectors;
  */
 public class EmitDocsToDeleteByPrefix extends Stage {
 
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index")
+      .optionalBoolean("dropOriginal")
+      .optionalString("addPrefix")
+      .optionalParent("namespaces", new TypeReference<Map<String, Object>>(){}).build();
+
   private Pinecone client;
   private final String indexName;
   private Index index;
@@ -49,10 +57,7 @@ public class EmitDocsToDeleteByPrefix extends Stage {
   private final String deletionMarkerFieldValue;
 
   public EmitDocsToDeleteByPrefix(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("dropOriginal", "addPrefix")
-        .withOptionalParentNames("namespaces")
-        .withRequiredProperties("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index"));
+    super(config);
     this.indexName = config.getString("index");
     this.namespaces = config.hasPath("namespaces") ? config.getConfig("namespaces").root().unwrapped() : null;
     this.dropOriginal = config.hasPath("dropOriginal") ? config.getBoolean("dropOriginal") : false;

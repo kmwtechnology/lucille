@@ -3,12 +3,16 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
 import java.util.List;
 
 public class StartStopCaptureStage extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage().build();
 
   public static boolean startCalled = false;
   public static boolean stopCalled = false;

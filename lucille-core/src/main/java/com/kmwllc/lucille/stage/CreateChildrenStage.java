@@ -1,9 +1,10 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -13,9 +14,20 @@ import java.util.Iterator;
  * <br> This stage is intended for use in testing only.
  * <br> It is included in the main source tree so that it can be used in manual tests run against an artifact
  * that excludes the test tree.
- *
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>numChildren (int, optional) : the total number of child documents to emit.</li>
+ *   <li>dropParent (boolean, optional) : if true, marks the parent document as dropped.</li>
+ *   <li>failAfter (int) : if set, throws an exception once this many children have been generated.</li>
+ *   <li>dropChild (int) : if set, marks the child with this 1‑based index as dropped.</li>
+ * </ul>
  */
 public class CreateChildrenStage extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalNumber("numChildren", "failAfter", "dropChild")
+      .optionalBoolean("dropParent").build();
 
   private final int numChildren;
   private final boolean dropParent;
@@ -23,7 +35,7 @@ public class CreateChildrenStage extends Stage {
   private final Integer dropChild;
 
   public CreateChildrenStage(Config config) {
-    super(config, Spec.stage().withOptionalProperties("numChildren", "dropParent", "failAfter", "dropChild"));
+    super(config);
     this.numChildren = config.hasPath("numChildren") ? config.getInt("numChildren") : 3;
     this.dropParent = config.hasPath("dropParent") ? config.getBoolean("dropParent") : false;
     this.failAfter = config.hasPath("failAfter") ? config.getInt("failAfter") : null;

@@ -1,14 +1,17 @@
 package com.kmwllc.lucille.indexer;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
 import com.typesafe.config.Config;
 import java.io.File;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,9 +20,22 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * An indexer that stores documents in a CSV file.
+ * Stores documents in a CSV file by writing selected fields as rows.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>path (String, Required) : Output CSV file path.</li>
+ *   <li>columns (List&lt;String&gt;, Required) : Ordered list of document fields to write as CSV columns.</li>
+ *   <li>includeHeader (Boolean, Optional) : Write a header row with column names on connect. Defaults to true.</li>
+ *   <li>append (Boolean, Optional) : Open the CSV in append mode instead of overwriting. Defaults to false.</li>
+ * </ul>
  */
 public class CSVIndexer extends Indexer {
+
+  public static final Spec SPEC = SpecBuilder.indexer()
+      .requiredString("path")
+      .requiredList("columns", new TypeReference<List<String>>(){})
+      .optionalBoolean("includeHeader", "append").build();
 
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
 
@@ -35,9 +51,7 @@ public class CSVIndexer extends Indexer {
    * @param localRunId The runID for a local run, null otherwise.
    */
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withRequiredProperties("columns", "path")
-        .withOptionalProperties("includeHeader", "append"));
+    super(config, messenger, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
@@ -108,7 +122,7 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     for (Document doc : documents) {
       writer.writeNext(getLine(doc), true);
     }

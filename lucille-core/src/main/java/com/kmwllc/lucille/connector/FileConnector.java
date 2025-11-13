@@ -1,107 +1,75 @@
 package com.kmwllc.lucille.connector;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.Spec;
-import com.kmwllc.lucille.core.Spec.ParentSpec;
-import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
-import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
-import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Set;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The <code>FileConnector</code> traverses through a file system, starting at a given directory, and publishes a Document for each
- * file it encounters. It can traverse through the local file system, Azure Blob Storage, Google Cloud, and S3.
+ * Traverses local and cloud storage (S3, GCP, Azure) from one or more roots and publishes a Document for each file encountered.
+ * Supports include/exclude regex filters, recency cutoffs, optional content fetching, archive/compressed file handling, file moves
+ * after processing or on error, and optional JDBC-backed state to avoid republishing recently handled files. Only files matching
+ * all filter criteria are processed. Durations use HOCON-style strings like "1h", "2d", "3s".
  *
- * <br> Config Parameters:
+ * For archive/compressed files, modification/publish cutoffs apply to both the container and its entries. When state is enabled,
+ * traversal may be slower. Files that are moved/renamed are always  republished regardless of lastPublishedCutoff. You can enable
+ * state without specifying lastPublishedCutoff to keep publish times updated.
+ *
+ * State tracks file paths and last publish timestamps to support filterOptions.lastPublishedCutoff and to avoid duplicate publications
+ * across runs. You can connect to your own JDBC database by providing driver, connectionString, jdbcUser, and tableName. If
+ * connectionString is omitted, an embedded database is created at ./state/{CONNECTOR_NAME}. With state enabled, traversal may be
+ * slower, and files that are moved or renamed are always republished. The lastPublishedCutoff setting has no effect unless state is
+ * configured. You may enable state without lastPublishCutoff and publish times will still be updated.
+ * <p>
+ * Config Parameters -
  * <ul>
- *   <li>pathToStorage (String): path to storage, can be local file system or cloud bucket/container. Examples:
- *    <ul>
- *       <li>/path/to/storage/in/local/filesystem</li>
- *       <li>gs://bucket-name/folder/</li>
- *       <li>s3://bucket-name/folder/</li>
- *      <li>https://accountName.blob.core.windows.net/containerName/prefix/</li>
- *    </ul>
- *   </li>
- *   <li>filterOptions (Map, Optional): configuration for <i>which</i> files should/shouldn't be processed in your traversal. Example of filterOptions below.</li>
- *   <li>fileOptions (Map, Optional): configuratino for <i>how</i> you handle/process certain types of files in your traversal. Example of fileOptions below.</li>
- *   <li>gcp (Map, Optional): options for handling Google Cloud files. See example below.</li>
- *   <li>s3 (Map, Optional): options for handling S3 files. See example below.</li>
- *   <li>azure (Map, Optional): options for handling Azure files. See example below.</li>
- * </ul>
- *
- * <br>
- *
- * <code>filterOptions</code>:
- * <ul>
- *   <li>includes (List&lt;String&gt;, Optional): list of regex patterns to include files.</li>
- *   <li>excludes (List&lt;String&gt;, Optional): list of regex patterns to exclude files.</li>
- *   <li>modificationCutoff (Duration, Optional): Filter files that haven't been modified since a certain amount of time. For example, specify "1h", and only files that were modified more than an hour ago will be published.</li>
- * </ul>
- *
- * See the HOCON documentation for examples of a Duration - strings like "1h", "2d" and "3s" are accepted, for example.
- * <br> Note that, for archive files, this cutoff applies to both the archive file itself and its individual contents.
- *
- * <p> <code>fileOptions</code>:
- * <ul>
- *   <li>getFileContent (boolean, Optional): option to fetch the file content or not, defaults to true. Setting this to false would speed up traversal significantly. Note that if you are traversing the cloud, setting this to true would download the file content. Ensure that you have enough resources if you expect file contents to be large.</li>
- *   <li>handleArchivedFiles (boolean, Optional): whether to handle archived files or not, defaults to false. See important notes below.</li>
- *   <li>handleCompressedFiles (boolean, Optional): whether to handle compressed files or not, defaults to false. See important notes below.</li>
- *   <li>moveToAfterProcessing (String, Optional): path to move files to after processing, currently only supported for local file system</li>
- *   <li>moveToErrorFolder (String, Optional): path to move files to if an error occurs during processing, currently only supported for local file system</li>
- *   <li>csv (Map, Optional): config options for handling csv type files. Config will be passed to CSVFileHandler.</li>
- *   <li>json (Map, Optional): config options for handling json/jsonl type files. Config will be passed to JsonFileHandler.</li>
- *   <li>xml (Map, Optional): config options for handling xml type files. Config will be passed to XMLFileHandler.</li>
- *   <li>(To configure the docIdPrefix for CSV, JSON or XML files, configure it in its respective config in <code>fileOptions</code>.)</li>
- *
- *   <li> <b>Notes</b> on archive / compressed files:
- *      <ul>
- *         <li>Recurring is not supported.</li>
- *         <li>If enabled during a cloud traversal, the file's contents <b>will</b> be downloaded before processing.</li>
- *         <li>For archive files, the file path field of the extracted file's Document will be in the format of "{path/to/archive/archive.zip}!{extractedFileName}".</li>
- *         <li>For compressed files, the file path follows the format of "{path/to/compressed/compressedFileName.gz}!{compressedFileName}".</li>
- *       </ul>
- *    </li>
- * </ul>
- *
- * <code>gcp</code>:
- * <ul>
- *   <li>"pathToServiceKey": "path/To/Service/Key.json"</li>
- *   <li>"maxNumOfPages" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.</li>
- * </ul>
- *
- * <code>s3</code>:
- * <ul>
- *   <li>"accessKeyId": s3 key id. Not needed if secretAccessKey is not specified (using default credentials).</li>
- *   <li>"secretAccessKey": secret access key. Not needed if accessKeyId is not specified (using default credentials).</li>
- *   <li>"region": s3 storage region</li>
- *   <li>"maxNumOfPages" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.</li>
- * </ul>
- *
- * <code>azure</code>:
- * <ul>
- *   <li>"connectionString": azure connection string</li>
- * </ul>
- * <b>Or</b>
- * <ul>
- *   <li>"accountName": azure account name</li>
- *   <li>"accountKey": azure account key</li>
- *   <li>"maxNumOfPages" (Int, Optional): The maximum number of file references to hold in memory at once. Defaults to 100.</li>
+ *   <li>pathsToStorage (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
+ *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
+ *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
+ *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
+ *   <li>filterOptions.lastModifiedCutoff (String, Optional) : Duration string to include only files modified within this period (e.g., "1h").</li>
+ *   <li>filterOptions.lastPublishedCutoff (String, Optional) : Duration string to include only files not published within this period.</li>
+ *   <li>fileOptions.getFileContent (Boolean, Optional) : Fetch file content during traversal. Defaults to true.</li>
+ *   <li>fileOptions.handleArchivedFiles (Boolean, Optional) : Process archive files. Defaults to false.</li>
+ *   <li>fileOptions.handleCompressedFiles (Boolean, Optional) : Process compressed files. Defaults to false.</li>
+ *   <li>fileOptions.moveToAfterProcessing (String, Optional) : URI to move files after successful processing (single input path only).</li>
+ *   <li>fileOptions.moveToErrorFolder (String, Optional) : URI to move files if processing fails (single input path only).</li>
+ *   <li>state.driver (String, Optional) : JDBC driver class. Defaults to "org.h2.Driver".</li>
+ *   <li>state.connectionString (String, Optional) : JDBC connection string. Defaults to "jdbc:h2:./state/{CONNECTOR_NAME}".</li>
+ *   <li>state.jdbcUser (String, Optional) : Database username. Defaults to "".</li>
+ *   <li>state.jdbcPassword (String, Optional) : Database password. Defaults to "".</li>
+ *   <li>state.tableName (String, Optional) : Table name for state. Defaults to the connector name.</li>
+ *   <li>state.performDeletions (Boolean, Optional) : Delete rows for files removed from storage. Defaults to true.</li>
+ *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 200.</li>
+ *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
+ *   <li>gcp.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
+ *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
+ *   <li>s3.region (String, Optional) : AWS region for S3.</li>
+ *   <li>s3.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>azure.connectionString (String, Optional) : Azure connection string.</li>
+ *   <li>azure.accountName (String, Optional) : Azure account name.</li>
+ *   <li>azure.accountKey (String, Optional) : Azure account key.</li>
+ *   <li>azure.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).
+ *   Supply a class to override the default handler. Otherwise the built-in handler for csv/json/xml is used. Configure docIdPrefix inside
+ *   each handler's config as needed.</li>
  * </ul>
  */
-
 public class FileConnector extends AbstractConnector {
-
-  private static final Set<String> CLOUD_STORAGE_CLIENT_KEYS = Set.of("s3", "azure", "gcp");
 
   public static final String FILE_PATH = "file_path";
   public static final String MODIFIED = "file_modification_date";
@@ -128,72 +96,125 @@ public class FileConnector extends AbstractConnector {
   public static final String MOVE_TO_ERROR_FOLDER = "moveToErrorFolder";
 
   // parent specs for cloud provider configs
-  public static final ParentSpec GCP_PARENT_SPEC = Spec.parent("gcp")
-      .withRequiredProperties("pathToServiceKey")
-      .withOptionalProperties("maxNumOfPages");
-  public static final ParentSpec S3_PARENT_SPEC = Spec.parent("s3")
-      .withOptionalProperties("accessKeyId", "secretAccessKey", "region", "maxNumOfPages");
-  public static final ParentSpec AZURE_PARENT_SPEC = Spec.parent("azure")
-      .withOptionalProperties("connectionString", "accountName", "accountKey", "maxNumOfPages");
+  public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
+      .requiredString("pathToServiceKey")
+      .optionalNumber("maxNumOfPages").build();
+  public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
+      .optionalString("accessKeyId", "secretAccessKey", "region")
+      .optionalNumber("maxNumOfPages").build();
+  public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
+      .optionalString("connectionString", "accountName", "accountKey")
+      .optionalNumber("maxNumOfPages").build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
-  private final String pathToStorage;
-  private final Config fileOptions;
-  private final Config filterOptions;
-  private StorageClient storageClient;
-  private final URI storageURI;
+  public static final Spec SPEC = SpecBuilder.connector()
+      .requiredList("pathsToStorage", new TypeReference<List<String>>(){})
+      .optionalParent(
+          SpecBuilder.parent("filterOptions")
+              .optionalList("includes", new TypeReference<List<String>>(){})
+              .optionalList("excludes", new TypeReference<List<String>>(){})
+              // durations are strings.
+              .optionalString("lastModifiedCutoff", "lastPublishedCutoff").build(),
+          SpecBuilder.parent("fileOptions")
+              .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+              .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
+          SpecBuilder.parent("state")
+              .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
+              .optionalBoolean("performDeletions")
+              .optionalNumber("pathLength").build(),
+          GCP_PARENT_SPEC,
+          AZURE_PARENT_SPEC,
+          S3_PARENT_SPEC)
+      .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
+
+  private final List<URI> storageURIs;
+  private final Map<String, StorageClient> storageClientMap;
+
+  private final FileConnectorStateManager stateManager;
 
   public FileConnector(Config config) throws ConnectorException {
-    super(config, Spec.connector()
-        .withRequiredProperties("pathToStorage")
-        .withOptionalParents(
-            Spec.parent("filterOptions").withOptionalProperties("includes", "excludes", "modificationCutoff"),
-            Spec.parent("fileOptions")
-                .withOptionalProperties("getFileContent", "handleArchivedFiles", "handleCompressedFiles", "moveToAfterProcessing",
-                    "moveToErrorFolder")
-                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC, XMLFileHandler.PARENT_SPEC),
-            GCP_PARENT_SPEC,
-            AZURE_PARENT_SPEC,
-            S3_PARENT_SPEC
-        ));
+    super(config);
 
-    this.pathToStorage = config.getString("pathToStorage");
-    this.fileOptions = config.hasPath("fileOptions") ? config.getConfig("fileOptions") : ConfigFactory.empty();
-    this.filterOptions = config.hasPath("filterOptions") ? config.getConfig("filterOptions") : ConfigFactory.empty();
+    List<String> pathsToStorage = config.getStringList("pathsToStorage");
+    this.storageURIs = new ArrayList<>();
 
-    try {
-      this.storageURI = new URI(pathToStorage);
-      log.debug("using path {} with scheme {}", pathToStorage, storageURI.getScheme());
-    } catch (URISyntaxException e) {
-      throw new ConnectorException("Invalid path to storage: " + pathToStorage, e);
+    for (String path : pathsToStorage) {
+      try {
+        URI newStorageURI = new URI(path);
+        storageURIs.add(newStorageURI);
+        log.debug("FileConnector to use path {} with scheme {}", path, newStorageURI.getScheme());
+      } catch (URISyntaxException e) {
+        throw new ConnectorException("Invalid path to storage: " + path, e);
+      }
     }
 
-    if (CLOUD_STORAGE_CLIENT_KEYS.stream().filter(config::hasPath).count() > 1) {
-      log.warn("Config for FileConnector contains options for more than one cloud provider.");
+    this.stateManager = config.hasPath("state") ? new FileConnectorStateManager(config.getConfig("state"), getName()) : null;
+
+    this.storageClientMap = StorageClient.createClients(config);
+
+    // Cannot specify multiple storage paths and a moveTo of some kind
+    if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath("fileOptions.moveToErrorFolder"))) {
+      throw new IllegalArgumentException("FileConnector does not support multiple pathsToStorage and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
+    }
+
+    if (config.hasPath("filterOptions.lastPublishedCutoff") && !config.hasPath("state")) {
+      log.warn("filterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
     }
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      storageClient = StorageClient.create(storageURI, config);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while creating storage client.", e);
-    }
-
-    try {
-      storageClient.init();
-      TraversalParams params = new TraversalParams(storageURI, getDocIdPrefix(), fileOptions, filterOptions);
-      storageClient.traverse(publisher, params);
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred while initializing client or publishing files.", e);
-    } finally {
       try {
-        // closes clients and clears file handlers if any
-        storageClient.shutdown();
+        for (StorageClient client : storageClientMap.values()) {
+          client.init();
+        }
       } catch (IOException e) {
-        throw new ConnectorException("Error occurred while shutting down client.", e);
+        throw new ConnectorException("Error initializing a StorageClient.", e);
+      }
+
+      if (stateManager != null) {
+        try {
+          stateManager.init();
+        } catch (Exception e) {
+          throw new ConnectorException("Error occurred initializing StorageClientStateManager.", e);
+        }
+      }
+
+      for (URI pathToTraverse : storageURIs) {
+        String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
+        StorageClient storageClient = storageClientMap.get(clientKey);
+
+        if (storageClient == null) {
+          throw new ConnectorException("No StorageClient was available for (" + pathToTraverse + "). Did you include the necessary configuration?");
+        }
+
+        // creating a new traversal params for each path, which includes rereading file/filterOptions and
+        // creating the FileHandlers map. FileHandlers are lightweight, so this is not an intensive operation.
+        TraversalParams params = new TraversalParams(config, pathToTraverse, getDocIdPrefix());
+
+        try {
+          storageClient.traverse(publisher, params, stateManager);
+        } catch (Exception e) {
+          throw new ConnectorException("Error occurred while traversing " + pathToTraverse + ".", e);
+        }
+      }
+    } finally {
+      for (StorageClient client : storageClientMap.values()) {
+        try {
+          client.shutdown();
+        } catch (IOException e) {
+          log.warn("Error shutting down StorageClient.", e);
+        }
+      }
+
+      if (stateManager != null) {
+        try {
+          stateManager.shutdown();
+        } catch (SQLException e) {
+          log.warn("Error occurred while shutting down FileConnectorStateManager.", e);
+        }
       }
     }
   }

@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
 import java.util.List;
 
@@ -14,13 +15,17 @@ import com.typesafe.config.Config;
  * <p>
  * Config Parameters -
  * <ul>
- * <li>inputField (String) : The field to split on.</li>
- * <li>outputField (String) : The field to place the separated values into.</li>
- * <li>delimiter (String) : The String to split the field by.</li>
- * <li>trimWhitespace (Boolean) : True if separated values should trim whitespace, false otherwise.</li>
+ *   <li>inputField (String) : The field to split on.</li>
+ *   <li>outputField (String) : The field to place the separated values into.</li>
+ *   <li>delimiter (String) : The String to split the field by.</li>
+ *   <li>trimWhitespace (Boolean) : True if separated values should trim whitespace, false otherwise.</li>
  * </ul>
  */
 public class SplitFieldValues extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("inputField", "outputField", "delimiter")
+      .requiredBoolean("trimWhitespace").build();
 
   private boolean trimWhitespace = true;
   private String inputField;
@@ -28,8 +33,7 @@ public class SplitFieldValues extends Stage {
   private String delimiter;
 
   public SplitFieldValues(Config config) {
-    super(config, Spec.stage().withRequiredProperties("inputField", "outputField",
-        "delimiter", "trimWhitespace"));
+    super(config);
 
     inputField = config.getString("inputField");
     outputField = config.getString("outputField");

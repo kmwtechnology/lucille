@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.stage.util.OpenAIEmbeddingModel;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -25,23 +26,34 @@ import org.slf4j.LoggerFactory;
 /**
  * This stage uses openAI embedding services to embed a text field in a Lucille document or its children document(s). Will truncate
  * to token limit before sending request. Retrieves API key from config.
- *
- * Config Parameters:
- * - source (String) : field of which the embedding Stage will retrieve content from
- * - dest (String, Optional) : name of the field that will hold the embeddings, defaults to "embeddings"
- * - embed_document (Boolean) : Embeds the document's source if set to true.
- * - embed_children (Boolean): Embeds the document's children source if set to true.
- * - api_key (String) : API key used for OpenAI requests
- * - model_name (String, Optional) : the name of the OpenAI embedding model to use, set default to text-embedding-3-small
- *    1. text-embedding-3-small
- *    2. text-embedding-3-large
- *    3. text-embedding-ada-002
- *    more details: <a href="https://platform.openai.com/docs/guides/embeddings/embedding-models">...</a>
- * - dimensions (Integer, Optional) : number of dimensions the resulting embedding should have. Only supported in text-embedding-3
- * and later models. Default set to null, which will call the model's default dimensions.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>source (String) : field of which the embedding Stage will retrieve content from</li>
+ *   <li>dest (String, Optional) : name of the field that will hold the embeddings, defaults to "embeddings"</li>
+ *   <li>embed_document (Boolean) : Embeds the document's source if set to true.</li>
+ *   <li>embed_children (Boolean) : Embeds the document's children source if set to true.</li>
+ *   <li>api_key (String) : API key used for OpenAI requests</li>
+ *   <li>model_name (String, Optional) : the name of the OpenAI embedding model to use, set default to text-embedding-3-small
+ *   <ol>
+ *     <li>text-embedding-3-small</li>
+ *     <li>text-embedding-3-large</li>
+ *     <li>text-embedding-ada-002</li>
+ *   </ol>
+ *   more details: <a href="https://platform.openai.com/docs/guides/embeddings/embedding-models">...</a></li>
+ *   <li>dimensions (Integer, Optional) : number of dimensions the resulting embedding should have. Only supported in text-embedding-3
+ *   and later models. Default set to null, which will call the model's default dimensions.</li>
+ * </ul>
  */
 
 public class OpenAIEmbed extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("source", "api_key")
+      .requiredBoolean("embed_document", "embed_children")
+      .optionalString("dest", "model_name")
+      .optionalNumber("dimensions").build();
+
   // this is the token limit for all embedding models from openai
   private static final int DEFAULT_OPENAI_TOKEN_LIMIT = 8191;
   private final String API_KEY;
@@ -57,9 +69,8 @@ public class OpenAIEmbed extends Stage {
   private static final Logger log = LoggerFactory.getLogger(OpenAIEmbed.class);
 
   public OpenAIEmbed(Config config) throws StageException {
-    super(config, Spec.stage()
-        .withRequiredProperties("source", "embed_document", "embed_children", "api_key")
-        .withOptionalProperties("dest", "model_name", "dimensions"));
+    super(config);
+
     this.source = config.getString("source");
     this.embedDocument = config.getBoolean("embed_document");
     this.embedChildren = config.getBoolean("embed_children");

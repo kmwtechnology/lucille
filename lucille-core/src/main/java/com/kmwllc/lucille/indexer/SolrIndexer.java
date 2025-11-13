@@ -1,10 +1,13 @@
 package com.kmwllc.lucille.indexer;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.util.SSLUtils;
 import com.kmwllc.lucille.util.SolrUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -15,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
@@ -27,40 +31,54 @@ import org.apache.solr.common.util.SimpleOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Indexes documents to Solr using SolrJ.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>url (List&lt;String&gt;, Optional) : One or more Solr base URLs (e.g., https://localhost:8983).</li>
+ *   <li>useCloudClient (Boolean, Optional) : Use the SolrCloud client. Defaults to false.</li>
+ *   <li>zkHosts (List&lt;String&gt;, Optional) : ZooKeeper connection strings when using SolrCloud.</li>
+ *   <li>zkChroot (String, Optional) : ZooKeeper chroot used with SolrCloud.</li>
+ *   <li>defaultCollection (String, Optional) : Default Solr collection to index into when no index override is present.</li>
+ *   <li>userName (String, Optional) : Username for HTTP authentication.</li>
+ *   <li>password (String, Optional) : Password for HTTP authentication.</li>
+ *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
+ * </ul>
+ */
 public class SolrIndexer extends Indexer {
+
+  public static final Spec SPEC = SpecBuilder.indexer()
+      .optionalList("url", new TypeReference<List<String>>() {})
+      .optionalBoolean("useCloudClient", "acceptInvalidCert")
+      .optionalString("defaultCollection", "userName", "password", "zkChroot")
+      .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
+      .optionalList("zkHosts", new TypeReference<List<String>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(SolrIndexer.class);
 
   private final SolrClient solrClient;
 
-  public SolrIndexer(
-      Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
-            "userName", "password", "acceptInvalidCert")
-        .withOptionalParentNames("ssl"));
+  public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
+
     this.solrClient = solrClient;
   }
 
-  public SolrIndexer(
-      Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withOptionalProperties("useCloudClient", "zkHosts", "zkChroot", "url", "defaultCollection",
-            "userName", "password", "acceptInvalidCert")
-        .withOptionalParentNames("ssl"));
+  public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+    super(config, messenger, metricsPrefix, localRunId);
+
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
   }
 
   // Convenience Constructors
-  public SolrIndexer(
-      Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
+  public SolrIndexer(Config config, IndexerMessenger messenger, SolrClient solrClient, String metricsPrefix) {
     this(config, messenger, solrClient, metricsPrefix, null);
   }
 
-  public SolrIndexer(
-      Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
+  public SolrIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, bypass, metricsPrefix, null);
   }
 
@@ -130,8 +148,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
-
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     if (solrClient == null) {
       log.debug("sendToSolr bypassed for documents: " + documents);
       return Set.of();
@@ -201,18 +218,20 @@ public class SolrIndexer extends Indexer {
       }
     }
 
-    Set<Document> failedDocs = new HashSet<>();
+    Set<Pair<Document, String>> failedDocs = new HashSet<>();
 
     for (String collection : solrDocRequestsByCollection.keySet()) {
+      List<SolrInputDocument> collectionDocs = solrDocRequestsByCollection.get(collection).getAddUpdateDocs();
+
       try {
-        sendAddUpdateBatch(collection, solrDocRequestsByCollection.get(collection).getAddUpdateDocs());
+        sendAddUpdateBatch(collection, collectionDocs);
       } catch (Exception e) {
         // Add all the docs to failed docs
-        for (SolrInputDocument d : solrDocRequestsByCollection.get(collection).getAddUpdateDocs()) {
+        for (SolrInputDocument d : collectionDocs) {
           String docId = d.getFieldValue(Document.ID_FIELD).toString();
 
           if (docsUploaded.containsKey(docId)) {
-            failedDocs.add(docsUploaded.get(docId));
+            failedDocs.add(Pair.of(docsUploaded.get(docId), e.getMessage()));
           } else {
             throw e;
           }

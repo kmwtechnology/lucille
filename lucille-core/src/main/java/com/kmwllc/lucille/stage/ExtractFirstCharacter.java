@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
@@ -14,21 +16,25 @@ import org.apache.commons.lang3.StringUtils;
 /**
  * Extracts the first character from each of the given input fields and set the associated output field
  * to contain the character. If the character is not alphanumeric, then 'nonaplha' will be placed in the destination field.
- *
+ * <p>
  * Config Parameters -
- *
- *   - fieldMapping (Map&lt;String, String&gt;) : A mapping of source-&gt;destination fields
- *   - replacement (String, Optional) : The String to place in the output field if the first character is not a letter.
- *     If "SKIP" is supplied, the output field will not be set to anything. Defaults to "nonalpha".
+ * <ul>
+ *   <li>fieldMapping (Map&lt;String, String&gt;) : A mapping of source-&gt;destination fields.</li>
+ *   <li>replacement (String, Optional) : The String to place in the output field if the first character is not a letter. If "SKIP" is
+ *   supplied, the output field will not be set to anything. Defaults to "nonalpha".</li>
+ * </ul>
  */
 public class ExtractFirstCharacter extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .optionalString("replacement")
+      .requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {}).build();
 
   private final Map<String, Object> fieldMapping;
   private final String replacement;
 
   public ExtractFirstCharacter(Config config) {
-    super(config, Spec.stage().withOptionalProperties("replacement")
-        .withRequiredParentNames("fieldMapping"));
+    super(config);
 
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";

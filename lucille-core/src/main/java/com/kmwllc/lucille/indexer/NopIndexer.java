@@ -2,11 +2,13 @@ package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * The NopIndexer performs no operations and does not send documents to any index. It is intended to be used for testing or
@@ -14,8 +16,10 @@ import java.util.Set;
  */
 public class NopIndexer extends Indexer {
 
+  public static final Spec SPEC = SpecBuilder.indexer().build();
+
   public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer());
+    super(config, messenger, metricsPrefix, localRunId);
   }
 
   public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
@@ -31,7 +35,7 @@ public class NopIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     // no-op
     return Set.of();
   }

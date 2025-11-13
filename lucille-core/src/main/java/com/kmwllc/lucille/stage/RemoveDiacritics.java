@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.text.Normalizer;
 import java.util.Iterator;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -11,23 +12,24 @@ import com.typesafe.config.Config;
 
 /**
  * Removes diacritics and accents from String fields.
- * <br>
+ * <p>
  * Config Parameters -
- * <br>
- * <p>
- * <b>source</b> (String) : Name of source field.
- * </p>
- * <p>
- * <b>destination</b> (String, Optional) : Name of field where transformed string is put. If not provided the string is mutated in place.
- * </p>
+ * <ul>
+ *   <li>source (String) : Name of source field.</li>
+ *   <li>destination (String, Optional) : Name of field where transformed string is put. If not provided the string is mutated in place.</li>
+ * </ul>
  */
 public class RemoveDiacritics extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("source")
+      .optionalString("destination").build();
 
   private final String source;
   private final String destination;
 
   public RemoveDiacritics(Config config) throws StageException {
-    super(config, Spec.stage().withRequiredProperties("source").withOptionalProperties("destination"));
+    super(config);
     this.source = config.getString("source");
     this.destination = ConfigUtils.getOrDefault(config, "destination", null);
   }

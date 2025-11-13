@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -10,13 +11,15 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.ClassRule;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.List;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.test.rule.EmbeddedKafkaRule;
+import org.springframework.kafka.test.EmbeddedKafkaBroker;
+import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 import static org.junit.Assert.assertEquals;
@@ -26,16 +29,30 @@ public class KafkaTest {
 
   // This is a class-level Embedded instance of Kafka. If, in the future, additional tests are added here,
   // it is important that they use unique topic names to avoid conflicts.
-  @ClassRule
-  public static EmbeddedKafkaRule embeddedKafka = new EmbeddedKafkaRule(1, false, 1).kafkaPorts(9090).zkPort(9091);
+  public static EmbeddedKafkaBroker embeddedKafka;
+
+  @BeforeClass
+  public static void startKafka() throws Exception {
+    embeddedKafka = new EmbeddedKafkaKraftBroker(1, 1);
+    embeddedKafka.afterPropertiesSet();
+  }
+
+
+  @AfterClass
+  public static void stopKafka() {
+    if (embeddedKafka != null) {
+      embeddedKafka.destroy();
+    }
+  }
 
   private Consumer<String, String> consumer;
 
   @Before
   public void setUp() {
-    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("alternate_group", "false", embeddedKafka.getEmbeddedKafka());
-    consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    Map<String, Object> consumerProps =
+        KafkaTestUtils.consumerProps(embeddedKafka, "alternate_group", false);
+    consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+    consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 
     DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
     consumer = cf.createConsumer();
@@ -46,7 +63,11 @@ public class KafkaTest {
     // run two connectors in "Kafka local mode"
     // in "kafka local mode" Workers, Indexers, the Connector/Publisher will run in separate threads,
     // but they will communicate via Kafka (here we use an embedded kafka cluster)
-    Config config = ConfigFactory.load("KafkaTest/twoConnectors.conf");
+    String brokers = embeddedKafka.getBrokersAsString();
+    Config base = ConfigFactory.load("KafkaTest/twoConnectors.conf");
+    Config config = ConfigFactory.empty()
+        .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
+        .withFallback(base);
     RunResult result =
         Runner.run(config, Runner.RunType.KAFKA_LOCAL);
     assertTrue(result.getStatus());
@@ -61,13 +82,16 @@ public class KafkaTest {
     consumer.subscribe(List.of(pipeline1SourceTopicName, pipeline1DestTopicName, pipeline1EventTopicName));
     ConsumerRecords<String, String> pipeline1Records = KafkaTestUtils.getRecords(consumer);
 
-    List<ConsumerRecord<String, String>> pipeline1SourceRecords = pipeline1Records.records(new TopicPartition(pipeline1SourceTopicName, 0));
+    List<ConsumerRecord<String, String>> pipeline1SourceRecords =
+        pipeline1Records.records(new TopicPartition(pipeline1SourceTopicName, 0));
     assertEquals(3, pipeline1SourceRecords.size());
 
-    List<ConsumerRecord<String, String>> pipeline1DestRecords = pipeline1Records.records(new TopicPartition(pipeline1DestTopicName, 0));
+    List<ConsumerRecord<String, String>> pipeline1DestRecords =
+        pipeline1Records.records(new TopicPartition(pipeline1DestTopicName, 0));
     assertEquals(3, pipeline1DestRecords.size());
 
-    List<ConsumerRecord<String, String>> pipeline1EventRecords = pipeline1Records.records(new TopicPartition(pipeline1EventTopicName, 0));
+    List<ConsumerRecord<String, String>> pipeline1EventRecords =
+        pipeline1Records.records(new TopicPartition(pipeline1EventTopicName, 0));
     assertEquals(3, pipeline1EventRecords.size());
 
     Event event0 = Event.fromJsonString(pipeline1EventRecords.get(0).value());
@@ -92,13 +116,16 @@ public class KafkaTest {
     consumer.subscribe(List.of(pipeline2SourceTopicName, pipeline2DestTopicName, pipeline2EventTopicName));
     ConsumerRecords<String, String> pipeline2Records = KafkaTestUtils.getRecords(consumer);
 
-    List<ConsumerRecord<String, String>> pipeline2SourceRecords = pipeline2Records.records(new TopicPartition(pipeline2SourceTopicName, 0));
+    List<ConsumerRecord<String, String>> pipeline2SourceRecords =
+        pipeline2Records.records(new TopicPartition(pipeline2SourceTopicName, 0));
     assertEquals(1, pipeline2SourceRecords.size());
 
-    List<ConsumerRecord<String, String>> pipeline2DestRecords = pipeline2Records.records(new TopicPartition(pipeline2DestTopicName, 0));
+    List<ConsumerRecord<String, String>> pipeline2DestRecords =
+        pipeline2Records.records(new TopicPartition(pipeline2DestTopicName, 0));
     assertEquals(1, pipeline2DestRecords.size());
 
-    List<ConsumerRecord<String, String>> pipeline2EventRecords = pipeline2Records.records(new TopicPartition(pipeline2EventTopicName, 0));
+    List<ConsumerRecord<String, String>> pipeline2EventRecords =
+        pipeline2Records.records(new TopicPartition(pipeline2EventTopicName, 0));
     assertEquals(1, pipeline2EventRecords.size());
 
     // verify that the document was properly written to the destination topic
@@ -106,5 +133,4 @@ public class KafkaTest {
     assertEquals("2", doc.getId());
     assertEquals("apple", doc.getString("field1"));
   }
-
 }

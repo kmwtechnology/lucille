@@ -8,7 +8,7 @@
     <parent>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-plugins</artifactId>
-      <version>0.5.6-SNAPSHOT</version>
+      <version>0.5.11-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -17,7 +17,7 @@
      <name>Lucille Plugins: Lucille Tika</name>
 
     <properties>
-      <tika.version>2.9.3</tika.version>
+      <tika.version>3.2.3</tika.version>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 

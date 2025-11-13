@@ -9,9 +9,9 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.Storage.CopyRequest;
 import com.google.cloud.storage.StorageOptions;
-import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
@@ -20,7 +20,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.channels.Channels;
 import java.util.Objects;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,14 +64,14 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
     Page<Blob> page = storage.list(getBucketOrContainerName(params), BlobListOption.prefix(getStartingDirectory(params)),
         BlobListOption.pageSize(maxNumOfPages));
     do {
       page.streamAll()
           .forEachOrdered(blob -> {
-            GoogleFileReference fileRef = new GoogleFileReference(blob);
-            processAndPublishFileIfValid(publisher, fileRef, params);
+            GoogleFileReference fileRef = new GoogleFileReference(blob, params);
+            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
           });
       page = page.hasNextPage() ? page.getNextPage() : null;
     } while (page != null);
@@ -106,14 +105,31 @@ public class GoogleStorageClient extends BaseStorageClient {
     this.storage = storage;
   }
 
+  @Override
+  public void moveFile(URI filePath, URI folder) throws IOException {
+    String sourceBucket = filePath.getAuthority();
+    String sourceKey = filePath.getPath().substring(1);
+
+    String destBucket = folder.getAuthority();
+    String destKey = folder.getPath().substring(1) + sourceKey;
+
+    BlobId source = BlobId.of(sourceBucket, sourceKey);
+    BlobId target = BlobId.of(destBucket, destKey);
+
+    // copy source to target, and then delete source.
+    storage.copy(CopyRequest.newBuilder().setSource(source).setTarget(target).build());
+    storage.delete(source);
+  }
+
 
   private class GoogleFileReference extends BaseFileReference {
 
     private final Blob blob;
 
-    public GoogleFileReference(Blob blob) {
+    public GoogleFileReference(Blob blob, TraversalParams params) {
       // This is an inexpensive call that doesn't involve networking / RPC.
-      super(blob.getUpdateTimeOffsetDateTime() == null ? null : blob.getUpdateTimeOffsetDateTime().toInstant(),
+      super(getFullPathHelper(blob, params),
+          blob.getUpdateTimeOffsetDateTime() == null ? null : blob.getUpdateTimeOffsetDateTime().toInstant(),
           blob.getSize(),
           blob.getCreateTimeOffsetDateTime() == null ? null : blob.getCreateTimeOffsetDateTime().toInstant());
 
@@ -123,12 +139,6 @@ public class GoogleStorageClient extends BaseStorageClient {
     @Override
     public String getName() {
       return blob.getName();
-    }
-
-    @Override
-    public String getFullPath(TraversalParams params) {
-      URI paramsURI = params.getURI();
-      return paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
     }
 
     @Override
@@ -145,6 +155,12 @@ public class GoogleStorageClient extends BaseStorageClient {
     @Override
     protected byte[] getFileContent(TraversalParams params) {
       return blob.getContent();
+    }
+
+    private static URI getFullPathHelper(Blob blob, TraversalParams params) {
+      URI paramsURI = params.getURI();
+      String fullPathStr = paramsURI.getScheme() + "://" + paramsURI.getAuthority() + "/" + blob.getName();
+      return URI.create(fullPathStr);
     }
   }
 }

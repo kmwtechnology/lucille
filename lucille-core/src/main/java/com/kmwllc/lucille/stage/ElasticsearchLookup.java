@@ -3,13 +3,15 @@ package com.kmwllc.lucille.stage;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.GetResponse;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
@@ -19,7 +21,28 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * looks up an existing document in Elasticsearch by its ID and copies specified source fields from the Elasticsearch document into
+ * the current Lucille document, writing into destination fields according to a chosen update mode.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>elasticsearch.url(String, required) : the Elasticsearch endpoint URL.</li>
+ *   <li>elasticsearch.index (String, required) : the name of the index to query.</li>
+ *   <li>elasticsearch.acceptInvalidCert (Boolean, optional) : allow self‑signed or invalid SSL certificates.</li>
+ *   <li>source (List&lt;String&gt;) : list of field names to fetch from Elasticsearch.</li>
+ *   <li>dest (List&lt;String&gt;) : corresponding list of field names into which to write values.</li>
+ *   <li>update_mode (String, optional) : how to merge fetched values into the document. Defaults to OVERWRITE if not specified.</li>
+ * </ul>
+ */
 public class ElasticsearchLookup extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredParent(ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
+      .requiredList("source", new TypeReference<List<String>>(){})
+      .requiredList("dest", new TypeReference<List<String>>(){})
+      .optionalString("update_mode")
+      .optionalString("update_mode").build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 
@@ -31,10 +54,7 @@ public class ElasticsearchLookup extends Stage {
   private final UpdateMode updateMode;
 
   public ElasticsearchLookup(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("update_mode")
-        .withRequiredProperties("source", "dest", "elasticsearch.url", "elasticsearch.index")
-        .withOptionalProperties("elasticsearch.acceptInvalidCert", "update_mode"));
+    super(config);
 
     this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);

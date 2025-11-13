@@ -1,16 +1,16 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.core.fileHandler.CSVFileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
-import com.kmwllc.lucille.core.fileHandler.JsonFileHandler;
-import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -20,33 +20,42 @@ import java.util.Map;
 import org.apache.commons.io.FilenameUtils;
 
 /**
- * <p> Using a file path found on a Document, applies file handlers to create children documents, as appropriate, using the file's content.
- *
- * <p> filePathField (String, Optional): Specify the field in your documents which will has the file path you want to apply handlers to.
- * No processing will occur on documents without this field, even if they have the fileContentField present. Defaults to "file_path".
- *
- * <p> fileContentField (String, Optional): Specify the field in your documents which has the file's contents as an array of bytes.
- * When processing a document with a path to a supported file type, the handler will process the array of bytes found in this field,
- * if present, before having the FileContentFetcher to open an InputStream for the file's contents. Defaults to "file_content".
- *
- * <p> handlerOptions (Map): Specifies which file types should be handled / processed by this stage. Valid options include:
- * <p>   csv (Map, Optional): csv config options for handling csv type files. Config will be passed to CSVFileHandler
- * <p>   json (Map, Optional): json config options for handling json/jsonl type files. Config will be passed to JsonFileHandler
- *
- * <p> <b>Note:</b> handlerOptions should contain at least one of the above entries, otherwise, an Exception is thrown.
- * <p> <b>Note:</b> XML is not supported.
- *
- * <p> gcp (Map, Optional): options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.
- * See FileConnector for necessary arguments.
- *
- * <p> s3 (Map, Optional): options for handling S3 files. Include if you are going to process documents with the filePathField set to an S3 URI.
- * See FileConnector for necessary arguments.
- *
- * <p> azure (Map, Optional): options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
- * See FileConnector for necessary arguments.
+ * Using a file path found on a Document, or a byte[] of its contents, applies file handlers to create children documents.
+ * <p>
+ * Config Parameters:
+ * <ul>
+ *   <li>
+ *     fileHandlers (Map) : Specifies which file types should be handled / processed by this stage. Valid options include:
+ *     <ul>
+ *       <li>csv (Map, Optional) : For handling CSV files. Config will be passed to CSVFileHandler (if no alternate <code>class</code> is provided).</li>
+ *       <li>json (Map, Optional) : For handling JSON or JSONL files. Config will be passed to JsonFileHandler (if no alternate <code>class</code> is provided).</li>
+ *       <li>Custom <code>FileHandler</code> implementations.</li>
+ *     </ul>
+ *     <p> <b>Note:</b> An Exception is thrown if your <code>fileHandlers</code> Config is empty.
+ *     <p> <b>Note:</b> See {@link FileHandler#createFromConfig(Config)} for notes on JSON and JSONL configuration.
+ *     <p> <b>Note:</b> Lucille's XMLFileHandler is not supported.
+ *   </li>
+ *   <li>filePathField (String, Optional) : The field in your documents which will has the file path you want to apply handlers to.
+ *   No processing will occur on documents without this field, even if they have the fileContentField present. Defaults to "file_path".</li>
+ *   <li>fileContentField (String, Optional) : The field in your documents which has the file's contents as an array of bytes.
+ *   When processing a document with a path to a supported file type, the handler will process the array of bytes found in this field,
+ *   if present, before having the FileContentFetcher to open an InputStream for the file's contents. Defaults to "file_content".</li>
+ *   <li>gcp (Map, Optional) : options for handling GoogleCloud files. Include if you are going to process documents with the filePathField set to a Google Cloud URI.
+ *   See FileConnector for necessary arguments.</li>
+ *   <li>s3 (Map, Optional) : options for handling S3 files. Include if you are going to process documents with the filePathField set to an S3 URI.
+ *   See FileConnector for necessary arguments.</li>
+ *   <li>azure (Map, Optional) : options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
+ *   See FileConnector for necessary arguments.</li>
+ * </ul>
  */
 public class ApplyFileHandlers extends Stage {
-  private final Config handlerOptions;
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){})
+      .optionalParent(FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.S3_PARENT_SPEC)
+      .optionalString("filePathField", "fileContentField").build();
+
+  private final Config fileHandlersConfig;
 
   private final String filePathField;
   private final String fileContentField;
@@ -54,36 +63,31 @@ public class ApplyFileHandlers extends Stage {
 
   private Map<String, FileHandler> fileHandlers;
 
+
+
   /**
    * Creates the ApplyFileHandlers stage from the given config.
    * @param config Configuration for the ApplyFileHandlers stage.
    */
   public ApplyFileHandlers(Config config) {
-    super(config, Spec.stage()
-        .withOptionalParents(
-            Spec.parent("handlerOptions")
-                .withOptionalParents(CSVFileHandler.PARENT_SPEC, JsonFileHandler.PARENT_SPEC),
-            FileConnector.GCP_PARENT_SPEC,
-            FileConnector.AZURE_PARENT_SPEC,
-            FileConnector.S3_PARENT_SPEC)
-        .withOptionalProperties("filePathField", "fileContentField"));
+    super(config);
 
-    this.handlerOptions = config.getConfig("handlerOptions");
-    if (handlerOptions.isEmpty()) {
+    this.fileHandlersConfig = config.getConfig("fileHandlers");
+    if (fileHandlersConfig.isEmpty()) {
       throw new IllegalArgumentException("Must specify at least one file handler.");
     }
 
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");
-
-    this.fileFetcher = new FileContentFetcher(config);
+    this.fileFetcher = FileContentFetcher.create(config);
   }
 
   @Override
   public void start() throws StageException {
-    this.fileHandlers = FileHandler.createFromConfig(handlerOptions);
+    this.fileHandlers = FileHandler.createFromConfig(fileHandlersConfig);
+
     if (fileHandlers.isEmpty()) {
-      throw new StageException("No file handlers could be created from the given handlerOptions.");
+      throw new StageException("No file handlers could be created from the given fileHandlers.");
     }
 
     try {

@@ -1,9 +1,11 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import java.util.concurrent.TimeUnit;
@@ -19,23 +21,31 @@ import org.slf4j.LoggerFactory;
 /**
  * This Stage runs a prepared SQL statement on keyfields in a document and places the results in fields of choice.
  * This stage should try and reconnect to the database in the future.
- *
- * Config Parameters:
- * - driver (String) : Driver used for creating a connection to database
- * - connectionString (String) : used for establishing a connection to the right database
- * - jdbcUser (String) : username to access database
- * - jdbcPassword (String) : password to access database
- * - sql (String, Optional) : SQL statement that would be requested to the database. Allow for "?" character for keyFields configuration
- * - keyFields (List&lt;String&gt;) : Strings to replace ? in the statement made in sql
- *   e.g. keyFields : ["123"]
- *        sql: SELECT name FROM meal WHERE id = ?
- * - inputTypes (List&lt;String&gt;) : Each input type of each of the keyField
- * - fieldMapping (Map&lt;String, String&gt;) : map of columns retrieved from result set to the name of the field in the Lucille document
- *   it will populate with.
- * - connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1
- * - connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>driver (String) : Driver used for creating a connection to database.</li>
+ *   <li>connectionString (String) : used for establishing a connection to the right database.</li>
+ *   <li>jdbcUser (String) : username to access database.</li>
+ *   <li>jdbcPassword (String) : password to access database.</li>
+ *   <li>sql (String, Optional) : SQL statement that would be requested to the database. Allow for "?" character for keyFields configuration.</li>
+ *   <li>keyFields (List&lt;String&gt;) : Strings to replace ? in the statement made in sql. e.g. keyFields : ["123"] sql: SELECT name FROM meal WHERE id = ?</li>
+ *   <li>inputTypes (List&lt;String&gt;) : Each input type of each of the keyField.</li>
+ *   <li>fieldMapping (Map&lt;String, String&gt;) : map of columns retrieved from result set to the name of the field in the Lucille document
+ *   it will populate with.</li>
+ *   <li>connectionRetries (Integer, Optional) : number of retries allowed to connect to database, defaults to 1.</li>
+ *   <li>connectionRetryPause (Integer, Optional) : duration of pause between retries in milliseconds, defaults to 10000 or 10 seconds.</li>
+ * </ul>
  */
 public class QueryDatabase extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword")
+      .requiredList("keyFields", new TypeReference<List<String>>(){})
+      .requiredList("inputTypes", new TypeReference<List<String>>(){})
+      .optionalString("sql")
+      .optionalNumber("connectionRetries", "connectionRetryPause")
+      .requiredParent("fieldMapping", new TypeReference<Map<String, String>>(){}).build();
 
   private String driver;
   private String connectionString;
@@ -52,11 +62,7 @@ public class QueryDatabase extends Stage {
   private static final Logger log = LoggerFactory.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
-    super(config, Spec.stage()
-        .withOptionalProperties("sql", "connectionRetries", "connectionRetryPause")
-        .withRequiredParentNames("fieldMapping")
-        .withRequiredProperties("driver", "connectionString", "jdbcUser", "jdbcPassword",
-            "keyFields", "inputTypes"));
+    super(config);
 
     driver = config.getString("driver");
     connectionString = config.getString("connectionString");

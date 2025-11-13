@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -13,13 +14,15 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.core.Spec;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +32,32 @@ import java.util.Map;
 import java.util.Optional;
 
 // TODO: upgrade the ElasticsearchIndexer to use the Elasticsearch Java API Client
+
+/**
+ * Indexes documents to Elasticsearch using the Java Client.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>index (String, Required) : Target Elasticsearch index name.</li>
+ *   <li>url (String, Required) : Elasticsearch HTTP endpoint (e.g., https://localhost:9200).</li>
+ *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
+ *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
+ *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
+ *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
+ *   <li>elasticsearch.join.joinFieldName (String, Optional) : Name of the join field mapped in the index.</li>
+ *   <li>elasticsearch.join.isChild (Boolean, Optional) : Whether documents are children in the join relation. Defaults to false.</li>
+ *   <li>elasticsearch.join.childName (String, Optional) : Child relation name when isChild is true.</li>
+ *   <li>elasticsearch.join.parentDocumentIdSource (String, Optional) : Source field for the parent document id when isChild is true.</li>
+ *   <li>elasticsearch.join.parentName (String, Optional) : Parent relation name when isChild is false.</li>
+ * </ul>
+ */
 public class ElasticsearchIndexer extends Indexer {
+
+  public static final Spec SPEC = SpecBuilder.indexer()
+      .requiredString("index", "url")
+      .optionalBoolean("update", "acceptInvalidCert")
+      .optionalString("parentName")
+      .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
 
@@ -44,10 +72,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client,
       String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId, Spec.indexer()
-        .withRequiredProperties("index", "url")
-        .withOptionalProperties("update", "parentName")
-        .withOptionalParentNames("join"));
+    super(config, messenger, metricsPrefix, localRunId);
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
@@ -85,7 +110,7 @@ public class ElasticsearchIndexer extends Indexer {
   @Override
   public boolean validateConnection() {
     if (client == null) {
-      return false;
+      return true;
     }
     BooleanResponse response;
     try {
@@ -102,7 +127,7 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Document> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (client == null) {
       return Set.of();
@@ -181,7 +206,7 @@ public class ElasticsearchIndexer extends Indexer {
       }
     }
 
-    Set<Document> failedDocs = new HashSet<>();
+    Set<Pair<Document, String>> failedDocs = new HashSet<>();
 
     BulkResponse response = client.bulk(br.build());
     if (response != null) {
@@ -191,7 +216,7 @@ public class ElasticsearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (documentsUploaded.containsKey(item.id())) {
             Document failedDoc = documentsUploaded.get(item.id());
-            failedDocs.add(failedDoc);
+            failedDocs.add(Pair.of(failedDoc, item.error().reason()));
           } else {
             throw new IndexerException(item.error().reason());
           }

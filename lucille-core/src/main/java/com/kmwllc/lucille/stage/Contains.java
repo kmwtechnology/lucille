@@ -1,10 +1,12 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.core.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import org.ahocorasick.trie.PayloadTrie;
 
@@ -14,15 +16,23 @@ import java.util.List;
 /**
  * Checks if any of the given fields contain any of the given values and tags the given
  * output field with the value.
- * <br>
- * Config Parameters:
- * <p> - contains (List&lt;String&gt;) : A list of values to search for
- * <p> - output (String) : The field to tag if a match is found
- * <p> - value (String) : The value to tag the output field with
- * <p> - ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.
- * <p> - fields (List&lt;String&gt;) : The fields to be searched
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>contains (List&lt;String&gt;) : A list of values to search for.</li>
+ *   <li>output (String) : The field to tag if a match is found.</li>
+ *   <li>value (String) : The value to tag the output field with.</li>
+ *   <li>ignoreCase (Boolean, Optional) : Determines if the matching should be case insensitive. Defaults to true.</li>
+ *   <li>fields (List&lt;String&gt;) : The fields to be searched.</li>
+ * </ul>
  */
 public class Contains extends Stage {
+
+  public static final Spec SPEC = SpecBuilder.stage()
+      .requiredList("contains", new TypeReference<List<String>>(){})
+      .requiredList("fields", new TypeReference<List<String>>(){})
+      .requiredString("output", "value")
+      .optionalBoolean("ignoreCase").build();
 
   private final List<String> contains;
   private final String output;
@@ -38,9 +48,7 @@ public class Contains extends Stage {
    * @param config Configuration for the Contains stage.
    */
   public Contains(Config config) {
-    super(config, Spec.stage()
-        .withRequiredProperties("contains", "output", "value", "fields")
-        .withOptionalProperties("ignoreCase"));
+    super(config);
 
     this.contains = config.getStringList("contains");
     this.output = config.getString("output");

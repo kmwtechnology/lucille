@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -29,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -203,11 +205,12 @@ public class WeaviateIndexerTest {
     Document failedDoc2 = Document.create("failedDoc2", "test_run");
 
     WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
-    Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
+    Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
 
     assertEquals(2, failedDocs.size());
-    assertTrue(failedDocs.contains(failedDoc1));
-    assertTrue(failedDocs.contains(failedDoc2));
+
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(failedDoc1)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(failedDoc2)));
   }
 
   @Test
@@ -258,7 +261,9 @@ public class WeaviateIndexerTest {
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
 
-  private static class CorruptedWeaviateIndexer extends WeaviateIndexer {
+  public static class CorruptedWeaviateIndexer extends WeaviateIndexer {
+
+    public static final Spec SPEC = WeaviateIndexer.SPEC;
 
     public CorruptedWeaviateIndexer(Config config, IndexerMessenger messenger,
         WeaviateClient client, String metricsPrefix) {
@@ -266,7 +271,7 @@ public class WeaviateIndexerTest {
     }
 
     @Override
-    public Set<Document> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, String>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }

@@ -16,6 +16,7 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -26,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
@@ -222,11 +224,11 @@ public class OpenSearchIndexerTest {
     doc3.setField("other_id", "something_else");
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient2, "testing");
-    Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
-    assertTrue(failedDocs.contains(doc));
-    assertFalse(failedDocs.contains(doc2));
-    assertTrue(failedDocs.contains(doc3));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
+    assertFalse(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc2)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc3)));
   }
 
   @Test
@@ -280,13 +282,116 @@ public class OpenSearchIndexerTest {
     IndexOperation indexRequest = requests.get(0).index();
 
     assertEquals(doc5.getId(), indexRequest.id());
-
+    assertEquals("lucille-default", indexRequest.index());
     assertEquals(5, messenger.getSentEvents().size());
 
     List<Event> events = messenger.getSentEvents();
     assertEquals("doc1", events.get(0).getDocumentId());
     assertEquals(Event.Type.FINISH, events.get(0).getType());
   }
+
+  @Test
+  public void testMultipleBatchesIndexField() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batchingIndexOverride.conf");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("index", "i1");
+    Document doc2 = Document.create("doc2", "test_run");
+    doc2.setField("index", "i1");
+    Document doc3 = Document.create("doc3", "test_run");
+    doc3.setField("index", "i1");
+    Document doc4 = Document.create("doc4", "test_run");
+    doc4.setField("index", "i1");
+    Document doc5 = Document.create("doc5", "test_run");
+    doc5.setField("index", "i1");
+
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
+    messenger.sendForIndexing(doc5);
+    indexer.run(5);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(
+        BulkRequest.class);
+
+    verify(mockClient, times(3)).bulk(bulkRequestArgumentCaptor.capture());
+
+    List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
+    assertEquals(3, bulkRequestValue.size());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+
+    assertEquals(doc5.getId(), indexRequest.id());
+    assertEquals(doc5.getString("index"), indexRequest.index());
+    assertEquals(5, messenger.getSentEvents().size());
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testMultipleBatchesSeparateIndexFields() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batchingIndexOverride.conf");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, mockClient, "testing");
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("index", "i1");
+    Document doc2 = Document.create("doc2", "test_run");
+    doc2.setField("index", "i1");
+    Document doc3 = Document.create("doc3", "test_run");
+    doc3.setField("index", "i2");
+    Document doc4 = Document.create("doc4", "test_run");
+    doc4.setField("index", "i2");
+    Document doc5 = Document.create("doc5", "test_run");
+    doc5.setField("index", "i3");
+
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    messenger.sendForIndexing(doc4);
+    messenger.sendForIndexing(doc5);
+    indexer.run(5);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(
+        BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
+    assertEquals(1, bulkRequestValue.size());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+
+    assertEquals(doc.getId(), indexRequest.id());
+    assertEquals(doc.getString("index"), indexRequest.index());
+    assertEquals(5, messenger.getSentEvents().size());
+
+    assertEquals(doc.getString("index"), requests.get(0).index().index());
+    assertEquals(doc2.getString("index"), requests.get(1).index().index());
+    assertEquals(doc3.getString("index"), requests.get(2).index().index());
+    assertEquals(doc4.getString("index"), requests.get(3).index().index());
+    assertEquals(doc5.getString("index"), requests.get(4).index().index());
+    assertEquals(doc.getId(), requests.get(0).index().id());
+    assertEquals(doc2.getId(), requests.get(1).index().id());
+    assertEquals(doc3.getId(), requests.get(2).index().id());
+    assertEquals(doc4.getId(), requests.get(3).index().id());
+    assertEquals(doc5.getId(), requests.get(4).index().id());
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals("doc1", events.get(0).getDocumentId());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+
 
   @Test
   public void testDeletion() throws Exception {
@@ -845,16 +950,6 @@ public class OpenSearchIndexerTest {
   }
 
   @Test
-  public void testInvalidConfig() {
-    // cannot use the indexOverrideField
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("OpenSearchIndexerTest/invalidConfig.conf");
-
-    assertThrows(IllegalArgumentException.class,
-        () -> new OpenSearchIndexer(config, messenger, mockClient, "testing"));
-  }
-
-  @Test
   public void testCloseConnection() throws IOException {
     OpenSearchTransport mockTransport = Mockito.mock(OpenSearchTransport.class);
     OpenSearchClient mockTransportClient = Mockito.mock(OpenSearchClient.class);
@@ -883,7 +978,9 @@ public class OpenSearchIndexerTest {
     indexer.closeConnection();
   }
 
-  private static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
+  public static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
+
+    public static final Spec SPEC = OpenSearchIndexer.SPEC;
 
     public ErroringOpenSearchIndexer(Config config, IndexerMessenger messenger,
         OpenSearchClient client, String metricsPrefix) {
@@ -891,7 +988,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public Set<Document> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, String>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }

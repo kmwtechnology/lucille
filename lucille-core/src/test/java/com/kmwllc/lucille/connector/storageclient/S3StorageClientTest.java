@@ -47,6 +47,8 @@ import org.mockito.MockedStatic;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -106,12 +108,10 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        ConfigFactory.empty(), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("s3://bucket/"), "prefix-");
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -166,13 +166,13 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of("excludes", List.of("obj3", "obj4"))
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    Map<String, Object> filterOptionsMap = Map.of("excludes", List.of("obj3", "obj4"));
-    TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "prefix-");
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -207,12 +207,13 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of(GET_FILE_CONTENT, false)
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        ConfigFactory.parseMap(Map.of(GET_FILE_CONTENT, false)), ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "prefix-");
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -243,13 +244,14 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileHandlers", Map.of("json", Map.of())
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        ConfigFactory.parseMap(Map.of("json", Map.of())), ConfigFactory.empty());
+
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -263,8 +265,8 @@ public class S3StorageClientTest {
     try (MockedStatic<FileHandler> mockFileHandler = mockStatic(FileHandler.class)) {
       FileHandler jsonFileHandler = mock(JsonFileHandler.class);
       mockFileHandler.when(() -> FileHandler.createFromConfig(any())).thenReturn(Map.of("json", jsonFileHandler));
-      mockFileHandler.when(() -> FileHandler.supportAndContainFileType(any(), any()))
-          .thenReturn(true).thenReturn(true).thenReturn(false);
+
+      TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "prefix-");
 
       s3StorageClient.initializeForTesting();
       s3StorageClient.traverse(publisher, params);
@@ -284,18 +286,21 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of(
+            "handleArchivedFiles", true,
+            "handleCompressedFiles", true
+        ),
+        "fileHandlers", Map.of(
+            "json", Map.of(),
+            "csv", Map.of()
+        )
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "",
-        ConfigFactory.parseMap(Map.of(
-            "json", Map.of(),
-            "csv", Map.of(),
-            "handleArchivedFiles", true,
-            "handleCompressedFiles", true)),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "");
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -387,38 +392,149 @@ public class S3StorageClientTest {
   }
 
   @Test
-  public void testErrorMovingFiles() throws Exception {
+  public void testMovingFiles() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of(
+            "moveToAfterProcessing", "s3://bucket/processed/",
+            "moveToErrorFolder", "s3://bucket/error/"
+        )
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     // simulate a proper s3StorageClient with valid files
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "",
-        ConfigFactory.parseMap(Map.of(
-            "moveToAfterProcessing", "s3://bucket/Processed",
-            "moveToErrorFolder", "s3://bucket/Error")),
-        ConfigFactory.empty());
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/files/"), "");
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
-    ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
+
+    // making sure that the arguments made are correct
+    when(mockClient.copyObject(any(CopyObjectRequest.class))).thenAnswer(invocationOnMock -> {
+      CopyObjectRequest request = invocationOnMock.getArgument(0, CopyObjectRequest.class);
+
+      // the source / dest bucket should always be just "bucket"
+      assertEquals("bucket", request.sourceBucket());
+      assertEquals("bucket", request.destinationBucket());
+
+      String sourceKey = request.sourceKey();
+      assertTrue(sourceKey.equals("files/obj1")
+          || sourceKey.equals("files/obj2")
+          || sourceKey.equals("files/obj3")
+          || sourceKey.equals("files/obj4"));
+
+      assertEquals("processed/" + sourceKey, request.destinationKey());
+
+      return null;
+    });
+
+    // need to make sure a corresponding "delete" call is made, the "second half" of the move.
+    when(mockClient.deleteObject(any(DeleteObjectRequest.class))).thenAnswer(invocationOnMock -> {
+      DeleteObjectRequest request = invocationOnMock.getArgument(0, DeleteObjectRequest.class);
+
+      assertEquals("bucket", request.bucket());
+
+      String sourceKey = request.key();
+      assertTrue(sourceKey.equals("files/obj1")
+          || sourceKey.equals("files/obj2")
+          || sourceKey.equals("files/obj3")
+          || sourceKey.equals("files/obj4"));
+
+      return null;
+    });
+
     ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
-    when(responseWithinStream.contents()).thenReturn(getMockedS3Objects());
+    when(responseWithinStream.contents()).thenReturn(getMockedNestedS3Objects());
+
+    ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
+
     when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
-    when(mockClient.getObjectAsBytes((GetObjectRequest) any()))
-        .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{1, 2, 3, 4}))
-        .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{5, 6, 7, 8}))
-        .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{9, 10, 11, 12}))
-        .thenReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), new byte[]{13, 14, 15, 16}));
 
     s3StorageClient.initializeForTesting();
-    // encounter error when traversing if moveAfterProcessing is set
-    assertThrows(UnsupportedOperationException.class, () -> s3StorageClient.traverse(publisher, params));
+    s3StorageClient.traverse(publisher, params);
     s3StorageClient.shutdown();
+
+    verify(mockClient, times(4)).copyObject(any(CopyObjectRequest.class));
+    verify(mockClient, times(4)).deleteObject(any(DeleteObjectRequest.class));
+    assertEquals(4, messenger.getDocsSentForProcessing().size());
+  }
+
+  // This test also lets us make sure we get the correct arguments when the "move to" is just the root of the bucket
+  @Test
+  public void testMovingFilesAcrossBuckets() throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "fileOptions", Map.of("moveToAfterProcessing", "s3://processed/")
+    ));
+
+    // simulate a proper s3StorageClient with valid files
+    S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/files/"), "");
+
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+
+    when(mockClient.copyObject(any(CopyObjectRequest.class))).thenAnswer(invocationOnMock -> {
+      CopyObjectRequest request = invocationOnMock.getArgument(0, CopyObjectRequest.class);
+
+      // the source / dest bucket should always be just "bucket"
+      assertEquals("bucket", request.sourceBucket());
+      assertEquals("processed", request.destinationBucket());
+
+      String sourceKey = request.sourceKey();
+      assertTrue(sourceKey.equals("files/obj1")
+          || sourceKey.equals("files/obj2")
+          || sourceKey.equals("files/obj3")
+          || sourceKey.equals("files/obj4"));
+
+      // The root of the bucket --> no changes should be made... most worried about an extraneous "/" added to the
+      // beginning of the key, perhaps.
+      String destKey = request.destinationKey();
+      assertTrue(destKey.equals("files/obj1")
+          || destKey.equals("files/obj2")
+          || destKey.equals("files/obj3")
+          || destKey.equals("files/obj4"));
+
+      return null;
+    });
+
+    when(mockClient.deleteObject(any(DeleteObjectRequest.class))).thenAnswer(invocationOnMock -> {
+      DeleteObjectRequest request = invocationOnMock.getArgument(0, DeleteObjectRequest.class);
+
+      assertEquals("bucket", request.bucket());
+
+      String sourceKey = request.key();
+      assertTrue(sourceKey.equals("files/obj1")
+          || sourceKey.equals("files/obj2")
+          || sourceKey.equals("files/obj3")
+          || sourceKey.equals("files/obj4"));
+
+      return null;
+    });
+
+    ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
+    when(responseWithinStream.contents()).thenReturn(getMockedNestedS3Objects());
+
+    ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
+    when(response.stream()).thenReturn(Stream.of(responseWithinStream));
+
+    when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
+
+    s3StorageClient.initializeForTesting();
+    s3StorageClient.traverse(publisher, params);
+
+    s3StorageClient.shutdown();
+
+    verify(mockClient, times(4)).copyObject(any(CopyObjectRequest.class));
+    verify(mockClient, times(4)).deleteObject(any(DeleteObjectRequest.class));
+    assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
 
   @Test
@@ -461,14 +577,14 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.parseMap(Map.of());
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        // only files modified in the last 2 hours
+        "filterOptions", Map.of("lastModifiedCutoff", "2h")
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
-    // only files modified in the last 2 hours
-    Map<String, String> filterOptionsMap = Map.of("modificationCutoff", "2h");
-    TraversalParams params = new TraversalParams(new URI("s3://bucket/"), "prefix-",
-        ConfigFactory.empty(), ConfigFactory.parseMap(filterOptionsMap));
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "prefix-");
 
     S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
     s3StorageClient.setS3ClientForTesting(mockClient);
@@ -490,6 +606,14 @@ public class S3StorageClientTest {
     obj2 = S3Object.builder().key("obj2").lastModified(Instant.ofEpochMilli(2L)).size(2L).build();
     obj3 = S3Object.builder().key("obj3").lastModified(Instant.ofEpochMilli(3L)).size(3L).build();
     obj4 = S3Object.builder().key("obj4").lastModified(Instant.ofEpochMilli(4L)).size(4L).build();
+    return List.of(obj1, obj2, obj3, obj4);
+  }
+
+  private List<S3Object> getMockedNestedS3Objects() throws Exception {
+    obj1 = S3Object.builder().key("files/obj1").lastModified(Instant.ofEpochMilli(1L)).size(1L).build();
+    obj2 = S3Object.builder().key("files/obj2").lastModified(Instant.ofEpochMilli(2L)).size(2L).build();
+    obj3 = S3Object.builder().key("files/obj3").lastModified(Instant.ofEpochMilli(3L)).size(3L).build();
+    obj4 = S3Object.builder().key("files/obj4").lastModified(Instant.ofEpochMilli(4L)).size(4L).build();
     return List.of(obj1, obj2, obj3, obj4);
   }
 

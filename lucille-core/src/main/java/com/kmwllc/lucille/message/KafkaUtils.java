@@ -2,8 +2,8 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
@@ -35,9 +35,9 @@ import org.slf4j.LoggerFactory;
  *  consider adding all failed documents to the failure topic
  *  add ability to override names of any kafka topic in the config
  *
- *  s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
- *  azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
- *  gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
+ *  s3 (Map, Optional) : If your property files are held in S3. See FileConnector for the appropriate arguments to provide.
+ *  azure (Map, Optional) : If your property files are held in Azure. See FileConnector for the appropriate arguments to provide.
+ *  gcp (Map, Optional) : If your property files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class KafkaUtils {
 
@@ -136,9 +136,28 @@ public class KafkaUtils {
   }
 
   public static String getSourceTopicName(String pipelineName, Config config) {
-    return config.hasPath("kafka.sourceTopic")
-        ? config.getString("kafka.sourceTopic")
-        : pipelineName + "_source";
+    String topicName;
+    if (config.hasPath("kafka.sourceTopic")) {
+      topicName = config.getString("kafka.sourceTopic");
+    } else {
+      // sanitize pipelineName because it may be used as part of the Kafka topic name passed through as a Pattern
+      if (pipelineName == null) {
+        throw new IllegalArgumentException("Pipeline name cannot be null when using it for a kafka topic name.");
+      }
+      if (pipelineName.matches("^[A-Za-z\\d\\._\\-]+$")) {
+        topicName = pipelineName + "_source";
+      } else {
+        throw new IllegalArgumentException("Invalid characters in pipelineName: " + pipelineName);
+      }
+
+    }
+
+    // make sure topicName does not exceed 249 characters, also limited by kafka
+    if (topicName != null && topicName.length() > 249) {
+      throw new IllegalArgumentException("Invalid topic name because it is too long (max 249 characters): " + topicName);
+    }
+
+    return topicName;
   }
 
   public static String getDestTopicName(String pipelineName) {

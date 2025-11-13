@@ -4,6 +4,8 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import org.junit.Test;
 
@@ -16,7 +18,9 @@ public class StageTest {
 
   private final StageFactory factory = StageFactory.of(MockStage.class);
 
-  private static class MockStage extends Stage {
+  public static class MockStage extends Stage {
+
+    public static final Spec SPEC = SpecBuilder.stage().build();
 
     public MockStage(Config config) {
       super(config);
@@ -293,5 +297,23 @@ public class StageTest {
     // must condition & field not present
     Document doc3 = Document.create("doc3");
     assertProcessed(stage, doc3, false);
+  }
+
+  @Test
+  public void testValuesPathMust() throws StageException {
+    Stage stage = factory.get("StageTest/valuesPathMust.conf");
+
+    Document hit = Document.create("hit");
+    hit.setField("user_id", "1234");
+    assertProcessed(stage, hit, true);
+
+    Document miss = Document.create("miss");
+    miss.setField("user_id", "n/a");
+    assertProcessed(stage, miss, false);
+  }
+
+  @Test
+  public  void testValuesAndPathMutuallyExclusive() throws StageException {
+    assertThrows(StageException.class, () -> factory.get("StageTest/valuesAndPath.conf"));
   }
 }

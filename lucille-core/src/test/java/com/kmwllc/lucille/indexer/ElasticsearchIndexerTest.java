@@ -18,12 +18,14 @@ import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.Arrays;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
@@ -202,11 +204,11 @@ public class ElasticsearchIndexerTest {
     doc3.setField("other_id", "something_else");
 
     ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, mockClient2, "testing");
-    Set<Document> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
-    assertTrue(failedDocs.contains(doc));
-    assertFalse(failedDocs.contains(doc2));
-    assertTrue(failedDocs.contains(doc3));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
+    assertFalse(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc2)));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc3)));
   }
 
   @Test
@@ -222,7 +224,7 @@ public class ElasticsearchIndexerTest {
     Assert.assertFalse(indexer.validateConnection());
 
     ElasticsearchIndexer nullClientIndexer = new ElasticsearchIndexer(config, messenger, null, "testing");
-    Assert.assertFalse(nullClientIndexer.validateConnection());
+    Assert.assertTrue(nullClientIndexer.validateConnection());
 
     ElasticsearchIndexer failPingClientIndexer = new ElasticsearchIndexer(config, messenger, mockFailPingClient, "testing");
     Assert.assertFalse(failPingClientIndexer.validateConnection());
@@ -736,7 +738,9 @@ public class ElasticsearchIndexerTest {
     indexer.closeConnection();
   }
 
-  private static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
+  public static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
+
+    public static final Spec SPEC = ElasticsearchIndexer.SPEC;
 
     public ErroringElasticsearchIndexer(Config config, IndexerMessenger messenger,
         ElasticsearchClient client, String metricsPrefix) {
@@ -744,7 +748,7 @@ public class ElasticsearchIndexerTest {
     }
 
     @Override
-    public Set<Document> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, String>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }
