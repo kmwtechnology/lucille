@@ -20,7 +20,7 @@ public final class PythonStage extends Stage {
   private final String pythonExecutable;
   private final String requirementsPath;
   private final String functionName;
-  private final int port;
+  private final Integer port;
   private final int readinessTimeoutMs;
 
   private Py4JRuntime runtime;
@@ -35,14 +35,14 @@ public final class PythonStage extends Stage {
     this.pythonExecutable = config.hasPath("pythonExecutable") ? config.getString("pythonExecutable") : "python3";
     this.requirementsPath = config.hasPath("requirementsPath") ? config.getString("requirementsPath") : null;
     this.functionName = config.hasPath("function_name") ? config.getString("function_name") : "process_document";
-    this.port = config.hasPath("port") ? config.getInt("port") : 0;
+    this.port = config.hasPath("port") ? config.getInt("port") : null;
     this.readinessTimeoutMs = config.hasPath("timeout_ms") ? config.getInt("timeout_ms") : 5000;
   }
 
   @Override
   public void start() throws StageException {
     log.info("Starting PythonStage; scriptPath={}, pythonExecutable={}, port={}, timeout_ms={}",
-        scriptPath, pythonExecutable, (port == 0 ? "(auto)" : port), readinessTimeoutMs);
+        scriptPath, pythonExecutable, (port == null ? "(auto)" : port), readinessTimeoutMs);
     runtime = new Py4JRuntime(pythonExecutable, scriptPath, requirementsPath, port);
     runtime.start();
   }
