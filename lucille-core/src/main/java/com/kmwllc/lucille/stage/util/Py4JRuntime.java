@@ -129,26 +129,24 @@ public final class Py4JRuntime {
   private void startPythonProcess(int port) throws StageException {
     try (InputStream in = Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream("Py4jClient.py"),
         "Py4jClient.py not found on classpath resources")) {
-      Path pyClient = Paths.get("Py4jClient.py").toAbsolutePath();
+      Path clientPath = Paths.get("Py4jClient.py").toAbsolutePath();
 
-      if (Files.exists(pyClient)) {
-        Files.delete(pyClient);
+      synchronized (Py4JRuntime.class) {
+        if (!Files.exists(clientPath)) {
+          Files.copy(in, clientPath, StandardCopyOption.REPLACE_EXISTING);
+        }
       }
-
-      Files.createFile(pyClient);
-      Files.copy(in, pyClient, StandardCopyOption.REPLACE_EXISTING);
-      pyClient.toFile().deleteOnExit();
 
       ProcessBuilder pb = new ProcessBuilder(
           venvPythonPath,
           "-u",
-          pyClient.toAbsolutePath().toString(),
+          clientPath.toAbsolutePath().toString(),
           "--script-path", scriptPath,
           "--port", String.valueOf(port)
       ).redirectErrorStream(true);
 
       log.info("Launching Python: {} {} --script-path {} --port {}",
-          venvPythonPath, pyClient.toAbsolutePath(), scriptPath, port);
+          venvPythonPath, clientPath.toAbsolutePath(), scriptPath, port);
 
       pythonProcess = pb.start();
 
