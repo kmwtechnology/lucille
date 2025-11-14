@@ -66,8 +66,9 @@ public class OpenSearchIndexer extends Indexer {
   //flag for using partial update API when sending documents to opensearch
   private final boolean update;
 
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
+      String metricsPrefix,String localRunId, OpenSearchClient client) {
+    super(config, messenger, bypass, metricsPrefix, localRunId);
 
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
@@ -78,16 +79,12 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
+    this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
   }
 
   // Convenience Constructors
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, OpenSearchClient client, String metricsPrefix) {
-    this(config, messenger, client, metricsPrefix, null);
-  }
-
-  public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) throws IndexerException {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
+  public OpenSearchIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, OpenSearchClient client) {
+    this(config, messenger, false, metricsPrefix, null, client);
   }
 
   @Override
@@ -103,7 +100,7 @@ public class OpenSearchIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
-    if (client == null) {
+    if (bypass) {
       return true;
     }
     boolean response;
@@ -122,7 +119,7 @@ public class OpenSearchIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (client != null && client._transport() != null) {
+    if (!bypass && client != null && client._transport() != null) {
       try {
         client._transport().close();
       } catch (Exception e) {
@@ -134,7 +131,7 @@ public class OpenSearchIndexer extends Indexer {
   @Override
   protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
-    if (client == null) {
+    if (bypass) {
       return Set.of();
     }
 
