@@ -30,7 +30,6 @@ public final class Py4JRuntime {
     Object exec(String json);
   }
 
-  private static final Object portLock = new Object();
   private static final Set<Integer> usedPorts = new HashSet<>();
   private static int nextPort = 25333; // Default Py4J port
 
@@ -61,10 +60,9 @@ public final class Py4JRuntime {
     ensurePy4JInVenv();
     installRequirementsIfNeeded();
 
-    int port = allocatePort(configuredPort);
-    this.boundPort = port;
-    startGateway(port);
-    startPythonProcess(port);
+    this.boundPort = allocatePort(configuredPort);
+    startGateway(boundPort);
+    startPythonProcess(boundPort);
   }
 
   public void stop() throws StageException {
@@ -91,7 +89,7 @@ public final class Py4JRuntime {
       }
     }
 
-    if (boundPort != null && configuredPort != null) {
+    if (boundPort != null) {
       releasePort(boundPort);
       boundPort = null;
     }
@@ -392,8 +390,8 @@ public final class Py4JRuntime {
 
   private static synchronized int allocatePort(Integer configured) throws StageException {
     if (configured != null && configured > 0) {
-      if (!isPortAvailable(configured)) {
-        throw new StageException("Requested port " + configured + " is not available");
+      if (!isPortAvailable(configured) || !isPortAvailable(configured + 1)) {
+        throw new StageException("Requested port range " + configured + "-" + (configured + 1) + " is not available");
       }
 
       usedPorts.add(configured);
@@ -402,7 +400,6 @@ public final class Py4JRuntime {
       return configured;
     }
 
-    // TODO: recheck this logic (test failure, etc)
     int candidate = nextPort;
     while (true) {
       if (!usedPorts.contains(candidate) && !usedPorts.contains(candidate + 1)
