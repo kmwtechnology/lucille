@@ -52,6 +52,11 @@ public final class Py4JRuntime {
   }
 
   public void start() throws StageException {
+    if (isReady()) {
+      log.warn("Py4J runtime already started");
+      return;
+    }
+
     checkPythonInstalled();
     ensureVenv();
     logPythonEnvironment();
@@ -160,17 +165,12 @@ public final class Py4JRuntime {
       waiter.setDaemon(true);
       waiter.start();
 
-      Thread resolver = new Thread(() -> {
-        try {
-          Object entry = gateway.getPythonServerEntryPoint(new Class[] {PyExec.class });
-          handler = (PyExec) entry;
-          log.info("Resolved Python entry point");
-        } catch (Exception e) {
-          log.error("Error resolving Python server entry point", e);
-        }
-      }, "Py4J-python-entrypoint-resolver");
-      resolver.setDaemon(true);
-      resolver.start();
+      try {
+        handler = (PyExec) gateway.getPythonServerEntryPoint(new Class[] {PyExec.class });
+        log.info("Resolved Python entry point");
+      } catch (Exception e) {
+        throw new StageException("Failed to resolve Python server entry point", e);
+      }
 
     } catch (Exception e) {
       throw new StageException("Failed to launch Python process", e);

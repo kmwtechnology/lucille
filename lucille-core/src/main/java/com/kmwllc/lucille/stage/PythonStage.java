@@ -52,17 +52,8 @@ public final class PythonStage extends Stage {
     runtime = Py4JRuntimeManager.getInstance()
         .aquire(pythonExecutable, scriptPath, requirementsPath, port);
 
-    long startWait = System.currentTimeMillis();
-    while (!runtime.isReady() && (System.currentTimeMillis() - startWait < readinessTimeoutMs)) {
-      try {
-        Thread.sleep(100);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new StageException("Interrupted while waiting for Py4J connection to be ready", e);
-      }
-    }
     if (!runtime.isReady()) {
-      throw new StageException("Py4J connection not ready within " + readinessTimeoutMs + " ms");
+      throw new StageException("Py4J connection not ready after start");
     }
   }
 
