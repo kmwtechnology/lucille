@@ -50,10 +50,7 @@ public final class PythonStage extends Stage {
         scriptPath, pythonExecutable, (port == null ? "(auto)" : port), readinessTimeoutMs);
     runtime = new Py4JRuntime(pythonExecutable, scriptPath, requirementsPath, port);
     runtime.start();
-  }
 
-  @Override
-  public Iterator<Document> processDocument(Document doc) throws StageException {
     long startWait = System.currentTimeMillis();
     while (!runtime.isReady() && (System.currentTimeMillis() - startWait < readinessTimeoutMs)) {
       try {
@@ -66,8 +63,15 @@ public final class PythonStage extends Stage {
     if (!runtime.isReady()) {
       throw new StageException("Py4J connection not ready within " + readinessTimeoutMs + " ms");
     }
+  }
 
+  @Override
+  public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
+      if (!runtime.isReady()) {
+        throw new StageException("Py4J connection not ready");
+      }
+
       Map<String, Object> msg = new HashMap<>();
       msg.put("method", functionName);
       msg.put("data", doc);

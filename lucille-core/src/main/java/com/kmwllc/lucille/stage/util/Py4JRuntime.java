@@ -7,8 +7,6 @@ import java.nio.file.StandardCopyOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import py4j.GatewayServer;
-import py4j.GatewayServerListener;
-import py4j.Py4JServerConnection;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -42,7 +40,7 @@ public final class Py4JRuntime {
 
   private String venvPythonPath;
   private GatewayServer gateway;
-  private PythonGatewayListener listener;
+  private volatile PyExec handler;
   private Process pythonProcess;
   private StreamGobbler procGobbler;
 
@@ -66,6 +64,8 @@ public final class Py4JRuntime {
   }
 
   public void stop() throws StageException {
+    System.out.println("HERE");
+    handler = null;
     if (gateway != null) {
       try {
         gateway.shutdown();
@@ -96,7 +96,7 @@ public final class Py4JRuntime {
   }
 
   public boolean isReady() {
-    return listener != null && listener.getHandler() != null && pythonProcess != null && pythonProcess.isAlive();
+    return handler != null && pythonProcess != null && pythonProcess.isAlive();
   }
 
   public String exec(String requestJson) throws StageException {
@@ -104,7 +104,7 @@ public final class Py4JRuntime {
       throw new StageException("Py4J handler not ready");
     }
     try {
-      Object res = listener.getHandler().exec(requestJson);
+      Object res = handler.exec(requestJson);
       return (res instanceof String) ? (String) res : (res == null ? null : String.valueOf(res));
     } catch (Exception e) {
       throw new StageException("Error calling Python via Py4J", e);
@@ -114,8 +114,6 @@ public final class Py4JRuntime {
   private void startGateway(int port) throws StageException {
     try {
       gateway = new GatewayServer(this, port);
-      listener = new PythonGatewayListener(gateway);
-      gateway.addListener(listener);
       gateway.start();
       log.info("GatewayServer started on port {}", port);
     } catch (Exception e) {
@@ -162,70 +160,20 @@ public final class Py4JRuntime {
       waiter.setDaemon(true);
       waiter.start();
 
+      Thread resolver = new Thread(() -> {
+        try {
+          Object entry = gateway.getPythonServerEntryPoint(new Class[] {PyExec.class });
+          handler = (PyExec) entry;
+          log.info("Resolved Python entry point");
+        } catch (Exception e) {
+          log.error("Error resolving Python server entry point", e);
+        }
+      }, "Py4J-python-entrypoint-resolver");
+      resolver.setDaemon(true);
+      resolver.start();
+
     } catch (Exception e) {
       throw new StageException("Failed to launch Python process", e);
-    }
-  }
-
-  private static final class PythonGatewayListener implements GatewayServerListener {
-
-    private GatewayServer server;
-    private volatile PyExec handler;
-
-    public PythonGatewayListener(GatewayServer server) {
-      this.server = server;
-      this.handler = null;
-    }
-
-    public PyExec getHandler() {
-      return handler;
-    }
-
-    @Override public void serverStarted() {
-      log.info("Py4J serverStarted");
-    }
-
-    @Override public void serverStopped() {
-      log.info("Py4J serverStopped");
-      handler = null;
-    }
-
-    @Override public void serverPreShutdown() {
-      log.info("Py4J serverPreShutdown");
-    }
-
-    @Override public void serverPostShutdown() {
-      log.info("Py4J serverPostShutdown");
-    }
-
-    @Override
-    public void connectionStarted(Py4JServerConnection c) {
-      log.info("Py4J connectionStarted: {}", c);
-      try {
-        Object entry = server.getPythonServerEntryPoint(new Class[] { PyExec.class });
-        if (entry instanceof PyExec) {
-          handler = (PyExec) entry;
-          log.info("Resolved Python entry point and marked ready");
-        } else {
-          log.warn("Python entry point not available yet");
-        }
-      } catch (Exception e) {
-        log.error("Error resolving Python entry point", e);
-      }
-    }
-
-    @Override
-    public void connectionStopped(Py4JServerConnection c) {
-      log.info("Py4J connectionStopped: {}", c);
-      handler = null;
-    }
-
-    @Override public void serverError(Exception e) {
-      log.error("Py4J serverError", e);
-    }
-
-    @Override public void connectionError(Exception e) {
-      log.error("Py4J connectionError", e);
     }
   }
 
