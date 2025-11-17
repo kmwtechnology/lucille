@@ -56,7 +56,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
 
   @Override
   public void commitPendingDocOffsets() throws Exception {
-    sourceConsumer.commitSync();
+    sourceConsumer.commitAsync();
   }
 
   /**

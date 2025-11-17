@@ -79,7 +79,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   public void commitPendingDocOffsets() throws Exception {
     Map<TopicPartition, OffsetAndMetadata> batchOffsets = null;
     while ((batchOffsets = offsets.poll()) != null) {
-      sourceConsumer.commitSync(batchOffsets);
+      sourceConsumer.commitAsync(batchOffsets, null);
     }
   }
 
