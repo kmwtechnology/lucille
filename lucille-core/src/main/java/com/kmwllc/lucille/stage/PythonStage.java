@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.stage.util.Py4JRuntime;
+import com.kmwllc.lucille.stage.util.Py4JRuntimeManager;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,8 +49,8 @@ public final class PythonStage extends Stage {
   public void start() throws StageException {
     log.info("Starting PythonStage; scriptPath={}, pythonExecutable={}, port={}, timeout_ms={}",
         scriptPath, pythonExecutable, (port == null ? "(auto)" : port), readinessTimeoutMs);
-    runtime = new Py4JRuntime(pythonExecutable, scriptPath, requirementsPath, port);
-    runtime.start();
+    runtime = Py4JRuntimeManager.getInstance()
+        .aquire(pythonExecutable, scriptPath, requirementsPath, port);
 
     long startWait = System.currentTimeMillis();
     while (!runtime.isReady() && (System.currentTimeMillis() - startWait < readinessTimeoutMs)) {
@@ -107,7 +108,7 @@ public final class PythonStage extends Stage {
   public void stop() throws StageException {
     log.info("Stopping PythonStage");
     if (runtime != null) {
-      runtime.stop();
+      Py4JRuntimeManager.getInstance().release();
       runtime = null;
     }
   }
