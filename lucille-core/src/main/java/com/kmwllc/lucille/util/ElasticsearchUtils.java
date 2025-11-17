@@ -9,7 +9,10 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.util.Map;
-import nl.altindag.ssl.SSLFactory;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -30,7 +33,7 @@ public class ElasticsearchUtils {
       .optionalString("parentName")
       .optionalParent("join", new TypeReference<Map<String, String>>(){}).build();
 
-  public static ElasticsearchClient getElasticsearchOfficialClient(Config config) {
+  public static ElasticsearchClient getElasticsearchOfficialClient(Config config) throws Exception {
     URI hostUri = URI.create(getElasticsearchUrl(config));
 
     final CredentialsProvider provider = new BasicCredentialsProvider();
@@ -45,23 +48,27 @@ public class ElasticsearchUtils {
           new UsernamePasswordCredentials(username, password));
     }
 
-    // needed to allow for local testing of HTTPS
-    SSLFactory.Builder sslFactoryBuilder = SSLFactory.builder();
+    // Potentially disable SSL/TLS verification for when testing locally
     boolean allowInvalidCert = getAllowInvalidCert(config);
-    if (allowInvalidCert) {
-      sslFactoryBuilder
-          .withTrustingAllCertificatesWithoutValidation()
-          .withHostnameVerifier((host, session) -> true);
-    } else {
-      sslFactoryBuilder.withDefaultTrustMaterial();
-    }
+    SSLContext sslContext;
+    HostnameVerifier hostnameVerifier;
 
-    SSLFactory sslFactory = sslFactoryBuilder.build();
+    if (allowInvalidCert) {
+      sslContext = SSLContextBuilder.create()
+          .loadTrustMaterial(null, (chains, authType) -> true)
+          .build();
+      hostnameVerifier = NoopHostnameVerifier.INSTANCE;
+    } else {
+      sslContext = SSLContextBuilder.create()
+          .build();
+      // set host name verifier to null to pick up default.
+      hostnameVerifier = null;
+    }
 
     RestClient restClient = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
         .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultCredentialsProvider(provider)
-            .setSSLContext(sslFactory.getSslContext())
-            .setSSLHostnameVerifier(sslFactory.getHostnameVerifier())).build();
+            .setSSLContext(sslContext)
+            .setSSLHostnameVerifier(hostnameVerifier)).build();
 
     ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
     return new ElasticsearchClient(transport);

@@ -53,10 +53,15 @@ public class ElasticsearchLookup extends Stage {
   private final List<String> destFields;
   private final UpdateMode updateMode;
 
-  public ElasticsearchLookup(Config config) {
+  public ElasticsearchLookup(Config config) throws StageException {
     super(config);
 
-    this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
+    try {
+      this.client = ElasticsearchUtils.getElasticsearchOfficialClient(config);
+    } catch (Exception e) {
+      throw new StageException("Couldn't create ElasticsearchClient", e);
+    }
+
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
 
     this.sourceFields = config.getStringList("source");

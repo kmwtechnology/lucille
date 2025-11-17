@@ -13,9 +13,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import nl.altindag.ssl.SSLFactory;
 
 import java.util.HashMap;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.apache.hc.core5.ssl.TrustStrategy;
 import org.apache.http.HttpHost;
 import java.util.Map;
 import org.elasticsearch.client.RestClient;
@@ -82,7 +83,7 @@ public class ElasticsearchUtilsTest {
   }
 
   @Test
-  public void testGetElasticsearchOfficialClient() {
+  public void testGetElasticsearchOfficialClient() throws Exception {
     Config config = mock(Config.class);
     String url = "http://user:pass@localhost:9200";
     RestClient restClient = mock(RestClient.class);
@@ -90,7 +91,7 @@ public class ElasticsearchUtilsTest {
     when(ElasticsearchUtils.getAllowInvalidCert(config)).thenReturn(false);
 
     try (MockedStatic<RestClient> mockRestClient = mockStatic(RestClient.class);
-        MockedStatic<SSLFactory> mockSSLFactory = mockStatic(SSLFactory.class)) {
+        MockedStatic<SSLContextBuilder> mockSSLContextBuilder = mockStatic(SSLContextBuilder.class)) {
       RestClientBuilder builder = mock(RestClientBuilder.class);
 
       ArgumentCaptor<HttpHost> hostCaptor = ArgumentCaptor.forClass(HttpHost.class);
@@ -98,11 +99,10 @@ public class ElasticsearchUtilsTest {
       when(builder.setHttpClientConfigCallback(any())).thenReturn(builder);
       when(builder.build()).thenReturn(restClient);
 
-      SSLFactory.Builder mockSSLBuilder = mock(SSLFactory.Builder.class);
-      mockSSLFactory.when(SSLFactory::builder).thenReturn(mockSSLBuilder);
-      when(mockSSLBuilder.withDefaultTrustMaterial()).thenReturn(mockSSLBuilder);
-      SSLFactory sslFactory = mock(SSLFactory.class);
-      when(mockSSLBuilder.build()).thenReturn(sslFactory);
+      SSLContextBuilder mockSSLBuilder = mock(SSLContextBuilder.class);
+      mockSSLContextBuilder.when(SSLContextBuilder::create).thenReturn(mockSSLBuilder);
+      when(mockSSLBuilder.loadTrustMaterial(any(), (TrustStrategy) any())).thenReturn(mockSSLBuilder);
+
 
       ElasticsearchClient result = ElasticsearchUtils.getElasticsearchOfficialClient(config);
 
@@ -112,9 +112,8 @@ public class ElasticsearchUtilsTest {
       assertEquals(9200, hostCaptor.getValue().getPort());
       assertEquals("http", hostCaptor.getValue().getSchemeName());
 
-      // since allow invalid cert is false, will not call .withTrustingAllCertificatesWithoutValidation()
-      verify(mockSSLBuilder, times(1)).withDefaultTrustMaterial();
-      verify(mockSSLBuilder, times(0)).withTrustingAllCertificatesWithoutValidation();
+      // since allow invalid cert is false, will not call .loadTrustMaterial
+      verify(mockSSLBuilder, times(0)).loadTrustMaterial(any(), (TrustStrategy) any());
 
       // verify that setting up of client was called once
       verify(builder, times(1)).setHttpClientConfigCallback(any());
@@ -122,7 +121,7 @@ public class ElasticsearchUtilsTest {
   }
 
   @Test
-  public void testGetElasticsearchOfficialClientAllowCert() {
+  public void testGetElasticsearchOfficialClientAllowCert() throws Exception {
     Config config = mock(Config.class);
     when (config.getString("elasticsearch.acceptInvalidCert")).thenReturn("true");
     String url = "http://user:pass@localhost:9200";
@@ -131,7 +130,7 @@ public class ElasticsearchUtilsTest {
     when(ElasticsearchUtils.getAllowInvalidCert(config)).thenReturn(true);
 
     try (MockedStatic<RestClient> mockRestClient = mockStatic(RestClient.class);
-        MockedStatic<SSLFactory> mockSSLFactory = mockStatic(SSLFactory.class)) {
+        MockedStatic<SSLContextBuilder> mockSSLContextBuilder = mockStatic(SSLContextBuilder.class)) {
       RestClientBuilder builder = mock(RestClientBuilder.class);
 
       ArgumentCaptor<HttpHost> hostCaptor = ArgumentCaptor.forClass(HttpHost.class);
@@ -139,12 +138,9 @@ public class ElasticsearchUtilsTest {
       when(builder.setHttpClientConfigCallback(any())).thenReturn(builder);
       when(builder.build()).thenReturn(restClient);
 
-      SSLFactory.Builder sslBuilder = mock(SSLFactory.Builder.class);
-      mockSSLFactory.when(SSLFactory::builder).thenReturn(sslBuilder);
-      when(sslBuilder.withTrustingAllCertificatesWithoutValidation()).thenReturn(sslBuilder);
-      when(sslBuilder.withHostnameVerifier(any())).thenReturn(sslBuilder);
-      SSLFactory sslFactory = mock(SSLFactory.class);
-      when(sslBuilder.build()).thenReturn(sslFactory);
+      SSLContextBuilder mockSSLBuilder = mock(SSLContextBuilder.class);
+      mockSSLContextBuilder.when(SSLContextBuilder::create).thenReturn(mockSSLBuilder);
+      when(mockSSLBuilder.loadTrustMaterial(any(), (TrustStrategy) any())).thenReturn(mockSSLBuilder);
 
       ElasticsearchClient result = ElasticsearchUtils.getElasticsearchOfficialClient(config);
 
@@ -155,9 +151,8 @@ public class ElasticsearchUtilsTest {
       assertEquals(9200, hostCaptor.getValue().getPort());
       assertEquals("http", hostCaptor.getValue().getSchemeName());
 
-      // since allow invalid cert is true, will call .withTrustingAllCertificatesWithoutValidation() and not .withDefaultTrustMaterial
-      verify(sslBuilder, times(0)).withDefaultTrustMaterial();
-      verify(sslBuilder, times(1)).withTrustingAllCertificatesWithoutValidation();
+      // since allow invalid cert is true, will call .loadTrustMaterial
+      verify(mockSSLBuilder, times(1)).loadTrustMaterial(any(), (TrustStrategy) any());
 
       // verify that setting up of client was called once
       verify(builder, times(1)).setHttpClientConfigCallback(any());
