@@ -1,5 +1,3 @@
-import json
-import requests
 import datetime
 
 def process_document(doc):
