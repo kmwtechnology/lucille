@@ -25,9 +25,10 @@ public final class Py4JRuntime {
   public static final String PYTHON_CLIENT_NAME = "Py4jClient.py";
 
   /**
-   * Java interface containing the methods that can be called on the python client via Py4J.
+   * Defines methods that can be called on the python client via Py4J.
+   *
+   * Here, exec() represents Py4jClient.exec(self, json_msg) in Py4jClient.py
    */
-  @FunctionalInterface
   private interface PythonClient {
     Object exec(String json);
   }
@@ -194,6 +195,8 @@ public final class Py4JRuntime {
   }
 
   private void checkPythonInstalled() throws StageException {
+    int exitCode;
+    String versionOutput;
     try {
       Process process = new ProcessBuilder(pythonExecutable, "--version").redirectErrorStream(true).start();
       StringBuilder output = new StringBuilder();
@@ -203,16 +206,17 @@ public final class Py4JRuntime {
           output.append(line).append("\n");
         }
       }
-      int exitCode = process.waitFor();
-      String versionOutput = output.toString().trim();
-      if (exitCode != 0 || versionOutput.isEmpty() || !versionOutput.toLowerCase().contains("python")) {
-        log.error("Python version check failed. Output:\n{}", versionOutput);
-        throw new StageException(
-            "Python executable '" + pythonExecutable + "' not found or not working. Output: " + versionOutput);
-      }
+      exitCode = process.waitFor();
+      versionOutput = output.toString().trim();
       log.info("Detected Python version: {}", versionOutput);
     } catch (Exception e) {
       throw new StageException("Failed to check Python installation: " + e.getMessage(), e);
+    }
+
+    if (exitCode != 0 || versionOutput.isEmpty() || !versionOutput.toLowerCase().contains("python")) {
+      log.error("Python version check failed. Output:\n{}", versionOutput);
+      throw new StageException(
+          "Python executable '" + pythonExecutable + "' not found or not working. Output: " + versionOutput);
     }
   }
 
@@ -222,26 +226,30 @@ public final class Py4JRuntime {
     venvPythonPath = venvPython.toAbsolutePath().toString();
     if (!Files.exists(venvPython)) {
       log.info("Python venv not found, creating venv in cwd...");
+      int exitCode;
+      StringBuilder output;
       try {
         Process createVenv = new ProcessBuilder(pythonExecutable, "-m", "venv", "venv")
             .redirectErrorStream(true).start();
-        StringBuilder output = new StringBuilder();
+        output = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(createVenv.getInputStream()))) {
           String line;
           while ((line = reader.readLine()) != null) {
             output.append(line).append("\n");
           }
         }
-        int exitCode = createVenv.waitFor();
+        exitCode = createVenv.waitFor();
         log.info("venv creation output:\n{}", output.toString().trim());
-        if (exitCode != 0) {
-          throw new StageException("Failed to create venv. Output: " + output);
-        }
       } catch (Exception e) {
         throw new StageException("Failed to create venv: " + e.getMessage(), e);
       }
+      if (exitCode != 0) {
+        throw new StageException("Failed to create venv. Output: " + output);
+      }
     }
     // Check venv python is viable
+    int exitCode;
+    String versionOutput;
     try {
       Process checkVenv = new ProcessBuilder(venvPythonPath, "--version").redirectErrorStream(true).start();
       StringBuilder output = new StringBuilder();
@@ -251,18 +259,19 @@ public final class Py4JRuntime {
           output.append(line).append("\n");
         }
       }
-      int exitCode = checkVenv.waitFor();
-      String versionOutput = output.toString().trim();
-      if (exitCode != 0 || versionOutput.isEmpty() || !versionOutput.toLowerCase().contains("python")) {
-        throw new StageException("venv python is not viable. Output: " + versionOutput);
-      }
+      exitCode = checkVenv.waitFor();
+      versionOutput = output.toString().trim();
       log.info("venv python version: {}", versionOutput);
     } catch (Exception e) {
       throw new StageException("Failed to check venv python: " + e.getMessage(), e);
     }
+    if (exitCode != 0 || versionOutput.isEmpty() || !versionOutput.toLowerCase().contains("python")) {
+      throw new StageException("venv python is not viable. Output: " + versionOutput);
+    }
   }
 
   private void ensurePy4JInVenv() throws StageException {
+    int pipCode;
     try {
       Process check = new ProcessBuilder(venvPythonPath, "-c", "import py4j,sys;print(py4j.__version__)")
           .redirectErrorStream(true).start();
@@ -278,12 +287,12 @@ public final class Py4JRuntime {
       log.info("Installing py4j into venv...");
       Process pip = new ProcessBuilder(venvPythonPath, "-m", "pip", "install", "py4j")
           .redirectErrorStream(true).start();
-      int pipCode = pip.waitFor();
-      if (pipCode != 0) {
-        throw new StageException("pip install py4j failed (exit=" + pipCode + ")");
-      }
+      pipCode = pip.waitFor();
     } catch (Exception e) {
       throw new StageException("Failed to ensure py4j in venv: " + e.getMessage(), e);
+    }
+    if (pipCode != 0) {
+      throw new StageException("pip install py4j failed (exit=" + pipCode + ")");
     }
   }
 
@@ -293,25 +302,27 @@ public final class Py4JRuntime {
       return;
     }
     log.info("Installing Python requirements from {} using venv python {}", requirementsPath, venvPythonPath);
+    int installExit;
+    StringBuilder installOutput;
     try {
       Process installProc = new ProcessBuilder(
           venvPythonPath, "-m", "pip", "install", "-r", requirementsPath)
           .redirectErrorStream(true)
           .start();
-      StringBuilder installOutput = new StringBuilder();
+      installOutput = new StringBuilder();
       try (BufferedReader installReader = new BufferedReader(new InputStreamReader(installProc.getInputStream()))) {
         String line;
         while ((line = installReader.readLine()) != null) {
           installOutput.append(line).append("\n");
         }
       }
-      int installExit = installProc.waitFor();
+      installExit = installProc.waitFor();
       log.info("pip install -r output:\n{}", installOutput.toString().trim());
-      if (installExit != 0) {
-        throw new StageException("Failed to install requirements from " + requirementsPath + ". Output: " + installOutput);
-      }
     } catch (Exception e) {
       throw new StageException("Failed to install requirements from " + requirementsPath + ": " + e.getMessage(), e);
+    }
+    if (installExit != 0) {
+      throw new StageException("Failed to install requirements from " + requirementsPath + ". Output: " + installOutput);
     }
   }
 
