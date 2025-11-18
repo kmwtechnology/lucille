@@ -108,6 +108,7 @@ public final class Py4JRuntime {
     if (!isReady()) {
       throw new StageException("Py4J handler not ready");
     }
+
     try {
       Object res = handler.exec(requestJson);
       return (res instanceof String) ? (String) res : (res == null ? null : String.valueOf(res));
@@ -165,13 +166,29 @@ public final class Py4JRuntime {
       waiter.setDaemon(true);
       waiter.start();
 
-      try {
-        handler = (PyExec) gateway.getPythonServerEntryPoint(new Class[] {PyExec.class });
-        log.info("Resolved Python entry point");
-      } catch (Exception e) {
-        throw new StageException("Failed to resolve Python server entry point", e);
-      }
+      Thread receiver = new Thread(() -> {
+        try {
+          handler = (PyExec) gateway.getPythonServerEntryPoint(new Class[] {PyExec.class });
+          log.info("Resolved Python entry point");
+        } catch (Exception e) {
+          try {
+            throw new StageException("Failed to resolve Python server entry point", e);
+          } catch (StageException ex) {
+            throw new RuntimeException(ex);
+          }
+        }
+      }, "py4j-receiver");
+      receiver.setDaemon(true);
+      receiver.start();
+      receiver.join();
 
+      while (!procGobbler.isStartMessageSeen()) {
+        try {
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+      }
     } catch (Exception e) {
       throw new StageException("Failed to launch Python process", e);
     }

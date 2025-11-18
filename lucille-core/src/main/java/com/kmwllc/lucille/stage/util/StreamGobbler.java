@@ -17,6 +17,8 @@ public class StreamGobbler extends Thread {
 
   private final InputStream processOut;
 
+  private volatile boolean startMessageSeen = false;
+
   /**
    * When we do not need to redirect the stream to another stream. E.g.
    * when we create a process, and are already redirecting std:out and std:err
@@ -29,6 +31,10 @@ public class StreamGobbler extends Thread {
     this.processOut = processOut;
   }
 
+  public boolean isStartMessageSeen() {
+    return startMessageSeen;
+  }
+
   @Override
   public void run() {
     try (InputStreamReader isr = new InputStreamReader(processOut);
@@ -36,6 +42,9 @@ public class StreamGobbler extends Thread {
       String line;
       while ((line = br.readLine()) != null) {
         log.info("{} -> {}", getName(), line);
+        if (line.indexOf("Callback server port:") != -1) {
+          startMessageSeen = true;
+        }
       }
     } catch (IOException ioe) {
       log.info("{} gobbler leaving", getName());
