@@ -9,10 +9,12 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.stage.util.Py4JRuntime;
 import com.kmwllc.lucille.stage.util.Py4JRuntimeManager;
 import com.typesafe.config.Config;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 public final class PythonStage extends Stage {
 
@@ -30,7 +32,6 @@ public final class PythonStage extends Stage {
   private final String functionName;
   private final Integer port;
   private final int readinessTimeoutMs;
-
   private Py4JRuntime runtime;
   private final ObjectMapper mapper = new ObjectMapper();
 
@@ -60,10 +61,6 @@ public final class PythonStage extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
-      if (!runtime.isReady()) {
-        throw new StageException("Py4J connection not ready");
-      }
-
       Map<String, Object> msg = new HashMap<>();
       msg.put("method", functionName);
       msg.put("data", doc);
@@ -72,7 +69,6 @@ public final class PythonStage extends Stage {
       String responseJson = runtime.exec(requestJson);
 
       if (responseJson != null && !responseJson.isEmpty()) {
-        @SuppressWarnings("unchecked")
         Map<String, Object> updatedFields = mapper.readValue(responseJson, Map.class);
 
         Set<String> reserved = Document.RESERVED_FIELDS;
@@ -82,14 +78,7 @@ public final class PythonStage extends Stage {
           }
         }
       }
-
-      if (log.isDebugEnabled()) {
-        log.debug("Processed doc {}", doc);
-      }
       return null;
-
-    } catch (StageException se) {
-      throw se;
     } catch (Exception e) {
       throw new StageException("Failed to process document via Python", e);
     }
@@ -97,7 +86,6 @@ public final class PythonStage extends Stage {
 
   @Override
   public void stop() throws StageException {
-    log.info("Stopping PythonStage");
     if (runtime != null) {
       Py4JRuntimeManager.getInstance().release();
       runtime = null;
