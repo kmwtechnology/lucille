@@ -40,7 +40,7 @@ public class PythonStageTest {
 
   @Test
   public void testPythonUpdateToDocMultiThreaded() throws Exception {
-    String confPath = "PythonStageTest/process_document_1.conf";
+    String confPath = "PythonStageTest/copy_doc_id.conf";
     int numThreads = 5;
     int numDocsPerThread = 20;
     Thread[] threads = new Thread[numThreads];
@@ -81,7 +81,8 @@ public class PythonStageTest {
     }
     for (int i = 0; i < numThreads; i++) {
       for (int j = 0; j < numDocsPerThread; j++) {
-        assertEquals("Hello from Python!", docs[i][j].getString("field_added_by_python"));
+        assertEquals("doc_" + i + "_" + j, docs[i][j].getId());
+        assertEquals("doc_" + i + "_" + j, docs[i][j].getString("field_added_by_python"));
       }
     }
   }
