@@ -254,14 +254,6 @@
       <artifactId>http2-server</artifactId>
       <version>${http2.version}</version>
     </dependency>
-
-    <!-- SSL Context Kickstart -->
-    <dependency>
-      <groupId>io.github.hakky54</groupId>
-      <artifactId>sslcontext-kickstart</artifactId>
-      <version>${sslcontext-kickstart.version}</version>
-    </dependency>
-
     <!-- FileConnector -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
