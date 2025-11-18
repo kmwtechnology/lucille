@@ -27,16 +27,16 @@ class Py4jClient:
         self.user_module = None
 
     def exec(self, json_msg):
-        print(f"[Py4jClient] exec called with json_msg: {json_msg}")
+        #print(f"[Py4jClient] exec called with json_msg: {json_msg}")
         msg = json.loads(json_msg)
-        print(f"[Py4jClient] Executing msg: {msg}")
+        #print(f"[Py4jClient] Executing msg: {msg}")
         if msg.get("data") is None or msg.get("data") == []:
             return globals()[msg.get("method")]()
         else:
             return globals()[msg.get("method")](msg.get("data"))
 
     def write(self, string):
-        print(f"[Py4jClient] write called with string: {string}")
+        #print(f"[Py4jClient] write called with string: {string}")
         if self.py4j:
             self.py4j.handleStdOut(string)
 
@@ -60,8 +60,9 @@ class Py4jClient:
                 callback_server_parameters=CallbackServerParameters(port=self.port + 1, daemonize_connections=True),
                 python_server_entry_point=self,
             )
-            print("[Py4jClient] Callback server port:", self.gateway.get_callback_server().get_listening_port())
-            # No resetCallbackClient call needed for fixed port
+            # note that on the Java side, the Py4JRuntime uses a StreamConsumer that looks for the string "JavaGateway STARTED" in
+            # the python process output. Do not change the contents of the print statement below without also updating the StreamConsumer
+            print("[Py4jClient] JavaGateway STARTED. Callback server port: ", self.gateway.get_callback_server().get_listening_port())
         except Exception as e:
             print("[Py4jClient] Error connecting to JavaGateway:", e)
             self.running = False

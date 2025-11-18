@@ -162,7 +162,7 @@ public final class Py4JRuntime {
 
       pythonProcess = processBuilder.start();
 
-      pythonProcessOutputConsumer = new StreamConsumer(pythonProcess.getInputStream(), "Callback server port:");
+      pythonProcessOutputConsumer = new StreamConsumer(pythonProcess.getInputStream(), "JavaGateway STARTED");
       pythonProcessOutputConsumer.start();
 
       Thread waiter = new Thread(() -> {
