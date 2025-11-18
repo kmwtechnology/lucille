@@ -22,7 +22,11 @@ import java.util.Set;
 public final class Py4JRuntime {
 
   private static final Logger log = LoggerFactory.getLogger(Py4JRuntime.class);
+  public static final String PYTHON_CLIENT_NAME = "Py4jClient.py";
 
+  /**
+   * Java interface containing the methods that can be called on the python client via Py4J.
+   */
   @FunctionalInterface
   private interface PythonClient {
     Object exec(String json);
@@ -36,7 +40,6 @@ public final class Py4JRuntime {
   private final String requirementsPath;
   private final Integer requestedPort;
   private Integer boundPort = null;
-
   private String venvPythonPath;
   private GatewayServer gateway;
   private volatile PythonClient pythonClient;
@@ -52,7 +55,7 @@ public final class Py4JRuntime {
 
   public void start() throws StageException {
     if (isReady()) {
-      log.warn("Py4J runtime already started");
+      log.info("Py4J runtime already started");
       return;
     }
 
@@ -62,8 +65,8 @@ public final class Py4JRuntime {
     ensurePy4JInVenv();
     installRequirementsIfNeeded();
 
-    this.boundPort = allocatePort(requestedPort);
-    startGateway(boundPort);
+    boundPort = allocatePort(requestedPort);
+    gateway = startGateway(boundPort);
     startPythonProcess(boundPort);
   }
 
@@ -115,20 +118,19 @@ public final class Py4JRuntime {
     }
   }
 
-  private void startGateway(int port) throws StageException {
+  private static GatewayServer startGateway(int port) throws StageException {
     try {
-      gateway = new GatewayServer(
-        this,
+      GatewayServer gateway = new GatewayServer(
+        null,
         port,
         port + 1,
         GatewayServer.defaultAddress(),
         GatewayServer.defaultAddress(),
         GatewayServer.DEFAULT_CONNECT_TIMEOUT,
         GatewayServer.DEFAULT_READ_TIMEOUT,
-        null
-      );
+        null);
       gateway.start();
-      log.info("GatewayServer started on port {}", port);
+      return gateway;
     } catch (Exception e) {
       unmarkPort(port);
       throw new StageException("Failed to start GatewayServer on port " + port, e);
@@ -136,9 +138,9 @@ public final class Py4JRuntime {
   }
 
   private void startPythonProcess(int port) throws StageException {
-    try (InputStream in = Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream("Py4jClient.py"),
-        "Py4jClient.py not found on classpath resources")) {
-      Path clientPath = Paths.get("Py4jClient.py").toAbsolutePath();
+    try (InputStream in = Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(PYTHON_CLIENT_NAME),
+        PYTHON_CLIENT_NAME + "not found on classpath resources")) {
+      Path clientPath = Paths.get(PYTHON_CLIENT_NAME).toAbsolutePath();
 
       synchronized (Py4JRuntime.class) {
         if (!Files.exists(clientPath)) {
@@ -146,7 +148,7 @@ public final class Py4JRuntime {
         }
       }
 
-      ProcessBuilder pb = new ProcessBuilder(
+      ProcessBuilder processBuilder = new ProcessBuilder(
           venvPythonPath,
           "-u",
           clientPath.toAbsolutePath().toString(),
@@ -157,7 +159,7 @@ public final class Py4JRuntime {
       log.info("Launching Python: {} {} --script-path {} --port {}",
           venvPythonPath, clientPath.toAbsolutePath(), scriptPath, port);
 
-      pythonProcess = pb.start();
+      pythonProcess = processBuilder.start();
 
       pythonProcessOutputConsumer = new StreamConsumer(pythonProcess.getInputStream(), "Callback server port:");
       pythonProcessOutputConsumer.start();
@@ -173,16 +175,11 @@ public final class Py4JRuntime {
       waiter.setDaemon(true);
       waiter.start();
 
-      Thread receiver = new Thread(() -> {
-        try {
-          pythonClient = (PythonClient) gateway.getPythonServerEntryPoint(new Class[] {PythonClient.class });
-        } catch (Exception e) {
-          throw new RuntimeException("Failed to resolve Python server entry point", e);
-        }
-      }, "py4j-receiver");
-      receiver.setDaemon(true);
-      receiver.start();
-      receiver.join();
+      try {
+        pythonClient = (PythonClient) gateway.getPythonServerEntryPoint(new Class[] {PythonClient.class });
+      } catch (Exception e) {
+        throw new RuntimeException("Failed to resolve Python server entry point", e);
+      }
 
       while (!pythonProcessOutputConsumer.isMessageSeen()) {
         try {
@@ -200,8 +197,7 @@ public final class Py4JRuntime {
     try {
       Process process = new ProcessBuilder(pythonExecutable, "--version").redirectErrorStream(true).start();
       StringBuilder output = new StringBuilder();
-      try (java.io.BufferedReader reader = new java.io.BufferedReader(
-          new java.io.InputStreamReader(process.getInputStream()))) {
+      try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
         String line;
         while ((line = reader.readLine()) != null) {
           output.append(line).append("\n");
@@ -214,23 +210,23 @@ public final class Py4JRuntime {
         throw new StageException(
             "Python executable '" + pythonExecutable + "' not found or not working. Output: " + versionOutput);
       }
-      log.info("Detected Python version:\n{}", versionOutput);
+      log.info("Detected Python version: {}", versionOutput);
     } catch (Exception e) {
       throw new StageException("Failed to check Python installation: " + e.getMessage(), e);
     }
   }
 
   private void ensureVenv() throws StageException {
-    Path venvDir = java.nio.file.Paths.get("venv");
+    Path venvDir = Paths.get("venv");
     Path venvPython = venvDir.resolve("bin/python");
     venvPythonPath = venvPython.toAbsolutePath().toString();
-    if (!java.nio.file.Files.exists(venvPython)) {
+    if (!Files.exists(venvPython)) {
       log.info("Python venv not found, creating venv in cwd...");
       try {
         Process createVenv = new ProcessBuilder(pythonExecutable, "-m", "venv", "venv")
             .redirectErrorStream(true).start();
         StringBuilder output = new StringBuilder();
-        try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(createVenv.getInputStream()))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(createVenv.getInputStream()))) {
           String line;
           while ((line = reader.readLine()) != null) {
             output.append(line).append("\n");
@@ -249,7 +245,7 @@ public final class Py4JRuntime {
     try {
       Process checkVenv = new ProcessBuilder(venvPythonPath, "--version").redirectErrorStream(true).start();
       StringBuilder output = new StringBuilder();
-      try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(checkVenv.getInputStream()))) {
+      try (BufferedReader reader = new BufferedReader(new InputStreamReader(checkVenv.getInputStream()))) {
         String line;
         while ((line = reader.readLine()) != null) {
           output.append(line).append("\n");
@@ -303,8 +299,7 @@ public final class Py4JRuntime {
           .redirectErrorStream(true)
           .start();
       StringBuilder installOutput = new StringBuilder();
-      try (java.io.BufferedReader installReader = new java.io.BufferedReader(
-          new java.io.InputStreamReader(installProc.getInputStream()))) {
+      try (BufferedReader installReader = new BufferedReader(new InputStreamReader(installProc.getInputStream()))) {
         String line;
         while ((line = installReader.readLine()) != null) {
           installOutput.append(line).append("\n");
@@ -326,22 +321,20 @@ public final class Py4JRuntime {
       Process execPathProc = new ProcessBuilder(venvPythonPath, "-c", "import sys; print(sys.executable)")
           .redirectErrorStream(true).start();
       StringBuilder execPathOutput = new StringBuilder();
-      try (java.io.BufferedReader execPathReader = new java.io.BufferedReader(
-          new java.io.InputStreamReader(execPathProc.getInputStream()))) {
+      try (BufferedReader execPathReader = new BufferedReader(new InputStreamReader(execPathProc.getInputStream()))) {
         String line;
         while ((line = execPathReader.readLine()) != null) {
           execPathOutput.append(line).append("\n");
         }
       }
       execPathProc.waitFor();
-      log.info("Python executable path (from sys.executable):\n{}", execPathOutput.toString().trim());
+      log.info("Python executable path: {}", execPathOutput.toString().trim());
 
       // Log all sys.path entries
       Process sysPathProc = new ProcessBuilder(venvPythonPath, "-u", "-c", "import sys; [print(p) for p in sys.path]")
           .redirectErrorStream(true).start();
       StringBuilder sysPaths = new StringBuilder();
-      try (java.io.BufferedReader sysPathReader = new java.io.BufferedReader(
-          new java.io.InputStreamReader(sysPathProc.getInputStream()))) {
+      try (BufferedReader sysPathReader = new BufferedReader(new InputStreamReader(sysPathProc.getInputStream()))) {
         String line;
         while ((line = sysPathReader.readLine()) != null) {
           sysPaths.append(line).append("\n");
@@ -350,7 +343,6 @@ public final class Py4JRuntime {
       sysPathProc.waitFor();
       log.info("Python sys.path entries:\n{}", sysPaths.toString().trim());
     } catch (Exception e) {
-      log.error("Error logging Python environment", e);
       throw new StageException("Failed to log Python environment: " + e.getMessage(), e);
     }
   }
