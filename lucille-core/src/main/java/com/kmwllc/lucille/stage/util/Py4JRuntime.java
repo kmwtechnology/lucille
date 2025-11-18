@@ -119,7 +119,16 @@ public final class Py4JRuntime {
 
   private void startGateway(int port) throws StageException {
     try {
-      gateway = new GatewayServer(this, port);
+      gateway = new GatewayServer(
+        this,
+        port,
+        port + 1,
+        GatewayServer.defaultAddress(),
+        GatewayServer.defaultAddress(),
+        GatewayServer.DEFAULT_CONNECT_TIMEOUT,
+        GatewayServer.DEFAULT_READ_TIMEOUT,
+        null
+      );
       gateway.start();
       log.info("GatewayServer started on port {}", port);
     } catch (Exception e) {
