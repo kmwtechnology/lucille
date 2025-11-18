@@ -41,7 +41,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
-      destConsumer.commitSync();
+      destConsumer.commitAsync();
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
