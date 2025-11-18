@@ -32,8 +32,8 @@ public final class Py4JRuntime {
     Object exec(String json);
   }
 
-  private static final Set<Integer> usedPorts = new HashSet<>();
-  private static int nextPort = 25333; // Default Py4J port
+  private final Set<Integer> usedPorts = new HashSet<>();
+  private int nextPort = 25333; // Default Py4J port
 
   private final String pythonExecutable;
   private final String scriptPath;
@@ -118,7 +118,7 @@ public final class Py4JRuntime {
     }
   }
 
-  private static GatewayServer startGateway(int port) throws StageException {
+  private GatewayServer startGateway(int port) throws StageException {
     try {
       GatewayServer gateway = new GatewayServer(
         null,
@@ -347,7 +347,7 @@ public final class Py4JRuntime {
     }
   }
 
-  private static synchronized int allocatePort(Integer myRequestedPort) throws StageException {
+  private synchronized int allocatePort(Integer myRequestedPort) throws StageException {
     if (myRequestedPort != null && myRequestedPort > 0) {
       if (!isPortAvailable(myRequestedPort) || !isPortAvailable(myRequestedPort + 1)) {
         throw new StageException("Requested port range " + myRequestedPort + "-" + (myRequestedPort + 1) + " is not available");
@@ -380,7 +380,7 @@ public final class Py4JRuntime {
     }
   }
 
-  private static synchronized void unmarkPort(int port) {
+  private synchronized void unmarkPort(int port) {
     usedPorts.remove(port);
     usedPorts.remove(port + 1);
   }
