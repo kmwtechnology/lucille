@@ -1,0 +1,21 @@
+# Exclude git and cache directories
+.git
+.github
+.next
+node_modules
+
+# Exclude development files
+*.md
+*.log
+.env*
+.eslintrc*
+.prettierrc*
+.vscode
+.idea
+*.test.*
+__tests__
+jest.config.js
+
+# Include only necessary files
+!.next/standalone
+!.next/static
