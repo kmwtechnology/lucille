@@ -7,12 +7,7 @@ public final class Py4JRuntimeManager {
   private static final Py4JRuntimeManager instance = new Py4JRuntimeManager();
 
   private static Py4JRuntime runtime;
-  private int refCount;
-
-  private String pythonExecutable;
-  private String scriptPath;
-  private String requirementsPath;
-  private Integer port;
+  private int refCount = 0;
 
   private Py4JRuntimeManager() {
   }
@@ -21,26 +16,14 @@ public final class Py4JRuntimeManager {
     return instance;
   }
 
-  public synchronized Py4JRuntime aquire(
-      String pythonExecutable,
-      String scriptPath,
-      String requirementsPath,
-      Integer port
-  ) throws StageException {
+  public synchronized Py4JRuntime acquire(String pythonExecutable, String scriptPath, String requirementsPath, Integer port)
+      throws StageException {
     if (runtime == null) {
       runtime = new Py4JRuntime(pythonExecutable, scriptPath, requirementsPath, port);
       runtime.start();
-
-      System.out.println("RUNTIME STARTED");
-
-      this.pythonExecutable = pythonExecutable;
-      this.scriptPath = scriptPath;
-      this.requirementsPath = requirementsPath;
-      this.port = port;
     }
 
     refCount++;
-    System.out.println("REFS COUNT " + refCount);
     return runtime;
   }
 
@@ -55,10 +38,6 @@ public final class Py4JRuntimeManager {
         runtime.stop();
       } finally {
         runtime = null;
-        pythonExecutable = null;
-        scriptPath = null;
-        requirementsPath = null;
-        port = null;
       }
     }
   }

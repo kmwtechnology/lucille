@@ -50,7 +50,7 @@ public final class PythonStage extends Stage {
     log.info("Starting PythonStage; scriptPath={}, pythonExecutable={}, port={}, timeout_ms={}",
         scriptPath, pythonExecutable, (port == null ? "(auto)" : port), readinessTimeoutMs);
     runtime = Py4JRuntimeManager.getInstance()
-        .aquire(pythonExecutable, scriptPath, requirementsPath, port);
+        .acquire(pythonExecutable, scriptPath, requirementsPath, port);
 
     if (!runtime.isReady()) {
       throw new StageException("Py4J connection not ready after start");

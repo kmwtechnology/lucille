@@ -23,12 +23,11 @@ public class PythonStageTest {
   public void testPythonUpdateToDoc() throws Exception {
     String confPath = "PythonStageTest/process_document_1.conf";
     stage = factory.get(confPath);
-    Document doc = Document.create("doc2");
+    Document doc = Document.create("doc1");
     stage.processDocument(doc);
     stage.processDocument(doc);
     stage.processDocument(doc);
     assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
-    Thread.sleep(1000);
   }
 
   @Test
@@ -37,25 +36,29 @@ public class PythonStageTest {
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
     stage.processDocument(doc);
-    Thread.sleep(1000);
   }
 
   @Test
   public void testPythonUpdateToDocMultiThreaded() throws Exception {
     String confPath = "PythonStageTest/process_document_1.conf";
     int numThreads = 5;
-    int numDocsPerThread = 3;
+    int numDocsPerThread = 20;
     Thread[] threads = new Thread[numThreads];
-    Document[] docs = new Document[numThreads];
+    Document[][] docs = new Document[numThreads][numDocsPerThread];
     for (int i = 0; i < numThreads; i++) {
-      final int idx = i;
-      docs[i] = Document.create("doc_mt_" + idx);
-      threads[i] = new Thread(() -> {
+      for (int j = 0; j < numDocsPerThread; j++) {
+        docs[i][j] = Document.create("doc_" + i + "_" + j);
+      }
+    }
+    for (int i = 0; i < numThreads; i++) {
+      final int i2 = i;
+      threads[i2] = new Thread(() -> {
         Stage myStage = null;
         try {
           myStage = factory.get(confPath);
           for (int j = 0; j < numDocsPerThread; j++) {
-            myStage.processDocument(docs[idx]);
+            myStage.processDocument(docs[i2][j]);
+            Thread.sleep(100); // simulate a longer running operation
           }
         } catch (Exception e) {
           throw new RuntimeException(e);
@@ -77,8 +80,9 @@ public class PythonStageTest {
       t.join();
     }
     for (int i = 0; i < numThreads; i++) {
-      assertEquals("Hello from Python!", docs[i].getString("field_added_by_python"));
+      for (int j = 0; j < numDocsPerThread; j++) {
+        assertEquals("Hello from Python!", docs[i][j].getString("field_added_by_python"));
+      }
     }
-    Thread.sleep(1000);
   }
 }

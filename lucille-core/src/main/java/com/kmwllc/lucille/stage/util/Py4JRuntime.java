@@ -24,7 +24,7 @@ public final class Py4JRuntime {
   private static final Logger log = LoggerFactory.getLogger(Py4JRuntime.class);
 
   @FunctionalInterface
-  private interface PyExec {
+  private interface PythonClient {
     Object exec(String json);
   }
 
@@ -34,21 +34,20 @@ public final class Py4JRuntime {
   private final String pythonExecutable;
   private final String scriptPath;
   private final String requirementsPath;
-
-  private final Integer configuredPort;
+  private final Integer requestedPort;
   private Integer boundPort = null;
 
   private String venvPythonPath;
   private GatewayServer gateway;
-  private volatile PyExec handler;
-  private Process pythonProcess;
-  private StreamGobbler procGobbler;
+  private volatile PythonClient pythonClient;
+  private volatile Process pythonProcess;
+  private StreamConsumer pythonProcessOutputConsumer;
 
-  public Py4JRuntime(String pythonExecutable, String scriptPath, String requirementsPath, Integer configuredPort) {
+  public Py4JRuntime(String pythonExecutable, String scriptPath, String requirementsPath, Integer requestedPort) {
     this.pythonExecutable = pythonExecutable;
     this.scriptPath = scriptPath;
     this.requirementsPath = (requirementsPath != null && !requirementsPath.isBlank()) ? requirementsPath : null;
-    this.configuredPort = configuredPort;
+    this.requestedPort = requestedPort;
   }
 
   public void start() throws StageException {
@@ -63,14 +62,13 @@ public final class Py4JRuntime {
     ensurePy4JInVenv();
     installRequirementsIfNeeded();
 
-    this.boundPort = allocatePort(configuredPort);
+    this.boundPort = allocatePort(requestedPort);
     startGateway(boundPort);
     startPythonProcess(boundPort);
   }
 
   public void stop() throws StageException {
-    System.out.println("HERE");
-    handler = null;
+    pythonClient = null;
     if (gateway != null) {
       try {
         gateway.shutdown();
@@ -95,13 +93,13 @@ public final class Py4JRuntime {
     }
 
     if (boundPort != null) {
-      releasePort(boundPort);
+      unmarkPort(boundPort);
       boundPort = null;
     }
   }
 
   public boolean isReady() {
-    return handler != null && pythonProcess != null && pythonProcess.isAlive();
+    return pythonClient != null && pythonProcess != null && pythonProcess.isAlive();
   }
 
   public String exec(String requestJson) throws StageException {
@@ -110,7 +108,7 @@ public final class Py4JRuntime {
     }
 
     try {
-      Object res = handler.exec(requestJson);
+      Object res = pythonClient.exec(requestJson);
       return (res instanceof String) ? (String) res : (res == null ? null : String.valueOf(res));
     } catch (Exception e) {
       throw new StageException("Error calling Python via Py4J", e);
@@ -132,7 +130,7 @@ public final class Py4JRuntime {
       gateway.start();
       log.info("GatewayServer started on port {}", port);
     } catch (Exception e) {
-      releasePort(port);
+      unmarkPort(port);
       throw new StageException("Failed to start GatewayServer on port " + port, e);
     }
   }
@@ -161,13 +159,13 @@ public final class Py4JRuntime {
 
       pythonProcess = pb.start();
 
-      procGobbler = new StreamGobbler("Py4J-python", pythonProcess.getInputStream());
-      procGobbler.start();
+      pythonProcessOutputConsumer = new StreamConsumer(pythonProcess.getInputStream(), "Callback server port:");
+      pythonProcessOutputConsumer.start();
 
       Thread waiter = new Thread(() -> {
         try {
           int code = pythonProcess.waitFor();
-          log.warn("Python process exited with code {}", code);
+          log.info("Python process exited with code {}", code);
         } catch (InterruptedException ignored) {
           Thread.currentThread().interrupt();
         }
@@ -177,21 +175,16 @@ public final class Py4JRuntime {
 
       Thread receiver = new Thread(() -> {
         try {
-          handler = (PyExec) gateway.getPythonServerEntryPoint(new Class[] {PyExec.class });
-          log.info("Resolved Python entry point");
+          pythonClient = (PythonClient) gateway.getPythonServerEntryPoint(new Class[] {PythonClient.class });
         } catch (Exception e) {
-          try {
-            throw new StageException("Failed to resolve Python server entry point", e);
-          } catch (StageException ex) {
-            throw new RuntimeException(ex);
-          }
+          throw new RuntimeException("Failed to resolve Python server entry point", e);
         }
       }, "py4j-receiver");
       receiver.setDaemon(true);
       receiver.start();
       receiver.join();
 
-      while (!procGobbler.isStartMessageSeen()) {
+      while (!pythonProcessOutputConsumer.isMessageSeen()) {
         try {
           Thread.sleep(100);
         } catch (InterruptedException e) {
@@ -362,28 +355,28 @@ public final class Py4JRuntime {
     }
   }
 
-  private static synchronized int allocatePort(Integer configured) throws StageException {
-    if (configured != null && configured > 0) {
-      if (!isPortAvailable(configured) || !isPortAvailable(configured + 1)) {
-        throw new StageException("Requested port range " + configured + "-" + (configured + 1) + " is not available");
+  private static synchronized int allocatePort(Integer myRequestedPort) throws StageException {
+    if (myRequestedPort != null && myRequestedPort > 0) {
+      if (!isPortAvailable(myRequestedPort) || !isPortAvailable(myRequestedPort + 1)) {
+        throw new StageException("Requested port range " + myRequestedPort + "-" + (myRequestedPort + 1) + " is not available");
       }
 
-      usedPorts.add(configured);
-      usedPorts.add(configured + 1);
+      usedPorts.add(myRequestedPort);
+      usedPorts.add(myRequestedPort + 1);
 
-      return configured;
+      return myRequestedPort;
     }
 
-    int candidate = nextPort;
+    int candidatePort = nextPort;
     while (true) {
-      if (!usedPorts.contains(candidate) && !usedPorts.contains(candidate + 1)
-          && isPortAvailable(candidate) && isPortAvailable(candidate + 1)) {
-        usedPorts.add(candidate);
-        usedPorts.add(candidate + 1);
-        nextPort = candidate + 2;
-        return candidate;
+      if (!usedPorts.contains(candidatePort) && !usedPorts.contains(candidatePort + 1)
+          && isPortAvailable(candidatePort) && isPortAvailable(candidatePort + 1)) {
+        usedPorts.add(candidatePort);
+        usedPorts.add(candidatePort + 1);
+        nextPort = candidatePort + 2;
+        return candidatePort;
       }
-      candidate += 2;
+      candidatePort += 2;
     }
   }
 
@@ -395,7 +388,7 @@ public final class Py4JRuntime {
     }
   }
 
-  private static synchronized void releasePort(int port) {
+  private static synchronized void unmarkPort(int port) {
     usedPorts.remove(port);
     usedPorts.remove(port + 1);
   }

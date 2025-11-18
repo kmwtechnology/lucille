@@ -1,11 +1,9 @@
 import sys
 from py4j.java_gateway import JavaGateway, GatewayParameters, CallbackServerParameters
-import importlib.util
 import time
 import json
 import os
 import threading
-import signal
 from py4j.protocol import Py4JNetworkError
 class TeeLogger:
     def __init__(self, filename):
@@ -56,16 +54,12 @@ class Py4jClient:
         with open(self.script_path) as f:
             code = f.read()
         exec(code, globals())
-        print(f"[Py4jClient] User module loaded, starting JavaGateway...")
         try:
-            print("[Py4jClient] Attempting to connect to JavaGateway...")
             self.gateway = JavaGateway(
                 gateway_parameters=GatewayParameters(auto_convert=True, port=self.port, auto_close=True, read_timeout=5 ),
                 callback_server_parameters=CallbackServerParameters(port=self.port + 1, daemonize_connections=True),
                 python_server_entry_point=self,
             )
-            print("[Py4jClient] JavaGateway JVM:", self.gateway.jvm)
-            print("[Py4jClient] Successfully connected to JavaGateway!")
             print("[Py4jClient] Callback server port:", self.gateway.get_callback_server().get_listening_port())
             # No resetCallbackClient call needed for fixed port
         except Exception as e:
@@ -88,7 +82,6 @@ class Py4jClient:
         while self.running:
             try:
                 self.gateway.jvm.System.currentTimeMillis()
-                print("[Py4jClient] Connection alive, continuing.")
             except (Py4JNetworkError, EOFError, OSError) as e:
                 print(f"[Py4jClient] Lost connection to Java: {e}, exiting.")
                 self.stop()
