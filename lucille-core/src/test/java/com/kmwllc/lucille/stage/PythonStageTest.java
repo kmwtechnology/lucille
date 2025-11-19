@@ -89,4 +89,15 @@ public class PythonStageTest {
 
     assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
   }
+
+  @Test
+  public void testRequirementsInstallAndUsage() throws Exception {
+    String confPath = "PythonStageTest/numpy_example.conf";
+    stage = factory.get(confPath);
+    Document doc = Document.create("doc1");
+
+    stage.processDocument(doc);
+
+    assertEquals(6, doc.getInt("field_added_by_python").intValue());
+  }
 }
