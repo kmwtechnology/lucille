@@ -1,4 +1,5 @@
 import numpy as np
+import json
 
 def process_document(doc):
   arr = np.array([1, 2, 3, 4], dtype=int)

@@ -98,6 +98,6 @@ public class PythonStageTest {
 
     stage.processDocument(doc);
 
-    assertEquals(6, doc.getInt("field_added_by_python").intValue());
+    assertEquals(10, doc.getInt("field_added_by_python").intValue());
   }
 }
