@@ -16,12 +16,30 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Delegates document processing to a user-provided Python script via a Py4JRuntime. The stage sends each
+ * Document to a python function, waits for a JSON response, and applies any returned field updates to the
+ * document.
+ * <p>
+ * Config Parameters:
+ * <ul>
+ *   <li>scriptPath (String, Required) : Path to the python script that contains the processing function.</li>
+ *   <li>pythonExecutable (String, Optional) : Path of the base Python executable used to create and manage
+ *   the virtual environment. Defaults to python3.</li>
+ *   <li>requirementsPath (String, Optional) : Path to a requirements.txt file whose dependencies will be
+ *   installed into the managed virtual environment before the Python script is started.</li>
+ *   <li>functionName (String, Optional) : Name of the Python function to call for each document. Defaults to
+ *   process_document.</li>
+ *   <li>port (Integer, Optional) : Explicit base port to use for the Py4J gateway. If omitted, a free port
+ *   pair is automatically selected starting from the default range.</li>
+ * </ul>
+ */
 public final class PythonStage extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("scriptPath")
       .optionalString("pythonExecutable", "functionName", "port", "requirementsPath")
-      .optionalNumber("port", "timeoutMs")
+      .optionalNumber("port")
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(PythonStage.class);
@@ -31,7 +49,6 @@ public final class PythonStage extends Stage {
   private final String requirementsPath;
   private final String functionName;
   private final Integer port;
-  private final int readinessTimeoutMs;
   private Py4JRuntime runtime;
   private final ObjectMapper mapper = new ObjectMapper();
 
@@ -43,7 +60,6 @@ public final class PythonStage extends Stage {
     this.requirementsPath = config.hasPath("requirementsPath") ? config.getString("requirementsPath") : null;
     this.functionName = config.hasPath("functionName") ? config.getString("functionName") : "process_document";
     this.port = config.hasPath("port") ? config.getInt("port") : null;
-    this.readinessTimeoutMs = config.hasPath("timeoutMs") ? config.getInt("timeoutMs") : 5000;
   }
 
   @Override
