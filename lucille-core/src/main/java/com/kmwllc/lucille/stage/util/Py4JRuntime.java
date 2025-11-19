@@ -145,7 +145,10 @@ public final class Py4JRuntime {
 
       synchronized (Py4JRuntime.class) {
         if (!Files.exists(clientPath)) {
+          log.info("Copying python client script to: " + clientPath);
           Files.copy(in, clientPath, StandardCopyOption.REPLACE_EXISTING);
+        } else {
+          log.warn("Found python client script at " + clientPath + ". Keeping current version.");
         }
       }
 
