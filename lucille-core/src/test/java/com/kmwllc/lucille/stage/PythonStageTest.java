@@ -31,14 +31,6 @@ public class PythonStageTest {
   }
 
   @Test
-  public void testBasicPythonPrint() throws Exception {
-    String confPath = "PythonStageTest/print_time.conf";
-    stage = factory.get(confPath);
-    Document doc = Document.create("doc1");
-    stage.processDocument(doc);
-  }
-
-  @Test
   public void testPythonUpdateToDocMultiThreaded() throws Exception {
     String confPath = "PythonStageTest/copy_doc_id.conf";
     int numThreads = 5;
@@ -85,5 +77,16 @@ public class PythonStageTest {
         assertEquals("doc_" + i + "_" + j, docs[i][j].getString("field_added_by_python"));
       }
     }
+  }
+
+  @Test
+  public void testCustomFunctionName() throws Exception {
+    String confPath = "PythonStageTest/custom_method.conf";
+    stage = factory.get(confPath);
+    Document doc = Document.create("doc1");
+
+    stage.processDocument(doc);
+
+    assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
   }
 }
