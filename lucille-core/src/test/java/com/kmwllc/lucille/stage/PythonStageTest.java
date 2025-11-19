@@ -2,6 +2,8 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.After;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -80,6 +82,19 @@ public class PythonStageTest {
   }
 
   @Test
+  public void testNoReturn() throws Exception {
+    String confPath = "PythonStageTest/no_return.conf";
+    stage = factory.get(confPath);
+    Document doc = Document.create("doc1");
+
+    Set<String> beforeFields = new HashSet<>(doc.getFieldNames());
+    stage.processDocument(doc);
+    Set<String> afterFields = new HashSet<>(doc.getFieldNames());
+
+    assertEquals(beforeFields, afterFields);
+  }
+
+  @Test
   public void testCustomFunctionName() throws Exception {
     String confPath = "PythonStageTest/custom_method.conf";
     stage = factory.get(confPath);
@@ -91,8 +106,19 @@ public class PythonStageTest {
   }
 
   @Test
+  public void testCustomPort() throws Exception {
+    String confPath = "PythonStageTest/custom_port.conf";
+    stage = factory.get(confPath);
+    Document doc = Document.create("doc1");
+
+    stage.processDocument(doc);
+
+    assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
+  }
+
+  @Test
   public void testRequirementsInstallAndUsage() throws Exception {
-    String confPath = "PythonStageTest/numpy_example.conf";
+    String confPath = "PythonStageTest/numpy.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
 
