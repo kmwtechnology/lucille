@@ -61,3 +61,6 @@ DetectLanguage/profiles
 
 # VSCode
 .vscode
+
+# Python script copied from resources to current working directory when initializing PythonStage
+Py4jClientCopy.py

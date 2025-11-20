@@ -22,7 +22,9 @@ import java.util.Set;
 public final class Py4JRuntime {
 
   private static final Logger log = LoggerFactory.getLogger(Py4JRuntime.class);
-  public static final String PYTHON_CLIENT_NAME = "Py4jClient.py";
+
+  public static final String PYTHON_CLIENT_RESOURCE_NAME = "Py4jClient.py";
+  public static final String PYTHON_CLIENT_COPY_NAME = "Py4jClientCopy.py";
 
   /**
    * Defines methods that can be called on the python client via Py4J.
@@ -154,9 +156,9 @@ public final class Py4JRuntime {
   }
 
   private void startPythonProcess(int port) throws StageException {
-    try (InputStream in = Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(PYTHON_CLIENT_NAME),
-        PYTHON_CLIENT_NAME + "not found on classpath resources")) {
-      Path clientPath = Paths.get(PYTHON_CLIENT_NAME).toAbsolutePath();
+    try (InputStream in = Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(PYTHON_CLIENT_RESOURCE_NAME),
+        PYTHON_CLIENT_RESOURCE_NAME + "not found on classpath resources")) {
+      Path clientPath = Paths.get(PYTHON_CLIENT_COPY_NAME).toAbsolutePath();
 
       synchronized (Py4JRuntime.class) {
         if (!Files.exists(clientPath)) {
