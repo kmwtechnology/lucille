@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage.util;
 
 import com.kmwllc.lucille.core.StageException;
+import java.util.Objects;
 
 public final class Py4JRuntimeManager {
 
@@ -21,6 +22,13 @@ public final class Py4JRuntimeManager {
     if (runtime == null) {
       runtime = new Py4JRuntime(pythonExecutable, scriptPath, requirementsPath, port);
       runtime.start();
+    } else {
+      if (!(Objects.equals(pythonExecutable, runtime.getPythonExecutable()) && Objects.equals(scriptPath, runtime.getScriptPath()) &&
+      Objects.equals(requirementsPath, runtime.getRequirementsPath()) && Objects.equals(port, runtime.getRequestedPort()))) {
+        throw new StageException("Illegal attempt to acquire Py4JRuntime with different parameters from the initialized instance.\n" +
+            "Provided Params: " + pythonExecutable + " " + scriptPath + " " + requirementsPath + " " + port + " \n" +
+            "Original Params: " + runtime.getPythonExecutable() + " " + runtime.getScriptPath() + " " + runtime.getRequirementsPath() + " " + runtime.getRequestedPort());
+      }
     }
 
     refCount++;

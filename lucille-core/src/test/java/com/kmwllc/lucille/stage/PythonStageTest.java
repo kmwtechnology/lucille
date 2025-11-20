@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.After;
@@ -29,7 +30,7 @@ public class PythonStageTest {
     stage.processDocument(doc);
     stage.processDocument(doc);
     stage.processDocument(doc);
-    assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
+    assertEquals("Hello from process_document_1.py", doc.getString("field_added_by_python"));
   }
 
   @Test
@@ -102,7 +103,7 @@ public class PythonStageTest {
 
     stage.processDocument(doc);
 
-    assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
+    assertEquals("Hello from custom_method.py (method 1)", doc.getString("field_added_by_python"));
   }
 
   @Test
@@ -113,7 +114,7 @@ public class PythonStageTest {
 
     stage.processDocument(doc);
 
-    assertEquals("Hello from Python!", doc.getString("field_added_by_python"));
+    assertEquals("Hello from custom_port.py", doc.getString("field_added_by_python"));
   }
 
   @Test
@@ -125,5 +126,49 @@ public class PythonStageTest {
     stage.processDocument(doc);
 
     assertEquals(10, doc.getInt("field_added_by_python").intValue());
+  }
+
+  @Test
+  public void testConflictingConfigs() throws Exception {
+    // We can initialize two PythonStage instances that use the same config,
+    // therefore passing the same parameters to Py4JRuntimeManager.acquire()
+    Stage stage1 = factory.get("PythonStageTest/process_document_1.conf");
+    Stage stage2 = factory.get("PythonStageTest/process_document_1.conf");
+
+    // An exception should be thrown if we attempt to initialize a PythonStage instance
+    // that results in different parameters being passed to Py4jRuntimeManager.acquire()
+    assertThrows(StageException.class, () -> factory.get("PythonStageTest/copy_doc_id.conf"));
+
+    stage1.stop();
+    assertThrows(StageException.class, () -> factory.get("PythonStageTest/copy_doc_id.conf"));
+    stage2.stop();
+
+    // Once we have stopped all existing PythonStage instances we should be able to
+    // create a new instance with a different config
+    Stage stage3 = factory.get("PythonStageTest/copy_doc_id.conf");
+    stage3.stop();
+  }
+
+  @Test
+  public void testCompatibleConfigs() throws Exception {
+
+    // We can start two PythonStage instances that use different configs
+    // but have the same pythonExecutable, scriptPath, requirementsPath, and port;
+    // in this case the difference in the configs is the value of "functionName";
+    // this scenario works because both functions are available in the same python script
+    // at the same scriptPath
+
+    Stage stage1 = factory.get("PythonStageTest/custom_method.conf");
+    Stage stage2 = factory.get("PythonStageTest/custom_method2.conf");
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+
+    stage1.processDocument(doc1);
+    stage2.processDocument(doc2);
+
+    assertEquals("Hello from custom_method.py (method 1)", doc1.getString("field_added_by_python"));
+    assertEquals("Hello from custom_method.py (method 2)", doc2.getString("field_added_by_python"));
+    stage1.stop();
+    stage2.stop();
   }
 }

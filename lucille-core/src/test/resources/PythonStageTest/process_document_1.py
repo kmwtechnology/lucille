@@ -1,7 +1,5 @@
 import json
 
 def process_document(doc):
-    print(f"Processing document: {doc}")
-    doc['field_added_by_python'] = "Hello from Python!"
-    print(f"Returning processed document: {doc}")
+    doc['field_added_by_python'] = "Hello from process_document_1.py"
     return json.dumps(doc)

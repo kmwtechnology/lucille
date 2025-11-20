@@ -50,8 +50,24 @@ public final class Py4JRuntime {
   public Py4JRuntime(String pythonExecutable, String scriptPath, String requirementsPath, Integer requestedPort) {
     this.pythonExecutable = pythonExecutable;
     this.scriptPath = scriptPath;
-    this.requirementsPath = (requirementsPath != null && !requirementsPath.isBlank()) ? requirementsPath : null;
+    this.requirementsPath = requirementsPath;
     this.requestedPort = requestedPort;
+  }
+
+  public String getPythonExecutable() {
+    return pythonExecutable;
+  }
+
+  public String getScriptPath() {
+    return scriptPath;
+  }
+
+  public String getRequirementsPath() {
+    return requirementsPath;
+  }
+
+  public Integer getRequestedPort() {
+    return requestedPort;
   }
 
   public void start() throws StageException {
@@ -119,7 +135,7 @@ public final class Py4JRuntime {
     }
   }
 
-  private GatewayServer startGateway(int port) throws StageException {
+  private static GatewayServer startGateway(int port) throws StageException {
     try {
       GatewayServer gateway = new GatewayServer(
         null,
@@ -133,7 +149,6 @@ public final class Py4JRuntime {
       gateway.start();
       return gateway;
     } catch (Exception e) {
-      unmarkPort(port);
       throw new StageException("Failed to start GatewayServer on port " + port, e);
     }
   }
