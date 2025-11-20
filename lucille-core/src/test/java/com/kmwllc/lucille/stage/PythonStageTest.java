@@ -87,6 +87,8 @@ public class PythonStageTest {
     String confPath = "PythonStageTest/no_return.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
+    doc.setField("field1", "field1val");
+    doc.setField("field2", "field2val");
 
     Set<String> beforeFields = new HashSet<>(doc.getFieldNames());
     stage.processDocument(doc);
@@ -170,5 +172,30 @@ public class PythonStageTest {
     assertEquals("Hello from custom_method.py (method 2)", doc2.getString("field_added_by_python"));
     stage1.stop();
     stage2.stop();
+  }
+
+  @Test
+  public void testDocWithNestedJson() throws Exception {
+    String confPath = "PythonStageTest/process_document_1.conf";
+    stage = factory.get(confPath);
+    String json = "{\"id\":\"doc1\", \"field1\": {\"field2\": [1, 2, 3], \"field4\": false, \"field5\": {\"field6\": true}}}";
+    Document doc = Document.createFromJson(json);
+    stage.processDocument(doc);
+    assertEquals("Hello from process_document_1.py", doc.getString("field_added_by_python"));
+    doc.removeField("field_added_by_python");
+    assertEquals(Document.createFromJson(json), doc);
+  }
+
+  @Test
+  public void testRemoveField() throws Exception {
+    String confPath = "PythonStageTest/remove_field.conf";
+    stage = factory.get(confPath);
+    Document doc = Document.create("doc1");
+    doc.setField("field1", "field1Value");
+    doc.setField("field2", "field2Value");
+    stage.processDocument(doc);
+    assertTrue(doc.has("field1"));
+    assertEquals("field1Value", doc.getString("field1"));
+    assertFalse(doc.has("field2"));
   }
 }

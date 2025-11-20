@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -11,8 +13,10 @@ import com.kmwllc.lucille.stage.util.Py4JRuntimeManager;
 import com.typesafe.config.Config;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.collections4.IteratorUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,12 +86,29 @@ public final class PythonStage extends Stage {
       String responseJson = runtime.exec(requestJson);
 
       if (responseJson != null && !responseJson.isEmpty()) {
-        Map<String, Object> updatedFields = mapper.readValue(responseJson, Map.class);
+        JsonNode node = mapper.readTree(responseJson);
 
-        Set<String> reserved = Document.RESERVED_FIELDS;
-        for (Map.Entry<String, Object> e : updatedFields.entrySet()) {
-          if (!reserved.contains(e.getKey())) {
-            doc.setField(e.getKey(), e.getValue());
+        // update doc with fields from response
+        List<String> responseFieldNames = IteratorUtils.toList(node.fieldNames());
+        for (String fieldName : responseFieldNames) {
+          if (Document.RESERVED_FIELDS.contains(fieldName)) {
+            continue;
+          }
+          JsonNode value = node.get(fieldName);
+          if (value.isValueNode()) {
+            doc.setField(fieldName, value);
+          } else {
+            doc.setNestedJson(fieldName, value);
+          }
+        }
+
+        // remove fields not present in response
+        for (String fieldName : doc.getFieldNames()) {
+          if (Document.RESERVED_FIELDS.contains(fieldName)) {
+            continue;
+          }
+          if (!responseFieldNames.contains(fieldName)) {
+            doc.removeField(fieldName);
           }
         }
       }
