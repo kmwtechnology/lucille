@@ -418,6 +418,13 @@
        <version>24.2.2</version>
        <type>pom</type>
     </dependency>
+
+    <!-- PythonStage -->
+    <dependency>
+      <groupId>net.sf.py4j</groupId>
+      <artifactId>py4j</artifactId>
+      <version>0.10.9.9</version>
+    </dependency>
   </dependencies>
 
   <build>
