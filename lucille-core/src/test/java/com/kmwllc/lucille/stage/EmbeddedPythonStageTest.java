@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -43,14 +45,19 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testRuntimeError() throws StageException {
-    Stage stage = stageWithInline("raise RuntimeError('Failure')\n");
+    Stage stage = stageWithInline("""
+    raise RuntimeError('Failure')
+    """);
     Document doc = Document.create("d");
     assertThrows(StageException.class, () -> stage.processDocument(doc));
   }
 
   @Test
   public void testCompileError() throws StageException {
-    Stage stage = stageWithInline("def bad(:\n    pass\n");
+    Stage stage = stageWithInline("""
+    def bad(:
+    pass
+    """);
     Document doc = Document.create("bad");
     assertThrows(StageException.class, () -> stage.processDocument(doc));
   }
@@ -64,9 +71,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testPropertyCopy() throws StageException {
-    Stage stage = stageWithInline(
-        "doc.f1 = doc.f2\n"
-    );
+    Stage stage = stageWithInline("""
+    doc.f1 = doc.f2
+    """);
 
     Document d = Document.create("d");
     d.setField("f2", "hello");
@@ -77,10 +84,10 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testNumbersIntAndDouble() throws StageException {
-    Stage stage = stageWithInline(
-        "doc.count = doc.count + 1\n" +
-            "doc.pi = doc.pi + 0.14\n"
-    );
+    Stage stage = stageWithInline("""
+    doc.count = doc.count + 1
+    doc.pi = doc.pi + 0.14
+    """);
 
     Document d = Document.create("d");
     d.setField("count", 1);
@@ -93,9 +100,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testSetArrayFromPython() throws StageException {
-    Stage stage = stageWithInline(
-        "doc.tags = ['a', 'b', 'c']\n"
-    );
+    Stage stage = stageWithInline("""
+    doc.tags = ['a', 'b', 'c']
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -105,9 +112,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testCopyMultiValuedField() throws StageException {
-    Stage stage = stageWithInline(
-        "doc.tags2 = doc.tags\n"
-    );
+    Stage stage = stageWithInline("""
+    doc.tags2 = doc.tags
+    """);
 
     Document d = Document.create("d");
     d.update("tags", UpdateMode.OVERWRITE, "x", "y");
@@ -118,10 +125,10 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testMissingFieldReadsAsNone() throws StageException {
-    Stage stage = stageWithInline(
-        "if getattr(doc, 'missing', None) is None:\n" +
-            "    doc.present = 'ok'\n"
-    );
+    Stage stage = stageWithInline("""
+    if getattr(doc, 'missing', None) is None:
+        doc.present = 'ok'
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -131,9 +138,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testAssignNoneStoresJsonNull() throws StageException {
-    Stage stage = stageWithInline(
-        "doc.f = None\n"
-    );
+    Stage stage = stageWithInline("""
+    doc.f = None
+    """);
 
     Document d = Document.create("d");
     d.setField("f", "before");
@@ -146,9 +153,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testDeleteRemoveFields() throws StageException {
-    Stage stage = stageWithInline(
-        "del doc.gone\n"
-    );
+    Stage stage = stageWithInline("""
+    del doc.gone
+    """);
 
     Document d = Document.create("d");
     d.setField("gone", "x");
@@ -159,12 +166,12 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testDeleteMissingFields() throws StageException {
-    Stage stage = stageWithInline(
-        "try:\n" +
-            "    del doc.gone\n" +
-            "except AttributeError:\n" +
-            "    pass\n"
-    );
+    Stage stage = stageWithInline("""
+    try:
+        del doc.gone
+    except AttributeError:
+        pass
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -174,9 +181,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testRawDocSetFieldWritesToDoc() throws StageException {
-    Stage stage = stageWithInline(
-        "rawDoc.setField('x', 'ok')\n"
-    );
+    Stage stage = stageWithInline("""
+    rawDoc.setField('x', 'ok')
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -186,11 +193,11 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testRawDocUpdateOverwriteMultivalued() throws StageException {
-    Stage stage = stageWithInline(
-        "from java import type as jtype\n" +
-            "UpdateMode = jtype('com.kmwllc.lucille.core.UpdateMode')\n" +
-            "rawDoc.update('tags', UpdateMode.OVERWRITE, 'a', 'b', 'c')\n"
-    );
+    Stage stage = stageWithInline("""
+    from java import type as jtype
+    UpdateMode = jtype('com.kmwllc.lucille.core.UpdateMode')
+    rawDoc.update('tags', UpdateMode.OVERWRITE, 'a', 'b', 'c')
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -200,9 +207,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testRawDocRemoveField() throws StageException {
-    Stage stage = stageWithInline(
-        "rawDoc.removeField('gone')\n"
-    );
+    Stage stage = stageWithInline("""
+    rawDoc.removeField('gone')
+    """);
 
     Document d = Document.create("d");
     d.setField("gone", "x");
@@ -213,9 +220,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testRawDocRemoveChildren() throws StageException {
-    Stage stage = stageWithInline(
-        "rawDoc.removeChildren()\n"
-    );
+    Stage stage = stageWithInline("""
+    rawDoc.removeChildren()
+    """);
 
     Document d = Document.create("parent");
     d.addChild(Document.create("child1"));
@@ -228,9 +235,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testNestedWriteWithoutParentRaises() throws StageException {
-    Stage stage = stageWithInline(
-        "doc.a.b = 100\n"
-    ); // a does not exist
+    Stage stage = stageWithInline("""
+    doc.a.b = 100
+    """); // a does not exist
 
     Document d = Document.create("d");
     assertThrows(StageException.class, () -> stage.processDocument(d));
@@ -238,10 +245,10 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testNestedWriteWithParentInitialization() throws StageException {
-    Stage stage = stageWithInline(
-            "doc.a = {}\n" +
-            "doc.a.b = 100\n"
-    );
+    Stage stage = stageWithInline("""
+    doc.a = {}
+    doc.a.b = 100
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -255,11 +262,11 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testAssignNestedNoneStoresJsonNull() throws StageException {
-    Stage stage = stageWithInline(
-        "if not hasattr(doc, 'meta'):\n" +
-            "    doc.meta = {}\n" +
-            "doc.meta.flag = None\n"
-    );
+    Stage stage = stageWithInline("""
+    if not hasattr(doc, 'meta'):
+        doc.meta = {}
+    doc.meta.flag = None
+    """);
 
     Document d = Document.create("d");
     d.setNestedJson("meta.x", TextNode.valueOf("existing"));
@@ -274,13 +281,13 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testDeleteNestedFieldKeepsSiblings() throws StageException {
-    Stage stage = stageWithInline(
-        "if not hasattr(doc, 'a'):\n" +
-            "    doc.a = {}\n" +
-            "doc.a.b = 5\n" +
-            "doc.a.c = 'keep'\n" +
-            "del doc.a.b\n"
-    );
+    Stage stage = stageWithInline("""
+    if not hasattr(doc, 'a'):
+        doc.a = {}
+    doc.a.b = 5
+    doc.a.c = 'keep'
+    del doc.a.b
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -293,12 +300,12 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testDeleteNestedArrayIndex() throws StageException {
-    Stage stage = stageWithInline(
-        "if not hasattr(doc, 'a'):\n" +
-            "    doc.a = {}\n" +
-            "doc.a.list = [10, 20, 30]\n" +
-            "del doc.a.list[1]\n"
-    );
+    Stage stage = stageWithInline("""
+    if not hasattr(doc, 'a'):
+        doc.a = {}
+    doc.a.list = [10, 20, 30]
+    del doc.a.list[1]
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -313,11 +320,11 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testSetNestedArrayFromPython() throws StageException {
-    Stage stage = stageWithInline(
-        "if not hasattr(doc, 'payload'):\n" +
-            "    doc.payload = {}\n" +
-            "doc.payload.items = ['a', 'b', 'c']\n"
-    );
+    Stage stage = stageWithInline("""
+    if not hasattr(doc, 'payload'):
+        doc.payload = {}
+    doc.payload.items = ['a', 'b', 'c']
+    """);
     Document d = Document.create("d");
     stage.processDocument(d);
 
@@ -330,14 +337,13 @@ public class EmbeddedPythonStageTest {
     assertEquals("c", arr.get(2).asText());
   }
 
-  // Dicts are currently broken
   @Test
   public void testSetNestedObjectFromPython() throws StageException {
-    Stage stage = stageWithInline(
-        "if not hasattr(doc, 'a'):\n" +
-            "    doc.a = {}\n" +
-            "doc.a.meta = { 'build': 42, 'ok': True, 'tags': ['x','y'] }\n"
-    );
+    Stage stage = stageWithInline("""
+    if not hasattr(doc, 'a'):
+        doc.a = {}
+    doc.a.meta = { 'build': 42, 'ok': True, 'tags': ['x','y'] }
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -353,15 +359,15 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testDeleteNestedMissingField() throws StageException {
-    Stage stage = stageWithInline(
-        "if not hasattr(doc, 'meta'):\n" +
-            "    doc.meta = {}\n" +
-            "doc.meta.x = 'existing'\n" +
-            "try:\n" +
-            "    del doc.meta.missing\n" +
-            "except AttributeError:\n" +
-            "    pass\n"
-    );
+    Stage stage = stageWithInline("""
+    if not hasattr(doc, 'meta'):
+        doc.meta = {}
+    doc.meta.x = 'existing'
+    try:
+        del doc.meta.missing
+    except AttributeError:
+        pass
+    """);
 
     Document d = Document.create("d");
     stage.processDocument(d);
@@ -372,14 +378,14 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testCreateNestedPath() throws StageException {
-    Stage stage = stageWithInline(
-        "doc.val1 = ['x','y','z'][1]\n" +
-            "doc.a = {}\n" +
-            "doc.a.b = {}\n" +
-            "doc.a.b.c = {}\n" +
-            "doc.a.b.c.d = doc.val1\n" +
-            "del doc.val1\n"
-    );
+    Stage stage = stageWithInline("""
+    doc.val1 = ['x','y','z'][1]
+    doc.a = {}
+    doc.a.b = {}
+    doc.a.b.c = {}
+    doc.a.b.c.d = doc.val1
+    del doc.val1
+    """);
 
     Document d = Document.create("doc1");
     stage.processDocument(d);
@@ -389,12 +395,12 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testCreateNestedPath2() throws StageException {
-    Stage stage = stageWithInline(
-        "if not hasattr(doc, 'a'):\n" +
-            "    doc.a = {}\n" +
-            "doc.a.b = [{},{},{},{},{'c':[{}, {}, {}, {'d':{'e':{'f':[0,1,2,3,4,5,6,7,8,9,10]}}}]}]\n" +
-            "doc.a.b[4].c[3].d.e.f[10] = 200\n"
-    );
+    Stage stage = stageWithInline("""
+    if not hasattr(doc, 'a'):
+        doc.a = {}
+    doc.a.b = [{},{},{},{},{'c':[{}, {}, {}, {'d':{'e':{'f':[0,1,2,3,4,5,6,7,8,9,10]}}}]}]
+    doc.a.b[4].c[3].d.e.f[10] = 200
+    """);
 
     Document d = Document.create("doc1");
     stage.processDocument(d);
@@ -404,9 +410,9 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testCreateNestedArrays() throws StageException {
-    Stage stage = stageWithInline(
-        "doc.a = [10,20,[30,40,[50,60,[70]]]]\n"
-    );
+    Stage stage = stageWithInline("""
+    doc.a = [10,20,[30,40,[50,60,[70]]]]
+    """);
 
     Document d = Document.create("doc1");
     stage.processDocument(d);
@@ -423,17 +429,162 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testCreateNestedPathConvenientSyntax() throws StageException {
-    Stage stage = stageWithInline(
-        "doc.val1 = ['x','y','z'][1]\n" +
-            "doc.a.b.c.d = doc.val1\n" +
-            "del doc.val1\n"
-    ); // parents not auto created
+    Stage stage = stageWithInline("""
+    doc.val1 = ['x','y','z'][1]
+    doc.a.b.c.d = doc.val1
+    del doc.val1
+    """); // parents not auto created
 
     Document d = Document.create("doc1");
     assertThrows(StageException.class, () -> stage.processDocument(d));
     assertNull(d.getNestedJson("a.b.c.d"));
   }
+
+  @Test
+  public void testDictionaryGetAndCopy() throws StageException {
+    Stage stage = stageWithInline("""
+    doc["copy"] = doc["field1"]
+    """);
+
+    Document d = Document.create("d");
+    d.setField("field1", 42);
+    stage.processDocument(d);
+
+    assertEquals(42, d.getInt("copy").intValue());
+  }
+
+  @Test
+  public void testDictionarySetRootField() throws StageException {
+    Stage stage = stageWithInline("""
+    doc["field1"] = 123
+    """);
+
+    Document d = Document.create("d");
+    stage.processDocument(d);
+
+    assertEquals(123, d.getInt("field1").intValue());
+  }
+
+  @Test
+  public void testDictionaryOverwriteRootField() throws StageException {
+    Stage stage = stageWithInline("""
+    doc["field1"] = 456
+    """);
+
+    Document d = Document.create("d");
+    d.setField("field1", 123);
+    stage.processDocument(d);
+
+    assertEquals(456, d.getInt("field1").intValue());
+  }
+
+  @Test
+  public void testDictionarySetNestedObjectAtRoot() throws StageException {
+    Stage stage = stageWithInline("""
+    doc["nested"] = {"a": 1, "b": {"c": 2}}
+    """);
+
+    Document d = Document.create("d");
+    stage.processDocument(d);
+
+    JsonNode nested = d.getJson("nested");
+    assertNotNull(nested);
+    assertTrue(nested.isObject());
+    assertEquals(1, nested.get("a").asInt());
+    assertTrue(nested.get("b").isObject());
+    assertEquals(2, nested.get("b").get("c").asInt());
+  }
+
+  @Test
+  public void testDictionaryMutatePreExistingNestedObject() throws StageException {
+    Stage stage = stageWithInline("""
+    doc["nested"]["b"]["c"] = 99
+    """);
+
+    Document d = Document.create("d");
+    ObjectNode nested = JsonNodeFactory.instance.objectNode();
+    nested.put("a", 1);
+    ObjectNode b = JsonNodeFactory.instance.objectNode();
+    b.put("c", 2);
+    nested.set("b", b);
+    d.setField("nested", nested);
+
+    stage.processDocument(d);
+
+    JsonNode after = d.getJson("nested");
+    assertNotNull(after);
+    assertEquals(99, after.get("b").get("c").asInt());
+  }
+
+  @Test
+  public void testDictionarySetArrayAndMutate() throws StageException {
+    Stage stage = stageWithInline("""
+    doc["arr"] = [1, 2, 3]
+    doc["arr"][0] = 42
+    """);
+
+    Document d = Document.create("d");
+    stage.processDocument(d);
+
+    JsonNode arr = d.getJson("arr");
+    assertNotNull(arr);
+    assertTrue(arr.isArray());
+    assertEquals(3, arr.size());
+    assertEquals(42, arr.get(0).asInt());
+    assertEquals(2, arr.get(1).asInt());
+    assertEquals(3, arr.get(2).asInt());
+  }
+
+  @Test
+  public void testDictionaryDeleteRootField() throws StageException {
+    Stage stage = stageWithInline("""
+    doc["field1"] = 123
+    del doc["field1"]
+    """);
+
+    Document d = Document.create("d");
+    stage.processDocument(d);
+
+    assertFalse(d.has("field1"));
+  }
+
+  @Test
+  public void testDictionaryKeysIteration() throws StageException {
+    Stage stage = stageWithInline("""
+    keys = sorted(list(doc.keys()))
+    doc["collected_keys"] = keys
+    """);
+
+    Document d = Document.create("d");
+    d.setField("a", 1);
+    d.setField("b", 2);
+    stage.processDocument(d);
+
+    JsonNode keys = d.getJson("collected_keys");
+    assertNotNull(keys);
+    assertTrue(keys.isArray());
+    assertEquals(3, keys.size());
+    assertEquals("a", keys.get(0).asText());
+    assertEquals("b", keys.get(1).asText());
+  }
+
+  @Test
+  public void testDictionaryItemsIterationEcho() throws StageException {
+    Stage stage = stageWithInline("""
+    items = {k: v for (k, v) in doc.items()}
+    doc["echo_items"] = items
+    """);
+
+    Document d = Document.create("d");
+    d.setField("x", 10);
+    d.setField("y", 20);
+
+    stage.processDocument(d);
+
+    JsonNode echo = d.getJson("echo_items");
+    assertNotNull(echo);
+    assertTrue(echo.isObject());
+    assertEquals(10, echo.get("x").asInt());
+    assertEquals(20, echo.get("y").asInt());
+  }
 }
-
-
-

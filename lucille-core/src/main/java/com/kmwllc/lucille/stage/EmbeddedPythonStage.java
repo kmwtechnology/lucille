@@ -13,6 +13,8 @@ import com.typesafe.config.Config;
 import org.graalvm.polyglot.*;
 import org.graalvm.polyglot.proxy.ProxyArray;
 import org.graalvm.polyglot.proxy.ProxyObject;
+import org.graalvm.polyglot.proxy.ProxyHashMap;
+import org.graalvm.polyglot.proxy.ProxyIterator;
 
 import java.io.Reader;
 import java.util.*;
@@ -117,7 +119,7 @@ public class EmbeddedPythonStage extends Stage {
 
   // Proxy implementation exposed to Python
 
-  private static final class PyDocProxy implements ProxyObject {
+  private static final class PyDocProxy implements ProxyObject, ProxyHashMap {
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
     private final Document doc;
@@ -343,6 +345,75 @@ public class EmbeddedPythonStage extends Stage {
       }
 
       return ProxyArray.fromArray(new String[0]);
+    }
+
+    @Override
+    public long getHashSize() {
+      if (isRoot()) {
+        return doc.getFieldNames().size();
+      }
+
+      JsonNode node = doc.getNestedJson(segments);
+      if (node == null || node.isNull()) {
+        return 0;
+      }
+
+      if (node.isObject() || node.isArray()) {
+        return node.size();
+      }
+
+      return 0;
+    }
+
+    @Override
+    public boolean hasHashEntry(Value key) {
+      String k = keyToString(key);
+      return hasMember(k);
+    }
+
+    @Override
+    public Object getHashValue(Value key) {
+      String k = keyToString(key);
+      return getMember(k);
+    }
+
+    @Override
+    public void putHashEntry(Value key, Value value) {
+      String k = keyToString(key);
+      putMember(k, value);
+    }
+
+    @Override
+    public boolean removeHashEntry(Value key) {
+      String k = keyToString(key);
+      return removeMember(k);
+    }
+
+    @Override
+    public Object getHashEntriesIterator() {
+      List<String> keys = new ArrayList<>();
+
+      if (isRoot()) {
+        keys.addAll(doc.getFieldNames());
+      } else {
+        JsonNode node = doc.getNestedJson(segments);
+        if (node != null && !node.isNull()) {
+          if (node.isObject()) {
+            node.fieldNames().forEachRemaining(keys::add);
+          } else if (node.isArray()) {
+            for (int i = 0; i < node.size(); i++) {
+              keys.add(Integer.toString(i));
+            }
+          }
+        }
+      }
+
+      List<Object> entries = new ArrayList<>(keys.size());
+      for (String k : keys) {
+        entries.add(ProxyArray.fromArray(k, getMember(k)));
+      }
+
+      return ProxyIterator.from(entries.iterator());
     }
 
     // Typing conversions
