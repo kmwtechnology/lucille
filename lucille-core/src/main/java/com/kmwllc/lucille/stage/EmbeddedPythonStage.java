@@ -17,7 +17,7 @@ import org.graalvm.polyglot.proxy.ProxyObject;
 import java.io.Reader;
 import java.util.*;
 
-public class ApplyPython extends Stage {
+public class EmbeddedPythonStage extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("script_path", "script")
@@ -32,7 +32,7 @@ public class ApplyPython extends Stage {
   private Context context;
   private Engine engine;
 
-  public ApplyPython(Config config) {
+  public EmbeddedPythonStage(Config config) {
     super(config);
     this.scriptPath = config.hasPath("script_path") ? config.getString("script_path") : null;
     this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
