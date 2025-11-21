@@ -24,24 +24,37 @@ class Py4jClient:
         self.port = port
         self.gateway = None
         self.running = False
-        self.user_module = None
 
     def exec(self, json_msg):
         #print(f"[Py4jClient] exec called with json_msg: {json_msg}")
         msg = json.loads(json_msg)
         #print(f"[Py4jClient] Executing msg: {msg}")
-        if msg.get("data") is None or msg.get("data") == []:
-            return globals()[msg.get("method")]()
+        method_name = msg.get("method")
+
+        if not method_name:
+          raise ValueError("Missing method in message")
+
+        func = globals().get(method_name)
+        if func is None or not callable(func):
+          raise AttributeError(f"Requested method {method_name} not found or not callable")
+
+        data = msg.get("data")
+        if data is None or data == []:
+          result = func()
         else:
-            return globals()[msg.get("method")](msg.get("data"))
+          result = func(data)
 
-    def write(self, string):
-        #print(f"[Py4jClient] write called with string: {string}")
-        if self.py4j:
-            self.py4j.handleStdOut(string)
+        if result is None:
+          return None
 
-    def flush(self):
-        pass            
+        if isinstance(result, str):
+          return result
+        else:
+          try:
+            return json.dumps(result)
+          except TypeError as e:
+            print(f"[Py4jClient] Result from {method_name} is not JSON-serializable: {e}")
+            raise
 
     def start(self):
         # Set up tee logging to both stdout and a file
@@ -102,4 +115,3 @@ if __name__ == "__main__":
     client.start()
     print(f"[Py4jClient] Started client with script_path: {script_path} and port: {port} leaving main")
     # client.stop()
-

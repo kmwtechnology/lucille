@@ -2,7 +2,6 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -15,7 +14,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.commons.collections4.IteratorUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +36,7 @@ import org.slf4j.LoggerFactory;
  *   pair is automatically selected starting from the default range.</li>
  * </ul>
  */
-public final class PythonStage extends Stage {
+public final class ExternalPythonStage extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("scriptPath")
@@ -46,7 +44,7 @@ public final class PythonStage extends Stage {
       .optionalNumber("port")
       .build();
 
-  private static final Logger log = LoggerFactory.getLogger(PythonStage.class);
+  private static final Logger log = LoggerFactory.getLogger(ExternalPythonStage.class);
 
   private final String scriptPath;
   private final String pythonExecutable;
@@ -56,7 +54,7 @@ public final class PythonStage extends Stage {
   private Py4JRuntime runtime;
   private final ObjectMapper mapper = new ObjectMapper();
 
-  public PythonStage(Config config) {
+  public ExternalPythonStage(Config config) {
     super(config);
 
     this.scriptPath = config.getString("scriptPath");
