@@ -405,6 +405,7 @@
     </dependency>
 
     <!-- GraalVM SDK -->
+    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
        <groupId>org.graalvm.sdk</groupId>
        <artifactId>graal-sdk</artifactId>
@@ -417,6 +418,14 @@
        <artifactId>js</artifactId>
        <version>24.2.2</version>
        <type>pom</type>
+    </dependency>
+
+    <!-- GraalVM Python -->
+    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
+    <dependency>
+        <groupId>org.graalvm.python</groupId>
+        <artifactId>python-language</artifactId>
+        <version>24.2.2</version>
     </dependency>
   </dependencies>
 
