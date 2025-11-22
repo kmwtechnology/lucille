@@ -43,8 +43,8 @@ import java.util.stream.Collectors;
  *   <li>only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be candidates for
  *   matching.  Defaults to false.</li>
  *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
- *   <li>only_whole_words (Boolean, Optional) : Determines whether this matcher will trigger for matches contained within other text.
- *   ie "OMAN" in "rOMAN".  Defaults to false.</li>
+ *   <li>only_whole_words (Boolean, Optional) : If true, matches must be whole words (not embedded in other letters). For example,
+ *   "OMAN" will not match inside "rOMAN". I false, substrings within words can match. Defaults to true.</li>
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
@@ -94,7 +94,7 @@ public class ExtractEntities extends Stage {
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
     this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
-    this.fileFetcher = new FileContentFetcher(config);
+    this.fileFetcher = FileContentFetcher.create(config);
   }
 
   @Override

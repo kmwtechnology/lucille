@@ -39,7 +39,6 @@ public class CSVIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(CSVIndexer.class);
 
-  private final boolean bypass;
   private final ICSVWriter writer;
   private final List<String> columns;
   private final boolean includeHeader;
@@ -51,13 +50,12 @@ public class CSVIndexer extends Indexer {
    * @param localRunId The runID for a local run, null otherwise.
    */
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, bypass, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
     }
     this.writer = writer;
-    this.bypass = bypass;
     this.columns = config.getStringList("csv.columns");
     this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
   }

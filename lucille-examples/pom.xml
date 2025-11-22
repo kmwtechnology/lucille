@@ -8,13 +8,17 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.5.9-SNAPSHOT</version>
+    <version>0.5.11-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
   <artifactId>lucille-examples</artifactId>
   <packaging>pom</packaging>
   <name>Lucille Examples</name>
+
+   <properties>
+       <maven.deploy.skip>true</maven.deploy.skip>
+   </properties>
 
   <modules>
     <module>lucille-vector-ingest-example</module>
@@ -26,6 +30,7 @@
     <module>lucille-opensearch-ingest-example</module>
     <module>lucille-s3-ingest-example</module>
     <module>lucille-rss-example</module>
+    <module>lucille-document-generation-example</module>
   </modules>
 
   <dependencies>

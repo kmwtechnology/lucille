@@ -5,16 +5,15 @@ import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.message.PublisherMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.collections4.Bag;
+import org.apache.commons.collections4.bag.HashBag;
+import org.apache.commons.collections4.bag.SynchronizedBag;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 import org.slf4j.MDC;
 
 /**
@@ -61,18 +60,18 @@ public class PublisherImpl implements Publisher {
   private Document previousDoc = null;
   private StopWatch firstDocStopWatch;
 
-  // List of published documents that have not reached a terminal state. Also includes children of published documents.
-  // Note that this is a List, not a Set, because if two documents with the same ID are published, we would
+  // Bag of published documents that have not reached a terminal state. Also includes children of published documents.
+  // Note that this is a Bag, not a Set, because if two documents with the same ID are published, we would
   // expect to receive two separate terminal events relating to those documents, and we will therefore make
   // two attempts to remove the ID. Upon each removal attempt, we would like there to be something present
   // to remove; otherwise we would classify the event as an "early" terminal event and treat it specially.
   // Also note that a Publisher may be shared by a Runner and a Connector: the connector may be publishing
   // new Documents while the Connector is receiving Events and calling handleEvent().
-  // publish() and handleEvent() both update docIdsToTrack so the list should be synchronized.
-  private List<String> docIdsToTrack = Collections.synchronizedList(new ArrayList<String>());
+  // publish() and handleEvent() both update docIdsToTrack so the bag should be synchronized.
+  Bag<String> docIdsToTrack = SynchronizedBag.synchronizedBag(new HashBag<>());
 
-  // List of child documents for which a terminal event has been received early, before the corresponding CREATE event
-  private List<String> docIdsIndexedBeforeTracking = Collections.synchronizedList(new ArrayList<String>());
+  // Bag of child documents for which a terminal event has been received early, before the corresponding CREATE event
+  Bag<String> docIdsIndexedBeforeTracking = SynchronizedBag.synchronizedBag(new HashBag<>());
 
   public PublisherImpl(Config config, PublisherMessenger messenger, String runId,
       String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
@@ -153,7 +152,7 @@ public class PublisherImpl implements Publisher {
     } catch (Exception e) {
       // we assume that if an exception was encountered here, the doc was not actually made available for processing,
       // and that we won't be receiving any Events relating to it, so we can stop tracking its docId now
-      docIdsToTrack.remove(docId);
+      docIdsToTrack.remove(docId, 1);
       throw e;
     }
 
@@ -189,7 +188,7 @@ public class PublisherImpl implements Publisher {
       // if we're learning that a child document has been created, we need to begin tracking it unless
       // we have already received an early confirmation that it was indexed
       // TODO: this does not handle redundant create events
-      if (!docIdsIndexedBeforeTracking.remove(docId)) {
+      if (!docIdsIndexedBeforeTracking.remove(docId, 1)) {
         docIdsToTrack.add(docId);
       }
 
@@ -207,7 +206,7 @@ public class PublisherImpl implements Publisher {
       // but if we weren't previously tracking it, we need to remember that we've seen it so that
       // if we receive an out-of-order or late create event for this document in the future,
       // we won't start tracking it then
-      if (!docIdsToTrack.remove(docId)) {
+      if (!docIdsToTrack.remove(docId, 1)) {
         docIdsIndexedBeforeTracking.add(docId);
       }
     }

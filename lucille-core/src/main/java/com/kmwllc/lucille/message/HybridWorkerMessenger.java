@@ -51,7 +51,8 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
     KafkaConsumer consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    consumer.subscribe(Pattern.compile(KafkaUtils.getSourceTopicName(pipelineName, config)));
+    String sourceTopicName = KafkaUtils.getSourceTopicName(pipelineName, config);
+    consumer.subscribe(Pattern.compile(sourceTopicName));
 
     return consumer;
   }

@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.5.9-SNAPSHOT</version>
+    <version>0.5.11-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -233,13 +233,27 @@
         <scope>test</scope>
     </dependency>
 
-    <!-- SSL Context Kickstart -->
+    <!-- override org.eclipse.jetty.http2 versions in solr-solrj because of vulnerability with transitive version 10.0.22 -->
     <dependency>
-      <groupId>io.github.hakky54</groupId>
-      <artifactId>sslcontext-kickstart</artifactId>
-      <version>${sslcontext-kickstart.version}</version>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>http2-common</artifactId>
+      <version>${http2.version}</version>
     </dependency>
-
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>http2-client</artifactId>
+      <version>${http2.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>http2-http-client-transport</artifactId>
+      <version>${http2.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>http2-server</artifactId>
+      <version>${http2.version}</version>
+    </dependency>
     <!-- FileConnector -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
@@ -266,7 +280,7 @@
     <dependency>
         <groupId>com.azure</groupId>
         <artifactId>azure-storage-blob</artifactId>
-        <version>12.28.1</version>
+        <version>12.31.3</version>
     </dependency>
 
     <dependency>
@@ -427,6 +441,9 @@
             <goals>
               <goal>test-jar</goal>
             </goals>
+            <configuration>
+              <skip>${skipTestsJar}</skip>
+            </configuration>
           </execution>
         </executions>
       </plugin>
@@ -483,6 +500,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
+        <version>${maven-assembly-plugin.version}</version>
         <executions>
           <execution>
             <id>package-assembly</id>
