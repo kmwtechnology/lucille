@@ -182,11 +182,6 @@ public final class Py4JRuntime {
           "--port", String.valueOf(port)
       ).redirectErrorStream(true);
 
-      processBuilder.environment().put(
-          "PY4JCLIENT_LOG",
-          logDir.resolve("py4jclient.log").toString()
-      );
-
       log.info("Launching Python: {} {} --script-path {} --port {}",
           venvPythonPath, clientPath.toAbsolutePath(), scriptPath, port);
 
