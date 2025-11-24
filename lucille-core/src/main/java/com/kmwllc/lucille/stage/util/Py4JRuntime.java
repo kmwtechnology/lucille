@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage.util;
 
 import com.kmwllc.lucille.core.StageException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -155,10 +156,14 @@ public final class Py4JRuntime {
     }
   }
 
+  // Py4jClientCopy.py is recreated each run in case the python file is modified. Other files persist.
   private void startPythonProcess(int port) throws StageException {
     try (InputStream in = Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(PYTHON_CLIENT_RESOURCE_NAME),
         PYTHON_CLIENT_RESOURCE_NAME + "not found on classpath resources")) {
-      Path clientPath = Paths.get(PYTHON_CLIENT_COPY_NAME).toAbsolutePath();
+      Path pythonDir = Paths.get("python").toAbsolutePath();
+      Files.createDirectories(pythonDir);
+      Path clientPath = pythonDir.resolve(PYTHON_CLIENT_COPY_NAME);
+      Path logDir = Paths.get("..", "log").toAbsolutePath();
 
       synchronized (Py4JRuntime.class) {
         if (!Files.exists(clientPath)) {
@@ -176,6 +181,11 @@ public final class Py4JRuntime {
           "--script-path", scriptPath,
           "--port", String.valueOf(port)
       ).redirectErrorStream(true);
+
+      processBuilder.environment().put(
+          "PY4JCLIENT_LOG",
+          logDir.resolve("py4jclient.log").toString()
+      );
 
       log.info("Launching Python: {} {} --script-path {} --port {}",
           venvPythonPath, clientPath.toAbsolutePath(), scriptPath, port);
@@ -240,8 +250,17 @@ public final class Py4JRuntime {
     }
   }
 
+  // Note: python/venv is intentionally not removed by Maven clean.
+  // Rebuilding the venv is slow and expensive with many libraries so only Py4jClientCopy.py is deleted.
   private void ensureVenv() throws StageException {
-    Path venvDir = Paths.get("venv");
+    Path pythonDir = Paths.get("python").toAbsolutePath();
+    try {
+      Files.createDirectories(pythonDir);
+    } catch (IOException e) {
+      throw new StageException("Failed to create python directory: " + pythonDir, e);
+    }
+
+    Path venvDir = pythonDir.resolve("venv");
     Path venvPython = venvDir.resolve("bin/python");
     venvPythonPath = venvPython.toAbsolutePath().toString();
     if (!Files.exists(venvPython)) {
@@ -249,7 +268,7 @@ public final class Py4JRuntime {
       int exitCode;
       StringBuilder output;
       try {
-        Process createVenv = new ProcessBuilder(pythonExecutable, "-m", "venv", "venv")
+        Process createVenv = new ProcessBuilder(pythonExecutable, "-m", "venv", venvDir.toString())
             .redirectErrorStream(true).start();
         output = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(createVenv.getInputStream()))) {
