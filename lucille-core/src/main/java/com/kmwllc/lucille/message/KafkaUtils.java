@@ -89,6 +89,7 @@ public class KafkaUtils {
 
   public static KafkaConsumer<String, String> createEventConsumer(Config config, String clientId) {
     Properties consumerProps = createConsumerProps(config, clientId);
+    consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     return new KafkaConsumer<>(consumerProps);
   }
