@@ -18,9 +18,9 @@ import java.util.Arrays;
 
 import static org.junit.Assert.*;
 
-public class EmbeddedPythonStageTest {
+public class EmbeddedPythonTest {
 
-  private final StageFactory factory = StageFactory.of(EmbeddedPythonStage.class);
+  private final StageFactory factory = StageFactory.of(EmbeddedPython.class);
 
   private Stage stageWithInline(String py) throws StageException {
     Config conf = ConfigFactory.empty().withValue("script", ConfigValueFactory.fromAnyRef(py));
@@ -39,7 +39,7 @@ public class EmbeddedPythonStageTest {
 
   @Test
   public void testValidExternalScript() throws StageException {
-    stage = factory.get("EmbeddedPythonStageTest/valid.conf");
+    stage = factory.get("EmbeddedPythonTest/valid.conf");
 
     Document d1 = Document.create("d1");
     d1.setField("a", 2);
@@ -77,7 +77,7 @@ public class EmbeddedPythonStageTest {
   public void testBadScriptPath() {
     assertThrows(StageException.class,
         // Non-existent script path
-        () -> factory.get("EmbeddedPythonStageTest/badPath.conf"));
+        () -> factory.get("EmbeddedPythonTest/badPath.conf"));
   }
 
   @Test

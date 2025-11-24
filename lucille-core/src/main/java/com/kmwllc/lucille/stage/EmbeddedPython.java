@@ -35,7 +35,7 @@ import java.util.*;
  *   <li>gcp (Map, Optional) : If your javascript file is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
-public class EmbeddedPythonStage extends Stage {
+public class EmbeddedPython extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("script_path", "script")
@@ -50,7 +50,7 @@ public class EmbeddedPythonStage extends Stage {
   private Context context;
   private Engine engine;
 
-  public EmbeddedPythonStage(Config config) {
+  public EmbeddedPython(Config config) {
     super(config);
     this.scriptPath = config.hasPath("script_path") ? config.getString("script_path") : null;
     this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
