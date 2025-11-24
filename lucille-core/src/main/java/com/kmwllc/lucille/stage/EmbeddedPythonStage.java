@@ -19,6 +19,22 @@ import org.graalvm.polyglot.proxy.ProxyIterator;
 import java.io.Reader;
 import java.util.*;
 
+/**
+ * Executes user-provided Python code against each Document using an embedded GraalPy interpreter. Python scripts interact
+ * with the Document through a proxy object that behaves like both a Python dictionary and an object with attributes. This
+ * dual interface is intentional and mirrors common Python patterns: attribute-style access (`doc.field`) for convenience, and
+ * dictionary-style access (`doc["field"]`) for dynamic or non-identifier field names. Both forms operate on the same
+ * underlying data.
+ * <p>
+ * Config Parameters:
+ * <ul>
+ *   <li>script_path (String, Optional) : Path to the Python script to run.</li>
+ *   <li>script (String, Optional) : Inline Python code to execute instead of a file.</li>
+ *   <li>s3 (Map, Optional) : If your Python file is held in S3. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>azure (Map, Optional) : If your javascript file is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>gcp (Map, Optional) : If your javascript file is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ * </ul>
+ */
 public class EmbeddedPythonStage extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
