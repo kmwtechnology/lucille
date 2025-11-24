@@ -9,9 +9,9 @@ import org.junit.After;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-public class ExternalPythonStageTest {
+public class ExternalPythonTest {
 
-  private final StageFactory factory = StageFactory.of(ExternalPythonStage.class);
+  private final StageFactory factory = StageFactory.of(ExternalPython.class);
   private Stage stage;
 
   @After
@@ -24,7 +24,7 @@ public class ExternalPythonStageTest {
 
   @Test
   public void testPythonUpdateToDoc() throws Exception {
-    String confPath = "ExternalPythonStageTest/process_document_1.conf";
+    String confPath = "ExternalPythonTest/process_document_1.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
     stage.processDocument(doc);
@@ -35,7 +35,7 @@ public class ExternalPythonStageTest {
 
   @Test
   public void testPythonUpdateToDocMultiThreaded() throws Exception {
-    String confPath = "ExternalPythonStageTest/copy_doc_id.conf";
+    String confPath = "ExternalPythonTest/copy_doc_id.conf";
     int numThreads = 5;
     int numDocsPerThread = 20;
     Thread[] threads = new Thread[numThreads];
@@ -84,7 +84,7 @@ public class ExternalPythonStageTest {
 
   @Test
   public void testNoReturn() throws Exception {
-    String confPath = "ExternalPythonStageTest/no_return.conf";
+    String confPath = "ExternalPythonTest/no_return.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
     doc.setField("field1", "field1val");
@@ -99,7 +99,7 @@ public class ExternalPythonStageTest {
 
   @Test
   public void testCustomFunctionName() throws Exception {
-    String confPath = "ExternalPythonStageTest/custom_method.conf";
+    String confPath = "ExternalPythonTest/custom_method.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
 
@@ -110,7 +110,7 @@ public class ExternalPythonStageTest {
 
   @Test
   public void testCustomPort() throws Exception {
-    String confPath = "ExternalPythonStageTest/custom_port.conf";
+    String confPath = "ExternalPythonTest/custom_port.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
 
@@ -121,7 +121,7 @@ public class ExternalPythonStageTest {
 
   @Test
   public void testRequirementsInstallAndUsage() throws Exception {
-    String confPath = "ExternalPythonStageTest/numpy.conf";
+    String confPath = "ExternalPythonTest/numpy.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
 
@@ -134,20 +134,20 @@ public class ExternalPythonStageTest {
   public void testConflictingConfigs() throws Exception {
     // We can initialize two PythonStage instances that use the same config,
     // therefore passing the same parameters to Py4JRuntimeManager.acquire()
-    Stage stage1 = factory.get("ExternalPythonStageTest/process_document_1.conf");
-    Stage stage2 = factory.get("ExternalPythonStageTest/process_document_1.conf");
+    Stage stage1 = factory.get("ExternalPythonTest/process_document_1.conf");
+    Stage stage2 = factory.get("ExternalPythonTest/process_document_1.conf");
 
     // An exception should be thrown if we attempt to initialize a PythonStage instance
     // that results in different parameters being passed to Py4jRuntimeManager.acquire()
-    assertThrows(StageException.class, () -> factory.get("ExternalPythonStageTest/copy_doc_id.conf"));
+    assertThrows(StageException.class, () -> factory.get("ExternalPythonTest/copy_doc_id.conf"));
 
     stage1.stop();
-    assertThrows(StageException.class, () -> factory.get("ExternalPythonStageTest/copy_doc_id.conf"));
+    assertThrows(StageException.class, () -> factory.get("ExternalPythonTest/copy_doc_id.conf"));
     stage2.stop();
 
     // Once we have stopped all existing PythonStage instances we should be able to
     // create a new instance with a different config
-    Stage stage3 = factory.get("ExternalPythonStageTest/copy_doc_id.conf");
+    Stage stage3 = factory.get("ExternalPythonTest/copy_doc_id.conf");
     stage3.stop();
   }
 
@@ -160,8 +160,8 @@ public class ExternalPythonStageTest {
     // this scenario works because both functions are available in the same python script
     // at the same scriptPath
 
-    Stage stage1 = factory.get("ExternalPythonStageTest/custom_method.conf");
-    Stage stage2 = factory.get("ExternalPythonStageTest/custom_method2.conf");
+    Stage stage1 = factory.get("ExternalPythonTest/custom_method.conf");
+    Stage stage2 = factory.get("ExternalPythonTest/custom_method2.conf");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
 
@@ -176,7 +176,7 @@ public class ExternalPythonStageTest {
 
   @Test
   public void testDocWithNestedJson() throws Exception {
-    String confPath = "ExternalPythonStageTest/process_document_1.conf";
+    String confPath = "ExternalPythonTest/process_document_1.conf";
     stage = factory.get(confPath);
     String json = "{\"id\":\"doc1\", \"field1\": {\"field2\": [1, 2, 3], \"field4\": false, \"field5\": {\"field6\": true}}}";
     Document doc = Document.createFromJson(json);
@@ -188,7 +188,7 @@ public class ExternalPythonStageTest {
 
   @Test
   public void testRemoveField() throws Exception {
-    String confPath = "ExternalPythonStageTest/remove_field.conf";
+    String confPath = "ExternalPythonTest/remove_field.conf";
     stage = factory.get(confPath);
     Document doc = Document.create("doc1");
     doc.setField("field1", "field1Value");

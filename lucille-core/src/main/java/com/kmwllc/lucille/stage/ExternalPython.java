@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
  *   pair is automatically selected starting from the default range.</li>
  * </ul>
  */
-public final class ExternalPythonStage extends Stage {
+public final class ExternalPython extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("scriptPath")
@@ -44,7 +44,7 @@ public final class ExternalPythonStage extends Stage {
       .optionalNumber("port")
       .build();
 
-  private static final Logger log = LoggerFactory.getLogger(ExternalPythonStage.class);
+  private static final Logger log = LoggerFactory.getLogger(ExternalPython.class);
 
   private final String scriptPath;
   private final String pythonExecutable;
@@ -54,7 +54,7 @@ public final class ExternalPythonStage extends Stage {
   private Py4JRuntime runtime;
   private final ObjectMapper mapper = new ObjectMapper();
 
-  public ExternalPythonStage(Config config) {
+  public ExternalPython(Config config) {
     super(config);
 
     this.scriptPath = config.getString("scriptPath");
