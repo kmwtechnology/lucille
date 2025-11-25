@@ -58,7 +58,8 @@ class Py4jClient:
 
     def start(self):
         # Set up tee logging to both stdout and a file
-        log_file = os.environ.get("PY4JCLIENT_LOG", "py4jclient.log")
+        log_file = os.path.join(os.path.dirname(__file__), "..", "..", "log", "py4jclient.log")
+        log_file = os.path.abspath(log_file)
         sys.stdout = TeeLogger(log_file)
         sys.stderr = TeeLogger(log_file)
         print(f"[Py4jClient] Logging to stdout and {log_file}")
