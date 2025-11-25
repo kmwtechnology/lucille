@@ -163,7 +163,6 @@ public final class Py4JRuntime {
       Path pythonDir = Paths.get("python").toAbsolutePath();
       Files.createDirectories(pythonDir);
       Path clientPath = pythonDir.resolve(PYTHON_CLIENT_COPY_NAME);
-      Path logDir = Paths.get("..", "log").toAbsolutePath();
 
       synchronized (Py4JRuntime.class) {
         if (!Files.exists(clientPath)) {

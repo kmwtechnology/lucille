@@ -113,5 +113,5 @@ if __name__ == "__main__":
     port = args.port
     client = Py4jClient(script_path, port)
     client.start()
-    print(f"[Py4jClient] Started client with script_path: {script_path} and port: {port} leaving main")
+    print(f"[Py4jClient] Started client with script_path: {script_path} and port: {port}")
     # client.stop()

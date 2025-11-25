@@ -62,8 +62,5 @@ DetectLanguage/profiles
 # VSCode
 .vscode
 
-# Python script copied from resources to current working directory when initializing ExternalPythonStage
-Py4jClientCopy.py
-
-# Python virtual envirionment created when initializing ExternalPythonStage
-venv
+# Python files created from ExternalPython resources
+python/
