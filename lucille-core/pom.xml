@@ -427,6 +427,13 @@
         <artifactId>python-language</artifactId>
         <version>24.2.2</version>
     </dependency>
+
+    <!-- Py4J Python -->
+    <dependency>
+      <groupId>net.sf.py4j</groupId>
+      <artifactId>py4j</artifactId>
+      <version>0.10.9.9</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -516,6 +523,21 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <!-- Only removing Py4jClientCopy.py. Removing the env each time would be too expensive when reinstalling libraries. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <configuration>
+          <filesets>
+            <fileset>
+              <directory>${basedir}/python</directory>
+              <includes>
+                <include>Py4jClientCopy.py</include>
+              </includes>
+            </fileset>
+          </filesets>
+        </configuration>
       </plugin>
     </plugins>
   </build>

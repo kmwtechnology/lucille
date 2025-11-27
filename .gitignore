@@ -61,3 +61,6 @@ DetectLanguage/profiles
 
 # VSCode
 .vscode
+
+# Python files created from ExternalPython resources
+python/
