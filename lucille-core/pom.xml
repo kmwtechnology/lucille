@@ -254,14 +254,6 @@
       <artifactId>http2-server</artifactId>
       <version>${http2.version}</version>
     </dependency>
-
-    <!-- SSL Context Kickstart -->
-    <dependency>
-      <groupId>io.github.hakky54</groupId>
-      <artifactId>sslcontext-kickstart</artifactId>
-      <version>${sslcontext-kickstart.version}</version>
-    </dependency>
-
     <!-- FileConnector -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
@@ -413,6 +405,7 @@
     </dependency>
 
     <!-- GraalVM SDK -->
+    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
        <groupId>org.graalvm.sdk</groupId>
        <artifactId>graal-sdk</artifactId>
@@ -427,7 +420,15 @@
        <type>pom</type>
     </dependency>
 
-    <!-- PythonStage -->
+    <!-- GraalVM Python -->
+    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
+    <dependency>
+        <groupId>org.graalvm.python</groupId>
+        <artifactId>python-language</artifactId>
+        <version>24.2.2</version>
+    </dependency>
+
+    <!-- Py4J Python -->
     <dependency>
       <groupId>net.sf.py4j</groupId>
       <artifactId>py4j</artifactId>
