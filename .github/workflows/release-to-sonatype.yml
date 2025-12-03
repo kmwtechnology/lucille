@@ -42,9 +42,8 @@ jobs:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-      # TODO: update publishing_type to be automatic after testing
       - name: Upload to the Staging Repository
         run: >
-          curl --location --request POST 'https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/com.kmwllc?publishing_type=user_managed' --header "Authorization: Basic $OSSRH_AUTH"
+          curl --location --request POST 'https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/com.kmwllc?publishing_type=automatic' --header "Authorization: Basic $OSSRH_AUTH"
         env:
           OSSRH_AUTH: ${{ secrets.OSSRH_AUTH }}
