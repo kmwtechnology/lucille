@@ -87,7 +87,7 @@ public class ElasticsearchIndexer extends Indexer {
     this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
-  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
   }
 
@@ -99,8 +99,12 @@ public class ElasticsearchIndexer extends Indexer {
   @Override
   protected String getIndexerConfigKey() { return "elasticsearch"; }
 
-  private static ElasticsearchClient getClient(Config config, boolean bypass) {
-    return bypass ? null : ElasticsearchUtils.getElasticsearchOfficialClient(config);
+  private static ElasticsearchClient getClient(Config config, boolean bypass) throws IndexerException{
+    try {
+      return bypass ? null : ElasticsearchUtils.getElasticsearchOfficialClient(config);
+    } catch (Exception e) {
+      throw new IndexerException("Couldn't create Elasticsearch client", e);
+    }
   }
 
   @Override

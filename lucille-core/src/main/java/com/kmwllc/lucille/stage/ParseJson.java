@@ -19,7 +19,7 @@ import java.util.Base64;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import nl.altindag.ssl.util.internal.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Parses a JSON string and sets fields on the processed document according to the configured mapping using
