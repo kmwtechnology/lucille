@@ -3,6 +3,8 @@ package com.kmwllc.lucille.video;
 import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.Test;
 
@@ -88,30 +90,40 @@ public class VideoFileHandlerTest {
     Config defaultConfig = ConfigFactory.empty();
     VideoFileHandler defaultHandler = new VideoFileHandler(defaultConfig);
 
-    int defaultCount = 0;
+    List<Integer> defaultIndices = new ArrayList<>();
     try (FileInputStream fis = new FileInputStream(file)) {
       Iterator<Document> docs = defaultHandler.processFile(fis, filePath);
       while (docs.hasNext()) {
-        docs.next();
-        defaultCount++;
+        Document doc = docs.next();
+        Integer frameIndex = doc.getInt("frame_index");
+        assertNotNull(frameIndex);
+        defaultIndices.add(frameIndex);
       }
     }
 
-    assertTrue(defaultCount > 0);
-
-    Config strideConfig = ConfigFactory.parseMap(Map.of("frameStride", 2));
+    Config strideConfig = ConfigFactory.parseMap(Map.of("frameStride", 4));
     VideoFileHandler strideHandler = new VideoFileHandler(strideConfig);
 
-    int strideCount = 0;
+    List<Integer> strideIndices = new ArrayList<>();
     try (FileInputStream fis = new FileInputStream(file)) {
       Iterator<Document> docs = strideHandler.processFile(fis, filePath);
       while (docs.hasNext()) {
-        docs.next();
-        strideCount++;
+        Document doc = docs.next();
+        Integer frameIndex = doc.getInt("frame_index");
+        assertNotNull(frameIndex);
+        strideIndices.add(frameIndex);
       }
     }
 
-    assertEquals(defaultCount / 2, strideCount);
+    assertTrue(strideIndices.size() < defaultIndices.size());
+
+    int maxComparisons = Math.min(strideIndices.size(), defaultIndices.size() / 4);
+
+    for (int i = 0; i < maxComparisons; i++) {
+      int expectedIndex = defaultIndices.get(i * 4);
+      int actualIndex = strideIndices.get(i);
+      assertEquals(expectedIndex, actualIndex);
+    }
   }
 }
 

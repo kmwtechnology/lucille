@@ -35,7 +35,6 @@ import org.bytedeco.javacv.Java2DFrameConverter;
  *   <li>frameStride (Int, Optional) : Emit every Nth video frame; defaults to 1.</li>
  * </ul>
  */
-
 public class VideoFileHandler extends BaseFileHandler {
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .optionalString("docIdPrefix", "docIdFormat")
@@ -51,7 +50,7 @@ public class VideoFileHandler extends BaseFileHandler {
     super(config);
 
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
-    this.frameStride = config.hasPath("frameStride") ? config.getInt("frameStride") : 1;
+    this.frameStride = Math.max(1, config.hasPath("frameStride") ? config.getInt("frameStride") : 1);
   }
 
   @Override
@@ -62,112 +61,140 @@ public class VideoFileHandler extends BaseFileHandler {
     return getDocumentIterator(inputStream, pathStr, parentId, fileName);
   }
 
-  private Iterator<Document> getDocumentIterator(InputStream inputStream, String pathStr, String parentId, String fileName) throws FileHandlerException {
+  private Iterator<Document> getDocumentIterator(InputStream inputStream, String pathStr,
+      String parentId, String fileName) {
     FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(inputStream);
     grabber.setCloseInputStream(true);
 
     Java2DFrameConverter converter = new Java2DFrameConverter();
 
-    try {
-      grabber.start();
-    } catch (Exception e) {
-      throw new FileHandlerException("Unable to start FFmpegFrameGrabber for: " + pathStr, e);
+    return new FrameDocumentIterator(grabber, converter, pathStr, parentId, fileName, frameStride);
+  }
+
+  private static class FrameDocumentIterator implements Iterator<Document> {
+
+    private final FFmpegFrameGrabber grabber;
+    private final Java2DFrameConverter converter;
+    private final String pathStr;
+    private final String parentId;
+    private final String fileName;
+    private final int frameStride;
+
+    private boolean closed = false;
+    private boolean started = false;
+    private Document nextDoc = null;
+    private int videoFrameIndex = 0;
+
+    FrameDocumentIterator(FFmpegFrameGrabber grabber,
+        Java2DFrameConverter converter,
+        String pathStr,
+        String parentId,
+        String fileName,
+        int frameStride) {
+      this.grabber = grabber;
+      this.converter = converter;
+      this.pathStr = pathStr;
+      this.parentId = parentId;
+      this.fileName = fileName;
+      this.frameStride = frameStride;
     }
 
-    return new Iterator<>() {
-      private boolean closed = false;
-      private Document nextDoc = null;
-      private int videoFrameIndex = 0;
+    private void closeAll() {
+      if (closed) {
+        return;
+      }
+      closed = true;
 
-      private void closeAll() {
-        if (closed) {
-          return;
-        }
+      try {
+        grabber.stop();
+      } catch (Exception ignored) {}
 
-        closed = true;
+      try {
+        grabber.release();
+      } catch (Exception ignored) {}
+    }
 
-        try {
-          grabber.stop();
-        } catch (Exception ignored ) {}
-
-        try {
-          grabber.release();
-        } catch (Exception ignored ) {}
+    private boolean preFetch() {
+      if (closed || nextDoc != null) {
+        return nextDoc != null;
       }
 
-      private boolean preFetch() {
-        if (closed || nextDoc != null) {
-          return nextDoc != null;
-        }
-
+      if (!started) {
         try {
-          while (true) {
-            Frame frame = grabber.grabImage();
-
-            if (frame == null) {
-              closeAll();
-              return false;
-            }
-
-            int index = videoFrameIndex++;
-            if (frameStride > 1 && (index % frameStride) == 0) {
-              continue;
-            }
-
-            BufferedImage image = converter.convert(frame);
-            if (image == null) {
-              continue;
-            }
-
-            long timeUs = grabber.getTimestamp();
-            long timeMs = timeUs / 1000L;
-
-            byte[] pngBytes = null;
-            try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-              ImageIO.write(image, "png", stream);
-              stream.flush();
-              pngBytes = stream.toByteArray();
-            } catch (IOException e) {
-              log.warn("PNG encoding failed for {} frame {}: {}", pathStr, index, e.toString());
-            }
-
-            String frameId = parentId + "-f" + index;
-            Document doc = Document.create(frameId);
-            doc.setField("source", pathStr);
-            doc.setField("file_name", fileName);
-            doc.setField("frame_index", index);
-            doc.setField("frame_time_ms", timeMs);
-            doc.setField("frame_timecode", formatTimecode(timeMs));
-            doc.setField("image_width", image.getWidth());
-            doc.setField("image_height", image.getHeight());
-            doc.setField("frame_image", pngBytes);
-
-            nextDoc = doc;
-            return true;
-          }
+          grabber.start();
+          started = true;
         } catch (Exception e) {
           closeAll();
-          log.error("Error while grabbing frames for {}", pathStr, e);
-          return false;
+          throw new RuntimeException("Unable to start FFmpegFrameGrabber for: " + pathStr, e);
         }
       }
 
-      @Override
-      public boolean hasNext() {
-        return preFetch();
-      }
+      try {
+        while (true) {
+          Frame frame = grabber.grabImage();
 
-      @Override
-      public Document next() {
-        if (!hasNext()) {
-          throw new NoSuchElementException();
+          if (frame == null) {
+            closeAll();
+            return false;
+          }
+
+          int index = videoFrameIndex++;
+          if (frameStride > 1 && (index % frameStride) != 0) {
+            continue;
+          }
+
+          BufferedImage image = converter.convert(frame);
+          if (image == null) {
+            continue;
+          }
+
+          long timeUs = grabber.getTimestamp();
+          long timeMs = timeUs / 1000L;
+
+          byte[] pngBytes = null;
+          try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+            ImageIO.write(image, "png", stream);
+            stream.flush();
+            pngBytes = stream.toByteArray();
+          } catch (IOException e) {
+            log.warn("PNG encoding failed for {} frame {}: {}", pathStr, index, e.toString());
+          }
+
+          String frameId = parentId + "-f" + index;
+          Document doc = Document.create(frameId);
+          doc.setField("source", pathStr);
+          doc.setField("file_name", fileName);
+          doc.setField("frame_index", index);
+          doc.setField("frame_time_ms", timeMs);
+          doc.setField("frame_timecode", formatTimecode(timeMs));
+          doc.setField("image_width", image.getWidth());
+          doc.setField("image_height", image.getHeight());
+          doc.setField("frame_image", pngBytes);
+
+          nextDoc = doc;
+          return true;
         }
-
-        Document out = nextDoc;
-        nextDoc = null;
-        return out;
+      } catch (Exception e) {
+        closeAll();
+        log.error("Error while grabbing frames for {}", pathStr, e);
+        return false;
       }
-    };
+    }
+
+    @Override
+    public boolean hasNext() {
+      return preFetch();
+    }
+
+    @Override
+    public Document next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      Document out = nextDoc;
+      nextDoc = null;
+      return out;
+    }
   }
 
   private String buildParentId(String pathStr) {
@@ -177,7 +204,7 @@ public class VideoFileHandler extends BaseFileHandler {
     return docIdPrefix + raw;
   }
 
-  private String formatTimecode(long millis) {
+  private static String formatTimecode(long millis) {
     long totalSeconds = millis / 1000;
     long ms = millis % 1000;
     long hours = totalSeconds / 3600;
