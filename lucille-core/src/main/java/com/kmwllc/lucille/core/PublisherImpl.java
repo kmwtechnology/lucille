@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.collections4.Bag;
 import org.apache.commons.collections4.bag.HashBag;
 import org.apache.commons.collections4.bag.SynchronizedBag;
@@ -60,6 +61,11 @@ public class PublisherImpl implements Publisher {
   private Document previousDoc = null;
   private StopWatch firstDocStopWatch;
 
+  private final Integer maxPendingDocs;
+
+  private ReentrantLock lock = new ReentrantLock();
+  private java.util.concurrent.locks.Condition docIdsToTrackBelowMax = lock.newCondition();
+
   // Bag of published documents that have not reached a terminal state. Also includes children of published documents.
   // Note that this is a Bag, not a Set, because if two documents with the same ID are published, we would
   // expect to receive two separate terminal events relating to those documents, and we will therefore make
@@ -82,6 +88,7 @@ public class PublisherImpl implements Publisher {
         SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer(metricsPrefix + ".timeBetweenPublishCalls");
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+    this.maxPendingDocs = ConfigUtils.getOrDefault(config, "publisher.maxPendingDocs", null);
     messenger.initialize(runId, pipelineName);
     this.firstDocStopWatch = new StopWatch();
     this.firstDocStopWatch.start();
@@ -94,6 +101,21 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void publish(Document document) throws Exception {
+
+    if (maxPendingDocs != null) {
+      try {
+        lock.lock();
+        // if the number of pending docs is higher than the specified max,
+        // wait to be notified by the event handling thread when the size falls below the max;
+        // retest the condition every 10 seconds to handle any possible edge cases where the notification is not received
+        while (docIdsToTrack.size() > maxPendingDocs) {
+          docIdsToTrackBelowMax.await(10, TimeUnit.SECONDS);
+        }
+      } finally {
+        lock.unlock();
+      }
+    }
+
     // The runId (in MDC) is already set by the ConnectorThread calling publish.
     MDC.put(Document.ID_FIELD, document.getId());
     docLogger.info("Publishing document {}.", document.getId());
@@ -135,7 +157,7 @@ public class PublisherImpl implements Publisher {
     }
   }
 
-  public void sendForProcessing(Document document) throws Exception {
+  private void sendForProcessing(Document document) throws Exception {
     document.initializeRunId(runId);
 
     // capture the docId before we make the document available for update by other threads
@@ -208,6 +230,21 @@ public class PublisherImpl implements Publisher {
       // we won't start tracking it then
       if (!docIdsToTrack.remove(docId, 1)) {
         docIdsIndexedBeforeTracking.add(docId);
+      } else {
+        if (maxPendingDocs != null) {
+          try {
+            lock.lock();
+            // since we have removed a docID from the bag of docIdsToTrack (and this is the main place where we do this),
+            // check to see if the number of pending docs has fallen below the specified max and
+            // notify any threads that are waiting on that condition; specifically, the connector thread
+            // where publish() is being called
+            if (docIdsToTrack.size() < maxPendingDocs) {
+              docIdsToTrackBelowMax.signalAll();
+            }
+          } finally {
+            lock.unlock();
+          }
+        }
       }
     }
 
