@@ -105,11 +105,18 @@ class Py4jClient:
 
 if __name__ == "__main__":
     import argparse
+    import os
+
     parser = argparse.ArgumentParser(description="Py4jClient for Lucille PythonStage integration")
     parser.add_argument('--script-path', required=True, help='Path to the user Python script to load')
     parser.add_argument('--port', required=True, type=int, help='Port for Py4J Gateway')
     args = parser.parse_args()
-    script_path = args.script_path
+
+    script_path = os.path.abspath(args.script_path)
+
+    if not (os.path.isfile(script_path) and script_path.endswith(".py")):
+      raise ValueError(f"script_path {script_path} must be an existing .py file")
+
     port = args.port
     client = Py4jClient(script_path, port)
     client.start()
