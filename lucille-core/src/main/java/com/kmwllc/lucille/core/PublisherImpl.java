@@ -108,7 +108,7 @@ public class PublisherImpl implements Publisher {
         // if the number of pending docs is higher than the specified max,
         // wait to be notified by the event handling thread when the size falls below the max;
         // retest the condition every 10 seconds to handle any possible edge cases where the notification is not received
-        while (docIdsToTrack.size() > maxPendingDocs) {
+        while (docIdsToTrack.size() >= maxPendingDocs) {
           docIdsToTrackBelowMax.await(10, TimeUnit.SECONDS);
         }
       } finally {
@@ -236,7 +236,7 @@ public class PublisherImpl implements Publisher {
             lock.lock();
             // since we have removed a docID from the bag of docIdsToTrack (and this is the main place where we do this),
             // check to see if the number of pending docs has fallen below the specified max and
-            // notify any threads that are waiting on that condition; specifically, the connector thread
+            // notify any threads that are waiting on that condition; specifically, notify the connector thread
             // where publish() is being called
             if (docIdsToTrack.size() < maxPendingDocs) {
               docIdsToTrackBelowMax.signalAll();

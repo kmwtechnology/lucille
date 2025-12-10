@@ -1,16 +1,26 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Arrays;
 
+import static java.time.Duration.ofMillis;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 
 @RunWith(JUnit4.class)
 public class PublisherImplTest {
@@ -204,10 +214,10 @@ public class PublisherImplTest {
       }
     };
 
-    // make sure that after running for a second, the publisher is able to
+    // make sure that after running for a half-second, the publisher is able to
     // publish up to the queue capacity but not further
     publisherThread.start();
-    Thread.sleep(1000);
+    Thread.sleep(500);
     publisherThread.interrupt();
     publisherThread.join();
     assertEquals(5, publisher.numPublished());
@@ -217,7 +227,6 @@ public class PublisherImplTest {
     publisher.publish(Document.create("doc6"));
     assertEquals(6, publisher.numPublished());
   }
-
 
   @Test
   public void testCollapse() throws Exception {
@@ -267,5 +276,81 @@ public class PublisherImplTest {
     assertEquals("run1", collapsedDoc.getRunId());
     assertEquals(Arrays.asList(new String[]{"val1", "val2"}), collapsedDoc.getStringList("field1"));
   }
+
+  @Test
+  public void testBlockOnMaxPendingDocs() throws Exception {
+    Config config = ConfigFactory.parseString("publisher {maxPendingDocs: 3}");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // test that publish() is "fast" when maxPendingDocs is not exceeded
+    assertTimeout(ofMillis(500), () -> {
+      publisher.publish(Document.create("doc1"));
+      publisher.publish(Document.create("doc2"));
+      publisher.publish(Document.create("doc3"));
+    });
+
+    assertEquals(3, publisher.numPending());
+
+    // test that publish() blocks when maxPendingDocs is exceeded
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+      try {
+        publisher.publish(Document.create("doc4"));
+      } catch (Exception e) {
+        fail();
+      }
+    }, executor);
+
+    try {
+      // getting the result of the CompletableFuture should timeout because publisher.publish() should block indefinitely
+      // since maxPendingDocs is exceeded
+      assertThrows(TimeoutException.class, () -> {
+        future.get(500, TimeUnit.MILLISECONDS);
+      });
+    } finally {
+      executor.shutdownNow();
+    }
+
+    assertEquals(3, publisher.numPending());
+    publisher.handleEvent(new Event("doc1", "run1", "success", Type.FINISH));
+    assertEquals(2, publisher.numPending());
+
+    // test that publish() is "fast" again now that maxPendingDocs is no longer exceeded
+    assertTimeout(ofMillis(500), () -> {
+      publisher.publish(Document.create("doc4"));
+    });
+  }
+
+  @Test
+  public void testBlockOnMaxPendingDocsConcurrent() throws Exception {
+    Config config = ConfigFactory.parseString("publisher {maxPendingDocs: 3}");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // this thread should publish the 3 docs and block when it tries to publish the fourth
+    // until the number of pending docs is brought back underneath maxPendingDocs via a call to publisher.handleEvent()
+    Thread publisherThread = new Thread(() -> {
+        try {
+          publisher.publish(Document.create("doc1"));
+          publisher.publish(Document.create("doc2"));
+          publisher.publish(Document.create("doc3"));
+          publisher.publish(Document.create("doc4"));
+        } catch (Exception e) {
+          fail();
+        }
+    });
+
+    publisherThread.start();
+    Thread.sleep(500);
+    assertEquals(3, publisher.numPublished());
+
+    // after we handle a FINISH event, the number of pending docs should fall below maxPendingDocs, which should cause
+    // the publication of the 4th document to unblock, allowing publisherThread to complete
+    publisher.handleEvent(new Event("doc1", "run1", "success", Type.FINISH));
+    publisherThread.join();
+    assertEquals(4, publisher.numPublished());
+  }
+
 
 }
