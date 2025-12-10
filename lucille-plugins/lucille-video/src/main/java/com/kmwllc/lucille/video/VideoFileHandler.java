@@ -33,11 +33,19 @@ import org.bytedeco.javacv.Java2DFrameConverter;
  *   <li>docIdFormat (String, Optional) : The pattern applied to the filename stem when composing the
  *   parent id (a single %s placeholder).</li>
  *   <li>frameStride (Int, Optional) : Emit every Nth video frame; defaults to 1.</li>
+ *   <li>sourceField (String, Optional) : Field used to store the original file path; defaults to "source".</li>
+ *   <li>fileNameField (String, Optional) : Field used to store the leaf filename; defaults to "file_name".</li>
+ *   <li>frameIndexField (String, Optional) : Field used to store the zero-based frame index; defaults to "frame_index".</li>
+ *   <li>frameTimeMsField (String, Optional) : Field used to store the frame timestamp in milliseconds; defaults to "frame_time_ms".</li>
+ *   <li>frameTimecodeField (String, Optional) : Field used to store the human-readable frame timecode; defaults to "frame_timecode".</li>
+ *   <li>imageWidthField (String, Optional) : Field used to store the frame width in pixels; defaults to "image_width".</li>
+ *   <li>imageHeightField (String, Optional) : Field used to store the frame height in pixels; defaults to "image_height".</li>
+ *   <li>frameImageField (String, Optional) : Field used to store the PNG-encoded frame bytes; defaults to "frame_image".</li>
  * </ul>
  */
 public class VideoFileHandler extends BaseFileHandler {
   public static final Spec SPEC = SpecBuilder.fileHandler()
-      .optionalString("docIdPrefix", "docIdFormat")
+      .optionalString("docIdPrefix", "docIdFormat", "sourceField", "fileNameField", "frameIndexField", "frameTimeMsField", "frameTimecodeField", "imageWidthField", "imageHeightField", "frameImageField")
       .optionalNumber("frameStride")
       .build();
 
@@ -45,12 +53,28 @@ public class VideoFileHandler extends BaseFileHandler {
 
   private final String docIdFormat;
   private final int frameStride;
+  private final String sourceField;
+  private final String fileNameField;
+  private final String frameIndexField;
+  private final String frameTimeMsField;
+  private final String frameTimecodeField;
+  private final String imageWidthField;
+  private final String imageHeightField;
+  private final String frameImageField;
 
   public VideoFileHandler(Config config) {
     super(config);
 
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
     this.frameStride = Math.max(1, config.hasPath("frameStride") ? config.getInt("frameStride") : 1);
+    this.sourceField = config.hasPath("sourceField") ? config.getString("sourceField") : "source";
+    this.fileNameField = config.hasPath("fileNameField") ? config.getString("fileNameField") : "file_name";
+    this.frameIndexField = config.hasPath("frameIndexField") ? config.getString("frameIndexField") : "frame_index";
+    this.frameTimeMsField = config.hasPath("frameTimeMsField") ? config.getString("frameTimeMsField") : "frame_time_ms";
+    this.frameTimecodeField = config.hasPath("frameTimecodeField") ? config.getString("frameTimecodeField") : "frame_timecode";
+    this.imageWidthField = config.hasPath("imageWidthField") ? config.getString("imageWidthField") : "image_width";
+    this.imageHeightField = config.hasPath("imageHeightField") ? config.getString("imageHeightField") : "image_height";
+    this.frameImageField = config.hasPath("frameImageField") ? config.getString("frameImageField") : "frame_image";
   }
 
   @Override
@@ -68,7 +92,21 @@ public class VideoFileHandler extends BaseFileHandler {
 
     Java2DFrameConverter converter = new Java2DFrameConverter();
 
-    return new FrameDocumentIterator(grabber, converter, pathStr, parentId, fileName, frameStride);
+    return new FrameDocumentIterator(
+        grabber,
+        converter,
+        pathStr,
+        parentId,
+        fileName,
+        frameStride,
+        sourceField,
+        fileNameField,
+        frameIndexField,
+        frameTimeMsField,
+        frameTimecodeField,
+        imageWidthField,
+        imageHeightField,
+        frameImageField);
   }
 
   private static class FrameDocumentIterator implements Iterator<Document> {
@@ -79,6 +117,14 @@ public class VideoFileHandler extends BaseFileHandler {
     private final String parentId;
     private final String fileName;
     private final int frameStride;
+    private final String sourceField;
+    private final String fileNameField;
+    private final String frameIndexField;
+    private final String frameTimeMsField;
+    private final String frameTimecodeField;
+    private final String imageWidthField;
+    private final String imageHeightField;
+    private final String frameImageField;
 
     private boolean closed = false;
     private boolean started = false;
@@ -90,13 +136,29 @@ public class VideoFileHandler extends BaseFileHandler {
         String pathStr,
         String parentId,
         String fileName,
-        int frameStride) {
+        int frameStride,
+        String sourceField,
+        String fileNameField,
+        String frameIndexField,
+        String frameTimeMsField,
+        String frameTimecodeField,
+        String imageWidthField,
+        String imageHeightField,
+        String frameImageField) {
       this.grabber = grabber;
       this.converter = converter;
       this.pathStr = pathStr;
       this.parentId = parentId;
       this.fileName = fileName;
       this.frameStride = frameStride;
+      this.sourceField = sourceField;
+      this.fileNameField = fileNameField;
+      this.frameIndexField = frameIndexField;
+      this.frameTimeMsField = frameTimeMsField;
+      this.frameTimecodeField = frameTimecodeField;
+      this.imageWidthField = imageWidthField;
+      this.imageHeightField = imageHeightField;
+      this.frameImageField = frameImageField;
     }
 
     private void closeAll() {
@@ -114,7 +176,8 @@ public class VideoFileHandler extends BaseFileHandler {
       } catch (Exception ignored) {}
     }
 
-    private boolean preFetch() {
+    @Override
+    public boolean hasNext() {
       if (closed || nextDoc != null) {
         return nextDoc != null;
       }
@@ -162,14 +225,14 @@ public class VideoFileHandler extends BaseFileHandler {
 
           String frameId = parentId + "-f" + index;
           Document doc = Document.create(frameId);
-          doc.setField("source", pathStr);
-          doc.setField("file_name", fileName);
-          doc.setField("frame_index", index);
-          doc.setField("frame_time_ms", timeMs);
-          doc.setField("frame_timecode", formatTimecode(timeMs));
-          doc.setField("image_width", image.getWidth());
-          doc.setField("image_height", image.getHeight());
-          doc.setField("frame_image", pngBytes);
+          doc.setField(sourceField, pathStr);
+          doc.setField(fileNameField, fileName);
+          doc.setField(frameIndexField, index);
+          doc.setField(frameTimeMsField, timeMs);
+          doc.setField(frameTimecodeField, formatTimecode(timeMs));
+          doc.setField(imageWidthField, image.getWidth());
+          doc.setField(imageHeightField, image.getHeight());
+          doc.setField(frameImageField, pngBytes);
 
           nextDoc = doc;
           return true;
@@ -179,11 +242,6 @@ public class VideoFileHandler extends BaseFileHandler {
         log.error("Error while grabbing frames for {}", pathStr, e);
         return false;
       }
-    }
-
-    @Override
-    public boolean hasNext() {
-      return preFetch();
     }
 
     @Override

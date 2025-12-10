@@ -125,5 +125,54 @@ public class VideoFileHandlerTest {
       assertEquals(expectedIndex, actualIndex);
     }
   }
+
+  @Test
+  public void testConfigurableFieldNames() throws Exception {
+    // Use non-default field names for every configurable field
+    Config config = ConfigFactory.parseMap(Map.of(
+        "sourceField", "src_path",
+        "fileNameField", "fname",
+        "frameIndexField", "frame_idx",
+        "frameTimeMsField", "frame_ms",
+        "frameTimecodeField", "tc",
+        "imageWidthField", "w",
+        "imageHeightField", "h",
+        "frameImageField", "png"
+    ));
+    VideoFileHandler handler = new VideoFileHandler(config);
+
+    String filePath = "src/test/resources/VideoFileHandlerTest/sample.mp4";
+    File file = new File(filePath);
+    String leaf = FilenameUtils.getName(filePath);
+
+    try (FileInputStream fis = new FileInputStream(file)) {
+      Iterator<Document> docs = handler.processFile(fis, filePath);
+      Document first = docs.next();
+
+      assertEquals(filePath, first.getString("src_path"));
+      assertEquals(leaf, first.getString("fname"));
+
+      Integer frameIdx = first.getInt("frame_idx");
+      assertNotNull(frameIdx);
+
+      Long frameMs = first.getLong("frame_ms");
+      assertNotNull(frameMs);
+      assertTrue(frameMs >= 0L);
+
+      String timecode = first.getString("tc");
+      assertNotNull(timecode);
+
+      Integer width = first.getInt("w");
+      Integer height = first.getInt("h");
+      assertNotNull(width);
+      assertNotNull(height);
+      assertTrue(width > 0);
+      assertTrue(height > 0);
+
+      byte[] imageBytes = first.getBytes("png");
+      assertNotNull(imageBytes);
+      assertTrue(imageBytes.length > 0);
+    }
+  }
 }
 
