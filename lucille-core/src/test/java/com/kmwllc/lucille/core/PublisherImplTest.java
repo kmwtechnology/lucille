@@ -1,10 +1,16 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.core.Event.Type;
+import static java.time.Duration.ofMillis;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
+
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -13,14 +19,6 @@ import java.util.concurrent.TimeoutException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Arrays;
-
-import static java.time.Duration.ofMillis;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
-import static org.junit.jupiter.api.Assertions.assertTimeout;
 
 @RunWith(JUnit4.class)
 public class PublisherImplTest {
@@ -313,7 +311,7 @@ public class PublisherImplTest {
     }
 
     assertEquals(3, publisher.numPending());
-    publisher.handleEvent(new Event("doc1", "run1", "success", Type.FINISH));
+    publisher.handleEvent(new Event("doc1", "run1", "success", Event.Type.FINISH));
     assertEquals(2, publisher.numPending());
 
     // test that publish() is "fast" again now that maxPendingDocs is no longer exceeded
@@ -347,10 +345,9 @@ public class PublisherImplTest {
 
     // after we handle a FINISH event, the number of pending docs should fall below maxPendingDocs, which should cause
     // the publication of the 4th document to unblock, allowing publisherThread to complete
-    publisher.handleEvent(new Event("doc1", "run1", "success", Type.FINISH));
+    publisher.handleEvent(new Event("doc1", "run1", "success", Event.Type.FINISH));
     publisherThread.join();
     assertEquals(4, publisher.numPublished());
   }
-
-
+  
 }
