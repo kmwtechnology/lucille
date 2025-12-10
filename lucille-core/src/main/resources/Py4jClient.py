@@ -5,6 +5,9 @@ import json
 import os
 import threading
 from py4j.protocol import Py4JNetworkError
+
+PROCESS_FUNCTION_NAME = "process_document"
+
 class TeeLogger:
     def __init__(self, filename):
         self.terminal = sys.stdout
@@ -29,14 +32,10 @@ class Py4jClient:
         #print(f"[Py4jClient] exec called with json_msg: {json_msg}")
         msg = json.loads(json_msg)
         #print(f"[Py4jClient] Executing msg: {msg}")
-        method_name = msg.get("method")
 
-        if not method_name:
-          raise ValueError("Missing method in message")
-
-        func = globals().get(method_name)
+        func = globals().get(PROCESS_FUNCTION_NAME)
         if func is None or not callable(func):
-          raise AttributeError(f"Requested method {method_name} not found or not callable")
+          raise AttributeError(f"Required method '{PROCESS_FUNCTION_NAME}' not found or not callable")
 
         data = msg.get("data")
         if data is None or data == []:
@@ -53,7 +52,7 @@ class Py4jClient:
           try:
             return json.dumps(result)
           except TypeError as e:
-            print(f"[Py4jClient] Result from {method_name} is not JSON-serializable: {e}")
+            print(f"[Py4jClient] Result from {PROCESS_FUNCTION_NAME} is not JSON-serializable: {e}")
             raise
 
     def start(self):
@@ -122,3 +121,4 @@ if __name__ == "__main__":
     client.start()
     print(f"[Py4jClient] Started client with script_path: {script_path} and port: {port}")
     # client.stop()
+    

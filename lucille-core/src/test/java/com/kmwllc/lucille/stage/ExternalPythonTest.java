@@ -98,17 +98,6 @@ public class ExternalPythonTest {
   }
 
   @Test
-  public void testCustomFunctionName() throws Exception {
-    String confPath = "ExternalPythonTest/custom_method.conf";
-    stage = factory.get(confPath);
-    Document doc = Document.create("doc1");
-
-    stage.processDocument(doc);
-
-    assertEquals("Hello from custom_method.py (method 1)", doc.getString("field_added_by_python"));
-  }
-
-  @Test
   public void testCustomPort() throws Exception {
     String confPath = "ExternalPythonTest/custom_port.conf";
     stage = factory.get(confPath);
@@ -149,29 +138,6 @@ public class ExternalPythonTest {
     // create a new instance with a different config
     Stage stage3 = factory.get("ExternalPythonTest/copy_doc_id.conf");
     stage3.stop();
-  }
-
-  @Test
-  public void testCompatibleConfigs() throws Exception {
-
-    // We can start two PythonStage instances that use different configs
-    // but have the same pythonExecutable, scriptPath, requirementsPath, and port;
-    // in this case the difference in the configs is the value of "functionName";
-    // this scenario works because both functions are available in the same python script
-    // at the same scriptPath
-
-    Stage stage1 = factory.get("ExternalPythonTest/custom_method.conf");
-    Stage stage2 = factory.get("ExternalPythonTest/custom_method2.conf");
-    Document doc1 = Document.create("doc1");
-    Document doc2 = Document.create("doc2");
-
-    stage1.processDocument(doc1);
-    stage2.processDocument(doc2);
-
-    assertEquals("Hello from custom_method.py (method 1)", doc1.getString("field_added_by_python"));
-    assertEquals("Hello from custom_method.py (method 2)", doc2.getString("field_added_by_python"));
-    stage1.stop();
-    stage2.stop();
   }
 
   @Test

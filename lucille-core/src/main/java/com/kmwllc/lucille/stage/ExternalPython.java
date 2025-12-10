@@ -25,13 +25,11 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters:
  * <ul>
- *   <li>scriptPath (String, Required) : Path to the python script that contains the processing function.</li>
+ *   <li>scriptPath (String, Required) : Path to the python script that defines the process_document function.</li>
  *   <li>pythonExecutable (String, Optional) : Path of the base Python executable used to create and manage
  *   the virtual environment. Defaults to python3.</li>
  *   <li>requirementsPath (String, Optional) : Path to a requirements.txt file whose dependencies will be
  *   installed into the managed virtual environment before the Python script is started.</li>
- *   <li>functionName (String, Optional) : Name of the Python function to call for each document. Defaults to
- *   process_document.</li>
  *   <li>port (Integer, Optional) : Explicit base port to use for the Py4J gateway. If omitted, a free port
  *   pair is automatically selected starting from the default range.</li>
  * </ul>
@@ -40,7 +38,7 @@ public final class ExternalPython extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("scriptPath")
-      .optionalString("pythonExecutable", "functionName", "port", "requirementsPath")
+      .optionalString("pythonExecutable", "requirementsPath")
       .optionalNumber("port")
       .build();
 
@@ -49,7 +47,6 @@ public final class ExternalPython extends Stage {
   private final String scriptPath;
   private final String pythonExecutable;
   private final String requirementsPath;
-  private final String functionName;
   private final Integer port;
   private Py4JRuntime runtime;
   private final ObjectMapper mapper = new ObjectMapper();
@@ -60,7 +57,6 @@ public final class ExternalPython extends Stage {
     this.scriptPath = config.getString("scriptPath");
     this.pythonExecutable = config.hasPath("pythonExecutable") ? config.getString("pythonExecutable") : "python3";
     this.requirementsPath = config.hasPath("requirementsPath") ? config.getString("requirementsPath") : null;
-    this.functionName = config.hasPath("functionName") ? config.getString("functionName") : "process_document";
     this.port = config.hasPath("port") ? config.getInt("port") : null;
   }
 
@@ -77,7 +73,6 @@ public final class ExternalPython extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     try {
       Map<String, Object> msg = new HashMap<>();
-      msg.put("method", functionName);
       msg.put("data", doc);
 
       String requestJson = mapper.writeValueAsString(msg);
