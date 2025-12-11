@@ -28,6 +28,8 @@ public class VideoFileHandlerTest {
     Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
 
     assertTrue(docs.hasNext());
+    // Calling hasNext() again should NOT advance the iterator
+    assertTrue(docs.hasNext());
     Document first = docs.next();
 
     String leaf = FilenameUtils.getName(filePath);
@@ -173,6 +175,38 @@ public class VideoFileHandlerTest {
       assertNotNull(imageBytes);
       assertTrue(imageBytes.length > 0);
     }
+  }
+
+  @Test
+  public void testFrameTimecodeFormatting() throws Exception {
+    Config config = ConfigFactory.empty();
+    VideoFileHandler handler = new VideoFileHandler(config);
+
+    String filePath = "src/test/resources/VideoFileHandlerTest/sample.mp4";
+    File file = new File(filePath);
+
+    try (FileInputStream fis = new FileInputStream(file)) {
+      Iterator<Document> docs = handler.processFile(fis, filePath);
+      Document first = docs.next();
+
+      Long frameTimeMs = first.getLong("frame_time_ms");
+      assertNotNull(frameTimeMs);
+
+      String timecode = first.getString("frame_timecode");
+      assertNotNull(timecode);
+
+      String expected = formatTimecodeForTest(frameTimeMs);
+      assertEquals(expected, timecode);
+    }
+  }
+
+  private String formatTimecodeForTest(long millis) {
+    long totalSeconds = millis / 1000;
+    long ms = millis % 1000;
+    long hours = totalSeconds / 3600;
+    long minutes = (totalSeconds % 3600) / 60;
+    long seconds = totalSeconds % 60;
+    return String.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, ms);
   }
 }
 

@@ -169,11 +169,9 @@ public class VideoFileHandler extends BaseFileHandler {
 
       try {
         grabber.stop();
-      } catch (Exception ignored) {}
-
-      try {
-        grabber.release();
-      } catch (Exception ignored) {}
+      } catch (Exception e) {
+        log.warn("Error while stopping FFmpegFrameGrabber for {}", pathStr, e);
+      }
     }
 
     @Override
