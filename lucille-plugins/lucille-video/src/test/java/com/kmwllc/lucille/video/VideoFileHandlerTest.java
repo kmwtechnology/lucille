@@ -195,18 +195,21 @@ public class VideoFileHandlerTest {
       String timecode = first.getString("frame_timecode");
       assertNotNull(timecode);
 
-      String expected = formatTimecodeForTest(frameTimeMs);
-      assertEquals(expected, timecode);
+      String expectedTimecode = "00:00:00.033";
+
+      assertEquals(expectedTimecode, timecode);
+
+      Document second = docs.next();
+
+      expectedTimecode = "00:00:00.066";
+      timecode = second.getString("frame_timecode");
+
+      assertEquals(expectedTimecode, timecode);
     }
   }
 
-  private String formatTimecodeForTest(long millis) {
-    long totalSeconds = millis / 1000;
-    long ms = millis % 1000;
-    long hours = totalSeconds / 3600;
-    long minutes = (totalSeconds % 3600) / 60;
-    long seconds = totalSeconds % 60;
-    return String.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, ms);
-  }
+
+
+
 }
 
