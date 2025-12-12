@@ -260,7 +260,7 @@ public class VideoFileHandler extends BaseFileHandler {
     return docIdPrefix + raw;
   }
 
-  private static String formatTimecode(long millis) {
+  static String formatTimecode(long millis) {
     long totalSeconds = millis / 1000;
     long ms = millis % 1000;
     long hours = totalSeconds / 3600;

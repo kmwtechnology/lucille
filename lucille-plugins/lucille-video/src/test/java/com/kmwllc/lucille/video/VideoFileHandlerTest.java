@@ -195,21 +195,27 @@ public class VideoFileHandlerTest {
       String timecode = first.getString("frame_timecode");
       assertNotNull(timecode);
 
-      String expectedTimecode = "00:00:00.033";
-
-      assertEquals(expectedTimecode, timecode);
+      assertEquals("00:00:00.033", timecode);
 
       Document second = docs.next();
 
-      expectedTimecode = "00:00:00.066";
       timecode = second.getString("frame_timecode");
-
-      assertEquals(expectedTimecode, timecode);
+      assertEquals("00:00:00.066", timecode);
     }
   }
 
+  @Test
+  public void testFormatTimecodeDirect() {
+    assertEquals("00:00:00.000", VideoFileHandler.formatTimecode(0));
+    assertEquals("00:00:00.007", VideoFileHandler.formatTimecode(7));
+    assertEquals("00:00:00.999", VideoFileHandler.formatTimecode(999));
 
+    assertEquals("00:00:01.000", VideoFileHandler.formatTimecode(1000));
+    assertEquals("00:01:00.000", VideoFileHandler.formatTimecode(60000));
+    assertEquals("00:01:01.001", VideoFileHandler.formatTimecode(61001));
 
-
+    assertEquals("01:00:00.000", VideoFileHandler.formatTimecode(3600000));
+    assertEquals("12:34:56.789", VideoFileHandler.formatTimecode(45296789));
+  }
 }
 
