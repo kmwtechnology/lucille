@@ -78,6 +78,19 @@ public class KafkaUtils {
     return consumerProps;
   }
 
+  /**
+   * Creates a Kafka consumer for documents. This consumer will not commit offsets automatically. The consumer should commit offsets after the
+   * document(s) returned by the poll has been processed.
+   * @param config - A config object containing Kafka properties. These will be used to configure the consumer. The provided config object can be used to configure the following kafka consumer settings:
+   *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
+   *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
+   *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
+   *               - kafka.maxPollIntervalSecs - The maximum amount of time in seconds that the consumer will wait when polling for new messages from Kafka.
+   *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
+   *               - kafka.documentDeserializer - The deserializer class to use when deserializing documents. Defaults to KafkaDocumentDeserializer.
+   * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
+   * @return A Kafka consumer for events. The provided Consumer will *not* be configured to commit offsets automatically. The caller is responsible for committing offsets after processing documents.
+   */
   public static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Config config, String clientId) {
     Properties consumerProps = createConsumerProps(config, clientId);
     String deserializerClass = config.hasPath("kafka.documentDeserializer")
@@ -87,8 +100,24 @@ public class KafkaUtils {
     return new KafkaConsumer<>(consumerProps);
   }
 
+  /**
+   * Creates a Kafka consumer for events. The created consumer will be configured to commit offsets automatically. This is to avoid
+   * the impact on throughput from synchronously committing offsets for every event processed or the impact on kafka resources from commits stacking on top of each
+   * other from asynchronsly committing offsets for every event processed.
+   *
+   *
+   * @param config - A config object containing Kafka properties. These will be used to configure the consumer. The provided config object can be used to configure the following kafka consumer settings:
+   *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
+   *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
+   *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
+   *               - kafka.maxPollIntervalSecs - The maximum amount of time in seconds that the consumer will wait when polling for new messages from Kafka.
+   *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
+   * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
+   * @return A Kafka consumer for events. The provided Consumer will *always* be configured to commit offsets automatically.
+   */
   public static KafkaConsumer<String, String> createEventConsumer(Config config, String clientId) {
     Properties consumerProps = createConsumerProps(config, clientId);
+
     consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     return new KafkaConsumer<>(consumerProps);
