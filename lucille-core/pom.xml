@@ -254,14 +254,6 @@
       <artifactId>http2-server</artifactId>
       <version>${http2.version}</version>
     </dependency>
-
-    <!-- SSL Context Kickstart -->
-    <dependency>
-      <groupId>io.github.hakky54</groupId>
-      <artifactId>sslcontext-kickstart</artifactId>
-      <version>${sslcontext-kickstart.version}</version>
-    </dependency>
-
     <!-- FileConnector -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
@@ -413,6 +405,7 @@
     </dependency>
 
     <!-- GraalVM SDK -->
+    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
        <groupId>org.graalvm.sdk</groupId>
        <artifactId>graal-sdk</artifactId>
@@ -425,6 +418,21 @@
        <artifactId>js</artifactId>
        <version>24.2.2</version>
        <type>pom</type>
+    </dependency>
+
+    <!-- GraalVM Python -->
+    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
+    <dependency>
+        <groupId>org.graalvm.python</groupId>
+        <artifactId>python-language</artifactId>
+        <version>24.2.2</version>
+    </dependency>
+
+    <!-- Py4J Python -->
+    <dependency>
+      <groupId>net.sf.py4j</groupId>
+      <artifactId>py4j</artifactId>
+      <version>0.10.9.9</version>
     </dependency>
   </dependencies>
 
@@ -515,6 +523,21 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <!-- Only removing Py4jClientCopy.py. Removing the env each time would be too expensive when reinstalling libraries. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-clean-plugin</artifactId>
+        <configuration>
+          <filesets>
+            <fileset>
+              <directory>${basedir}/python</directory>
+              <includes>
+                <include>Py4jClientCopy.py</include>
+              </includes>
+            </fileset>
+          </filesets>
+        </configuration>
       </plugin>
     </plugins>
   </build>

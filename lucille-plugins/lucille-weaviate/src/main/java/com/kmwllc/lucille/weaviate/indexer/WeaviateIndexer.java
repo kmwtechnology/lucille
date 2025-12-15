@@ -57,7 +57,7 @@ public class WeaviateIndexer extends Indexer {
 
   public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client,
       String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+    super(config, messenger, false, metricsPrefix, localRunId);
 
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
@@ -101,6 +101,9 @@ public class WeaviateIndexer extends Indexer {
 
   @Override
   public boolean validateConnection() {
+    if (bypass) {
+      return true;
+    }
     Result<Meta> meta = client.misc().metaGetter().run();
 
     if (meta.getError() != null) {

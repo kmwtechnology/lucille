@@ -53,7 +53,6 @@
     <httpcore5.version>5.2.4</httpcore5.version>
     <httpclient5.version>5.3.1</httpclient5.version>
     <elasticsearch.version>8.18.4</elasticsearch.version>
-    <sslcontext-kickstart.version>8.1.6</sslcontext-kickstart.version>
     <aws-java-sdk.version>1.12.769</aws-java-sdk.version>
     <log4j.version>2.20.0</log4j.version>
     <slf4j.version>2.0.7</slf4j.version>
