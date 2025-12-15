@@ -25,6 +25,7 @@
     <module>lucille-ocr</module>
     <module>lucille-jlama</module>
     <module>lucille-entity-extraction</module>
+    <module>lucille-video</module>
   </modules>
 
   <dependencies>
