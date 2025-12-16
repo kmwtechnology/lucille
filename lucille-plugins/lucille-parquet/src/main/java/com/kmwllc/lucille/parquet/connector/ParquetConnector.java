@@ -27,12 +27,13 @@ import java.net.URI;
  * <p> Config Parameters:
  * <ul>
  *   <li>pathToStorage (String): The path to storage you want to traverse for <code>.parquet</code> files.</li>
- *   <li>id_field (String): The name of a field found in the Parquet files you will process that can be used for Document IDs.
+ *   <li>idField (String): The name of a field found in the Parquet files you will process that can be used for Document IDs.
  *   Must be found in the file's schema, or an Exception will be thrown.</li>
- *   <li>fs_uri (String): A URI for the file system that you want to use (for your <code>pathToStorage</code>).</li>
- *   <li>s3_key (String, Optional): Your key to AWS S3. Only needed if using S3.</li>
- *   <li>s3_secret (String, Optional): Your secret to AWS S3. Only needed if using S3.</li>
- *   <li>limit (Long, Optional): The maximum number of Documents to publish. Defaults to no limit.</li>
+ *   <li>fsUri (String): A URI for the file system that you want to use (for your <code>pathToStorage</code>).</li>
+ *   <li>s3Key (String, Optional): Your key to AWS S3. Only needed if using S3.</li>
+ *   <li>s3Secret (String, Optional): Your secret to AWS S3. Only needed if using S3.</li>
+ *   <li>limit
+ *   (Long, Optional): The maximum number of Documents to publish. Defaults to no limit.</li>
  *   <li>start (Long, Optional): The number of rows to skip from the beginning of each parquet file encountered. Defaults to skipping no rows.</li>
  * </ul>
  *
@@ -52,25 +53,25 @@ public class ParquetConnector extends AbstractConnector {
   private long count = 0L;
 
   public static final Spec SPEC = SpecBuilder.connector()
-      .requiredString("pathToStorage", "id_field", "fs_uri")
-      .optionalString("s3_key", "s3_secret")
+      .requiredString("pathToStorage", "idField", "fsUri")
+      .optionalString("s3Key", "s3Secret")
       .optionalNumber("limit", "start").build();
 
   public ParquetConnector(Config config) {
     super(config);
 
     this.path = config.getString("pathToStorage");
-    this.idField = config.getString("id_field");
-    this.fsUri = config.getString("fs_uri");
+    this.idField = config.getString("idField");
+    this.fsUri = config.getString("fsUri");
 
     this.limit = config.hasPath("limit") ? config.getLong("limit") : -1;
     this.start = config.hasPath("start") ? config.getLong("start") : 0L;
 
     this.hadoopConfig = new Configuration();
 
-    if (config.hasPath("s3_key") && config.hasPath("s3_secret")) {
-      hadoopConfig.set("fs.s3a.access.key", config.getString("s3_key"));
-      hadoopConfig.set("fs.s3a.secret.key", config.getString("s3_secret"));
+    if (config.hasPath("s3Key") && config.hasPath("s3Secret")) {
+      hadoopConfig.set("fs.s3a.access.key", config.getString("s3Key"));
+      hadoopConfig.set("fs.s3a.secret.key", config.getString("s3Secret"));
       hadoopConfig.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem");
       hadoopConfig.setBoolean("fs.s3a.path.style.access", true);
       hadoopConfig.setBoolean(AvroReadSupport.READ_INT96_AS_FIXED, true);
