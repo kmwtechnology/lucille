@@ -31,7 +31,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>target_field (String, Required) : Field name where the resulting JSON array of objects will be written.</li>
+ *   <li>targetField (String, Required) : Field name where the resulting JSON array of objects will be written.</li>
  *   <li>entries (Map&lt;String, String&gt;, Required) : Mapping of nested destination paths to source fields.
  *     <ul>
  *       <li>Keys are dotted paths (e.g., "user.name") that will be created inside each object.</li>
@@ -40,17 +40,17 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
  *       <li>Destination path segments must be non-empty (e.g., "a..b" is invalid).</li>
  *     </ul>
  *   </li>
- *   <li>num_objects (Integer, Optional) : Fixed number of nested objects to create per document. Must be a positive integer.
- *   Cannot be used together with min_num_objects/max_num_objects. Defaults to 1 when neither option is set.</li>
- *   <li>min_num_objects (Integer, Optional) : Lower bound (inclusive) on a random number of objects to create per document.
- *   Must be provided together with max_num_objects.</li>
- *   <li>max_num_objects (Integer, Optional) : Upper bound (inclusive) on a random number of objects to create per document.
- *   Must be provided together with min_num_objects.</li>
+ *   <li>numObjects (Integer, Optional) : Fixed number of nested objects to create per document. Must be a positive integer.
+ *   Cannot be used together with minNumObjects/maxNumObjects. Defaults to 1 when neither option is set.</li>
+ *   <li>minNumObjects (Integer, Optional) : Lower bound (inclusive) on a random number of objects to create per document.
+ *   Must be provided together with maxNumObjects.</li>
+ *   <li>maxNumObjects (Integer, Optional) : Upper bound (inclusive) on a random number of objects to create per document.
+ *   Must be provided together with minNumObjects.</li>
  *   <li>generators (Map, Optional) : A set of generator stage configs used to produce values when a source field in entries
  *   is missing. Each entry:
  *     <ul>
  *       <li>Requires class (fully qualified Stage implementation).</li>
- *       <li>May specify field_name; if omitted, a temporary field generator_out is written to.</li>
+ *       <li>May specify fieldName; if omitted, a temporary field generatorOut is written to.</li>
  *     </ul>
  *   </li>
  * </ul>
@@ -58,13 +58,13 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 public class AddRandomNestedField extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("target_field")
+      .requiredString("targetField")
       .requiredParent("entries", new TypeReference<Map<String, String>>() {})
-      .optionalNumber("num_objects", "min_num_objects", "max_num_objects")
+      .optionalNumber("numObjects", "minNumObjects", "maxNumObjects")
       .optionalParent("generators", new TypeReference<Map<String, Object>>() {})
       .build();
 
-  private static final String GEN_OUT_FIELD = "generator_out";
+  private static final String GEN_OUT_FIELD = "generatorOut";
 
   private static final Logger log = LoggerFactory.getLogger(AddRandomNestedField.class);
 
@@ -82,44 +82,44 @@ public class AddRandomNestedField extends Stage {
 
   public AddRandomNestedField(Config config) throws StageException {
     super(config);
-    this.targetField = ConfigUtils.getOrDefault(config, "target_field", null);
-    this.numObjects = ConfigUtils.getOrDefault(config, "num_objects", null);
-    this.minNumObjects = ConfigUtils.getOrDefault(config, "min_num_objects", null);
-    this.maxNumObjects = ConfigUtils.getOrDefault(config, "max_num_objects", null);
+    this.targetField = ConfigUtils.getOrDefault(config, "targetField", null);
+    this.numObjects = ConfigUtils.getOrDefault(config, "numObjects", null);
+    this.minNumObjects = ConfigUtils.getOrDefault(config, "minNumObjects", null);
+    this.maxNumObjects = ConfigUtils.getOrDefault(config, "maxNumObjects", null);
     this.generatorsConfig = config.hasPath("generators") ? config.getConfig("generators") : null;
     Config entriesCfg = config.getConfig("entries");
 
     if (entriesCfg.root().isEmpty()) {
-      throw new StageException("entries must be a non-empty mapping of 'nested.path' : 'source_field' (source_field may be empty).");
+      throw new StageException("entries must be a non-empty mapping of 'nested.path' : 'sourceField' (sourceField may be empty).");
     }
 
     if (targetField == null || targetField.isEmpty()) {
-      throw new StageException("target_field is required.");
+      throw new StageException("targetField is required.");
     }
 
     if (Document.RESERVED_FIELDS.contains(targetField)) {
-      throw new StageException("target_field '" + targetField + "' is a reserved field");
+      throw new StageException("targetField '" + targetField + "' is a reserved field");
     }
 
     if (numObjects != null && numObjects <= 0) {
-      throw new StageException("num_objects must be a positive integer if provided.");
+      throw new StageException("numObjects must be a positive integer if provided.");
     }
 
     if ((minNumObjects != null) ^ (maxNumObjects != null)) {
-      throw new StageException("Both min_num_objects and max_num_objects must be provided together.");
+      throw new StageException("Both minNumObjects and maxNumObjects must be provided together.");
     }
 
     if (minNumObjects != null) {
       if (minNumObjects <= 0 || maxNumObjects <= 0) {
-        throw new StageException("min_num_objects and max_num_objects must be positive integers.");
+        throw new StageException("minNumObjects and maxNumObjects must be positive integers.");
       }
       if (minNumObjects > maxNumObjects) {
-        throw new StageException("min_num_objects must be <= max_num_objects.");
+        throw new StageException("minNumObjects must be <= maxNumObjects.");
       }
     }
 
     if (numObjects != null && (minNumObjects != null || maxNumObjects != null)) {
-      throw new StageException("Specify either num_objects or (min_num_objects & max_num_objects), not both.");
+      throw new StageException("Specify either numObjects or (minNumObjects & maxNumObjects), not both.");
     }
 
     this.parsedEntries = Collections.unmodifiableMap(parseEntries(entriesCfg));
@@ -139,7 +139,7 @@ public class AddRandomNestedField extends Stage {
 
         Config injected = ConfigFactory.parseMap(Map.of(
             "name", "arnf_gen_" + key,
-            "field_name", GEN_OUT_FIELD
+            "fieldName", GEN_OUT_FIELD
         )).withFallback(sub);
 
         // Create generator

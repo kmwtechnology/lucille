@@ -335,7 +335,7 @@ public abstract class ExtractEntitiesTest {
           source = ["input1"]
           dest = ["output"]
           dictionaries = ["classpath:ExtractEntitiesTest/ignoreCaseTrue.dict"]
-          ignore_case = true
+          ignoreCase = true
         }
         """;
     Stage stage = newStage(config);
@@ -418,7 +418,7 @@ public abstract class ExtractEntitiesTest {
           source = ["input1"]
           dest = ["output"]
           dictionaries = ["classpath:ExtractEntitiesTest/overlapsLongest.dict"]
-          ignore_overlaps = true
+          ignoreOverlaps = true
         }
         """;
     Stage stage = newStage(config);
@@ -440,7 +440,7 @@ public abstract class ExtractEntitiesTest {
           source = ["input1"]
           dest = ["output"]
           dictionaries = ["classpath:ExtractEntitiesTest/stopOnHit.dict"]
-          stop_on_hit = true
+          stopOnHit = true
         }
         """;
     Stage stage = newStage(config);
@@ -460,7 +460,7 @@ public abstract class ExtractEntitiesTest {
           source = ["input1"]
           dest = ["output"]
           dictionaries = ["classpath:ExtractEntitiesTest/usePayloadsWithEntity.dict"]
-          entity_field = "entity"
+          entityField = "entity"
         }
         """;
     Stage stage = newStage(config);
@@ -482,7 +482,7 @@ public abstract class ExtractEntitiesTest {
           source = ["input1"]
           dest = ["output"]
           dictionaries = ["classpath:ExtractEntitiesTest/dontUsePayloads.dict"]
-          use_payloads = false
+          usePayloads = false
         }
         """;
     Stage stage = newStage(config);
@@ -504,7 +504,7 @@ public abstract class ExtractEntitiesTest {
           source = ["s1", "s2", "s3"]
           dest = ["output"]
           dictionaries = ["classpath:ExtractEntitiesTest/manySourcesOneDest.dict"]
-          update_mode = "append"
+          updateMode = "append"
         }
         """;
     Stage stage = newStage(config);
@@ -754,7 +754,7 @@ public abstract class ExtractEntitiesTest {
           source = ["input1"]
           dest = ["output"]
           dictionaries = ["classpath:ExtractEntitiesTest/ladderLongest.dict"]
-          ignore_overlaps = true
+          ignoreOverlaps = true
         }
         """;
     Stage stage = newStage(config);
@@ -834,7 +834,7 @@ public abstract class ExtractEntitiesTest {
         source = ["input1"]
         dest = ["output"]
         dictionaries = ["classpath:ExtractEntitiesTest/nonWholeWord.dict"]
-        only_whole_words = false
+        onlyWholeWords = false
       }
       """;
     Stage stage = newStage(config);

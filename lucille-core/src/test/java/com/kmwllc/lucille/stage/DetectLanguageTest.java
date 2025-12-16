@@ -51,16 +51,16 @@ public class DetectLanguageTest {
     Stage stage = factory.get("DetectLanguageTest/config.conf");
     assertEquals(
         Set.of(
-            "language_field",
-            "min_length",
-            "language_confidence_field",
-            "update_mode",
-            "min_probability",
+            "languageField",
+            "minLength",
+            "languageConfidenceField",
+            "updateMode",
+            "minProbability",
             "name",
             "source",
             "conditions",
             "class",
-            "max_length",
+            "maxLength",
             "conditionPolicy"),
         stage.getLegalProperties());
   }

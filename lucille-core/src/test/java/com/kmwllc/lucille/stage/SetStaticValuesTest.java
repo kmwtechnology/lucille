@@ -30,7 +30,7 @@ public class SetStaticValuesTest {
 
     stage.processDocument(doc);
 
-    // update_mode is set to "skip" in the config
+    // updateMode is set to "skip" in the config
     assertEquals("Directory", doc.getString("myString"));
     assertEquals(2, doc.getInt("myInt").intValue());
     assertEquals(false, doc.getBoolean("myBool"));
@@ -39,6 +39,6 @@ public class SetStaticValuesTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("SetStaticValuesTest/config.conf");
-    assertEquals(Set.of("update_mode", "name", "conditions", "class", "conditionPolicy", "static_values"), stage.getLegalProperties());
+    assertEquals(Set.of("updateMode", "name", "conditions", "class", "conditionPolicy", "staticValues"), stage.getLegalProperties());
   }
 }

@@ -20,14 +20,14 @@ import java.util.Map.Entry;
  * Config Parameters -
  * <ul>
  *   <li>fieldMapping (Map&lt;String, String&gt;) : A 1-1 mapping of original field names to new field names.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
  * </ul>
  */
 public class RenameFields extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("update_mode")
+      .optionalString("updateMode")
       .requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {}).build();
 
   private final Map<String, Object> fieldMap;

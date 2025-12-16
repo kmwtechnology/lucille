@@ -31,10 +31,10 @@ import org.slf4j.LoggerFactory;
  * <ul>
  *   <li>fieldMapping (Map&lt;String, Object&gt;) : A mapping of source field names to destination field names where the destination
  *      field names can be a string or list.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'. Cannot be set with isNested.</li>
  *   <li>isNested (Boolean, Optional) : Sets whether or not to treat the given field name as nested json or a literal field name.
- *   It true, the field name will be split on '.' and each part will be treated as a level of nesting. Cannot be set with update_mode.
+ *   It true, the field name will be split on '.' and each part will be treated as a level of nesting. Cannot be set with updateMode.
  *   Defaults to false. </li>
  * </ul>
  */
@@ -44,7 +44,7 @@ public class CopyFields extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fieldMapping", new TypeReference<Map<String, Object>>() {})
-      .optionalString("update_mode")
+      .optionalString("updateMode")
       .optionalBoolean("isNested").build();
 
   private final Map<String, Object> fieldMapping;
@@ -59,8 +59,8 @@ public class CopyFields extends Stage {
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
     this.isNested = ConfigUtils.getOrDefault(config, "isNested", false);
-    if (isNested && config.hasPath("update_mode")) {
-      log.info("Cannot set both isNested and update_mode in Copy Fields at the same time. Ignoring update_mode, fields will be overwritten.");
+    if (isNested && config.hasPath("updateMode")) {
+      log.info("Cannot set both isNested and updateMode in Copy Fields at the same time. Ignoring updateMode, fields will be overwritten.");
     }
   }
 

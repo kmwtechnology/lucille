@@ -16,22 +16,22 @@ import com.typesafe.config.Config;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>input_field (String) : The field containing base64 data Strings you want to decode.</li>
- *   <li>output_field (String) : The field you want to place the decoded data (arrays of bytes) into.</li>
+ *   <li>inputField (String) : The field containing base64 data Strings you want to decode.</li>
+ *   <li>outputField (String) : The field you want to place the decoded data (arrays of bytes) into.</li>
  * </ul>
  */
 public class Base64Decode extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("input_field", "output_field").build();
+      .requiredString("inputField", "outputField").build();
 
   private String inputField;
   private String outputField;
 
   public Base64Decode(Config config) {
     super(config);
-    inputField = config.getString("input_field");
-    outputField = config.getString("output_field");
+    inputField = config.getString("inputField");
+    outputField = config.getString("outputField");
   }
 
   @Override

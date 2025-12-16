@@ -23,19 +23,19 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>drop_parent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false.</li>
- *   <li>fields_to_copy (Map&lt;String, String&gt;, Optional): map of fields to copy from parent to children. It's a map of the
+ *   <li>dropParent (Boolean, Optional): if set to true, will mark parent document as dropped. Defaults to false.</li>
+ *   <li>fieldsToCopy (Map&lt;String, String&gt;, Optional): map of fields to copy from parent to children. It's a map of the
  *   source field name to the destination field name.</li>
- *   <li>update_mode (String, Optional): The methodology by which you want to update fields, particularly for updating multivalued
+ *   <li>updateMode (String, Optional): The methodology by which you want to update fields, particularly for updating multivalued
  *   fields on children documents. See {@link UpdateMode} for more information.</li>
  * </ul>
  */
 public class EmitNestedChildren extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalParent("fields_to_copy", new TypeReference<Map<String, String>>() {})
-      .optionalBoolean("drop_parent")
-      .optionalString("update_mode").build();
+      .optionalParent("fieldsToCopy", new TypeReference<Map<String, String>>() {})
+      .optionalBoolean("dropParent")
+      .optionalString("updateMode").build();
 
   private final boolean dropParent;
   private final Map<String,Object> fieldsToCopy;
@@ -45,8 +45,8 @@ public class EmitNestedChildren extends Stage {
   public EmitNestedChildren(Config config) {
     super(config);
 
-    this.dropParent = config.hasPath("drop_parent") ? config.getBoolean("drop_parent") : false;
-    this.fieldsToCopy = config.hasPath("fields_to_copy") ? config.getConfig("fields_to_copy").root().unwrapped() : Map.of();
+    this.dropParent = config.hasPath("dropParent") ? config.getBoolean("dropParent") : false;
+    this.fieldsToCopy = config.hasPath("fieldsToCopy") ? config.getConfig("fieldsToCopy").root().unwrapped() : Map.of();
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
