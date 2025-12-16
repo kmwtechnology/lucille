@@ -65,7 +65,6 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
     ConsumerRecords<String, String> consumerRecords = eventConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
-      eventConsumer.commitSync();
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
       return Event.fromJsonString(record.value());
     }

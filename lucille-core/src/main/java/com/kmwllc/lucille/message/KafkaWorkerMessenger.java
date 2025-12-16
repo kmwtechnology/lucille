@@ -56,6 +56,9 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
 
   @Override
   public void commitPendingDocOffsets() throws Exception {
+    // offsets are committed synchronously to ensure that offsets are successfully committed before the documents are sent to
+    // the destination (typically an indexer). This reduces the amount that an indexer will receive duplicate documents and reduce the amount
+    // of duplicate SUCCESS events that are sent to the event topic.
     sourceConsumer.commitSync();
   }
 
