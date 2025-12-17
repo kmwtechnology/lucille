@@ -15,7 +15,6 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
-import java.util.Base64;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
