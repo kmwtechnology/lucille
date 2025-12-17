@@ -79,6 +79,8 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   public void commitPendingDocOffsets() throws Exception {
     Map<TopicPartition, OffsetAndMetadata> batchOffsets = null;
     while ((batchOffsets = offsets.poll()) != null) {
+      // offsets are committed synchronously to ensure that offsets are successfully committed before the documents are sent to
+      // the destination (typically an indexer). This reduces the number of documents that might be reprocessed and reindexed in the event of HybridWorker crash/restart and/or in the case of consumer group rebalance.
       sourceConsumer.commitSync(batchOffsets);
     }
   }
