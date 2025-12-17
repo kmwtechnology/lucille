@@ -116,12 +116,11 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
 
   @Test
   public void testSetStringThenGetBytes() {
-    String myString = "This is a test.";
-    String myBase64EncodedString = "VGhpcyBpcyBhIHRlc3Qu";
+    String myBase64EncodedString = "VGhpcyBpcyBhIHRlc3Qu"; // "This is a test."
     Document document = createDocument("doc");
     document.setField("field1", myBase64EncodedString);
 
-    // when we get bytes from a field that was set as a string, the string will be base64-decoded before the bytes are returned
+    // when we get bytes from a field that was set as a string, the string's contents will be base64-decoded
     assertEquals("This is a test.", new String(document.getBytes("field1")));
   }
 
