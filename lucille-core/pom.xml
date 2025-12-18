@@ -298,19 +298,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-storage</artifactId>
-      <version>2.44.0</version>
-      <exclusions>
-        <exclusion>
-          <groupId>io.grpc</groupId>
-          <artifactId>grpc-netty-shaded</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <!-- override grpc-netty-shaded version in google-cloud-storage because of vulnerability with transitive version 1.66.0 -->
-    <dependency>
-      <groupId>io.grpc</groupId>
-      <artifactId>grpc-netty-shaded</artifactId>
-      <version>1.75.0</version>
+      <version>2.61.0</version>
     </dependency>
       <!-- To test Google Cloud Storage -->
     <dependency>
