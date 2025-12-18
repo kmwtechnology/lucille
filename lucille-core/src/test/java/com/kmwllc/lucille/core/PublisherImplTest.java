@@ -10,7 +10,9 @@ import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -349,5 +351,51 @@ public class PublisherImplTest {
     publisherThread.join();
     assertEquals(4, publisher.numPublished());
   }
-  
+
+  /**
+   * Attempt to establish that PublisherImpl.publish() is thread-safe.
+   * This test does not consider all multi-threading issues that could arise, but it does confirm the following:
+   *
+   * If we have 10 threads calling publish() concurrently on the same PublisherImpl instance, no
+   * unexpected exceptions are thrown, and the count of published documents is accurately maintained
+   */
+  @Test
+  public void testPublishThreadSafety() throws Exception {
+    Config config = ConfigFactory.parseString("publisher {queueCapacity: 100000}");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // create, start, and join 10 threads, each of which publishes 10K documents
+    List<Thread> threads = new ArrayList();
+    for (int i = 0; i < 10; i++) {
+      final int i2 = i;
+      threads.add(new Thread(() -> {
+        try {
+          for (int j = 0; j < 10000; j++) {
+            publisher.publish(Document.create(i2 + "_" + j));
+          }
+        } catch (Exception e) {
+          e.printStackTrace();
+          fail();
+        }
+      }));
+    }
+
+    for (Thread thread : threads) {
+      thread.start();
+    }
+
+    for (Thread thread : threads) {
+      thread.join();
+    }
+
+    // make sure that the number of published documents is accurately reported as 100K (via 10 threads publishing 10K each)
+    // an accurate number here builds confidence that the internal counter of published documents is mantained in a thread-safe way
+    assertEquals(100000, publisher.numPublished());
+
+    // the number of pending documents should also be 100K because none have been processed;
+    // an accurate number here builds confidence that the internal Bag of pending docIds has not been corrupted
+    assertEquals(100000, publisher.numPending());
+  }
+
 }
