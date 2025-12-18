@@ -38,7 +38,9 @@ import org.slf4j.LoggerFactory;
  * Config Parameters -
  * <ul>
  *   <li>source (String) : Field name of URL to be fetched; document will be skipped if the field with this name is absent or empty.</li>
- *   <li>dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty.</li>
+ *   <li>dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty.
+ *   Field will contain response data as a base64-encoded string. Original bytes can be retrieved via doc.getBytes(dest) or
+ *   Base64.getDecoder().decode(document.getString(dest)). When parsing this field using ParseJson, set sourceIsBase64=true </li>
  *   <li>sizeSuffix (String, Optional) : suffix to be appended to end of source field name for the size of data. e.g.
  *   url --&gt; url_(sizeSuffix) where source name is url.</li>
  *   <li>statusSuffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request.</li>
