@@ -6,7 +6,7 @@ description: Run a document through an external Py4J Python environment.
 
 ### Why Use It?
 
-ExternalPython delegates per-document processing to an external Python process using Py4J. Lucille serializes the Document into a request, calls a Python function, receives a JSON response, and applies that response back onto the document.
+ExternalPython delegates per-document processing to an external Python process using [Py4J](https://www.py4j.org/). Lucille serializes the Document into a request, calls a Python function, receives a JSON response, and applies that response back onto the document.
 
 ### When To Use It
 

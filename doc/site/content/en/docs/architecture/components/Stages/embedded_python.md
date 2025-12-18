@@ -6,7 +6,7 @@ description: Run a document through a Java embedded Graal Python environment.
 
 ### Why Use It?
 
-EmbeddedPython executes per-document Python code inside the Lucille JVM using GraalPy. Instead of returning a JSON object, your script mutates the current document directly through a Python-friendly proxy bound as doc (and the raw Java document as rawDoc). This avoids ports, subprocesses, venvs, and per-document JSON round trips.
+EmbeddedPython executes per-document Python code inside the Lucille JVM using [GraalPy](https://www.graalvm.org/python/). Instead of returning a JSON object, your script mutates the current document directly through a Python-friendly proxy bound as doc (and the raw Java document as rawDoc). This avoids ports, subprocesses, venvs, and per-document JSON round trips.
 
 ### When To Use It
 
