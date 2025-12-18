@@ -2,20 +2,19 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.jayway.jsonpath.*;
+import com.jayway.jsonpath.Configuration;
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.Option;
+import com.jayway.jsonpath.ParseContext;
 import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
-import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
-
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Base64;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -42,8 +41,6 @@ public class ParseJson extends Stage {
       .optionalBoolean("sourceIsBase64")
       .requiredParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {}).build();
 
-  private static final Base64.Decoder DECODER = Base64.getDecoder();
-
   private final String src;
   private final Map<String, Object> jsonFieldPaths;
   private final Configuration jsonPathConf;
@@ -65,9 +62,9 @@ public class ParseJson extends Stage {
 
   @Override
   public void start() throws StageException {
-    this.jsonParseCtx = JsonPath.using(this.jsonPathConf);
+    jsonParseCtx = JsonPath.using(jsonPathConf);
 
-    for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
+    for (Entry<String, Object> entry : jsonFieldPaths.entrySet()) {
       if (!isValidEntry(entry)) {
         throw new StageException("jsonFieldPaths mapping contains a blank or null key/value.");
       }
@@ -78,21 +75,17 @@ public class ParseJson extends Stage {
   public Iterator<Document> processDocument(Document doc) throws StageException {
     DocumentContext ctx;
     try {
-      if (this.sourceIsBase64) {
-        try (InputStream stream = new ByteArrayInputStream(DECODER.decode(doc.getString(this.src)))) {
-          ctx = this.jsonParseCtx.parse(stream);
-        } catch (IOException e) {
-          //do nothing this is a byte array stream close is a no-op. Throw stage exception just in case / futureproof.
-          throw new StageException("Unexpected error parsing JSON.", e);
-        }
+      if (sourceIsBase64) {
+        // if src is a base-64-encoded string, doc.getBytes() will transparently decode it
+        ctx = jsonParseCtx.parse(new String(doc.getBytes(src)));
       } else {
-        ctx = this.jsonParseCtx.parse(doc.getString(this.src));
+        ctx = jsonParseCtx.parse(doc.getString(src));
       }
     } catch (IllegalArgumentException e) {
       // Using a more specific Exception message. Primarily triggered when the Document is missing the JSON src field.
       throw new StageException("Couldn't run ParseJson on Document " + doc.getId() + ".", e);
     }
-    for (Entry<String, Object> entry : this.jsonFieldPaths.entrySet()) {
+    for (Entry<String, Object> entry : jsonFieldPaths.entrySet()) {
       JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
       if (isValidNode(val)) { // makes sure that val and JsonNode Type is not null
         // note that if val is an empty String, will still be set in the document

@@ -97,6 +97,34 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertArrayEquals(value2, document2.getBytesList("field1").get(1));
   }
 
+  @Test
+  public void testSetBytesThenGetString() {
+    String myString = "This is a test.";
+    byte[] myBytes = myString.getBytes();
+    Document document = createDocument("doc");
+    document.setField("field1", myBytes);
+    assertEquals(myBytes, document.getBytes("field1"));
+    assertEquals(myString, new String(document.getBytes("field1")));
+
+    // when we set a field via setBytes() and get the value back via getString(), the returned string will be a base64-encoding
+    // of the original bytes
+    assertEquals("VGhpcyBpcyBhIHRlc3Qu", Base64.getEncoder().encodeToString(myString.getBytes()));
+    assertEquals("VGhpcyBpcyBhIHRlc3Qu", document.getString("field1"));
+    assertArrayEquals(myBytes, Base64.getDecoder().decode(document.getString("field1")));
+    assertEquals(myString, new String(Base64.getDecoder().decode(document.getString("field1"))));
+  }
+
+  @Test
+  public void testSetStringThenGetBytes() {
+    String myBase64EncodedString = "VGhpcyBpcyBhIHRlc3Qu"; // "This is a test."
+    Document document = createDocument("doc");
+    document.setField("field1", myBase64EncodedString);
+
+    // when we get bytes from a field that was set as a string, the string's contents will be base64-decoded
+    assertEquals("This is a test.", new String(document.getBytes("field1")));
+  }
+
+
   /**
    * Demonstrates that JsonDocument allows values of different types to be added
    * to the same multivalued field; the list of values can then be retrieved with a type-specific
