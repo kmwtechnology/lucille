@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.collections4.Bag;
 import org.apache.commons.collections4.bag.HashBag;
@@ -47,7 +48,7 @@ public class PublisherImpl implements Publisher {
 
   // the actual number of documents sent for processing, which may be smaller
   // than the number of calls to publish() if isCollapsing==true
-  private long numPublished = 0;
+  private AtomicLong numPublished = new AtomicLong(0);
 
   private long numCreated = 0;
   private long numFailed = 0;
@@ -56,15 +57,15 @@ public class PublisherImpl implements Publisher {
 
   private Instant start;
   private final Timer timer;
-  private Timer.Context timerContext = null;
-  private boolean isCollapsing;
+  private final ThreadLocal<Timer.Context> timerContext = ThreadLocal.withInitial(() -> null);
+  private final boolean isCollapsing;
   private Document previousDoc = null;
-  private StopWatch firstDocStopWatch;
+  private volatile StopWatch firstDocStopWatch;
 
   private final Integer maxPendingDocs;
 
-  private ReentrantLock lock = new ReentrantLock();
-  private java.util.concurrent.locks.Condition docIdsToTrackBelowMax = lock.newCondition();
+  private final ReentrantLock lock = new ReentrantLock();
+  private final java.util.concurrent.locks.Condition docIdsToTrackBelowMax = lock.newCondition();
 
   // Bag of published documents that have not reached a terminal state. Also includes children of published documents.
   // Note that this is a Bag, not a Set, because if two documents with the same ID are published, we would
@@ -74,10 +75,10 @@ public class PublisherImpl implements Publisher {
   // Also note that a Publisher may be shared by a Runner and a Connector: the connector may be publishing
   // new Documents while the Connector is receiving Events and calling handleEvent().
   // publish() and handleEvent() both update docIdsToTrack so the bag should be synchronized.
-  Bag<String> docIdsToTrack = SynchronizedBag.synchronizedBag(new HashBag<>());
+  private final Bag<String> docIdsToTrack = SynchronizedBag.synchronizedBag(new HashBag<>());
 
   // Bag of child documents for which a terminal event has been received early, before the corresponding CREATE event
-  Bag<String> docIdsIndexedBeforeTracking = SynchronizedBag.synchronizedBag(new HashBag<>());
+  private final Bag<String> docIdsIndexedBeforeTracking = SynchronizedBag.synchronizedBag(new HashBag<>());
 
   public PublisherImpl(Config config, PublisherMessenger messenger, String runId,
       String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
@@ -120,20 +121,25 @@ public class PublisherImpl implements Publisher {
     MDC.put(Document.ID_FIELD, document.getId());
     docLogger.info("Publishing document {}.", document.getId());
 
-    if (firstDocStopWatch.isStarted()) {
-      firstDocStopWatch.stop();
-      log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
+    if (firstDocStopWatch != null) {
+      synchronized (this) {
+        if (firstDocStopWatch != null) {
+          firstDocStopWatch.stop();
+          log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
+          firstDocStopWatch = null;
+        }
+      }
     }
-    if (timerContext != null) {
-      // stop timing the duration since tha last call to publish;
+    if (timerContext.get() != null) {
+      // stop timing the duration since the last call to publish;
       // the goal is to track the rate of publish() calls as well as the
       // average lag between them (which tells us how fast the connector produces each document)
-      timerContext.stop();
+      timerContext.get().stop();
     }
     try {
       publishInternal(document);
     } finally {
-      timerContext = timer.time();
+      timerContext.set(timer.time());
       MDC.remove(Document.ID_FIELD);
     }
   }
@@ -178,7 +184,7 @@ public class PublisherImpl implements Publisher {
       throw e;
     }
 
-    numPublished++;
+    numPublished.incrementAndGet();
   }
 
   @Override
@@ -191,8 +197,8 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void close() throws Exception {
-    if (timerContext != null) {
-      timerContext.stop();
+    if (timerContext.get() != null) {
+      timerContext.get().stop(); // TODO
     }
     messenger.close();
   }
@@ -292,19 +298,19 @@ public class PublisherImpl implements Publisher {
       // In a Kafka deployment, the publisher should be the only consumer of the event topic, and the topic should
       // have a single partition
       if (!thread.isAlive() && !hasPending() && event == null) {
-        if (timerContext != null) {
-          timerContext.stop();
+        if (timerContext.get() != null) {
+          timerContext.get().stop();
         }
         String collapseInfo = "";
-        if (isCollapsing && numPublished < timer.getCount()) {
-          collapseInfo = String.format(" (%d after collapsing)", numPublished);
+        if (isCollapsing && numPublished.get() < timer.getCount()) {
+          collapseInfo = String.format(" (%d after collapsing)", numPublished.get());
         }
         // Did not replace the following String.format with interpolation due to unique formatting (".2f")
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
             timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
         log.info("{} docs published{}. {} children created. {} success events. {} failure events. {} drop events.",
             timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
-        if (numPublished > 0 && numFailed == 0) {
+        if (numPublished.get() > 0 && numFailed == 0) {
           log.info("All documents SUCCEEDED.");
         }
         if (numFailed > 0) {
@@ -338,7 +344,7 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public long numPublished() {
-    return numPublished;
+    return numPublished.get();
   }
 
   @Override
