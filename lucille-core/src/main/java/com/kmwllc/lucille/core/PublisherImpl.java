@@ -100,6 +100,17 @@ public class PublisherImpl implements Publisher {
     this(config, messenger, runId, pipelineName, "default", false);
   }
 
+  /**
+   * Submits the given document for processing by any available pipeline worker.
+   *
+   * Stamps the current Run ID on the document and begins "tracking" events relating the document.
+   *
+   * IMPORTANT: After calling publish, code should not update the Document or read values from it since at this point
+   * it may have been picked up by a worker thread.
+   *
+   * Thread-safety: multiple threads may safely call publish() on the same Publisher instance, except when
+   * the Publisher is in collapsing mode (isCollapsing=true)
+   */
   @Override
   public void publish(Document document) throws Exception {
 
