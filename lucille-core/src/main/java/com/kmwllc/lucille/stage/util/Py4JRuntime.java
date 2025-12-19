@@ -15,10 +15,10 @@ import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-
 
 public final class Py4JRuntime {
 
@@ -156,6 +156,21 @@ public final class Py4JRuntime {
     }
   }
 
+  private static String readScriptUtf8(String scriptPath) throws StageException {
+    try {
+      Path p = Paths.get(scriptPath).toAbsolutePath().normalize();
+      if (!Files.exists(p) || !Files.isRegularFile(p)) {
+        throw new StageException("scriptPath must be an existing file: " + p);
+      }
+      if (!p.toString().endsWith(".py")) {
+        throw new StageException("scriptPath must be a .py file: " + p);
+      }
+      return Files.readString(p, StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new StageException("Failed to read python script: " + scriptPath, e);
+    }
+  }
+
   // Py4jClientCopy.py is recreated each run in case the python file is modified. Other files persist.
   private void startPythonProcess(int port) throws StageException {
     try (InputStream in = Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(PYTHON_CLIENT_RESOURCE_NAME),
@@ -173,16 +188,19 @@ public final class Py4JRuntime {
         }
       }
 
+      String scriptCode = readScriptUtf8(scriptPath);
+      String scriptB64 = Base64.getEncoder().encodeToString(scriptCode.getBytes(StandardCharsets.UTF_8));
+
       ProcessBuilder processBuilder = new ProcessBuilder(
           venvPythonPath,
           "-u",
           clientPath.toAbsolutePath().toString(),
-          "--script-path", scriptPath,
+          "--script-code-b64", scriptB64,
           "--port", String.valueOf(port)
       ).redirectErrorStream(true);
 
-      log.info("Launching Python: {} {} --script-path {} --port {}",
-          venvPythonPath, clientPath.toAbsolutePath(), scriptPath, port);
+      log.info("Launching Python: {} {} --script-code-b64 <{} chars> --port {}",
+          venvPythonPath, clientPath.toAbsolutePath(), scriptB64.length(), port);
 
       pythonProcess = processBuilder.start();
 
