@@ -310,7 +310,7 @@ See the [Testing Standards](#testing-standards).
 * Tests:
 
 ```bash
-lucille/lucille-core/src/test/java/com/kmwllc/lucille/<stage || indexer || conncetor>/
+lucille/lucille-core/src/test/java/com/kmwllc/lucille/<stage || indexer || connector>/
 ```
 
 * Per-test resources:
@@ -326,6 +326,7 @@ lucille/lucille-core/src/test/resources/<StageName || IndexerName || ConnectorNa
 * **Test failures:** Ensure bad configs, exceptions, empty inputs, etc. are tested.
 * **Assert behavior:** Prefer testing state/interactions over log output.
 * **Time:**  Avoid sleeps to prevent longer test runs.
+* **Configuration clarity:** Aim to make test configuration explicit and readable. Use inline config factories, descriptive config names, and inline scripts where applicable.
 
 ### JaCoCo Coverage Report
 
