@@ -2,6 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
@@ -12,6 +13,7 @@ import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
@@ -22,7 +24,7 @@ import org.apache.commons.lang3.StringUtils;
 
 /**
  * Parses a JSON string and sets fields on the processed document according to the configured mapping using
- * JsonPath expressions.
+ * JsonPath expressions. If no JsonPath expressions are provided, all JSON fields are copied to the document.
  * @see <a href="https://github.com/json-path/JsonPath">JsonPath</a>
  * <p>
  * Config Parameters -
@@ -31,7 +33,9 @@ import org.apache.commons.lang3.StringUtils;
  *   <li>sourceIsBase64: When set to true, indicates that the source field is base64 encoded. In this case the stage will decode
  *   the field value before parsing.</li>
  *   <li>jsonFieldPaths (Map&lt;String, Object&gt;) : Defines the mapping from JsonPath expressions to the destination fields in the
- *   processed document.</li>
+ *   processed document. Omit this property if you want all fields from the JSON to be copied to the top level of the document.</li>
+ *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
+ *   be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
  * </ul>
  */
 public class ParseJson extends Stage {
@@ -39,12 +43,16 @@ public class ParseJson extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("src")
       .optionalBoolean("sourceIsBase64")
-      .requiredParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {}).build();
+      .optionalString("update_mode")
+      .optionalParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {}).build();
+
+  private static final ObjectMapper mapper = new ObjectMapper();
 
   private final String src;
   private final Map<String, Object> jsonFieldPaths;
   private final Configuration jsonPathConf;
   private final boolean sourceIsBase64;
+  private final UpdateMode updateMode;
 
   private ParseContext jsonParseCtx;
 
@@ -52,55 +60,81 @@ public class ParseJson extends Stage {
     super(config);
 
     this.src = config.getString("src");
-    this.jsonFieldPaths = config.getConfig("jsonFieldPaths").root().unwrapped();
+    this.jsonFieldPaths = config.hasPath("jsonFieldPaths") ? config.getConfig("jsonFieldPaths").root().unwrapped() : null;
     this.sourceIsBase64 = config.hasPath("sourceIsBase64") && config.getBoolean("sourceIsBase64");
-    this.jsonPathConf = Configuration.builder()
-        .jsonProvider(new JacksonJsonProvider())
-        .mappingProvider(new JacksonMappingProvider())
-        .options(Option.DEFAULT_PATH_LEAF_TO_NULL, Option.SUPPRESS_EXCEPTIONS).build();
+    this.updateMode = UpdateMode.fromConfig(config);
+
+    if (this.jsonFieldPaths != null) {
+      this.jsonPathConf = Configuration.builder()
+          .jsonProvider(new JacksonJsonProvider())
+          .mappingProvider(new JacksonMappingProvider())
+          .options(Option.DEFAULT_PATH_LEAF_TO_NULL, Option.SUPPRESS_EXCEPTIONS).build();
+    } else {
+      this.jsonPathConf = null;
+    }
   }
 
   @Override
   public void start() throws StageException {
-    jsonParseCtx = JsonPath.using(jsonPathConf);
+    if (jsonFieldPaths != null) {
+      jsonParseCtx = JsonPath.using(jsonPathConf);
 
-    for (Entry<String, Object> entry : jsonFieldPaths.entrySet()) {
-      if (!isValidEntry(entry)) {
-        throw new StageException("jsonFieldPaths mapping contains a blank or null key/value.");
+      for (Entry<String, Object> entry : jsonFieldPaths.entrySet()) {
+        if (StringUtils.isBlank(entry.getKey()) || StringUtils.isBlank((String) entry.getValue())) {
+          throw new StageException("jsonFieldPaths mapping contains a blank or null key/value.");
+        }
       }
     }
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    DocumentContext ctx;
-    try {
-      if (sourceIsBase64) {
-        // if src is a base-64-encoded string, doc.getBytes() will transparently decode it
-        ctx = jsonParseCtx.parse(new String(doc.getBytes(src)));
-      } else {
-        ctx = jsonParseCtx.parse(doc.getString(src));
-      }
-    } catch (IllegalArgumentException e) {
-      // Using a more specific Exception message. Primarily triggered when the Document is missing the JSON src field.
-      throw new StageException("Couldn't run ParseJson on Document " + doc.getId() + ".", e);
+    if (!doc.has(src)) {
+      return null;
     }
-    for (Entry<String, Object> entry : jsonFieldPaths.entrySet()) {
-      JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
-      if (isValidNode(val)) { // makes sure that val and JsonNode Type is not null
-        // note that if val is an empty String, will still be set in the document
-        doc.setField(entry.getKey(), val);
+
+    // if src is a base-64-encoded string, doc.getBytes() will transparently decode it
+    String jsonString = sourceIsBase64 ? new String(doc.getBytes(src)) : doc.getString(src);
+
+    // if jsonFieldPaths is absent, we parse the document using a ParseContext instead of an ObjectMapper,
+    // and evaluate each provided json path expression to set the corresponding document field
+    if (jsonFieldPaths != null) {
+      DocumentContext ctx;
+      try {
+        ctx = jsonParseCtx.parse(jsonString);
+      } catch (Exception e) {
+        throw new StageException("Failed to parse JSON in document " + doc.getId() + " with src field: " + src, e);
       }
+
+      for (Entry<String, Object> entry : jsonFieldPaths.entrySet()) {
+        JsonNode val = ctx.read((String) entry.getValue(), JsonNode.class);
+        if (val != null && !val.isNull()) {
+          doc.update(entry.getKey(), updateMode, val);
+        }
+      }
+      return null;
+    }
+
+    // if jsonFieldPaths is absent, we parse the document using an ObjectMapper instead of a ParseContext,
+    // and we copy all JSON fields to the document
+    JsonNode node;
+    try {
+      node = mapper.readTree(jsonString);
+    } catch (Exception e) {
+      throw new StageException("Failed to parse JSON in document " + doc.getId() + " with src field: " + src, e);
+    }
+
+    if (!node.isObject()) {
+      throw new StageException("Non-object JSON in document " + doc.getId() + " with src field: " + src);
+    }
+
+    Iterator<Entry<String,JsonNode>> fields = node.fields();
+    while (fields.hasNext()) {
+      Entry<String,JsonNode> field = fields.next();
+      doc.update(field.getKey(), updateMode, field.getValue());
     }
 
     return null;
   }
 
-  private boolean isValidNode(JsonNode val) {
-    return val != null && !val.isNull();
-  }
-
-  private boolean isValidEntry(Entry<String, Object> entry) {
-    return StringUtils.isNotBlank(entry.getKey()) && StringUtils.isNotBlank((String) entry.getValue());
-  }
 }
