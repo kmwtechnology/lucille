@@ -32,7 +32,7 @@ import java.util.List;
  *   <li>elasticsearch.acceptInvalidCert (Boolean, optional) : allow self‑signed or invalid SSL certificates.</li>
  *   <li>source (List&lt;String&gt;) : list of field names to fetch from Elasticsearch.</li>
  *   <li>dest (List&lt;String&gt;) : corresponding list of field names into which to write values.</li>
- *   <li>update_mode (String, optional) : how to merge fetched values into the document. Defaults to OVERWRITE if not specified.</li>
+ *   <li>updateMode (String, optional) : how to merge fetched values into the document. Defaults to OVERWRITE if not specified.</li>
  * </ul>
  */
 public class ElasticsearchLookup extends Stage {
@@ -41,8 +41,7 @@ public class ElasticsearchLookup extends Stage {
       .requiredParent(ElasticsearchUtils.ELASTICSEARCH_PARENT_SPEC)
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
-      .optionalString("update_mode")
-      .optionalString("update_mode").build();
+      .optionalString("updateMode").build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 

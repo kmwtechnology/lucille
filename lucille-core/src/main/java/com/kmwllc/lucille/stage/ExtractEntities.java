@@ -34,16 +34,16 @@ import java.util.stream.Collectors;
  *   <li>source (List&lt;String&gt;) : list of source field names.</li>
  *   <li>dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination
  *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
- *   <li>dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath
+ *   <li>dictPath (String) : The path the dictionary to use for matching. If the dictPath begins with "classpath:" the classpath
  *   will be searched for the file. Otherwise, the local file system will be searched.</li>
- *   <li>use_payloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   <li>usePayloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.</li>
+ *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
- *   <li>only_whitespace_separated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be candidates for
+ *   <li>ignoreCase (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
+ *   <li>onlyWhitespaceSeparated (Boolean, Optional) : Denotes whether terms must be whitespace separated to be candidates for
  *   matching.  Defaults to false.</li>
- *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
- *   <li>only_whole_words (Boolean, Optional) : If true, matches must be whole words (not embedded in other letters). For example,
+ *   <li>stopOnHit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
+ *   <li>onlyWholeWords (Boolean, Optional) : If true, matches must be whole words (not embedded in other letters). For example,
  *   "OMAN" will not match inside "rOMAN". I false, substrings within words can match. Defaults to true.</li>
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
@@ -56,9 +56,9 @@ public class ExtractEntities extends Stage {
       .requiredList("dictionaries", new TypeReference<List<String>>(){})
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
-      .optionalBoolean("ignore_case", "only_whitespace_separated", "stop_on_hit",
-          "only_whole_words", "ignore_overlaps", "use_payloads")
-      .optionalString("update_mode", "entity_field")
+      .optionalBoolean("ignoreCase", "onlyWhitespaceSeparated", "stopOnHit",
+          "onlyWholeWords", "ignoreOverlaps", "usePayloads")
+      .optionalString("updateMode", "entityField")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
@@ -82,18 +82,18 @@ public class ExtractEntities extends Stage {
     super(config);
 
     // For the optional settings, we check if the config has this setting and then what the value is.
-    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
-    this.onlyWhitespaceSeparated = ConfigUtils.getOrDefault(config, "only_whitespace_separated", false);
-    this.stopOnHit = ConfigUtils.getOrDefault(config, "stop_on_hit", false);
-    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "only_whole_words", true);
-    this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignore_overlaps", false);
-    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
+    this.onlyWhitespaceSeparated = ConfigUtils.getOrDefault(config, "onlyWhitespaceSeparated", false);
+    this.stopOnHit = ConfigUtils.getOrDefault(config, "stopOnHit", false);
+    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "onlyWholeWords", true);
+    this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignoreOverlaps", false);
+    this.usePayloads = ConfigUtils.getOrDefault(config, "usePayloads", true);
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.dictionaries = config.getStringList("dictionaries");
     this.updateMode = UpdateMode.fromConfig(config);
-    this.entityField = config.hasPath("entity_field") ? config.getString("entity_field") : null;
+    this.entityField = config.hasPath("entityField") ? config.getString("entityField") : null;
     this.fileFetcher = FileContentFetcher.create(config);
   }
 

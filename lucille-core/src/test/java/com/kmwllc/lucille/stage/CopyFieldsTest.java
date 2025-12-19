@@ -134,7 +134,7 @@ public class CopyFieldsTest {
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("CopyFieldsTest/replace.conf");
     assertEquals(
-        Set.of("class", "conditionPolicy", "conditions", "fieldMapping", "isNested", "name", "update_mode"),
+        Set.of("class", "conditionPolicy", "conditions", "fieldMapping", "isNested", "name", "updateMode"),
         stage.getLegalProperties());
   }
 }

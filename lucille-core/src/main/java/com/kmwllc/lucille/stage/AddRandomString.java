@@ -25,26 +25,26 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>input_data_path (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
+ *   <li>inputDataPath (String, Optional) : file path to a text file that stores datapoints to be randomly placed into field,
  *   defaults to numeric data based on range size (0 -&gt; rangeSize - 1). Note that duplicate entries will not be removed.</li>
- *   <li>field_name (String, Optional) : Field name of field where data is placed, defaults to "data".</li>
- *   <li>range_size (int, Optional) : size of the subset of datapoints to be grabbed either from given datapath or from
+ *   <li>fieldName (String, Optional) : Field name of field where data is placed, defaults to "data".</li>
+ *   <li>rangeSize (int, Optional) : size of the subset of datapoints to be grabbed either from given datapath or from
  *   random numbers.</li>
- *   <li>min_num_of_terms (Integer, Optional) : minimum number of terms to be in the field, defaults to 1.</li>
- *   <li>max_num_of_terms (Integer, Optional) : maximum number of terms to be in the field, defaults to 1.</li>
- *   <li>is_nested (bool, Optional) : When enabled, the generated data will be output as a JSON array of objects, with
+ *   <li>minNumOfTerms (Integer, Optional) : minimum number of terms to be in the field, defaults to 1.</li>
+ *   <li>maxNumOfTerms (Integer, Optional) : maximum number of terms to be in the field, defaults to 1.</li>
+ *   <li>isNested (bool, Optional) : When enabled, the generated data will be output as a JSON array of objects, with
  *   each object holding the data in <code>"data"</code>.</li>
  *   <li>concatenate (bool, Optional) : if true, represent multiple terms as a single space-separated string instead of multiple
  *   values, defaults to false.</li>
  * </ul>
- * <p> <b>Note:</b> <code>concatenate</code> and <code>is_nested</code> cannot both be <code>true</code> in your Config.
+ * <p> <b>Note:</b> <code>concatenate</code> and <code>isNested</code> cannot both be <code>true</code> in your Config.
  */
 public class AddRandomString extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("input_data_path", "field_name")
-      .optionalNumber("min_num_of_terms", "max_num_of_terms", "range_size")
-      .optionalBoolean("is_nested", "concatenate").build();
+      .optionalString("inputDataPath", "fieldName")
+      .optionalNumber("minNumOfTerms", "maxNumOfTerms", "rangeSize")
+      .optionalBoolean("isNested", "concatenate").build();
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -65,13 +65,13 @@ public class AddRandomString extends Stage {
   public AddRandomString(Config config) throws StageException {
     super(config);
 
-    this.inputDataPath = ConfigUtils.getOrDefault(config, "input_data_path", null);
-    this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
-    this.minNumOfTerms = ConfigUtils.getOrDefault(config, "min_num_of_terms", null);
-    this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "max_num_of_terms", null);
-    this.isNested = ConfigUtils.getOrDefault(config, "is_nested", false);
+    this.inputDataPath = ConfigUtils.getOrDefault(config, "inputDataPath", null);
+    this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
+    this.minNumOfTerms = ConfigUtils.getOrDefault(config, "minNumOfTerms", null);
+    this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "maxNumOfTerms", null);
+    this.isNested = ConfigUtils.getOrDefault(config, "isNested", false);
     this.concatenate = ConfigUtils.getOrDefault(config, "concatenate", false);
-    this.rangeSize = ConfigUtils.getOrDefault(config, "range_size", null);
+    this.rangeSize = ConfigUtils.getOrDefault(config, "rangeSize", null);
     this.fileData = null;
 
     if (this.minNumOfTerms == null ^ this.maxNumOfTerms == null) {
@@ -85,10 +85,10 @@ public class AddRandomString extends Stage {
       throw new StageException("Minimum number of terms must be less than or equal to maximum");
     }
     if (inputDataPath == null && rangeSize == null) {
-      throw new StageException("range_size must be specified if there is no input_data_path");
+      throw new StageException("rangeSize must be specified if there is no inputDataPath");
     }
     if (concatenate && isNested) {
-      throw new StageException("concatenate=true is not currently supported when is_nested=true");
+      throw new StageException("concatenate=true is not currently supported when isNested=true");
     }
   }
 

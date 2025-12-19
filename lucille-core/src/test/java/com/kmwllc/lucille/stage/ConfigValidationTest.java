@@ -70,7 +70,7 @@ public class ConfigValidationTest {
     List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
     assertEquals(2, pipeline1Exceptions.size());
 
-    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class, "Config contains unknown property invalid_property");
+    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class, "Config contains unknown property invalidProperty");
     testException(pipeline1Exceptions.get(1), IllegalArgumentException.class, "Config is missing required property fields");
   }
 
@@ -83,7 +83,7 @@ public class ConfigValidationTest {
     List<Exception> pipeline1Exceptions = exceptions.get("pipeline1");
     assertEquals(2, pipeline1Exceptions.size());
 
-    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class, "Config contains unknown property invalid_property");
+    testException(pipeline1Exceptions.get(0), IllegalArgumentException.class, "Config contains unknown property invalidProperty");
     testException(pipeline1Exceptions.get(1), IllegalArgumentException.class, "Config is missing required property fields");
   }
 
@@ -99,7 +99,7 @@ public class ConfigValidationTest {
     assertEquals(2, pipeline2Exceptions.size());
 
     testException(pipeline1Exceptions.get(0), IllegalArgumentException.class,
-        "Config contains unknown property invalid_property");
+        "Config contains unknown property invalidProperty");
 
     // TODO note that for the following two exceptions, the fields are retrieved before
     //  the config validation is called
@@ -111,7 +111,7 @@ public class ConfigValidationTest {
         "Config is missing required property dest");
 
     testException(pipeline2Exceptions.get(1), IllegalArgumentException.class,
-        "Config contains unknown parent default_inputs3");
+        "Config contains unknown parent defaultInputs3");
   }
 
   @Test
@@ -124,8 +124,8 @@ public class ConfigValidationTest {
 
     String message = exceptions.get("pipeline1").get(0).getMessage();
 
-    assertTrue(message.contains("Config contains unknown parent bad_parent"));
-    assertTrue(message.contains("Config contains unknown property invalid_property"));
+    assertTrue(message.contains("Config contains unknown parent badParent"));
+    assertTrue(message.contains("Config contains unknown property invalidProperty"));
   }
 
   @Test
@@ -235,7 +235,7 @@ public class ConfigValidationTest {
 
     // the message should complain about these properties...
     assertTrue(exceptionMessage.contains("something"));
-    assertTrue(exceptionMessage.contains("something_else"));
+    assertTrue(exceptionMessage.contains("somethingElse"));
     // ...but not this property!
     assertFalse(exceptionMessage.contains("metricsLoggingLevel"));
 
@@ -262,7 +262,7 @@ public class ConfigValidationTest {
         zookeeperSeen = true;
       } else if (e.getMessage().contains("runner")) {
         assertTrue(e.getMessage().contains("something"));
-        assertTrue(e.getMessage().contains("something_else"));
+        assertTrue(e.getMessage().contains("somethingElse"));
         runnerSeen = true;
       } else {
         fail("Exception for \"other\" that doesn't reference zookeeper or runner.");
@@ -279,9 +279,9 @@ public class ConfigValidationTest {
     // there should be three exceptions - one for each implementation having an unknown property, and one mentioning
     // that there are multiple connectors named connector1
     assertEquals(3, exceptions.get("connector1").size());
-    assertTrue(exceptions.get("connector1").get(0).getMessage().contains("bad_prop_first_time"));
+    assertTrue(exceptions.get("connector1").get(0).getMessage().contains("badPropFirstTime"));
     assertTrue(exceptions.get("connector1").get(1).getMessage().contains("multiple connectors with"));
-    assertTrue(exceptions.get("connector1").get(2).getMessage().contains("bad_prop_second_time"));
+    assertTrue(exceptions.get("connector1").get(2).getMessage().contains("badPropSecondTime"));
   }
 
   private static void processDoc(Class<? extends Stage> stageClass, String config, Document doc)

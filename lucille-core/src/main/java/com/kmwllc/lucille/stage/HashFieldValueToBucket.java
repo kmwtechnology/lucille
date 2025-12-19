@@ -19,7 +19,7 @@ import com.typesafe.config.Config;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>field_name (String, Required) : Field that will be used as the input for the hashing function.</li>
+ *   <li>fieldName (String, Required) : Field that will be used as the input for the hashing function.</li>
  *   <li>dest (String, Required) : Field that will contain the hash bucket label.</li>
  *   <li>buckets (List of String, Required) : list of buckets for the hash function.</li>
  * </ul>
@@ -27,7 +27,7 @@ import com.typesafe.config.Config;
 public class HashFieldValueToBucket extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("field_name", "dest")
+      .requiredString("fieldName", "dest")
       .requiredList("buckets", new TypeReference<List<String>>(){}).build();
 
   private final String fieldName;
@@ -37,7 +37,7 @@ public class HashFieldValueToBucket extends Stage {
 
   public HashFieldValueToBucket(Config config) throws StageException {
     super(config);
-    this.fieldName = config.getString("field_name");
+    this.fieldName = config.getString("fieldName");
     this.buckets = config.getStringList("buckets");
     this.destField = config.getString("dest");
     this.numBuckets = buckets.size();
@@ -45,7 +45,7 @@ public class HashFieldValueToBucket extends Stage {
       throw new StageException("There must be at least one bucket defined in the buckets parameter.");
     }
     if (StringUtils.isEmpty(fieldName)) {
-      throw new StageException("field_name must not be null or empty");
+      throw new StageException("fieldName must not be null or empty");
     }
     if (StringUtils.isEmpty(destField)) {
       throw new StageException("dest field name must not be null or empty");

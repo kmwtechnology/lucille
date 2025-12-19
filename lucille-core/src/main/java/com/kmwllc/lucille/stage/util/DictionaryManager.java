@@ -148,7 +148,7 @@ public class DictionaryManager {
           // List.of() is not modifiable.
           value = setOnly ? PRESENT : List.of(word);
         } else if (setOnly) {
-          throw new IOException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
+          throw new IOException(String.format("Comma separated values are not allowed when setOnly=true: \"%s\" on line %d",
               Arrays.toString(line), reader.getLinesRead()));
         } else {
           // Handle multiple payload values here - list is also not modifiable.

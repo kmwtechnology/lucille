@@ -23,13 +23,13 @@ import java.util.regex.Pattern;
  *   for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
  *   <li>regex (List&lt;String&gt;) : A list regex expression to find matches for. Matches will be extracted and placed in the destination fields.</li>
  *   <li>replacement (String, Optional) : The String to replace regex matches with. If null, pattern replacement will only take place if
- *   a replacement_field is specified and set to a String in a document.</li>
- *   <li>replacement_field (String, Optional): Specify a field in the document that is set to a String. If non-null, replacements of a
- *   pattern within a document will use the string set to the replacement_field, if present. Otherwise, we fall back onto replacement:
+ *   a replacementField is specified and set to a String in a document.</li>
+ *   <li>replacementField (String, Optional): Specify a field in the document that is set to a String. If non-null, replacements of a
+ *   pattern within a document will use the string set to the replacementField, if present. Otherwise, we fall back onto replacement:
  *   If it is not null, patterns are replaced with it; if it is null, no replacement takes place.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
+ *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
  *   be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>ignore_case (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.</li>
+ *   <li>ignoreCase (Boolean, Optional) : Determines whether the regex matcher should ignore case. Defaults to false.</li>
  *   <li>multiline (Boolean, Optional) : Determines whether the regex matcher should allow matches across multiple lines. Defaults to false.</li>
  *   <li>dotall (Boolean, Optional) : Turns on the DOTALL functionality for the regex matcher. Defaults to false.</li>
  *   <li>literal (Boolean, Optional) : Toggles treating the regex expression as a literal String. Defaults to false.</li>
@@ -41,8 +41,8 @@ public class ReplacePatterns extends Stage {
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .requiredList("regex", new TypeReference<List<String>>(){})
-      .optionalString("replacement", "replacement_field", "update_mode")
-      .optionalBoolean("ignore_case", "multiline", "dotall", "literal").build();
+      .optionalString("replacement", "replacementField", "updateMode")
+      .optionalBoolean("ignoreCase", "multiline", "dotall", "literal").build();
 
   private final List<String> sourceFields;
   private final List<String> destFields;
@@ -67,15 +67,15 @@ public class ReplacePatterns extends Stage {
     this.destFields = config.getStringList("dest");
     this.regexExprs = config.getStringList("regex");
     this.replacement = ConfigUtils.getOrDefault(config, "replacement", null);
-    this.replacementField = ConfigUtils.getOrDefault(config, "replacement_field", null);
+    this.replacementField = ConfigUtils.getOrDefault(config, "replacementField", null);
 
     if (replacement == null && replacementField == null) {
-      throw new StageException("Did not provide a replacement String or a replacement_field.");
+      throw new StageException("Did not provide a replacement String or a replacementField.");
     }
 
     this.updateMode = UpdateMode.fromConfig(config);
 
-    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
     this.multiline = ConfigUtils.getOrDefault(config, "multiline", false);
     this.dotall = ConfigUtils.getOrDefault(config, "dotall", false);
     this.literal = ConfigUtils.getOrDefault(config, "literal", false);

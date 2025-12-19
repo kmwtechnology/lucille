@@ -28,7 +28,7 @@ import java.util.*;
  * <p>
  * Config Parameters:
  * <ul>
- *   <li>script_path (String, Optional) : Path to the Python script to run.</li>
+ *   <li>scriptPath (String, Optional) : Path to the Python script to run.</li>
  *   <li>script (String, Optional) : Inline Python code to execute instead of a file.</li>
  *   <li>s3 (Map, Optional) : If your Python file is held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your javascript file is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
@@ -38,7 +38,7 @@ import java.util.*;
 public class EmbeddedPython extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("script_path", "script")
+      .optionalString("scriptPath", "script")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .build();
 
@@ -52,9 +52,9 @@ public class EmbeddedPython extends Stage {
 
   public EmbeddedPython(Config config) {
     super(config);
-    this.scriptPath = config.hasPath("script_path") ? config.getString("script_path") : null;
+    this.scriptPath = config.hasPath("scriptPath") ? config.getString("scriptPath") : null;
     this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
-//    this.pythonRoot = config.hasPath("python_root") ? config.getString("python_root") : null;
+//    this.pythonRoot = config.hasPath("pythonRoot") ? config.getString("pythonRoot") : null;
   }
 
   @Override

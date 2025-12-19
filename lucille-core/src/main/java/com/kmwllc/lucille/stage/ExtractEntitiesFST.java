@@ -44,18 +44,18 @@ import org.slf4j.LoggerFactory;
  *   <li>source (List&lt;String&gt;, Required) : List of source field names.</li>
  *   <li>dest (List&lt;String&gt;, Required) : List of destination field names. You can either supply the same number of source and destination
  *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
- *   <li>use_payloads (Boolean, Optional) : Denotes whether payloads from the dictionary should be used or not.</li>
- *   <li>only_whole_words (Boolean, Optional) : If true, matches must be bounded by non-letters on both sides (word boundaries). If
+ *   <li>usePayloads (Boolean, Optional) : Denotes whether payloads from the dictionary should be used or not.</li>
+ *   <li>onlyWholeWords (Boolean, Optional) : If true, matches must be bounded by non-letters on both sides (word boundaries). If
  *   false, substrings inside larger words are allowed. Defaults to true.</li>
- *   <li>ignore_overlaps (Boolean, Optional) : If true, emits only the single longest match starting at a position; if false, emits
+ *   <li>ignoreOverlaps (Boolean, Optional) : If true, emits only the single longest match starting at a position; if false, emits
  *   all overlapping matches that start at that position. Defaults to false.</li>
- *   <li>stop_on_hit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
- *   <li>ignore_case (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
+ *   <li>stopOnHit (Boolean, Optional) : Denotes whether this matcher should stop after one hit. Defaults to false.</li>
+ *   <li>ignoreCase (Boolean, Optional) : Denotes whether this Stage will ignore case determining when making matches. Defaults to false.</li>
+ *   <li>updateMode (String, Optional) : Determines how writing will be handled if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>dicts_sorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed and lowercased
- *   if ignore_case=true). Skips sorting to reduce startup time. Defaults to false.</li>
- *   <li>entity_field (String, Optional) : When set and use_payloads=true, also writes the matched normalized surface terms to this field.</li>
+ *   <li>dictsSorted (Boolean, Optional) : If true, assumes dictionary rows are already lexicographically sorted by the key (trimmed and lowercased
+ *   if ignoreCase=true). Skips sorting to reduce startup time. Defaults to false.</li>
+ *   <li>entityField (String, Optional) : When set and usePayloads=true, also writes the matched normalized surface terms to this field.</li>
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
@@ -67,8 +67,8 @@ public class ExtractEntitiesFST extends Stage {
       .requiredList("dictionaries", new TypeReference<List<String>>() {})
       .requiredList("source", new TypeReference<List<String>>() {})
       .requiredList("dest", new TypeReference<List<String>>() {})
-      .optionalBoolean("use_payloads", "only_whole_words", "ignore_overlaps", "stop_on_hit", "ignore_case", "dicts_sorted")
-      .optionalString("update_mode", "entity_field")
+      .optionalBoolean("usePayloads", "onlyWholeWords", "ignoreOverlaps", "stopOnHit", "ignoreCase", "dictsSorted")
+      .optionalString("updateMode", "entityField")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .build();
 
@@ -88,21 +88,21 @@ public class ExtractEntitiesFST extends Stage {
   private final UpdateMode updateMode;
 
   // FSTs
-  private FST<Object> fstNoPayloads; // used when use_payloads=false
-  private FST<BytesRef> fstPayloads; // used when use_payloads=true
+  private FST<Object> fstNoPayloads; // used when usePayloads=false
+  private FST<BytesRef> fstPayloads; // used when usePayloads=true
 
   public ExtractEntitiesFST(Config config) throws StageException {
     super(config);
     this.dictionaries = config.getStringList("dictionaries"); // Dict files to load
     this.sourceFields = config.getStringList("source"); // Fields in the input doc to read from
     this.destFields = config.getStringList("dest"); // Fields in the doc to write matched results to
-    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
-    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "only_whole_words", true);
-    this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignore_overlaps", false);
-    this.stopOnHit = ConfigUtils.getOrDefault(config, "stop_on_hit", false);
-    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
-    this.dictsSorted = ConfigUtils.getOrDefault(config, "dicts_sorted", false);
-    this.entityField = ConfigUtils.getOrDefault(config, "entity_field", null);
+    this.usePayloads = ConfigUtils.getOrDefault(config, "usePayloads", true);
+    this.onlyWholeWords = ConfigUtils.getOrDefault(config, "onlyWholeWords", true);
+    this.ignoreOverlaps = ConfigUtils.getOrDefault(config, "ignoreOverlaps", false);
+    this.stopOnHit = ConfigUtils.getOrDefault(config, "stopOnHit", false);
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
+    this.dictsSorted = ConfigUtils.getOrDefault(config, "dictsSorted", false);
+    this.entityField = ConfigUtils.getOrDefault(config, "entityField", null);
     this.updateMode = UpdateMode.fromConfig(config);
   }
 
@@ -249,7 +249,7 @@ public class ExtractEntitiesFST extends Stage {
 
   private static final class MatchHit {
     final String key;     // normalized key
-    final String payload; // payload or null if use_payloads=false
+    final String payload; // payload or null if usePayloads=false
     final int length;     // length in characters
     MatchHit(String key, String payload, int length) {
       this.key = key;

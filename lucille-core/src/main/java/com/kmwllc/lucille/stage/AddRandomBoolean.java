@@ -15,15 +15,15 @@ import java.util.concurrent.ThreadLocalRandom;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>field_name (String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
- *   <li>percent_true (Integer, Optional) : Determines the rate at which "true" is selected and placed on a document. Defaults to 50.</li>
+ *   <li>fieldName(String, Optional) : Field name of field where data is placed. Defaults to "data".</li>
+ *   <li>percentTrue (Integer, Optional) : Determines the rate at which "true" is selected and placed on a document. Defaults to 50.</li>
  * </ul>
  */
 public class AddRandomBoolean extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("field_name")
-      .optionalNumber("percent_true").build();
+      .optionalString("fieldName")
+      .optionalNumber("percentTrue").build();
 
   private final String fieldName;
   private final int percentTrue;
@@ -31,11 +31,11 @@ public class AddRandomBoolean extends Stage {
   public AddRandomBoolean(Config config) throws StageException {
     super(config);
 
-    this.fieldName = ConfigUtils.getOrDefault(config, "field_name", "data");
-    this.percentTrue = ConfigUtils.getOrDefault(config, "percent_true", 50);
+    this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
+    this.percentTrue = ConfigUtils.getOrDefault(config, "percentTrue", 50);
 
     if (percentTrue > 100 || percentTrue < 0) {
-      throw new StageException("Invalid value for percent_true. Must be greater than 0 and less than 100.");
+      throw new StageException("Invalid value for percentTrue. Must be greater than 0 and less than 100.");
     }
   }
 

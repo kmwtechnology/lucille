@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
  * choice what you would like it to do with the document you provide. (For example, ask it to extract all the person names in the Document,
  * or to provide a brief summary, etc.) If your system prompt has the LLM output JSON, the fields in that JSON will be integrated into
  * the Lucille Document. If not, and requireJSON is set to false, the LLM's response will be placed into the "ollamaResponse" field.
- * Fields will be updated in accordance with the given update_mode, defaulting to overwriting any existing fields if they are present
+ * Fields will be updated in accordance with the given updateMode, defaulting to overwriting any existing fields if they are present
  * on both the Document and the LLM's response.
  * <p>
  * It is recommended that you instruct your LLM to output JSON, for two primary reasons:
@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
  *   Lucille will throw an Exception upon receiving a non-JSON response from the LLM. When false, Lucille will place the response's
  *   raw contents into the "ollamaResponse" field. Additionally, when set to true, your Ollama chat request will have <code>format: "json"</code>
  *   to prevent errors with Markdown formatting. Defaults to false.</li>
- *   <li>update_mode (String, Optional) : How you want Lucille to update the fields in your Document, based on what it extracts from a JSON
+ *   <li>updateMode (String, Optional) : How you want Lucille to update the fields in your Document, based on what it extracts from a JSON
  *   based response. Has no effect on a textual response placed in "ollamaResponse" - that will always overwrite any existing data.
  *   Should be one of "append", "overwrite", or "skip". Defaults to overwrite.</li>
  * </ul>
@@ -66,7 +66,7 @@ public class PromptOllama extends Stage {
       .requiredString("hostURL", "modelName")
       .optionalNumber("timeout")
       .optionalBoolean("requireJSON")
-      .optionalString("systemPrompt", "update_mode")
+      .optionalString("systemPrompt", "updateMode")
       .optionalList("fields", new TypeReference<List<String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(PromptOllama.class);

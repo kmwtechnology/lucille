@@ -23,29 +23,29 @@ import java.util.List;
 
 /**
  * Detects the language of the text in each supplied source field and outputs the language abbreviation associated with the text to
- * the language_field.
+ * the languageField.
  * <p>
  * Config Parameters -
  * <ul>
  *   <li>source (List&lt;String&gt;) : List of source field names.</li>
- *   <li>language_field (String) : The field you want detected languages to be placed into.</li>
- *   <li>language_confidence_field (String, Optional) : The field you want the confidence value to be placed into. Defaults to "languageConfidence"</li>
- *   <li>min_length (Integer, Optional) : The min length of Strings to be considered for language detection. Shorter Strings will be
+ *   <li>languageField (String) : The field you want detected languages to be placed into.</li>
+ *   <li>languageConfidenceField (String, Optional) : The field you want the confidence value to be placed into. Defaults to "languageConfidence"</li>
+ *   <li>minLength (Integer, Optional) : The min length of Strings to be considered for language detection. Shorter Strings will be
  *   ignored. Defaults to 50.</li>
- *   <li>max_length (Integer, Optional) : The max length of Strings to be considered for language detection. Longer Strings will be
+ *   <li>maxLength (Integer, Optional) : The max length of Strings to be considered for language detection. Longer Strings will be
  *   truncated. Defaults to 10,000.</li>
- *   <li>min_probability (Double, Optional) : The min probability for a language result to be considered valid. Results below this
+ *   <li>minProbability (Double, Optional) : The min probability for a language result to be considered valid. Results below this
  *   threshold will be ignored. Defaults to 0.95.</li>
- *   <li>update_mode (String, Optional) : The methodology by which you want document fields to be updated. See {@link UpdateMode}.</li>
+ *   <li>updateMode (String, Optional) : The methodology by which you want document fields to be updated. See {@link UpdateMode}.</li>
  * </ul>
  */
 public class DetectLanguage extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("source", new TypeReference<List<String>>(){})
-      .requiredString("language_field")
-      .optionalString("language_confidence_field", "update_mode")
-      .optionalNumber("min_length", "max_length", "min_probability").build();
+      .requiredString("languageField")
+      .optionalString("languageConfidenceField", "updateMode")
+      .optionalNumber("minLength", "maxLength", "minProbability").build();
 
   private final static String profileResourcesLoc = "profiles";
 
@@ -72,12 +72,12 @@ public class DetectLanguage extends Stage {
     super(config);
 
     this.sourceFields = config.getStringList("source");
-    this.languageField = config.getString("language_field");
-    this.languageConfidenceField = config.hasPath("language_confidence_field") ?
-        config.getString("language_confidence_field") : "languageConfidence";
-    this.minLength = config.hasPath("min_length") ? config.getInt("min_length") : 50;
-    this.maxLength = config.hasPath("max_length") ? config.getInt("max_length") : 10_000;
-    this.minProbability = config.hasPath("min_probability") ? config.getDouble("min_probability") : .95;
+    this.languageField = config.getString("languageField");
+    this.languageConfidenceField = config.hasPath("languageConfidenceField") ?
+        config.getString("languageConfidenceField") : "languageConfidence";
+    this.minLength = config.hasPath("minLength") ? config.getInt("minLength") : 50;
+    this.maxLength = config.hasPath("maxLength") ? config.getInt("maxLength") : 10_000;
+    this.minProbability = config.hasPath("minProbability") ? config.getDouble("minProbability") : .95;
     this.updateMode = UpdateMode.fromConfig(config);
   }
 

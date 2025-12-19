@@ -40,8 +40,8 @@ import java.util.*;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>script_path (String, Optional) : Path to a JavaScript file to execute. Exactly one of script_path or script must be set.</li>
- *   <li>script (String, Optional) : Inline JavaScript source to execute. Exactly one of script_path or script must be set.</li>
+ *   <li>scriptPath (String, Optional) : Path to a JavaScript file to execute. Exactly one of scriptPath or script must be set.</li>
+ *   <li>script (String, Optional) : Inline JavaScript source to execute. Exactly one of scriptPath or script must be set.</li>
  *   <li>s3 (Map, Optional) : If your javascript file is held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your javascript file is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your javascript file is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
@@ -50,7 +50,7 @@ import java.util.*;
 public class ApplyJavascript extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("script_path")
+      .optionalString("scriptPath")
       .optionalString("script")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .build();
@@ -63,7 +63,7 @@ public class ApplyJavascript extends Stage {
 
   public ApplyJavascript(Config config) {
     super(config);
-    this.scriptPath = config.hasPath("script_path") ? config.getString("script_path") : null;
+    this.scriptPath = config.hasPath("scriptPath") ? config.getString("scriptPath") : null;
     this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
   }
 
