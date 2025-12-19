@@ -23,7 +23,6 @@ import org.apache.commons.text.CaseUtils;
  * <p>
  * Usage Example: java -cp 'lucille.jar:lib/*' com.kmwllc.lucille.util.CamelCaseConfigConverter /path/to/config.conf
  */
-
 public class CamelCaseConfigConverter {
 
   private static final Logger log = LoggerFactory.getLogger(CamelCaseConfigConverter.class);
