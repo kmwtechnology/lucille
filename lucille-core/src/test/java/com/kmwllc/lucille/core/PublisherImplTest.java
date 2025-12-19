@@ -3,9 +3,11 @@ package com.kmwllc.lucille.core;
 import static java.time.Duration.ofMillis;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
 
+import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -14,8 +16,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.junit.Test;
@@ -397,5 +401,89 @@ public class PublisherImplTest {
     // an accurate number here builds confidence that the internal Bag of pending docIds has not been corrupted
     assertEquals(100000, publisher.numPending());
   }
+
+  @Test
+  public void testMultiThreadedPublishingWithThrottlingEnabled() throws Exception {
+
+    // enable publisher throttling via maxPendingDocs=100
+    Config config = ConfigFactory.parseString("publisher {queueCapacity: 100000, maxPendingDocs: 100}");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // publishing threads will add ids of published docs to this queue; event handling thread will drain it
+    final LinkedBlockingQueue<String> publishedIds = new LinkedBlockingQueue<>();
+
+    // keep a list of all threads we'll start in this test;
+    // the event handling thread will be added at position 0, followed by publishing threads
+    List<Thread> threads = new ArrayList();
+
+    // the publishing threads will publish exactly 10000 docs combined and add their ids to the publishedIds queue
+    // this event handling thread tries to consume 10000 ids from the publishedIds queue and stops when that number is reached
+    Thread eventHandlingThread = new Thread(() -> {
+      int numEventsHandled = 0;
+      while (true) {
+        String id;
+        try {
+          id = publishedIds.take();
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+          return;
+        }
+        publisher.handleEvent(new Event(id, "run1", "message", Type.FINISH));
+        numEventsHandled++;
+        if (numEventsHandled == 10000) {
+          return;
+        }
+      }
+    });
+
+    threads.add(eventHandlingThread);
+
+    // now add 10 publishing threads to our list of threads
+    // each publishing thread will publish 1000 documents
+    // doc IDs will be formated as <thread ID from 0 to 9>_<doc sequence from 0 to 999>
+    for (int i = 0; i < 10; i++) {
+      final int i2 = i;
+      threads.add(new Thread(() -> {
+        for (int j = 0; j < 1000; j++) {
+          String id = i2 + "_" + j;
+          try {
+            publisher.publish(Document.create(id));
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+
+          publishedIds.add(id);
+
+          // periodically check that the number of pending docs is not reported as much higher than declared max of 100
+          // if we find too many pending docs, we interrupt all the threads (to prevent the test from hanging) and
+          // throw an exception; note that Junit assertions inside threads don't work as expected so we don't use one here;
+          // also note that publisher.maxPendingDocs is not enforced exactly but seems to never be exceeded by more than
+          // the number of publishing threads (here, that's the declared setting of 100 plus 10 threads = 110)
+          if (publisher.numPending() > 110) {
+            for (Thread thread: threads) {
+              thread.interrupt();
+            }
+            throw new RuntimeException();
+          }
+        }
+      }));
+    }
+
+    // start all the threads beginning with the event handling thread and then the 10 publishing threads
+    for (Thread thread : threads) {
+      thread.start();
+    }
+
+    // join all the threads
+    for (Thread thread : threads) {
+      thread.join();
+    }
+
+    // the publisher should report 10000 published documents with 0 pending
+    assertEquals(10000, publisher.numPublished());
+    assertEquals(0, publisher.numPending());
+  }
+
 
 }
