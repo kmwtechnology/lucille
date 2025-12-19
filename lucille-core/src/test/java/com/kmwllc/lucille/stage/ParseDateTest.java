@@ -64,14 +64,14 @@ public class ParseDateTest {
     assertEquals(
         Set.of(
             "formatters",
-            "update_mode",
+            "updateMode",
             "name",
-            "format_strs",
+            "formatStrs",
             "source",
             "dest",
             "conditions",
             "class",
-            "time_zone_id",
+            "timeZoneId",
             "conditionPolicy"),
         stage.getLegalProperties());
   }
@@ -91,7 +91,7 @@ public class ParseDateTest {
     configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
     configValues.put("source", List.of("date"));
     configValues.put("dest", List.of("output"));
-    configValues.put("format_strs", List.of("yyyy-MM-dd"));
+    configValues.put("formatStrs", List.of("yyyy-MM-dd"));
 
     // create a map of time zones to expected formatted dates
     List<String> zones = List.of("America/New_York", "Universal", "Europe/Rome", "Australia/Brisbane");
@@ -99,7 +99,7 @@ public class ParseDateTest {
     for (String zone : zones) {
 
       // add a time zone to the config values map
-      configValues.put("time_zone_id", zone);
+      configValues.put("timeZoneId", zone);
 
       // create a stage off the config values map
       Stage stage = factory.get(configValues);
@@ -117,7 +117,7 @@ public class ParseDateTest {
           .withZone(ZoneId.of(zone)).parse("2021-02-02");
       String expected = DateTimeFormatter.ISO_INSTANT.format(parsed);
 
-      assertEquals("Failed for time_zone_id=" + zone,
+      assertEquals("Failed for timeZoneId=" + zone,
           expected, doc.getString("output"));
     }
   }
@@ -128,7 +128,7 @@ public class ParseDateTest {
     configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
     configValues.put("source", List.of("date"));
     configValues.put("dest", List.of("output"));
-    configValues.put("format_strs", List.of("yyyy-MM-dd'T'HH:mm:ssxxxxx[VV]"));
+    configValues.put("formatStrs", List.of("yyyy-MM-dd'T'HH:mm:ssxxxxx[VV]"));
     String dateString = "2011-12-03T10:15:31+01:00:00[Europe/Paris]";
 
     Stage stage = factory.get(configValues);
@@ -147,13 +147,13 @@ public class ParseDateTest {
     // iterate through all available time zones
     for (String zoneIdStr: ZoneId.getAvailableZoneIds()) {
 
-      // create a ParseDate stage with the given time_zone_id specified in the config
+      // create a ParseDate stage with the given timeZoneId specified in the config
       HashMap<String, Object> configValues = new HashMap<>();
       configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
       configValues.put("source", List.of("date"));
       configValues.put("dest", List.of("output"));
-      configValues.put("format_strs", List.of("yyyy-MM-dd"));
-      configValues.put("time_zone_id", zoneIdStr);
+      configValues.put("formatStrs", List.of("yyyy-MM-dd"));
+      configValues.put("timeZoneId", zoneIdStr);
       Stage stage = factory.get(configValues);
 
       // create a random date string in yyyy-MM-dd format and add it to a document
@@ -192,8 +192,8 @@ public class ParseDateTest {
     configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
     configValues.put("source", List.of("date1", "date2"));
     configValues.put("dest", List.of("output1", "output2"));
-    configValues.put("format_strs", List.of("yyyy-MM-dd z", "yyyy-MM-dd"));
-    configValues.put("time_zone_id", "Europe/Rome");
+    configValues.put("formatStrs", List.of("yyyy-MM-dd z", "yyyy-MM-dd"));
+    configValues.put("timeZoneId", "Europe/Rome");
 
     // one date has a time zone, the other does not
     Document doc = Document.create("doc");
@@ -206,7 +206,7 @@ public class ParseDateTest {
     assertEquals("2021-02-02T05:00:00Z", doc.getString("output2"));
 
     // switch the order of format strings
-    configValues.put("format_strs", List.of("yyyy-MM-dd", "yyyy-MM-dd z"));
+    configValues.put("formatStrs", List.of("yyyy-MM-dd", "yyyy-MM-dd z"));
 
     // notice that the time zone is set to the configured default (Europe/Rome) for a date that
     // contains a timezone (EST) because a more general format string occurs first in the  list of format strings

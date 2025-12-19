@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
  *   <li>dest (List&lt;String&gt;) : List of destination field names. You can either supply the same number of source and destination fields
  *   for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
  *   <li>mode (String) : The mode for normalization: uppercase, lowercase, sentence_case, title_case.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
  * </ul>
  */
@@ -43,7 +43,7 @@ public class NormalizeText extends Stage {
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
       .requiredString("mode")
-      .optionalString("update_mode").build();
+      .optionalString("updateMode").build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   private static final Pattern pattern = Pattern.compile("[.?!] \\w");

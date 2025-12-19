@@ -21,20 +21,20 @@ import org.apache.commons.text.StringSubstitutor;
  * Config Parameters -
  * <ul>
  *   <li>dest (String) : Destination field. This Stage only supports supplying a single destination field.</li>
- *   <li>format_string (String) : The format String, which will have field values substituted into its placeholders.</li>
- *   <li>default_inputs (Map&lt;String, String&gt;, Optional) : Mapping of input fields to a default value. You do not have to supply a
+ *   <li>formatString (String) : The format String, which will have field values substituted into its placeholders.</li>
+ *   <li>defaultInputs (Map&lt;String, String&gt;, Optional) : Mapping of input fields to a default value. You do not have to supply a
  *   default for every input field. If a default is not provided, the default behavior will be to leave the wildcard for the field in
  *   place. Defaults to an empty Map.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
+ *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
  * </ul>
  */
 public class Concatenate extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("dest", "format_string")
-      .optionalString("update_mode")
-      .optionalParent("default_inputs", new TypeReference<Map<String, String>>(){}).build();
+      .requiredString("dest", "formatString")
+      .optionalString("updateMode")
+      .optionalParent("defaultInputs", new TypeReference<Map<String, String>>(){}).build();
 
   private final String destField;
   private final String formatStr;
@@ -47,9 +47,9 @@ public class Concatenate extends Stage {
     super(config);
 
     this.destField = config.getString("dest");
-    this.formatStr = config.getString("format_string");
-    this.defaultInputs = config.hasPath("default_inputs") ?
-        config.getConfig("default_inputs").root().unwrapped() : new HashMap<>();
+    this.formatStr = config.getString("formatString");
+    this.defaultInputs = config.hasPath("defaultInputs") ?
+        config.getConfig("defaultInputs").root().unwrapped() : new HashMap<>();
     // defaultInputs = set.stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
     this.updateMode = UpdateMode.fromConfig(config);
     this.fields = new ArrayList<>();
