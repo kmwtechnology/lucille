@@ -96,7 +96,7 @@ public class ParseJson extends Stage {
     // if src is a base-64-encoded string, doc.getBytes() will transparently decode it
     String jsonString = sourceIsBase64 ? new String(doc.getBytes(src)) : doc.getString(src);
 
-    // if jsonFieldPaths is absent, we parse the document using a ParseContext instead of an ObjectMapper,
+    // if jsonFieldPaths is present, we parse the document using a ParseContext instead of an ObjectMapper,
     // and evaluate each provided json path expression to set the corresponding document field
     if (jsonFieldPaths != null) {
       DocumentContext ctx;
