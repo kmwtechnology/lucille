@@ -43,7 +43,7 @@ public class ParseJson extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("src")
       .optionalBoolean("sourceIsBase64")
-      .optionalString("update_mode")
+      .optionalString("updateMode")
       .optionalParent("jsonFieldPaths", new TypeReference<Map<String, Object>>() {}).build();
 
   private static final ObjectMapper mapper = new ObjectMapper();
