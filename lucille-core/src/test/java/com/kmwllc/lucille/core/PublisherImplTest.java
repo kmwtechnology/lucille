@@ -500,6 +500,5 @@ public class PublisherImplTest {
     assertEquals(10000, publisher.numPublished());
     assertEquals(0, publisher.numPending());
   }
-
-
+  
 }
