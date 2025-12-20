@@ -292,6 +292,7 @@ public class PublisherImplTest {
       publisher.publish(Document.create("doc1"));
       publisher.publish(Document.create("doc2"));
       publisher.publish(Document.create("doc3"));
+      publisher.preClose();
     });
 
     assertEquals(3, publisher.numPending());
@@ -324,6 +325,8 @@ public class PublisherImplTest {
     assertTimeout(ofMillis(500), () -> {
       publisher.publish(Document.create("doc4"));
     });
+
+    publisher.close();
   }
 
   @Test
@@ -340,6 +343,7 @@ public class PublisherImplTest {
           publisher.publish(Document.create("doc2"));
           publisher.publish(Document.create("doc3"));
           publisher.publish(Document.create("doc4"));
+          publisher.preClose();
         } catch (Exception e) {
           fail();
         }
@@ -353,6 +357,7 @@ public class PublisherImplTest {
     // the publication of the 4th document to unblock, allowing publisherThread to complete
     publisher.handleEvent(new Event("doc1", "run1", "success", Event.Type.FINISH));
     publisherThread.join();
+    publisher.close();
     assertEquals(4, publisher.numPublished());
   }
 
@@ -378,6 +383,7 @@ public class PublisherImplTest {
           for (int j = 0; j < 10000; j++) {
             publisher.publish(Document.create(i2 + "_" + j));
           }
+          publisher.preClose();
         } catch (Exception e) {
           e.printStackTrace();
           fail();
@@ -392,6 +398,8 @@ public class PublisherImplTest {
     for (Thread thread : threads) {
       thread.join();
     }
+
+    publisher.close();
 
     // make sure that the number of published documents is accurately reported as 100K (via 10 threads publishing 10K each)
     // an accurate number here builds confidence that the internal counter of published documents is mantained in a thread-safe way
@@ -467,6 +475,12 @@ public class PublisherImplTest {
             throw new RuntimeException();
           }
         }
+
+        try {
+          publisher.preClose();
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
       }));
     }
 
@@ -479,6 +493,8 @@ public class PublisherImplTest {
     for (Thread thread : threads) {
       thread.join();
     }
+
+    publisher.close();
 
     // the publisher should report 10000 published documents with 0 pending
     assertEquals(10000, publisher.numPublished());

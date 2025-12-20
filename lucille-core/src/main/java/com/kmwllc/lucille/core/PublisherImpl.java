@@ -207,9 +207,16 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
+  public void preClose() throws Exception {
+    if (timerContext.get() != null) {
+      timerContext.get().stop();
+    }
+  }
+
+  @Override
   public void close() throws Exception {
     if (timerContext.get() != null) {
-      timerContext.get().stop(); // TODO
+      timerContext.get().stop();
     }
     messenger.close();
   }
