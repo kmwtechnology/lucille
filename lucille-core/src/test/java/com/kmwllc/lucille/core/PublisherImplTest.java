@@ -466,9 +466,9 @@ public class PublisherImplTest {
           // periodically check that the number of pending docs is not reported as much higher than declared max of 100
           // if we find too many pending docs, we interrupt all the threads (to prevent the test from hanging) and
           // throw an exception; note that Junit assertions inside threads don't work as expected so we don't use one here;
-          // also note that publisher.maxPendingDocs is not enforced exactly but seems to never be exceeded by more than
-          // the number of publishing threads (here, that's the declared setting of 100 plus 10 threads = 110)
-          if (publisher.numPending() > 110) {
+          // also note that publisher.maxPendingDocs is a non-strict max and can be exceeded by
+          // the number of publishing threads - 1 (here, that's the declared setting of 100 plus 10 threads - 1 = 109)
+          if (publisher.numPending() > 109) {
             for (Thread thread: threads) {
               thread.interrupt();
             }
