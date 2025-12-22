@@ -122,9 +122,10 @@ public class PublisherImpl implements Publisher {
         // retest the condition every 10 seconds to handle any possible edge cases where the notification is not received
         while (docIdsToTrack.size() >= maxPendingDocs) {
           docIdsToTrackBelowMax.await(10, TimeUnit.SECONDS);
-          // note it is possible to have N publishing threads blocking on docIdsToTracBelowMax.await() because numPending=maxPendingDocs;
-          // when numPending drops to maxPendingDocs-1 via handleEvent, all N threads are signalled simultaneously
-          // each one may then proceed to publish a document, causing N pending docs to be added
+          // note that in a scenario where N threads are calling publish() and the number of pending docs reaches maxPendingDocs,
+          // all N threads will block on docIdsToTracBelowMax.await();
+          // when numPending eventually drops to maxPendingDocs-1 via handleEvent(), all N threads are signalled simultaneously;
+          // each one may then proceed to publish a document, causing N pending docs to be added;
           // in this scenario, the number of pending docs may exceed maxPendingDocs by N-1;
           // since each thread will block the next time it calls publish() (assuming no events are handled that reduce numPending in
           // the interim) it should not be possible for numPending to exceed maxPendingDocs by more than N-1
