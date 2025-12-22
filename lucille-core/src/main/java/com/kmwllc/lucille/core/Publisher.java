@@ -124,7 +124,7 @@ public interface Publisher {
   void flush() throws Exception;
 
   /**
-   * Allows a thread to indicate that it done calling publish() and that
+   * Allows a thread to indicate that it is done calling publish() and that
    * any ThreadLocal resources inside the publisher, maintained for that particular thread,
    * can be released.
    *
