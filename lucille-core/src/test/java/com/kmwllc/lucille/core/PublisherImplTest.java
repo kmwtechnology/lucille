@@ -500,5 +500,17 @@ public class PublisherImplTest {
     assertEquals(10000, publisher.numPublished());
     assertEquals(0, publisher.numPending());
   }
-  
+
+  @Test
+  public void testMaxPendingDocsBelowZero() throws Exception {
+    Config config = ConfigFactory.parseString("publisher {maxPendingDocs: 3}");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    assertEquals(3, publisher.getMaxPendingDocs().intValue());
+
+    config = ConfigFactory.parseString("publisher {maxPendingDocs: -1}");
+    messenger = new LocalMessenger(config);
+    publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    assertEquals(null, publisher.getMaxPendingDocs());
+  }
 }

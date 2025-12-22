@@ -89,7 +89,13 @@ public class PublisherImpl implements Publisher {
         SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer(metricsPrefix + ".timeBetweenPublishCalls");
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    this.maxPendingDocs = ConfigUtils.getOrDefault(config, "publisher.maxPendingDocs", null);
+
+    Integer maxPendingDocs = ConfigUtils.getOrDefault(config, "publisher.maxPendingDocs", null);
+    if (maxPendingDocs != null && maxPendingDocs < 0) {
+      maxPendingDocs = null;
+    }
+    this.maxPendingDocs = maxPendingDocs;
+
     messenger.initialize(runId, pipelineName);
     this.firstDocStopWatch = new StopWatch();
     this.firstDocStopWatch.start();
@@ -392,5 +398,9 @@ public class PublisherImpl implements Publisher {
   @Override
   public long numDropped() {
     return numDropped;
+  }
+
+  public Integer getMaxPendingDocs() {
+    return maxPendingDocs;
   }
 }
