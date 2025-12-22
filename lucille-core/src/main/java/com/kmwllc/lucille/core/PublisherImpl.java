@@ -225,6 +225,7 @@ public class PublisherImpl implements Publisher {
   public void preClose() throws Exception {
     if (timerContext.get() != null) {
       timerContext.get().stop();
+      timerContext.remove();
     }
   }
 
@@ -232,6 +233,7 @@ public class PublisherImpl implements Publisher {
   public void close() throws Exception {
     if (timerContext.get() != null) {
       timerContext.get().stop();
+      timerContext.remove();
     }
     messenger.close();
   }
