@@ -139,6 +139,8 @@ public class PublisherImpl implements Publisher {
     MDC.put(Document.ID_FIELD, document.getId());
     docLogger.info("Publishing document {}.", document.getId());
 
+    // "double-checked locking" -- perform null check outside synchronized block first to avoid overhead of
+    // synchronizing when not necessary
     if (firstDocStopWatch != null) {
       synchronized (this) {
         if (firstDocStopWatch != null) {
