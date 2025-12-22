@@ -8,6 +8,8 @@ import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.collections4.Bag;
 import org.apache.commons.collections4.bag.HashBag;
 import org.apache.commons.collections4.bag.SynchronizedBag;
@@ -46,7 +48,7 @@ public class PublisherImpl implements Publisher {
 
   // the actual number of documents sent for processing, which may be smaller
   // than the number of calls to publish() if isCollapsing==true
-  private long numPublished = 0;
+  private AtomicLong numPublished = new AtomicLong(0);
 
   private long numCreated = 0;
   private long numFailed = 0;
@@ -55,10 +57,15 @@ public class PublisherImpl implements Publisher {
 
   private Instant start;
   private final Timer timer;
-  private Timer.Context timerContext = null;
-  private boolean isCollapsing;
+  private final ThreadLocal<Timer.Context> timerContext = ThreadLocal.withInitial(() -> null);
+  private final boolean isCollapsing;
   private Document previousDoc = null;
-  private StopWatch firstDocStopWatch;
+  private volatile StopWatch firstDocStopWatch;
+
+  private final Integer maxPendingDocs;
+
+  private final ReentrantLock lock = new ReentrantLock();
+  private final java.util.concurrent.locks.Condition docIdsToTrackBelowMax = lock.newCondition();
 
   // Bag of published documents that have not reached a terminal state. Also includes children of published documents.
   // Note that this is a Bag, not a Set, because if two documents with the same ID are published, we would
@@ -68,10 +75,10 @@ public class PublisherImpl implements Publisher {
   // Also note that a Publisher may be shared by a Runner and a Connector: the connector may be publishing
   // new Documents while the Connector is receiving Events and calling handleEvent().
   // publish() and handleEvent() both update docIdsToTrack so the bag should be synchronized.
-  Bag<String> docIdsToTrack = SynchronizedBag.synchronizedBag(new HashBag<>());
+  private final Bag<String> docIdsToTrack = SynchronizedBag.synchronizedBag(new HashBag<>());
 
   // Bag of child documents for which a terminal event has been received early, before the corresponding CREATE event
-  Bag<String> docIdsIndexedBeforeTracking = SynchronizedBag.synchronizedBag(new HashBag<>());
+  private final Bag<String> docIdsIndexedBeforeTracking = SynchronizedBag.synchronizedBag(new HashBag<>());
 
   public PublisherImpl(Config config, PublisherMessenger messenger, String runId,
       String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
@@ -82,6 +89,13 @@ public class PublisherImpl implements Publisher {
         SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).timer(metricsPrefix + ".timeBetweenPublishCalls");
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
+
+    Integer maxPendingDocs = ConfigUtils.getOrDefault(config, "publisher.maxPendingDocs", null);
+    if (maxPendingDocs != null && maxPendingDocs < 0) {
+      maxPendingDocs = null;
+    }
+    this.maxPendingDocs = maxPendingDocs;
+
     messenger.initialize(runId, pipelineName);
     this.firstDocStopWatch = new StopWatch();
     this.firstDocStopWatch.start();
@@ -92,26 +106,66 @@ public class PublisherImpl implements Publisher {
     this(config, messenger, runId, pipelineName, "default", false);
   }
 
+  /**
+   * Submits the given document for processing by any available pipeline worker.
+   *
+   * Stamps the current Run ID on the document and begins "tracking" events relating the document.
+   *
+   * IMPORTANT: After calling publish, code should not update the Document or read values from it since at this point
+   * it may have been picked up by a worker thread.
+   *
+   * Thread-safety: multiple threads may safely call publish() on the same Publisher instance, except when
+   * the Publisher is in collapsing mode (isCollapsing=true)
+   */
   @Override
   public void publish(Document document) throws Exception {
+
+    if (maxPendingDocs != null) {
+      try {
+        lock.lock();
+        // if the number of pending docs is higher than the specified max,
+        // wait to be notified by the event handling thread when the size falls below the max;
+        // retest the condition every 10 seconds to handle any possible edge cases where the notification is not received
+        while (docIdsToTrack.size() >= maxPendingDocs) {
+          docIdsToTrackBelowMax.await(10, TimeUnit.SECONDS);
+          // note that in a scenario where N threads are calling publish() and the number of pending docs reaches maxPendingDocs,
+          // all N threads will block on docIdsToTracBelowMax.await();
+          // when numPending eventually drops to maxPendingDocs-1 via handleEvent(), all N threads are signalled simultaneously;
+          // each one may then proceed to publish a document, causing N pending docs to be added;
+          // in this scenario, the number of pending docs may exceed maxPendingDocs by N-1;
+          // since each thread will block the next time it calls publish() (assuming no events are handled that reduce numPending in
+          // the interim) it should not be possible for numPending to exceed maxPendingDocs by more than N-1
+        }
+      } finally {
+        lock.unlock();
+      }
+    }
+
     // The runId (in MDC) is already set by the ConnectorThread calling publish.
     MDC.put(Document.ID_FIELD, document.getId());
     docLogger.info("Publishing document {}.", document.getId());
 
-    if (firstDocStopWatch.isStarted()) {
-      firstDocStopWatch.stop();
-      log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
+    // "double-checked locking" -- perform null check outside synchronized block first to avoid overhead of
+    // synchronizing when not necessary
+    if (firstDocStopWatch != null) {
+      synchronized (this) {
+        if (firstDocStopWatch != null) {
+          firstDocStopWatch.stop();
+          log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
+          firstDocStopWatch = null;
+        }
+      }
     }
-    if (timerContext != null) {
-      // stop timing the duration since tha last call to publish;
+    if (timerContext.get() != null) {
+      // stop timing the duration since the last call to publish;
       // the goal is to track the rate of publish() calls as well as the
       // average lag between them (which tells us how fast the connector produces each document)
-      timerContext.stop();
+      timerContext.get().stop();
     }
     try {
       publishInternal(document);
     } finally {
-      timerContext = timer.time();
+      timerContext.set(timer.time());
       MDC.remove(Document.ID_FIELD);
     }
   }
@@ -135,7 +189,7 @@ public class PublisherImpl implements Publisher {
     }
   }
 
-  public void sendForProcessing(Document document) throws Exception {
+  private void sendForProcessing(Document document) throws Exception {
     document.initializeRunId(runId);
 
     // capture the docId before we make the document available for update by other threads
@@ -156,7 +210,7 @@ public class PublisherImpl implements Publisher {
       throw e;
     }
 
-    numPublished++;
+    numPublished.incrementAndGet();
   }
 
   @Override
@@ -168,9 +222,18 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
+  public void preClose() throws Exception {
+    if (timerContext.get() != null) {
+      timerContext.get().stop();
+      timerContext.remove();
+    }
+  }
+
+  @Override
   public void close() throws Exception {
-    if (timerContext != null) {
-      timerContext.stop();
+    if (timerContext.get() != null) {
+      timerContext.get().stop();
+      timerContext.remove();
     }
     messenger.close();
   }
@@ -208,6 +271,21 @@ public class PublisherImpl implements Publisher {
       // we won't start tracking it then
       if (!docIdsToTrack.remove(docId, 1)) {
         docIdsIndexedBeforeTracking.add(docId);
+      } else {
+        if (maxPendingDocs != null) {
+          try {
+            lock.lock();
+            // since we have removed a docID from the bag of docIdsToTrack (and this is the main place where we do this),
+            // check to see if the number of pending docs has fallen below the specified max and
+            // notify any threads that are waiting on that condition; specifically, notify the connector thread(s)
+            // where publish() is being called
+            if (docIdsToTrack.size() < maxPendingDocs) {
+              docIdsToTrackBelowMax.signalAll();
+            }
+          } finally {
+            lock.unlock();
+          }
+        }
       }
     }
 
@@ -255,19 +333,19 @@ public class PublisherImpl implements Publisher {
       // In a Kafka deployment, the publisher should be the only consumer of the event topic, and the topic should
       // have a single partition
       if (!thread.isAlive() && !hasPending() && event == null) {
-        if (timerContext != null) {
-          timerContext.stop();
+        if (timerContext.get() != null) {
+          timerContext.get().stop();
         }
         String collapseInfo = "";
-        if (isCollapsing && numPublished < timer.getCount()) {
-          collapseInfo = String.format(" (%d after collapsing)", numPublished);
+        if (isCollapsing && numPublished.get() < timer.getCount()) {
+          collapseInfo = String.format(" (%d after collapsing)", numPublished.get());
         }
         // Did not replace the following String.format with interpolation due to unique formatting (".2f")
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
             timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
         log.info("{} docs published{}. {} children created. {} success events. {} failure events. {} drop events.",
             timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
-        if (numPublished > 0 && numFailed == 0) {
+        if (numPublished.get() > 0 && numFailed == 0) {
           log.info("All documents SUCCEEDED.");
         }
         if (numFailed > 0) {
@@ -301,7 +379,7 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public long numPublished() {
-    return numPublished;
+    return numPublished.get();
   }
 
   @Override
@@ -322,5 +400,9 @@ public class PublisherImpl implements Publisher {
   @Override
   public long numDropped() {
     return numDropped;
+  }
+
+  public Integer getMaxPendingDocs() {
+    return maxPendingDocs;
   }
 }

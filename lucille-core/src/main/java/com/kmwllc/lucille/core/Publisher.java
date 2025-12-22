@@ -124,6 +124,19 @@ public interface Publisher {
   void flush() throws Exception;
 
   /**
+   * Allows a thread to indicate that it is done calling publish() and that
+   * any ThreadLocal resources inside the publisher, maintained for that particular thread,
+   * can be released.
+   *
+   * Should be called by individual publishing threads BEFORE the Runner calls close().
+   *
+   * Intended for use in concurrent scenario where multiple threads are calling
+   * publish() on the same Publisher instance. In general, it should not be
+   * necessary to call preClose() if the Connector is single-threaded.
+   */
+  void preClose() throws Exception;
+
+  /**
    * Closes any connections opened by the publisher.
    *
    */
