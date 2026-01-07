@@ -61,3 +61,6 @@ DetectLanguage/profiles
 
 # VSCode
 .vscode
+
+# Claude Code guidance (local use only)
+CLAUDE.md
