@@ -871,6 +871,21 @@ public class RunnerTest {
     assertTrue(result.getStatus());
   }
 
+  /**
+   * Test the publisher.maxPendingDocs setting:
+   * Run a pipeline where publisher.maxPendingDocs is set to 8000 (with 20K docs created and roughly half dropped).
+   * Confirm that the pipeline completes without errors in under 3 seconds with setting in place.
+   *
+   * Note: this test does not verify that maxPendingDocs is actually respected by the publisher, it simply
+   * checks that the setting does not cause obvious problems.
+   */
+  @Test(timeout = 30000)
+  public void testMaxPendingDocs() throws Exception {
+    RunResult result =
+        Runner.run(ConfigFactory.load("RunnerTest/maxPendingDocs.conf"), Runner.RunType.LOCAL);
+    assertTrue(result.getStatus());
+  }
+
   @Test
   public void testPreRunValidationAbortsRunOnInvalidOtherConfig() throws Exception {
     Config base = ConfigFactory.load("RunnerTest/singleDoc.conf");

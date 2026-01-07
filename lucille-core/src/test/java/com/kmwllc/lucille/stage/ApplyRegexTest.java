@@ -173,9 +173,9 @@ public class ApplyRegexTest {
     Stage stage = factory.get("ApplyRegexTest/config.conf");
     assertEquals(
         Set.of(
-            "ignore_case",
+            "ignoreCase",
             "regex",
-            "update_mode",
+            "updateMode",
             "multiline",
             "name",
             "source",

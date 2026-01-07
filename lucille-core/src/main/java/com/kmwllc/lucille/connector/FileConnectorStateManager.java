@@ -57,6 +57,9 @@ public class FileConnectorStateManager {
   private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
 
   private Connection jdbcConnection;
+  private PreparedStatement queryStatement;
+  private PreparedStatement updateStatement;
+  private PreparedStatement insertNewFileStatement;
 
   /**
    * Creates a FileConnectorStateManager from the given config.
@@ -108,6 +111,16 @@ public class FileConnectorStateManager {
       int rowsAffected = statement.executeUpdate(allNotEncounteredSQL);
       log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
     }
+
+    // create PreparedStatements to be used for sql queries that take input
+    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
+    queryStatement = jdbcConnection.prepareStatement(querySQL);
+
+    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
+    updateStatement = jdbcConnection.prepareStatement(updateSQL);
+
+    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE)";
+    insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
   }
 
   /**
@@ -124,6 +137,30 @@ public class FileConnectorStateManager {
         jdbcConnection.close();
       } catch (SQLException e) {
         log.warn("Couldn't close connection to database.", e);
+      }
+    }
+
+    if (queryStatement != null) {
+      try {
+        queryStatement.close();
+      } catch (SQLException e) {
+        log.warn("Couldn't close query statement (PreparedStatement).", e);
+      }
+    }
+
+    if (updateStatement != null) {
+      try {
+        updateStatement.close();
+      } catch (SQLException e) {
+        log.warn("Couldn't close update statement (PreparedStatement).", e);
+      }
+    }
+
+    if (insertNewFileStatement != null) {
+      try {
+        insertNewFileStatement.close();
+      } catch (SQLException e) {
+        log.warn("Couldn't close insert statement (PreparedStatement).", e);
       }
     }
   }
@@ -143,10 +180,9 @@ public class FileConnectorStateManager {
    */
   public void markFileEncountered(String fullPathStr) {
     // First, we try an update statement, see if it updates an existing file.
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name='" + fullPathStr + "'";
-
-    try (Statement statement = jdbcConnection.createStatement()) {
-      int rowsChanged = statement.executeUpdate(updateSQL);
+    try {
+      updateStatement.setString(1, fullPathStr);
+      int rowsChanged = updateStatement.executeUpdate();
 
       // if it doesn't change any rows, then we need to insert this file - it is "new".
       if (rowsChanged == 0) {
@@ -166,15 +202,15 @@ public class FileConnectorStateManager {
    * on this file.
    */
   public Instant getLastPublished(String fullPathStr) {
-    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name='" + fullPathStr + "'";
+    try {
+      queryStatement.setString(1, fullPathStr);
+      try (ResultSet rs = queryStatement.executeQuery()) {
+        if (rs.next()) {
+          Timestamp timestamp = rs.getTimestamp("last_published");
 
-    try (Statement statement = jdbcConnection.createStatement();
-        ResultSet rs = statement.executeQuery(querySQL)) {
-      if (rs.next()) {
-        Timestamp timestamp = rs.getTimestamp("last_published");
-
-        if (timestamp != null) {
-          return timestamp.toInstant();
+          if (timestamp != null) {
+            return timestamp.toInstant();
+          }
         }
       }
     } catch (SQLException e) {
@@ -208,10 +244,7 @@ public class FileConnectorStateManager {
   // Insert a file with the given name into the database. It will have no "last_published" time, but will
   // be marked as encountered.
   private void insertFile(String fullPathStr) throws SQLException {
-    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES ('" + fullPathStr + "', NULL, TRUE)";
-
-    try (Statement statement = jdbcConnection.createStatement()) {
-      statement.executeUpdate(insertNewFileSQL);
-    }
+    insertNewFileStatement.setString(1, fullPathStr);
+    insertNewFileStatement.executeUpdate();
   }
 }

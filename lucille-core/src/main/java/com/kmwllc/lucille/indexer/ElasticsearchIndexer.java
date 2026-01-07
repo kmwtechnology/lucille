@@ -70,9 +70,9 @@ public class ElasticsearchIndexer extends Indexer {
   private final String routingField;
   private final VersionType versionType;
 
-  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client,
-      String metricsPrefix, String localRunId) {
-    super(config, messenger, metricsPrefix, localRunId);
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
+      String metricsPrefix, String localRunId, ElasticsearchClient client) {
+    super(config, messenger, bypass, metricsPrefix, localRunId);
 
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
@@ -87,29 +87,29 @@ public class ElasticsearchIndexer extends Indexer {
     this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
-  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
+    this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
   }
 
   // Convenience Constructors
-  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, ElasticsearchClient client, String metricsPrefix) {
-    this(config, messenger, client, metricsPrefix, null);
-  }
-
-  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
+  public ElasticsearchIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, ElasticsearchClient client) {
+    this(config, messenger, false, metricsPrefix, null, client);
   }
 
   @Override
   protected String getIndexerConfigKey() { return "elasticsearch"; }
 
-  private static ElasticsearchClient getClient(Config config, boolean bypass) {
-    return bypass ? null : ElasticsearchUtils.getElasticsearchOfficialClient(config);
+  private static ElasticsearchClient getClient(Config config, boolean bypass) throws IndexerException{
+    try {
+      return bypass ? null : ElasticsearchUtils.getElasticsearchOfficialClient(config);
+    } catch (Exception e) {
+      throw new IndexerException("Couldn't create Elasticsearch client", e);
+    }
   }
 
   @Override
   public boolean validateConnection() {
-    if (client == null) {
+    if (bypass) {
       return true;
     }
     BooleanResponse response;
@@ -129,7 +129,7 @@ public class ElasticsearchIndexer extends Indexer {
   @Override
   protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
-    if (client == null) {
+    if (bypass) {
       return Set.of();
     }
 
@@ -229,7 +229,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   @Override
   public void closeConnection() {
-    if (client != null && client._transport() != null) {
+    if (!bypass && client != null && client._transport() != null) {
       try {
         client._transport().close();
       } catch (Exception e) {

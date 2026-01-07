@@ -64,7 +64,10 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
     ConsumerRecords<String, String> consumerRecords = eventConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
-      eventConsumer.commitSync();
+      // we do not call commitSync() or commitAsync() on the eventConsumer here because auto-commit is enabled
+      // for the event topic. With auto-commmit enabled, the behavior is similar to commitAsync(), which is important for
+      // achieving good throughput when the Publisher has a large backlog of events to process.
+
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
       return Event.fromJsonString(record.value());
     }

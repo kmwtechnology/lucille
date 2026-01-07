@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -237,7 +238,7 @@ public class ParseJsonTest {
   }
 
   @Test
-  public void testMissingSourceField() throws Exception {
+  public void testEmptySourceField() throws Exception {
     Stage stage = factory.get("ParseJson/emptyJsonValue.conf");
     Document doc = Document.create("parent");
     Document childDoc = Document.create("child");
@@ -249,15 +250,40 @@ public class ParseJsonTest {
 
       stage.processDocument(doc);
 
-      // child document is missing the JSON. should throw a StageException (we catch + change the message).
+      // child document has null in src field. should throw a StageException (we catch + change the message).
       // would normally be IllegalArgument.
       assertThrows(StageException.class, () -> stage.processDocument(childDoc));
     }
   }
+
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("ParseJson/config.conf");
-    assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class", "conditionPolicy", "jsonFieldPaths"),
+    assertEquals(Set.of("src", "name", "sourceIsBase64", "conditions", "class", "conditionPolicy", "jsonFieldPaths", "updateMode"),
         stage.getLegalProperties());
   }
+
+  @Test
+  public void testCopyAllMode() throws Exception {
+    Stage stage = factory.get("ParseJson/copyAllConfig.conf");
+    Document doc = Document.create("doc");
+    String json = """
+        { "field1": true,
+          "field2": 1,
+          "field3": [1, 2, 3, 4],
+          "field4": {"a": "A", "b": "B", "c": "C"},
+          "field5": [true, true, false]
+        }
+        """;
+    doc.setField("json", json);
+    doc.setField("field5", "existingContent");
+    stage.processDocument(doc);
+    assertTrue(doc.has("json")); // ParseJson should not delete the designated src field
+    assertEquals(true, doc.getBoolean("field1").booleanValue());
+    assertEquals(1, doc.getInt("field2").intValue());
+    assertEquals(List.of(1, 2, 3, 4), doc.getIntList("field3"));
+    assertEquals(new ObjectMapper().readTree("{\"a\": \"A\", \"b\": \"B\", \"c\": \"C\"}"), doc.getJson("field4"));
+    assertEquals("existingContent", doc.getString("field5")); // UpdateMode.SKIP should be respected
+  }
+
 }

@@ -51,7 +51,8 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
     KafkaConsumer consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    consumer.subscribe(Pattern.compile(KafkaUtils.getSourceTopicName(pipelineName, config)));
+    String sourceTopicName = KafkaUtils.getSourceTopicName(pipelineName, config);
+    consumer.subscribe(Pattern.compile(sourceTopicName));
 
     return consumer;
   }
@@ -78,6 +79,8 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   public void commitPendingDocOffsets() throws Exception {
     Map<TopicPartition, OffsetAndMetadata> batchOffsets = null;
     while ((batchOffsets = offsets.poll()) != null) {
+      // offsets are committed synchronously to ensure that offsets are successfully committed before the documents are sent to
+      // the destination (typically an indexer). This reduces the number of documents that might be reprocessed and reindexed in the event of HybridWorker crash/restart and/or in the case of consumer group rebalance.
       sourceConsumer.commitSync(batchOffsets);
     }
   }

@@ -8,7 +8,7 @@ import com.typesafe.config.Config;
 public enum ChunkingMethod {
   FIXED("fixed"), CUSTOM("custom"), PARAGRAPH("paragraph"), SENTENCE("sentence");
 
-  public static final String CONFIG_PATH = "chunking_method";
+  public static final String CONFIG_PATH = "chunkingMethod";
   public static final ChunkingMethod DEFAULT = SENTENCE;
 
   private String text;

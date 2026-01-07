@@ -100,7 +100,7 @@ public class ConfigInfoTest {
 
     JsonNode percentTrue = null;
     for (JsonNode f : stage.get("fields")) {
-      if (f.has("name") && "percent_true".equals(f.get("name").asText())) {
+      if (f.has("name") && "percentTrue".equals(f.get("name").asText())) {
         percentTrue = f;
         break;
       }

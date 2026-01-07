@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
  * the syntax "term, payload". If any occurrences are found, they will be extracted and their associated payloads will
  * be appended to the destination field.
  * <p>
- * Can also be used as a Set lookup by setting the set_only parameter to true. In this case, the destination field will
+ * Can also be used as a Set lookup by setting the setOnly parameter to true. In this case, the destination field will
  * be set to true if all values in the source field are present in the dictionary.
  * <p>
  * Config Parameters -
@@ -35,18 +35,18 @@ import org.slf4j.LoggerFactory;
  *   <li>source (List&lt;String&gt;) : list of source field names.</li>
  *   <li>dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination
  *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
- *   <li>dict_path (String) : The path the dictionary to use for matching. If the dict_path begins with "classpath:" the classpath will
+ *   <li>dictPath (String) : The path the dictionary to use for matching. If the dictPath begins with "classpath:" the classpath will
  *   be searched for the file. Otherwise, the local file system will be searched.</li>
- *   <li>use_payloads (Boolean, Optional) : denotes whether payloads from the dictionary should be used or not. Defaults to true.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
+ *   <li>usePayloads (Boolean, Optional) : denotes whether payloads from the dictionary should be used or not. Defaults to true.</li>
+ *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
  *   be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>set_only (Boolean, Optional) : If true, the destination field will be set to true when a match is found (instead of
- *   outputting the match itself). You can control this behavior with <code>use_any_match</code> and <code>ignore_missing_source</code>.
- *   <code>set_only</code> defaults to false.</li>
- *   <li>use_any_match (Boolean, Optional) : Use in combination with set_only. If true, the destination field will be set to true if
+ *   <li>setOnly (Boolean, Optional) : If true, the destination field will be set to true when a match is found (instead of
+ *   outputting the match itself). You can control this behavior with <code>useAnyMatch</code> and <code>ignoreMissingSource</code>.
+ *   <code>setOnly</code> defaults to false.</li>
+ *   <li>useAnyMatch (Boolean, Optional) : Use in combination with setOnly. If true, the destination field will be set to true if
  *   any values in any source field are present in the dictionary. If false, the destination field will be set to true if all the values
  *   in each source field are present in the dictionary. Defaults to false.</li>
- *   <li>ignore_missing_source (Boolean, Optional) : Use in combination with set_only. If true, the destination field will be set to
+ *   <li>ignoreMissingSource (Boolean, Optional) : Use in combination with setOnly. If true, the destination field will be set to
  *   true if the source field is missing. Defaults to false.</li>
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
@@ -58,9 +58,9 @@ public class DictionaryLookup extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("source", new TypeReference<List<String>>(){})
       .requiredList("dest", new TypeReference<List<String>>(){})
-      .requiredString("dict_path")
-      .optionalBoolean("use_payloads", "ignore_case", "set_only", "use_any_match", "ignore_missing_source")
-      .optionalString("update_mode")
+      .requiredString("dictPath")
+      .optionalBoolean("usePayloads", "ignoreCase", "setOnly", "useAnyMatch", "ignoreMissingSource")
+      .optionalString("updateMode")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
 
   private final List<String> sourceFields;
@@ -82,13 +82,13 @@ public class DictionaryLookup extends Stage {
 
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
-    this.usePayloads = ConfigUtils.getOrDefault(config, "use_payloads", true);
+    this.usePayloads = ConfigUtils.getOrDefault(config, "usePayloads", true);
     this.updateMode = UpdateMode.fromConfig(config);
-    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignore_case", false);
-    this.setOnly = ConfigUtils.getOrDefault(config, "set_only", false);
-    this.useAnyMatch = ConfigUtils.getOrDefault(config, "use_any_match", false);
-    this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignore_missing_source", false);
-    this.dictPath = config.getString("dict_path");
+    this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
+    this.setOnly = ConfigUtils.getOrDefault(config, "setOnly", false);
+    this.useAnyMatch = ConfigUtils.getOrDefault(config, "useAnyMatch", false);
+    this.ignoreMissingSource = ConfigUtils.getOrDefault(config, "ignoreMissingSource", false);
+    this.dictPath = config.getString("dictPath");
   }
 
   @Override
@@ -97,16 +97,16 @@ public class DictionaryLookup extends Stage {
     StageUtils.validateFieldNumNotZero(destFields, "Dictionary Lookup");
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Dictionary Lookup");
 
-    if (config.hasPath("ignore_missing_source") && !setOnly) {
-      log.warn("ignore_missing_source is only valid when set_only is true. Ignoring.");
+    if (config.hasPath("ignoreMissingSource") && !setOnly) {
+      log.warn("ignoreMissingSource is only valid when setOnly is true. Ignoring.");
     }
 
-    if (config.hasPath("use_any_match") && !setOnly) {
-      log.warn("use_any_match is only valid when set_only is true. Ignoring.");
+    if (config.hasPath("useAnyMatch") && !setOnly) {
+      log.warn("useAnyMatch is only valid when setOnly is true. Ignoring.");
     }
 
     if (setOnly && updateMode != UpdateMode.OVERWRITE) {
-      throw new StageException("when set_only is true, update_mode must be set to overwrite");
+      throw new StageException("when setOnly is true, updateMode must be set to overwrite");
     }
 
     this.dict = DictionaryManager.getDictionary(dictPath, ignoreCase, setOnly, config);

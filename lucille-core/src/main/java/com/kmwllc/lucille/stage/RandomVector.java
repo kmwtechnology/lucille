@@ -18,7 +18,7 @@ import java.util.Random;
  * <ul>
  *   <li>fields(List&lt;String&gt;) : the document field names to populate with random vectors.</li>
  *   <li>dimensions (int) : the length of each generated float vector.</li>
- *   <li>update_mode (String, optional) : how to merge the generated vector into the existing document field.
+ *   <li>updateMode (String, optional) : how to merge the generated vector into the existing document field.
  *   Defaults to OVERWRITE if unspecified.</li>
  * </ul>
  */
@@ -27,7 +27,7 @@ public class RandomVector extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredList("fields", new TypeReference<List<String>>(){})
       .requiredNumber("dimensions")
-      .optionalString("update_mode").build();
+      .optionalString("updateMode").build();
 
   private final List<String> fields;
   private final int dimensions;

@@ -51,7 +51,7 @@ public class FetchUriTest {
   public void testFetchUriWithAllOptionalParameters() throws StageException {
     FetchUri s = (FetchUri) StageFactory.of(FetchUri.class).get("FetchUriTest/allOptionalParameters.conf");
 
-    // test that the status_code_retry_list bad inputs are removed
+    // test that the statusCodeRetryList bad inputs are removed
     assertEquals(Arrays.asList("206", "30x", "429", "5xx"), s.getStatusCodeRetryList());
 
     s.setClient(mockClient);

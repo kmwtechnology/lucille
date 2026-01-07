@@ -38,27 +38,29 @@ import org.slf4j.LoggerFactory;
  * Config Parameters -
  * <ul>
  *   <li>source (String) : Field name of URL to be fetched; document will be skipped if the field with this name is absent or empty.</li>
- *   <li>dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty.</li>
- *   <li>size_suffix (String, Optional) : suffix to be appended to end of source field name for the size of data. e.g.
- *   url --&gt; url_(size_suffix) where source name is url.</li>
- *   <li>status_suffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request.</li>
- *   <li>error_suffix (String, Optional) : suffix to be appended to end of source field name for any errors in process.</li>
- *   <li>max_size (Integer, Optional) : max size, in bytes, of data to be read from fetch.</li>
- *   <li>max_retries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.</li>
- *   <li>initial_expiry_ms (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.</li>
- *   <li>max_expiry_ms (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.</li>
- *   <li>connection_request_timeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.</li>
- *   <li>connect_timeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.</li>
- *   <li>socket_timeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>dest (String) : Field name of destination for byte data; document will be skipped if the field with this name is absent or empty.
+ *   Field will contain response data as a base64-encoded string. Original bytes can be retrieved via doc.getBytes(dest) or
+ *   Base64.getDecoder().decode(document.getString(dest)). When parsing this field using ParseJson, set sourceIsBase64=true </li>
+ *   <li>sizeSuffix (String, Optional) : suffix to be appended to end of source field name for the size of data. e.g.
+ *   url --&gt; url_(sizeSuffix) where source name is url.</li>
+ *   <li>statusSuffix (String, Optional) : suffix to be appended to end of source field name for the status code of the fetch request.</li>
+ *   <li>errorSuffix (String, Optional) : suffix to be appended to end of source field name for any errors in process.</li>
+ *   <li>maxSize (Integer, Optional) : max size, in bytes, of data to be read from fetch.</li>
+ *   <li>maxRetries (Integer, Optional) : max number of tries the request will be made. Defaults to 0 retries.</li>
+ *   <li>initialExpiryMs (Integer, Optional) : number of milliseconds that would be waited before retrying the request. Defaults to 100ms.</li>
+ *   <li>maxExpiryMs (Integer, Optional) : max number of milliseconds that would be waited before retrying a request. Defaults to 10000ms, 10s.</li>
+ *   <li>connectionRequestTimeout (Integer, Optional) : the connection request timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>connectTimeout (Integer, Optional) : the connection timeout in milliseconds. Defaults to 60000ms, 1m.</li>
+ *   <li>socketTimeout (Integer, Optional) : the socket timeout in milliseconds. Defaults to 60000ms, 1m.</li>
  * </ul>
  */
 public class FetchUri extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("source", "dest")
-      .optionalString("size_suffix", "status_suffix", "error_suffix")
-      .optionalNumber("max_retries", "initial_expiry_ms", "max_expiry_ms", "connection_request_timeout", "connect_timeout", "socket_timeout", "max_size")
-      .optionalList("status_code_retry_list", new TypeReference<List<String>>(){})
+      .optionalString("sizeSuffix", "statusSuffix", "errorSuffix")
+      .optionalNumber("maxRetries", "initialExpiryMs", "maxExpiryMs", "connectionRequestTimeout", "connectTimeout", "socketTimeout", "maxSize")
+      .optionalList("statusCodeRetryList", new TypeReference<List<String>>(){})
       .optionalParent("headers", new TypeReference<Map<String, Object>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(FetchUri.class);
@@ -85,18 +87,18 @@ public class FetchUri extends Stage {
 
     this.source = config.getString("source");
     this.dest = config.getString("dest");
-    this.statusSuffix = ConfigUtils.getOrDefault(config, "status_suffix", "status_code");
-    this.sizeSuffix = ConfigUtils.getOrDefault(config, "size_suffix", "size");
-    this.errorSuffix = ConfigUtils.getOrDefault(config, "error_suffix", "error");
-    this.maxDownloadSize = ConfigUtils.getOrDefault(config, "max_size", Integer.MAX_VALUE);
+    this.statusSuffix = ConfigUtils.getOrDefault(config, "statusSuffix", "status_code");
+    this.sizeSuffix = ConfigUtils.getOrDefault(config, "sizeSuffix", "size");
+    this.errorSuffix = ConfigUtils.getOrDefault(config, "errorSuffix", "error");
+    this.maxDownloadSize = ConfigUtils.getOrDefault(config, "maxSize", Integer.MAX_VALUE);
     this.headers = ConfigUtils.createHeaderArray(config, "headers");
-    this.maxNumRetries = ConfigUtils.getOrDefault(config, "max_retries", 0);
-    this.initialExpiry = ConfigUtils.getOrDefault(config, "initial_expiry_ms", 100);
-    this.maxExpiry = ConfigUtils.getOrDefault(config, "max_expiry_ms", 10000);
-    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connection_request_timeout", 60000);
-    this.connectTimeout = ConfigUtils.getOrDefault(config, "connect_timeout", 60000);
-    this.socketTimeout = ConfigUtils.getOrDefault(config, "socket_timeout", 60000);
-    this.statusCodeRetryList = ConfigUtils.getOrDefault(config, "status_code_retry_list", new ArrayList<String>())
+    this.maxNumRetries = ConfigUtils.getOrDefault(config, "maxRetries", 0);
+    this.initialExpiry = ConfigUtils.getOrDefault(config, "initialExpiryMs", 100);
+    this.maxExpiry = ConfigUtils.getOrDefault(config, "maxExpiryMs", 10000);
+    this.connectionRequestTimeout = ConfigUtils.getOrDefault(config, "connectionRequestTimeout", 60000);
+    this.connectTimeout = ConfigUtils.getOrDefault(config, "connectTimeout", 60000);
+    this.socketTimeout = ConfigUtils.getOrDefault(config, "socketTimeout", 60000);
+    this.statusCodeRetryList = ConfigUtils.getOrDefault(config, "statusCodeRetryList", new ArrayList<String>())
         .stream().map(String::toLowerCase).collect(Collectors.toList());
   }
 
@@ -114,18 +116,18 @@ public class FetchUri extends Stage {
   public void start() throws StageException {
     // do not allow 200, 20x, or 2xx in the status code retry list.
     if (this.statusCodeRetryList.contains("200") || this.statusCodeRetryList.contains("20x") || this.statusCodeRetryList.contains("2xx")) {
-      throw new StageException("Do not add 200, 2xx, or 20x to the status_code_retry_list because this is a successful response and "
+      throw new StageException("Do not add 200, 2xx, or 20x to the statusCodeRetryList because this is a successful response and "
           + "you will always reach the maximum number of retries (" + this.maxNumRetries + ").");
     }
     // log warning if any status codes in 200-299 are added to the statusCodeRetryList
     if (this.statusCodeRetryList.stream().anyMatch(code -> code.startsWith("2"))) {
-      log.warn("The status_code_retry_list contains values that are within 200-299. This may not be a good idea because these statuses "
+      log.warn("The statusCodeRetryList contains values that are within 200-299. This may not be a good idea because these statuses "
           + "represent successful responses, but will continue processing.");
     }
     // log warning if list contains values that are not codes 100 to 599 nor the 'x' wildcards.
     List<String> validStatusCodeRetryList = this.statusCodeRetryList.stream().filter(code -> code.matches("[1-5]([xX]{2}|\\d([\\dx]|[\\dX]))")).collect(Collectors.toList());
     if (!validStatusCodeRetryList.equals(this.statusCodeRetryList)) {
-      log.warn("The status_code_retry_list contains values that do not represent status codes. They must be with 100 and 599 and "
+      log.warn("The statusCodeRetryList contains values that do not represent status codes. They must be with 100 and 599 and "
           + "must not contain any other characters besides 'x' for wildcards. Please remove these values.");
       this.statusCodeRetryList = validStatusCodeRetryList;
     }

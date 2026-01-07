@@ -16,18 +16,18 @@ import java.util.Iterator;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>dest_field (String) : The field to place the timestamp into.</li>
+ *   <li>destField (String) : The field to place the timestamp into.</li>
  * </ul>
  */
 public class Timestamp extends Stage {
 
-  public static final Spec SPEC = SpecBuilder.stage().requiredString("dest_field").build();
+  public static final Spec SPEC = SpecBuilder.stage().requiredString("destField").build();
 
   private final String destField;
 
   public Timestamp(Config config) {
     super(config);
-    this.destField = config.getString("dest_field");
+    this.destField = config.getString("destField");
   }
 
   @Override

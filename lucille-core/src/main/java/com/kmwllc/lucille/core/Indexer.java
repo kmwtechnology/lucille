@@ -83,6 +83,8 @@ public abstract class Indexer implements Runnable {
   // A runID for a local (local / test) run. Null if not in one of those modes / started independently.
   private final String localRunId;
 
+  protected final boolean bypass;
+
   public void terminate() {
     running = false;
     log.debug("terminate");
@@ -98,8 +100,9 @@ public abstract class Indexer implements Runnable {
    * @param config The root config for Lucille. (In other words, should potentially include both "indexer" and specific
    *               implementation config, like "solr" or "elasticsearch".)
    */
-  public Indexer(Config config, IndexerMessenger messenger, String metricsPrefix, String localRunId) {
+  public Indexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
+    this.bypass = bypass;
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
             ? config.getString("indexer.idOverrideField")

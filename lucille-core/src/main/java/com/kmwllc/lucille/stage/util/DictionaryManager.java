@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage.util;
 
-import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.util.FileContentFetcher;
+import com.kmwllc.lucille.core.StageException;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvValidationException;
 import com.typesafe.config.Config;
@@ -107,7 +107,7 @@ public class DictionaryManager {
    * @return the populated HashMap
    */
   private static HashMap<String, List<String>> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config config) throws IOException {
-    FileContentFetcher fetcher = new FileContentFetcher(config);
+    FileContentFetcher fetcher = FileContentFetcher.create(config);
     fetcher.startup();
 
     try (CSVReader reader = new CSVReader(fetcher.getReader(dictPath))) {
@@ -148,7 +148,7 @@ public class DictionaryManager {
           // List.of() is not modifiable.
           value = setOnly ? PRESENT : List.of(word);
         } else if (setOnly) {
-          throw new IOException(String.format("Comma separated values are not allowed when set_only=true: \"%s\" on line %d",
+          throw new IOException(String.format("Comma separated values are not allowed when setOnly=true: \"%s\" on line %d",
               Arrays.toString(line), reader.getLinesRead()));
         } else {
           // Handle multiple payload values here - list is also not modifiable.
