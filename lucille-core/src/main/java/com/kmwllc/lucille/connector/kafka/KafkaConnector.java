@@ -35,7 +35,7 @@ import java.util.Properties;
  *   <li>topic (String, Required) : Kafka topic to read from.</li>
  *   <li>consumerGroupId (String, Required) : Kafka consumer group ID.</li>
  *   <li>idField (String, Optional) : The field in the Kafka message to use as the Lucille document ID.</li>
- *   <li>offsets (Map<Integer, Long>, Optional) : A map of partition numbers to initial offsets.</li>
+ *   <li>offsets (Map &lt;Integer, Long&gt;, Optional) : A map of partition numbers to initial offsets.</li>
  *   <li>maxMessages (Long, Optional) : The maximum number of messages to process before stopping.</li>
  *   <li>messageTimeout (Long, Optional) : The timeout in milliseconds to use when polling Kafka. Defaults to 100ms.</li>
  *   <li>continueOnTimeout (Boolean, Optional) : Whether to continue polling after a timeout. Defaults to true.</li>
