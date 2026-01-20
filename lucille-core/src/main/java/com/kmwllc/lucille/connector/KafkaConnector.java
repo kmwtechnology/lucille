@@ -64,6 +64,9 @@ public class KafkaConnector extends AbstractConnector {
   private final boolean continueOnTimeout;
   private final ObjectMapper mapper = new ObjectMapper();
   private KafkaConsumer<String, String> consumer;
+
+  // running is volatile to ensure visibility to the polling thread.
+  // It is used to ensure that the polling thread exits when the connector is closed.
   private volatile boolean running = true;
 
   public KafkaConnector(Config config) {
@@ -125,17 +128,18 @@ public class KafkaConnector extends AbstractConnector {
       ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(messageTimeout));
 
       if (records.isEmpty()) {
-        if (!continueOnTimeout) {
-          break;
+        if (continueOnTimeout) {
+          continue;
+        } else {
+          return;
         }
-        continue;
       }
 
       for (ConsumerRecord<String, String> record : records) {
         handleMessage(record, publisher);
         count++;
         if (maxMessages != null && count >= maxMessages) {
-          break;
+          return;
         }
       }
     }
