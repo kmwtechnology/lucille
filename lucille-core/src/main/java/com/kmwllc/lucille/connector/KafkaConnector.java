@@ -1,10 +1,9 @@
-package com.kmwllc.lucille.connector.kafka;
+package com.kmwllc.lucille.connector;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -12,10 +11,12 @@ import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +83,7 @@ public class KafkaConnector extends AbstractConnector {
       return null;
     }
     return config.getConfig("offsets").entrySet().stream()
-        .collect(java.util.stream.Collectors.toMap(
+        .collect(Collectors.toMap(
             e -> Integer.parseInt(e.getKey()),
             e -> Long.parseLong(e.getValue().unwrapped().toString())));
   }
@@ -113,7 +114,7 @@ public class KafkaConnector extends AbstractConnector {
       if (offsets != null) {
         log.info("Seeking to specified offsets: {}", offsets);
         consumer.poll(Duration.ZERO);
-        for (org.apache.kafka.common.TopicPartition partition : consumer.assignment()) {
+        for (TopicPartition partition : consumer.assignment()) {
           if (offsets.containsKey(partition.partition())) {
             Long offset = offsets.get(partition.partition());
             log.info("Seeking partition {} to offset {}", partition.partition(), offset);

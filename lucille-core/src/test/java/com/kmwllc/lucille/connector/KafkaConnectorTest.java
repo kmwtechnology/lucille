@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.kafka;
+package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -11,7 +11,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 
 import java.time.Duration;
 import java.util.*;
@@ -28,7 +27,7 @@ public class KafkaConnectorTest {
   public void testAsDoc() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -47,7 +46,7 @@ public class KafkaConnectorTest {
   public void testAsDocWithIdField() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -67,7 +66,7 @@ public class KafkaConnectorTest {
   public void testOffsetsConfig() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -89,7 +88,7 @@ public class KafkaConnectorTest {
   public void testOffsetsConfigNotSet() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -105,7 +104,7 @@ public class KafkaConnectorTest {
   public void testMaxMessagesConfig() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -122,7 +121,7 @@ public class KafkaConnectorTest {
   public void testMaxMessagesConfigNotSet() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -138,7 +137,7 @@ public class KafkaConnectorTest {
   public void testMessageTimeoutConfig() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -160,7 +159,7 @@ public class KafkaConnectorTest {
   public void testMessageTimeoutConfigNotSet() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -180,7 +179,7 @@ public class KafkaConnectorTest {
   public void testHandleMessage() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -205,7 +204,7 @@ public class KafkaConnectorTest {
   public void testClose() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -232,7 +231,7 @@ public class KafkaConnectorTest {
   public void testExecuteMaxMessages() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -270,7 +269,7 @@ public class KafkaConnectorTest {
   public void testExecuteContinueOnTimeoutFalse() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -298,7 +297,7 @@ public class KafkaConnectorTest {
   public void testAsDocNonObject() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -314,7 +313,7 @@ public class KafkaConnectorTest {
   public void testHandleMessagePublishException() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -334,7 +333,7 @@ public class KafkaConnectorTest {
   public void testExecuteWithOffsets() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -368,7 +367,7 @@ public class KafkaConnectorTest {
   public void testExecuteExceptionHandling() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
@@ -392,7 +391,7 @@ public class KafkaConnectorTest {
   public void testAsDocWithDocIdPrefix() throws Exception {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.kafka.KafkaConnector");
+    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
     configMap.put("bootstrapServers", "localhost:9092");
     configMap.put("topic", "test-topic");
     configMap.put("consumerGroupId", "test-group");
