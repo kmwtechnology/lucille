@@ -54,8 +54,9 @@ public class KafkaUtils {
     }
   }
 
-  //access set to package so unit tests can validate created properties without initializing a Consumer
-  static Properties createConsumerProps(Config config, String clientId) {
+  //access set to public so KafkaConnector can create consumer props from config.
+  // unit tests can also validate created properties without initializing a Consumer
+  public static Properties createConsumerProps(Config config, String clientId) {
     if (config.hasPath("kafka.consumerPropertyFile")) {
       Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"), config);
       loadedProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);

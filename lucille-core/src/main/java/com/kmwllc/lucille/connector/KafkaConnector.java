@@ -10,6 +10,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.Config;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -47,16 +48,15 @@ public class KafkaConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(KafkaConnector.class);
 
   public static final Spec SPEC = SpecBuilder.connector()
-      .requiredString("bootstrapServers", "topic", "consumerGroupId")
+      .requiredString("kafka.bootstrapServers", "kafka.topic", "kafka.consumerGroupId", "kafka.clientId", "kafka.maxPollIntervalSecs")
       .optionalString("idField")
       .optionalParent("offsets", new TypeReference<Map<Integer, Long>>() {})
       .optionalNumber("maxMessages", "messageTimeout")
       .optionalBoolean("continueOnTimeout")
       .build();
 
-  private final String bootstrapServers;
   private final String topic;
-  private final String consumerGroupId;
+  private final String clientId;
   private final String idField;
   private final Map<Integer, Long> offsets;
   private final Long maxMessages;
@@ -68,9 +68,8 @@ public class KafkaConnector extends AbstractConnector {
 
   public KafkaConnector(Config config) {
     super(config);
-    this.bootstrapServers = config.getString("bootstrapServers");
-    this.topic = config.getString("topic");
-    this.consumerGroupId = config.getString("consumerGroupId");
+    this.topic = config.getString("kafka.topic");
+    this.clientId = config.getString("kafka.clientId");
     this.idField = ConfigUtils.getOrDefault(config, "idField", null);
     this.maxMessages = ConfigUtils.getOrDefault(config, "maxMessages", null);
     this.messageTimeout = ConfigUtils.getOrDefault(config, "messageTimeout", 100L);
@@ -88,25 +87,16 @@ public class KafkaConnector extends AbstractConnector {
             e -> Long.parseLong(e.getValue().unwrapped().toString())));
   }
 
-  private Properties getConsumerProperties() {
-    Properties props = new Properties();
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-    props.put(ConsumerConfig.GROUP_ID_CONFIG, consumerGroupId);
-    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    return props;
-  }
-
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    Properties props = getConsumerProperties();
 
-    synchronized (this) {
-      if (consumer == null) {
-        consumer = createConsumer(props);
-      }
-    }
+    Properties props = KafkaUtils.createConsumerProps(config, clientId);
+    // The Kafka connector implementation will poll for new messages after the current batch is fully processed either by
+    // custom handling or publishing with the publisher.
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+
+
+    consumer = createConsumer(props);
 
     try {
       consumer.subscribe(Collections.singletonList(topic));
@@ -125,7 +115,6 @@ public class KafkaConnector extends AbstractConnector {
 
       startPollingLoop(publisher);
     } catch (Exception e) {
-      log.error("Error reading from Kafka topic {}", topic, e);
       throw new ConnectorException("Error reading from Kafka", e);
     } finally {
       close();
@@ -158,13 +147,13 @@ public class KafkaConnector extends AbstractConnector {
   public void close() throws ConnectorException {
     log.info("Closing KafkaConnector and consumer");
     running = false;
-    synchronized (this) {
-      if (consumer != null) {
-        consumer.wakeup();
-        consumer.close();
-        consumer = null;
-      }
+
+    if (consumer != null) {
+      consumer.wakeup();
+      consumer.close();
+      consumer = null;
     }
+
   }
 
   @Override

@@ -1,25 +1,35 @@
 package com.kmwllc.lucille.connector;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.Test;
-
-import java.time.Duration;
-import java.util.*;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.*;
 
 public class KafkaConnectorTest {
 
@@ -28,9 +38,12 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
+
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -47,9 +60,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     configMap.put("idField", "myIdField");
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -67,9 +82,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Map<String, Long> offsets = new HashMap<>();
     offsets.put("0", 100L);
     offsets.put("1", 200L);
@@ -89,9 +106,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -105,9 +124,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     configMap.put("maxMessages", 10L);
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -122,9 +143,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -138,9 +161,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.clientId", "test-client");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
     configMap.put("messageTimeout", 500L);
     configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
@@ -160,9 +185,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -180,9 +207,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Config config = ConfigFactory.parseMap(configMap);
 
     TestMessenger messenger = new TestMessenger();
@@ -205,9 +234,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -232,9 +263,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     configMap.put("maxMessages", 2L);
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -270,9 +303,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -298,9 +333,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -314,9 +351,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -334,9 +373,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Map<String, Long> offsets = new HashMap<>();
     offsets.put("0", 100L);
     configMap.put("offsets", offsets);
@@ -368,9 +409,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
@@ -392,9 +435,11 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("name", "kafkaConnector");
     configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("bootstrapServers", "localhost:9092");
-    configMap.put("topic", "test-topic");
-    configMap.put("consumerGroupId", "test-group");
+    configMap.put("kafka.bootstrapServers", "localhost:9092");
+    configMap.put("kafka.topic", "test-topic");
+    configMap.put("kafka.consumerGroupId", "test-group");
+    configMap.put("kafka.maxPollIntervalSecs", 600);
+    configMap.put("kafka.clientId", "test-client");
     configMap.put("docIdPrefix", "prefix_");
     Config config = ConfigFactory.parseMap(configMap);
 
