@@ -103,7 +103,10 @@ public class TraversalParams {
    * and the last time it was modified.
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
-    return patternsAllowFile(fileName) && cutoffsAllowFile(fileLastModified, fileLastPublished);
+    if (fileLastPublished != null && !fileLastModified.isAfter(fileLastPublished)) {
+      return false;
+    }
+    return applyPatternFilters(fileName) && applyTimestampFilters(fileLastModified, fileLastPublished);
   }
 
   public boolean supportedFileExtension(String fileExtension) {
@@ -117,7 +120,7 @@ public class TraversalParams {
   /**
    * Returns whether a file with the given name should be processed, based on the includes/excludes patterns.
    */
-  private boolean patternsAllowFile(String fileName) {
+  private boolean applyPatternFilters(String fileName) {
     return excludes.stream().noneMatch(pattern -> pattern.matcher(fileName).matches())
         && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(fileName).matches()));
   }
@@ -126,7 +129,7 @@ public class TraversalParams {
    * Returns whether the given lastModified and lastPublished instants comply with lastModifiedCutoff / lastPublishedCutoff,
    * if they are specified.
    */
-  private boolean cutoffsAllowFile(Instant fileLastModified, Instant fileLastPublished) {
+  private boolean applyTimestampFilters(Instant fileLastModified, Instant fileLastPublished) {
     // If lastModifiedCutoff is specified, return false if it is violated
     if (lastModifiedCutoff != null) {
       Instant cutoffPoint = Instant.now().minus(lastModifiedCutoff);
