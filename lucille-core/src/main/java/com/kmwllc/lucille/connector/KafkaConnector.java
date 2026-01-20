@@ -116,8 +116,6 @@ public class KafkaConnector extends AbstractConnector {
       startPollingLoop(publisher);
     } catch (Exception e) {
       throw new ConnectorException("Error reading from Kafka", e);
-    } finally {
-      close();
     }
   }
 

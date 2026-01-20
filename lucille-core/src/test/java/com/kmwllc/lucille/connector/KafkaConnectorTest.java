@@ -295,7 +295,7 @@ public class KafkaConnectorTest {
     connector.execute(mockPublisher);
 
     verify(mockPublisher, times(2)).publish(any(Document.class));
-    verify(mockConsumer).close();
+
   }
 
   @Test
@@ -325,7 +325,7 @@ public class KafkaConnectorTest {
     connector.execute(mockPublisher);
 
     verify(mockConsumer, times(1)).poll(any(Duration.class));
-    verify(mockConsumer).close();
+
   }
 
   @Test
@@ -427,7 +427,7 @@ public class KafkaConnectorTest {
     };
 
     assertThrows(com.kmwllc.lucille.core.ConnectorException.class, () -> connector.execute(mock(Publisher.class)));
-    verify(mockConsumer).close();
+
   }
 
   @Test
