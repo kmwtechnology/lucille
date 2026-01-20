@@ -20,8 +20,14 @@ import com.kmwllc.lucille.stage.StageFactory;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.parser.AbstractParser;
+import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
 import org.junit.Assert;
 import org.junit.Test;
+import org.xml.sax.ContentHandler;
 
 public class TextExtractorTest {
 
@@ -35,6 +41,7 @@ public class TextExtractorTest {
   @Test
   public void testFilePath() throws StageException {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
+    stage.start();
     Document doc = Document.create("doc1");
 
     // set path as absolute Path
@@ -52,6 +59,7 @@ public class TextExtractorTest {
   @Test
   public void testByteArray() throws StageException, IOException {
     Stage stage = factory.get("TextExtractorTest/bytearray.conf");
+    stage.start();
     Document doc = Document.create("doc1");
     File file = new File("src/test/resources/TextExtractorTest/tika.txt");
     byte[] fileContent = Files.readAllBytes(file.toPath());
@@ -68,6 +76,7 @@ public class TextExtractorTest {
   @Test
   public void testDocx() throws StageException {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
+    stage.start();
     Document doc = Document.create("doc1");
 
     // set path as absolute Path
@@ -312,5 +321,53 @@ public class TextExtractorTest {
         "org.apache.tika.parser.csv.TextAndCSVParser"), fields.get("tika_x_tika_parsed_by"));
     assertEquals("ISO-8859-1", fields.get("tika_content_encoding"));
     assertEquals("text/plain; charset=ISO-8859-1", fields.get("tika_content_type"));
+  }
+
+  @Test
+  public void testTimeout() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/timeout.conf");
+    stage.start();
+
+    // Use a custom parser that sleeps
+    AtomicBoolean interrupted = new AtomicBoolean(false);
+    Parser slowParser = new AbstractParser() {
+      @Override
+      public java.util.Set<org.apache.tika.mime.MediaType> getSupportedTypes(ParseContext context) {
+        return java.util.Collections.emptySet();
+      }
+
+      @Override
+      public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context) {
+        while (true) {
+          try {
+            Thread.sleep(100);
+          } catch (InterruptedException e) {
+            interrupted.set(true);
+            break;
+          }
+        }
+      }
+    };
+
+    // We need to inject this parser into the stage.
+    java.lang.reflect.Field parserField = TextExtractor.class.getDeclaredField("parser");
+    parserField.setAccessible(true);
+    parserField.set(stage, slowParser);
+
+    Document doc = Document.create("doc1");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+
+    // Give it a bit of time for the async task to be interrupted and set the flag
+    Thread.sleep(200);
+
+    // If timeout works, it should have returned within much less than 1000ms
+    // and interrupted should be true (if we interrupt the thread)
+    assertTrue("Parser should have been interrupted", interrupted.get());
+    // Document should not have text (or at least not from the parser)
+    Assert.assertEquals("Document should have empty text.", "", doc.getString("text"));
+
+    stage.stop();
   }
 }
