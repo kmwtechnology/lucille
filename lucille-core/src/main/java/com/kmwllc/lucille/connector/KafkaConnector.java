@@ -159,6 +159,7 @@ public class KafkaConnector extends AbstractConnector {
     return SPEC;
   }
 
+  // access set to package so unit tests provide a mock consumer by overriding this method.
   KafkaConsumer<String, String> createConsumer(Properties props) {
     return new KafkaConsumer<>(props);
   }
@@ -194,7 +195,7 @@ public class KafkaConnector extends AbstractConnector {
    * @return the created Lucille document
    * @throws ConnectorException if the record value is not a JSON object or if an error occurs during conversion
    */
-  public Document asDoc(ConsumerRecord<String, String> record) throws ConnectorException {
+  Document asDoc(ConsumerRecord<String, String> record) throws ConnectorException {
     try {
       JsonNode node = mapper.readTree(record.value());
       if (!node.isObject()) {
