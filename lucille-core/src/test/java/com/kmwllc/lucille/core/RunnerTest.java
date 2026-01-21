@@ -154,7 +154,7 @@ public class RunnerTest {
   }
 
   /**
-   * Test an end-to-end run with a single connector that generates 3 documents.
+   * Test an end-to-end run with a single connector that generates 1 document.
    * Confirm that this run fails when the Runner's connectorTimeout is set to 1 millisecond
    * but that it succeeds when the timeout is set to -1 milliseconds to disable it.
    */
