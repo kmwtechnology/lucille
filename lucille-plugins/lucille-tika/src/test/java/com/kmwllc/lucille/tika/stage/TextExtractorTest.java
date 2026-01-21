@@ -41,7 +41,6 @@ public class TextExtractorTest {
   @Test
   public void testFilePath() throws StageException {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
-    stage.start();
     Document doc = Document.create("doc1");
 
     // set path as absolute Path
@@ -59,7 +58,6 @@ public class TextExtractorTest {
   @Test
   public void testByteArray() throws StageException, IOException {
     Stage stage = factory.get("TextExtractorTest/bytearray.conf");
-    stage.start();
     Document doc = Document.create("doc1");
     File file = new File("src/test/resources/TextExtractorTest/tika.txt");
     byte[] fileContent = Files.readAllBytes(file.toPath());
@@ -76,7 +74,6 @@ public class TextExtractorTest {
   @Test
   public void testDocx() throws StageException {
     Stage stage = factory.get("TextExtractorTest/filepath.conf");
-    stage.start();
     Document doc = Document.create("doc1");
 
     // set path as absolute Path
@@ -326,7 +323,6 @@ public class TextExtractorTest {
   @Test
   public void testTimeout() throws Exception {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/timeout.conf");
-    stage.start();
 
     // Use a custom parser that sleeps
     AtomicBoolean interrupted = new AtomicBoolean(false);
