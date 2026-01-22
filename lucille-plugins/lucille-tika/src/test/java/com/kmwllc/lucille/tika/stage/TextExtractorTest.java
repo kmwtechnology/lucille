@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.Sets;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
 import org.apache.tika.parser.AbstractParser;
@@ -37,6 +39,7 @@ import org.apache.tika.parser.Parser;
 import org.junit.Assert;
 import org.junit.Test;
 import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
 
 public class TextExtractorTest {
 
@@ -404,35 +407,32 @@ public class TextExtractorTest {
     assertEquals("text/plain; charset=ISO-8859-1", fields.get("tika_content_type"));
   }
 
+  public static class SlowParser extends AbstractParser {
+    public static AtomicBoolean interrupted = new AtomicBoolean(false);
+
+    @Override
+    public Set<MediaType> getSupportedTypes(ParseContext context) {
+      return Sets.newHashSet(MediaType.text("plain"));
+    }
+
+    @Override
+    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context) {
+      while (true) {
+        try {
+          Thread.sleep(100);
+        } catch (InterruptedException e) {
+          interrupted.set(true);
+          break;
+        }
+      }
+    }
+  }
+
   @Test
   public void testTimeout() throws Exception {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/timeout.conf");
 
-    // Use a custom parser that sleeps
-    AtomicBoolean interrupted = new AtomicBoolean(false);
-    Parser slowParser = new AbstractParser() {
-      @Override
-      public Set<MediaType> getSupportedTypes(ParseContext context) {
-        return Collections.emptySet();
-      }
 
-      @Override
-      public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context) {
-        while (true) {
-          try {
-            Thread.sleep(100);
-          } catch (InterruptedException e) {
-            interrupted.set(true);
-            break;
-          }
-        }
-      }
-    };
-
-    // We need to inject this parser into the stage.
-    java.lang.reflect.Field parserField = TextExtractor.class.getDeclaredField("parser");
-    parserField.setAccessible(true);
-    parserField.set(stage, slowParser);
 
     Document doc = Document.create("doc1");
     doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
@@ -444,7 +444,7 @@ public class TextExtractorTest {
 
     // If timeout works, it should have returned within much less than 1000ms
     // and interrupted should be true (if we interrupt the thread)
-    assertTrue("Parser should have been interrupted", interrupted.get());
+    assertTrue("Parser should have been interrupted", SlowParser.interrupted.get());
     // Document should not have text (or at least not from the parser)
     Assert.assertEquals("Document should have empty text.", "", doc.getString("text"));
 
