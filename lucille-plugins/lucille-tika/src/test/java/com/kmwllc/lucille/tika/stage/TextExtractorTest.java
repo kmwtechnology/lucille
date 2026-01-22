@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.tika.stage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -10,7 +11,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.Sets;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -33,9 +33,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
-import org.apache.tika.parser.AbstractParser;
+import org.apache.tika.parser.DefaultParser;
 import org.apache.tika.parser.ParseContext;
-import org.apache.tika.parser.Parser;
 import org.junit.Assert;
 import org.junit.Test;
 import org.xml.sax.ContentHandler;
@@ -407,23 +406,23 @@ public class TextExtractorTest {
     assertEquals("text/plain; charset=ISO-8859-1", fields.get("tika_content_type"));
   }
 
-  public static class SlowParser extends AbstractParser {
+  public static class InterruptTrackingParser extends DefaultParser {
+
     public static AtomicBoolean interrupted = new AtomicBoolean(false);
 
     @Override
     public Set<MediaType> getSupportedTypes(ParseContext context) {
-      return Sets.newHashSet(MediaType.text("plain"));
+      return Collections.singleton(MediaType.TEXT_PLAIN);
     }
 
     @Override
-    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context) {
-      while (true) {
-        try {
-          Thread.sleep(100);
-        } catch (InterruptedException e) {
-          interrupted.set(true);
-          break;
-        }
+    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
+        throws TikaException, IOException, SAXException {
+      try {
+        Thread.sleep(200);
+        super.parse(stream, handler, metadata, context);
+      } catch (InterruptedException e) {
+        interrupted.set(true);
       }
     }
   }
@@ -442,10 +441,25 @@ public class TextExtractorTest {
 
     // If timeout works, it should have returned within much less than 1000ms
     // and interrupted should be true (if we interrupt the thread)
-    assertTrue("Parser should have been interrupted", SlowParser.interrupted.get());
+    assertTrue("Parser should have been interrupted", InterruptTrackingParser.interrupted.get());
     // Document should not have text (or at least not from the parser)
-    Assert.assertEquals("Document should have empty text.", "", doc.getString("text"));
+    assertEquals("Document should have empty text.", "", doc.getString("text"));
 
     stage.stop();
+
+    InterruptTrackingParser.interrupted.set(false);
+
+    TextExtractor stage2 = (TextExtractor) factory.get("TextExtractorTest/notimeout.conf");
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage2.processDocument(doc2);
+
+    assertFalse("Parser should not have been interrupted", InterruptTrackingParser.interrupted.get());
+    // Document should not have text (or at least not from the parser)
+    assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
+
+
   }
 }
