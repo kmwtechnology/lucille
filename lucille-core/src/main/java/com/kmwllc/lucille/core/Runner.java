@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
@@ -24,6 +25,7 @@ import java.io.StringWriter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.MDC;
+import sun.misc.Signal;
 
 /**
  * Executes a Lucille run. A run is a sequential execution of one or more Connectors.
@@ -73,6 +75,19 @@ public class Runner {
   // no need to instantiate Runner; all methods currently static
   private Runner() {
   }
+
+  // these are set and cleared in runConnectorWithComponents()
+  // the ONLY purpose of storing the current publisher, connector, etc. in these variables is so that they
+  // can be referenced inside a Signal handler that would attempt to cleanly close/stop them upon receiving an INT signal;
+  // at present the Signal handler is only registered in main(), and since main() is not called in a multi-threaded context,
+  // these variables don't technically NEED to be ThreadLocals; however, runConnectorWithComponents() CAN be called in
+  // a multi-threaded context via the Lucille API, so we use ThreadLocals here to avoid confusion and support a future scenario
+  // where we might want to attempt a clean shutdown outside of the Signal handler registered in main()
+  private static final ThreadLocal<Publisher> publisherLocal = ThreadLocal.withInitial(() -> null);
+  private static final ThreadLocal<Connector> connectorLocal = ThreadLocal.withInitial(() -> null);
+  private static final ThreadLocal<WorkerPool> workerPoolLocal = ThreadLocal.withInitial(() -> null);
+  private static final ThreadLocal<Indexer> indexerLocal = ThreadLocal.withInitial(() -> null);
+  private static final ThreadLocal<Thread> indexerThreadLocal = ThreadLocal.withInitial(() -> null);
 
   /**
    * Runs the configured connectors. NOTE: parameters are case insensitive.
@@ -127,6 +142,54 @@ public class Runner {
       }
       return;
     }
+
+    // register a signal handler to attempt a clean shutdown of
+    // Connector, Publisher, WorkerPool, and Indexer if an INT signal is received
+    Signal.handle(new Signal("INT"), signal -> {
+      log.info("Runner attempting clean shutdown after receiving INT signal");
+      Connector connector = connectorLocal.get();
+      if (connector != null) {
+        try {
+          log.info("Closing current Connector...");
+          connector.close();
+        } catch (Exception e) {
+          log.error("Error closing Connector", e);
+        }
+      }
+      Publisher publisher = publisherLocal.get();
+      if (publisher != null) {
+        try {
+          log.info("Closing current Publisher...");
+          publisher.close();
+        } catch (Exception e) {
+          log.error("Error closing Publisher", e);
+        }
+      }
+      WorkerPool workerPool = workerPoolLocal.get();
+      if (workerPool != null) {
+        try {
+          log.info("Stopping current Worker pool...");
+          workerPool.stop();
+          workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+        } catch (Exception e) {
+          log.error("Error stopping WorkerPool", e);
+        }
+      }
+      Indexer indexer = indexerLocal.get();
+      if (indexer != null) {
+        try {
+          log.info("Stopping current Indexer...");
+          indexer.terminate();
+          Thread indexerThread = indexerThreadLocal.get();
+          if (indexerThread != null) {
+            indexerThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+          }
+        } catch (Exception e) {
+          log.error("Error stopping Indexer", e);
+        }
+      }
+      System.exit(0);
+    });
 
     RunType runType = getRunType(cli.hasOption("usekafka"), cli.hasOption("local"));
 
@@ -633,9 +696,26 @@ public class Runner {
             connector.getPipelineName(), metricsPrefix, connector.requiresCollapsingPublisher());
       }
 
+      // store resources in ThreadLocal variables so we can attempt to stop/close them cleanly
+      // if the run is aborted by an INT signal
+      publisherLocal.set(publisher);
+      connectorLocal.set(connector);
+      workerPoolLocal.set(workerPool);
+      indexerLocal.set(indexer);
+      indexerThreadLocal.set(indexerThread);
+
       return runConnector(config, runId, connector, publisher);
 
     } finally {
+
+      // always clear ThreadLocals
+      publisherLocal.remove();
+      connectorLocal.remove();
+      workerPoolLocal.remove();
+      indexerLocal.remove();
+      indexerThreadLocal.remove();
+
+      // always stop workerPool and indexerThread
       if (workerPool != null) {
         workerPool.stop();
         workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
