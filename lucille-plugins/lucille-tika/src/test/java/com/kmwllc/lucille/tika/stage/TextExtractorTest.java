@@ -3,25 +3,34 @@ package com.kmwllc.lucille.tika.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.stage.StageFactory;
+import com.kmwllc.lucille.util.FileContentFetcher;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-
-import com.kmwllc.lucille.stage.StageFactory;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
 import org.apache.tika.parser.AbstractParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
@@ -240,28 +249,103 @@ public class TextExtractorTest {
   }
 
 
+  public static class MockFetcher implements FileContentFetcher {
+
+    private static FileContentFetcher mock;
+
+    public MockFetcher(Config config) {
+    }
+
+    public static void setMock(FileContentFetcher mock) {
+      MockFetcher.mock = mock;
+    }
+
+    @Override
+    public void startup() throws IOException {
+      if (mock != null) {
+        mock.startup();
+      }
+    }
+
+    @Override
+    public void shutdown() {
+      if (mock != null) {
+        mock.shutdown();
+      }
+    }
+
+    @Override
+    public InputStream getInputStream(String path) throws IOException {
+      return mock != null ? mock.getInputStream(path) : null;
+    }
+
+    @Override
+    public InputStream getInputStream(String path, Document doc) throws IOException {
+      return mock != null ? mock.getInputStream(path, doc) : null;
+    }
+
+    @Override
+    public BufferedReader getReader(String path) throws IOException {
+      return mock != null ? mock.getReader(path) : null;
+    }
+
+    @Override
+    public BufferedReader getReader(String path, Document doc) throws IOException {
+      return mock != null ? mock.getReader(path, doc) : null;
+    }
+
+    @Override
+    public BufferedReader getReader(String path, String encoding) throws IOException {
+      return mock != null ? mock.getReader(path, encoding) : null;
+    }
+
+    @Override
+    public BufferedReader getReader(String path, String encoding, Document doc) throws IOException {
+      return mock != null ? mock.getReader(path, encoding, doc) : null;
+    }
+
+    @Override
+    public int countLines(String path) throws IOException {
+      return mock != null ? mock.countLines(path) : 0;
+    }
+
+    @Override
+    public int countLines(String path, Document doc) throws IOException {
+      return mock != null ? mock.countLines(path, doc) : 0;
+    }
+  }
+
   /**
    * Tests the TextExtractor closes inputStream after Document is processed
    *
    * @throws StageException
    */
   @Test
-  public void testInputStreamClose() throws StageException, IOException {
-    // initialize the stage and parser
-    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/tika-config.conf");
+  public void testInputStreamClose() throws Exception {
+    Config config = ConfigFactory.parseString("fetcherClass = \"com.kmwllc.lucille.tika.stage.TextExtractorTest$MockFetcher\"\n" +
+        "filePathField = \"path\"\n" +
+        "textField = \"text\"");
+    TextExtractor stage = new TextExtractor(config);
     stage.start();
+
+    // mock fileFetcher
+    FileContentFetcher mockFetcher = mock(FileContentFetcher.class);
+    InputStream inputStream = spy(new ByteArrayInputStream("Hello World".getBytes()));
+    when(mockFetcher.getInputStream(anyString())).thenReturn(inputStream);
+
+    MockFetcher.setMock(mockFetcher);
 
     // set up document
     Document doc = Document.create("doc1");
+    doc.setField("path", "some-path");
 
-    // creating an inputStream
-    InputStream inputStream = spy(new ByteArrayInputStream("Hello World".getBytes()));
-
-    // go through parsing stage where inputStream is eventually closed
-    stage.parseInputStream(doc, inputStream);
+    // go through the process of processing the document.
+    stage.processDocument(doc);
 
     // verify that close method is called on the inputStream
     verify(inputStream, times(1)).close();
+
+    MockFetcher.setMock(null);
   }
 
 
@@ -328,8 +412,8 @@ public class TextExtractorTest {
     AtomicBoolean interrupted = new AtomicBoolean(false);
     Parser slowParser = new AbstractParser() {
       @Override
-      public java.util.Set<org.apache.tika.mime.MediaType> getSupportedTypes(ParseContext context) {
-        return java.util.Collections.emptySet();
+      public Set<MediaType> getSupportedTypes(ParseContext context) {
+        return Collections.emptySet();
       }
 
       @Override

@@ -2,12 +2,12 @@ package com.kmwllc.lucille.tika.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.util.FileContentFetcher;
-import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -55,9 +55,11 @@ import org.xml.sax.SAXException;
 public class TextExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix")
-      .optionalList("metadataWhitelist", new TypeReference<List<String>>(){})
-      .optionalList("metadataBlacklist", new TypeReference<List<String>>(){})
+      .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix", "fetcherClass")
+      .optionalList("metadataWhitelist", new TypeReference<List<String>>() {
+      })
+      .optionalList("metadataBlacklist", new TypeReference<List<String>>() {
+      })
       .optionalNumber("textContentLimit", "parseTimeout")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
 
@@ -126,7 +128,9 @@ public class TextExtractor extends Stage {
     parseCtx.set(Parser.class, parser);
 
     if (parseTimeout != null) {
-      executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+      // each worker is running in a single thread so we only need to run the extraction with a
+      // single thread executor rather than using a thread pool.
+      executorService = Executors.newSingleThreadExecutor();
     }
   }
 
@@ -227,15 +231,6 @@ public class TextExtractor extends Stage {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
       log.warn("Tika Exception: {}", e.getMessage());
-    } finally {
-      // close the inputStream regardless if error is thrown
-      if (inputStream != null) {
-        try {
-          inputStream.close();
-        } catch (IOException e2) {
-          log.warn("Failed to close inputStream: {}", e2.getMessage());
-        }
-      }
     }
   }
 }
