@@ -432,8 +432,6 @@ public class TextExtractorTest {
   public void testTimeout() throws Exception {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/timeout.conf");
 
-
-
     Document doc = Document.create("doc1");
     doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
 
