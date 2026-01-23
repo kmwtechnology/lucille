@@ -207,6 +207,11 @@ public final class Py4JRuntime {
       }
 
       while (!pythonProcessOutputConsumer.isMessageSeen()) {
+        // if process is no longer alive and exited with code 1, stop waiting.
+        if (!pythonProcess.isAlive() && pythonProcess.exitValue() == 1) {
+          throw new StageException();
+        }
+
         try {
           Thread.sleep(100);
         } catch (InterruptedException e) {
