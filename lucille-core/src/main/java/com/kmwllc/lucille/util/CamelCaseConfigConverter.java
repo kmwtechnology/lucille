@@ -33,7 +33,7 @@ public class CamelCaseConfigConverter {
 
   private static void writeToConfFile(String configString, String filePath) throws IOException {
     try (PrintWriter writer = new PrintWriter(new FileWriter(filePath))) {
-      writer.printf(configString);
+      writer.print(configString);
       log.info("Written new config to {}", filePath);
     } catch (Exception e) {
       throw new IOException("Error writing new config to file path: " + filePath, e);
@@ -66,7 +66,15 @@ public class CamelCaseConfigConverter {
   private static void processFile(String filePath) throws Exception {
     String newFileName = FilenameUtils.getBaseName(filePath) + "CamelCase" + ".conf";
     String newFilePath = Paths.get(FilenameUtils.getFullPath(filePath), newFileName).toString();
-    File file = new File(filePath);
+    // validate canonical path of filePath for Path Traversal vulnerability
+    String baseDir = newFilePath.replace(newFileName, "");
+    File file = new File(baseDir, newFileName);
+    String canonicalBasePath = new File(baseDir).getCanonicalPath();
+    String canonicalFilePath = file.getCanonicalPath();
+    if (!canonicalFilePath.startsWith(canonicalBasePath)) {
+      throw new SecurityException("Invalid file path: " + filePath);
+    }
+
     // collect all stageProperty that needs to change
     Config config = ConfigFactory.parseFile(file).resolve();
     Map<String, Object> configAsMap = config.root().unwrapped();
@@ -74,7 +82,7 @@ public class CamelCaseConfigConverter {
 
     // update stage properties in new file and write to newFilePath
     String configStr = applyCamelCase(file, stageProperties);
-    writeToConfFile(configStr, newFilePath);
+    writeToConfFile(configStr, canonicalFilePath);
   }
 
   private static List<String> getStagePropertiesFromConfig(Map<String, Object> configAsMap) throws IOException {
