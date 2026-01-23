@@ -68,13 +68,13 @@ public class CamelCaseConfigConverter {
     String newFilePath = Paths.get(FilenameUtils.getFullPath(filePath), newFileName).toString();
     // validate canonical path of filePath for Path Traversal vulnerability
     String baseDir = newFilePath.replace(newFileName, "");
-    File file = new File(baseDir, newFileName);
     String canonicalBasePath = new File(baseDir).getCanonicalPath();
-    String canonicalFilePath = file.getCanonicalPath();
+    String canonicalFilePath = new File(newFilePath).getCanonicalPath();
     if (!canonicalFilePath.startsWith(canonicalBasePath)) {
       throw new SecurityException("Invalid file path: " + filePath);
     }
 
+    File file = new File(filePath);
     // collect all stageProperty that needs to change
     Config config = ConfigFactory.parseFile(file).resolve();
     Map<String, Object> configAsMap = config.root().unwrapped();
