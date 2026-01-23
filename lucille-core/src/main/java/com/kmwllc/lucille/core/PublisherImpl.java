@@ -315,7 +315,7 @@ public class PublisherImpl implements Publisher {
         handleEvent(event);
       }
 
-      if (ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
+      if (timeout > 0 && ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
         log.error("Exiting run with " + numPending() + " pending documents; connector timed out (" + timeout + "ms)");
         return new PublisherResult(false, "Connector timeout.");
       }
