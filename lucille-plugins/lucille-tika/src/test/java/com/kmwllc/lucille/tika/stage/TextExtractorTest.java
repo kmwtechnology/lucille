@@ -6,6 +6,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -15,6 +16,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.stage.StageFactory;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -37,6 +39,8 @@ import org.apache.tika.parser.DefaultParser;
 import org.apache.tika.parser.ParseContext;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.MockedConstruction;
+import org.mockito.Mockito;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
@@ -250,73 +254,6 @@ public class TextExtractorTest {
     assertEquals("Hi ", doc.getString("text"));
   }
 
-
-  public static class MockFetcher implements FileContentFetcher {
-
-    private static FileContentFetcher mock;
-
-    public MockFetcher(Config config) {
-    }
-
-    public static void setMock(FileContentFetcher mock) {
-      MockFetcher.mock = mock;
-    }
-
-    @Override
-    public void startup() throws IOException {
-      if (mock != null) {
-        mock.startup();
-      }
-    }
-
-    @Override
-    public void shutdown() {
-      if (mock != null) {
-        mock.shutdown();
-      }
-    }
-
-    @Override
-    public InputStream getInputStream(String path) throws IOException {
-      return mock != null ? mock.getInputStream(path) : null;
-    }
-
-    @Override
-    public InputStream getInputStream(String path, Document doc) throws IOException {
-      return mock != null ? mock.getInputStream(path, doc) : null;
-    }
-
-    @Override
-    public BufferedReader getReader(String path) throws IOException {
-      return mock != null ? mock.getReader(path) : null;
-    }
-
-    @Override
-    public BufferedReader getReader(String path, Document doc) throws IOException {
-      return mock != null ? mock.getReader(path, doc) : null;
-    }
-
-    @Override
-    public BufferedReader getReader(String path, String encoding) throws IOException {
-      return mock != null ? mock.getReader(path, encoding) : null;
-    }
-
-    @Override
-    public BufferedReader getReader(String path, String encoding, Document doc) throws IOException {
-      return mock != null ? mock.getReader(path, encoding, doc) : null;
-    }
-
-    @Override
-    public int countLines(String path) throws IOException {
-      return mock != null ? mock.countLines(path) : 0;
-    }
-
-    @Override
-    public int countLines(String path, Document doc) throws IOException {
-      return mock != null ? mock.countLines(path, doc) : 0;
-    }
-  }
-
   /**
    * Tests the TextExtractor closes inputStream after Document is processed
    *
@@ -324,30 +261,31 @@ public class TextExtractorTest {
    */
   @Test
   public void testInputStreamClose() throws Exception {
-    Config config = ConfigFactory.parseString("fetcherClass = \"com.kmwllc.lucille.tika.stage.TextExtractorTest$MockFetcher\"\n" +
-        "filePathField = \"path\"\n" +
-        "textField = \"text\"");
-    TextExtractor stage = new TextExtractor(config);
-    stage.start();
+
 
     // mock fileFetcher
     FileContentFetcher mockFetcher = mock(FileContentFetcher.class);
     InputStream inputStream = spy(new ByteArrayInputStream("Hello World".getBytes()));
-    when(mockFetcher.getInputStream(anyString())).thenReturn(inputStream);
 
-    MockFetcher.setMock(mockFetcher);
+    try (MockedConstruction<DefaultFileContentFetcher> mockedConstruction = mockConstruction(DefaultFileContentFetcher.class, (mock, context) -> {
+      when(mock.getInputStream(anyString())).thenReturn(inputStream);})) {
+      Config config = ConfigFactory.parseString("fetcherClass = \"com.kmwllc.lucille.util.DefaultFileContentFetcher\"\n" +
+          "filePathField = \"path\"\n" +
+          "textField = \"text\"");
+      TextExtractor stage = new TextExtractor(config);
+      stage.start();
 
-    // set up document
-    Document doc = Document.create("doc1");
-    doc.setField("path", "some-path");
+      // set up document
+      Document doc = Document.create("doc1");
+      doc.setField("path", "some-path");
 
-    // go through the process of processing the document.
-    stage.processDocument(doc);
+      // go through the process of processing the document.
+      stage.processDocument(doc);
 
-    // verify that close method is called on the inputStream
-    verify(inputStream, times(1)).close();
+      // verify that close method is called on the inputStream
+      verify(inputStream, times(1)).close();
+    }
 
-    MockFetcher.setMock(null);
   }
 
 
