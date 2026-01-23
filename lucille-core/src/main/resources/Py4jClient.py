@@ -24,6 +24,7 @@ class Py4jClient:
         self.port = port
         self.gateway = None
         self.running = False
+        self.user_namespace = {}
 
     def exec(self, json_msg):
         #print(f"[Py4jClient] exec called with json_msg: {json_msg}")
@@ -34,7 +35,7 @@ class Py4jClient:
         if not method_name:
           raise ValueError("Missing method in message")
 
-        func = globals().get(method_name)
+        func = self.user_namespace.get(method_name)
         if func is None or not callable(func):
           raise AttributeError(f"Requested method {method_name} not found or not callable")
 
@@ -63,10 +64,11 @@ class Py4jClient:
         sys.stderr = TeeLogger(log_file)
         print(f"[Py4jClient] Logging to stdout and {log_file}")
         print(f"[Py4jClient] Loading user module from: {self.script_path}")
-        # Load the user script into the global namespace so its functions are available in globals()
+
+        # Load the user script into isolated namespace
         with open(self.script_path) as f:
             code = f.read()
-        exec(code, globals())
+        exec(code, self.user_namespace)
         try:
             self.gateway = JavaGateway(
                 gateway_parameters=GatewayParameters(auto_convert=True, port=self.port, auto_close=True, read_timeout=5 ),
