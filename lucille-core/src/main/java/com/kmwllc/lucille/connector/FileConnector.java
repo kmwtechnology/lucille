@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
+import com.kmwllc.lucille.connector.storageclient.TraversalParams.PublishMode;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -115,7 +116,7 @@ public class FileConnector extends AbstractConnector {
               .optionalList("includes", new TypeReference<List<String>>(){})
               .optionalList("excludes", new TypeReference<List<String>>(){})
               // durations are strings.
-              .optionalString("lastModifiedCutoff", "lastPublishedCutoff").build(),
+              .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode").build(),
           SpecBuilder.parent("fileOptions")
               .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
               .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
@@ -152,6 +153,14 @@ public class FileConnector extends AbstractConnector {
     this.stateManager = config.hasPath("state") ? new FileConnectorStateManager(config.getConfig("state"), getName()) : null;
 
     this.storageClientMap = StorageClient.createClients(config);
+
+    // if publishMode was specifically defined as "incremental", throw a warning if state not defined
+    if (config.hasPath("filterOptions.publishMode")) {
+      var mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
+      if (mode == PublishMode.INCREMENTAL && !config.hasPath("state")) {
+        log.warn("filterOptions.publishMode of 'incremental' was specified, but no state configuration was provided. Incremental mode not supported with current config.");        
+      }
+    }
 
     // Cannot specify multiple storage paths and a moveTo of some kind
     if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath("fileOptions.moveToErrorFolder"))) {

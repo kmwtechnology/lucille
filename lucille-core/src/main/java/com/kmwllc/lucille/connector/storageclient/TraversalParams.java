@@ -46,6 +46,7 @@ public class TraversalParams {
   private final List<Pattern> includes;
   private final Duration lastModifiedCutoff;
   private final Duration lastPublishedCutoff;
+  private final PublishMode publishMode;
 
   // FileHandlers
   private final Map<String, FileHandler> fileHandlers;
@@ -90,6 +91,8 @@ public class TraversalParams {
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
 
+    this.publishMode = PublishMode.fromString(filterOptions.hasPath("publishMode") ? filterOptions.getString("publishMode") : "full");
+
     this.lastModifiedCutoff = filterOptions.hasPath("lastModifiedCutoff") ? filterOptions.getDuration("lastModifiedCutoff") : null;
     this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
 
@@ -106,6 +109,11 @@ public class TraversalParams {
     // file mush pass include/exclude path patterns, if specified, to even be a publishing candidate
     if (!applyPatternFilters(fileName)) {
       return false;
+    }
+    
+    // if path is valid and publishMode is "full", immediately return true so all are published
+    if (publishMode == PublishMode.FULL) {
+      return true;
     }
 
     // incremental support: do not publish if 1) file already published and 2) it hasn't been modified since
@@ -187,6 +195,19 @@ public class TraversalParams {
 
   public URI getMoveToErrorFolder() {
     return moveToErrorFolder;
+  }
+
+  public enum PublishMode {
+    INCREMENTAL, FULL;
+
+    @Override
+    public String toString() {
+      return this.name().toLowerCase();
+    }
+
+    public static PublishMode fromString(String name) {
+        return PublishMode.valueOf(name.toUpperCase());
+    }    
   }
 
 }
