@@ -46,6 +46,7 @@ public class TraversalParams {
   private final List<Pattern> includes;
   private final Duration lastModifiedCutoff;
   private final Duration lastPublishedCutoff;
+  private final PublishMode publishMode;
 
   // FileHandlers
   private final Map<String, FileHandler> fileHandlers;
@@ -90,6 +91,8 @@ public class TraversalParams {
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
 
+    this.publishMode = PublishMode.fromString(filterOptions.hasPath("publishMode") ? filterOptions.getString("publishMode") : "full");
+
     this.lastModifiedCutoff = filterOptions.hasPath("lastModifiedCutoff") ? filterOptions.getDuration("lastModifiedCutoff") : null;
     this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
 
@@ -103,7 +106,23 @@ public class TraversalParams {
    * and the last time it was modified.
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
-    return patternsAllowFile(fileName) && cutoffsAllowFile(fileLastModified, fileLastPublished);
+    // file mush pass include/exclude path patterns, if specified, to even be a publishing candidate
+    if (!applyPatternFilters(fileName)) {
+      return false;
+    }
+    
+    // if path is valid and publishMode is "full", immediately return true so all are published
+    if (publishMode == PublishMode.FULL) {
+      return true;
+    }
+
+    // incremental support: do not publish if 1) file already published and 2) it hasn't been modified since
+    if (fileLastPublished != null && !fileLastModified.isAfter(fileLastPublished)) {
+      return false;
+    }
+
+    // incremental support: publish file unless a timestamp filter is triggered
+    return applyTimestampFilters(fileLastModified, fileLastPublished);
   }
 
   public boolean supportedFileExtension(String fileExtension) {
@@ -117,7 +136,7 @@ public class TraversalParams {
   /**
    * Returns whether a file with the given name should be processed, based on the includes/excludes patterns.
    */
-  private boolean patternsAllowFile(String fileName) {
+  private boolean applyPatternFilters(String fileName) {
     return excludes.stream().noneMatch(pattern -> pattern.matcher(fileName).matches())
         && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(fileName).matches()));
   }
@@ -126,7 +145,7 @@ public class TraversalParams {
    * Returns whether the given lastModified and lastPublished instants comply with lastModifiedCutoff / lastPublishedCutoff,
    * if they are specified.
    */
-  private boolean cutoffsAllowFile(Instant fileLastModified, Instant fileLastPublished) {
+  private boolean applyTimestampFilters(Instant fileLastModified, Instant fileLastPublished) {
     // If lastModifiedCutoff is specified, return false if it is violated
     if (lastModifiedCutoff != null) {
       Instant cutoffPoint = Instant.now().minus(lastModifiedCutoff);
@@ -177,4 +196,18 @@ public class TraversalParams {
   public URI getMoveToErrorFolder() {
     return moveToErrorFolder;
   }
+
+  public enum PublishMode {
+    INCREMENTAL, FULL;
+
+    @Override
+    public String toString() {
+      return this.name().toLowerCase();
+    }
+
+    public static PublishMode fromString(String name) {
+        return PublishMode.valueOf(name.toUpperCase());
+    }    
+  }
+
 }

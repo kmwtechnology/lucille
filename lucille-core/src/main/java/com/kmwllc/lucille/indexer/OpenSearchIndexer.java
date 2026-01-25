@@ -144,7 +144,8 @@ public class OpenSearchIndexer extends Indexer {
     // else if document is marked for deletion ONLY, then only add to idsToDelete
     // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
     for (Document doc : documents) {
-      String id = doc.getId();
+      // use doc id override if specified, otherwise delete will try to delete wrong id
+      String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
 
       // if an index override field has been specified, use its value as the index to send to opensearch,
       String indexOverride = getIndexOverride(doc);
@@ -160,7 +161,7 @@ public class OpenSearchIndexer extends Indexer {
         if (!isMarkedForDeletionByField(doc)) {
           idsToDelete.add(indexAndId);
         } else {
-          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
+          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, deleteByFieldField);
           if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
             termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }
