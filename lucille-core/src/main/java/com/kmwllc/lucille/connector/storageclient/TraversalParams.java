@@ -103,10 +103,18 @@ public class TraversalParams {
    * and the last time it was modified.
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
+    // file mush pass include/exclude path patterns, if specified, to even be a publishing candidate
+    if (!applyPatternFilters(fileName)) {
+      return false;
+    }
+
+    // incremental support: do not publish if 1) file already published and 2) it hasn't been modified since
     if (fileLastPublished != null && !fileLastModified.isAfter(fileLastPublished)) {
       return false;
     }
-    return applyPatternFilters(fileName) && applyTimestampFilters(fileLastModified, fileLastPublished);
+
+    // incremental support: publish file unless a timestamp filter is triggered
+    return applyTimestampFilters(fileLastModified, fileLastPublished);
   }
 
   public boolean supportedFileExtension(String fileExtension) {
@@ -180,4 +188,5 @@ public class TraversalParams {
   public URI getMoveToErrorFolder() {
     return moveToErrorFolder;
   }
+
 }
