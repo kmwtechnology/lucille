@@ -161,7 +161,7 @@ public class OpenSearchIndexer extends Indexer {
         if (!isMarkedForDeletionByField(doc)) {
           idsToDelete.add(indexAndId);
         } else {
-          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
+          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, deleteByFieldField);
           if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
             termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }
