@@ -20,7 +20,6 @@ import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -40,13 +39,12 @@ import org.apache.tika.parser.ParseContext;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
-import org.mockito.Mockito;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
 public class TextExtractorTest {
 
-  private StageFactory factory = StageFactory.of(TextExtractor.class);
+  private final StageFactory factory = StageFactory.of(TextExtractor.class);
 
   /**
    * Tests the TextExtractor on a config with a specified file path.
@@ -262,13 +260,14 @@ public class TextExtractorTest {
   @Test
   public void testInputStreamClose() throws Exception {
 
-
     // mock fileFetcher
     FileContentFetcher mockFetcher = mock(FileContentFetcher.class);
     InputStream inputStream = spy(new ByteArrayInputStream("Hello World".getBytes()));
 
-    try (MockedConstruction<DefaultFileContentFetcher> mockedConstruction = mockConstruction(DefaultFileContentFetcher.class, (mock, context) -> {
-      when(mock.getInputStream(anyString())).thenReturn(inputStream);})) {
+    try (MockedConstruction<DefaultFileContentFetcher> mockedConstruction = mockConstruction(DefaultFileContentFetcher.class,
+        (mock, context) -> {
+          when(mock.getInputStream(anyString())).thenReturn(inputStream);
+        })) {
       Config config = ConfigFactory.parseString("fetcherClass = \"com.kmwllc.lucille.util.DefaultFileContentFetcher\"\n" +
           "filePathField = \"path\"\n" +
           "textField = \"text\"");
@@ -346,7 +345,7 @@ public class TextExtractorTest {
 
   public static class InterruptTrackingParser extends DefaultParser {
 
-    public static AtomicBoolean interrupted = new AtomicBoolean(false);
+    private static AtomicBoolean interrupted = new AtomicBoolean(false);
 
     @Override
     public Set<MediaType> getSupportedTypes(ParseContext context) {
@@ -367,6 +366,8 @@ public class TextExtractorTest {
 
   @Test
   public void testTimeout() throws Exception {
+    InterruptTrackingParser.interrupted.set(false);
+
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/timeout.conf");
 
     Document doc = Document.create("doc1");
@@ -397,7 +398,5 @@ public class TextExtractorTest {
     assertFalse("Parser should not have been interrupted", InterruptTrackingParser.interrupted.get());
     // Document should have text after processing without interruption.
     assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
-
-
   }
 }
