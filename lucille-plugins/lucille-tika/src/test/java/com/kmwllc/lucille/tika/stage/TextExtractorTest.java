@@ -395,7 +395,7 @@ public class TextExtractorTest {
     stage2.processDocument(doc2);
 
     assertFalse("Parser should not have been interrupted", InterruptTrackingParser.interrupted.get());
-    // Document should not have text (or at least not from the parser)
+    // Document should have text after processing without interruption.
     assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
 
 
