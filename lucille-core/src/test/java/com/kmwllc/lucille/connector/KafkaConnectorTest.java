@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doThrow;
@@ -87,18 +86,30 @@ public class KafkaConnectorTest {
     configMap.put("kafka.consumerGroupId", "test-group");
     configMap.put("kafka.maxPollIntervalSecs", 600);
     configMap.put("kafka.clientId", "test-client");
+    configMap.put("continueOnTimeout", false);
     Map<String, Long> offsets = new HashMap<>();
     offsets.put("0", 100L);
     offsets.put("1", 200L);
     configMap.put("offsets", offsets);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConnector connector = new KafkaConnector(config);
-    java.lang.reflect.Field offsetsField = KafkaConnector.class.getDeclaredField("offsets");
-    offsetsField.setAccessible(true);
-    Map<Integer, Long> actualOffsets = (Map<Integer, Long>) offsetsField.get(connector);
-    assertEquals(100L, (long) actualOffsets.get(0));
-    assertEquals(200L, (long) actualOffsets.get(1));
+    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    TopicPartition tp0 = new TopicPartition("test-topic", 0);
+    TopicPartition tp1 = new TopicPartition("test-topic", 1);
+    when(mockConsumer.assignment()).thenReturn(new HashSet<>(Arrays.asList(tp0, tp1)));
+    when(mockConsumer.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
+
+    KafkaConnector connector = new KafkaConnector(config) {
+      @Override
+      KafkaConsumer<String, String> createConsumer(Properties props) {
+        return mockConsumer;
+      }
+    };
+
+    connector.execute(mock(Publisher.class));
+
+    verify(mockConsumer).seek(tp0, 100L);
+    verify(mockConsumer).seek(tp1, 200L);
   }
 
   @Test
@@ -111,12 +122,22 @@ public class KafkaConnectorTest {
     configMap.put("kafka.consumerGroupId", "test-group");
     configMap.put("kafka.maxPollIntervalSecs", 600);
     configMap.put("kafka.clientId", "test-client");
+    configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConnector connector = new KafkaConnector(config);
-    java.lang.reflect.Field offsetsField = KafkaConnector.class.getDeclaredField("offsets");
-    offsetsField.setAccessible(true);
-    org.junit.Assert.assertNull(offsetsField.get(connector));
+    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    when(mockConsumer.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
+
+    KafkaConnector connector = new KafkaConnector(config) {
+      @Override
+      KafkaConsumer<String, String> createConsumer(Properties props) {
+        return mockConsumer;
+      }
+    };
+
+    connector.execute(mock(Publisher.class));
+
+    verify(mockConsumer, times(0)).seek(any(), any(Long.class));
   }
 
   @Test
@@ -129,13 +150,33 @@ public class KafkaConnectorTest {
     configMap.put("kafka.consumerGroupId", "test-group");
     configMap.put("kafka.maxPollIntervalSecs", 600);
     configMap.put("kafka.clientId", "test-client");
-    configMap.put("maxMessages", 10L);
+    configMap.put("maxMessages", 1L);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConnector connector = new KafkaConnector(config);
-    java.lang.reflect.Field maxMessagesField = KafkaConnector.class.getDeclaredField("maxMessages");
-    maxMessagesField.setAccessible(true);
-    assertEquals(10L, maxMessagesField.get(connector));
+    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    String jsonValue1 = "{\"id\":\"doc1\"}";
+    String jsonValue2 = "{\"id\":\"doc2\"}";
+    ConsumerRecord<String, String> record1 = new ConsumerRecord<>("test-topic", 0, 0, "key1", jsonValue1);
+    ConsumerRecord<String, String> record2 = new ConsumerRecord<>("test-topic", 0, 1, "key2", jsonValue2);
+
+    TopicPartition tp = new TopicPartition("test-topic", 0);
+    Map<TopicPartition, List<ConsumerRecord<String, String>>> recordsMap = new HashMap<>();
+    recordsMap.put(tp, Arrays.asList(record1, record2));
+    ConsumerRecords<String, String> records = new ConsumerRecords<>(recordsMap);
+
+    when(mockConsumer.poll(any(Duration.class))).thenReturn(records);
+
+    KafkaConnector connector = new KafkaConnector(config) {
+      @Override
+      KafkaConsumer<String, String> createConsumer(Properties props) {
+        return mockConsumer;
+      }
+    };
+
+    Publisher mockPublisher = mock(Publisher.class);
+    connector.execute(mockPublisher);
+
+    verify(mockPublisher, times(1)).publish(any(Document.class));
   }
 
   @Test
@@ -148,12 +189,31 @@ public class KafkaConnectorTest {
     configMap.put("kafka.consumerGroupId", "test-group");
     configMap.put("kafka.maxPollIntervalSecs", 600);
     configMap.put("kafka.clientId", "test-client");
+    configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConnector connector = new KafkaConnector(config);
-    java.lang.reflect.Field maxMessagesField = KafkaConnector.class.getDeclaredField("maxMessages");
-    maxMessagesField.setAccessible(true);
-    org.junit.Assert.assertNull(maxMessagesField.get(connector));
+    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    String jsonValue1 = "{\"id\":\"doc1\"}";
+    ConsumerRecord<String, String> record1 = new ConsumerRecord<>("test-topic", 0, 0, "key1", jsonValue1);
+
+    TopicPartition tp = new TopicPartition("test-topic", 0);
+    Map<TopicPartition, List<ConsumerRecord<String, String>>> recordsMap = new HashMap<>();
+    recordsMap.put(tp, Arrays.asList(record1));
+    ConsumerRecords<String, String> records = new ConsumerRecords<>(recordsMap);
+
+    when(mockConsumer.poll(any(Duration.class))).thenReturn(records).thenReturn(ConsumerRecords.empty());
+
+    KafkaConnector connector = new KafkaConnector(config) {
+      @Override
+      KafkaConsumer<String, String> createConsumer(Properties props) {
+        return mockConsumer;
+      }
+    };
+
+    Publisher mockPublisher = mock(Publisher.class);
+    connector.execute(mockPublisher);
+
+    verify(mockPublisher, times(1)).publish(any(Document.class));
   }
 
   @Test
@@ -170,14 +230,19 @@ public class KafkaConnectorTest {
     configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConnector connector = new KafkaConnector(config);
-    java.lang.reflect.Field messageTimeoutField = KafkaConnector.class.getDeclaredField("messageTimeout");
-    messageTimeoutField.setAccessible(true);
-    assertEquals(500L, messageTimeoutField.get(connector));
+    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    when(mockConsumer.poll(Duration.ofMillis(500L))).thenReturn(ConsumerRecords.empty());
 
-    java.lang.reflect.Field continueOnTimeoutField = KafkaConnector.class.getDeclaredField("continueOnTimeout");
-    continueOnTimeoutField.setAccessible(true);
-    assertEquals(false, continueOnTimeoutField.get(connector));
+    KafkaConnector connector = new KafkaConnector(config) {
+      @Override
+      KafkaConsumer<String, String> createConsumer(Properties props) {
+        return mockConsumer;
+      }
+    };
+
+    connector.execute(mock(Publisher.class));
+
+    verify(mockConsumer).poll(Duration.ofMillis(500L));
   }
 
   @Test
@@ -190,16 +255,22 @@ public class KafkaConnectorTest {
     configMap.put("kafka.consumerGroupId", "test-group");
     configMap.put("kafka.maxPollIntervalSecs", 600);
     configMap.put("kafka.clientId", "test-client");
+    configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConnector connector = new KafkaConnector(config);
-    java.lang.reflect.Field messageTimeoutField = KafkaConnector.class.getDeclaredField("messageTimeout");
-    messageTimeoutField.setAccessible(true);
-    assertEquals(100L, messageTimeoutField.get(connector));
+    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    when(mockConsumer.poll(Duration.ofMillis(100L))).thenReturn(ConsumerRecords.empty());
 
-    java.lang.reflect.Field continueOnTimeoutField = KafkaConnector.class.getDeclaredField("continueOnTimeout");
-    continueOnTimeoutField.setAccessible(true);
-    assertEquals(true, continueOnTimeoutField.get(connector));
+    KafkaConnector connector = new KafkaConnector(config) {
+      @Override
+      KafkaConsumer<String, String> createConsumer(Properties props) {
+        return mockConsumer;
+      }
+    };
+
+    connector.execute(mock(Publisher.class));
+
+    verify(mockConsumer).poll(Duration.ofMillis(100L));
   }
 
   @Test
@@ -239,23 +310,24 @@ public class KafkaConnectorTest {
     configMap.put("kafka.consumerGroupId", "test-group");
     configMap.put("kafka.maxPollIntervalSecs", 600);
     configMap.put("kafka.clientId", "test-client");
+    configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConnector connector = new KafkaConnector(config);
+    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    when(mockConsumer.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
 
-    // Initial state
-    java.lang.reflect.Field runningField = KafkaConnector.class.getDeclaredField("running");
-    runningField.setAccessible(true);
-    assertEquals(true, runningField.get(connector));
+    KafkaConnector connector = new KafkaConnector(config) {
+      @Override
+      KafkaConsumer<String, String> createConsumer(Properties props) {
+        return mockConsumer;
+      }
+    };
 
-    // Close without initializing consumer
+    connector.execute(mock(Publisher.class));
     connector.close();
-    assertEquals(false, runningField.get(connector));
 
-    // Check that consumer is null
-    java.lang.reflect.Field consumerField = KafkaConnector.class.getDeclaredField("consumer");
-    consumerField.setAccessible(true);
-    assertNull(consumerField.get(connector));
+    verify(mockConsumer).wakeup();
+    verify(mockConsumer).close();
   }
 
   @Test
