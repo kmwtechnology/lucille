@@ -121,11 +121,13 @@ public class KafkaConnectorTest {
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
     ConsumerRecord<String, Document> record1 = new ConsumerRecord<>("test-topic", 0, 0, "key1", doc1);
+    ConsumerRecord<String, Document> record2 = new ConsumerRecord<>("test-topic", 0, 1, "key2", doc2);
 
     TopicPartition tp = new TopicPartition("test-topic", 0);
     Map<TopicPartition, List<ConsumerRecord<String, Document>>> recordsMap = new HashMap<>();
-    recordsMap.put(tp, Arrays.asList(record1));
+    recordsMap.put(tp, Arrays.asList(record1, record2));
     ConsumerRecords<String, Document> records = new ConsumerRecords<>(recordsMap);
 
     when(mockConsumer.poll(any(Duration.class))).thenReturn(records).thenReturn(ConsumerRecords.empty());
@@ -136,7 +138,7 @@ public class KafkaConnectorTest {
     Publisher mockPublisher = mock(Publisher.class);
     connector.execute(mockPublisher);
 
-    verify(mockPublisher, times(1)).publish(any(Document.class));
+    verify(mockPublisher, times(2)).publish(any(Document.class));
   }
 
   @Test
