@@ -158,11 +158,6 @@ public class KafkaConnector extends AbstractConnector {
 
   }
 
-  @Override
-  public Spec getSpec() {
-    return SPEC;
-  }
-
   // access set to package so unit tests provide a mock consumer by overriding this method.
   KafkaConsumer<String, String> createConsumer(Properties props) {
     return new KafkaConsumer<>(props);

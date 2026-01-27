@@ -3,8 +3,10 @@ package com.kmwllc.lucille.connector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -87,12 +89,8 @@ public class KafkaConnectorTest {
     when(mockConsumer.assignment()).thenReturn(new HashSet<>(Arrays.asList(tp0, tp1)));
     when(mockConsumer.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
 
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     connector.execute(mock(Publisher.class));
 
@@ -108,12 +106,8 @@ public class KafkaConnectorTest {
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
 
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     connector.execute(mock(Publisher.class));
 
@@ -139,12 +133,8 @@ public class KafkaConnectorTest {
 
     when(mockConsumer.poll(any(Duration.class))).thenReturn(records);
 
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     Publisher mockPublisher = mock(Publisher.class);
     connector.execute(mockPublisher);
@@ -168,12 +158,8 @@ public class KafkaConnectorTest {
 
     when(mockConsumer.poll(any(Duration.class))).thenReturn(records).thenReturn(ConsumerRecords.empty());
 
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     Publisher mockPublisher = mock(Publisher.class);
     connector.execute(mockPublisher);
@@ -190,12 +176,8 @@ public class KafkaConnectorTest {
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(Duration.ofMillis(500L))).thenReturn(ConsumerRecords.empty());
 
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     connector.execute(mock(Publisher.class));
 
@@ -210,12 +192,8 @@ public class KafkaConnectorTest {
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(Duration.ofMillis(100L))).thenReturn(ConsumerRecords.empty());
 
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     connector.execute(mock(Publisher.class));
 
@@ -250,12 +228,8 @@ public class KafkaConnectorTest {
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
 
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     connector.execute(mock(Publisher.class));
     connector.close();
@@ -271,12 +245,8 @@ public class KafkaConnectorTest {
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     String jsonValue1 = "{\"id\":\"doc1\"}";
     String jsonValue2 = "{\"id\":\"doc2\"}";
@@ -303,12 +273,8 @@ public class KafkaConnectorTest {
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     when(mockConsumer.poll(any(Duration.class))).thenReturn(new ConsumerRecords<>(Collections.emptyMap()));
 
@@ -362,12 +328,8 @@ public class KafkaConnectorTest {
     when(mockConsumer.poll(Duration.ZERO)).thenReturn(new ConsumerRecords<>(Collections.emptyMap()));
     when(mockConsumer.poll(any(Duration.class))).thenReturn(new ConsumerRecords<>(Collections.emptyMap()));
 
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     connector.execute(mock(Publisher.class));
 
@@ -382,12 +344,8 @@ public class KafkaConnectorTest {
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(any(Duration.class))).thenThrow(new RuntimeException("Kafka error"));
 
-    KafkaConnector connector = new KafkaConnector(config) {
-      @Override
-      KafkaConsumer<String, String> createConsumer(Properties props) {
-        return mockConsumer;
-      }
-    };
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
 
     assertThrows(com.kmwllc.lucille.core.ConnectorException.class, () -> connector.execute(mock(Publisher.class)));
 
