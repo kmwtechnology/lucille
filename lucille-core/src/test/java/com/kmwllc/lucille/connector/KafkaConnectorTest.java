@@ -358,7 +358,7 @@ public class KafkaConnectorTest {
     assertEquals("com.kmwllc.lucille.connector.KafkaConnectorTest$TestCustomDeserializer",
         props.getProperty("value.deserializer"));
 
-    TestCustomDeserializer deserializer = new TestCustomDeserializer();
+    CustomDeserializer deserializer = new CustomDeserializer();
     Map<String, Object> kafkaConfigs = new HashMap<>();
     kafkaConfigs.put("docIdPrefix", "");
     deserializer.configure(kafkaConfigs, false);
@@ -374,7 +374,7 @@ public class KafkaConnectorTest {
     configMap.put("kafka.documentDeserializer", "com.kmwllc.lucille.connector.KafkaConnectorTest$TestDeserializerWithProperty");
     Config config = ConfigFactory.parseMap(configMap);
 
-    TestConnectorWithProperty connector = new TestConnectorWithProperty(config);
+    ConnectorWithProperty connector = new ConnectorWithProperty(config);
     Properties props = new Properties();
     connector.enhanceConsumerProperties(props, config);
 
@@ -382,7 +382,7 @@ public class KafkaConnectorTest {
         props.getProperty("value.deserializer"));
     assertEquals("test123", props.getProperty("testProperty"));
 
-    TestDeserializerWithProperty deserializer = new TestDeserializerWithProperty();
+    DeserializerWithProperty deserializer = new DeserializerWithProperty();
     Map<String, Object> kafkaConfigs = new HashMap<>();
     kafkaConfigs.put("testProperty", "test123000"); // Use a different value to ensure it's read from configs
     deserializer.configure(kafkaConfigs, false);
@@ -392,7 +392,8 @@ public class KafkaConnectorTest {
     assertEquals("test123000", doc.getString("test"));
   }
 
-  public static class TestCustomDeserializer extends KafkaConnectorDefaultDeserializer {
+  public static class CustomDeserializer extends KafkaConnectorDefaultDeserializer {
+
     @Override
     public Document deserialize(String topic, byte[] data) {
       Document doc = super.deserialize(topic, data);
@@ -403,7 +404,8 @@ public class KafkaConnectorTest {
     }
   }
 
-  public static class TestDeserializerWithProperty extends KafkaConnectorDefaultDeserializer {
+  public static class DeserializerWithProperty extends KafkaConnectorDefaultDeserializer {
+
     private String testPropertyValue;
 
     @Override
@@ -422,10 +424,11 @@ public class KafkaConnectorTest {
     }
   }
 
-  public static class TestConnectorWithProperty extends KafkaConnector {
+  public static class ConnectorWithProperty extends KafkaConnector {
+
     public static final Spec SPEC = KafkaConnector.SPEC;
 
-    public TestConnectorWithProperty(Config config) {
+    public ConnectorWithProperty(Config config) {
       super(config);
     }
 
