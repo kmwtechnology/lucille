@@ -36,7 +36,7 @@ public class KafkaConnectorDefaultDeserializer implements Deserializer<Document>
       }
       ObjectNode objectNode = (ObjectNode) node;
 
-      // Incorporate resolveDocumentId logic
+      // use the id field if it exists, otherwise fall back to the Lucene Document.ID_FIELD
       String rawId = null;
       if (idField != null && objectNode.has(idField)) {
         rawId = objectNode.get(idField).asText();
@@ -44,6 +44,7 @@ public class KafkaConnectorDefaultDeserializer implements Deserializer<Document>
         rawId = objectNode.get(Document.ID_FIELD).asText();
       }
 
+      // use the configured docIdPrefix if it exists
       if (rawId != null) {
         objectNode.put(Document.ID_FIELD, docIdPrefix + rawId);
       }
