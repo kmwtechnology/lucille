@@ -32,17 +32,20 @@ import org.junit.Test;
 
 public class KafkaConnectorTest {
 
+  private final Map<String, Object> baseConfigMap = Map.of(
+      "name", "kafkaConnector",
+      "class", "com.kmwllc.lucille.connector.KafkaConnector",
+      "kafka.bootstrapServers", "localhost:9092",
+      "kafka.topic", "test-topic",
+      "kafka.consumerGroupId", "test-group",
+      "kafka.maxPollIntervalSecs", 600,
+      "kafka.clientId", "test-client",
+      "continueOnTimeout", false);
+
+
   @Test
   public void testAsDoc() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
-
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -56,14 +59,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testAsDocWithIdField() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     configMap.put("idField", "myIdField");
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -78,15 +74,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testOffsetsConfig() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
-    configMap.put("continueOnTimeout", false);
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Map<String, Long> offsets = new HashMap<>();
     offsets.put("0", 100L);
     offsets.put("1", 200L);
@@ -114,15 +102,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testOffsetsConfigNotSet() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
-    configMap.put("continueOnTimeout", false);
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
@@ -142,14 +122,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testMaxMessagesConfig() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     configMap.put("maxMessages", 1L);
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -181,15 +154,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testMaxMessagesConfigNotSet() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
-    configMap.put("continueOnTimeout", false);
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
@@ -218,16 +183,8 @@ public class KafkaConnectorTest {
 
   @Test
   public void testMessageTimeoutConfig() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.clientId", "test-client");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     configMap.put("messageTimeout", 500L);
-    configMap.put("continueOnTimeout", false);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
@@ -247,15 +204,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testMessageTimeoutConfigNotSet() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
-    configMap.put("continueOnTimeout", false);
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
@@ -275,14 +224,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testHandleMessage() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     TestMessenger messenger = new TestMessenger();
@@ -302,15 +244,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testClose() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
-    configMap.put("continueOnTimeout", false);
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
@@ -332,14 +266,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testExecuteMaxMessages() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     configMap.put("maxMessages", 2L);
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -372,15 +299,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testExecuteContinueOnTimeoutFalse() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
-    configMap.put("continueOnTimeout", false);
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
@@ -402,14 +321,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testAsDocNonObject() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -420,14 +332,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testHandleMessagePublishException() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -442,14 +347,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testExecuteWithOffsets() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Map<String, Long> offsets = new HashMap<>();
     offsets.put("0", 100L);
     configMap.put("offsets", offsets);
@@ -478,14 +376,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testExecuteExceptionHandling() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
@@ -504,14 +395,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testAsDocWithDocIdPrefix() throws Exception {
-    Map<String, Object> configMap = new HashMap<>();
-    configMap.put("name", "kafkaConnector");
-    configMap.put("class", "com.kmwllc.lucille.connector.KafkaConnector");
-    configMap.put("kafka.bootstrapServers", "localhost:9092");
-    configMap.put("kafka.topic", "test-topic");
-    configMap.put("kafka.consumerGroupId", "test-group");
-    configMap.put("kafka.maxPollIntervalSecs", 600);
-    configMap.put("kafka.clientId", "test-client");
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     configMap.put("docIdPrefix", "prefix_");
     Config config = ConfigFactory.parseMap(configMap);
 
