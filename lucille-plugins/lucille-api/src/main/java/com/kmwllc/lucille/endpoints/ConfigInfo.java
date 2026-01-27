@@ -21,6 +21,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -54,8 +55,12 @@ public class ConfigInfo {
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static class ComponentDoc {
     public String className;
+    public String packageName;
     public String description;
     public String javadoc;
+    public java.util.List<?> interfaceNames;
+    public boolean isAbstract;
+    public java.util.List<?> methods;
   }
 
   // Extract the base description from the javadoc
@@ -247,5 +252,41 @@ public class ConfigInfo {
     }
 
     return Response.ok(cachedIndexerListJson, MediaType.APPLICATION_JSON).build();
+  }
+
+  @GET
+  @Path("/javadoc-list/{type}")
+  public Response getJavadocList(@PathParam("type") String type,
+      @Parameter(hidden = true) @Auth Optional<PrincipalImpl> user)
+      throws IOException, NoSuchFieldException, IllegalAccessException {
+    Response authResponse = authHandler.authenticate(user);
+    if (authResponse != null) {
+      return authResponse;
+    }
+
+    String filename;
+    switch (type.toLowerCase()) {
+      case "connector":
+        filename = "connector-javadocs.json";
+        break;
+      case "stage":
+        filename = "stage-javadocs.json";
+        break;
+      case "indexer":
+        filename = "indexer-javadocs.json";
+        break;
+      default:
+        return Response.status(Response.Status.BAD_REQUEST)
+            .entity("{\"error\": \"Unknown type: " + type + "\"}")
+            .build();
+    }
+
+    Map<String, ComponentDoc> docs = loadDocs(filename);
+    ArrayNode result = mapper.createArrayNode();
+    for (ComponentDoc doc : docs.values()) {
+      result.add(mapper.valueToTree(doc));
+    }
+
+    return Response.ok(result, MediaType.APPLICATION_JSON).build();
   }
 }
