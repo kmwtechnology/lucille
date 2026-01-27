@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -422,7 +423,7 @@ public class KafkaConnectorTest {
   }
 
   public static class TestConnectorWithProperty extends KafkaConnector {
-    public static final com.kmwllc.lucille.core.spec.Spec SPEC = KafkaConnector.SPEC;
+    public static final Spec SPEC = KafkaConnector.SPEC;
 
     public TestConnectorWithProperty(Config config) {
       super(config);
