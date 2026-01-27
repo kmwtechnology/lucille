@@ -11,6 +11,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -272,7 +273,7 @@ public class KafkaConnectorTest {
     Publisher mockPublisher = mock(Publisher.class);
     doThrow(new RuntimeException("Publish failed")).when(mockPublisher).publish(any(Document.class));
 
-    assertThrows(com.kmwllc.lucille.core.ConnectorException.class, () -> connector.handleMessage(record, mockPublisher));
+    assertThrows(ConnectorException.class, () -> connector.handleMessage(record, mockPublisher));
   }
 
   @Test
@@ -311,7 +312,7 @@ public class KafkaConnectorTest {
     KafkaConnector connector = spy(new KafkaConnector(config));
     doReturn(mockConsumer).when(connector).createConsumer(any());
 
-    assertThrows(com.kmwllc.lucille.core.ConnectorException.class, () -> connector.execute(mock(Publisher.class)));
+    assertThrows(ConnectorException.class, () -> connector.execute(mock(Publisher.class)));
 
   }
 
