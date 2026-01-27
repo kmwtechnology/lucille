@@ -35,7 +35,7 @@ import org.junit.Test;
 
 public class KafkaConnectorTest {
 
-  private final Map<String, Object> baseConfigMap = Map.of(
+  private static final Map<String, Object> BASE_CONFIG_MAP = Map.of(
       "name", "kafkaConnector",
       "class", "com.kmwllc.lucille.connector.KafkaConnector",
       "kafka.bootstrapServers", "localhost:9092",
@@ -48,7 +48,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testOffsetsConfig() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Map<String, Long> offsets = new HashMap<>();
     offsets.put("0", 100L);
     offsets.put("1", 200L);
@@ -72,7 +72,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testOffsetsConfigNotSet() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -88,7 +88,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testMaxMessagesConfig() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     configMap.put("maxMessages", 1L);
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -116,7 +116,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testMaxMessagesConfigNotSet() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -141,7 +141,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testMessageTimeoutConfig() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     configMap.put("messageTimeout", 500L);
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -158,7 +158,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testMessageTimeoutConfigNotSet() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -174,7 +174,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testHandleMessage() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Config config = ConfigFactory.parseMap(configMap);
 
     TestMessenger messenger = new TestMessenger();
@@ -195,7 +195,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testClose() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -213,7 +213,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testExecuteMaxMessages() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     configMap.put("maxMessages", 2L);
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -242,7 +242,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testExecuteContinueOnTimeoutFalse() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -260,7 +260,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testHandleMessagePublishException() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
@@ -275,7 +275,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testExecuteWithOffsets() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Map<String, Long> offsets = new HashMap<>();
     offsets.put("0", 100L);
     configMap.put("offsets", offsets);
@@ -300,7 +300,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testExecuteExceptionHandling() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
@@ -315,7 +315,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testDeserializerWithDocIdPrefix() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     configMap.put("docIdPrefix", "prefix_");
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -331,7 +331,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testDeserializerWithIdField() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     configMap.put("idField", "myIdField");
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -347,7 +347,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testCustomDeserializer() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     configMap.put("kafka.documentDeserializer", "com.kmwllc.lucille.connector.KafkaConnectorTest$TestCustomDeserializer");
     Config config = ConfigFactory.parseMap(configMap);
 
@@ -370,7 +370,7 @@ public class KafkaConnectorTest {
 
   @Test
   public void testEnhanceConsumerPropertiesOverride() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     configMap.put("kafka.documentDeserializer", "com.kmwllc.lucille.connector.KafkaConnectorTest$TestDeserializerWithProperty");
     Config config = ConfigFactory.parseMap(configMap);
 
