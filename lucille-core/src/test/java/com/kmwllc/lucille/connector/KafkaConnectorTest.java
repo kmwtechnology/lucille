@@ -318,10 +318,6 @@ public class KafkaConnectorTest {
 
   @Test
   public void testDeserializerWithDocIdPrefix() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
-    configMap.put("docIdPrefix", "prefix_");
-    Config config = ConfigFactory.parseMap(configMap);
-
     KafkaConnectorDefaultDeserializer deserializer = new KafkaConnectorDefaultDeserializer();
     Map<String, Object> kafkaConfigs = new HashMap<>();
     kafkaConfigs.put("docIdPrefix", "prefix_");
@@ -334,10 +330,6 @@ public class KafkaConnectorTest {
 
   @Test
   public void testDeserializerWithIdField() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
-    configMap.put("idField", "myIdField");
-    Config config = ConfigFactory.parseMap(configMap);
-
     KafkaConnectorDefaultDeserializer deserializer = new KafkaConnectorDefaultDeserializer();
     Map<String, Object> kafkaConfigs = new HashMap<>();
     kafkaConfigs.put("idField", "myIdField");
