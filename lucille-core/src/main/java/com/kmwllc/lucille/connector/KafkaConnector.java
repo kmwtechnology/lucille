@@ -1,31 +1,27 @@
 package com.kmwllc.lucille.connector;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.message.KafkaDocumentDeserializer;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.Config;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Properties;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Duration;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Properties;
 
 /**
  * Connector for reading messages from a Kafka topic.
@@ -48,9 +44,11 @@ public class KafkaConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(KafkaConnector.class);
 
   public static final Spec SPEC = SpecBuilder.connector()
-      .requiredString("kafka.bootstrapServers", "kafka.topic", "kafka.consumerGroupId", "kafka.clientId", "kafka.maxPollIntervalSecs")
-      .optionalString("idField")
-      .optionalParent("offsets", new TypeReference<Map<Integer, Long>>() {})
+      .requiredString("kafka.bootstrapServers", "kafka.topic", "kafka.consumerGroupId", "kafka.clientId",
+          "kafka.maxPollIntervalSecs")
+      .optionalString("idField", "kafka.documentDeserializer")
+      .optionalParent("offsets", new TypeReference<Map<Integer, Long>>() {
+      })
       .optionalNumber("maxMessages", "messageTimeout")
       .optionalBoolean("continueOnTimeout")
       .build();
@@ -62,8 +60,7 @@ public class KafkaConnector extends AbstractConnector {
   private final Long maxMessages;
   private final Long messageTimeout;
   private final boolean continueOnTimeout;
-  private final ObjectMapper mapper = new ObjectMapper();
-  private KafkaConsumer<String, String> consumer;
+  private KafkaConsumer<String, Document> consumer;
 
   // running is volatile to ensure visibility to the polling thread.
   // It is used to ensure that the polling thread exits when the connector is closed.
@@ -95,9 +92,9 @@ public class KafkaConnector extends AbstractConnector {
 
     Properties props = KafkaUtils.createConsumerProps(config, clientId);
     // The Kafka connector implementation will poll for new messages after the current batch is fully processed either by
-    // custom handling or publishing with the publisher.
-    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
 
+    // custom handling or publishing with the publisher.
+    enhanceConsumerProperties(props, config);
 
     consumer = createConsumer(props);
 
@@ -122,10 +119,32 @@ public class KafkaConnector extends AbstractConnector {
     }
   }
 
+  /**
+   * Updates the consumer properties with any additional properties required by the Kafka connector.
+   * Updates the consumer properties with a custom deserializer for the document value if configured.
+   * Updates the consumer properties with the configured idField if present in the configuration.
+   * Updates the consumer properties with the docIdPrefix configured for this connector.
+   *
+   * If a custom deserializer is used, this method can be overridden to add additional properties needed by the custom deserializer.
+   * @param props - Kafka consumer properties
+   * @param config - Lucille connector configuration
+   */
+  public void enhanceConsumerProperties(Properties props, Config config) {
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+    String deserializerClass = config.hasPath("kafka.documentDeserializer")
+        ? config.getString("kafka.documentDeserializer")
+        : KafkaConnectorDefaultDeserializer.class.getName();
+    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
+    if (idField != null) {
+      props.put("idField", idField);
+    }
+    props.put("docIdPrefix", getDocIdPrefix());
+  }
+
   private void startPollingLoop(Publisher publisher) throws ConnectorException {
     long count = 0;
     while (running && !Thread.currentThread().isInterrupted() && (maxMessages == null || count < maxMessages)) {
-      ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(messageTimeout));
+      ConsumerRecords<String, Document> records = consumer.poll(Duration.ofMillis(messageTimeout));
 
       if (records.isEmpty()) {
         if (continueOnTimeout) {
@@ -135,7 +154,7 @@ public class KafkaConnector extends AbstractConnector {
         }
       }
 
-      for (ConsumerRecord<String, String> record : records) {
+      for (ConsumerRecord<String, Document> record : records) {
         handleMessage(record, publisher);
         count++;
         if (maxMessages != null && count >= maxMessages) {
@@ -159,7 +178,7 @@ public class KafkaConnector extends AbstractConnector {
   }
 
   // access set to package so unit tests provide a mock consumer by overriding this method.
-  KafkaConsumer<String, String> createConsumer(Properties props) {
+  KafkaConsumer<String, Document> createConsumer(Properties props) {
     return new KafkaConsumer<>(props);
   }
 
@@ -173,46 +192,12 @@ public class KafkaConnector extends AbstractConnector {
    * @param publisher the publisher to use for publishing the document
    * @throws ConnectorException if an error occurs during conversion or publishing
    */
-  public void handleMessage(ConsumerRecord<String, String> record, Publisher publisher) throws ConnectorException {
-    Document doc = asDoc(record);
+  public void handleMessage(ConsumerRecord<String, Document> record, Publisher publisher) throws ConnectorException {
+    Document doc = record.value();
     try {
       publisher.publish(doc);
     } catch (Exception e) {
       throw new ConnectorException("Error publishing document", e);
-    }
-  }
-
-  /**
-   * Converts a Kafka consumer record into a Lucille document.
-   * <p>
-   * The record value is expected to be a JSON object. If an idField is configured and present in the
-   * JSON object, its value will be used as the document ID.
-   * <p>
-   * Subclasses may choose to customize the creation of the lucille document by overriding this method.
-   *
-   * @param record the Kafka consumer record to convert
-   * @return the created Lucille document
-   * @throws ConnectorException if the record value is not a JSON object or if an error occurs during conversion
-   */
-  Document asDoc(ConsumerRecord<String, String> record) throws ConnectorException {
-    try {
-      JsonNode node = mapper.readTree(record.value());
-      if (!node.isObject()) {
-        throw new ConnectorException("Consumer record value is not a JSON object: " + record.value());
-      }
-      ObjectNode objectNode = (ObjectNode) node;
-      resolveDocumentId(objectNode);
-      return Document.create(objectNode);
-    } catch (Exception e) {
-      throw new ConnectorException("Error converting consumer record to document", e);
-    }
-  }
-
-  private void resolveDocumentId(ObjectNode objectNode) {
-    if (idField != null && objectNode.has(idField)) {
-      objectNode.put(Document.ID_FIELD, createDocId(objectNode.get(idField).asText()));
-    } else if (objectNode.has(Document.ID_FIELD)) {
-      objectNode.put(Document.ID_FIELD, createDocId(objectNode.get(Document.ID_FIELD).asText()));
     }
   }
 }

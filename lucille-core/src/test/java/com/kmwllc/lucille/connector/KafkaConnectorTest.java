@@ -46,35 +46,6 @@ public class KafkaConnectorTest {
 
 
   @Test
-  public void testAsDoc() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
-    Config config = ConfigFactory.parseMap(configMap);
-
-    KafkaConnector connector = new KafkaConnector(config);
-    String jsonValue = "{\"id\":\"doc1\", \"field1\":\"value1\"}";
-    ConsumerRecord<String, String> record = new ConsumerRecord<>("test-topic", 0, 0, "key", jsonValue);
-
-    Document doc = connector.asDoc(record);
-    assertEquals("doc1", doc.getId());
-    assertEquals("value1", doc.getString("field1"));
-  }
-
-  @Test
-  public void testAsDocWithIdField() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
-    configMap.put("idField", "myIdField");
-    Config config = ConfigFactory.parseMap(configMap);
-
-    KafkaConnector connector = new KafkaConnector(config);
-    String jsonValue = "{\"id\":\"doc1\", \"myIdField\":\"doc2\", \"field1\":\"value1\"}";
-    ConsumerRecord<String, String> record = new ConsumerRecord<>("test-topic", 0, 0, "key", jsonValue);
-
-    Document doc = connector.asDoc(record);
-    assertEquals("doc2", doc.getId());
-    assertEquals("value1", doc.getString("field1"));
-  }
-
-  @Test
   public void testOffsetsConfig() throws Exception {
     Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Map<String, Long> offsets = new HashMap<>();
@@ -83,7 +54,7 @@ public class KafkaConnectorTest {
     configMap.put("offsets", offsets);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     TopicPartition tp0 = new TopicPartition("test-topic", 0);
     TopicPartition tp1 = new TopicPartition("test-topic", 1);
     when(mockConsumer.assignment()).thenReturn(new HashSet<>(Arrays.asList(tp0, tp1)));
@@ -103,7 +74,7 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
 
     KafkaConnector connector = spy(new KafkaConnector(config));
@@ -120,16 +91,16 @@ public class KafkaConnectorTest {
     configMap.put("maxMessages", 1L);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
-    String jsonValue1 = "{\"id\":\"doc1\"}";
-    String jsonValue2 = "{\"id\":\"doc2\"}";
-    ConsumerRecord<String, String> record1 = new ConsumerRecord<>("test-topic", 0, 0, "key1", jsonValue1);
-    ConsumerRecord<String, String> record2 = new ConsumerRecord<>("test-topic", 0, 1, "key2", jsonValue2);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    ConsumerRecord<String, Document> record1 = new ConsumerRecord<>("test-topic", 0, 0, "key1", doc1);
+    ConsumerRecord<String, Document> record2 = new ConsumerRecord<>("test-topic", 0, 1, "key2", doc2);
 
     TopicPartition tp = new TopicPartition("test-topic", 0);
-    Map<TopicPartition, List<ConsumerRecord<String, String>>> recordsMap = new HashMap<>();
+    Map<TopicPartition, List<ConsumerRecord<String, Document>>> recordsMap = new HashMap<>();
     recordsMap.put(tp, Arrays.asList(record1, record2));
-    ConsumerRecords<String, String> records = new ConsumerRecords<>(recordsMap);
+    ConsumerRecords<String, Document> records = new ConsumerRecords<>(recordsMap);
 
     when(mockConsumer.poll(any(Duration.class))).thenReturn(records);
 
@@ -147,14 +118,14 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
-    String jsonValue1 = "{\"id\":\"doc1\"}";
-    ConsumerRecord<String, String> record1 = new ConsumerRecord<>("test-topic", 0, 0, "key1", jsonValue1);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
+    Document doc1 = Document.create("doc1");
+    ConsumerRecord<String, Document> record1 = new ConsumerRecord<>("test-topic", 0, 0, "key1", doc1);
 
     TopicPartition tp = new TopicPartition("test-topic", 0);
-    Map<TopicPartition, List<ConsumerRecord<String, String>>> recordsMap = new HashMap<>();
+    Map<TopicPartition, List<ConsumerRecord<String, Document>>> recordsMap = new HashMap<>();
     recordsMap.put(tp, Arrays.asList(record1));
-    ConsumerRecords<String, String> records = new ConsumerRecords<>(recordsMap);
+    ConsumerRecords<String, Document> records = new ConsumerRecords<>(recordsMap);
 
     when(mockConsumer.poll(any(Duration.class))).thenReturn(records).thenReturn(ConsumerRecords.empty());
 
@@ -173,7 +144,7 @@ public class KafkaConnectorTest {
     configMap.put("messageTimeout", 500L);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(Duration.ofMillis(500L))).thenReturn(ConsumerRecords.empty());
 
     KafkaConnector connector = spy(new KafkaConnector(config));
@@ -189,7 +160,7 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(Duration.ofMillis(100L))).thenReturn(ConsumerRecords.empty());
 
     KafkaConnector connector = spy(new KafkaConnector(config));
@@ -209,8 +180,9 @@ public class KafkaConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     KafkaConnector connector = new KafkaConnector(config);
 
-    String jsonValue = "{\"id\":\"doc1\", \"field1\":\"value1\"}";
-    ConsumerRecord<String, String> record = new ConsumerRecord<>("test-topic", 0, 0, "key", jsonValue);
+    Document doc = Document.create("doc1");
+    doc.setField("field1", "value1");
+    ConsumerRecord<String, Document> record = new ConsumerRecord<>("test-topic", 0, 0, "key", doc);
 
     connector.handleMessage(record, publisher);
 
@@ -225,7 +197,7 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(any(Duration.class))).thenReturn(ConsumerRecords.empty());
 
     KafkaConnector connector = spy(new KafkaConnector(config));
@@ -244,19 +216,19 @@ public class KafkaConnectorTest {
     configMap.put("maxMessages", 2L);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     KafkaConnector connector = spy(new KafkaConnector(config));
     doReturn(mockConsumer).when(connector).createConsumer(any());
 
-    String jsonValue1 = "{\"id\":\"doc1\"}";
-    String jsonValue2 = "{\"id\":\"doc2\"}";
-    ConsumerRecord<String, String> record1 = new ConsumerRecord<>("test-topic", 0, 0, "key1", jsonValue1);
-    ConsumerRecord<String, String> record2 = new ConsumerRecord<>("test-topic", 0, 1, "key2", jsonValue2);
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    ConsumerRecord<String, Document> record1 = new ConsumerRecord<>("test-topic", 0, 0, "key1", doc1);
+    ConsumerRecord<String, Document> record2 = new ConsumerRecord<>("test-topic", 0, 1, "key2", doc2);
 
     TopicPartition tp = new TopicPartition("test-topic", 0);
-    Map<TopicPartition, List<ConsumerRecord<String, String>>> recordsMap = new HashMap<>();
+    Map<TopicPartition, List<ConsumerRecord<String, Document>>> recordsMap = new HashMap<>();
     recordsMap.put(tp, Arrays.asList(record1, record2));
-    ConsumerRecords<String, String> records = new ConsumerRecords<>(recordsMap);
+    ConsumerRecords<String, Document> records = new ConsumerRecords<>(recordsMap);
 
     when(mockConsumer.poll(any(Duration.class))).thenReturn(records);
 
@@ -272,7 +244,7 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     KafkaConnector connector = spy(new KafkaConnector(config));
     doReturn(mockConsumer).when(connector).createConsumer(any());
 
@@ -286,24 +258,13 @@ public class KafkaConnectorTest {
   }
 
   @Test
-  public void testAsDocNonObject() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
-    Config config = ConfigFactory.parseMap(configMap);
-
-    KafkaConnector connector = new KafkaConnector(config);
-    ConsumerRecord<String, String> record = new ConsumerRecord<>("test-topic", 0, 0, "key", "\"not an object\"");
-
-    assertThrows(com.kmwllc.lucille.core.ConnectorException.class, () -> connector.asDoc(record));
-  }
-
-  @Test
   public void testHandleMessagePublishException() throws Exception {
     Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
     KafkaConnector connector = new KafkaConnector(config);
-    String jsonValue = "{\"id\":\"doc1\"}";
-    ConsumerRecord<String, String> record = new ConsumerRecord<>("test-topic", 0, 0, "key", jsonValue);
+    Document doc = Document.create("doc1");
+    ConsumerRecord<String, Document> record = new ConsumerRecord<>("test-topic", 0, 0, "key", doc);
 
     Publisher mockPublisher = mock(Publisher.class);
     doThrow(new RuntimeException("Publish failed")).when(mockPublisher).publish(any(Document.class));
@@ -320,7 +281,7 @@ public class KafkaConnectorTest {
     configMap.put("maxMessages", 0L); // Stop immediately
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     TopicPartition tp0 = new TopicPartition("test-topic", 0);
     Set<TopicPartition> assignment = new HashSet<>();
     assignment.add(tp0);
@@ -341,7 +302,7 @@ public class KafkaConnectorTest {
     Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConsumer<String, String> mockConsumer = mock(KafkaConsumer.class);
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
     when(mockConsumer.poll(any(Duration.class))).thenThrow(new RuntimeException("Kafka error"));
 
     KafkaConnector connector = spy(new KafkaConnector(config));
@@ -352,16 +313,125 @@ public class KafkaConnectorTest {
   }
 
   @Test
-  public void testAsDocWithDocIdPrefix() throws Exception {
+  public void testDeserializerWithDocIdPrefix() throws Exception {
     Map<String, Object> configMap = new HashMap<>(baseConfigMap);
     configMap.put("docIdPrefix", "prefix_");
     Config config = ConfigFactory.parseMap(configMap);
 
-    KafkaConnector connector = new KafkaConnector(config);
-    String jsonValue = "{\"id\":\"doc1\"}";
-    ConsumerRecord<String, String> record = new ConsumerRecord<>("test-topic", 0, 0, "key", jsonValue);
+    KafkaConnectorDefaultDeserializer deserializer = new KafkaConnectorDefaultDeserializer();
+    Map<String, Object> kafkaConfigs = new HashMap<>();
+    kafkaConfigs.put("docIdPrefix", "prefix_");
+    deserializer.configure(kafkaConfigs, false);
 
-    Document doc = connector.asDoc(record);
+    String jsonValue = "{\"id\":\"doc1\"}";
+    Document doc = deserializer.deserialize("test-topic", jsonValue.getBytes());
     assertEquals("prefix_doc1", doc.getId());
+  }
+
+  @Test
+  public void testDeserializerWithIdField() throws Exception {
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    configMap.put("idField", "myIdField");
+    Config config = ConfigFactory.parseMap(configMap);
+
+    KafkaConnectorDefaultDeserializer deserializer = new KafkaConnectorDefaultDeserializer();
+    Map<String, Object> kafkaConfigs = new HashMap<>();
+    kafkaConfigs.put("idField", "myIdField");
+    deserializer.configure(kafkaConfigs, false);
+
+    String jsonValue = "{\"id\":\"doc1\", \"myIdField\":\"doc2\"}";
+    Document doc = deserializer.deserialize("test-topic", jsonValue.getBytes());
+    assertEquals("doc2", doc.getId());
+  }
+
+  @Test
+  public void testCustomDeserializer() throws Exception {
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    configMap.put("kafka.documentDeserializer", "com.kmwllc.lucille.connector.KafkaConnectorTest$TestCustomDeserializer");
+    Config config = ConfigFactory.parseMap(configMap);
+
+    KafkaConnector connector = new KafkaConnector(config);
+    Properties props = new Properties();
+    connector.enhanceConsumerProperties(props, config);
+
+    assertEquals("com.kmwllc.lucille.connector.KafkaConnectorTest$TestCustomDeserializer",
+        props.getProperty("value.deserializer"));
+
+    TestCustomDeserializer deserializer = new TestCustomDeserializer();
+    Map<String, Object> kafkaConfigs = new HashMap<>();
+    kafkaConfigs.put("docIdPrefix", "");
+    deserializer.configure(kafkaConfigs, false);
+    String jsonValue = "{\"id\":\"doc1\"}";
+    Document doc = deserializer.deserialize("test-topic", jsonValue.getBytes());
+    assertEquals("doc1", doc.getId());
+    assertEquals("123", doc.getString("test"));
+  }
+
+  @Test
+  public void testEnhanceConsumerPropertiesOverride() throws Exception {
+    Map<String, Object> configMap = new HashMap<>(baseConfigMap);
+    configMap.put("kafka.documentDeserializer", "com.kmwllc.lucille.connector.KafkaConnectorTest$TestDeserializerWithProperty");
+    Config config = ConfigFactory.parseMap(configMap);
+
+    TestConnectorWithProperty connector = new TestConnectorWithProperty(config);
+    Properties props = new Properties();
+    connector.enhanceConsumerProperties(props, config);
+
+    assertEquals("com.kmwllc.lucille.connector.KafkaConnectorTest$TestDeserializerWithProperty",
+        props.getProperty("value.deserializer"));
+    assertEquals("test123", props.getProperty("testProperty"));
+
+    TestDeserializerWithProperty deserializer = new TestDeserializerWithProperty();
+    Map<String, Object> kafkaConfigs = new HashMap<>();
+    kafkaConfigs.put("testProperty", "test123000"); // Use a different value to ensure it's read from configs
+    deserializer.configure(kafkaConfigs, false);
+    String jsonValue = "{\"id\":\"doc1\"}";
+    Document doc = deserializer.deserialize("test-topic", jsonValue.getBytes());
+    assertEquals("doc1", doc.getId());
+    assertEquals("test123000", doc.getString("test"));
+  }
+
+  public static class TestCustomDeserializer extends KafkaConnectorDefaultDeserializer {
+    @Override
+    public Document deserialize(String topic, byte[] data) {
+      Document doc = super.deserialize(topic, data);
+      if (doc != null) {
+        doc.setField("test", "123");
+      }
+      return doc;
+    }
+  }
+
+  public static class TestDeserializerWithProperty extends KafkaConnectorDefaultDeserializer {
+    private String testPropertyValue;
+
+    @Override
+    public void configure(Map<String, ?> configs, boolean isKey) {
+      super.configure(configs, isKey);
+      this.testPropertyValue = (String) configs.get("testProperty");
+    }
+
+    @Override
+    public Document deserialize(String topic, byte[] data) {
+      Document doc = super.deserialize(topic, data);
+      if (doc != null) {
+        doc.setField("test", testPropertyValue);
+      }
+      return doc;
+    }
+  }
+
+  public static class TestConnectorWithProperty extends KafkaConnector {
+    public static final com.kmwllc.lucille.core.spec.Spec SPEC = KafkaConnector.SPEC;
+
+    public TestConnectorWithProperty(Config config) {
+      super(config);
+    }
+
+    @Override
+    public void enhanceConsumerProperties(Properties props, Config config) {
+      super.enhanceConsumerProperties(props, config);
+      props.put("testProperty", "test123");
+    }
   }
 }
