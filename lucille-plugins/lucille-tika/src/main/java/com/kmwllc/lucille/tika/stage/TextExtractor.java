@@ -2,12 +2,12 @@ package com.kmwllc.lucille.tika.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.util.FileContentFetcher;
-import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -15,6 +15,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
@@ -39,6 +44,7 @@ import org.xml.sax.SAXException;
  * tikaConfigPath (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
+ * parseTimeout (Long, Optional) : timeout for parsing in milliseconds
  * metadataWhitelist (StringList, Optional) : list of metadata names that are to be included in document
  * metadataBlacklist (StringList, Optional) : list of metadata names that are not to be included in document
  *
@@ -49,10 +55,12 @@ import org.xml.sax.SAXException;
 public class TextExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix")
-      .optionalList("metadataWhitelist", new TypeReference<List<String>>(){})
-      .optionalList("metadataBlacklist", new TypeReference<List<String>>(){})
-      .optionalNumber("textContentLimit")
+      .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix", "fetcherClass")
+      .optionalList("metadataWhitelist", new TypeReference<List<String>>() {
+      })
+      .optionalList("metadataBlacklist", new TypeReference<List<String>>() {
+      })
+      .optionalNumber("textContentLimit", "parseTimeout")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
@@ -62,11 +70,13 @@ public class TextExtractor extends Stage {
   private String byteArrayField;
   private String metadataPrefix;
   private Integer textContentLimit;
+  private Long parseTimeout;
   private List<String> metadataWhitelist;
   private List<String> metadataBlacklist;
   private Parser parser;
   private ParseContext parseCtx;
   private final FileContentFetcher fileFetcher;
+  private ExecutorService executorService;
 
   public TextExtractor(Config config) throws StageException {
     super(config);
@@ -77,6 +87,7 @@ public class TextExtractor extends Stage {
     metadataPrefix = config.hasPath("metadataPrefix") ? config.getString("metadataPrefix") : "tika";
     tikaConfigPath = config.hasPath("tikaConfigPath") ? config.getString("tikaConfigPath") : null;
     textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
+    parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
     metadataWhitelist = config.hasPath("metadataWhitelist") ? config.getStringList("metadataWhitelist") : null;
     metadataBlacklist = config.hasPath("metadataBlacklist") ? config.getStringList("metadataBlacklist") : null;
     if (metadataWhitelist != null && metadataBlacklist != null) {
@@ -115,12 +126,28 @@ public class TextExtractor extends Stage {
       }
     }
     parseCtx.set(Parser.class, parser);
+
+    if (parseTimeout != null) {
+      // each worker is running in a single thread so we only need to run the extraction with a
+      // single thread executor rather than using a thread pool.
+      executorService = Executors.newSingleThreadExecutor();
+    }
   }
 
   @Override
-  public void stop() {
+  public void stop() throws StageException {
     // Shutdown each storage client
     fileFetcher.shutdown();
+    if (executorService != null) {
+      executorService.shutdownNow();
+      try {
+        if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+          log.warn("ExecutorService did not terminate in time");
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   @Override
@@ -167,23 +194,25 @@ public class TextExtractor extends Stage {
   public void parseInputStream(Document doc, InputStream inputStream) {
     Metadata metadata = new Metadata();
     ContentHandler bch = new BodyContentHandler(textContentLimit);
-    try {
-      parser.parse(inputStream, bch, metadata, parseCtx);
-    } catch (IOException | SAXException | TikaException e) {
-      log.warn("Tika Exception: {}", e.getMessage());
-    } finally {
-      // close the inputStream regardless if error is thrown
-      if (inputStream != null) {
-        try {
-          inputStream.close();
-        } catch (IOException e2) {
-          log.warn("Failed to close inputStream: {}", e2.getMessage());
-        }
+    if (parseTimeout == null) {
+      parse(doc, inputStream, metadata, bch);
+    } else {
+      Future<?> future = executorService.submit(() -> {
+        parse(doc, inputStream, metadata, bch);
+      });
+
+      try {
+        future.get(parseTimeout, TimeUnit.MILLISECONDS);
+      } catch (TimeoutException e) {
+        future.cancel(true);
+        log.warn("Tika parsing timed out after {} ms", parseTimeout);
+      } catch (Exception e) {
+        log.warn("Error during async Tika parsing: {}", e.getMessage());
       }
     }
 
     doc.setOrAdd(textField, bch.toString());
-    String newMetadataPrefix = metadataPrefix == "" ? "": metadataPrefix + "_" ;
+    String newMetadataPrefix = metadataPrefix == "" ? "" : metadataPrefix + "_";
     for (String name : metadata.names()) {
       // clean the field name first.
       String cleanName = cleanFieldName(name);
@@ -194,6 +223,14 @@ public class TextExtractor extends Stage {
           doc.setOrAdd(newMetadataPrefix + cleanName, value);
         }
       }
+    }
+  }
+
+  private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch) {
+    try {
+      parser.parse(inputStream, bch, metadata, parseCtx);
+    } catch (IOException | SAXException | TikaException e) {
+      log.warn("Tika Exception: {}", e.getMessage());
     }
   }
 }
