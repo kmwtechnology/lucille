@@ -25,7 +25,9 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters:
  * <ul>
- *   <li>scriptPath (String, Required) : Path to the python script that contains the processing function.</li>
+ *   <li>scriptPath (String, Required) : Path to the python script that contains the processing function. NOTE: The path must be
+ *    within one of these specific directories: ./src/test/resources, ./src/main/resources, ./python, or ./src/test/resources/ExternalPythonTest.
+ *   </li>
  *   <li>pythonExecutable (String, Optional) : Path of the base Python executable used to create and manage
  *   the virtual environment. Defaults to python3.</li>
  *   <li>requirementsPath (String, Optional) : Path to a requirements.txt file whose dependencies will be
