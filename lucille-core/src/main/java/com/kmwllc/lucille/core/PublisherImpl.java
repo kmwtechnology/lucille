@@ -62,10 +62,14 @@ public class PublisherImpl implements Publisher {
   private Document previousDoc = null;
   private volatile StopWatch firstDocStopWatch;
 
+  // number of pending docs above which publish() will block
   private final Integer maxPendingDocs;
 
+  // number of pending docs below which publish() will resume if it was blocked because maxPendingDocs was exceeded
+  private final Integer drainTo;
+
   private final ReentrantLock lock = new ReentrantLock();
-  private final java.util.concurrent.locks.Condition docIdsToTrackBelowMax = lock.newCondition();
+  private final java.util.concurrent.locks.Condition resumePublishingCondition = lock.newCondition();
 
   // Bag of published documents that have not reached a terminal state. Also includes children of published documents.
   // Note that this is a Bag, not a Set, because if two documents with the same ID are published, we would
@@ -95,6 +99,8 @@ public class PublisherImpl implements Publisher {
       maxPendingDocs = null;
     }
     this.maxPendingDocs = maxPendingDocs;
+
+    this.drainTo = ConfigUtils.getOrDefault(config, "publisher.drainTo", this.maxPendingDocs);
 
     messenger.initialize(runId, pipelineName);
     this.firstDocStopWatch = new StopWatch();
@@ -127,10 +133,11 @@ public class PublisherImpl implements Publisher {
         // wait to be notified by the event handling thread when the size falls below the max;
         // retest the condition every 10 seconds to handle any possible edge cases where the notification is not received
         while (docIdsToTrack.size() >= maxPendingDocs) {
-          docIdsToTrackBelowMax.await(10, TimeUnit.SECONDS);
+          resumePublishingCondition.await(10, TimeUnit.SECONDS);
           // note that in a scenario where N threads are calling publish() and the number of pending docs reaches maxPendingDocs,
-          // all N threads will block on docIdsToTracBelowMax.await();
-          // when numPending eventually drops to maxPendingDocs-1 via handleEvent(), all N threads are signalled simultaneously;
+          // all N threads will block on resumePublishingCondition.await();
+          // when numPending eventually drops to maxPendingDocs-1 via handleEvent(), and assuming drainTo=maxPendingDocs,
+          // all N threads will be signalled simultaneously;
           // each one may then proceed to publish a document, causing N pending docs to be added;
           // in this scenario, the number of pending docs may exceed maxPendingDocs by N-1;
           // since each thread will block the next time it calls publish() (assuming no events are handled that reduce numPending in
@@ -276,11 +283,11 @@ public class PublisherImpl implements Publisher {
           try {
             lock.lock();
             // since we have removed a docID from the bag of docIdsToTrack (and this is the main place where we do this),
-            // check to see if the number of pending docs has fallen below the specified max and
+            // check to see if the number of pending docs has fallen below the specified drainTo threshold and
             // notify any threads that are waiting on that condition; specifically, notify the connector thread(s)
             // where publish() is being called
-            if (docIdsToTrack.size() < maxPendingDocs) {
-              docIdsToTrackBelowMax.signalAll();
+            if (docIdsToTrack.size() < drainTo) {
+              resumePublishingCondition.signalAll();
             }
           } finally {
             lock.unlock();
