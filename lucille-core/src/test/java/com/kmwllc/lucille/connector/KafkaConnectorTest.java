@@ -315,11 +315,11 @@ public class KafkaConnectorTest {
 
     // Mock poll to wait until the latch is released
     doAnswer(invocation -> {
-      pollLatch.await(config.getLong("messageTimeout"), TimeUnit.MILLISECONDS);
+      pollLatch.await();
       return ConsumerRecords.empty();
     }).when(mockConsumer).poll(any(Duration.class));
 
-    // Mock wakeup to release the latch, simulating poll returning
+    // Mock wakeup to release the latch, simulating poll returning or interrupted
     doAnswer(invocation -> {
       pollLatch.countDown();
       return null;
