@@ -22,6 +22,13 @@ Avoid ExternalPython and use EmbeddedPython when you need one or more of the fol
 - No use of any external Python libraries or native dependencies that require a real Python environment.
 - Lightweight field enrichment/transformation.
 
+### Restrictions
+Your python file must be in one of the following directories that start in the current working directory that is running lucille:
+- `./python`
+- `./src/main/resources`
+- `./src/test/resources`
+- `./src/test/resources/ExternalPythonTest` (for testing)
+
 ### Example
 
 #### Input Document

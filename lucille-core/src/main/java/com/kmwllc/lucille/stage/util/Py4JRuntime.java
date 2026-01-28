@@ -173,16 +173,21 @@ public final class Py4JRuntime {
         }
       }
 
+      Path scriptPathObj = Paths.get(scriptPath);
+      String scriptDir = scriptPathObj.getParent().toAbsolutePath().toString();
+      String scriptName = scriptPathObj.getFileName().toString();
+
       ProcessBuilder processBuilder = new ProcessBuilder(
           venvPythonPath,
           "-u",
           clientPath.toAbsolutePath().toString(),
-          "--script-path", scriptPath,
+          "--script-name", scriptName,
+          "--script-dir", scriptDir,
           "--port", String.valueOf(port)
       ).redirectErrorStream(true);
 
-      log.info("Launching Python: {} {} --script-path {} --port {}",
-          venvPythonPath, clientPath.toAbsolutePath(), scriptPath, port);
+      log.info("Launching Python: {} {} --script-name {} --script-dir {} --port {}",
+          venvPythonPath, clientPath.toAbsolutePath(), scriptName, scriptDir, port);
 
       pythonProcess = processBuilder.start();
 
@@ -207,6 +212,11 @@ public final class Py4JRuntime {
       }
 
       while (!pythonProcessOutputConsumer.isMessageSeen()) {
+        // if process is no longer alive and exited with code 1, stop waiting.
+        if (!pythonProcess.isAlive() && pythonProcess.exitValue() == 1) {
+          throw new StageException();
+        }
+
         try {
           Thread.sleep(100);
         } catch (InterruptedException e) {

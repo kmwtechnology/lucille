@@ -1,31 +1,50 @@
 package com.kmwllc.lucille.tika.stage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.stage.StageFactory;
+import com.kmwllc.lucille.util.DefaultFileContentFetcher;
+import com.kmwllc.lucille.util.FileContentFetcher;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-
-import com.kmwllc.lucille.stage.StageFactory;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.DefaultParser;
+import org.apache.tika.parser.ParseContext;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.MockedConstruction;
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
 
 public class TextExtractorTest {
 
-  private StageFactory factory = StageFactory.of(TextExtractor.class);
+  private final StageFactory factory = StageFactory.of(TextExtractor.class);
 
   /**
    * Tests the TextExtractor on a config with a specified file path.
@@ -233,29 +252,39 @@ public class TextExtractorTest {
     assertEquals("Hi ", doc.getString("text"));
   }
 
-
   /**
    * Tests the TextExtractor closes inputStream after Document is processed
    *
    * @throws StageException
    */
   @Test
-  public void testInputStreamClose() throws StageException, IOException {
-    // initialize the stage and parser
-    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/tika-config.conf");
-    stage.start();
+  public void testInputStreamClose() throws Exception {
 
-    // set up document
-    Document doc = Document.create("doc1");
-
-    // creating an inputStream
+    // mock fileFetcher
+    FileContentFetcher mockFetcher = mock(FileContentFetcher.class);
     InputStream inputStream = spy(new ByteArrayInputStream("Hello World".getBytes()));
 
-    // go through parsing stage where inputStream is eventually closed
-    stage.parseInputStream(doc, inputStream);
+    try (MockedConstruction<DefaultFileContentFetcher> mockedConstruction = mockConstruction(DefaultFileContentFetcher.class,
+        (mock, context) -> {
+          when(mock.getInputStream(anyString())).thenReturn(inputStream);
+        })) {
+      Config config = ConfigFactory.parseString("fetcherClass = \"com.kmwllc.lucille.util.DefaultFileContentFetcher\"\n" +
+          "filePathField = \"path\"\n" +
+          "textField = \"text\"");
+      TextExtractor stage = new TextExtractor(config);
+      stage.start();
 
-    // verify that close method is called on the inputStream
-    verify(inputStream, times(1)).close();
+      // set up document
+      Document doc = Document.create("doc1");
+      doc.setField("path", "some-path");
+
+      // go through the process of processing the document.
+      stage.processDocument(doc);
+
+      // verify that close method is called on the inputStream
+      verify(inputStream, times(1)).close();
+    }
+
   }
 
 
@@ -312,5 +341,62 @@ public class TextExtractorTest {
         "org.apache.tika.parser.csv.TextAndCSVParser"), fields.get("tika_x_tika_parsed_by"));
     assertEquals("ISO-8859-1", fields.get("tika_content_encoding"));
     assertEquals("text/plain; charset=ISO-8859-1", fields.get("tika_content_type"));
+  }
+
+  public static class InterruptTrackingParser extends DefaultParser {
+
+    private static AtomicBoolean interrupted = new AtomicBoolean(false);
+
+    @Override
+    public Set<MediaType> getSupportedTypes(ParseContext context) {
+      return Collections.singleton(MediaType.TEXT_PLAIN);
+    }
+
+    @Override
+    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
+        throws TikaException, IOException, SAXException {
+      try {
+        Thread.sleep(200);
+        super.parse(stream, handler, metadata, context);
+      } catch (InterruptedException e) {
+        interrupted.set(true);
+      }
+    }
+  }
+
+  @Test
+  public void testTimeout() throws Exception {
+    InterruptTrackingParser.interrupted.set(false);
+
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/timeout.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+
+    // Give it a bit of time for the async task to be interrupted and set the flag
+    Thread.sleep(200);
+
+    // If timeout works, it should have returned within much less than 1000ms
+    // and interrupted should be true (if we interrupt the thread)
+    assertTrue("Parser should have been interrupted", InterruptTrackingParser.interrupted.get());
+    // Document should not have text (or at least not from the parser)
+    assertEquals("Document should have empty text.", "", doc.getString("text"));
+
+    stage.stop();
+
+    InterruptTrackingParser.interrupted.set(false);
+
+    TextExtractor stage2 = (TextExtractor) factory.get("TextExtractorTest/notimeout.conf");
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage2.processDocument(doc2);
+
+    assertFalse("Parser should not have been interrupted", InterruptTrackingParser.interrupted.get());
+    // Document should have text after processing without interruption.
+    assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
   }
 }

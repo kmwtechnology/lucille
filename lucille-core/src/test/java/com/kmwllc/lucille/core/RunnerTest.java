@@ -12,6 +12,7 @@ import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -135,10 +136,10 @@ public class RunnerTest {
 
   /**
    * Test an end-to-end run with a single connector that generates 1 document, an indexer
-   * with a batch timeout of 10 seconds, and a runner with timeout of .1 second
+   * with a batch timeout of 10 seconds, and a runner with connectorTimeout of .1 second
    */
   @Test
-  public void testRunnerTimeout() throws Exception {
+  public void testConnectorTimeout() throws Exception {
 
     Config config = ConfigFactory.load("RunnerTest/singleDocTimeout.conf");
     Connector connector = Connector.fromConfig(config).get(0);
@@ -153,6 +154,22 @@ public class RunnerTest {
   }
 
   /**
+   * Test an end-to-end run with a single connector that generates 1 document.
+   * Confirm that this run fails when the Runner's connectorTimeout is set to 1 millisecond
+   * but that it succeeds when the timeout is set to -1 milliseconds to disable it.
+   */
+  @Test
+  public void testDisabledConnectorTimeout() throws Exception {
+    Config verySmallTimeout = ConfigFactory.load("RunnerTest/singleDoc.conf").withValue("runner.connectorTimeout", ConfigValueFactory.fromAnyRef(1));
+    RunResult result = Runner.run(verySmallTimeout, Runner.RunType.TEST);
+    assertFalse(result.getStatus());
+
+    Config disabledTimeout = ConfigFactory.load("RunnerTest/singleDoc.conf").withValue("runner.connectorTimeout", ConfigValueFactory.fromAnyRef(-1));
+    RunResult result2 = Runner.run(disabledTimeout, Runner.RunType.TEST);
+    assertTrue(result2.getStatus());
+  }
+  
+  /**
    * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
    * generates one child document for every incoming document
    */
@@ -161,7 +178,6 @@ public class RunnerTest {
 
     TestMessenger messenger =
         Runner.runInTestMode("RunnerTest/singleDocSingleChild.conf").get("connector1");
-    ;
 
     // confirm doc 1 sent for processing
     List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
