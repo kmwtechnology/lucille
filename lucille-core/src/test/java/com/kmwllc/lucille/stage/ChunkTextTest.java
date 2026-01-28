@@ -61,9 +61,9 @@ public class ChunkTextTest {
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
     Document child3 = childrenDocs.get(2);
-    assertEquals("This is a sentence.", child1.getString("chunk"));
-    assertEquals("This is the second sentence.", child2.getString("chunk"));
-    assertEquals("This is the third sentence.", child3.getString("chunk"));
+    assertEquals("This is a sentence.", child1.getString("text"));
+    assertEquals("This is the second sentence.", child2.getString("text"));
+    assertEquals("This is the third sentence.", child3.getString("text"));
   }
 
   @Test
@@ -81,9 +81,9 @@ public class ChunkTextTest {
     Document child2 = childrenDocs.get(1);
     Document child3 = childrenDocs.get(2);
 
-    assertEquals("This is a sentence.", child1.getString("chunk"));
-    assertEquals("This is the second sentence.", child2.getString("chunk"));
-    assertEquals("This is the third sentence.", child3.getString("chunk"));
+    assertEquals("This is a sentence.", child1.getString("text"));
+    assertEquals("This is the second sentence.", child2.getString("text"));
+    assertEquals("This is the third sentence.", child3.getString("text"));
   }
 
   @Test
@@ -102,15 +102,15 @@ public class ChunkTextTest {
     Document child3 = childrenDocs.get(2);
     Document child4 = childrenDocs.get(3);
 
-    assertEquals("This is the\nfir", child1.getString("chunk"));
-    assertEquals("st paragraph.\n\n", child2.getString("chunk"));
-    assertEquals("This is the sec", child3.getString("chunk"));
-    assertEquals("ond paragraph", child4.getString("chunk"));
-    assertEquals(15, child1.getString("chunk").length());
-    assertEquals(15, child2.getString("chunk").length());
-    assertEquals(15, child3.getString("chunk").length());
+    assertEquals("This is the\nfir", child1.getString("text"));
+    assertEquals("st paragraph.\n\n", child2.getString("text"));
+    assertEquals("This is the sec", child3.getString("text"));
+    assertEquals("ond paragraph", child4.getString("text"));
+    assertEquals(15, child1.getString("text").length());
+    assertEquals(15, child2.getString("text").length());
+    assertEquals(15, child3.getString("text").length());
     // remainder of the content is lesser than the character limit
-    assertEquals(13, child4.getString("chunk").length());
+    assertEquals(13, child4.getString("text").length());
   }
 
   @Test
@@ -130,10 +130,10 @@ public class ChunkTextTest {
     Document child3 = childrenDocs.get(2);
     Document child4 = childrenDocs.get(3);
 
-    assertEquals("This is the first\nparagraph of the document.", child1.getString("chunk"));
-    assertEquals("This is the second paragraph of the document.", child2.getString("chunk"));
-    assertEquals("This is the third paragraph of the document.", child3.getString("chunk"));
-    assertEquals("This is the fourth paragraph of the document.", child4.getString("chunk"));
+    assertEquals("This is the first\nparagraph of the document.", child1.getString("text"));
+    assertEquals("This is the second paragraph of the document.", child2.getString("text"));
+    assertEquals("This is the third paragraph of the document.", child3.getString("text"));
+    assertEquals("This is the fourth paragraph of the document.", child4.getString("text"));
   }
 
   @Test
@@ -151,9 +151,9 @@ public class ChunkTextTest {
     Document child2 = childrenDocs.get(1);
     Document child3 = childrenDocs.get(2);
 
-    assertEquals("This is the first sentence", child1.getString("chunk"));
-    assertEquals(" with a comma. This is the second sentence", child2.getString("chunk"));
-    assertEquals(" with another comma", child3.getString("chunk"));
+    assertEquals("This is the first sentence", child1.getString("text"));
+    assertEquals(" with a comma. This is the second sentence", child2.getString("text"));
+    assertEquals(" with another comma", child3.getString("text"));
   }
 
   @Test
@@ -170,8 +170,8 @@ public class ChunkTextTest {
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
 
-    assertEquals("This is a sentence.", child1.getString("chunk"));
-    assertEquals("This is a sentence so long that it passe", child2.getString("chunk"));
+    assertEquals("This is a sentence.", child1.getString("text"));
+    assertEquals("This is a sentence so long that it passe", child2.getString("text"));
   }
 
   @Test
@@ -193,11 +193,11 @@ public class ChunkTextTest {
     Document child4 = childrenDocs.get(3);
     Document child5 = childrenDocs.get(4);
 
-    assertEquals("The sun is bright. The sky is clear. Birds are singing.", child1.getString("chunk"));
-    assertEquals("A dog barks. Children play. Trees sway.", child2.getString("chunk"));
-    assertEquals("Leaves rustle. A car drives by. The breeze is cool.", child3.getString("chunk"));
-    assertEquals("Flowers bloom. A cat sleeps. The clock ticks.", child4.getString("chunk"));
-    assertEquals("The phone rings.", child5.getString("chunk"));
+    assertEquals("The sun is bright. The sky is clear. Birds are singing.", child1.getString("text"));
+    assertEquals("A dog barks. Children play. Trees sway.", child2.getString("text"));
+    assertEquals("Leaves rustle. A car drives by. The breeze is cool.", child3.getString("text"));
+    assertEquals("Flowers bloom. A cat sleeps. The clock ticks.", child4.getString("text"));
+    assertEquals("The phone rings.", child5.getString("text"));
   }
 
   @Test
@@ -214,7 +214,7 @@ public class ChunkTextTest {
 
     Document child1 = childrenDocs.get(0);
     // merging is set to 3, but only expected to merge the only 2 sentences into 1
-    assertEquals("The sun is bright. The sky is clear.", child1.getString("chunk"));
+    assertEquals("The sun is bright. The sky is clear.", child1.getString("text"));
   }
 
   @Test
@@ -229,8 +229,8 @@ public class ChunkTextTest {
     List<Document> childrenDocs = doc.getChildren();
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
-    assertEquals("The sun is bright.", child1.getString("chunk"));
-    assertEquals("3. The phone rings.", child2.getString("chunk"));
+    assertEquals("The sun is bright.", child1.getString("text"));
+    assertEquals("3. The phone rings.", child2.getString("text"));
   }
 
   @Test
@@ -245,8 +245,8 @@ public class ChunkTextTest {
     List<Document> childrenDocs = doc.getChildren();
     Document child1 = childrenDocs.get(0);
     Document child2 = childrenDocs.get(1);
-    assertEquals("The sun is bright.", child1.getString("chunk"));
-    assertEquals("The phone rings. 3.", child2.getString("chunk"));
+    assertEquals("The sun is bright.", child1.getString("text"));
+    assertEquals("The phone rings. 3.", child2.getString("text"));
   }
 
   @Test
@@ -260,7 +260,7 @@ public class ChunkTextTest {
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
     Document child1 = childrenDocs.get(0);
-    assertEquals("The sun is bright. The phone rings. The trees sway.", child1.getString("chunk"));
+    assertEquals("The sun is bright. The phone rings. The trees sway.", child1.getString("text"));
   }
 
   @Test
@@ -278,7 +278,7 @@ public class ChunkTextTest {
     stage.processDocument(doc);
     List<Document> childrenDocs = doc.getChildren();
     Document child1 = childrenDocs.get(0);
-    assertEquals("This is the first sentence. This sentence is too long and This is the other sentence.", child1.getString("chunk"));
+    assertEquals("This is the first sentence. This sentence is too long and This is the other sentence.", child1.getString("text"));
   }
 
   @Test
@@ -299,11 +299,11 @@ public class ChunkTextTest {
     Document child4 = childrenDocs.get(3);
     Document child5 = childrenDocs.get(4);
 
-    assertEquals("The sun is bright, The sky is clear. Birds a", child1.getString("chunk"));
-    assertEquals("is clear. Birds are singing, a dog barks, children play. Trees swa", child2.getString("chunk"));
-    assertEquals("en play. Trees sway, leaves rustle, a car drives by. The bree", child3.getString("chunk"));
-    assertEquals("rives by. The breeze is cool, flowers bloom, a cat sleeps. The clock", child4.getString("chunk"));
-    assertEquals("leeps. The clock ticks, the phone rings.", child5.getString("chunk"));
+    assertEquals("The sun is bright, The sky is clear. Birds a", child1.getString("text"));
+    assertEquals("is clear. Birds are singing, a dog barks, children play. Trees swa", child2.getString("text"));
+    assertEquals("en play. Trees sway, leaves rustle, a car drives by. The bree", child3.getString("text"));
+    assertEquals("rives by. The breeze is cool, flowers bloom, a cat sleeps. The clock", child4.getString("text"));
+    assertEquals("leeps. The clock ticks, the phone rings.", child5.getString("text"));
   }
 
 
@@ -328,11 +328,11 @@ public class ChunkTextTest {
     Document child4 = childrenDocs.get(3);
     Document child5 = childrenDocs.get(4);
 
-    assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks", child1.getString("chunk"));
-    assertEquals("inging. A dog barks. Children play. Trees sway. Leaves", child2.getString("chunk"));
-    assertEquals("rees sway. Leaves rustle. A car drives by. The breeze is cool. Flowers bl", child3.getString("chunk"));
-    assertEquals("is cool. Flowers bloom. A cat sleeps. The clock ticks. The phone", child4.getString("chunk"));
-    assertEquals("ks. The phone rings.", child5.getString("chunk"));
+    assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks", child1.getString("text"));
+    assertEquals("inging. A dog barks. Children play. Trees sway. Leaves", child2.getString("text"));
+    assertEquals("rees sway. Leaves rustle. A car drives by. The breeze is cool. Flowers bl", child3.getString("text"));
+    assertEquals("is cool. Flowers bloom. A cat sleeps. The clock ticks. The phone", child4.getString("text"));
+    assertEquals("ks. The phone rings.", child5.getString("text"));
   }
 
   @Test
@@ -354,11 +354,11 @@ public class ChunkTextTest {
     Document child4 = childrenDocs.get(3);
     Document child5 = childrenDocs.get(4);
 
-    assertEquals("The sun is bright. The sky is clear.", child1.getString("chunk"));
-    assertEquals("The sky is clear. Birds are singing.", child2.getString("chunk"));
-    assertEquals("Birds are singing. A dog barks.", child3.getString("chunk"));
-    assertEquals("A dog barks. Children play.", child4.getString("chunk"));
-    assertEquals("Children play. Trees sway.", child5.getString("chunk"));
+    assertEquals("The sun is bright. The sky is clear.", child1.getString("text"));
+    assertEquals("The sky is clear. Birds are singing.", child2.getString("text"));
+    assertEquals("Birds are singing. A dog barks.", child3.getString("text"));
+    assertEquals("A dog barks. Children play.", child4.getString("text"));
+    assertEquals("Children play. Trees sway.", child5.getString("text"));
   }
 
   @Test
@@ -378,9 +378,9 @@ public class ChunkTextTest {
     Document child2 = childrenDocs.get(1);
     Document child3 = childrenDocs.get(2);
 
-    assertEquals("The sun is bright. The sky is clear. Birds are singing.", child1.getString("chunk"));
-    assertEquals("Birds are singing. A dog barks. Children play.", child2.getString("chunk"));
-    assertEquals("Children play. Trees sway.", child3.getString("chunk"));
+    assertEquals("The sun is bright. The sky is clear. Birds are singing.", child1.getString("text"));
+    assertEquals("Birds are singing. A dog barks. Children play.", child2.getString("text"));
+    assertEquals("Children play. Trees sway.", child3.getString("text"));
   }
 
   @Test
@@ -404,12 +404,12 @@ public class ChunkTextTest {
     Document child5 = childrenDocs.get(4);
     Document child6 = childrenDocs.get(5);
 
-    assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks.", child1.getString("chunk"));
-    assertEquals("Birds are singing. A dog barks. Children play. Trees sway.", child2.getString("chunk"));
-    assertEquals("Children play. Trees sway. Leaves rustle. A car drives by.", child3.getString("chunk"));
-    assertEquals("Leaves rustle. A car drives by. The breeze is cool. Flowers bloom.", child4.getString("chunk"));
-    assertEquals("The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks.", child5.getString("chunk"));
-    assertEquals("A cat sleeps. The clock ticks. The phone rings.", child6.getString("chunk"));
+    assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks.", child1.getString("text"));
+    assertEquals("Birds are singing. A dog barks. Children play. Trees sway.", child2.getString("text"));
+    assertEquals("Children play. Trees sway. Leaves rustle. A car drives by.", child3.getString("text"));
+    assertEquals("Leaves rustle. A car drives by. The breeze is cool. Flowers bloom.", child4.getString("text"));
+    assertEquals("The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks.", child5.getString("text"));
+    assertEquals("A cat sleeps. The clock ticks. The phone rings.", child6.getString("text"));
   }
 
   @Test
@@ -431,10 +431,10 @@ public class ChunkTextTest {
     Document child3 = childrenDocs.get(2);
     Document child4 = childrenDocs.get(3);
 
-    assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks. Children play.", child1.getString("chunk"));
-    assertEquals("A dog barks. Children play. Trees sway. Leaves rustle. A car drives by.", child2.getString("chunk"));
-    assertEquals("Leaves rustle. A car drives by. The breeze is cool. Flowers bloom. A cat sleeps.", child3.getString("chunk"));
-    assertEquals("Flowers bloom. A cat sleeps. The clock ticks. The phone rings.", child4.getString("chunk"));
+    assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks. Children play.", child1.getString("text"));
+    assertEquals("A dog barks. Children play. Trees sway. Leaves rustle. A car drives by.", child2.getString("text"));
+    assertEquals("Leaves rustle. A car drives by. The breeze is cool. Flowers bloom. A cat sleeps.", child3.getString("text"));
+    assertEquals("Flowers bloom. A cat sleeps. The clock ticks. The phone rings.", child4.getString("text"));
   }
 
 
@@ -458,11 +458,11 @@ public class ChunkTextTest {
     Document child4 = childrenDocs.get(3);
     Document child5 = childrenDocs.get(4);
 
-    assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks. Children play.", child1.getString("chunk"));
-    assertEquals("Birds are singing. A dog barks. Children play. Trees sway. Leaves rustle.", child2.getString("chunk"));
-    assertEquals("Children play. Trees sway. Leaves rustle. A car drives by. The breeze is cool.", child3.getString("chunk"));
-    assertEquals("Leaves rustle. A car drives by. The breeze is cool. Flowers bloom. A cat sleeps.", child4.getString("chunk"));
-    assertEquals("The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks. The phone rings.", child5.getString("chunk"));
+    assertEquals("The sun is bright. The sky is clear. Birds are singing. A dog barks. Children play.", child1.getString("text"));
+    assertEquals("Birds are singing. A dog barks. Children play. Trees sway. Leaves rustle.", child2.getString("text"));
+    assertEquals("Children play. Trees sway. Leaves rustle. A car drives by. The breeze is cool.", child3.getString("text"));
+    assertEquals("Leaves rustle. A car drives by. The breeze is cool. Flowers bloom. A cat sleeps.", child4.getString("text"));
+    assertEquals("The breeze is cool. Flowers bloom. A cat sleeps. The clock ticks. The phone rings.", child5.getString("text"));
   }
 
   @Test
