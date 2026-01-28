@@ -353,7 +353,7 @@ public class KafkaConnectorTest {
 
     KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
 
-    // Mock poll to wait until the latch is released
+    // Mock poll to wait until the timeout is reached
     doAnswer(invocation -> {
       Thread.sleep(config.getLong("messageTimeout"));
       return ConsumerRecords.empty();
