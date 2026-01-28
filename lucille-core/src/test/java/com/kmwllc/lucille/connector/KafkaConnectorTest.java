@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -28,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -299,6 +302,85 @@ public class KafkaConnectorTest {
     connector.execute(mock(Publisher.class));
 
     verify(mockConsumer).seek(tp0, 100L);
+  }
+
+  @Test
+  public void testThreadTerminatesUponClose() throws Exception {
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
+    configMap.put("messageTimeout", 10000L); // Long timeout
+    Config config = ConfigFactory.parseMap(configMap);
+
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
+    CountDownLatch pollLatch = new CountDownLatch(1);
+
+    // Mock poll to wait until the latch is released
+    doAnswer(invocation -> {
+      pollLatch.await(config.getLong("messageTimeout"), TimeUnit.MILLISECONDS);
+      return ConsumerRecords.empty();
+    }).when(mockConsumer).poll(any(Duration.class));
+
+    // Mock wakeup to release the latch, simulating poll returning or being interrupted
+    doAnswer(invocation -> {
+      pollLatch.countDown();
+      return null;
+    }).when(mockConsumer).wakeup();
+
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
+
+    Thread connectorThread = new Thread(() -> {
+      try {
+        connector.execute(mock(Publisher.class));
+      } catch (ConnectorException e) {
+        // expected when connector is interrupted
+      }
+    });
+
+    connectorThread.start();
+    Thread.sleep(200);
+    connector.close();
+    connectorThread.join(config.getLong("messageTimeout"));
+
+    assertEquals(Thread.State.TERMINATED, connectorThread.getState());
+    verify(mockConsumer, times(1)).poll(any(Duration.class));
+  }
+
+  @Test
+  public void testThreadTerminatesUponClosePollTimedOut() throws Exception {
+    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
+    configMap.put("messageTimeout", 5000L); // Long timeout
+    Config config = ConfigFactory.parseMap(configMap);
+
+    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
+
+    // Mock poll to wait until the latch is released
+    doAnswer(invocation -> {
+      Thread.sleep(config.getLong("messageTimeout"));
+      return ConsumerRecords.empty();
+    }).when(mockConsumer).poll(any(Duration.class));
+
+    KafkaConnector connector = spy(new KafkaConnector(config));
+    doReturn(mockConsumer).when(connector).createConsumer(any());
+
+    Thread connectorThread = new Thread(() -> {
+      try {
+        connector.execute(mock(Publisher.class));
+      } catch (ConnectorException e) {
+        // expected
+      }
+    });
+
+    connectorThread.start();
+
+    Thread.sleep(200);
+
+    connector.close();
+
+    // Join with timeout to confirm it terminates
+    connectorThread.join(config.getLong("messageTimeout"));
+
+    assertEquals(Thread.State.TERMINATED, connectorThread.getState());
+    verify(mockConsumer, times(1)).poll(any(Duration.class));
   }
 
   @Test
