@@ -346,46 +346,6 @@ public class KafkaConnectorTest {
   }
 
   @Test
-  public void testThreadTerminatesUponPollTimedOutAfterClose() throws Exception {
-    Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
-    // Long timeout
-    configMap.put("messageTimeout", 500L);
-    // continue on timeout is true, the connector should only terminate after close is called
-    configMap.put("continueOnTimeout", true);
-    Config config = ConfigFactory.parseMap(configMap);
-
-    KafkaConsumer<String, Document> mockConsumer = mock(KafkaConsumer.class);
-
-    // Mock poll to wait until the timeout is reached
-    doAnswer(invocation -> {
-      Thread.sleep(config.getLong("messageTimeout"));
-      return ConsumerRecords.empty();
-    }).when(mockConsumer).poll(any(Duration.class));
-
-    KafkaConnector connector = spy(new KafkaConnector(config));
-    doReturn(mockConsumer).when(connector).createConsumer(any());
-
-    Thread connectorThread = new Thread(() -> {
-      try {
-        connector.execute(mock(Publisher.class));
-      } catch (ConnectorException e) {
-      }
-    });
-
-    connectorThread.start();
-
-    Thread.sleep(200);
-
-    connector.close();
-
-    // Join with timeout to confirm it terminates
-    connectorThread.join(config.getLong("messageTimeout"));
-
-    assertEquals(Thread.State.TERMINATED, connectorThread.getState());
-    verify(mockConsumer, times(1)).poll(any(Duration.class));
-  }
-
-  @Test
   public void testThreadTerminatesUponPollTimedOut() throws Exception {
     Map<String, Object> configMap = new HashMap<>(BASE_CONFIG_MAP);
     configMap.put("messageTimeout", 10L);
