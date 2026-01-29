@@ -360,8 +360,134 @@ public class PublisherImplTest {
   }
 
   @Test
+  public void testPauseAndDrainToZero() throws Exception {
+
+    // similar setup to testBlockOnMaxPendingDocsConcurrent() but now we must drain the number of pending
+    // docs to 0 before publication can resume
+
+    Config config = ConfigFactory.parseString("publisher {maxPendingDocs: 3, drainTo: 0}");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // test that publish() is "fast" when maxPendingDocs is not exceeded
+    assertTimeout(ofMillis(500), () -> {
+      publisher.publish(Document.create("doc1"));
+      publisher.publish(Document.create("doc2"));
+      publisher.publish(Document.create("doc3"));
+      publisher.preClose();
+    });
+
+    assertEquals(3, publisher.numPending());
+
+    // test that publish() blocks when maxPendingDocs is exceeded
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+      try {
+        publisher.publish(Document.create("doc4"));
+      } catch (Exception e) {
+        fail();
+      }
+    }, executor);
+
+    // getting the result of the CompletableFuture should timeout because publisher.publish() should block indefinitely
+    // since maxPendingDocs is exceeded
+    assertThrows(TimeoutException.class, () -> {
+      future.get(100, TimeUnit.MILLISECONDS);
+    });
+
+    assertEquals(3, publisher.numPending());
+    publisher.handleEvent(new Event("doc1", "run1", "success", Event.Type.FINISH));
+    publisher.handleEvent(new Event("doc2", "run1", "success", Event.Type.FINISH));
+    assertEquals(1, publisher.numPending());
+
+    // getting the result of the CompletableFuture should STILL timeout because publisher.publish() should
+    // still block because we haven't reached the drainTo threshold of 0
+    assertThrows(TimeoutException.class, () -> {
+      future.get(100, TimeUnit.MILLISECONDS);
+    });
+
+    publisher.handleEvent(new Event("doc3", "run1", "success", Event.Type.FINISH));
+
+    // publish() should no longer block now that drainTo=0 is reached
+    future.get(100, TimeUnit.MILLISECONDS);
+
+    publisher.handleEvent(new Event("doc4", "run1", "success", Event.Type.FINISH));
+    assertEquals(0, publisher.numPending());
+    assertEquals(4, publisher.numPublished());
+    publisher.close();
+  }
+
+  @Test
+  public void testNewThreadNotRequiredToDrain() throws Exception {
+
+    Config config = ConfigFactory.parseString("publisher {maxPendingDocs: 3, drainTo: 0}");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // test that publish() is "fast" when maxPendingDocs is not exceeded
+    assertTimeout(ofMillis(500), () -> {
+      publisher.publish(Document.create("doc1"));
+      publisher.publish(Document.create("doc2"));
+      publisher.publish(Document.create("doc3"));
+      publisher.preClose();
+    });
+
+    assertEquals(3, publisher.numPending());
+
+    // test that publish() blocks when maxPendingDocs is exceeded
+    ExecutorService executor1 = Executors.newSingleThreadExecutor();
+    CompletableFuture future =  CompletableFuture.runAsync(() -> {
+      try {
+        publisher.publish(Document.create("doc4"));
+      } catch (Exception e) {
+        fail();
+      }}, executor1);
+
+    assertThrows(TimeoutException.class, () -> {
+      future.get(100, TimeUnit.MILLISECONDS);
+    });
+
+    assertEquals(3, publisher.numPending());
+    publisher.handleEvent(new Event("doc1", "run1", "success", Event.Type.FINISH));
+    publisher.handleEvent(new Event("doc2", "run1", "success", Event.Type.FINISH));
+    assertEquals(1, publisher.numPending());
+
+    // if we start a brand new publishing thread it should not block because
+    // numPending is below maxPendingDocs; NEW publishing threads are not required to drain
+    // to the specified drainTo threshold of 0, only threads that had already been blocking because
+    // maxPendingDocs was exceeded will continue blocking until drainTo is reached
+    ExecutorService executor2 = Executors.newSingleThreadExecutor();
+    try {
+      CompletableFuture.runAsync(() -> {
+        try {
+          publisher.publish(Document.create("doc5"));
+        } catch (Exception e) {
+        }
+      }, executor2).get(100, TimeUnit.MILLISECONDS);
+    } finally {
+      executor2.shutdownNow();
+    }
+
+    // the old thread that was blocking should still be blocking
+    assertThrows(TimeoutException.class, () -> {
+      future.get(100, TimeUnit.MILLISECONDS);
+    });
+
+    publisher.handleEvent(new Event("doc3", "run1", "success", Event.Type.FINISH));
+    publisher.handleEvent(new Event("doc5", "run1", "success", Event.Type.FINISH));
+
+    // the old thread should no longer block now that drainTo=0 is reached
+    future.get(100, TimeUnit.MILLISECONDS);
+
+    publisher.handleEvent(new Event("doc4", "run1", "success", Event.Type.FINISH));
+    assertEquals(0, publisher.numPending());
+    assertEquals(5, publisher.numPublished());
+    publisher.close();
+  }
+
+  @Test
   public void testPauseAndDrainConcurrent() throws Exception {
-    Config config = ConfigFactory.parseString("publisher {maxPendingDocs: 10 \n drainTo: 5}");
+    Config config = ConfigFactory.parseString("publisher {maxPendingDocs: 10, drainTo: 5}");
     LocalMessenger messenger = new LocalMessenger(config);
     PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
@@ -392,12 +518,12 @@ public class PublisherImplTest {
     assertEquals(10, publisher.numPublished());
 
     // handle success events for 5 docs that were published
-    for (int i = 1; i <= 5; i++) {
+    for (int i = 1; i <= 4; i++) {
       String id = publishedIds.take();
       publisher.handleEvent(new Event(id, "run1", "success", Event.Type.FINISH));
       assertEquals(10 - i, publisher.numPending());
 
-      // as the number of pending docs is reduced from 10 to 5,
+      // as the number of pending docs is reduced from 10 to 6,
       // numPending is still above the drainTo threshold, so no more docs should be published
       assertEquals(10, publisher.numPublished());
     }
@@ -409,7 +535,7 @@ public class PublisherImplTest {
     // as we handle more events, bringing the number of pending docs below the drainTo threshold,
     // docs should start getting published again; since publication is happening in a separate thread,
     // we can't make specific assertions about numPublished() in this loop but it should eventually reach 20
-    for (int i = 6; i <= 20; i++) {
+    for (int i = 5; i <= 20; i++) {
       String id = publishedIds.take();
       publisher.handleEvent(new Event(id, "run1", "success", Event.Type.FINISH));
     }

@@ -65,7 +65,10 @@ public class PublisherImpl implements Publisher {
   // number of pending docs above which publish() will block
   private final Integer maxPendingDocs;
 
-  // number of pending docs below which publish() will resume if it was blocked because maxPendingDocs was exceeded
+  // number of pending docs at which publish() will resume if it was blocked because maxPendingDocs was exceeded;
+  // note that this only applies to threads that were blocking -- it defines the condition when they can stop blocking --
+  // it does NOT apply to new threads that start publishing after others began to block; new threads will
+  // still block if maxPendingDocs is exceeded but won't block if just because drainTo is exceeded
   private final Integer drainTo;
 
   private final ReentrantLock lock = new ReentrantLock();
@@ -100,7 +103,11 @@ public class PublisherImpl implements Publisher {
     }
     this.maxPendingDocs = maxPendingDocs;
 
-    this.drainTo = ConfigUtils.getOrDefault(config, "publisher.drainTo", this.maxPendingDocs);
+    Integer drainTo = ConfigUtils.getOrDefault(config, "publisher.drainTo", this.maxPendingDocs);
+    if (drainTo != null && drainTo < 0) {
+      drainTo = null;
+    }
+    this.drainTo = drainTo;
 
     messenger.initialize(runId, pipelineName);
     this.firstDocStopWatch = new StopWatch();
@@ -286,7 +293,7 @@ public class PublisherImpl implements Publisher {
             // check to see if the number of pending docs has fallen below the specified drainTo threshold and
             // notify any threads that are waiting on that condition; specifically, notify the connector thread(s)
             // where publish() is being called
-            if (docIdsToTrack.size() < drainTo) {
+            if (docIdsToTrack.size() <= drainTo) {
               resumePublishingCondition.signalAll();
             }
           } finally {
