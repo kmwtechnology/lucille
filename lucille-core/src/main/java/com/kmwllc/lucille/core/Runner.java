@@ -4,7 +4,6 @@ import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
-import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
@@ -76,18 +75,78 @@ public class Runner {
   private Runner() {
   }
 
-  // these are set and cleared in runConnectorWithComponents()
-  // the ONLY purpose of storing the current publisher, connector, etc. in these variables is so that they
-  // can be referenced inside a Signal handler that would attempt to cleanly close/stop them upon receiving an INT signal;
-  // at present the Signal handler is only registered in main(), and since main() is not called in a multi-threaded context,
-  // these variables don't technically NEED to be ThreadLocals; however, runConnectorWithComponents() CAN be called in
-  // a multi-threaded context via the Lucille API, so we use ThreadLocals here to avoid confusion and support a future scenario
-  // where we might want to attempt a clean shutdown outside of the Signal handler registered in main()
-  private static final ThreadLocal<Publisher> publisherLocal = ThreadLocal.withInitial(() -> null);
-  private static final ThreadLocal<Connector> connectorLocal = ThreadLocal.withInitial(() -> null);
-  private static final ThreadLocal<WorkerPool> workerPoolLocal = ThreadLocal.withInitial(() -> null);
-  private static final ThreadLocal<Indexer> indexerLocal = ThreadLocal.withInitial(() -> null);
-  private static final ThreadLocal<Thread> indexerThreadLocal = ThreadLocal.withInitial(() -> null);
+  // static RunnerState that is only set via main() and should remain unset in execution contexts that don't involve main()
+  private static RunnerState state = null;
+
+  /**
+   * Holds various resources instantiated during a run so that we can attempt to cleanly close or stop them
+   * upon receiving an INT signal
+   */
+  static class RunnerState {
+    private Publisher publisher;
+    private Connector connector;
+    private WorkerPool workerPool;
+    private Indexer indexer;
+    private Thread indexerThread;
+
+    public RunnerState() {
+    }
+
+    public void set(Publisher publisher, Connector connector, WorkerPool workerPool, Indexer indexer, Thread thread) {
+      this.publisher = publisher;
+      this.connector = connector;
+      this.workerPool = workerPool;
+      this.indexer = indexer;
+      this.indexerThread = thread;
+    }
+
+    public void clear() {
+      publisher = null;
+      connector = null;
+      workerPool = null;
+      indexer = null;
+      indexerThread = null;
+    }
+
+    public void close() {
+      if (connector != null) {
+        try {
+          log.info("Closing current Connector...");
+          connector.close();
+        } catch (Exception e) {
+          log.error("Error closing Connector", e);
+        }
+      }
+      if (publisher != null) {
+        try {
+          log.info("Closing current Publisher...");
+          publisher.close();
+        } catch (Exception e) {
+          log.error("Error closing Publisher", e);
+        }
+      }
+      if (workerPool != null) {
+        try {
+          log.info("Stopping current Worker pool...");
+          workerPool.stop();
+          workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+        } catch (Exception e) {
+          log.error("Error stopping WorkerPool", e);
+        }
+      }
+      if (indexer != null) {
+        try {
+          log.info("Stopping current Indexer...");
+          indexer.terminate();
+          if (indexerThread != null) {
+            indexerThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+          }
+        } catch (Exception e) {
+          log.error("Error stopping Indexer", e);
+        }
+      }
+    }
+  }
 
   /**
    * Runs the configured connectors. NOTE: parameters are case insensitive.
@@ -104,6 +163,11 @@ public class Runner {
    * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
    */
   public static void main(String[] args) throws Exception {
+    // make a RunnerState available for holding resources that will be instantiated later in the run;
+    // the only purpose of doing this is so that we can cleanly stop/close these resources if an INT signal is received
+    // during the run
+    state = new RunnerState();
+
     Options cliOptions = new Options()
         .addOption(Option.builder("usekafka").hasArg(false)
             .desc("Use Kafka for inter-component communication and don't execute pipelines locally.").build())
@@ -127,7 +191,7 @@ public class Runner {
             2, 10, "", true);
         log.info(writer.toString());
       }
-      System.exit(1);
+      SystemHelper.exit(1);
     }
 
     Config config = ConfigFactory.load();
@@ -146,49 +210,11 @@ public class Runner {
     // register a signal handler to attempt a clean shutdown of
     // Connector, Publisher, WorkerPool, and Indexer if an INT signal is received
     Signal.handle(new Signal("INT"), signal -> {
-      log.info("Runner attempting clean shutdown after receiving INT signal");
-      Connector connector = connectorLocal.get();
-      if (connector != null) {
-        try {
-          log.info("Closing current Connector...");
-          connector.close();
-        } catch (Exception e) {
-          log.error("Error closing Connector", e);
-        }
+      if (state != null) {
+        log.info("Runner attempting clean shutdown after receiving INT signal");
+        state.close();
       }
-      Publisher publisher = publisherLocal.get();
-      if (publisher != null) {
-        try {
-          log.info("Closing current Publisher...");
-          publisher.close();
-        } catch (Exception e) {
-          log.error("Error closing Publisher", e);
-        }
-      }
-      WorkerPool workerPool = workerPoolLocal.get();
-      if (workerPool != null) {
-        try {
-          log.info("Stopping current Worker pool...");
-          workerPool.stop();
-          workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
-        } catch (Exception e) {
-          log.error("Error stopping WorkerPool", e);
-        }
-      }
-      Indexer indexer = indexerLocal.get();
-      if (indexer != null) {
-        try {
-          log.info("Stopping current Indexer...");
-          indexer.terminate();
-          Thread indexerThread = indexerThreadLocal.get();
-          if (indexerThread != null) {
-            indexerThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
-          }
-        } catch (Exception e) {
-          log.error("Error stopping Indexer", e);
-        }
-      }
-      System.exit(0);
+      SystemHelper.exit(0);
     });
 
     RunType runType = getRunType(cli.hasOption("usekafka"), cli.hasOption("local"));
@@ -197,9 +223,16 @@ public class Runner {
     RunResult result = runWithResultLog(config, runType);
 
     if (result.getStatus()) {
-      System.exit(0);
+      SystemHelper.exit(0);
     } else {
-      System.exit(1);
+      SystemHelper.exit(1);
+    }
+  }
+
+  // utility class to allow mocking in a test context
+  class SystemHelper {
+    static void exit(int code) {
+      System.exit(code);
     }
   }
 
@@ -696,24 +729,21 @@ public class Runner {
             connector.getPipelineName(), metricsPrefix, connector.requiresCollapsingPublisher());
       }
 
-      // store resources in ThreadLocal variables so we can attempt to stop/close them cleanly
-      // if the run is aborted by an INT signal
-      publisherLocal.set(publisher);
-      connectorLocal.set(connector);
-      workerPoolLocal.set(workerPool);
-      indexerLocal.set(indexer);
-      indexerThreadLocal.set(indexerThread);
+      // store resources in RunnerState so we can attempt to stop/close them cleanly
+      // if the run is aborted by an INT signal; state should only be non-null when running via main
+      // so this is skipped in other execution contexts
+      if (state != null) {
+        state.set(publisher, connector, workerPool, indexer, indexerThread);
+      }
 
       return runConnector(config, runId, connector, publisher);
 
     } finally {
 
-      // always clear ThreadLocals
-      publisherLocal.remove();
-      connectorLocal.remove();
-      workerPoolLocal.remove();
-      indexerLocal.remove();
-      indexerThreadLocal.remove();
+      // always clear RunnerState if it exists
+      if (state != null) {
+        state.clear();
+      }
 
       // always stop workerPool and indexerThread
       if (workerPool != null) {
