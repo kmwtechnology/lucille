@@ -163,7 +163,9 @@ public class PublisherImpl implements Publisher {
         // double check that resumeCondition is set now that we have the lock
         if (resumeCondition != null) {
           // wait to be signalled via a call to resume()
-          resumeCondition.await();
+          while (resumeCondition != null) { // use a loop to handle rare but possible "spurious wakeups"
+            resumeCondition.await();
+          }
         }
       } finally {
         lockForPauseResume.unlock();
