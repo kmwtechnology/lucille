@@ -7,7 +7,7 @@ description: A Connector that, given a path to S3, Azure, Google Cloud, or the l
 [Source Code](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/FileConnector.java)
 
 The file connector traverses a file system and publishes Lucille documents representing its findings. In your Configuration, specify
-`pathsToStorage`, representing the path(s) you want to traverse. Each path can be a path to the local file system or a URI for a supported
+`paths`, representing the path(s) you want to traverse. Each path can be a path to the local file system or a URI for a supported
 cloud provider.
 
 ### Working with Cloud Storage
@@ -17,7 +17,7 @@ specify the maximum number of files (`maxNumOfPages`) that Lucille will load int
 
 * **Azure**: Specify the needed options in `azure` in your Config. You must provide `connectionString`, or you must provide `accountName` and `accountKey`.
 * **Google**: Specify the needed options in `gcp` in your Config. You must provide `pathToServiceKey`.
-* **S3**: Specify the needed options in `s3` in your Config. You must provide `accessKeyId`, `secretAccessKey`, and `region`. For URIs, `pathsToStorage` must be percent-encoded for special characters (e.g., `s3://test/folder%20with%20spaces`).
+* **S3**: Specify the needed options in `s3` in your Config. You must provide `accessKeyId`, `secretAccessKey`, and `region`. For URIs, `paths` must be percent-encoded for special characters (e.g., `s3://test/folder%20with%20spaces`).
 * For each of these providers, in their configuration, you can optionally include `maxNumOfPages` as well.
 
 ### Applying FileHandlers

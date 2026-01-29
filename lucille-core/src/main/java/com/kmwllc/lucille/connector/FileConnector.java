@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>pathsToStorage (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
+ *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
@@ -109,7 +109,7 @@ public class FileConnector extends AbstractConnector {
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public static final Spec SPEC = SpecBuilder.connector()
-      .requiredList("pathsToStorage", new TypeReference<List<String>>(){})
+      .requiredList("paths", new TypeReference<List<String>>(){})
       .optionalParent(
           SpecBuilder.parent("filterOptions")
               .optionalList("includes", new TypeReference<List<String>>(){})
@@ -136,10 +136,10 @@ public class FileConnector extends AbstractConnector {
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
-    List<String> pathsToStorage = config.getStringList("pathsToStorage");
+    List<String> paths = config.getStringList("paths");
     this.storageURIs = new ArrayList<>();
 
-    for (String path : pathsToStorage) {
+    for (String path : paths) {
       try {
         URI newStorageURI = new URI(path);
         storageURIs.add(newStorageURI);
@@ -155,7 +155,7 @@ public class FileConnector extends AbstractConnector {
 
     // Cannot specify multiple storage paths and a moveTo of some kind
     if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath("fileOptions.moveToErrorFolder"))) {
-      throw new IllegalArgumentException("FileConnector does not support multiple pathsToStorage and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
+      throw new IllegalArgumentException("FileConnector does not support multiple paths and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
 
     if (config.hasPath("filterOptions.lastPublishedCutoff") && !config.hasPath("state")) {
