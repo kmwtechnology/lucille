@@ -57,5 +57,5 @@ can be embedded, or it can be remote.
 
 It's important to note that File Connector state is designed to be efficient and lightweight. As such, keep a few points in mind:
 1. Files that were recently moved / renamed files will not have the `lastPublishedCutoff` applied.
-2. In your File Connector configuration, it is important that you consistently capitalize directory names in your `pathToStorage`, if you are using state.
+2. In your File Connector configuration, it is important that you consistently capitalize directory names in your `paths`, if you are using state.
 3. Each database table should be used for only one connector configuration.
