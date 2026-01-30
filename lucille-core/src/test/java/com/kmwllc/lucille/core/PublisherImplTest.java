@@ -576,11 +576,13 @@ public class PublisherImplTest {
 
     publisher.resume();
     Thread.sleep(200);
+    publisher.pause();
 
     // having resumed the publisher and waited a bit longer, we should find that more docs have been published
     long numPublishedAtTime2 = publisher.numPublished();
     assertTrue(numPublishedAtTime2 > numPublishedAtTime1);
     assertEquals(numPublishedAtTime2 - numPublishedAtTime1, publisher.numPending());
+    publisher.resume();
 
     // now we try quickly toggling between pause and resume just to make sure nothing goes wrong
     publisher.pause();
