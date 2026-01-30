@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.ConfigUtils;
-import com.typesafe.config.Config;
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -11,8 +10,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.typesafe.config.Config;
 
 /**
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding FileConnector traversals and the last
@@ -163,6 +168,27 @@ public class FileConnectorStateManager {
         log.warn("Couldn't close insert statement (PreparedStatement).", e);
       }
     }
+  }
+
+  /*
+   * Needed to support publishing document tombstones suggestion: we should add
+   * options for setting what is "expired" to include as a safety measure so
+   * transient upstream source flakiness doesn't immediately cause content to be
+   * deleted from index 
+   * - expiredFileRetryCutoff [1..N]
+   *   file has to be missing N times before marked as expired) 
+   * - expiredFileDurationCutoff [Duration]
+   *   Amount if time file must be missing before marked as expired)
+   */
+  public List<URI> listExpiredFiles() throws SQLException {
+    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered = FALSE";
+    var fileUris = new ArrayList<URI>();
+    try (var ps = jdbcConnection.prepareStatement(selectSQL); var rs = ps.executeQuery()) {
+      while (rs.next()) {
+        fileUris.add(URI.create(rs.getString("name")));
+      }
+    }
+    return fileUris;
   }
 
   private void deleteFilesNotEncounteredAndResetTable() throws SQLException {
