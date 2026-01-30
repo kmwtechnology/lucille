@@ -569,6 +569,8 @@ public class PublisherImplTest {
     }
 
     Thread.sleep(300);
+
+    // Pause and wait for all threads to finish processing before asserting the values are as expected
     publisher.pause();
     waitForAllThreads(threads);
 
@@ -592,6 +594,8 @@ public class PublisherImplTest {
 
     publisher.resume();
     Thread.sleep(200);
+
+    // Pause and wait for all threads to finish processing before asserting the values are as expected
     publisher.pause();
     waitForAllThreads(threads);
 
@@ -607,6 +611,7 @@ public class PublisherImplTest {
     publisher.pause();
     publisher.resume();
     publisher.pause();
+    waitForAllThreads(threads);
 
     long numPublishedAtTime3 = publisher.numPublished();
     Thread.sleep(200);
@@ -619,6 +624,8 @@ public class PublisherImplTest {
     Thread.sleep(200);
 
     // having resumed the publisher and waited a bit longer, we should find that still more docs have been published
+    // Since we are only checking that more documents have been published and not looking for an exact count, we do not need to pause
+    // or wait for the threads here
     long numPublishedAtTime5 = publisher.numPublished();
     assertTrue(numPublishedAtTime5 > numPublishedAtTime4);
 
