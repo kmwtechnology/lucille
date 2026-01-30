@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -513,4 +514,115 @@ public class PublisherImplTest {
     publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     assertEquals(null, publisher.getMaxPendingDocs());
   }
+
+  @Test
+  public void testPauseAndResume() throws Exception {
+    Config config = ConfigFactory.parseString("publisher {queueCapacity: 100000}");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    // publishing threads will add ids of published docs to this queue; event handling thread will drain it
+    final LinkedBlockingQueue<String> publishedIds = new LinkedBlockingQueue<>();
+
+    // publishing threads will use this to know when to stop
+    AtomicBoolean stop = new AtomicBoolean(false);
+
+    // each thread attempts to publish up to 10000 docs with a pause in between; stopping when told to
+    List<Thread> threads = new ArrayList();
+    for (int i = 0; i < 10; i++) {
+      final int i2 = i;
+      threads.add(new Thread(() -> {
+        try {
+          for (int j = 0; j < 10000; j++) {
+            publisher.publish(Document.create(i2 + "_" + j));
+            publishedIds.add(i2 + "_" + j);
+            Thread.sleep(50);
+            if (stop.get()) {
+              return;
+            }
+          }
+          publisher.preClose();
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      }));
+    }
+
+    assertEquals(0, publisher.numPublished());
+
+    for (Thread thread : threads) {
+      thread.start();
+    }
+
+    Thread.sleep(300);
+    publisher.pause();
+
+    // after starting the threads, waiting a while, and pausing the publisher,
+    // check that at least one doc has been published by now
+    long numPublishedAtTime1 = publisher.numPublished();
+    assertTrue(numPublishedAtTime1 > 0);
+    assertEquals(numPublishedAtTime1, publisher.numPending());
+
+    // handle success events for all docs that have been published so far
+    publishedIds.forEach(id -> publisher.handleEvent(new Event(id, "run1", "message", Type.FINISH)));
+    // there should be no pending docs after we've handled events for all published docs
+    assertEquals(0, publisher.numPending());
+
+    Thread.sleep(200);
+
+    // after waiting a while longer, we should find that no more docs have been published (because the publisher is still paused)
+    assertEquals(numPublishedAtTime1, publisher.numPublished());
+    assertEquals(0, publisher.numPending());
+
+    publisher.resume();
+    Thread.sleep(200);
+
+    // having resumed the publisher and waited a bit longer, we should find that more docs have been published
+    long numPublishedAtTime2 = publisher.numPublished();
+    assertTrue(numPublishedAtTime2 > numPublishedAtTime1);
+    assertEquals(numPublishedAtTime2 - numPublishedAtTime1, publisher.numPending());
+
+    // now we try quickly toggling between pause and resume just to make sure nothing goes wrong
+    publisher.pause();
+    publisher.resume();
+    publisher.pause();
+    publisher.resume();
+    publisher.pause();
+
+    long numPublishedAtTime3 = publisher.numPublished();
+    Thread.sleep(200);
+
+    // no more docs should be published while we're paused
+    long numPublishedAtTime4 = publisher.numPublished();
+    assertEquals(numPublishedAtTime3, numPublishedAtTime4);
+
+    publisher.resume();
+    Thread.sleep(200);
+
+    // having resumed the publisher and waited a bit longer, we should find that still more docs have been published
+    long numPublishedAtTime5 = publisher.numPublished();
+    assertTrue(numPublishedAtTime5 > numPublishedAtTime4);
+
+    // stop the threads, wait for them to terminate, and close the publisher
+    stop.set(true);
+
+    for (Thread thread : threads) {
+      thread.join();
+    }
+
+    publisher.close();
+  }
+
+  @Test
+  public void testPauseAndResumeBadOrdering() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher =
+        new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1", "", true);
+    assertThrows(IllegalStateException.class, () -> publisher.resume()); // resume() called when not paused
+    publisher.pause();
+    assertThrows(IllegalStateException.class, () -> publisher.pause()); // pause() called when already paused
+    publisher.resume();
+    assertThrows(IllegalStateException.class, () -> publisher.resume()); // resume() called when not paused
+  }
+
 }
