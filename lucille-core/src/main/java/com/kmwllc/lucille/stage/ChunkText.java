@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
  * Config Parameters -
  * <ul>
  *   <li>source (String) : field of which Chunking Stage will chunk the text.</li>
- *   <li>dest (String, optional) : the name of the field that will hold the chunk contents in the children documents. Defaults to "chunk".</li>
+ *   <li>dest (String, optional) : the name of the field that will hold the chunk contents in the children documents. Defaults to "text".</li>
  *   <li>chunkingMethod (Type Enum, optional) : how to split contents in source. Defaults to Sentence chunking.
  *     <ol>
  *       <li>fixed chunking ("fixed") : split by variable lengthToSplit.</li>
@@ -61,7 +61,7 @@ import org.slf4j.LoggerFactory;
  * <p>       - "length" : number of characters in this chunk
  * <p>       - "chunk_number" : chunk number
  * <p>       - "total_chunks" : total chunk number produced from parent document
- * <p>       - "chunk" : the chunk contents. field name can be changed with config option "dest"
+ * <p>       - "text" : the chunk contents. field name can be changed with config option "dest"
  *
  *  e.g. of paragraph chunking configuration, with a minimum size of 50 characters per chunk, followed by emitting the children
  *       documents
@@ -115,7 +115,7 @@ public class ChunkText extends Stage {
   public ChunkText(Config config) throws StageException {
     super(config);
     this.source = config.getString("source");
-    this.dest = config.hasPath("dest") ? config.getString("dest") : "chunk";
+    this.dest = config.hasPath("dest") ? config.getString("dest") : "text";
     this.method = ChunkingMethod.fromConfig(config);
     this.regEx = config.hasPath("regex") ? config.getString("regex") : "";
     this.lengthToSplit = config.hasPath("lengthToSplit") && config.getInt("lengthToSplit") > 0

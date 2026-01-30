@@ -5,6 +5,8 @@ import json
 import os
 import threading
 from py4j.protocol import Py4JNetworkError
+from pathlib import Path
+
 class TeeLogger:
     def __init__(self, filename):
         self.terminal = sys.stdout
@@ -17,24 +19,84 @@ class TeeLogger:
         self.log.flush()
 
 class Py4jClient:
-    def __init__(self, script_path, port=25333):
+    # Define allowed base directories as Path objects
+    ALLOWED_BASE_DIRECTORIES = [
+        Path('src/test/resources').resolve(),
+        Path('src/main/resources').resolve(),
+        Path('python').resolve(),
+        Path('src/test/resources/ExternalPythonTest').resolve(),
+    ]
 
-        print(f"[Py4jClient] Initializing Py4jClient with script_path: {script_path} and port: {port}")
-        self.script_path = script_path
+    def __init__(self, script_name, script_dir, port=25333):
+        print(f"[Py4jClient] Initializing Py4jClient with script_dir: {script_dir}, "
+              f"script_name: {script_name}, and port: {port}")
+        self.script_path = self.validate_and_construct_path(script_name, script_dir)
         self.port = port
         self.gateway = None
         self.running = False
+        self.user_namespace = {}
+
+    def validate_and_construct_path(self, script_name, script_dir):
+        """
+        Validate script name and directory, then construct path safely.
+        Returns a Path object.
+        """
+        if not script_name or not isinstance(script_name, str):
+            raise ValueError("Script name must be a non-empty string.")
+
+        base_name = os.path.basename(script_name)
+        if base_name != script_name:
+            raise ValueError(f"Script name cannot contain path separators.")
+
+        if not base_name.endswith('.py'):
+            raise ValueError(f"Script name must end with .py.")
+
+        if '..' in base_name:
+            raise ValueError(f"Script name cannot contain '..'.")
+
+        matched_allowed_dir = None
+        for allowed_dir in self.ALLOWED_BASE_DIRECTORIES:
+            try:
+                user_dir_abs = os.path.abspath(script_dir)
+            except Exception:
+                continue
+
+            if user_dir_abs == str(allowed_dir):
+                matched_allowed_dir = allowed_dir
+                break
+
+        if matched_allowed_dir is None:
+            allowed_list = [str(d) for d in self.ALLOWED_BASE_DIRECTORIES]
+            raise ValueError(
+                f"Script directory not in allowed list.\n"
+                f"Allowed: {allowed_list}\n"
+                f"Got: {script_dir}"
+            )
+
+        # Create final path using validated directory and base name
+        script_path = matched_allowed_dir / base_name
+
+        if not script_path.exists():
+            raise FileNotFoundError(f"Script file not found.")
+
+        if not script_path.is_file():
+            raise ValueError(f"Script file is not a regular file.")
+
+        try:
+            script_path.relative_to(matched_allowed_dir)
+        except ValueError:
+            raise ValueError(f"Security: Path escapes allowed directory")
+
+        return script_path
 
     def exec(self, json_msg):
-        #print(f"[Py4jClient] exec called with json_msg: {json_msg}")
         msg = json.loads(json_msg)
-        #print(f"[Py4jClient] Executing msg: {msg}")
         method_name = msg.get("method")
 
         if not method_name:
           raise ValueError("Missing method in message")
 
-        func = globals().get(method_name)
+        func = self.user_namespace.get(method_name)
         if func is None or not callable(func):
           raise AttributeError(f"Requested method {method_name} not found or not callable")
 
@@ -63,10 +125,10 @@ class Py4jClient:
         sys.stderr = TeeLogger(log_file)
         print(f"[Py4jClient] Logging to stdout and {log_file}")
         print(f"[Py4jClient] Loading user module from: {self.script_path}")
-        # Load the user script into the global namespace so its functions are available in globals()
-        with open(self.script_path) as f:
-            code = f.read()
-        exec(code, globals())
+
+        # Load the user script into isolated namespace
+        code = self.script_path.read_text(encoding='utf-8')
+        exec(code, self.user_namespace)
         try:
             self.gateway = JavaGateway(
                 gateway_parameters=GatewayParameters(auto_convert=True, port=self.port, auto_close=True, read_timeout=5 ),
@@ -106,12 +168,12 @@ class Py4jClient:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Py4jClient for Lucille PythonStage integration")
-    parser.add_argument('--script-path', required=True, help='Path to the user Python script to load')
+    parser.add_argument('--script-name', required=True, help='Name of the Python script file')
+    parser.add_argument('--script-dir', required=True, help='Directory containing the Python script')
     parser.add_argument('--port', required=True, type=int, help='Port for Py4J Gateway')
     args = parser.parse_args()
-    script_path = args.script_path
-    port = args.port
-    client = Py4jClient(script_path, port)
+    client = Py4jClient(args.script_name, args.script_dir, args.port)
     client.start()
-    print(f"[Py4jClient] Started client with script_path: {script_path} and port: {port}")
+    print(f"[Py4jClient] Started client successfully with script_name: {args.script_name}, "
+          f"script_dir: {args.script_dir}, port: {args.port}")
     # client.stop()

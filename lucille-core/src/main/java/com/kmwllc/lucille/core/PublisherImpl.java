@@ -10,6 +10,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.Condition;
 import org.apache.commons.collections4.Bag;
 import org.apache.commons.collections4.bag.HashBag;
 import org.apache.commons.collections4.bag.SynchronizedBag;
@@ -64,8 +65,13 @@ public class PublisherImpl implements Publisher {
 
   private final Integer maxPendingDocs;
 
-  private final ReentrantLock lock = new ReentrantLock();
-  private final java.util.concurrent.locks.Condition docIdsToTrackBelowMax = lock.newCondition();
+  // lock and condition used for blocking publishing when the number of pending docs exceeds the specified maxPendingDocs
+  private final ReentrantLock lockForPendingDocs = new ReentrantLock();
+  private final Condition pendingDocsBelowMaxCondition = lockForPendingDocs.newCondition();
+
+  // lock and condition used for blocking publishing when pause() is called
+  private final ReentrantLock lockForPauseResume = new ReentrantLock();
+  private volatile Condition resumeCondition = null;
 
   // Bag of published documents that have not reached a terminal state. Also includes children of published documents.
   // Note that this is a Bag, not a Set, because if two documents with the same ID are published, we would
@@ -106,6 +112,36 @@ public class PublisherImpl implements Publisher {
     this(config, messenger, runId, pipelineName, "default", false);
   }
 
+  @Override
+  public void pause() {
+    try {
+      lockForPauseResume.lock();
+      if (resumeCondition != null) {
+        throw new IllegalStateException();
+      }
+      // populate a Condition which publish() will check for and wait on
+      resumeCondition = lockForPauseResume.newCondition();
+    } finally {
+      lockForPauseResume.unlock();
+    }
+  }
+
+  @Override
+  public void resume() {
+    try {
+      lockForPauseResume.lock();
+      if (resumeCondition == null) {
+        throw new IllegalStateException();
+      }
+      // signal any threads waiting on the resumeCondition
+      resumeCondition.signalAll();
+      // set resumeCondition to null so that future calls to publish() will not find a Condition to wait on
+      resumeCondition = null;
+    } finally {
+      lockForPauseResume.unlock();
+    }
+  }
+
   /**
    * Submits the given document for processing by any available pipeline worker.
    *
@@ -120,14 +156,30 @@ public class PublisherImpl implements Publisher {
   @Override
   public void publish(Document document) throws Exception {
 
+    // check if we should wait until resume() is called
+    if (resumeCondition != null) {
+      try {
+        lockForPauseResume.lock();
+        // double check that resumeCondition is set now that we have the lock
+        if (resumeCondition != null) {
+          // wait to be signalled via a call to resume()
+          while (resumeCondition != null) { // use a loop to handle rare but possible "spurious wakeups"
+            resumeCondition.await();
+          }
+        }
+      } finally {
+        lockForPauseResume.unlock();
+      }
+    }
+
     if (maxPendingDocs != null) {
       try {
-        lock.lock();
+        lockForPendingDocs.lock();
         // if the number of pending docs is higher than the specified max,
         // wait to be notified by the event handling thread when the size falls below the max;
         // retest the condition every 10 seconds to handle any possible edge cases where the notification is not received
         while (docIdsToTrack.size() >= maxPendingDocs) {
-          docIdsToTrackBelowMax.await(10, TimeUnit.SECONDS);
+          pendingDocsBelowMaxCondition.await(10, TimeUnit.SECONDS);
           // note that in a scenario where N threads are calling publish() and the number of pending docs reaches maxPendingDocs,
           // all N threads will block on docIdsToTracBelowMax.await();
           // when numPending eventually drops to maxPendingDocs-1 via handleEvent(), all N threads are signalled simultaneously;
@@ -137,7 +189,7 @@ public class PublisherImpl implements Publisher {
           // the interim) it should not be possible for numPending to exceed maxPendingDocs by more than N-1
         }
       } finally {
-        lock.unlock();
+        lockForPendingDocs.unlock();
       }
     }
 
@@ -274,16 +326,16 @@ public class PublisherImpl implements Publisher {
       } else {
         if (maxPendingDocs != null) {
           try {
-            lock.lock();
+            lockForPendingDocs.lock();
             // since we have removed a docID from the bag of docIdsToTrack (and this is the main place where we do this),
             // check to see if the number of pending docs has fallen below the specified max and
             // notify any threads that are waiting on that condition; specifically, notify the connector thread(s)
             // where publish() is being called
             if (docIdsToTrack.size() < maxPendingDocs) {
-              docIdsToTrackBelowMax.signalAll();
+              pendingDocsBelowMaxCondition.signalAll();
             }
           } finally {
-            lock.unlock();
+            lockForPendingDocs.unlock();
           }
         }
       }
@@ -315,7 +367,7 @@ public class PublisherImpl implements Publisher {
         handleEvent(event);
       }
 
-      if (ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
+      if (timeout > 0 && ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
         log.error("Exiting run with " + numPending() + " pending documents; connector timed out (" + timeout + "ms)");
         return new PublisherResult(false, "Connector timeout.");
       }

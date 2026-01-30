@@ -141,4 +141,22 @@ public interface Publisher {
    *
    */
   void close() throws Exception;
+
+  /**
+   * Causes all threads calling publish() to block until resume() is called.
+   * If a thread is in the middle of publish() while pause() is called, it will begin
+   * blocking the _next_ time publish() is called.
+   *
+   * @throws IllegalStateException if called when publisher is already paused
+   */
+  void pause();
+
+  /**
+   * Unblocks any threads that were blocked on publish() due to a call to pause().
+   * Has no effect on threads that were blocked on publish() for another reason (for example,
+   * because the maxPendingDocs threshold was exceeded).
+   *
+   * @throws IllegalStateException if called when publisher is not paused
+   */
+  void resume();
 }

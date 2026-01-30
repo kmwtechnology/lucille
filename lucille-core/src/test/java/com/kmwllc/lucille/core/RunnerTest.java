@@ -1,26 +1,35 @@
 package com.kmwllc.lucille.core;
 
+import com.apptasticsoftware.rssreader.RssReader;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
+import com.kmwllc.lucille.connector.RSSConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
+import java.util.stream.Stream;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -135,10 +144,10 @@ public class RunnerTest {
 
   /**
    * Test an end-to-end run with a single connector that generates 1 document, an indexer
-   * with a batch timeout of 10 seconds, and a runner with timeout of .1 second
+   * with a batch timeout of 10 seconds, and a runner with connectorTimeout of .1 second
    */
   @Test
-  public void testRunnerTimeout() throws Exception {
+  public void testConnectorTimeout() throws Exception {
 
     Config config = ConfigFactory.load("RunnerTest/singleDocTimeout.conf");
     Connector connector = Connector.fromConfig(config).get(0);
@@ -153,6 +162,22 @@ public class RunnerTest {
   }
 
   /**
+   * Test an end-to-end run with a single connector that generates 1 document.
+   * Confirm that this run fails when the Runner's connectorTimeout is set to 1 millisecond
+   * but that it succeeds when the timeout is set to -1 milliseconds to disable it.
+   */
+  @Test
+  public void testDisabledConnectorTimeout() throws Exception {
+    Config verySmallTimeout = ConfigFactory.load("RunnerTest/singleDoc.conf").withValue("runner.connectorTimeout", ConfigValueFactory.fromAnyRef(1));
+    RunResult result = Runner.run(verySmallTimeout, Runner.RunType.TEST);
+    assertFalse(result.getStatus());
+
+    Config disabledTimeout = ConfigFactory.load("RunnerTest/singleDoc.conf").withValue("runner.connectorTimeout", ConfigValueFactory.fromAnyRef(-1));
+    RunResult result2 = Runner.run(disabledTimeout, Runner.RunType.TEST);
+    assertTrue(result2.getStatus());
+  }
+  
+  /**
    * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
    * generates one child document for every incoming document
    */
@@ -161,7 +186,6 @@ public class RunnerTest {
 
     TestMessenger messenger =
         Runner.runInTestMode("RunnerTest/singleDocSingleChild.conf").get("connector1");
-    ;
 
     // confirm doc 1 sent for processing
     List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
@@ -896,5 +920,57 @@ public class RunnerTest {
     assertFalse(result.getStatus());
     assertNotNull(result.getHistory());
     assertTrue(result.getHistory().isEmpty());
+  }
+
+  @Test
+  public void testRunnerStateSetAndCleared() throws Exception {
+
+    // when executing a run in a way that doesn't involve main(), no instances of RunnerState should be created
+    try (MockedConstruction<Runner.RunnerState> mockedConstruction = Mockito.mockConstruction(Runner.RunnerState.class)) {
+      Runner.runInTestMode("RunnerTest/singleDocSendEnabledFalse.conf").get("connector1");
+      List<Runner.RunnerState> instances = mockedConstruction.constructed();
+      assertEquals(0, instances.size());
+    }
+
+    // when executing a run via main(), an instance of RunnerState should be created, populated, and cleared
+    // to test this, first we mock Runner.SystemHelper so that System.exit() calls inside Runner.main() do not interfere
+    try (MockedStatic<Runner.SystemHelper> mockedStatic = mockStatic(Runner.SystemHelper.class)) {
+      // now mock RunnerState's constructor so we can see how many instances are created and inspect them
+      try (MockedConstruction<Runner.RunnerState> mockedConstruction = Mockito.mockConstruction(Runner.RunnerState.class)) {
+        assertNull(System.getProperty("config.file")); // tests should not be run with config.file already set
+        System.setProperty("config.file", "src/test/resources/RunnerTest/singleDocSendEnabledFalse.conf");
+        Runner.main(new String[] {});
+        List<Runner.RunnerState> instances = mockedConstruction.constructed();
+        assertEquals(1, instances.size());
+        Runner.RunnerState state = instances.get(0);
+        verify(state, times(1)).set(any(),any(),any(),any(),any()); // state should have been set
+        verify(state, times(1)).clear(); // state should have been cleared
+        verify(state, times(0)).close(); // state.close() should not have been called because we're not handling an INT signal
+      } finally {
+        System.clearProperty("config.file");
+      }
+    }
+  }
+
+  @Test
+  public void testRunnerStateClose() throws Exception {
+
+    Runner.RunnerState state = spy(new Runner.RunnerState());
+
+    Publisher publisher = mock(Publisher.class);
+    Connector connector = mock(Connector.class);
+    WorkerPool workerPool = mock(WorkerPool.class);
+    Indexer indexer = mock(Indexer.class);
+    Thread indexerThread = mock(Thread.class);
+
+    state.set(publisher, connector, workerPool, indexer, indexerThread);
+
+    // test that state.close() attempts to close/stop all the stored resources
+    state.close();
+    verify(publisher, times(1)).close();
+    verify(connector, times(1)).close();
+    verify(workerPool, times(1)).stop();
+    verify(indexer, times(1)).terminate();
+    verify(indexerThread, times(1)).join(anyLong());
   }
 }

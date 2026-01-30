@@ -24,6 +24,7 @@ import java.io.StringWriter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.MDC;
+import sun.misc.Signal;
 
 /**
  * Executes a Lucille run. A run is a sequential execution of one or more Connectors.
@@ -74,6 +75,79 @@ public class Runner {
   private Runner() {
   }
 
+  // static RunnerState that is only set via main() and should remain unset in execution contexts that don't involve main()
+  private static RunnerState state = null;
+
+  /**
+   * Holds various resources instantiated during a run so that we can attempt to cleanly close or stop them
+   * upon receiving an INT signal
+   */
+  static class RunnerState {
+    private Publisher publisher;
+    private Connector connector;
+    private WorkerPool workerPool;
+    private Indexer indexer;
+    private Thread indexerThread;
+
+    public RunnerState() {
+    }
+
+    public void set(Publisher publisher, Connector connector, WorkerPool workerPool, Indexer indexer, Thread thread) {
+      this.publisher = publisher;
+      this.connector = connector;
+      this.workerPool = workerPool;
+      this.indexer = indexer;
+      this.indexerThread = thread;
+    }
+
+    public void clear() {
+      publisher = null;
+      connector = null;
+      workerPool = null;
+      indexer = null;
+      indexerThread = null;
+    }
+
+    public void close() {
+      if (connector != null) {
+        try {
+          log.info("Closing current Connector...");
+          connector.close();
+        } catch (Exception e) {
+          log.error("Error closing Connector", e);
+        }
+      }
+      if (publisher != null) {
+        try {
+          log.info("Closing current Publisher...");
+          publisher.close();
+        } catch (Exception e) {
+          log.error("Error closing Publisher", e);
+        }
+      }
+      if (workerPool != null) {
+        try {
+          log.info("Stopping current Worker pool...");
+          workerPool.stop();
+          workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+        } catch (Exception e) {
+          log.error("Error stopping WorkerPool", e);
+        }
+      }
+      if (indexer != null) {
+        try {
+          log.info("Stopping current Indexer...");
+          indexer.terminate();
+          if (indexerThread != null) {
+            indexerThread.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
+          }
+        } catch (Exception e) {
+          log.error("Error stopping Indexer", e);
+        }
+      }
+    }
+  }
+
   /**
    * Runs the configured connectors. NOTE: parameters are case insensitive.
    * <p>
@@ -89,6 +163,11 @@ public class Runner {
    * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
    */
   public static void main(String[] args) throws Exception {
+    // make a RunnerState available for holding resources that will be instantiated later in the run;
+    // the only purpose of doing this is so that we can cleanly stop/close these resources if an INT signal is received
+    // during the run
+    state = new RunnerState();
+
     Options cliOptions = new Options()
         .addOption(Option.builder("usekafka").hasArg(false)
             .desc("Use Kafka for inter-component communication and don't execute pipelines locally.").build())
@@ -112,7 +191,7 @@ public class Runner {
             2, 10, "", true);
         log.info(writer.toString());
       }
-      System.exit(1);
+      SystemHelper.exit(1);
     }
 
     Config config = ConfigFactory.load();
@@ -128,15 +207,32 @@ public class Runner {
       return;
     }
 
+    // register a signal handler to attempt a clean shutdown of
+    // Connector, Publisher, WorkerPool, and Indexer if an INT signal is received
+    Signal.handle(new Signal("INT"), signal -> {
+      if (state != null) {
+        log.info("Runner attempting clean shutdown after receiving INT signal");
+        state.close();
+      }
+      SystemHelper.exit(0);
+    });
+
     RunType runType = getRunType(cli.hasOption("usekafka"), cli.hasOption("local"));
 
     // Kick off the run with a log of the result
     RunResult result = runWithResultLog(config, runType);
 
     if (result.getStatus()) {
-      System.exit(0);
+      SystemHelper.exit(0);
     } else {
-      System.exit(1);
+      SystemHelper.exit(1);
+    }
+  }
+
+  // utility class to allow mocking in a test context
+  class SystemHelper {
+    static void exit(int code) {
+      System.exit(code);
     }
   }
 
@@ -633,9 +729,23 @@ public class Runner {
             connector.getPipelineName(), metricsPrefix, connector.requiresCollapsingPublisher());
       }
 
+      // store resources in RunnerState so we can attempt to stop/close them cleanly
+      // if the run is aborted by an INT signal; state should only be non-null when running via main
+      // so this is skipped in other execution contexts
+      if (state != null) {
+        state.set(publisher, connector, workerPool, indexer, indexerThread);
+      }
+
       return runConnector(config, runId, connector, publisher);
 
     } finally {
+
+      // always clear RunnerState if it exists
+      if (state != null) {
+        state.clear();
+      }
+
+      // always stop workerPool and indexerThread
       if (workerPool != null) {
         workerPool.stop();
         workerPool.join(DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT);
