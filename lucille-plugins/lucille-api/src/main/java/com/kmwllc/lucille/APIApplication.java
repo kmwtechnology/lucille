@@ -7,6 +7,7 @@ import com.kmwllc.lucille.auth.BasicAuthenticator;
 import com.kmwllc.lucille.config.AuthConfiguration.AuthType;
 import com.kmwllc.lucille.config.LucilleAPIConfiguration;
 import com.kmwllc.lucille.core.RunnerManager;
+import com.kmwllc.lucille.endpoints.ConfigInfo;
 import com.kmwllc.lucille.endpoints.LivenessResource;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import com.kmwllc.lucille.endpoints.ReadinessResource;
@@ -21,6 +22,12 @@ import io.dropwizard.core.setup.Environment;
 import io.federecio.dropwizard.swagger.SwaggerBundle;
 import io.federecio.dropwizard.swagger.SwaggerBundleConfiguration;
 import jdk.jfr.Experimental;
+import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.container.ContainerResponseFilter;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerResponseContext;
+import jakarta.ws.rs.ext.Provider;
+import java.io.IOException;
 
 /**
  * Main entry point for the Lucille API.
@@ -115,15 +122,17 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
       log.info("Authentication is disabled.");
     }
 
-    // Register our 3 Resources
+    // Register our Resources
     AuthHandler authHandler = new AuthHandler(authEnabled);
     env.jersey().register(new LucilleResource(runnerManager, authHandler));
     env.jersey().register(new LivenessResource());
     env.jersey().register(new ReadinessResource());
     env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
-
-    // Register SystemStatsResource
     env.jersey().register(new SystemStatsResource());
+    env.jersey().register(new ConfigInfo(authHandler));
+
+    // Register CORS filter
+    env.jersey().register(new CORSFilter());
   }
 
   /**
@@ -141,5 +150,31 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
       log.info("No config file supplied. Using default: default-config.yml");
     }
     new APIApplication().run(args);
+  }
+}
+
+/**
+ * CORS filter to enable cross-origin requests from browser-based clients.
+ */
+@Provider
+class CORSFilter implements ContainerRequestFilter, ContainerResponseFilter {
+
+  @Override
+  public void filter(ContainerRequestContext requestContext) throws IOException {
+    // Handle preflight requests
+    if ("OPTIONS".equalsIgnoreCase(requestContext.getRequest().getMethod())) {
+      requestContext.abortWith(jakarta.ws.rs.core.Response.ok().build());
+    }
+  }
+
+  @Override
+  public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext)
+      throws IOException {
+    responseContext.getHeaders().add("Access-Control-Allow-Origin", "*");
+    responseContext.getHeaders().add("Access-Control-Allow-Credentials", "true");
+    responseContext.getHeaders().add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
+    responseContext.getHeaders().add("Access-Control-Allow-Headers",
+        "Content-Type, Authorization, X-Requested-With");
+    responseContext.getHeaders().add("Access-Control-Max-Age", "3600");
   }
 }
