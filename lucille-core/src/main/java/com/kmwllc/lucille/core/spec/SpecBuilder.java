@@ -273,6 +273,13 @@ public class SpecBuilder {
     return this;
   }
 
+ // ******** Adding a Spec ********
+
+  public SpecBuilder include(Spec spec) {
+    this.properties.addAll(spec.properties);
+    return this;
+  }
+
   public Spec build() {
     return new Spec(name, properties);
   }
