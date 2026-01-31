@@ -2,6 +2,8 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.BufferedReader;
@@ -18,6 +20,10 @@ import java.net.URI;
  * storage provider.
  */
 public interface FileContentFetcher {
+
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
+      .optionalString("fetcherClass")
+      .build();
 
   /**
    * Initialize the underlying resources associated with this FileContentFetcher.

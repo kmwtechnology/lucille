@@ -35,7 +35,7 @@ public class Spec {
 
   private final String name;
 
-  private final Set<Property> properties;
+  final Set<Property> properties;
 
   Spec(String name, Set<Property> defaultLegalProperties) {
     this.name = name;
