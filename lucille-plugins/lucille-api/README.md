@@ -79,21 +79,21 @@ The Lucille API can be paired with the **Lucille Admin UI** (a separate Next.js 
 
 ### Running the Admin UI
 
-The Admin UI is located in the `lucille-admin-ui/` directory (sibling to the lucille repo):
+The Admin UI is located in the `lucille-admin-ui/` directory (sibling to the lucille-api directory).
+
+**For detailed setup and development instructions**, see the [Admin UI README](./lucille-admin-ui/README.md).
+
+**Quick Start:**
 
 ```bash
-# Install dependencies
-cd ../lucille-admin-ui
+cd lucille-admin-ui
 npm install
-
-# Build the static site
-npm run build
-
-# Start the development server on port 3000
-npx serve out -l 3000
+npm run dev
 ```
 
 Then visit `http://localhost:3000` in your browser (with the API running on port 8080).
+
+The development server includes hot reloading for rapid development. For production deployment, see the Admin UI README for build and deployment instructions.
 
 ### Features
 
