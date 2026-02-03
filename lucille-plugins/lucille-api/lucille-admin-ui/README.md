@@ -53,7 +53,17 @@ The API will be available at **http://localhost:8080**
 
 The Admin UI requires the Lucille API to be running. If the API is not yet built:
 
-### Build the API
+### Step 1: Generate JavaDoc Documentation
+
+From the parent `lucille/` directory:
+
+```bash
+./run-jsondoclet.sh
+```
+
+This generates JSON documentation for connectors, stages, and indexers, which the UI displays in the component information modals.
+
+### Step 2: Build the API
 
 From the `lucille-api/` directory:
 
@@ -61,7 +71,7 @@ From the `lucille-api/` directory:
 mvn clean install
 ```
 
-This generates the JAR file at `target/lucille-api-plugin.jar`
+This generates the JAR file at `target/lucille-api-plugin.jar` (with the JavaDoc files included)
 
 ### Run the API
 

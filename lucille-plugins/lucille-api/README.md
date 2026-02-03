@@ -2,8 +2,22 @@
 
 ## Running the API
 
-1. Navigate into the `lucille-api` module
-2. Run `mvn clean install` to generate the api jar
+### Prerequisites
+
+1. **Generate JavaDoc documentation** (required for the Admin UI):
+   ```bash
+   cd ../lucille
+   ./run-jsondoclet.sh
+   ```
+   This generates JSON documentation for connectors, stages, and indexers.
+
+2. **Build the API**:
+   ```bash
+   cd ../lucille-plugins/lucille-api
+   mvn clean install
+   ```
+
+### Running the API
 
 The API can be run locally or in a Docker container:
 
