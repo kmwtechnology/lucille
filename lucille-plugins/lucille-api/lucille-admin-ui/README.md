@@ -91,37 +91,41 @@ npm run build
 
 Creates an optimized static export in the `out/` directory. The app is exported as static HTML/CSS/JS files ready to be served.
 
-### Deploying the Built UI with the API
+### Serving the Built UI
 
-The static build output can be integrated with the API for single-service deployment:
+The built static files can be served in two ways:
 
-**Option 1: Copy to API Static Resources**
+**Option 1: Serve Built Files Directly** (current approach)
 
 ```bash
 # Build the UI
 npm run build
 
-# Copy the built files to the API's static resources directory
-# (Location depends on API configuration - typically src/main/resources/public)
-cp -r out/* ../path/to/api/static/resources/
-```
-
-Then rebuild the API jar:
-
-```bash
-cd ../lucille-api
-mvn clean install
-```
-
-The API will now serve the UI from the root path `/` automatically.
-
-**Option 2: Serve Built Files Separately** (for development/testing)
-
-```bash
+# Serve the built files
 npx serve out -l 3000
 ```
 
-This serves the static build on port 3000 without hot reloading. The UI will still connect to the API on port 8080 (adjust in `lib/api.ts` if different).
+This serves the static build on port 3000. The UI will connect to the API on port 8080.
+
+In another terminal, run the API:
+
+```bash
+cd ../lucille-api
+export LUCILLE_CONF=$(pwd)/conf/simple-config.conf
+export DROPWIZARD_CONF=$(pwd)/conf/api.yml
+java -Dconfig.file=$LUCILLE_CONF -jar target/lucille-api-plugin.jar server $DROPWIZARD_CONF
+```
+
+**Option 2: Integrate UI with API** (requires implementation)
+
+To serve the UI directly from the API as a single service:
+
+1. Create `src/main/resources/public/` directory in lucille-api
+2. Copy built UI files: `cp -r out/* ../lucille-api/src/main/resources/public/`
+3. Configure Dropwizard to serve static files from the resources directory
+4. Rebuild the API: `mvn clean install`
+
+This would enable single-service deployment where all requests (UI + API) go through port 8080.
 
 ### Lint Code
 
