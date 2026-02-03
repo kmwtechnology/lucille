@@ -27,9 +27,20 @@ export function JavadocModal({ className, type = 'connector' }: JavadocModalProp
       const data = await response.json();
       
       // Find the javadoc for the specific class
-      const javadocEntry = data.find((entry: any) => entry.className === className);
+      // Support both exact match and simple class name match
+      let javadocEntry = data.find((entry: any) => entry.className === className);
+
+      // If exact match fails, try matching by simple class name (last part after dot)
       if (!javadocEntry) {
-        setError('No JavaDocs found for this class');
+        const simpleClassName = className.includes('.') ? className.split('.').pop() : className;
+        javadocEntry = data.find((entry: any) => {
+          const entrySimpleName = entry.className.split('.').pop();
+          return entrySimpleName === simpleClassName;
+        });
+      }
+
+      if (!javadocEntry) {
+        setError(`No JavaDocs found for this class: ${className}`);
         return;
       }
 
