@@ -2,10 +2,19 @@
 
 A modern, responsive web interface for managing Lucille data pipelines. Built with Next.js 15 and TypeScript.
 
+## Overview
+
+The Lucille Admin UI is a Next.js application that connects to the Lucille API. It can run in two modes:
+
+- **Development**: UI dev server runs independently on port 3000, connects to API on port 8080
+- **Production**: Static site is built and served by the API as a single integrated service
+
 ## Prerequisites
 
 - **Node.js** 18+ and **npm** 9+
-- **Lucille API** running on `http://localhost:8080` (see [API Setup](#api-setup))
+- **Lucille API** (see [API Setup](#api-setup))
+  - For development: API running on `http://localhost:8080`
+  - For production: Built static files will be served by the API
 
 ## Quick Start
 
@@ -80,17 +89,39 @@ Starts the Next.js development server with hot reloading on port 3000.
 npm run build
 ```
 
-Creates an optimized static export in the `out/` directory. The app is exported as static HTML/CSS/JS files.
+Creates an optimized static export in the `out/` directory. The app is exported as static HTML/CSS/JS files ready to be served.
 
-### Serve Production Build
+### Deploying the Built UI with the API
 
-After building:
+The static build output can be integrated with the API for single-service deployment:
+
+**Option 1: Copy to API Static Resources**
+
+```bash
+# Build the UI
+npm run build
+
+# Copy the built files to the API's static resources directory
+# (Location depends on API configuration - typically src/main/resources/public)
+cp -r out/* ../path/to/api/static/resources/
+```
+
+Then rebuild the API jar:
+
+```bash
+cd ../lucille-api
+mvn clean install
+```
+
+The API will now serve the UI from the root path `/` automatically.
+
+**Option 2: Serve Built Files Separately** (for development/testing)
 
 ```bash
 npx serve out -l 3000
 ```
 
-This serves the static build on port 3000 (without hot reloading).
+This serves the static build on port 3000 without hot reloading. The UI will still connect to the API on port 8080 (adjust in `lib/api.ts` if different).
 
 ### Lint Code
 
@@ -99,6 +130,51 @@ npm run lint
 ```
 
 Runs ESLint to check code quality.
+
+## How API and UI Work Together
+
+### Development Architecture
+
+```
+┌─────────────────────────────────────────┐
+│         Browser (port 3000)             │
+│    Lucille Admin UI Dev Server          │
+│   (Next.js with hot reloading)          │
+└─────────────────────────────────────────┘
+            ↓ API calls ↓
+┌─────────────────────────────────────────┐
+│    Lucille API (port 8080)              │
+│  (Dropwizard REST API)                  │
+│  - Configurations                       │
+│  - Pipeline Runs                        │
+│  - Component Metadata                   │
+│  - System Stats                         │
+└─────────────────────────────────────────┘
+```
+
+**CORS is enabled** on the API to allow the dev server (running on a different port) to communicate with the API.
+
+### Production Architecture
+
+```
+┌─────────────────────────────────────┐
+│   Browser                           │
+└─────────────────────────────────────┘
+             ↓ HTTP ↓
+┌─────────────────────────────────────┐
+│  Lucille API (port 8080)            │
+│  ┌─────────────────────────────────┐│
+│  │  Static UI Files (from build)   ││
+│  │  - HTML, CSS, JS                ││
+│  └─────────────────────────────────┘│
+│  ┌─────────────────────────────────┐│
+│  │  REST API Endpoints             ││
+│  │  - /v1/config, /v1/run, etc.    ││
+│  └─────────────────────────────────┘│
+└─────────────────────────────────────┘
+```
+
+**Single service deployment**: The API serves both the UI static files and the REST API endpoints. No separate frontend service needed.
 
 ## Project Structure
 

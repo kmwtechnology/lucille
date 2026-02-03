@@ -70,30 +70,63 @@ This allows the Lucille Admin UI (running on a different port) to communicate wi
 
 ## Admin UI Integration
 
-The Lucille API can be paired with the **Lucille Admin UI** (a separate Next.js project) to provide a web-based interface for:
+The Lucille API can be paired with the **Lucille Admin UI** (a Next.js application) to provide a web-based interface for:
 
 - **Managing Configurations**: Create, view, and manage pipeline configurations
 - **Monitoring Runs**: Track pipeline execution status, document counts, and errors
 - **Browsing Components**: Explore available connectors, stages, and indexers
 - **Viewing Documentation**: Access generated JavaDocs for configuration parameters
 
-### Running the Admin UI
+### Architecture: How API and UI Work Together
 
-The Admin UI is located in the `lucille-admin-ui/` directory (sibling to the lucille-api directory).
+**Development Mode:**
+- API runs on `http://localhost:8080`
+- UI dev server runs on `http://localhost:3000` (via `npm run dev`)
+- Services communicate via CORS (enabled by default)
+- Changes to UI code auto-refresh via hot reloading
+
+**Production Mode:**
+- UI is built as static files (`npm run build`)
+- Static files are served by the API on port 8080 at `/` (or a configured path)
+- Single service deployment - no separate frontend server needed
+- All requests go through the API
+
+### Running Locally for Development
+
+The Admin UI is located in the `lucille-admin-ui/` directory.
 
 **For detailed setup and development instructions**, see the [Admin UI README](./lucille-admin-ui/README.md).
 
 **Quick Start:**
 
 ```bash
+# Terminal 1: Start the API (from lucille-api directory)
+export LUCILLE_CONF=$(pwd)/conf/simple-config.conf
+export DROPWIZARD_CONF=$(pwd)/conf/api.yml
+java -Dconfig.file=$LUCILLE_CONF -jar target/lucille-api-plugin.jar server $DROPWIZARD_CONF
+
+# Terminal 2: Start the UI dev server (from lucille-admin-ui directory)
 cd lucille-admin-ui
 npm install
 npm run dev
 ```
 
-Then visit `http://localhost:3000` in your browser (with the API running on port 8080).
+Then visit `http://localhost:3000` in your browser. The development server includes hot reloading for rapid development.
 
-The development server includes hot reloading for rapid development. For production deployment, see the Admin UI README for build and deployment instructions.
+### Building for Production
+
+To build the static UI and prepare for deployment with the API:
+
+```bash
+cd lucille-admin-ui
+npm run build
+```
+
+This creates a static export in the `out/` directory. The files can then be:
+1. Copied into the API's static resources directory for serving by the API, or
+2. Deployed separately as a static site
+
+See the [Admin UI README](./lucille-admin-ui/README.md) for production deployment options.
 
 ### Features
 
