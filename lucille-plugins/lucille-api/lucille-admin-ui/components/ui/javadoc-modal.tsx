@@ -17,6 +17,11 @@ export function JavadocModal({ className, type = 'connector' }: JavadocModalProp
   const [error, setError] = useState<string | null>(null);
 
   const fetchJavadoc = async (className: string) => {
+    if (!className) {
+      setError('No class name provided');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -25,13 +30,13 @@ export function JavadocModal({ className, type = 'connector' }: JavadocModalProp
         throw new Error('Failed to fetch JavaDocs');
       }
       const data = await response.json();
-      
+
       // Find the javadoc for the specific class
       // Support both exact match and simple class name match
       let javadocEntry = data.find((entry: any) => entry.className === className);
 
       // If exact match fails, try matching by simple class name (last part after dot)
-      if (!javadocEntry) {
+      if (!javadocEntry && className) {
         const simpleClassName = className.includes('.') ? className.split('.').pop() : className;
         javadocEntry = data.find((entry: any) => {
           const entrySimpleName = entry.className.split('.').pop();
