@@ -2,8 +2,22 @@
 
 ## Running the API
 
-1. Navigate into the `lucille-api` module
-2. Run `mvn clean install` to generate the api jar
+### Prerequisites
+
+1. **Generate JavaDoc documentation** (required for the Admin UI):
+   ```bash
+   cd ../lucille
+   ./run-jsondoclet.sh
+   ```
+   This generates JSON documentation for connectors, stages, and indexers.
+
+2. **Build the API**:
+   ```bash
+   cd ../lucille-plugins/lucille-api
+   mvn clean install
+   ```
+
+### Running the API
 
 The API can be run locally or in a Docker container:
 
@@ -20,17 +34,121 @@ The API can be run locally or in a Docker container:
 
 ## Available Endpoints
 
-In both the local or dockerized deployment, all requests should be sent to localhost:8080. Currently, none of the endpoints expect
-any query parameters or payloads.
+In both the local or dockerized deployment, all requests should be sent to localhost:8080.
 
 The available endpoints are as follows:
 
+### Core Management
+
  |        | GET                                        | POST                                               | DELETE          |
  |--------|--------------------------------------------|----------------------------------------------------|-----------------|
- | /v1/lucille| Gets the status of the current lucille run | Kicks off a new lucille run, if one is not running | Not Implemented |
- | /v1/livez  | liveness health check endpoint             | Not Implemented                                    | Not Implemented |
- | /v1/readyz | readiness health check endpoint            | Not Implemented                                    | Not Implemented |
- | /v1/systemstats | system resource usage endpoint             | Not Implemented                                    | Not Implemented |
+ | /v1/config | Retrieve all configurations | Create a new configuration | Not Implemented |
+ | /v1/config/{configId} | Get a specific configuration by ID | Not Implemented | Not Implemented |
+ | /v1/run | Retrieve all pipeline runs | Start a new pipeline run | Not Implemented |
+ | /v1/run/{runId} | Get a specific run by ID | Not Implemented | Not Implemented |
+
+### Health & Monitoring
+
+ |        | GET                                        | POST                                               | DELETE          |
+ |--------|--------------------------------------------|----------------------------------------------------|-----------------|
+ | /v1/livez  | Liveness check (HTTP 200 if running) | Not Implemented | Not Implemented |
+ | /v1/readyz | Readiness check (HTTP 200 if ready) | Not Implemented | Not Implemented |
+ | /v1/systemstats | System resource usage (CPU, RAM, JVM, disk) | Not Implemented | Not Implemented |
+ | /v1/systemstats/metrics | Dropwizard metrics registry | Not Implemented | Not Implemented |
+
+### Configuration Metadata & Documentation
+
+ |        | GET                                        | POST                                               | DELETE          |
+ |--------|--------------------------------------------|----------------------------------------------------|-----------------|
+ | /v1/config-info/connector-list | List all available connector classes with specs | Not Implemented | Not Implemented |
+ | /v1/config-info/stage-list | List all available pipeline stage classes with specs | Not Implemented | Not Implemented |
+ | /v1/config-info/indexer-list | List all available indexer classes with specs | Not Implemented | Not Implemented |
+ | /v1/config-info/javadoc-list/{type} | Get javadoc and metadata for a component type (connector, stage, or indexer) | Not Implemented | Not Implemented |
+
+### API Documentation
+
+ | Resource | Description |
+ |----------|-------------|
+ | /swagger | Interactive Swagger/OpenAPI UI for exploring and testing endpoints |
+
+## CORS Support
+
+The API includes built-in CORS (Cross-Origin Resource Sharing) support to enable browser-based clients to make requests. The following CORS headers are automatically added to all responses:
+
+- `Access-Control-Allow-Origin: *` - Allows requests from any origin
+- `Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, HEAD`
+- `Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With`
+- `Access-Control-Max-Age: 3600` - Preflight requests cached for 1 hour
+
+This allows the Lucille Admin UI (running on a different port) to communicate with the API without CORS blocking.
+
+## Admin UI Integration
+
+The Lucille API can be paired with the **Lucille Admin UI** (a Next.js application) to provide a web-based interface for:
+
+- **Managing Configurations**: Create, view, and manage pipeline configurations
+- **Monitoring Runs**: Track pipeline execution status, document counts, and errors
+- **Browsing Components**: Explore available connectors, stages, and indexers
+- **Viewing Documentation**: Access generated JavaDocs for configuration parameters
+
+### Architecture: How API and UI Work Together
+
+**Development Mode:**
+- API runs on `http://localhost:8080`
+- UI dev server runs on `http://localhost:3000` (via `npm run dev`)
+- Services communicate via CORS (enabled by default)
+- Changes to UI code auto-refresh via hot reloading
+
+**Production Mode:**
+- UI is built as static files (`npm run build`)
+- Static files are served by the API on port 8080 at `/` (or a configured path)
+- Single service deployment - no separate frontend server needed
+- All requests go through the API
+
+### Running Locally for Development
+
+The Admin UI is located in the `lucille-admin-ui/` directory.
+
+**For detailed setup and development instructions**, see the [Admin UI README](./lucille-admin-ui/README.md).
+
+**Quick Start:**
+
+```bash
+# Terminal 1: Start the API (from lucille-api directory)
+export LUCILLE_CONF=$(pwd)/conf/simple-config.conf
+export DROPWIZARD_CONF=$(pwd)/conf/api.yml
+java -Dconfig.file=$LUCILLE_CONF -jar target/lucille-api-plugin.jar server $DROPWIZARD_CONF
+
+# Terminal 2: Start the UI dev server (from lucille-admin-ui directory)
+cd lucille-admin-ui
+npm install
+npm run dev
+```
+
+Then visit `http://localhost:3000` in your browser. The development server includes hot reloading for rapid development.
+
+### Building for Production
+
+To build the static UI and prepare for deployment with the API:
+
+```bash
+cd lucille-admin-ui
+npm run build
+```
+
+This creates a static export in the `out/` directory. The files can then be:
+1. Copied into the API's static resources directory for serving by the API, or
+2. Deployed separately as a static site
+
+See the [Admin UI README](./lucille-admin-ui/README.md) for production deployment options.
+
+### Features
+
+- **Real-time API Status**: Dashboard shows API health, system resources, and run statistics
+- **Configuration Builder**: Interactive UI to create and manage Lucille configurations
+- **Run Management**: Start new runs and monitor execution progress
+- **Component Documentation**: Browse all available connectors, indexers, and stages with auto-generated documentation
+- **JavaDocs Viewer**: Click "JavaDocs" on any component to see its full documentation including configuration parameters
 
 ## Configuration
 
@@ -63,6 +181,25 @@ auth:
   type: basicAuth
   password: password
 ```
+
+### JavaDoc Generation
+
+The API can serve auto-generated JavaDoc documentation for connectors, stages, and indexers through the `/v1/config-info/javadoc-list/{type}` endpoints.
+
+To generate the JavaDoc JSON files:
+
+```bash
+cd ../lucille
+./run-jsondoclet.sh
+```
+
+This script uses a custom JsonDoclet to extract documentation from the source code and generates three JSON files:
+
+- `connector-javadocs.json` - Connector class documentation
+- `stage-javadocs.json` - Pipeline stage class documentation
+- `indexer-javadocs.json` - Indexer class documentation
+
+These files are copied into the API JAR during the build and are served by the `/v1/config-info/javadoc-list/{type}` endpoints. The Admin UI uses these endpoints to display component documentation in the JavaDocs modal.
 
 ## Logging and Integration Testing with Dropwizard
 
