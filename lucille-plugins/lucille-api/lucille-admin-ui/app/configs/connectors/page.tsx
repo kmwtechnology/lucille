@@ -71,11 +71,11 @@ export default function ConnectorsPage() {
             <CardHeader className="pb-2">
               <div className="space-y-2">
                 <div className="flex justify-end">
-                  <JavadocModal className={connector.className} type="connector" />
+                  <JavadocModal className={connector.class} type="connector" />
                 </div>
                 <div>
                   <CardTitle className="text-base sm:text-lg break-words truncate max-w-full">
-                    {connector.className ? connector.className.split('.').pop() : `Connector ${index + 1}`}
+                    {connector.class ? connector.class.split('.').pop() : `Connector ${index + 1}`}
                   </CardTitle>
                 </div>
               </div>

@@ -71,11 +71,11 @@ export default function StagesPage() {
             <CardHeader className="pb-2">
               <div className="space-y-2">
                 <div className="flex justify-end">
-                  <JavadocModal className={stage.className} type="stage" />
+                  <JavadocModal className={stage.class} type="stage" />
                 </div>
                 <div>
                   <CardTitle className="text-base sm:text-lg break-words truncate max-w-full">
-                    {stage.className ? stage.className.split('.').pop() : `Stage ${index + 1}`}
+                    {stage.class ? stage.class.split('.').pop() : `Stage ${index + 1}`}
                   </CardTitle>
                 </div>
               </div>

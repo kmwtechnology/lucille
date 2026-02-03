@@ -71,11 +71,11 @@ export default function IndexersPage() {
             <CardHeader className="pb-2">
               <div className="space-y-2">
                 <div className="flex justify-end">
-                  <JavadocModal className={indexer.className} type="indexer" />
+                  <JavadocModal className={indexer.class} type="indexer" />
                 </div>
                 <div>
                   <CardTitle className="text-base sm:text-lg break-words truncate max-w-full">
-                    {indexer.className ? indexer.className.split('.').pop() : `Indexer ${index + 1}`}
+                    {indexer.class ? indexer.class.split('.').pop() : `Indexer ${index + 1}`}
                   </CardTitle>
                 </div>
               </div>
