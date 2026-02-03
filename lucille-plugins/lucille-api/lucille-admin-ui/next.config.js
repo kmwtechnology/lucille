@@ -3,8 +3,8 @@ const isProd = process.env.NODE_ENV === 'production' || process.env.EXPORT === '
 
 const nextConfig = {
   output: 'export',
-  basePath: isProd ? '/admin' : '',
-  assetPrefix: isProd ? '/admin' : '',
+  basePath: '',
+  assetPrefix: '',
   // Disable image optimization during development
   images: {
     unoptimized: true,
