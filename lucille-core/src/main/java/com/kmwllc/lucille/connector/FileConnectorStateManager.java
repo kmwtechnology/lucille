@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  *   <ul>
  *     <li>name (VARCHAR PRIMARY KEY): The full path (for cloud, the full URI) to the file. Defaults to a length of 200.
  *       <ul>
- *         <li>Names are case-sensitive - it is very important to keep the pathToStorage consistent in your Config when using state.</li>
+ *         <li>Names are case-sensitive - it is very important to keep the paths consistent in your Config when using state.</li>
  *       </ul>
  *     </li>
  *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille. Is NULL for directories.</li>
