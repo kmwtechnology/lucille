@@ -14,11 +14,11 @@ import java.util.Iterator;
  * and the delete by query functionality.
  * By default, this stage moves to skip 100% of documents to the end of the pipeline and then send the document to the indexer.
  */
-public class Skip extends Stage {
+public class SkipDocument extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage().build();
 
-  public Skip(Config config) {
+  public SkipDocument(Config config) {
     super(config);
   }
 

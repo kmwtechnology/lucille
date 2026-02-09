@@ -10,12 +10,12 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import org.junit.Test;
 
-public class SkipTest {
-  private final StageFactory factory = StageFactory.of(Skip.class);
+public class SkipDocumentTest {
+  private final StageFactory factory = StageFactory.of(SkipDocument.class);
 
   @Test
   public void testSkip() throws Exception {
-    Stage stage = factory.get("SkipTest/config.conf");
+    Stage stage = factory.get("SkipDocumentTest/config.conf");
 
     Document doc = Document.create("doc");
     // setting a field called .skipped should throw an exception as a reserved field
@@ -28,7 +28,7 @@ public class SkipTest {
 
   @Test
   public void testSkipConditional() throws Exception {
-    Stage stage = factory.get("SkipTest/conditional_config.conf");
+    Stage stage = factory.get("SkipDocumentTest/conditional_config.conf");
 
     Document doc1 = Document.create("doc1");
     assertFalse(doc1.isSkipped());
@@ -45,7 +45,7 @@ public class SkipTest {
   @Test
   public void testSkipAfterWithChild() throws Exception {
     Stage setStaticStage = StageFactory.of(SetStaticValues.class).get("SetStaticValuesTest/config.conf");
-    Stage stage = factory.get("SkipTest/conditional_setStatic.conf");
+    Stage stage = factory.get("SkipDocumentTest/conditional_setStatic.conf");
     Stage addRandomStage = StageFactory.of(AddRandomBoolean.class).get("AddRandomBooleanTest/valid.conf");
 
     Document doc1 = Document.create("doc1");
