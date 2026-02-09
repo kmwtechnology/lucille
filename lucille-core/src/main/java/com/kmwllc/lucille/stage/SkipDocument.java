@@ -12,7 +12,7 @@ import java.util.Iterator;
 /**
  * A stage that sets .skipped to true on the documents that pass through it. Intended to be used with the conditional framework
  * and the delete by query functionality.
- * By default, this stage moves to skip 100% of documents to the end of the pipeline and then send the document to the indexer.
+ * By default, this stage moves to skip 100% of documents to the end of the pipeline and then sends the document to the indexer.
  */
 public class SkipDocument extends Stage {
 
