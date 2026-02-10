@@ -279,9 +279,8 @@ public class SpecBuilder {
    * @param spec The spec you want to include.
    * @return This Spec with the given spec added.
    */
-
   public SpecBuilder include(Spec spec) {
-    this.properties.addAll(spec.properties);
+    this.properties.addAll(spec.getProperties());
     return this;
   }
 
