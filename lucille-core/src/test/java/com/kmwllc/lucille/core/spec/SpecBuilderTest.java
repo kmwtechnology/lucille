@@ -5,9 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.util.FileContentFetcher;
 import java.util.List;
 import org.junit.Test;
 
@@ -44,23 +42,23 @@ public class SpecBuilderTest {
 
   @Test
   public void testMultipleIncludes() {
-    Spec spec4 = SpecBuilder.withoutDefaults()
+    Spec spec1 = SpecBuilder.withoutDefaults()
         .optionalString("field1").build();
 
-    Spec spec5 = SpecBuilder.withoutDefaults()
+    Spec spec2 = SpecBuilder.withoutDefaults()
         .optionalString("field2")
         .optionalNumber("field3").build();
 
-    Spec spec6 = SpecBuilder.withoutDefaults()
+    Spec spec3 = SpecBuilder.withoutDefaults()
         .optionalBoolean("field4").build();
 
     Spec combinedSpec = SpecBuilder.stage()
         .optionalString("baseField")
-        .include(spec4)
-        .include(spec5)
-        .include(spec5)
-        .include(spec4)
-        .include(spec6).build();
+        .include(spec1)
+        .include(spec2)
+        .include(spec2)
+        .include(spec1)
+        .include(spec3).build();
 
     assertTrue(combinedSpec.getLegalProperties().contains("baseField"));
     assertTrue(combinedSpec.getLegalProperties().contains("field1"));
