@@ -275,7 +275,7 @@ public class SpecBuilder {
 
  // ******** Adding a Spec ********
   /**
-   * Returns this Spec with the spec you want to include added.
+   * Returns this SpecBuilder with all the properties of the provided Spec added
    * @param spec The spec you want to include.
    * @return This Spec with the given spec added.
    */
