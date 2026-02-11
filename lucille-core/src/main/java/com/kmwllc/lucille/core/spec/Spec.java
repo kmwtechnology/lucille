@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.collect.ImmutableSet;
 import com.typesafe.config.Config;
 import java.util.HashSet;
 import java.util.Map;
@@ -57,10 +56,10 @@ public class Spec {
 
   /**
    * Gets the spec's properties.
-   * @return an immutable copy of the set of properties.
+   * @return a copy of the set of properties.
    */
   Set<Property> getProperties() {
-    return ImmutableSet.copyOf(properties);
+    return Set.copyOf(properties);
   }
 
   /**
