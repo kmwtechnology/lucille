@@ -23,7 +23,9 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Calendar;
 import java.util.List;
+import java.util.TimeZone;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
@@ -71,21 +73,43 @@ public class FileConnectorStateManagerTest {
         ResultSet secretRS = RunScript.execute(connection, new StringReader(secretsQuery))) {
 
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
+      Timestamp helloTimestamp = helloRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
       // the timestamp should be within the last ~15 seconds.
       assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
+      Timestamp infoTimestamp = infoRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
       assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
+      Timestamp secretTimestamp = secretRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
       assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
     }
 
     manager.shutdown();
     assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  @Test
+  public void testGetLastPublished() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    for (String filePath : allFilePaths) {
+      manager.markFileEncountered(filePath);
+      manager.successfullyPublishedFile(filePath);
+    }
+
+      assertTrue(manager.getLastPublished(helloFile).isAfter(Instant.now().minusSeconds(60L)));
+      assertTrue(manager.getLastPublished(helloFile).isBefore(Instant.now().plusSeconds(60L)));
+
+      assertTrue(manager.getLastPublished(infoFile).isAfter(Instant.now().minusSeconds(60L)));
+      assertTrue(manager.getLastPublished(infoFile).isBefore(Instant.now().plusSeconds(60L)));
+
+      assertTrue(manager.getLastPublished(secretsFile).isAfter(Instant.now().minusSeconds(60L)));
+      assertTrue(manager.getLastPublished(secretsFile).isBefore(Instant.now().plusSeconds(60L)));
   }
 
   @Test
@@ -107,7 +131,7 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/info.txt'"))) {
 
       assertTrue(infoRS.next());
-      Timestamp newFileTimestamp = infoRS.getTimestamp("last_published");
+      Timestamp newFileTimestamp = infoRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
       // the timestamp should be within the last ~15 seconds.
       assertTrue(newFileTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15))));
     }
@@ -191,16 +215,16 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/info.txt'"));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
+      Timestamp helloTimestamp = helloRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
       // the timestamp should be within the last ~15 seconds.
       assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
+      Timestamp infoTimestamp = infoRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
       assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
+      Timestamp secretTimestamp = secretRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
       assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
     }
 
@@ -231,11 +255,11 @@ public class FileConnectorStateManagerTest {
         ResultSet subdirCSVResults = RunScript.execute(connection, new StringReader(baseQuery + "subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv'"))) {
 
       assertTrue(aJSONResults.next());
-      publishedTimestamp = aJSONResults.getTimestamp("last_published");
+      publishedTimestamp = aJSONResults.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
       assertTrue(publishedTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
 
       assertTrue(subdirCSVResults.next());
-      assertEquals(publishedTimestamp, subdirCSVResults.getTimestamp("last_published"));
+      assertEquals(publishedTimestamp, subdirCSVResults.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
 
       // before we run again, we will set these two files to have been published a long time ago, while everything else will still be
       // very recently published.
@@ -300,10 +324,10 @@ public class FileConnectorStateManagerTest {
         ResultSet skipFile2Results = RunScript.execute(connection, new StringReader("SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name='" + fileConnectorExampleDir + "subdir/skipFile.txt'"))) {
 
       assertTrue(skipFile1Results.next());
-      assertNull(skipFile1Results.getTimestamp("last_published"));
+      assertNull(skipFile1Results.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
 
       assertTrue(skipFile2Results.next());
-      assertNull(skipFile2Results.getTimestamp("last_published"));
+      assertNull(skipFile2Results.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
     }
   }
 
