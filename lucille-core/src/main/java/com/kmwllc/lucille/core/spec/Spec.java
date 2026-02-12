@@ -55,6 +55,14 @@ public class Spec {
   }
 
   /**
+   * Gets the spec's properties.
+   * @return a copy of the set of properties.
+   */
+  Set<Property> getProperties() {
+    return Set.copyOf(properties);
+  }
+
+  /**
    * Validates this Config using this Spec's properties. Throws an Exception if the Config is missing a required
    * parent / property or contains a non-legal property.
    * @param config The Config that you want to validate against this Spec's properties.
