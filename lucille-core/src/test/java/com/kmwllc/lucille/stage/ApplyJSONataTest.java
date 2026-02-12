@@ -125,7 +125,7 @@ public class ApplyJSONataTest {
     assertEquals("[0,1,2]", doc.getJson("dest").toString());
   }
 
-  // **NOTE**: For the following three tests, each one hasa different type for "source" - a raw object, a JSON object,
+  // **NOTE**: For the following three tests, each one has a different type for "source" - a raw object, a JSON object,
   // and a JSON array. The expression used is just $string(), which can be easily applied to all of these.
   @Test
   public void testSourceValue() throws StageException {
@@ -212,5 +212,22 @@ public class ApplyJSONataTest {
     // should no longer have "field".
     assertFalse(doc.has("field"));
     assertEquals("{\"a\":\"b\"}", doc.getJson("value").toString());
+  }
+
+  @Test
+  public void testExceptionDuringTransformation() throws StageException {
+    Stage stage = factory.get("ApplyJSONataTest/badEvaluation.conf");
+    // Expression: $invalidFunction(field)
+    Document doc = Document.create("doc1");
+
+    doc.setField("source", mapper.createObjectNode()
+        .set("value", mapper.createObjectNode()
+            .put("a", "b")));
+
+    // should not throw an exception, but should log a warning and not make any changes to the document.
+    stage.processDocument(doc);
+
+    assertEquals("doc1", doc.getId());
+    assertNull(doc.getJson("destination"));
   }
 }

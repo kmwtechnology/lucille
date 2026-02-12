@@ -2,11 +2,14 @@ package com.kmwllc.lucille.stage;
 
 import com.dashjoin.jsonata.JException;
 import com.dashjoin.jsonata.Jsonata;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +74,7 @@ public class ApplyJSONata extends Stage {
       try {
         doc.transform(parsedExpression);
       } catch (DocumentException e) {
-        log.warn("Exception occurred when applying transformation", e);
+        log.warn("Exception occurred when applying transformation to document ({}). No change will take place.", doc.getId(), e);
       }
       return null;
     }
@@ -81,37 +84,53 @@ public class ApplyJSONata extends Stage {
       return null;
     }
 
-    JsonNode sourceNode = doc.getJson(source);
-
-    Object input;
     try {
-      // reading the value from the node as a String to handle byte[]. convertValue cannot handle byte[].
-      if (sourceNode.isObject()) {
-        input = objectMapper.readValue(sourceNode.toString(), Map.class);
-      } else if (sourceNode.isArray()) {
-        input = objectMapper.readValue(sourceNode.toString(), List.class);
-      } else {
-        // If the node we retrieve isn't an object or an array, we can just only operate on the value itself.
-        input = sourceNode.toString();
+      JsonNode sourceNode = doc.getJson(source);
+      Object output = parsedExpression.evaluate(toJsonataInput(sourceNode));
+
+      if (output == null) {
+        log.info("No jsonata output for document ({}). No change will take place.", doc.getId());
+        return null;
       }
-    } catch (JsonProcessingException e) {
-      throw new StageException("Error creating a Map from the JSON found in \"source\" field.", e);
-    }
 
-    Object output = parsedExpression.evaluate(input);
-
-    if (output == null) {
-      log.info("No jsonata output for document ({}). No change will take place.", doc.getId());
-      return null;
-    }
-
-    // Converting the output (possible a List or Map) back to a Jackson-compatible value.
-    if (destination != null) {
-      doc.setField(destination, objectMapper.valueToTree(output));
-    } else {
-      doc.setField(source, objectMapper.valueToTree(output));
+      // Converting the output back to a Jackson-compatible value.
+      String destField = destination != null ? destination : source;
+      doc.setField(destField, objectMapper.valueToTree(output));
+    } catch(Exception e) {
+      log.warn("Exception occurred when applying transformation to document ({}). No change will take place.", doc.getId(), e);
     }
 
     return null;
+  }
+
+  // recursively convert JsonNode to a Map/List/primitive for Jsonata to work with, including converting binary nodes to base64 strings
+  private Object toJsonataInput(JsonNode node) {
+    if (node.isObject()) {
+      Map<String, Object> map = new HashMap<>();
+      node.fields().forEachRemaining(entry ->
+          map.put(entry.getKey(), toJsonataInput(entry.getValue()))
+      );
+      return map;
+    } else if (node.isArray()) {
+      List<Object> list = new ArrayList<>();
+      node.forEach(element -> list.add(toJsonataInput(element)));
+      return list;
+    } else if (node.isBinary()) {
+      try {
+        return Base64.getEncoder().encodeToString(node.binaryValue());
+      } catch (IOException e) {
+        return null;
+      }
+    } else if (node.isTextual()) {
+      return node.asText();
+    } else if (node.isNumber()) {
+      return node.numberValue();
+    } else if (node.isBoolean()) {
+      return node.booleanValue();
+    } else if (node.isNull()) {
+      return null;
+    } else {
+      return node.toString();
+    }
   }
 }
