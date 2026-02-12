@@ -11,10 +11,10 @@ In this project, the Docsy theme component is pulled in as a Hugo module, togeth
 $ hugo mod graph
 hugo: collected modules in 566 ms
 hugo: collected modules in 578 ms
-github.com/google/docsy-example github.com/google/docsy@v0.7.1
-github.com/google/docsy-example github.com/google/docsy/dependencies@v0.7.1
-github.com/google/docsy/dependencies@v0.7.1 github.com/twbs/bootstrap@v5.2.3+incompatible
-github.com/google/docsy/dependencies@v0.7.1 github.com/FortAwesome/Font-Awesome@v0.0.0-20230327165841-0698449d50f2
+github.com/google/docsy-example github.com/google/docsy@v0.14.0
+github.com/google/docsy-example github.com/google/docsy/dependencies@v0.7.2
+github.com/google/docsy/dependencies@v0.7.2 github.com/twbs/bootstrap@v5.2.3+incompatible
+github.com/google/docsy/dependencies@v0.7.2 github.com/FortAwesome/Font-Awesome@v0.0.0-20230327165841-0698449d50f2
 ```
 
 You can find detailed theme instructions in the [Docsy user guide][].
@@ -115,7 +115,7 @@ Error: Error building site: "C:\Users\foo\path\to\docsy-example\content\en\_inde
 Built in 27 ms
 ```
 
-This error occurs if you are running an outdated version of Hugo. As of docsy theme version `v0.7.0`, hugo version `0.110.0` or higher is required.
+This error occurs if you are running an outdated version of Hugo. As of docsy theme version `v0.14.0`, hugo version `0.155.0` or higher is required.
 See this [section](https://www.docsy.dev/docs/get-started/docsy-as-module/installation-prerequisites/#install-hugo) of the user guide for instructions on how to install Hugo.
 
 Or you may be confronted with the following error:
