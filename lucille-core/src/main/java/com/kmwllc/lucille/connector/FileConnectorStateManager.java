@@ -11,6 +11,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Calendar;
+import java.util.TimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -206,7 +208,8 @@ public class FileConnectorStateManager {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
-          Timestamp timestamp = rs.getTimestamp("last_published");
+          //calendar argument needed to tell getTimestamp to use UTC instead of defaulting to the JVM's timezone
+          Timestamp timestamp = rs.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
 
           if (timestamp != null) {
             return timestamp.toInstant();
@@ -228,7 +231,8 @@ public class FileConnectorStateManager {
     String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
-      statement.setTimestamp(1, traversalTimestamp);
+      //calendar argument needed to tell setTimestamp to use UTC instead of defaulting to the JVM's timezone
+      statement.setTimestamp(1, traversalTimestamp, Calendar.getInstance(TimeZone.getTimeZone("UTC")));
       statement.setString(2, fullPathStr);
 
       int rowsChanged = statement.executeUpdate();
