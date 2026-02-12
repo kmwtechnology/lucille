@@ -27,7 +27,7 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 
-@JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children"})
+@JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children", "skipped"})
 public class HashMapDocument implements Document, Serializable {
 
   static final long serialVersionUID = 1L;
@@ -656,6 +656,20 @@ public class HashMapDocument implements Document, Serializable {
       data.putOne(DROP_FIELD, true);
     } else {
       data.remove(DROP_FIELD);
+    }
+  }
+
+  @Override
+  public boolean isSkipped() {
+    return data.contains(SKIP_FIELD);
+  }
+
+  @Override
+  public void setSkipped(boolean status) {
+    if (status) {
+      data.putOne(SKIP_FIELD, true);
+    } else {
+      data.remove(SKIP_FIELD);
     }
   }
 

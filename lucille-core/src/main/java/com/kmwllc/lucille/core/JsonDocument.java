@@ -896,6 +896,20 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public boolean isSkipped() {
+    return data.has(SKIP_FIELD);
+  }
+
+  @Override
+  public void setSkipped(boolean status) {
+    if (status) {
+      data.put(SKIP_FIELD, true);
+    } else {
+      data.remove(SKIP_FIELD);
+    }
+  }
+
+  @Override
   public void removeDuplicateValues(String fieldName, String targetFieldName) {
     if (!isMultiValued(fieldName)) {
       return;
