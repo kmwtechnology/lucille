@@ -1,22 +1,28 @@
 package com.kmwllc.lucille.connector;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.connector.storageclient.BaseFileReference;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
+import com.kmwllc.lucille.connector.storageclient.TraversalParams.PublishMode;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Traverses local and cloud storage (S3, GCP, Azure) from one or more roots and publishes a Document for each file encountered.
@@ -76,6 +82,7 @@ public class FileConnector extends AbstractConnector {
   public static final String CREATED = "file_creation_date";
   public static final String SIZE = "file_size_bytes";
   public static final String CONTENT = "file_content";
+  public static final String EXPIRED = "file_expired";
   public static final String ARCHIVE_FILE_SEPARATOR = "!";
 
   // cloudOption Keys
@@ -115,7 +122,7 @@ public class FileConnector extends AbstractConnector {
               .optionalList("includes", new TypeReference<List<String>>(){})
               .optionalList("excludes", new TypeReference<List<String>>(){})
               // durations are strings.
-              .optionalString("lastModifiedCutoff", "lastPublishedCutoff").build(),
+              .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode").build(),
           SpecBuilder.parent("fileOptions")
               .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
               .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
@@ -153,6 +160,14 @@ public class FileConnector extends AbstractConnector {
 
     this.storageClientMap = StorageClient.createClients(config);
 
+    // if publishMode was specifically defined as "incremental", throw a warning if state not defined
+    if (config.hasPath("filterOptions.publishMode")) {
+      var mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
+      if (mode == PublishMode.INCREMENTAL && !config.hasPath("state")) {
+        log.warn("filterOptions.publishMode of 'incremental' was specified, but no state configuration was provided. Incremental mode not supported with current config.");        
+      }
+    }
+
     // Cannot specify multiple storage paths and a moveTo of some kind
     if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath("fileOptions.moveToErrorFolder"))) {
       throw new IllegalArgumentException("FileConnector does not support multiple paths and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
@@ -166,56 +181,133 @@ public class FileConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-      try {
-        for (StorageClient client : storageClientMap.values()) {
-          client.init();
-        }
-      } catch (IOException e) {
-        throw new ConnectorException("Error initializing a StorageClient.", e);
-      }
+        initialize();
 
-      if (stateManager != null) {
-        try {
-          stateManager.init();
-        } catch (Exception e) {
-          throw new ConnectorException("Error occurred initializing StorageClientStateManager.", e);
-        }
-      }
-
-      for (URI pathToTraverse : storageURIs) {
-        String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
-        StorageClient storageClient = storageClientMap.get(clientKey);
-
-        if (storageClient == null) {
-          throw new ConnectorException("No StorageClient was available for (" + pathToTraverse + "). Did you include the necessary configuration?");
+        // discover and publish all valid file candidates
+        for (URI resource : storageURIs) {
+          traverseStoragePath(publisher, resource);
         }
 
-        // creating a new traversal params for each path, which includes rereading file/filterOptions and
-        // creating the FileHandlers map. FileHandlers are lightweight, so this is not an intensive operation.
-        TraversalParams params = new TraversalParams(config, pathToTraverse, getDocIdPrefix());
+        // find files no longer in datastore that need to be removed from index
+        sendExpiredFileTombstones(publisher);
 
-        try {
-          storageClient.traverse(publisher, params, stateManager);
-        } catch (Exception e) {
-          throw new ConnectorException("Error occurred while traversing " + pathToTraverse + ".", e);
-        }
-      }
     } finally {
-      for (StorageClient client : storageClientMap.values()) {
+        shutdown();
+    }
+  }
+
+  // stateful only: publish tombstones for files seen during prior ingests but not the current
+  // todo: add 'missing' count column to track how many times we've not seen document
+  // so there is an option to not instantly delete it the first time but only if it
+  // has been missing from multiple runs. Or attach a TTL timestamp or LAST_SEEN 
+  // timestamp so a delete policy can be set like "send tombstone if document has been
+  // gone for more than 16 hours", etc. Just a tunable safety measure.
+  private void sendExpiredFileTombstones(Publisher publisher) throws ConnectorException {
+    // skip if state not being managed
+    if (stateManager == null) return;
+
+    try {
+      List<URI> expiredFileUris = stateManager.listExpiredFiles();
+      if (expiredFileUris.isEmpty()) return;
+      var expiredFileCount = expiredFileUris.size();
+      var publishedFileCount = 0;
+      // indexer.idOverrideField: "docId"
+      log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
+      for (URI uri : expiredFileUris) {
+        var ref = TombstoneFileReference.of(uri);
+        var doc = ref.asDoc(buildTraversalParams(uri));
+        doc.setField(EXPIRED, true);
         try {
-          client.shutdown();
-        } catch (IOException e) {
-          log.warn("Error shutting down StorageClient.", e);
+          publisher.publish(doc);
+          publishedFileCount++;
+        } catch (Exception e) {
+          log.warn("Error occurred while publishing document tombstone for file: %s".formatted(uri), e);
         }
       }
+      log.info("Published {} of {} document tombstones for tracking and index removal", publishedFileCount, expiredFileCount);
+    } catch (SQLException e) {
+      log.warn("Error occurred while publishing missing document tombstones.", e);
+    }
 
-      if (stateManager != null) {
-        try {
-          stateManager.shutdown();
-        } catch (SQLException e) {
-          log.warn("Error occurred while shutting down FileConnectorStateManager.", e);
-        }
+  }
+
+  private void initialize() throws ConnectorException {
+    try {
+      for (StorageClient client : storageClientMap.values()) {
+        client.init();
+      }
+    } catch (IOException e) {
+      throw new ConnectorException("Error initializing a StorageClient.", e);
+    }
+    try {
+      stateManager.init();
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred initializing StorageClientStateManager.", e);
+    }
+  }
+
+  private void shutdown() {
+    if (stateManager != null) {
+      try {
+        stateManager.shutdown();
+      } catch (SQLException e) {
+        log.warn("Error occurred while shutting down FileConnectorStateManager.", e);
+      }
+    }
+    for (StorageClient client : storageClientMap.values()) {
+      try {
+        client.shutdown();
+      } catch (IOException e) {
+        log.warn("Error shutting down StorageClient.", e);
       }
     }
   }
+
+  private void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
+    String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
+    StorageClient storageClient = storageClientMap.get(clientKey);
+
+    if (storageClient == null) {
+      throw new ConnectorException("No StorageClient was available for (" + pathToTraverse +
+          "). Did you include the necessary configuration?");
+    }
+
+    TraversalParams params = buildTraversalParams(pathToTraverse);
+
+    try {
+      storageClient.traverse(publisher, params, (FileConnectorStateManager) stateManager);
+    } catch (Exception e) {
+      throw new ConnectorException("Error occurred while traversing " + pathToTraverse + ".", e);
+    }
+  }
+
+  private TraversalParams buildTraversalParams(URI pathToTraverse) {
+    return new TraversalParams(config, pathToTraverse, getDocIdPrefix());
+  }
+
+  // helper class for building document tombstones
+  protected static class TombstoneFileReference extends BaseFileReference {
+
+    public TombstoneFileReference(URI pathToFile, Instant lastModified, Long size, Instant created) {
+      super(pathToFile, lastModified, size, created);
+    }
+
+    public static TombstoneFileReference of(URI uri) {
+      Instant now = Instant.now();
+      return new TombstoneFileReference(uri, now, 0L, now);
+    }
+
+    @Override
+    public String getName() { throw new UnsupportedOperationException("Unimplemented method 'getName'"); }
+
+    @Override
+    public boolean isValidFile() { return true; }
+
+    @Override
+    public InputStream getContentStream(TraversalParams params) { return InputStream.nullInputStream(); }
+
+    @Override
+    protected byte[] getFileContent(TraversalParams params) { return new byte[0]; }
+  }
+
 }
