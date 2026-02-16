@@ -160,11 +160,11 @@ public class FileConnector extends AbstractConnector {
 
     this.storageClientMap = StorageClient.createClients(config);
 
-    // if publishMode was specifically defined as "incremental", throw a warning if state not defined
+    // incremental mode requires state tracking in order to function correctly
     if (config.hasPath("filterOptions.publishMode")) {
       var mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
       if (mode == PublishMode.INCREMENTAL && !config.hasPath("state")) {
-        log.warn("filterOptions.publishMode of 'incremental' was specified, but no state configuration was provided. Incremental mode not supported with current config.");        
+        throw new IllegalArgumentException("filterOptions.publishMode of 'incremental' requires state configuration.");
       }
     }
 

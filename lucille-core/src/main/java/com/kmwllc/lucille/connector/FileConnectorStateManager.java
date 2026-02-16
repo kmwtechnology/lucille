@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +60,7 @@ public class FileConnectorStateManager {
   private final boolean performDeletions;
   private final int pathLength;
 
-  private final Instant traversalInstant = Instant.now();
+  private final Instant traversalInstant;
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -72,6 +73,10 @@ public class FileConnectorStateManager {
    * @param connectorName The name of the connector using this connection. Uses the name for tableName, if it is not specified.
    */
   public FileConnectorStateManager(Config config, String connectorName) {
+    this(config, connectorName, Instant.now());
+  }
+
+  FileConnectorStateManager(Config config, String connectorName, Instant traversalInstant) {
     this.driver = ConfigUtils.getOrDefault(config, "driver", "org.h2.Driver");
     this.connectionString = ConfigUtils.getOrDefault(config, "connectionString", "jdbc:h2:./state/" + connectorName);
     this.jdbcUser = ConfigUtils.getOrDefault(config, "jdbcUser", "");
@@ -80,6 +85,7 @@ public class FileConnectorStateManager {
     this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", 200);
+    this.traversalInstant = Objects.requireNonNull(traversalInstant, "traversalInstant cannot be null");
   }
 
   /**
