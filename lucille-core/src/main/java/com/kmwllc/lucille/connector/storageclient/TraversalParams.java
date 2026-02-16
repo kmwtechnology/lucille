@@ -110,19 +110,24 @@ public class TraversalParams {
     if (!applyPatternFilters(fileName)) {
       return false;
     }
-    
-    // if path is valid and publishMode is "full", immediately return true so all are published
+
+    // apply lastModified filter regardless of mode
+    if (!applyLastModifiedFilter(fileLastModified)) {
+      return false;
+    }
+
+    // if path is valid and publishMode is "full", publish file
     if (publishMode == PublishMode.FULL) {
       return true;
     }
 
-    // incremental support: do not publish if 1) file already published and 2) it hasn't been modified since
-    if (fileLastPublished != null && !fileLastModified.isAfter(fileLastPublished)) {
+    // incremental support: do not publish if file already published and not modified since
+    if (!modifiedSinceLastPublish(fileLastModified, fileLastPublished)) {
       return false;
     }
 
-    // incremental support: publish file unless a timestamp filter is triggered
-    return applyTimestampFilters(fileLastModified, fileLastPublished);
+    // incremental support: if lastPublishedCutoff is specified, require it to pass
+    return applyLastPublishedFilter(fileLastPublished);
   }
 
   public boolean supportedFileExtension(String fileExtension) {
@@ -141,11 +146,7 @@ public class TraversalParams {
         && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(fileName).matches()));
   }
 
-  /**
-   * Returns whether the given lastModified and lastPublished instants comply with lastModifiedCutoff / lastPublishedCutoff,
-   * if they are specified.
-   */
-  private boolean applyTimestampFilters(Instant fileLastModified, Instant fileLastPublished) {
+  private boolean applyLastModifiedFilter(Instant fileLastModified) {
     // If lastModifiedCutoff is specified, return false if it is violated
     if (lastModifiedCutoff != null) {
       Instant cutoffPoint = Instant.now().minus(lastModifiedCutoff);
@@ -155,7 +156,10 @@ public class TraversalParams {
         return false;
       }
     }
+    return true;
+  }
 
+  private boolean applyLastPublishedFilter(Instant fileLastPublished) {
     // If lastPublishedCutoff is specified, and we found a lastPublished Instant for the file, return false if it is violated
     if (lastPublishedCutoff != null && fileLastPublished != null) {
       Instant cutoffPoint = Instant.now().minus(lastPublishedCutoff);
@@ -167,6 +171,10 @@ public class TraversalParams {
     }
 
     return true;
+  }
+
+  private boolean modifiedSinceLastPublish(Instant fileLastModified, Instant fileLastPublished) {
+    return fileLastPublished == null || fileLastModified.isAfter(fileLastPublished);
   }
 
   public URI getURI() {
