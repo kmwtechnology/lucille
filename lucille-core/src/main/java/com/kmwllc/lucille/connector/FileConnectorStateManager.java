@@ -8,8 +8,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,7 +59,7 @@ public class FileConnectorStateManager {
   private final boolean performDeletions;
   private final int pathLength;
 
-  private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
+  private final Instant traversalInstant = Instant.now();
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -104,7 +104,7 @@ public class FileConnectorStateManager {
       if (!rs.next()) {
         try (Statement statement = jdbcConnection.createStatement()) {
           statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
-              + ") PRIMARY KEY, last_published TIMESTAMP, encountered BOOLEAN)");
+              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
         }
       }
     }
@@ -174,9 +174,9 @@ public class FileConnectorStateManager {
    * Needed to support publishing document tombstones suggestion: we should add
    * options for setting what is "expired" to include as a safety measure so
    * transient upstream source flakiness doesn't immediately cause content to be
-   * deleted from index 
+   * deleted from index
    * - expiredFileRetryCutoff [1..N]
-   *   file has to be missing N times before marked as expired) 
+   *   file has to be missing N times before marked as expired)
    * - expiredFileDurationCutoff [Duration]
    *   Amount if time file must be missing before marked as expired)
    */
@@ -232,11 +232,9 @@ public class FileConnectorStateManager {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
-          Timestamp timestamp = rs.getTimestamp("last_published");
-
-          if (timestamp != null) {
-            return timestamp.toInstant();
-          }
+          // map TIMESTAMP WITH TIME ZONE to OffsetDateTime
+          OffsetDateTime odt = rs.getObject("last_published", OffsetDateTime.class);
+          if (odt != null) { return odt.toInstant(); }
         }
       }
     } catch (SQLException e) {
@@ -254,7 +252,7 @@ public class FileConnectorStateManager {
     String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
-      statement.setTimestamp(1, traversalTimestamp);
+      statement.setObject(1, traversalInstant);
       statement.setString(2, fullPathStr);
 
       int rowsChanged = statement.executeUpdate();

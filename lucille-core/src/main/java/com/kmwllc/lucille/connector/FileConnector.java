@@ -239,10 +239,12 @@ public class FileConnector extends AbstractConnector {
     } catch (IOException e) {
       throw new ConnectorException("Error initializing a StorageClient.", e);
     }
-    try {
-      stateManager.init();
-    } catch (Exception e) {
-      throw new ConnectorException("Error occurred initializing StorageClientStateManager.", e);
+    if (stateManager != null) {
+      try {
+        stateManager.init();
+      } catch (Exception e) {
+        throw new ConnectorException("Error occurred initializing StorageClientStateManager.", e);
+      }
     }
   }
 
