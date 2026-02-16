@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.function.UnaryOperator;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
@@ -37,7 +38,9 @@ public class JsonFileHandler extends BaseFileHandler {
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .optionalString("docIdFormat", "idField")
       .optionalList("idFields", new TypeReference<List<String>>() {
-      }).build();
+      })
+      .optionalList("ignoreFields", new TypeReference<List<String>>() {})
+      .build();
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 
@@ -45,6 +48,7 @@ public class JsonFileHandler extends BaseFileHandler {
   private final List<String> idFields;
   private final String docIdFormat;
   private final ObjectMapper mapper = new ObjectMapper();
+  private final List<String> ignoreFields;
 
   public JsonFileHandler(Config config) {
     super(config);
@@ -58,6 +62,12 @@ public class JsonFileHandler extends BaseFileHandler {
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
 
     this.idUpdater = (id) -> docIdPrefix + id;
+
+    if (config.hasPath("ignoreFields")) {
+      this.ignoreFields = config.getStringList("ignoreFields");
+    } else {
+      this.ignoreFields = List.of();
+    }
   }
 
   @Override
@@ -114,11 +124,15 @@ public class JsonFileHandler extends BaseFileHandler {
             List<String> parts = new ArrayList<>(idFields.size());
 
             for (String fieldName : idFields) {
+              if (ignoreFields.contains(fieldName)) {
+                continue;
+              } else {
               JsonNode valueNode = node.get(fieldName);
               parts.add((valueNode != null && !valueNode.isNull()) ? valueNode.asText() : "");
               String value = (valueNode != null && !valueNode.isNull()) ? valueNode.asText() : null;
               if (StringUtils.isBlank(value)) {
                 log.warn("Missing/blank idField {} at line {}. ({})", fieldName, lineNum, path);
+              }
               }
             }
 
