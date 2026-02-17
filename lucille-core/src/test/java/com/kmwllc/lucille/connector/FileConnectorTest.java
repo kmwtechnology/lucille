@@ -14,7 +14,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.mockito.MockedStatic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.kmwllc.lucille.connector.storageclient.LocalStorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
@@ -27,33 +40,11 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.FileSystem;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.mockito.MockedStatic;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.typesafe.config.ConfigValueFactory;
 
 public class FileConnectorTest {
 
   private static final Logger log = LoggerFactory.getLogger(FileConnectorTest.class);
-
-  FileSystem mockFileSystem;
-
-  @Before
-  public void setUp() throws Exception {
-    mockFileSystem = mock(FileSystem.class);
-    when(mockFileSystem.getPath(any())).thenReturn(mock(Path.class));
-  }
 
   @Test
   public void testExecuteSuccessful() throws Exception {
@@ -367,6 +358,15 @@ public class FileConnectorTest {
     assertThrows(IllegalArgumentException.class, () -> new FileConnector(config2));
   }
 
+  @Test
+  public void testIncrementalWithoutStateFailsFast() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage().contains("incremental"));
+    assertTrue(e.getMessage().contains("state configuration"));
+  }
+
   // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
 
   // Testing when the state configuration is empty.
@@ -399,10 +399,8 @@ public class FileConnectorTest {
 
       connector.execute(publisher);
 
-      // filtered out by state database
-      assertEquals(0, messenger.getDocsSentForProcessing().size());
-    } catch (Exception e) {
-      log.error("Exception thrown in testTraversalWithStateEmbedded.", e);
+      // default full mode republishes all docs on subsequent runs
+      assertEquals(18, messenger.getDocsSentForProcessing().size());
     } finally {
       try {
         Files.delete(dbFile.toPath());
