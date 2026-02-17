@@ -11,8 +11,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.Calendar;
-import java.util.TimeZone;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
  *         <li>Names are case-sensitive - it is very important to keep the paths consistent in your Config when using state.</li>
  *       </ul>
  *     </li>
- *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille. Is NULL for directories.</li>
+ *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille, stored as UTC. Is NULL for directories.</li>
  *     <li>encountered (BOOLEAN): Used internally to track files which have been encountered in a traversal, enabling deletions.</li>
  *   </ul>
  *
@@ -57,6 +57,7 @@ public class FileConnectorStateManager {
   private final int pathLength;
 
   private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
+  private final ZoneId UTC = ZoneId.of("UTC");
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -208,11 +209,11 @@ public class FileConnectorStateManager {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
-          //calendar argument needed to tell getTimestamp to use UTC instead of defaulting to the JVM's timezone
-          Timestamp timestamp = rs.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
+          // Get timestamp as LocalDateTime and interpret as UTC
+          LocalDateTime localDateTime = rs.getObject("last_published", LocalDateTime.class);
 
-          if (timestamp != null) {
-            return timestamp.toInstant();
+          if (localDateTime != null) {
+            return localDateTime.atZone(UTC).toInstant();
           }
         }
       }
@@ -231,10 +232,10 @@ public class FileConnectorStateManager {
     String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
-      //calendar argument needed to tell setTimestamp to use UTC instead of defaulting to the JVM's timezone
-      statement.setTimestamp(1, traversalTimestamp, Calendar.getInstance(TimeZone.getTimeZone("UTC")));
+      // Convert Instant to LocalDateTime in UTC for database storage
+      LocalDateTime utcDateTime = LocalDateTime.ofInstant(traversalTimestamp.toInstant(), UTC);
+      statement.setObject(1, utcDateTime);
       statement.setString(2, fullPathStr);
-
       int rowsChanged = statement.executeUpdate();
 
       if (rowsChanged != 1) {

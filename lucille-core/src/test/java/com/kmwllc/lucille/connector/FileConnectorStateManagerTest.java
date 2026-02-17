@@ -102,14 +102,16 @@ public class FileConnectorStateManagerTest {
       manager.successfullyPublishedFile(filePath);
     }
 
-      assertTrue(manager.getLastPublished(helloFile).isAfter(Instant.now().minusSeconds(60L)));
-      assertTrue(manager.getLastPublished(helloFile).isBefore(Instant.now().plusSeconds(60L)));
+    assertTrue(manager.getLastPublished(helloFile).isAfter(Instant.now().minusSeconds(60L)));
+    assertTrue(manager.getLastPublished(helloFile).isBefore(Instant.now().plusSeconds(60L)));
 
-      assertTrue(manager.getLastPublished(infoFile).isAfter(Instant.now().minusSeconds(60L)));
-      assertTrue(manager.getLastPublished(infoFile).isBefore(Instant.now().plusSeconds(60L)));
+    assertTrue(manager.getLastPublished(infoFile).isAfter(Instant.now().minusSeconds(60L)));
+    assertTrue(manager.getLastPublished(infoFile).isBefore(Instant.now().plusSeconds(60L)));
 
-      assertTrue(manager.getLastPublished(secretsFile).isAfter(Instant.now().minusSeconds(60L)));
-      assertTrue(manager.getLastPublished(secretsFile).isBefore(Instant.now().plusSeconds(60L)));
+    assertTrue(manager.getLastPublished(secretsFile).isAfter(Instant.now().minusSeconds(60L)));
+    assertTrue(manager.getLastPublished(secretsFile).isBefore(Instant.now().plusSeconds(60L)));
+
+    manager.shutdown();
   }
 
   @Test
