@@ -2,6 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -9,24 +10,15 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.Event.Type;
-import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.core.KafkaDocument;
-import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.message.IndexerMessenger;
-import com.kmwllc.lucille.message.TestMessenger;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
@@ -51,6 +43,20 @@ import org.opensearch.client.opensearch.core.bulk.IndexOperation;
 import org.opensearch.client.opensearch.core.bulk.UpdateOperation;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.endpoints.BooleanResponse;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.Event.Type;
+import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.TestMessenger;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 
 public class OpenSearchIndexerTest {
 
@@ -521,7 +527,7 @@ public class OpenSearchIndexerTest {
 
     assertEquals(1, deleteByQueryRequestArgumentCaptor.getAllValues().size());
     DeleteByQueryRequest deleteByQueryRequestValue = deleteByQueryRequestArgumentCaptor.getAllValues().get(0);
-    assert deleteByQueryRequestValue.query() != null;
+    assertNotNull(deleteByQueryRequestValue.query());
     BoolQuery query = deleteByQueryRequestValue.query().bool();
     assertEquals("1", query.minimumShouldMatch());
 
@@ -530,23 +536,64 @@ public class OpenSearchIndexerTest {
     assertEquals(0, query.must().size());
     assertEquals(0, query.mustNot().size());
 
-    // we expect 2 termQueries doc1field and doc2field
+    // with correct grouping by configured field name, we expect one terms query on "field"
+    // containing all deleteByFieldValue values from the batch.
     List<Query> queries = query.should();
-    assertEquals(2, queries.size());
+    assertEquals(1, queries.size());
     TermsQuery query1 = queries.get(0).terms();
-    TermsQuery query2 = queries.get(1).terms();
 
-    assertEquals("doc1field", query1.field());
-    assertEquals("doc2field", query2.field());
+    assertEquals("field", query1.field());
 
     List<FieldValue> fieldValues1 = query1.terms().value();
-    List<FieldValue> fieldValues2 = query2.terms().value();
-    assertEquals(2, fieldValues1.size());
-    assertEquals(1, fieldValues2.size());
+    assertEquals(3, fieldValues1.size());
+    Set<String> values = fieldValues1.stream().map(FieldValue::stringValue).collect(Collectors.toSet());
+    assertEquals(new HashSet<>(List.of("doc1value", "doc1v2value", "doc2value")), values);
+  }
 
-    assertEquals("doc1value", fieldValues1.get(0).stringValue());
-    assertEquals("doc1v2value", fieldValues1.get(1).stringValue());
-    assertEquals("doc2value", fieldValues2.get(0).stringValue());
+  @Test
+  public void testDeleteUsesIdOverride() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf")
+        .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+
+    Document deletedDoc = Document.create("doc-original", "test_run");
+    deletedDoc.setField("other_id", "doc-override");
+    deletedDoc.setField("deleted", "true");
+
+    messenger.sendForIndexing(deletedDoc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    assertEquals(1, br.operations().size());
+    // delete path should use id override just like index/update paths.
+    assertNotNull(br.operations().get(0).delete());
+    assertEquals("doc-override", br.operations().get(0).delete().id());
+  }
+
+  @Test
+  public void testDeleteUsesFileExpiredMarker() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf")
+        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("file_expired"))
+        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+
+    Document expiredDoc = Document.create("doc-expired", "test_run");
+    // deletion marker check uses getString(), so boolean true matches "true".
+    expiredDoc.setField("file_expired", true);
+
+    messenger.sendForIndexing(expiredDoc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    assertEquals(1, br.operations().size());
+    assertNotNull(br.operations().get(0).delete());
+    assertEquals("doc-expired", br.operations().get(0).delete().id());
   }
 
   @Test
