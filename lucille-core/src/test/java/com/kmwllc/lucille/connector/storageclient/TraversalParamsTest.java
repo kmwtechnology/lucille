@@ -1,8 +1,11 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
-import com.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
@@ -10,9 +13,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+
+import com.typesafe.config.ConfigFactory;
 
 public class TraversalParamsTest {
 
@@ -20,6 +22,13 @@ public class TraversalParamsTest {
   private static final String DEFAULT_PREFIX = "test-";
   private static final Instant BASE_TIME = Instant.parse("2026-01-15T10:00:00Z");
   private static final Instant LATER_TIME = Instant.parse("2026-01-19T14:30:00Z");
+
+  // one table row for includefile behavior plus optional cutoff config.
+  private record IncludeFileCase(
+      String name, String publishMode,
+      Instant fileLastModified, Instant fileLastPublished,
+      String lastModifiedCutoff, String lastPublishedCutoff,
+      boolean expected) {}
 
   private TraversalParams params(Map<String, Object> config) {
     // helper to construct params with a small config override
@@ -31,7 +40,30 @@ public class TraversalParamsTest {
     return new TraversalParams(ConfigFactory.empty(), DEFAULT_URI, DEFAULT_PREFIX);
   }
 
-  // basics tests
+  private TraversalParams incrementalParams() {
+    return params(Map.of("filterOptions", Map.of("publishMode", "incremental")));
+  }
+
+  private TraversalParams paramsWithFilterOptions(Map<String, Object> filterOptions) {
+    return params(Map.of("filterOptions", filterOptions));
+  }
+
+  private TraversalParams paramsWithFileOptions(Map<String, Object> fileOptions) {
+    return params(Map.of("fileOptions", fileOptions));
+  }
+
+  private void assertAllIncluded(TraversalParams params, Instant modified, Instant published, List<String> docs) {
+    for (String doc : docs) {
+      assertTrue(doc, params.includeFile(doc, modified, published));
+    }
+  }
+
+  private void assertAllExcluded(TraversalParams params, Instant modified, Instant published, List<String> docs) {
+    for (String doc : docs) {
+      assertFalse(doc, params.includeFile(doc, modified, published));
+    }
+  }
+
   @Test
   public void preservesDocIdPrefix() {
     // doc id prefix passed to the constructor should be used as-is
@@ -77,35 +109,34 @@ public class TraversalParamsTest {
 
   @Test
   public void futurePublishSkips() {
-    // guardrail: if metadata claims a publish time in the future, skip the file
-    Instant now = Instant.now();
-    Instant future = now.plus(Duration.ofDays(1));
-    assertFalse(emptyParams().includeFile("doc.json", now, future));
+    // if last published is in the future, treat it as already published and skip.
+    Instant future = BASE_TIME.plus(Duration.ofDays(1));
+    assertFalse(incrementalParams().includeFile("doc.json", BASE_TIME, future));
   }
 
   @Test
   public void nullPublishIncludes() {
-    // brand new file with no prior publish timestamp should be included
-    assertTrue(emptyParams().includeFile("doc.json", BASE_TIME, null));
+    // files with no publish history should be considered new.
+    assertTrue(incrementalParams().includeFile("doc.json", BASE_TIME, null));
   }
 
   @Test
   public void olderModifiedSkips() {
-    // file modified before its last publish should not be reprocessed
-    assertFalse(emptyParams().includeFile("doc.json", BASE_TIME, LATER_TIME));
+    // unchanged files should be skipped in incremental mode.
+    assertFalse(incrementalParams().includeFile("doc.json", BASE_TIME, LATER_TIME));
   }
 
   @Test
   public void oneMsNewerIncludes() {
-    // even a tiny timestamp bump counts as a real change
-    assertTrue(emptyParams().includeFile("doc.json", BASE_TIME.plusMillis(1), BASE_TIME));
+    // any forward movement in modified time should trigger inclusion.
+    assertTrue(incrementalParams().includeFile("doc.json", BASE_TIME.plusMillis(1), BASE_TIME));
   }
 
   @Test
   public void skewedModifiedSkips() {
     // badly skewed timestamps far in the past should be treated as stale
     assertFalse(
-        emptyParams().includeFile(
+        incrementalParams().includeFile(
             "doc.json",
             Instant.parse("2020-01-01T00:00:00Z"),
             BASE_TIME
@@ -117,26 +148,22 @@ public class TraversalParamsTest {
 
   @Test
   public void freshIngestIncludesAll() {
-    // first-time ingest should include every file
-    TraversalParams params = emptyParams();
-    for (String doc : List.of("doc_a.json", "doc_b.json", "doc_c.json")) {
-      assertTrue(doc, params.includeFile(doc, BASE_TIME, null));
-    }
+    // first traversal has no publish history, so all files should pass.
+    TraversalParams params = incrementalParams();
+    assertAllIncluded(params, BASE_TIME, null, List.of("doc_a.json", "doc_b.json", "doc_c.json"));
   }
 
   @Test
   public void unchangedReingestSkipsAll() {
-    // re-ingesting unchanged files should skip everything
-    TraversalParams params = emptyParams();
-    for (String doc : List.of("doc_a.json", "doc_b.json", "doc_c.json")) {
-      assertFalse(doc, params.includeFile(doc, BASE_TIME, BASE_TIME));
-    }
+    // second traversal with identical modified timestamps should skip all.
+    TraversalParams params = incrementalParams();
+    assertAllExcluded(params, BASE_TIME, BASE_TIME, List.of("doc_a.json", "doc_b.json", "doc_c.json"));
   }
 
   @Test
   public void singleChangeOnly() {
-    // only the file with a newer modification should be included
-    TraversalParams params = emptyParams();
+    // only the doc with a newer modified timestamp should pass.
+    TraversalParams params = incrementalParams();
     assertFalse(params.includeFile("doc_a.json", BASE_TIME, BASE_TIME));
     assertTrue(params.includeFile("doc_b.json", LATER_TIME, BASE_TIME));
     assertFalse(params.includeFile("doc_c.json", BASE_TIME, BASE_TIME));
@@ -144,8 +171,8 @@ public class TraversalParamsTest {
 
   @Test
   public void mixedNewAndUpdated() {
-    // mix of unchanged, updated, and brand-new files in one pass
-    TraversalParams params = emptyParams();
+    // unchanged, updated, and brand-new files should be handled in one pass.
+    TraversalParams params = incrementalParams();
     Instant laterPub = Instant.parse("2026-01-17T14:00:00Z");
     Instant modified = Instant.parse("2026-01-19T17:00:00Z");
 
@@ -153,10 +180,7 @@ public class TraversalParamsTest {
     assertFalse(params.includeFile("doc_b.json", laterPub, laterPub));
     assertTrue(params.includeFile("doc_c.json", modified, BASE_TIME));
 
-    // files with no prior publish timestamp are treated as new
-    for (String doc : List.of("doc_d.json", "doc_e.json", "doc_f.json")) {
-      assertTrue(doc, params.includeFile(doc, modified, null));
-    }
+    assertAllIncluded(params, modified, null, List.of("doc_d.json", "doc_e.json", "doc_f.json"));
   }
 
   // edge cases
@@ -165,126 +189,89 @@ public class TraversalParamsTest {
   public void pathsWithSpecialChars() {
     // unusual but valid paths should not affect inclusion logic
     TraversalParams params = emptyParams();
-    for (String path : List.of(
+    assertAllIncluded(params, BASE_TIME, null, List.of(
         "path/with spaces/doc.json",
         "path/with-dashes/doc.json",
         "path/with_underscores/doc.json"
-    )) {
-      assertTrue(path, params.includeFile(path, BASE_TIME, null));
-    }
+    ));
   }
 
-  // parameterized tests
+  @Test
+  public void includeFileModeMatrix() {
+    // cutoff filters are relative to now, so this matrix intentionally anchors around current time.
+    Instant now = Instant.now();
+    Instant modifiedOld = now.minus(Duration.ofDays(10));
+    Instant modifiedNew = now;
+    Instant publishedRecent = now.minus(Duration.ofHours(1));
+    Instant publishedOld = now.minus(Duration.ofDays(7));
 
-  @RunWith(Parameterized.class)
-  public static class BooleanDefaultsTest {
+    List<IncludeFileCase> cases = List.of(
+        new IncludeFileCase("full_includes_unchanged", "full", modifiedOld, publishedRecent, null, null, true),
+        new IncludeFileCase("incremental_skips_unchanged", "incremental", modifiedOld, publishedRecent, null, null, false),
+        new IncludeFileCase("incremental_includes_new", "incremental", modifiedOld, null, null, null, true),
+        new IncludeFileCase("incremental_includes_modified", "incremental", modifiedNew, publishedRecent, null, null, true),
+        new IncludeFileCase("full_respects_last_modified_cutoff", "full", modifiedOld, null, "24h", null, false),
+        new IncludeFileCase("incremental_respects_last_modified_cutoff", "incremental", modifiedOld, null, "24h", null, false),
+        new IncludeFileCase("full_ignores_last_published_cutoff", "full", modifiedNew, publishedRecent, null, "24h", true),
+        new IncludeFileCase("incremental_respects_last_published_cutoff", "incremental", modifiedNew, publishedRecent, null, "24h", false),
+        new IncludeFileCase("incremental_allows_old_publish_by_cutoff", "incremental", modifiedNew, publishedOld, null, "24h", true)
+    );
 
-    @Parameters(name = "{index}: {0}")
-    public static Iterable<Object[]> data() {
-      return List.of(new Object[][]{
-          {"handleArchivedFiles", false, "getHandleArchivedFiles"},
-          {"handleCompressedFiles", false, "getHandleCompressedFiles"},
-          {"getFileContent", true, "shouldGetFileContent"}
-      });
-    }
+    for (IncludeFileCase testCase : cases) {
+      Map<String, Object> filterOptions = new java.util.LinkedHashMap<>();
+      filterOptions.put("publishMode", testCase.publishMode());
+      if (testCase.lastModifiedCutoff() != null) {
+        filterOptions.put("lastModifiedCutoff", testCase.lastModifiedCutoff());
+      }
+      if (testCase.lastPublishedCutoff() != null) {
+        filterOptions.put("lastPublishedCutoff", testCase.lastPublishedCutoff());
+      }
 
-    private final String key;
-    private final boolean expected;
-    private final String method;
-
-    public BooleanDefaultsTest(String key, boolean expected, String method) {
-      this.key = key;
-      this.expected = expected;
-      this.method = method;
-    }
-
-    @Test
-    public void usesDefault() throws Exception {
-      // boolean options should have sensible defaults when not configured
-      TraversalParams params =
-          new TraversalParams(ConfigFactory.empty(), DEFAULT_URI, DEFAULT_PREFIX);
-      assertEquals(expected, TraversalParams.class.getMethod(method).invoke(params));
-    }
-  }
-
-  @RunWith(Parameterized.class)
-  public static class BooleanOverrideTest {
-
-    @Parameters(name = "{index}: {0}")
-    public static Iterable<Object[]> data() {
-      return List.of(new Object[][]{
-          {"handleArchivedFiles", false, "getHandleArchivedFiles"},
-          {"handleCompressedFiles", false, "getHandleCompressedFiles"},
-          {"getFileContent", true, "shouldGetFileContent"}
-      });
-    }
-
-    private final String key;
-    private final boolean defaultValue;
-    private final String method;
-
-    public BooleanOverrideTest(String key, boolean defaultValue, String method) {
-      this.key = key;
-      this.defaultValue = defaultValue;
-      this.method = method;
-    }
-
-    @Test
-    public void respectsOverride() throws Exception {
-      // explicit config values should override defaults
-      TraversalParams params =
-          new TraversalParams(
-              ConfigFactory.parseMap(
-                  Map.of("fileOptions", Map.of(key, !defaultValue))),
-              DEFAULT_URI,
-              DEFAULT_PREFIX);
-
-      assertEquals(!defaultValue,
-          TraversalParams.class.getMethod(method).invoke(params));
-    }
-  }
-
-  @RunWith(Parameterized.class)
-  public static class OptionalUriTest {
-
-    @Parameters(name = "{index}: {0}")
-    public static Iterable<Object[]> data() {
-      return List.of(new Object[][]{
-          {"moveToAfterProcessing", "getMoveToAfterProcessing"},
-          {"moveToErrorFolder", "getMoveToErrorFolder"}
-      });
-    }
-
-    private final String key;
-    private final String method;
-
-    public OptionalUriTest(String key, String method) {
-      this.key = key;
-      this.method = method;
-    }
-
-    @Test
-    public void uriDefaultsToNull() throws Exception {
-      // optional target URIs should default to null when unset
-      TraversalParams params =
-          new TraversalParams(ConfigFactory.empty(), DEFAULT_URI, DEFAULT_PREFIX);
-      assertNull(TraversalParams.class.getMethod(method).invoke(params));
-    }
-
-    @Test
-    public void uriFromConfig() throws Exception {
-      // configured target URIs should be parsed and returned
-      TraversalParams params =
-          new TraversalParams(
-              ConfigFactory.parseMap(
-                  Map.of("fileOptions", Map.of(key, "s3://target/"))),
-              DEFAULT_URI,
-              DEFAULT_PREFIX);
+      TraversalParams params = paramsWithFilterOptions(filterOptions);
 
       assertEquals(
-          URI.create("s3://target/"),
-          TraversalParams.class.getMethod(method).invoke(params)
-      );
+          testCase.name(),
+          testCase.expected(),
+          params.includeFile("doc.json", testCase.fileLastModified(), testCase.fileLastPublished()));
     }
+  }
+
+  @Test
+  public void booleanOptionDefaults() {
+    // verify defaults match expected file option behavior.
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), DEFAULT_URI, DEFAULT_PREFIX);
+    assertFalse(params.getHandleArchivedFiles());
+    assertFalse(params.getHandleCompressedFiles());
+    assertTrue(params.shouldGetFileContent());
+  }
+
+  @Test
+  public void booleanOptionsRespectOverride() {
+    // explicit file option config should override defaults.
+    TraversalParams params = paramsWithFileOptions(Map.of(
+            "handleArchivedFiles", true,
+            "handleCompressedFiles", true,
+            "getFileContent", false));
+    assertTrue(params.getHandleArchivedFiles());
+    assertTrue(params.getHandleCompressedFiles());
+    assertFalse(params.shouldGetFileContent());
+  }
+
+  @Test
+  public void optionalUrisDefaultToNull() {
+    // optional file move targets are unset unless explicitly configured.
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), DEFAULT_URI, DEFAULT_PREFIX);
+    assertNull(params.getMoveToAfterProcessing());
+    assertNull(params.getMoveToErrorFolder());
+  }
+
+  @Test
+  public void optionalUrisReadFromConfig() {
+    // optional file move targets should parse when configured.
+    TraversalParams moveToAfter = paramsWithFileOptions(Map.of("moveToAfterProcessing", "s3://target/"));
+    assertEquals(URI.create("s3://target/"), moveToAfter.getMoveToAfterProcessing());
+
+    TraversalParams moveToError = paramsWithFileOptions(Map.of("moveToErrorFolder", "s3://target/"));
+    assertEquals(URI.create("s3://target/"), moveToError.getMoveToErrorFolder());
   }
 }
