@@ -58,6 +58,7 @@ public class FileConnectorStateManager {
 
   private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
   private final ZoneId UTC = ZoneId.of("UTC");
+  private final LocalDateTime utcDateTime = LocalDateTime.ofInstant(traversalTimestamp.toInstant(), UTC);
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -233,7 +234,6 @@ public class FileConnectorStateManager {
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
       // Convert Instant to LocalDateTime in UTC for database storage
-      LocalDateTime utcDateTime = LocalDateTime.ofInstant(traversalTimestamp.toInstant(), UTC);
       statement.setObject(1, utcDateTime);
       statement.setString(2, fullPathStr);
       int rowsChanged = statement.executeUpdate();
