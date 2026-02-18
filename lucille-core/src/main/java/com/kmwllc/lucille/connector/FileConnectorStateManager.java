@@ -9,7 +9,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -56,9 +55,8 @@ public class FileConnectorStateManager {
   private final boolean performDeletions;
   private final int pathLength;
 
-  private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
   private final ZoneId UTC = ZoneId.of("UTC");
-  private final LocalDateTime utcDateTime = LocalDateTime.ofInstant(traversalTimestamp.toInstant(), UTC);
+  private final LocalDateTime traversalDateTimeUTC = LocalDateTime.now(UTC);
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -234,7 +232,7 @@ public class FileConnectorStateManager {
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
       // Convert Instant to LocalDateTime in UTC for database storage
-      statement.setObject(1, utcDateTime);
+      statement.setObject(1, traversalDateTimeUTC);
       statement.setString(2, fullPathStr);
       int rowsChanged = statement.executeUpdate();
 
