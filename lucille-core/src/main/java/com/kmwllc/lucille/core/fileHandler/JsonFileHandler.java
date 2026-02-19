@@ -62,7 +62,7 @@ public class JsonFileHandler extends BaseFileHandler {
 
     this.idUpdater = (id) -> docIdPrefix + id;
 
-    this.ignoreFields = config.hasPath("ignoreFields") ? Set.of(config.getString("ignoreFields")) : Set.of();
+    this.ignoreFields = config.hasPath("ignoreFields") ? Set.copyOf(config.getStringList("ignoreFields")) : Set.of();
   }
 
   @Override
