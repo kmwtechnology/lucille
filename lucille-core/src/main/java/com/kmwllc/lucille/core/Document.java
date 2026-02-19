@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
  *
  */
 public interface Document {
+
   Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   /* --- NAMES OF RESERVED FIELDS --- */
@@ -577,7 +578,8 @@ public interface Document {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
-  static Document createFromJson(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields) throws DocumentException, JsonProcessingException {
+  static Document createFromJson(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields)
+      throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater, ignoreFields);
   }
 
@@ -589,6 +591,7 @@ public interface Document {
    * For example, if the full path the nested json value is a.b.c[4].d[10].e.f[0], the segments would be a, b, c, 4, d, 10, e, f, 0
    */
   class Segment {
+
     final String name;
     final Integer index;
 
@@ -696,12 +699,12 @@ public interface Document {
    * @return the JsonNode at the nested path or null if not found
    */
   default JsonNode getNestedJson(List<Segment> segments) {
-    if (segments.isEmpty()|| !has(segments.get(0).name)) {
+    if (segments.isEmpty() || !has(segments.get(0).name)) {
       return null;
     }
     JsonNode node = getJson(segments.get(0).name);
 
-    for (Segment segment : segments.subList(1,segments.size())) {
+    for (Segment segment : segments.subList(1, segments.size())) {
       if (!hasFieldSegment(node, segment)) {
         return null;
       } else {
@@ -743,19 +746,19 @@ public interface Document {
     JsonNode node = has(segments.get(0).name) ? getJson(segments.get(0).name) : createNewNode(segments.get(1));
 
     JsonNode currentNode = node;
-    for (int i = 1; i < segments.size()-1; i++) {
+    for (int i = 1; i < segments.size() - 1; i++) {
       Segment segment = segments.get(i);
       if (hasFieldSegment(currentNode, segment)) {
-        currentNode = getFieldSegment(currentNode,segment);
+        currentNode = getFieldSegment(currentNode, segment);
       } else {
-        JsonNode childNode = createNewNode(segments.get(i+1));
+        JsonNode childNode = createNewNode(segments.get(i + 1));
         setFieldSegment(currentNode, segment, childNode);
         currentNode = childNode;
       }
     }
 
     // set last node
-    setFieldSegment(currentNode, segments.get(segments.size()-1), value);
+    setFieldSegment(currentNode, segments.get(segments.size() - 1), value);
 
     setField(segments.get(0).name, node);
   }
@@ -774,7 +777,7 @@ public interface Document {
       return;
     }
 
-    JsonNode parent = getNestedJson(segments.subList(0, segments.size()-1));
+    JsonNode parent = getNestedJson(segments.subList(0, segments.size() - 1));
     if (parent == null) {
       return;
     }

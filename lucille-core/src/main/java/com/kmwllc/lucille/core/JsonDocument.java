@@ -981,6 +981,6 @@ public class JsonDocument implements Document {
 
   @Override
   public void removeChildren() {
-   data.remove(CHILDREN_FIELD); 
+    data.remove(CHILDREN_FIELD);
   }
 }
