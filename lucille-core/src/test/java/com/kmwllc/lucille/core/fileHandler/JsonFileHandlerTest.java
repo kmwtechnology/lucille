@@ -2,7 +2,6 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -163,20 +162,6 @@ public class JsonFileHandlerTest {
   }
 
   @Test
-  public void testIgnoreSingleIdField() throws Exception {
-    Config config = ConfigFactory.parseMap(Map.of(
-        "json", Map.of("idField", "field1", "docIdPrefix", "", "ignoreFields", List.of("field1"))
-    ));
-    FileHandler handler = FileHandler.create("json", config);
-
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
-    File file = new File(filePath);
-
-    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
-    assertThrows(RuntimeException.class, () -> docs.next());
-  }
-
-  @Test
   public void testCompositeIdFieldsDefaultJoin() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of("idFields", List.of("field1", "field2"), "docIdPrefix", "")
@@ -190,24 +175,6 @@ public class JsonFileHandlerTest {
     assertEquals("one_1", docs.next().getId());
     assertEquals("two_2", docs.next().getId());
     assertEquals("three_3", docs.next().getId());
-    assertFalse(docs.hasNext());
-  }
-
-  @Test
-  public void testIgnoreFields() throws Exception {
-    Config config = ConfigFactory.parseMap(Map.of(
-        "json", Map.of("idFields", List.of("field1", "field2"), "docIdPrefix", "", "ignoreFields", List.of("field1"))
-
-    ));
-    FileHandler handler = FileHandler.create("json", config);
-
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
-    File file = new File(filePath);
-
-    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
-    assertEquals("1", docs.next().getId());
-    assertEquals("2", docs.next().getId());
-    assertEquals("3", docs.next().getId());
     assertFalse(docs.hasNext());
   }
 

@@ -18,6 +18,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
@@ -37,8 +38,7 @@ public class JsonFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .optionalString("docIdFormat", "idField")
-      .optionalList("idFields", new TypeReference<List<String>>() {
-      })
+      .optionalList("idFields", new TypeReference<List<String>>() {})
       .optionalList("ignoreFields", new TypeReference<List<String>>() {})
       .build();
 
@@ -48,7 +48,7 @@ public class JsonFileHandler extends BaseFileHandler {
   private final List<String> idFields;
   private final String docIdFormat;
   private final ObjectMapper mapper = new ObjectMapper();
-  private final List<String> ignoreFields;
+  private final Set<String> ignoreFields;
 
   public JsonFileHandler(Config config) {
     super(config);
@@ -63,11 +63,7 @@ public class JsonFileHandler extends BaseFileHandler {
 
     this.idUpdater = (id) -> docIdPrefix + id;
 
-    if (config.hasPath("ignoreFields")) {
-      this.ignoreFields = config.getStringList("ignoreFields");
-    } else {
-      this.ignoreFields = List.of();
-    }
+    this.ignoreFields = config.hasPath("ignoreFields") ? Set.of(config.getString("ignoreFields")) : Set.of();
   }
 
   @Override
@@ -118,21 +114,18 @@ public class JsonFileHandler extends BaseFileHandler {
         }
         try {
           if (idFields.isEmpty()) {
-            return Document.createFromJson(line, idUpdater);
+            return ignoreFields.isEmpty() ? Document.createFromJson(line, idUpdater) :
+                Document.createFromJson(line, idUpdater, ignoreFields);
           } else {
             ObjectNode node = (ObjectNode) mapper.readTree(line);
             List<String> parts = new ArrayList<>(idFields.size());
 
             for (String fieldName : idFields) {
-              if (ignoreFields.contains(fieldName)) {
-                continue;
-              } else {
               JsonNode valueNode = node.get(fieldName);
               parts.add((valueNode != null && !valueNode.isNull()) ? valueNode.asText() : "");
               String value = (valueNode != null && !valueNode.isNull()) ? valueNode.asText() : null;
               if (StringUtils.isBlank(value)) {
                 log.warn("Missing/blank idField {} at line {}. ({})", fieldName, lineNum, path);
-              }
               }
             }
 
