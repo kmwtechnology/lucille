@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -176,6 +177,73 @@ public class JsonFileHandlerTest {
     assertEquals("two_2", docs.next().getId());
     assertEquals("three_3", docs.next().getId());
     assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testIgnoreFieldsWithoutIdFields() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "json", Map.of(
+            "ignoreFields", List.of("field2"),
+            "docIdPrefix", ""
+        )
+    ));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    File file = new File(filePath);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
+
+    Document doc1 = docs.next();
+    assertEquals("1", doc1.getId());
+    assertEquals("val1-1", doc1.getString("field1"));
+    assertFalse(doc1.has("field2"));
+  }
+
+  @Test
+  public void testIgnoreFieldsWithIdFields() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "json", Map.of(
+            "idFields", List.of("field1", "field2"),
+            "ignoreFields", List.of("field3"),
+            "docIdPrefix", ""
+        )
+    ));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
+    File file = new File(filePath);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
+
+    Document doc1 = docs.next();
+    assertEquals("one_1", doc1.getId());
+    assertEquals("one", doc1.getString("field1"));
+    assertEquals("1", doc1.getString("field2"));
+    //should fail as of now
+    assertFalse(doc1.has("field3"));
+  }
+
+  @Test
+  public void testIdFieldsWithoutIgnoreFields() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "json", Map.of(
+            "idFields", List.of("field1", "field2"),
+            "docIdPrefix", ""
+        )
+    ));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
+    File file = new File(filePath);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
+
+    Document doc1 = docs.next();
+    assertEquals("one_1", doc1.getId());
+    assertEquals("one", doc1.getString("field1"));
+    assertEquals("1", doc1.getString("field2"));
+    assertEquals("test", doc1.getString("field3"));
   }
 
   @Test

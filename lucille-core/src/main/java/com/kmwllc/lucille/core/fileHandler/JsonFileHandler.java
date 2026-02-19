@@ -62,7 +62,7 @@ public class JsonFileHandler extends BaseFileHandler {
 
     this.idUpdater = (id) -> docIdPrefix + id;
 
-    this.ignoreFields = config.hasPath("ignoreFields") ? Set.copyOf(config.getStringList("ignoreFields")) : Set.of();
+    this.ignoreFields = config.hasPath("ignoreFields") ? Set.copyOf(config.getStringList("ignoreFields")) : null;
   }
 
   @Override
@@ -113,8 +113,7 @@ public class JsonFileHandler extends BaseFileHandler {
         }
         try {
           if (idFields.isEmpty()) {
-            return ignoreFields.isEmpty() ? Document.createFromJson(line, idUpdater) :
-                Document.createFromJson(line, idUpdater, ignoreFields);
+            return Document.createFromJson(line, idUpdater, ignoreFields);
           } else {
             ObjectNode node = (ObjectNode) mapper.readTree(line);
             List<String> parts = new ArrayList<>(idFields.size());

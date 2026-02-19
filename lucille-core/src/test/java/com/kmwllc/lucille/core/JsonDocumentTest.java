@@ -93,6 +93,36 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   }
 
   @Test
+  public void testCreateFromJsonStringWithEmptyIgnoreFields() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    Set<String> ignoreFields = Set.of();
+
+    Document document = JsonDocument.fromJsonString(json, null, ignoreFields);
+    assertEquals("123", document.getId());
+    assertEquals("val1", document.getString("field1"));
+    assertEquals("val2", document.getString("field2"));
+  }
+
+  @Test(expected = DocumentException.class)
+  public void testCreateFromJsonStringWithIdInIgnoreFields() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    Set<String> ignoreFields = Set.of("id");
+
+    JsonDocument.fromJsonString(json, null, ignoreFields);
+  }
+
+  @Test
+  public void testCreateFromJsonStringWithNullIgnoreFields() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    Set<String> ignoreFields = null;
+
+    Document document = JsonDocument.fromJsonString(json, null, ignoreFields);
+    assertEquals("123", document.getId());
+    assertEquals("val1", document.getString("field1"));
+    assertEquals("val2", document.getString("field2"));
+  }
+
+  @Test
   public void testByteArraySerializationMultivalued() throws Exception {
     byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
     byte[] value2 = new byte[]{0x4c, 0x4c, 0x5c};

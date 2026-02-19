@@ -81,20 +81,20 @@ public class JsonDocument implements Document {
   }
 
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return fromJsonString(json, null);
+    return fromJsonString(json, null, null);
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
-    JsonDocument doc = new JsonDocument((ObjectNode) MAPPER.readTree(json));
-    doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
-    return doc;
+    return fromJsonString(json, idUpdater, null);
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields)
       throws DocumentException, JsonProcessingException {
     ObjectNode node = (ObjectNode) MAPPER.readTree(json);
-    node.remove(ignoreFields);
+    if (ignoreFields != null) {
+      node.remove(ignoreFields);
+    }
     JsonDocument doc = new JsonDocument(node);
     doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
