@@ -12,6 +12,7 @@ import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.lang.Thread.State;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -515,6 +516,19 @@ public class PublisherImplTest {
     assertEquals(null, publisher.getMaxPendingDocs());
   }
 
+  /**
+   * Helper method to wait for all Threads to be in the WAITING state before proceeding. This is necessary to ensure consistency in
+   * the testPauseAndResume and ensure that all threads have finished processing before we record any values about the number of
+   * docs processed or pending.
+   * @param threads
+   */
+  private void waitForAllThreads(List<Thread> threads) {
+    boolean allWaiting = false;
+    while (!allWaiting) {
+      allWaiting = threads.stream().allMatch(t -> t.getState() == State.WAITING);
+    }
+  }
+
   @Test
   public void testPauseAndResume() throws Exception {
     Config config = ConfigFactory.parseString("publisher {queueCapacity: 100000}");
@@ -555,7 +569,11 @@ public class PublisherImplTest {
     }
 
     Thread.sleep(300);
+
+    // Pause and wait for all threads to finish processing before asserting the values are as expected
     publisher.pause();
+    waitForAllThreads(threads);
+
 
     // after starting the threads, waiting a while, and pausing the publisher,
     // check that at least one doc has been published by now
@@ -577,10 +595,15 @@ public class PublisherImplTest {
     publisher.resume();
     Thread.sleep(200);
 
+    // Pause and wait for all threads to finish processing before asserting the values are as expected
+    publisher.pause();
+    waitForAllThreads(threads);
+
     // having resumed the publisher and waited a bit longer, we should find that more docs have been published
     long numPublishedAtTime2 = publisher.numPublished();
     assertTrue(numPublishedAtTime2 > numPublishedAtTime1);
     assertEquals(numPublishedAtTime2 - numPublishedAtTime1, publisher.numPending());
+    publisher.resume();
 
     // now we try quickly toggling between pause and resume just to make sure nothing goes wrong
     publisher.pause();
@@ -588,6 +611,7 @@ public class PublisherImplTest {
     publisher.pause();
     publisher.resume();
     publisher.pause();
+    waitForAllThreads(threads);
 
     long numPublishedAtTime3 = publisher.numPublished();
     Thread.sleep(200);
@@ -600,6 +624,8 @@ public class PublisherImplTest {
     Thread.sleep(200);
 
     // having resumed the publisher and waited a bit longer, we should find that still more docs have been published
+    // Since we are only checking that more documents have been published and not looking for an exact count, we do not need to pause
+    // or wait for the threads here
     long numPublishedAtTime5 = publisher.numPublished();
     assertTrue(numPublishedAtTime5 > numPublishedAtTime4);
 

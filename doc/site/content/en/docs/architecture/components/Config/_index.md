@@ -66,7 +66,7 @@ no actual run will take place.
 
 ### Config Validation
 Lucille components (like Stages, Indexers, and Connectors) each take in a set of specific arguments to configure the component correctly.
-Sometimes, certain properties are required - like the `pathsToStorage` for your `FileConnector` traversal, or the `path` for your
+Sometimes, certain properties are required - like the `paths` for your `FileConnector` traversal, or the `path` for your
 `CSVIndexer`. Other properties are optional / do not always have to be specified.
 
 For these components, developers must declare a `Spec` which defines the properties that are required or optional. They must

@@ -273,6 +273,18 @@ public class SpecBuilder {
     return this;
   }
 
+ // ******** Adding a Spec ********
+
+  /**
+   * Returns this SpecBuilder with all the properties of the provided Spec added
+   * @param spec The spec you want to include.
+   * @return A SpecBuilder with the given spec added.
+   */
+  public SpecBuilder include(Spec spec) {
+    this.properties.addAll(spec.getProperties());
+    return this;
+  }
+
   public Spec build() {
     return new Spec(name, properties);
   }
