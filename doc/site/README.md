@@ -30,7 +30,7 @@ $ hugo server
 
 If this is giving permission issues from the doc/site/public folder run 
 ```console
-chmod -R 755 <lucille-directory>/doc/site/public/ 
+$ chmod -R 755 <lucille-directory>/doc/site/public/ 
 ```
 
 to update permissions.
