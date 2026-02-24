@@ -225,6 +225,26 @@ public class JsonFileHandlerTest {
   }
 
   @Test
+  public void testIdFieldsIgnored() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "json", Map.of(
+            "idFields", List.of("field1", "field2"),
+            "ignoreFields", List.of("field1", "field2"),
+            "docIdPrefix", ""
+        )
+    ));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
+    File file = new File(filePath);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
+
+    Document doc1 = docs.next();
+    assertEquals("_", doc1.getId());
+  }
+
+  @Test
   public void testIdFieldsWithoutIgnoreFields() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
