@@ -81,18 +81,18 @@ public class JsonDocument implements Document {
   }
 
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return fromJsonString(json, null, null);
+    return fromJsonString(json, null, Set.of());
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
-    return fromJsonString(json, idUpdater, null);
+    return fromJsonString(json, idUpdater, Set.of());
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields)
       throws DocumentException, JsonProcessingException {
     ObjectNode node = (ObjectNode) MAPPER.readTree(json);
-    if (ignoreFields != null) {
+    if (!ignoreFields.isEmpty()) {
       node.remove(ignoreFields);
     }
     JsonDocument doc = new JsonDocument(node);

@@ -14,11 +14,13 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.UnaryOperator;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
 import org.slf4j.Logger;
@@ -62,7 +64,15 @@ public class JsonFileHandler extends BaseFileHandler {
 
     this.idUpdater = (id) -> docIdPrefix + id;
 
-    this.ignoreFields = config.hasPath("ignoreFields") ? Set.copyOf(config.getStringList("ignoreFields")) : null;
+    this.ignoreFields = config.hasPath("ignoreFields") ? Set.copyOf(config.getStringList("ignoreFields")) : Set.of();
+
+    Collection<String> intersection = CollectionUtils.intersection(this.idFields, this.ignoreFields);
+
+    if (!intersection.isEmpty()) {
+      throw new IllegalArgumentException(
+          "ignoreFields cannot contain idFields. Conflicting fields: " + intersection
+      );
+    }
   }
 
   @Override
@@ -116,7 +126,9 @@ public class JsonFileHandler extends BaseFileHandler {
             return Document.createFromJson(line, idUpdater, ignoreFields);
           } else {
             ObjectNode node = (ObjectNode) mapper.readTree(line);
-            node.remove(ignoreFields);
+            if (!ignoreFields.isEmpty()) {
+              node.remove(ignoreFields);
+            }
             List<String> parts = new ArrayList<>(idFields.size());
 
             for (String fieldName : idFields) {

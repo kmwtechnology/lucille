@@ -2,7 +2,6 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -224,12 +223,12 @@ public class JsonFileHandlerTest {
     assertFalse(doc1.has("field3"));
   }
 
-  @Test
-  public void testIdFieldsIgnored() throws Exception {
+  @Test(expected = IllegalArgumentException.class)
+  public void testAllIdFieldsIgnored() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
-            "ignoreFields", List.of("field1", "field2"),
+            "ignoreFields", List.of("field1"),
             "docIdPrefix", ""
         )
     ));
@@ -241,7 +240,7 @@ public class JsonFileHandlerTest {
     Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
 
     Document doc1 = docs.next();
-    assertEquals("_", doc1.getId());
+    doc1.getId();
   }
 
   @Test
