@@ -219,12 +219,11 @@ public class JsonFileHandlerTest {
     assertEquals("one_1", doc1.getId());
     assertEquals("one", doc1.getString("field1"));
     assertEquals("1", doc1.getString("field2"));
-    //should fail as of now
     assertFalse(doc1.has("field3"));
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testAllIdFieldsIgnored() throws Exception {
+  public void testIdFieldIgnored() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
