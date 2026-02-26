@@ -21,11 +21,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.Calendar;
+import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.TimeZone;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
@@ -66,25 +64,26 @@ public class FileConnectorStateManagerTest {
       manager.successfullyPublishedFile(filePath);
     }
 
-    // All of the files should have new (recent) timestamps.
+    // All of the files should have new (recent) OffsetDateTimes.
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
         ResultSet infoRS = RunScript.execute(connection, new StringReader(infoQuery));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(secretsQuery))) {
 
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime helloOffsetDateTime = helloRS.getObject("last_published", OffsetDateTime.class);
+      // the OffsetDateTime timestamp should be within the last ~15 seconds.
+      assertTrue(helloOffsetDateTime.isAfter(OffsetDateTime.now().minusSeconds(15L)));
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
-      assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime infoOffsetDateTime = infoRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(infoOffsetDateTime.isAfter(OffsetDateTime.now().minusSeconds(15L)));
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
-      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime secretOffsetDateTime = secretRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(secretOffsetDateTime.isAfter(OffsetDateTime.now().minusSeconds(15L)));
     }
+
 
     manager.shutdown();
     assertEquals(1, dbHelper.checkNumConnections());
@@ -133,9 +132,9 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/info.txt'"))) {
 
       assertTrue(infoRS.next());
-      Timestamp newFileTimestamp = infoRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(newFileTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15))));
+      OffsetDateTime newFileOffsetDateTime = infoRS.getObject("last_published", OffsetDateTime.class);
+      // the time should be within the last ~15 seconds.
+      assertTrue(newFileOffsetDateTime.isAfter(OffsetDateTime.now().minusSeconds(15)));
     }
 
     manager.shutdown();
@@ -217,17 +216,17 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/info.txt'"));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime helloOffsetDateTime = helloRS.getObject("last_published", OffsetDateTime.class);
+      // the offsetDateTime should be within the last ~15 seconds.
+      assertTrue(helloOffsetDateTime.isAfter(OffsetDateTime.now().minusSeconds(15L)));
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
-      assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime infoOffsetDateTime = infoRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(infoOffsetDateTime.isAfter(OffsetDateTime.now().minusSeconds(15L)));
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
-      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime secretOffsetDateTime = secretRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(secretOffsetDateTime.isAfter(OffsetDateTime.now().minusSeconds(15L)));
     }
 
     manager.shutdown();
@@ -249,7 +248,7 @@ public class FileConnectorStateManagerTest {
     // See above - textExampleTraversal has 16 files. This has 18, since we don't exclude "skipFile.txt".
     assertEquals(18, messenger1.getDocsSentForProcessing().size());
 
-    Timestamp publishedTimestamp;
+    OffsetDateTime publishedOffsetDateTime;
     String baseQuery = "SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name = '" + fileConnectorExampleDir;
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
@@ -257,11 +256,11 @@ public class FileConnectorStateManagerTest {
         ResultSet subdirCSVResults = RunScript.execute(connection, new StringReader(baseQuery + "subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv'"))) {
 
       assertTrue(aJSONResults.next());
-      publishedTimestamp = aJSONResults.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC")));
-      assertTrue(publishedTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      publishedOffsetDateTime = aJSONResults.getObject("last_published", OffsetDateTime.class);
+      assertTrue(publishedOffsetDateTime.isAfter(OffsetDateTime.now().minusSeconds(15L)));
 
       assertTrue(subdirCSVResults.next());
-      assertEquals(publishedTimestamp, subdirCSVResults.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
+      assertEquals(publishedOffsetDateTime, subdirCSVResults.getObject("last_published", OffsetDateTime.class));
 
       // before we run again, we will set these two files to have been published a long time ago, while everything else will still be
       // very recently published.
@@ -326,10 +325,10 @@ public class FileConnectorStateManagerTest {
         ResultSet skipFile2Results = RunScript.execute(connection, new StringReader("SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name='" + fileConnectorExampleDir + "subdir/skipFile.txt'"))) {
 
       assertTrue(skipFile1Results.next());
-      assertNull(skipFile1Results.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
+      assertNull(skipFile1Results.getObject("last_published", OffsetDateTime.class));
 
       assertTrue(skipFile2Results.next());
-      assertNull(skipFile2Results.getTimestamp("last_published", Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
+      assertNull(skipFile2Results.getObject("last_published", OffsetDateTime.class));
     }
   }
 
