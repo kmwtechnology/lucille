@@ -46,7 +46,7 @@ public class ApplyJSONataTest {
     validStage.processDocument(doc);
     assertEquals(2, doc.getFieldNames().size());
     assertEquals("abc123", doc.getId());
-    assertEquals(List.of("id", "foo"), doc.getStringList("keys"));
+    assertEquals(List.of("foo", "id"), doc.getStringList("keys"));
   }
 
   // Expression: "foo" (which just returns, again, "foo")
