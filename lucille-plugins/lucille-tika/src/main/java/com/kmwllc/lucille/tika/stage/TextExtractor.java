@@ -55,13 +55,14 @@ import org.xml.sax.SAXException;
 public class TextExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix", "fetcherClass")
+      .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix")
       .optionalList("metadataWhitelist", new TypeReference<List<String>>() {
       })
       .optionalList("metadataBlacklist", new TypeReference<List<String>>() {
       })
       .optionalNumber("textContentLimit", "parseTimeout")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC).build();
+      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .include(FileContentFetcher.SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
   private String textField;
