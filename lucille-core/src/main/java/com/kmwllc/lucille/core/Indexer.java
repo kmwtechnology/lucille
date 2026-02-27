@@ -297,6 +297,7 @@ public abstract class Indexer implements Runnable {
         try {
           messenger.sendEvent(pair.getLeft(), "FAILED: " + pair.getRight(), Event.Type.FAIL);
           docLogger.error("Sent failure message for doc {}. Reason: {}", pair.getLeft().getId(), pair.getRight());
+          log.error("Error at doc {}: {}", pair.getLeft().getId(), pair.getRight());
         } catch (Exception e) {
           log.error("Couldn't send failure event for doc {}", pair.getLeft().getId(), e);
         }
