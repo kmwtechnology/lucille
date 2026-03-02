@@ -1,21 +1,25 @@
 package com.kmwllc.lucille.stage.util;
 
-import com.kmwllc.lucille.core.StageException;
 import com.typesafe.config.Config;
+import dev.langchain4j.agent.tool.P;
 import java.util.List;
 
 public class FieldFilter {
 
   private final List<String> whitelist;
-  private final  List<String> blacklist;
+  private final List<String> blacklist;
 
-  public FieldFilter(Config config) throws IllegalArgumentException {
-    whitelist = config.hasPath("whitelist") ? config.getStringList("whitelist") : List.of();
-    blacklist = config.hasPath("blacklist") ? config.getStringList("blacklist") : List.of();
+  public FieldFilter(Config config, String whitelistKey, String blacklistKey) {
 
-    if (!whitelist.isEmpty() && !blacklist.isEmpty()) {
-      throw new IllegalArgumentException("Provided both a whitelist and blacklist to the stage");
+    if (whitelistKey == null) {
+      whitelistKey = "whitelist";
     }
+    if (blacklistKey == null) {
+      blacklistKey = "blacklist";
+    }
+
+    whitelist = config.hasPath(whitelistKey) ? config.getStringList(whitelistKey) : List.of();
+    blacklist = config.hasPath(blacklistKey) ? config.getStringList(blacklistKey) : List.of();
   }
 
   public boolean isActive() {
@@ -23,7 +27,9 @@ public class FieldFilter {
   }
 
   public boolean shouldInclude(String field) {
-    if (!whitelist.isEmpty()) {
+    if (!whitelist.isEmpty() && !blacklist.isEmpty()) {
+      return whitelist.contains(field) && !blacklist.contains(field);
+    } else if (!whitelist.isEmpty()) {
       return whitelist.contains(field);
     }
     return !blacklist.contains(field);

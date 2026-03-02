@@ -38,7 +38,7 @@ public class Print extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalBoolean("shouldLog", "overwriteFile", "appendThreadName")
       .optionalString("outputFile")
-      .optionalList("blacklist", new TypeReference<List<String>>() {})
+      .optionalList("excludeFields", new TypeReference<List<String>>() {})
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(Print.class);
@@ -60,11 +60,8 @@ public class Print extends Stage {
     this.overwriteFile = config.hasPath("overwriteFile") ? config.getBoolean("overwriteFile") : true;
     this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", true);
 
-    try {
-      this.fieldFilter = new FieldFilter(config);
-    } catch (IllegalArgumentException e) {
-      throw new StageException(e.getMessage(), e);
-    }
+    this.fieldFilter = new FieldFilter(config, null, "excludeFields");
+
 
     // if appendThreadName is *explicitly* set to true in the config, but no output file, warn it has no effect.
     if ((config.hasPath("appendThreadName") && config.getBoolean("appendThreadName")) && outputFilePath == null) {

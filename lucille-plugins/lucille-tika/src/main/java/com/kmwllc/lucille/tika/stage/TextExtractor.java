@@ -46,8 +46,8 @@ import org.xml.sax.SAXException;
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
  * parseTimeout (Long, Optional) : timeout for parsing in milliseconds
- * whitelist (StringList, Optional) : list of metadata names that are to be included in document
- * blacklist (StringList, Optional) : list of metadata names that are not to be included in document
+ * metadataWhitelist (StringList, Optional) : list of metadata names that are to be included in document
+ * metadataBlacklist (StringList, Optional) : list of metadata names that are not to be included in document
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
@@ -56,8 +56,8 @@ public class TextExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix")
-      .optionalList("whitelist", new TypeReference<List<String>>() {})
-      .optionalList("blacklist", new TypeReference<List<String>>() {})
+      .optionalList("metadataWhitelist", new TypeReference<List<String>>() {})
+      .optionalList("metadataBlacklist", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeout")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .include(FileContentFetcher.SPEC).build();
@@ -88,7 +88,7 @@ public class TextExtractor extends Stage {
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
 
     try {
-      this.fieldFilter = new FieldFilter(config);
+      this.fieldFilter = new FieldFilter(config, "metadataWhitelist", "metadataBlacklist");
     } catch (IllegalArgumentException e) {
       throw new StageException(e.getMessage(), e);
     }
