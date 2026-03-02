@@ -231,17 +231,23 @@ public class OpenSearchIndexerTest {
     assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc3)));
   }
 
-/*  @Test
+  @Test
   public void testOpensearchDocumentErrorsLogged() throws Exception {
     OpenSearchClient mockClient2 = Mockito.mock(OpenSearchClient.class);
 
     BooleanResponse mockBooleanResponse = Mockito.mock(BooleanResponse.class);
     Mockito.when(mockClient2.ping()).thenReturn(mockBooleanResponse);
+
+    // make first call to validateConnection succeed but subsequent calls to fail
     Mockito.when(mockBooleanResponse.value()).thenReturn(true, false);
 
+    BulkRequest.Builder mockRequestBuilder = Mockito.mock(BulkRequest.Builder.class);
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
+    BulkRequest mockBulkRequest = Mockito.mock(BulkRequest.class);
+    Mockito.when(mockRequestBuilder.build()).thenReturn(mockBulkRequest);
     Mockito.when(mockClient2.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
 
+    // mocking for the bulk response items and error causes
     BulkResponseItem mockItemDoc1 = Mockito.mock(BulkResponseItem.class);
     BulkResponseItem mockItemDoc2 = Mockito.mock(BulkResponseItem.class);
     BulkResponseItem mockItemDoc3 = Mockito.mock(BulkResponseItem.class);
@@ -251,35 +257,25 @@ public class OpenSearchIndexerTest {
 
     when(mockItemDoc1.id()).thenReturn("doc1");
     when(mockItemDoc2.id()).thenReturn("doc2");
-    when(mockItemDoc3.id()).thenReturn("something_else");
+    when(mockItemDoc3.id()).thenReturn("doc3");
 
-    Mockito.when(mockResponse.items()).thenReturn(Arrays.asList(mockItemDoc1, mockItemDoc2, mockItemDoc3));
+    List<BulkResponseItem> bulkResponseItems = Arrays.asList(mockItemDoc1, mockItemDoc2, mockItemDoc3);
+    Mockito.when(mockResponse.items()).thenReturn(bulkResponseItems);
 
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("OpenSearchIndexerTest/testOverride.conf");
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
     Document doc = Document.create("doc1", "test_run");
     Document doc2 = Document.create("doc2", "test_run");
     Document doc3 = Document.create("doc3", "test_run");
-    doc3.setField("other_id", "something_else");
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient2);
-    messenger.sendForIndexing(doc);
-    messenger.sendForIndexing(doc2);
-    messenger.sendForIndexing(doc3);
-    indexer.run(3);
-
-    List<Event> events = messenger.getSentEvents();
-    assertEquals(3, events.size());
-
-    assertTrue(events.stream().anyMatch(e -> e.getDocumentId().equals("doc1") && e.getType() == Type.FAIL));
-    assertTrue(events.stream().anyMatch(e -> e.getDocumentId().equals("doc3") && e.getType() == Type.FAIL));
-    assertTrue(events.stream().anyMatch(e -> e.getDocumentId().equals("doc2") && e.getType() == Type.FINISH));
-
-    // key assertion: failure reason must be present in the event message
-    assertTrue(events.stream().anyMatch(e -> e.getDocumentId().equals("doc1") && e.getMessage().contains("mock reason")));
-    assertTrue(events.stream().anyMatch(e -> e.getDocumentId().equals("doc3") && e.getMessage().contains("mock reason")));
-  } */
+    Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    assertEquals(2, failedDocs.size());
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc) && p.getRight().contains("mock reason")));
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc3) && p.getRight().contains("mock reason")));
+    assertFalse(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc2)));
+  }
 
   @Test
   public void testValidateConnection() throws Exception {
