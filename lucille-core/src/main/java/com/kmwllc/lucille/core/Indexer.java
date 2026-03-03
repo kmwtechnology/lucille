@@ -294,7 +294,7 @@ public abstract class Indexer implements Runnable {
 
       // Mark all the documents in failedDoc as failed
       for (Pair<Document, String> pair : failedDocPairs) {
-        try {
+        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, pair.getLeft().getId())) {
           messenger.sendEvent(pair.getLeft(), "FAILED: " + pair.getRight(), Event.Type.FAIL);
           docLogger.error("Sent failure message for doc {}. Reason: {}", pair.getLeft().getId(), pair.getRight());
         } catch (Exception e) {
