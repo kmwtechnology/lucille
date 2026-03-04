@@ -126,9 +126,7 @@ public class JsonFileHandler extends BaseFileHandler {
             return Document.createFromJson(line, idUpdater, ignoreFields);
           } else {
             ObjectNode node = (ObjectNode) mapper.readTree(line);
-            if (!ignoreFields.isEmpty()) {
-              node.remove(ignoreFields);
-            }
+            node.remove(ignoreFields);
             List<String> parts = new ArrayList<>(idFields.size());
 
             for (String fieldName : idFields) {

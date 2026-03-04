@@ -92,9 +92,7 @@ public class JsonDocument implements Document {
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields)
       throws DocumentException, JsonProcessingException {
     ObjectNode node = (ObjectNode) MAPPER.readTree(json);
-    if (!ignoreFields.isEmpty()) {
-      node.remove(ignoreFields);
-    }
+    node.remove(ignoreFields);
     JsonDocument doc = new JsonDocument(node);
     doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
