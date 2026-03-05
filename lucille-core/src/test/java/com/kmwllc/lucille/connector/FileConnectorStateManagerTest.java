@@ -73,6 +73,8 @@ public class FileConnectorStateManagerTest {
       assertTrue(helloRS.next());
       OffsetDateTime helloOffsetDateTime = helloRS.getObject("last_published", OffsetDateTime.class);
       // the OffsetDateTime timestamp should be within the last ~15 seconds.
+      // NOTE: we cannot test that the offset of the OffsetDateTime is UTC, as retrieving it inherently converts the time to
+      // our local time zone.
       assertTrue(helloOffsetDateTime.isAfter(OffsetDateTime.now().minusSeconds(15L)));
 
       assertTrue(infoRS.next());
