@@ -55,7 +55,7 @@ public class FileConnectorStateManager {
   private final boolean performDeletions;
   private final int pathLength;
 
-  private final OffsetDateTime traversalDateTimeUTC = OffsetDateTime.now(ZoneOffset.UTC);
+  private OffsetDateTime traversalDateTimeUTC;
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -90,6 +90,7 @@ public class FileConnectorStateManager {
       throw e;
     }
 
+    traversalDateTimeUTC = OffsetDateTime.now(ZoneOffset.UTC);
     jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
 
     // After getting connection setup, make sure the table exists, create it if it doesn't.
@@ -208,6 +209,7 @@ public class FileConnectorStateManager {
       try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
           // Get timestamp as OffsetDateTime, which is stored in UTC
+          // Note: H2 may convert to local timezone on retrieval, but toInstant() returns the correct absolute point in time.
           OffsetDateTime offsetDateTime = rs.getObject("last_published", OffsetDateTime.class);
 
           if (offsetDateTime != null) {
