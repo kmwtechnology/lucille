@@ -7,7 +7,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.stage.util.FieldFilter;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;

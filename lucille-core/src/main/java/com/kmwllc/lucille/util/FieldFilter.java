@@ -1,7 +1,6 @@
-package com.kmwllc.lucille.stage.util;
+package com.kmwllc.lucille.util;
 
 import com.typesafe.config.Config;
-import dev.langchain4j.agent.tool.P;
 import java.util.List;
 
 public class FieldFilter {
@@ -11,15 +10,11 @@ public class FieldFilter {
 
   public FieldFilter(Config config, String whitelistKey, String blacklistKey) {
 
-    if (whitelistKey == null) {
-      whitelistKey = "whitelist";
-    }
-    if (blacklistKey == null) {
-      blacklistKey = "blacklist";
-    }
+    String resolvedWhitelistKey = whitelistKey != null ? whitelistKey : "whitelist";
+    String resolvedBlacklistKey = blacklistKey != null ? blacklistKey : "blacklist";
 
-    whitelist = config.hasPath(whitelistKey) ? config.getStringList(whitelistKey) : List.of();
-    blacklist = config.hasPath(blacklistKey) ? config.getStringList(blacklistKey) : List.of();
+    whitelist = config.hasPath(resolvedWhitelistKey) ? config.getStringList(resolvedWhitelistKey) : List.of();
+    blacklist = config.hasPath(resolvedBlacklistKey) ? config.getStringList(resolvedBlacklistKey) : List.of();
   }
 
   public boolean isActive() {

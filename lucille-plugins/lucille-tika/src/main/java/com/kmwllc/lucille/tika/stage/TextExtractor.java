@@ -7,7 +7,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.stage.util.FieldFilter;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
@@ -87,11 +87,8 @@ public class TextExtractor extends Stage {
     textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
 
-    try {
-      this.fieldFilter = new FieldFilter(config, "metadataWhitelist", "metadataBlacklist");
-    } catch (IllegalArgumentException e) {
-      throw new StageException(e.getMessage(), e);
-    }
+    this.fieldFilter = new FieldFilter(config, "metadataWhitelist", "metadataBlacklist");
+
 
     if (filePathField != null && byteArrayField != null) {
       throw new StageException("Provided both a filePathField and byteArrayField to the TextExtractor stage");
