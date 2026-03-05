@@ -294,7 +294,7 @@ public abstract class Indexer implements Runnable {
 
       // Mark all the documents in failedDoc as failed
       for (Pair<Document, String> pair : failedDocPairs) {
-        try {
+        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, pair.getLeft().getId())) {
           messenger.sendEvent(pair.getLeft(), "FAILED: " + pair.getRight(), Event.Type.FAIL);
           docLogger.error("Sent failure message for doc {}. Reason: {}", pair.getLeft().getId(), pair.getRight());
         } catch (Exception e) {
@@ -338,7 +338,7 @@ public abstract class Indexer implements Runnable {
           }
 
           messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
-          docLogger.error("Sent failure message for doc {}.", d.getId());
+          docLogger.error("Sent failure message for doc {}. Reason: {}", d.getId(), e.getMessage());
         } catch (Exception e2) {
           // TODO: The run won't be able to finish if this event isn't received; can we do something
           // special here?
