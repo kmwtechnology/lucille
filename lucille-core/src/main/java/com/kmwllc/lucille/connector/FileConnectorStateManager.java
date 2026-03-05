@@ -9,8 +9,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +29,7 @@ import org.slf4j.LoggerFactory;
  *         <li>Names are case-sensitive - it is very important to keep the paths consistent in your Config when using state.</li>
  *       </ul>
  *     </li>
- *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille. Is NULL for directories.</li>
+ *     <li>last_published (TIMESTAMP WITH TIME ZONE): The last time the file was known to be published by Lucille, stored as UTC. Is NULL for directories.</li>
  *     <li>encountered (BOOLEAN): Used internally to track files which have been encountered in a traversal, enabling deletions.</li>
  *   </ul>
  *
@@ -54,7 +55,7 @@ public class FileConnectorStateManager {
   private final boolean performDeletions;
   private final int pathLength;
 
-  private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
+  private OffsetDateTime traversalDateTimeUTC;
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -89,6 +90,7 @@ public class FileConnectorStateManager {
       throw e;
     }
 
+    traversalDateTimeUTC = OffsetDateTime.now(ZoneOffset.UTC);
     jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
 
     // After getting connection setup, make sure the table exists, create it if it doesn't.
@@ -99,7 +101,7 @@ public class FileConnectorStateManager {
       if (!rs.next()) {
         try (Statement statement = jdbcConnection.createStatement()) {
           statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
-              + ") PRIMARY KEY, last_published TIMESTAMP, encountered BOOLEAN)");
+              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
         }
       }
     }
@@ -206,10 +208,12 @@ public class FileConnectorStateManager {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
-          Timestamp timestamp = rs.getTimestamp("last_published");
+          // Get timestamp as OffsetDateTime, which is stored in UTC
+          // Note: H2 may convert to local timezone on retrieval, but toInstant() returns the correct absolute point in time.
+          OffsetDateTime offsetDateTime = rs.getObject("last_published", OffsetDateTime.class);
 
-          if (timestamp != null) {
-            return timestamp.toInstant();
+          if (offsetDateTime != null) {
+            return offsetDateTime.toInstant();
           }
         }
       }
@@ -228,9 +232,8 @@ public class FileConnectorStateManager {
     String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
-      statement.setTimestamp(1, traversalTimestamp);
+      statement.setObject(1, traversalDateTimeUTC);
       statement.setString(2, fullPathStr);
-
       int rowsChanged = statement.executeUpdate();
 
       if (rowsChanged != 1) {
