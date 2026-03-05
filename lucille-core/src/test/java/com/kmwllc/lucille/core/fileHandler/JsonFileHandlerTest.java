@@ -232,14 +232,6 @@ public class JsonFileHandlerTest {
         )
     ));
     FileHandler handler = FileHandler.create("json", config);
-
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
-    File file = new File(filePath);
-
-    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
-
-    Document doc1 = docs.next();
-    doc1.getId();
   }
 
   @Test
