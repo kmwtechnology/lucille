@@ -67,7 +67,7 @@ public abstract class Indexer implements Runnable {
   private final StopWatch stopWatch;
   private final Meter meter;
   private final Histogram histogram;
-
+  
   protected final String idOverrideField;
   protected final String indexOverrideField;
 
@@ -103,6 +103,8 @@ public abstract class Indexer implements Runnable {
   public Indexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.bypass = bypass;
+    // The name of a field whose value, if present, will be used as the document's ID
+    // when sending to the search engine, overriding the value of Document.ID_FIELD.
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
             ? config.getString("indexer.idOverrideField")
@@ -360,9 +362,14 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Returns the ID that should be sent to the destination index/collection for the given doc, in
-   * place of the value of the Document.ID_FIELD field. Returns null if no override should be
-   * applied for the given document.
+   * Returns the value of the configured idOverrideField on the given document, to be used as the
+   * document's ID when sending to the index in place of {@link Document#ID_FIELD}.
+   * Returns null if idOverrideField is not configured, or the document does not have that field.
+   *
+   * <p> To use this, set {@code indexer.idOverrideField} in the config file to
+   * the name of a field whose value should be used as the document's ID. The field
+   * must be present on the document at indexing time. The document's internal {@link Document#ID_FIELD}
+   * is not modified.
    */
   protected String getDocIdOverride(Document doc) {
     if (idOverrideField != null && doc.has(idOverrideField)) {
