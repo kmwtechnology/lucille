@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
@@ -47,7 +48,6 @@ import org.xml.sax.SAXException;
  * parseTimeout (Long, Optional) : timeout for parsing in milliseconds
  * metadataWhitelist (StringList, Optional) : list of metadata names that are to be included in document
  * metadataBlacklist (StringList, Optional) : list of metadata names that are not to be included in document
- *
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
@@ -56,10 +56,8 @@ public class TextExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix")
-      .optionalList("metadataWhitelist", new TypeReference<List<String>>() {
-      })
-      .optionalList("metadataBlacklist", new TypeReference<List<String>>() {
-      })
+      .optionalList("metadataWhitelist", new TypeReference<List<String>>() {})
+      .optionalList("metadataBlacklist", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeout")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .include(FileContentFetcher.SPEC).build();
@@ -72,12 +70,11 @@ public class TextExtractor extends Stage {
   private String metadataPrefix;
   private Integer textContentLimit;
   private Long parseTimeout;
-  private List<String> metadataWhitelist;
-  private List<String> metadataBlacklist;
   private Parser parser;
   private ParseContext parseCtx;
   private final FileContentFetcher fileFetcher;
   private ExecutorService executorService;
+  private final FieldFilter fieldFilter;
 
   public TextExtractor(Config config) throws StageException {
     super(config);
@@ -89,11 +86,10 @@ public class TextExtractor extends Stage {
     tikaConfigPath = config.hasPath("tikaConfigPath") ? config.getString("tikaConfigPath") : null;
     textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
-    metadataWhitelist = config.hasPath("metadataWhitelist") ? config.getStringList("metadataWhitelist") : null;
-    metadataBlacklist = config.hasPath("metadataBlacklist") ? config.getStringList("metadataBlacklist") : null;
-    if (metadataWhitelist != null && metadataBlacklist != null) {
-      throw new StageException("Provided both a whitelist and blacklist to the TextExtractor stage");
-    }
+
+    this.fieldFilter = new FieldFilter(config, "metadataWhitelist", "metadataBlacklist");
+
+
     if (filePathField != null && byteArrayField != null) {
       throw new StageException("Provided both a filePathField and byteArrayField to the TextExtractor stage");
     }
@@ -217,9 +213,7 @@ public class TextExtractor extends Stage {
     for (String name : metadata.names()) {
       // clean the field name first.
       String cleanName = cleanFieldName(name);
-      if ((metadataBlacklist != null && !metadataBlacklist.contains(cleanName))
-          || (metadataWhitelist != null && metadataWhitelist.contains(cleanName))
-          || (metadataWhitelist == null) && (metadataBlacklist == null)) {
+      if (fieldFilter.shouldInclude(cleanName)) {
         for (String value : metadata.getValues(name)) {
           doc.setOrAdd(newMetadataPrefix + cleanName, value);
         }

@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -76,7 +77,7 @@ public abstract class Indexer implements Runnable {
   protected final String deleteByFieldField;
   protected final String deleteByFieldValue;
 
-  protected final List<String> ignoreFields;
+  protected final FieldFilter fieldFilter;
 
   private Instant lastLog = Instant.now();
 
@@ -110,10 +111,6 @@ public abstract class Indexer implements Runnable {
     this.indexOverrideField =
         config.hasPath("indexer.indexOverrideField")
             ? config.getString("indexer.indexOverrideField")
-            : null;
-    this.ignoreFields =
-        config.hasPath("indexer.ignoreFields")
-            ? config.getStringList("indexer.ignoreFields")
             : null;
     this.deletionMarkerField =
         config.hasPath("indexer.deletionMarkerField")
@@ -161,6 +158,8 @@ public abstract class Indexer implements Runnable {
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
     this.localRunId = localRunId;
+
+    this.fieldFilter = new FieldFilter(config, null, "indexer.ignoreFields");
 
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
@@ -384,8 +383,8 @@ public abstract class Indexer implements Runnable {
 
   protected Map<String, Object> getIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
-    if (ignoreFields != null) {
-      ignoreFields.forEach(indexerDoc::remove);
+    if (fieldFilter.isActive()) {
+      indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
     return indexerDoc;
   }
