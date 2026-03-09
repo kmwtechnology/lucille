@@ -366,9 +366,9 @@ public abstract class Indexer implements Runnable {
    * document's ID when sending to the index in place of {@link Document#ID_FIELD}.
    * Returns null if idOverrideField is not configured, or the document does not have that field.
    *
-   * <p> To use this, set <code>indexer.idOverrideField</code> in the config file to
-   * the name of a field whose value should be used as the document's ID. The field
-   * must be present on the document at indexing time. The document's internal {@link Document#ID_FIELD}
+   * <p> To use this, set <code>indexer.idOverrideField</code> in the config file to the name of a field whose value should be
+   * used as the document's ID. Indexer subclasses are expected to use the value of idOverrideField if it is present on the doc at
+   * indexing time, and otherwise default to the primary id in Document.ID_FIELD. The document's internal {@link Document#ID_FIELD}
    * is not modified.
    */
   protected String getDocIdOverride(Document doc) {
