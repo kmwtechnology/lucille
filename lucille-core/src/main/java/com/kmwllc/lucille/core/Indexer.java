@@ -67,7 +67,7 @@ public abstract class Indexer implements Runnable {
   private final StopWatch stopWatch;
   private final Meter meter;
   private final Histogram histogram;
-  
+
   protected final String idOverrideField;
   protected final String indexOverrideField;
 
@@ -366,7 +366,7 @@ public abstract class Indexer implements Runnable {
    * document's ID when sending to the index in place of {@link Document#ID_FIELD}.
    * Returns null if idOverrideField is not configured, or the document does not have that field.
    *
-   * <p> To use this, set {@code indexer.idOverrideField} in the config file to
+   * <p> To use this, set <code>indexer.idOverrideField</code> in the config file to
    * the name of a field whose value should be used as the document's ID. The field
    * must be present on the document at indexing time. The document's internal {@link Document#ID_FIELD}
    * is not modified.
