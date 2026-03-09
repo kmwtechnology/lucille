@@ -94,6 +94,8 @@ public class FileConnectorStateManagerTest {
 
   @Test
   public void testGetLastPublished() throws Exception {
+    Instant start = Instant.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
@@ -104,14 +106,14 @@ public class FileConnectorStateManagerTest {
       manager.successfullyPublishedFile(filePath);
     }
 
-    assertTrue(manager.getLastPublished(helloFile).isAfter(Instant.now().minusSeconds(60L)));
-    assertTrue(manager.getLastPublished(helloFile).isBefore(Instant.now().plusSeconds(60L)));
+    Instant helloLastPublished = manager.getLastPublished(helloFile);
+    assertTrue(helloLastPublished.isAfter(start) && helloLastPublished.isBefore(Instant.now()));
 
-    assertTrue(manager.getLastPublished(infoFile).isAfter(Instant.now().minusSeconds(60L)));
-    assertTrue(manager.getLastPublished(infoFile).isBefore(Instant.now().plusSeconds(60L)));
+    Instant infoLastPublished = manager.getLastPublished(infoFile);
+    assertTrue(infoLastPublished.isAfter(start) && infoLastPublished.isBefore(Instant.now()));
 
-    assertTrue(manager.getLastPublished(secretsFile).isAfter(Instant.now().minusSeconds(60L)));
-    assertTrue(manager.getLastPublished(secretsFile).isBefore(Instant.now().plusSeconds(60L)));
+    Instant secretsLastPublished = manager.getLastPublished(secretsFile);
+    assertTrue(secretsLastPublished.isAfter(start) && secretsLastPublished.isBefore(Instant.now()));
 
     manager.shutdown();
   }
@@ -223,7 +225,6 @@ public class FileConnectorStateManagerTest {
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
       OffsetDateTime helloOffsetDateTime = helloRS.getObject("last_published", OffsetDateTime.class);
-      // the offsetDateTime should be within the last ~15 seconds.
       assertTrue(helloOffsetDateTime.isBefore(OffsetDateTime.now()) && helloOffsetDateTime.isAfter(start));
 
       assertTrue(infoRS.next());
