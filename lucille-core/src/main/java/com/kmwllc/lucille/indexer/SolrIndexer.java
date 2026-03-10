@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Indexes documents to Solr using SolrJ.
+ * Additional parameters are made available by the {@link com.kmwllc.lucille.core.Indexer} abstract class.
  * <p>
  * Config Parameters -
  * <ul>
