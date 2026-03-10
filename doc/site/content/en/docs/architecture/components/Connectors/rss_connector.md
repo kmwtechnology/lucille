@@ -57,7 +57,7 @@ There are a few additional configuration options that we won't use here, but are
     refreshIncrement: "5m"      # re-fetch the feed every 5 minutes
 ```
 
-Your pipeline name can be whatever you want. Here, we chose cnbc's RSS feed for our URL.
+Your pipeline name can be whatever you want. Here, we chose CNBC's RSS feed for our URL.
 
 3. Define what stages we would like to use to process our documents from the feed:
 
@@ -101,7 +101,7 @@ News items in an RSS feed often have some article metadata, and then a link to t
 - The fetchURI stage allows us to grab the actual content of our associated news article.
 - The ApplyJSoup stage parses that content into fields that will exist in addition to our article metadata from the RSS feed. These fields include the body, bullet points, and the header.
 
-4. We can index these documents into whatever we'd like. Here, we might decide to just print them to a csv:
+4. We can index these documents into whatever we'd like. Here, we might decide to just print them to a CSV:
 
 ```hocon
 indexer: {
@@ -170,6 +170,9 @@ csv: {
     "bulletPoints", "headline"]
 }
 ```
+The CSV file will thus be saved on disk.
+
+### RSS to OpenSearch
 
 We might also choose to index into another destination, like an OpenSearch index. Here's an example. Replace the config with this:
 
@@ -202,8 +205,12 @@ opensearch: {
   acceptInvalidCert: true
 }
 ```
+You'll notice we're using incremental mode now, with a `refreshIncrement` of 60s and a `runDuration` of 1h. This means that every 
+item in the feed will be indexed on the initial run, and then Lucille will continue to take in new items that pop up every 60 
+seconds for 1 hour total.
 
-Here's what our documents look like after indexed into OpenSearch:
+
+Run Lucille again. Here's what 3 of our documents look like after being indexed into OpenSearch:
 
 ```
 GET /rss-index/_search
@@ -277,3 +284,5 @@ GET /rss-index/_search
   }
 }
 ```
+
+Using other indexers with the RSS connector follows much the same pattern.
