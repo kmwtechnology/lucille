@@ -68,6 +68,8 @@ public abstract class Indexer implements Runnable {
   private final Meter meter;
   private final Histogram histogram;
 
+  // The name of a field whose value, if present, will be used as the document's ID
+  // when sending to the search engine, overriding the value of Document.ID_FIELD.
   protected final String idOverrideField;
   protected final String indexOverrideField;
 
@@ -103,8 +105,6 @@ public abstract class Indexer implements Runnable {
   public Indexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.bypass = bypass;
-    // The name of a field whose value, if present, will be used as the document's ID
-    // when sending to the search engine, overriding the value of Document.ID_FIELD.
     this.idOverrideField =
         config.hasPath("indexer.idOverrideField")
             ? config.getString("indexer.idOverrideField")
