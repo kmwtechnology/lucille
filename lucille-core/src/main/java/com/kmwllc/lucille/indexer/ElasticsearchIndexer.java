@@ -35,6 +35,7 @@ import java.util.Optional;
 
 /**
  * Indexes documents to Elasticsearch using the Java Client.
+ * Additional parameters are made available by the {@link com.kmwllc.lucille.core.Indexer} abstract class.
  * <p>
  * Config Parameters -
  * <ul>

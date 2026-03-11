@@ -48,6 +48,29 @@ import sun.misc.Signal;
  *
  * <p> A {@link SpecBuilder#indexer()} does not include any default legal properties, as it is intended for use in specific Indexer
  * implementations.
+ * <p>
+ * Config Parameters -
+ * <ul>
+ *   <li>indexer.idOverrideField (String, Optional) : Name of a document field whose value will be used as the document's ID
+ *   in the destination, overriding {@link com.kmwllc.lucille.core.Document#ID_FIELD}. The document's internal ID is not modified.
+ *   Has no effect in Indexer implementations that do not interact with a search engine (e.x. CSVIndexer).</li>
+ *   <li>indexer.indexOverrideField (String, Optional) : Name of a document field whose value will be used as the destination
+ *   index, overriding the default index specified in the Indexer's configuration. Not supported by CSVIndexer or
+ *   ElasticSearchIndexer classes.</li>
+ *   <li>indexer.ignoreFields (List&lt;String&gt;, Optional) : Fields to exclude from the document sent to the destination.</li>
+ *   <li>indexer.batchSize (Integer, Optional) : Number of documents to accumulate before sending to the destination. Defaults to
+ *   {@value #DEFAULT_BATCH_SIZE}.</li>
+ *   <li>indexer.batchTimeout (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
+ *   will be considered as expired. Defaults to {@value #DEFAULT_BATCH_TIMEOUT}.</li>
+ *   <li>indexer.deletionMarkerField (String, Optional) : Field that, when set to indexer.deletionMarkerFieldValue, marks a document
+ *   for deletion. Must be set together with indexer.deletionMarkerFieldValue.</li>
+ *   <li>indexer.deletionMarkerFieldValue (String, Optional) : Value of indexer.deletionMarkerField that triggers deletion.
+ *   Must be set together with indexer.deletionMarkerField.</li>
+ *   <li>indexer.deleteByFieldField (String, Optional) : Field used to identify documents for deletion by query. Must be set
+ *   together with indexer.deleteByFieldValue.</li>
+ *   <li>indexer.deleteByFieldValue (String, Optional) : Field whose value specifies which documents to delete by query. Must be set
+ *   together with indexer.deleteByFieldField.</li>
+ * </ul>
  */
 public abstract class Indexer implements Runnable {
 
@@ -360,9 +383,9 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Returns the ID that should be sent to the destination index/collection for the given doc, in
-   * place of the value of the Document.ID_FIELD field. Returns null if no override should be
-   * applied for the given document.
+   * Returns the value of the configured idOverrideField on the given document, to be used as the
+   * document's ID when sending to the index in place of {@link Document#ID_FIELD}.
+   * Returns null if idOverrideField is not configured, or the document does not have that field.
    */
   protected String getDocIdOverride(Document doc) {
     if (idOverrideField != null && doc.has(idOverrideField)) {

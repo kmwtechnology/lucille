@@ -21,6 +21,7 @@ import java.util.List;
 
 /**
  * Stores documents in a CSV file by writing selected fields as rows.
+ * Additional parameters are made available by the {@link com.kmwllc.lucille.core.Indexer} abstract class.
  * <p>
  * Config Parameters -
  * <ul>
