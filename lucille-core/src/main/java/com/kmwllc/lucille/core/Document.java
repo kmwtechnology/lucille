@@ -4,13 +4,11 @@ import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.invoke.MethodHandles;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -54,7 +52,8 @@ public interface Document {
   String RUNID_FIELD = "run_id";
   String CHILDREN_FIELD = ".children";
   String DROP_FIELD = ".dropped";
-  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD));
+  String SKIP_FIELD = ".skipped";
+  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD));
 
 
   /* --- SINGLE-VALUE GETTERS --- */
@@ -519,6 +518,16 @@ public interface Document {
   boolean isDropped();
 
   void setDropped(boolean status);
+
+  /**
+   * Indicates whether the document is "skipped." A skipped document flowing through the pipeline will be ignored by downstream stages,
+   * but it WILL reach the Indexer and will be indexed as normal.
+   * This contrasts with a dropped document, which will be ignored by downstream stages and will NOT be indexed.
+   * @return true if this Document should skip processing in stages; false otherwise.
+   */
+  boolean isSkipped();
+
+  void setSkipped(boolean status);
 
   Document deepCopy();
 
