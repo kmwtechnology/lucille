@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
@@ -37,7 +38,8 @@ public class Print extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalBoolean("shouldLog", "overwriteFile", "appendThreadName")
       .optionalString("outputFile")
-      .optionalList("excludeFields", new TypeReference<List<String>>(){}).build();
+      .optionalList("excludeFields", new TypeReference<List<String>>() {})
+      .build();
 
   private static final Logger log = LoggerFactory.getLogger(Print.class);
 
@@ -45,18 +47,21 @@ public class Print extends Stage {
   private final boolean shouldLog;
   private final boolean overwriteFile;
   private final boolean appendThreadName;
-  private final List<String> excludeFields;
+
+  private final FieldFilter fieldFilter;
 
   private BufferedWriter writer;
 
-  public Print(Config config) {
+  public Print(Config config) throws StageException {
     super(config);
 
     this.outputFilePath = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
-    this.excludeFields = config.hasPath("excludeFields") ? config.getStringList("excludeFields") : null;
     this.overwriteFile = config.hasPath("overwriteFile") ? config.getBoolean("overwriteFile") : true;
     this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", true);
+
+    this.fieldFilter = new FieldFilter(config, null, "excludeFields");
+
 
     // if appendThreadName is *explicitly* set to true in the config, but no output file, warn it has no effect.
     if ((config.hasPath("appendThreadName") && config.getBoolean("appendThreadName")) && outputFilePath == null) {
@@ -85,12 +90,12 @@ public class Print extends Stage {
       }
     }
 
-    if (excludeFields != null) {
+    if (fieldFilter.isActive()) {
       doc = doc.deepCopy();
-      for (String field : excludeFields) {
+      for (String field : doc.getFieldNames()) {
         if (Document.RUNID_FIELD.equals(field)) {
           doc.clearRunId();
-        } else {
+        } else if (!fieldFilter.shouldInclude(field)) {
           doc.removeField(field);
         }
       }
