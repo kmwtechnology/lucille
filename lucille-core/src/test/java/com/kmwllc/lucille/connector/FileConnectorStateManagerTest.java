@@ -21,8 +21,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
@@ -48,6 +48,8 @@ public class FileConnectorStateManagerTest {
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {
+    OffsetDateTime start = OffsetDateTime.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
@@ -64,24 +66,26 @@ public class FileConnectorStateManagerTest {
       manager.successfullyPublishedFile(filePath);
     }
 
-    // All of the files should have new (recent) timestamps.
+    // All of the files should have new (recent) OffsetDateTimes.
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery));
         ResultSet infoRS = RunScript.execute(connection, new StringReader(infoQuery));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(secretsQuery))) {
 
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime helloOffsetDateTime = helloRS.getObject("last_published", OffsetDateTime.class);
+      //Testing that OffsetDateTime's time is between the beginning of the test running and the assertion.
+      // NOTE: we cannot test that the offset of the OffsetDateTime is UTC, as retrieving it inherently converts the time to
+      // our local time zone.
+      assertTrue(helloOffsetDateTime.isBefore(OffsetDateTime.now()) && helloOffsetDateTime.isAfter(start));
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
-      assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime infoOffsetDateTime = infoRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(infoOffsetDateTime.isBefore(OffsetDateTime.now()) && infoOffsetDateTime.isAfter(start));
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
-      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime secretOffsetDateTime = secretRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(secretOffsetDateTime.isBefore(OffsetDateTime.now()) && secretOffsetDateTime.isAfter(start));
     }
 
     manager.shutdown();
@@ -89,7 +93,35 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
+  public void testGetLastPublished() throws Exception {
+    Instant start = Instant.now();
+
+    assertEquals(1, dbHelper.checkNumConnections());
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    for (String filePath : allFilePaths) {
+      manager.markFileEncountered(filePath);
+      manager.successfullyPublishedFile(filePath);
+    }
+
+    Instant helloLastPublished = manager.getLastPublished(helloFile);
+    assertTrue(helloLastPublished.isAfter(start) && helloLastPublished.isBefore(Instant.now()));
+
+    Instant infoLastPublished = manager.getLastPublished(infoFile);
+    assertTrue(infoLastPublished.isAfter(start) && infoLastPublished.isBefore(Instant.now()));
+
+    Instant secretsLastPublished = manager.getLastPublished(secretsFile);
+    assertTrue(secretsLastPublished.isAfter(start) && secretsLastPublished.isBefore(Instant.now()));
+
+    manager.shutdown();
+  }
+
+  @Test
   public void testStateManagerOnNewFiles() throws Exception {
+    OffsetDateTime start = OffsetDateTime.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
@@ -107,9 +139,8 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/info.txt'"))) {
 
       assertTrue(infoRS.next());
-      Timestamp newFileTimestamp = infoRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(newFileTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15))));
+      OffsetDateTime newFileOffsetDateTime = infoRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(newFileOffsetDateTime.isBefore(OffsetDateTime.now()) && newFileOffsetDateTime.isAfter(start));
     }
 
     manager.shutdown();
@@ -172,6 +203,8 @@ public class FileConnectorStateManagerTest {
   // Want to make sure that the StateManager can create appropriate tables if they didn't already exist.
   @Test
   public void testStateManagerOnNewTable() throws Exception {
+    OffsetDateTime start = OffsetDateTime.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     // has "tableName: "S3""
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf");
@@ -191,18 +224,16 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/info.txt'"));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime helloOffsetDateTime = helloRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(helloOffsetDateTime.isBefore(OffsetDateTime.now()) && helloOffsetDateTime.isAfter(start));
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
-      assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      OffsetDateTime infoOffsetDateTime = infoRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(infoOffsetDateTime.isBefore(OffsetDateTime.now()) && infoOffsetDateTime.isAfter(start));
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
-      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
-    }
+      OffsetDateTime secretOffsetDateTime = secretRS.getObject("last_published", OffsetDateTime.class);
+      assertTrue(secretOffsetDateTime.isBefore(OffsetDateTime.now()) && secretOffsetDateTime.isAfter(start));     }
 
     manager.shutdown();
     assertEquals(1, dbHelper.checkNumConnections());
@@ -210,6 +241,8 @@ public class FileConnectorStateManagerTest {
 
   @Test
   public void testTraversalWithState() throws Exception {
+    OffsetDateTime start = OffsetDateTime.now();
+
     String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/example").toUri().toString();
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
 
@@ -223,7 +256,7 @@ public class FileConnectorStateManagerTest {
     // See above - textExampleTraversal has 16 files. This has 18, since we don't exclude "skipFile.txt".
     assertEquals(18, messenger1.getDocsSentForProcessing().size());
 
-    Timestamp publishedTimestamp;
+    OffsetDateTime publishedOffsetDateTime;
     String baseQuery = "SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name = '" + fileConnectorExampleDir;
 
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
@@ -231,11 +264,11 @@ public class FileConnectorStateManagerTest {
         ResultSet subdirCSVResults = RunScript.execute(connection, new StringReader(baseQuery + "subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv'"))) {
 
       assertTrue(aJSONResults.next());
-      publishedTimestamp = aJSONResults.getTimestamp("last_published");
-      assertTrue(publishedTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      publishedOffsetDateTime = aJSONResults.getObject("last_published", OffsetDateTime.class);
+      assertTrue(publishedOffsetDateTime.isBefore(OffsetDateTime.now()) && publishedOffsetDateTime.isAfter(start));
 
       assertTrue(subdirCSVResults.next());
-      assertEquals(publishedTimestamp, subdirCSVResults.getTimestamp("last_published"));
+      assertEquals(publishedOffsetDateTime, subdirCSVResults.getObject("last_published", OffsetDateTime.class));
 
       // before we run again, we will set these two files to have been published a long time ago, while everything else will still be
       // very recently published.
@@ -300,10 +333,10 @@ public class FileConnectorStateManagerTest {
         ResultSet skipFile2Results = RunScript.execute(connection, new StringReader("SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name='" + fileConnectorExampleDir + "subdir/skipFile.txt'"))) {
 
       assertTrue(skipFile1Results.next());
-      assertNull(skipFile1Results.getTimestamp("last_published"));
+      assertNull(skipFile1Results.getObject("last_published", OffsetDateTime.class));
 
       assertTrue(skipFile2Results.next());
-      assertNull(skipFile2Results.getTimestamp("last_published"));
+      assertNull(skipFile2Results.getObject("last_published", OffsetDateTime.class));
     }
   }
 

@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.junit.Assert;
@@ -408,7 +409,8 @@ public class FileConnectorTest {
         Files.delete(dbFile.toPath());
         Files.delete(stateDirectory.toPath());
       } catch (IOException e) {
-        fail("The state file / directory was not found - an exception may have been thrown during the test.");
+        log.error("An exception was thrown while attempting to delete state file and directory", e);
+        fail("An exception was thrown while attempting to delete state file and directory");
       }
     }
   }
