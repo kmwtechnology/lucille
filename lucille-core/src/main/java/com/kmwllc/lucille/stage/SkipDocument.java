@@ -10,9 +10,12 @@ import java.util.Iterator;
 
 
 /**
- * A stage that sets .skipped to true on the documents that pass through it. Intended to be used with the conditional framework
- * and the delete by query functionality.
+ * Marks all documents as skipped. Intended to be used with Conditions to determine which documents will be affected.
  * By default, this stage moves to skip 100% of documents to the end of the pipeline and then sends the document to the indexer.
+ *
+ * Intended for a deletion use case where a Document representing a delete operation should reach the Indexer
+ *  but should not be processed by downstream Stages in the pipeline.
+ *
  */
 public class SkipDocument extends Stage {
 

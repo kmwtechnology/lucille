@@ -518,6 +518,12 @@ public interface Document {
 
   void setDropped(boolean status);
 
+  /**
+   * Indicates whether the document is "skipped." A skipped document flowing through the pipeline will be ignored by downstream stages,
+   * but it WILL reach the Indexer and will be indexed as normal.
+   * This contrasts with a dropped document, which will be ignored by downstream stages and will NOT be indexed.
+   * @return true if this Document should skip processing in stages; false otherwise.
+   */
   boolean isSkipped();
 
   void setSkipped(boolean status);

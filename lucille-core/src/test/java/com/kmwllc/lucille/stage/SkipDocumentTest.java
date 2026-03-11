@@ -7,7 +7,10 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.message.TestMessenger;
+import java.util.List;
 import org.junit.Test;
 
 public class SkipDocumentTest {
@@ -43,7 +46,7 @@ public class SkipDocumentTest {
   }
 
   @Test
-  public void testSkipAfterWithChild() throws Exception {
+  public void testSkipEmittedChild() throws Exception {
     Stage setStaticStage = StageFactory.of(SetStaticValues.class).get("SetStaticValuesTest/config.conf");
     Stage stage = factory.get("SkipDocumentTest/conditional_setStatic.conf");
     Stage addRandomStage = StageFactory.of(AddRandomBoolean.class).get("AddRandomBooleanTest/valid.conf");
@@ -91,5 +94,47 @@ public class SkipDocumentTest {
     // ensure childDoc2 which was not skipped
     addRandomStage.processConditional(childDoc2);
     assertTrue(childDoc2.has("bool"));
+  }
+
+  @Test
+  public void testSkipParent() throws Exception {
+    TestMessenger messenger =
+        Runner.runInTestMode("SkipDocumentTest/skipParent.conf").get("connector1");
+
+    // one doc will be sent from the connector
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
+    assertEquals(1, docsSentForProcessing.size());
+    Document parent = docsSentForProcessing.get(0);
+    assertEquals("1", parent.getId());
+
+    // only skipped parent will be sent for indexing because children should have never been created
+    List<Document> docsSentForIndexing = messenger.getDocsSentForIndexing();
+    assertEquals(1, docsSentForIndexing.size());
+    assertEquals("1", docsSentForIndexing.get(0).getId());
+  }
+
+  @Test
+  public void testSkipAttachedChild() throws Exception {
+    TestMessenger messenger =
+        Runner.runInTestMode("SkipDocumentTest/skipChild.conf").get("connector1");
+
+    // one doc will be sent from the connector
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
+    assertEquals(1, docsSentForProcessing.size());
+    Document parent = docsSentForProcessing.get(0);
+    assertEquals("1", parent.getId());
+
+    List<Document> docsSentForIndexing = messenger.getDocsSentForIndexing();
+
+    // make sure only non-skipped child was processed on the final stage
+    assertFalse(docsSentForIndexing.get(0).has("field5")); // child1
+    assertTrue(docsSentForIndexing.get(1).has("field5")); // child2
+    assertFalse(docsSentForIndexing.get(2).has("field5")); // parent
+
+    // skipped parent, skipped child 1, and child 2 will be sent for indexing
+    assertEquals(3, docsSentForIndexing.size());
+    assertEquals("1_child1", docsSentForIndexing.get(0).getId());
+    assertEquals("1_child2", docsSentForIndexing.get(1).getId());
+    assertEquals("1", docsSentForIndexing.get(2).getId());
   }
 }
