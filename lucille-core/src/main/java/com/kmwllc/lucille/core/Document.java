@@ -4,13 +4,11 @@ import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.invoke.MethodHandles;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -529,6 +527,12 @@ public interface Document {
    * @see <a href="https://github.com/dashjoin/jsonata-java">JSONNata implementation</a>
    */
   void transform(Jsonata expr) throws DocumentException;
+
+  /**
+   * Applies a JSONNata expression to the value of the source field and places the resulting object in the destination field.
+   * @throws DocumentException if the evaluation fails
+   */
+  void transform(Jsonata expr, String sourceField, String destField) throws DocumentException;
 
   /**
    * Returns an Iterator that contains only this document.
