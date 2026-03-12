@@ -132,6 +132,7 @@ public class QueryDatabase extends Stage {
             Instant inst = doc.getInstant(field);
             Date date = (Date) Date.from(inst);
             preparedStatement.setDate(i + 1, date);
+            break;
           default:
             throw new StageException("Type " + t + " not recognized");
         }
@@ -195,4 +196,3 @@ public class QueryDatabase extends Stage {
     }
   }
 }
-

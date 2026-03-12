@@ -4,6 +4,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -29,10 +30,15 @@ import org.mockito.MockedStatic;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import com.typesafe.config.ConfigFactory;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
@@ -182,6 +188,40 @@ public class QueryDatabaseTest {
       doThrow(SQLException.class).when(connection).close();
       Stage stage = factory.get("QueryDatabaseTest/animal.conf");
       assertThrows(StageException.class, () -> stage.stop());
+    }
+  }
+
+  @Test
+  public void testDateInputType() throws Exception {
+    try (MockedStatic<DriverManager> mockedStatic = mockStatic(DriverManager.class)) {
+      PreparedStatement statement = mock(PreparedStatement.class);
+      Connection connection = mock(Connection.class);
+      ResultSet result = mock(ResultSet.class);
+
+      when(connection.prepareStatement("SELECT name FROM animal WHERE date_col = ?")).thenReturn(statement);
+      when(statement.executeQuery()).thenReturn(result);
+      when(result.next()).thenReturn(false);
+      mockedStatic.when(() -> DriverManager.getConnection("jdbc:h2:mem:test", "", "")).thenReturn(connection);
+
+      Stage stage = factory.get(ConfigFactory.parseMap(Map.of(
+          "driver", "org.h2.Driver",
+          "connectionString", "jdbc:h2:mem:test",
+          "jdbcUser", "",
+          "jdbcPassword", "",
+          "sql", "SELECT name FROM animal WHERE date_col = ?",
+          "keyFields", List.of("date_col"),
+          "inputTypes", List.of("DATE"),
+          "fieldMapping", Map.of("name", "output1")
+      )));
+
+      Document d = Document.create("id");
+      d.setField("date_col", Instant.parse("2024-07-30T00:00:00Z"));
+
+      stage.processDocument(d);
+
+      verify(statement, times(1)).setDate(anyInt(), any(Date.class));
+
+      stage.stop();
     }
   }
 
