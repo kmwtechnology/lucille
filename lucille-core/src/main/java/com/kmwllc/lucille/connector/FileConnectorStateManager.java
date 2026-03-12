@@ -238,7 +238,8 @@ public class FileConnectorStateManager {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
-          // map TIMESTAMP WITH TIME ZONE to OffsetDateTime
+          // Get timestamp as OffsetDateTime, which is stored in UTC
+          // Note: H2 may convert to local timezone on retrieval, but toInstant() returns the correct absolute point in time.
           OffsetDateTime odt = rs.getObject("last_published", OffsetDateTime.class);
           if (odt != null) { return odt.toInstant(); }
         }

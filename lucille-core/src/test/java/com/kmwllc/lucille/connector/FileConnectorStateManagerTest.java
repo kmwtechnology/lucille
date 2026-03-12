@@ -109,6 +109,32 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
+  public void testGetLastPublished() throws Exception {
+    Instant start = Instant.now();
+
+    assertEquals(1, dbHelper.checkNumConnections());
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    for (String filePath : allFilePaths) {
+      manager.markFileEncountered(filePath);
+      manager.successfullyPublishedFile(filePath);
+    }
+
+    Instant helloLastPublished = manager.getLastPublished(helloFile);
+    assertTrue(helloLastPublished.isAfter(start) && helloLastPublished.isBefore(Instant.now()));
+
+    Instant infoLastPublished = manager.getLastPublished(infoFile);
+    assertTrue(infoLastPublished.isAfter(start) && infoLastPublished.isBefore(Instant.now()));
+
+    Instant secretsLastPublished = manager.getLastPublished(secretsFile);
+    assertTrue(secretsLastPublished.isAfter(start) && secretsLastPublished.isBefore(Instant.now()));
+
+    manager.shutdown();
+  }
+
+  @Test
   public void testStateManagerOnNewFiles() throws Exception {
     assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
