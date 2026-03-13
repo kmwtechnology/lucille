@@ -52,6 +52,8 @@ public class FileConnectorStateManagerTest {
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {
+    Instant start = Instant.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
@@ -76,16 +78,16 @@ public class FileConnectorStateManagerTest {
 
       assertTrue(helloRS.next());
       Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      // the timestamp should be after the start of the test
+      assertTrue(helloTimestamp.after(Timestamp.from(start)));
 
       assertTrue(infoRS.next());
       Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
-      assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      assertTrue(infoTimestamp.after(Timestamp.from(start)));
 
       assertTrue(secretRS.next());
       Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
-      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      assertTrue(secretTimestamp.after(Timestamp.from(start)));
     }
 
     manager.shutdown();
@@ -136,6 +138,8 @@ public class FileConnectorStateManagerTest {
 
   @Test
   public void testStateManagerOnNewFiles() throws Exception {
+    Instant start = Instant.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
@@ -153,9 +157,8 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/info.txt'"))) {
 
       assertTrue(infoRS.next());
-      Timestamp newFileTimestamp = infoRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(newFileTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15))));
+      Instant newInstant = infoRS.getObject("last_published", Instant.class);
+      assertTrue(newInstant.isBefore(Instant.now()) && newInstant.isAfter(start));
     }
 
     manager.shutdown();
@@ -218,6 +221,8 @@ public class FileConnectorStateManagerTest {
   // Want to make sure that the StateManager can create appropriate tables if they didn't already exist.
   @Test
   public void testStateManagerOnNewTable() throws Exception {
+    Instant start = Instant.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     // has "tableName: "S3""
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf");
@@ -237,18 +242,16 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/info.txt'"));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      Instant helloInstant = helloRS.getObject("last_published", Instant.class);
+      assertTrue(helloInstant.isBefore(Instant.now()) && helloInstant.isAfter(start));
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
-      assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      Instant infoInstant = infoRS.getObject("last_published", Instant.class);
+      assertTrue(infoInstant.isBefore(Instant.now()) && infoInstant.isAfter(start));
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
-      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
-    }
+      Instant secretInstant = secretRS.getObject("last_published", Instant.class);
+      assertTrue(secretInstant.isBefore(Instant.now()) && secretInstant.isAfter(start));     }
 
     manager.shutdown();
     assertEquals(1, dbHelper.checkNumConnections());
@@ -256,6 +259,8 @@ public class FileConnectorStateManagerTest {
 
   @Test
   public void testTraversalWithState() throws Exception {
+    Instant start = Instant.now();
+
     String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/example").toUri().toString();
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
 
@@ -278,7 +283,7 @@ public class FileConnectorStateManagerTest {
 
       assertTrue(aJSONResults.next());
       publishedTimestamp = aJSONResults.getTimestamp("last_published");
-      assertTrue(publishedTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      assertTrue(publishedTimestamp.after(Timestamp.from(start)));
 
       assertTrue(subdirCSVResults.next());
       assertEquals(publishedTimestamp, subdirCSVResults.getTimestamp("last_published"));
