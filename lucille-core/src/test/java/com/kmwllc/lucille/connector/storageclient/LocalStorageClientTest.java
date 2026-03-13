@@ -6,13 +6,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.message.TestMessenger;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URI;
@@ -22,8 +15,17 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
 import org.junit.Assert;
 import org.junit.Test;
+
+import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.message.TestMessenger;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 
 public class LocalStorageClientTest {
 
@@ -432,8 +434,9 @@ public class LocalStorageClientTest {
   @Test
   public void testCutoff() throws Exception {
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
-        // Only including files modified in the last 10 hours
-        "filterOptions", Map.of("lastModifiedCutoff", "10h")
+        // cutoff behavior should match under incremental mode.
+        // only including files modified in the last 10 hours
+        "filterOptions", Map.of("lastModifiedCutoff", "10h", "publishMode", "incremental")
     ));
 
     File oldFile = new File("src/test/resources/StorageClientTest/modifiedDateFiles/old.txt");

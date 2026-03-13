@@ -6,13 +6,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.kmwllc.lucille.connector.jdbc.DBTestHelper;
-import com.kmwllc.lucille.core.Connector;
-import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.message.TestMessenger;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.StringReader;
 import java.nio.file.Files;
@@ -24,11 +17,22 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+
 import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+
+import com.kmwllc.lucille.connector.jdbc.DBTestHelper;
+import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.message.TestMessenger;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 
 public class FileConnectorStateManagerTest {
 
@@ -48,6 +52,8 @@ public class FileConnectorStateManagerTest {
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {
+    Instant start = Instant.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
@@ -72,16 +78,16 @@ public class FileConnectorStateManagerTest {
 
       assertTrue(helloRS.next());
       Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      // the timestamp should be after the start of the test
+      assertTrue(helloTimestamp.after(Timestamp.from(start)));
 
       assertTrue(infoRS.next());
       Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
-      assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      assertTrue(infoTimestamp.after(Timestamp.from(start)));
 
       assertTrue(secretRS.next());
       Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
-      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      assertTrue(secretTimestamp.after(Timestamp.from(start)));
     }
 
     manager.shutdown();
@@ -89,7 +95,51 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
+  public void testStateManagerUsesProvidedTraversalInstant() throws Exception {
+    // constructor seam for deterministic timestamp assertions.
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    Instant fixedTraversalInstant = Instant.parse("2026-02-16T00:00:00Z");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null, fixedTraversalInstant);
+    manager.init();
+
+    manager.markFileEncountered(helloFile);
+    manager.successfullyPublishedFile(helloFile);
+
+    assertEquals(fixedTraversalInstant, manager.getLastPublished(helloFile));
+
+    manager.shutdown();
+  }
+
+  @Test
+  public void testGetLastPublished() throws Exception {
+    Instant start = Instant.now();
+
+    assertEquals(1, dbHelper.checkNumConnections());
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    for (String filePath : allFilePaths) {
+      manager.markFileEncountered(filePath);
+      manager.successfullyPublishedFile(filePath);
+    }
+
+    Instant helloLastPublished = manager.getLastPublished(helloFile);
+    assertTrue(helloLastPublished.isAfter(start) && helloLastPublished.isBefore(Instant.now()));
+
+    Instant infoLastPublished = manager.getLastPublished(infoFile);
+    assertTrue(infoLastPublished.isAfter(start) && infoLastPublished.isBefore(Instant.now()));
+
+    Instant secretsLastPublished = manager.getLastPublished(secretsFile);
+    assertTrue(secretsLastPublished.isAfter(start) && secretsLastPublished.isBefore(Instant.now()));
+
+    manager.shutdown();
+  }
+
+  @Test
   public void testStateManagerOnNewFiles() throws Exception {
+    Instant start = Instant.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
@@ -107,9 +157,8 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/info.txt'"))) {
 
       assertTrue(infoRS.next());
-      Timestamp newFileTimestamp = infoRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(newFileTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15))));
+      Instant newInstant = infoRS.getObject("last_published", Instant.class);
+      assertTrue(newInstant.isBefore(Instant.now()) && newInstant.isAfter(start));
     }
 
     manager.shutdown();
@@ -172,6 +221,8 @@ public class FileConnectorStateManagerTest {
   // Want to make sure that the StateManager can create appropriate tables if they didn't already exist.
   @Test
   public void testStateManagerOnNewTable() throws Exception {
+    Instant start = Instant.now();
+
     assertEquals(1, dbHelper.checkNumConnections());
     // has "tableName: "S3""
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf");
@@ -191,18 +242,16 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/info.txt'"));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
-      // the timestamp should be within the last ~15 seconds.
-      assertTrue(helloTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      Instant helloInstant = helloRS.getObject("last_published", Instant.class);
+      assertTrue(helloInstant.isBefore(Instant.now()) && helloInstant.isAfter(start));
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
-      assertTrue(infoTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      Instant infoInstant = infoRS.getObject("last_published", Instant.class);
+      assertTrue(infoInstant.isBefore(Instant.now()) && infoInstant.isAfter(start));
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
-      assertTrue(secretTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
-    }
+      Instant secretInstant = secretRS.getObject("last_published", Instant.class);
+      assertTrue(secretInstant.isBefore(Instant.now()) && secretInstant.isAfter(start));     }
 
     manager.shutdown();
     assertEquals(1, dbHelper.checkNumConnections());
@@ -210,6 +259,8 @@ public class FileConnectorStateManagerTest {
 
   @Test
   public void testTraversalWithState() throws Exception {
+    Instant start = Instant.now();
+
     String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/example").toUri().toString();
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
 
@@ -232,7 +283,7 @@ public class FileConnectorStateManagerTest {
 
       assertTrue(aJSONResults.next());
       publishedTimestamp = aJSONResults.getTimestamp("last_published");
-      assertTrue(publishedTimestamp.after(Timestamp.from(Instant.now().minusSeconds(15L))));
+      assertTrue(publishedTimestamp.after(Timestamp.from(start)));
 
       assertTrue(subdirCSVResults.next());
       assertEquals(publishedTimestamp, subdirCSVResults.getTimestamp("last_published"));
@@ -247,10 +298,9 @@ public class FileConnectorStateManagerTest {
       }
     }
 
-    // and now... do it again... but should only have the two files that we manually modified above get processed.
+    // second run in default full mode republishes all docs.
     connector.execute(publisher2);
-    // 1 doc from json, 3 from the csv in the archive
-    assertEquals(4, messenger2.getDocsSentForProcessing().size());
+    assertEquals(18, messenger2.getDocsSentForProcessing().size());
   }
 
   // empty state configuration should mean we create a database for the user.
@@ -262,8 +312,6 @@ public class FileConnectorStateManagerTest {
 
     assertFalse(stateDirectory.isDirectory());
     assertFalse(dbFile.isFile());
-
-
     Config emptyConfig = ConfigFactory.empty();
 
     FileConnectorStateManager stateMgr = new FileConnectorStateManager(emptyConfig, "connector");
@@ -318,11 +366,103 @@ public class FileConnectorStateManagerTest {
     connector.execute(publisher);
     assertEquals(21, messenger.getDocsSentForProcessing().size());
 
-    // second run, nothing should get published
+    // second run in default full mode republishes everything.
     messenger = new TestMessenger();
     publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
     connector.execute(publisher);
-    assertEquals(0, messenger.getDocsSentForProcessing().size());
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
   }
+
+  @Test
+  public void testTraversalWithStateIncremental() throws Exception {
+    // incremental mode should only publish changed/new docs plus tombstones.
+    String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/example").toUri().toString();
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
+
+    TestMessenger messenger1 = new TestMessenger();
+    TestMessenger messenger2 = new TestMessenger();
+    Publisher publisher1 = new PublisherImpl(config, messenger1, "run", "pipeline1");
+    Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
+
+    Connector connector = new FileConnector(config);
+    connector.execute(publisher1);
+    assertEquals(18, messenger1.getDocsSentForProcessing().size());
+
+    String baseQuery = "SELECT * FROM \"FILE-CONNECTOR-1\" WHERE name = '" + fileConnectorExampleDir;
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet aJSONResults = RunScript.execute(connection, new StringReader(baseQuery + "a.json'"));
+        ResultSet subdirCSVResults = RunScript.execute(connection, new StringReader(baseQuery + "subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv'"))) {
+      assertTrue(aJSONResults.next());
+      assertTrue(subdirCSVResults.next());
+      String baseUpdate = "UPDATE \"FILE-CONNECTOR-1\" SET last_published='2022-01-01 14:30:00' WHERE name='" + fileConnectorExampleDir;
+      try (Statement statement = connection.createStatement()) {
+        statement.executeUpdate(baseUpdate + "a.json'");
+        statement.executeUpdate(baseUpdate + "subdirWith1csv1xml.tar.gz'");
+        statement.executeUpdate(baseUpdate + "subdirWith1csv1xml.tar.gz!subdirWith1csv1xml/default.csv'");
+      }
+    }
+
+    connector.execute(publisher2);
+    List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
+    long tombstoneCount = secondRunDocs.stream()
+        .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+        .count();
+    // 4 reprocessed docs + 6 tombstones.
+    assertEquals(10, secondRunDocs.size());
+    assertEquals(6, tombstoneCount);
+  }
+
+  @Test
+  public void testTraversalWithStateAndMultiplePathsIncremental() throws Exception {
+    // incremental mode across multiple paths should emit only tombstones here.
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector connector = new FileConnector(config);
+    connector.execute(publisher);
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
+
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    connector.execute(publisher);
+    List<Document> secondRunDocs = messenger.getDocsSentForProcessing();
+    long tombstoneCount = secondRunDocs.stream()
+        .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+        .count();
+    assertEquals(9, secondRunDocs.size());
+    assertEquals(9, tombstoneCount);
+  }
+
+  @Test
+  public void testTraversalWithPathRemovedFullModePublishesTombstones() throws Exception {
+    // full mode still emits tombstones when previously tracked files disappear.
+    Config configWithTwoPaths = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf");
+    Config configSinglePath = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
+
+    TestMessenger messenger1 = new TestMessenger();
+    Publisher publisher1 = new PublisherImpl(configWithTwoPaths, messenger1, "run", "pipeline1");
+    Connector connector1 = new FileConnector(configWithTwoPaths);
+    connector1.execute(publisher1);
+    assertEquals(21, messenger1.getDocsSentForProcessing().size());
+
+    TestMessenger messenger2 = new TestMessenger();
+    Publisher publisher2 = new PublisherImpl(configSinglePath, messenger2, "run", "pipeline1");
+    Connector connector2 = new FileConnector(configSinglePath);
+    connector2.execute(publisher2);
+
+    List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
+    long tombstoneCount = secondRunDocs.stream()
+        .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+        .count();
+    assertTrue(tombstoneCount > 0);
+    assertEquals(19, secondRunDocs.size());
+    assertEquals(1, tombstoneCount);
+  }
+
 }

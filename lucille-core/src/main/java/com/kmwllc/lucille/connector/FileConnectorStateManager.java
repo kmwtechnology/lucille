@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.ConfigUtils;
-import com.typesafe.config.Config;
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -9,10 +8,17 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.typesafe.config.Config;
 
 /**
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding FileConnector traversals and the last
@@ -54,7 +60,7 @@ public class FileConnectorStateManager {
   private final boolean performDeletions;
   private final int pathLength;
 
-  private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
+  private final Instant traversalInstant;
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -67,6 +73,10 @@ public class FileConnectorStateManager {
    * @param connectorName The name of the connector using this connection. Uses the name for tableName, if it is not specified.
    */
   public FileConnectorStateManager(Config config, String connectorName) {
+    this(config, connectorName, Instant.now());
+  }
+
+  FileConnectorStateManager(Config config, String connectorName, Instant traversalInstant) {
     this.driver = ConfigUtils.getOrDefault(config, "driver", "org.h2.Driver");
     this.connectionString = ConfigUtils.getOrDefault(config, "connectionString", "jdbc:h2:./state/" + connectorName);
     this.jdbcUser = ConfigUtils.getOrDefault(config, "jdbcUser", "");
@@ -75,6 +85,7 @@ public class FileConnectorStateManager {
     this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", 200);
+    this.traversalInstant = Objects.requireNonNull(traversalInstant, "traversalInstant cannot be null");
   }
 
   /**
@@ -99,7 +110,7 @@ public class FileConnectorStateManager {
       if (!rs.next()) {
         try (Statement statement = jdbcConnection.createStatement()) {
           statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
-              + ") PRIMARY KEY, last_published TIMESTAMP, encountered BOOLEAN)");
+              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
         }
       }
     }
@@ -165,6 +176,27 @@ public class FileConnectorStateManager {
     }
   }
 
+  /*
+   * Needed to support publishing document tombstones suggestion: we should add
+   * options for setting what is "expired" to include as a safety measure so
+   * transient upstream source flakiness doesn't immediately cause content to be
+   * deleted from index
+   * - expiredFileRetryCutoff [1..N]
+   *   file has to be missing N times before marked as expired)
+   * - expiredFileDurationCutoff [Duration]
+   *   Amount if time file must be missing before marked as expired)
+   */
+  public List<URI> listExpiredFiles() throws SQLException {
+    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered = FALSE";
+    var fileUris = new ArrayList<URI>();
+    try (var ps = jdbcConnection.prepareStatement(selectSQL); var rs = ps.executeQuery()) {
+      while (rs.next()) {
+        fileUris.add(URI.create(rs.getString("name")));
+      }
+    }
+    return fileUris;
+  }
+
   private void deleteFilesNotEncounteredAndResetTable() throws SQLException {
     String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE";
 
@@ -206,11 +238,10 @@ public class FileConnectorStateManager {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
-          Timestamp timestamp = rs.getTimestamp("last_published");
-
-          if (timestamp != null) {
-            return timestamp.toInstant();
-          }
+          // Get timestamp as OffsetDateTime, which is stored in UTC
+          // Note: H2 may convert to local timezone on retrieval, but toInstant() returns the correct absolute point in time.
+          OffsetDateTime odt = rs.getObject("last_published", OffsetDateTime.class);
+          if (odt != null) { return odt.toInstant(); }
         }
       }
     } catch (SQLException e) {
@@ -228,7 +259,7 @@ public class FileConnectorStateManager {
     String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
-      statement.setTimestamp(1, traversalTimestamp);
+      statement.setObject(1, traversalInstant);
       statement.setString(2, fullPathStr);
 
       int rowsChanged = statement.executeUpdate();
