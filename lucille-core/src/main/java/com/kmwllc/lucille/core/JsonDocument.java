@@ -81,12 +81,19 @@ public class JsonDocument implements Document {
   }
 
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return fromJsonString(json, null);
+    return fromJsonString(json, null, Set.of());
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
-    JsonDocument doc = new JsonDocument((ObjectNode) MAPPER.readTree(json));
+    return fromJsonString(json, idUpdater, Set.of());
+  }
+
+  public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields)
+      throws DocumentException, JsonProcessingException {
+    ObjectNode node = (ObjectNode) MAPPER.readTree(json);
+    node.remove(ignoreFields);
+    JsonDocument doc = new JsonDocument(node);
     doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
   }
@@ -972,6 +979,6 @@ public class JsonDocument implements Document {
 
   @Override
   public void removeChildren() {
-   data.remove(CHILDREN_FIELD); 
+    data.remove(CHILDREN_FIELD);
   }
 }
