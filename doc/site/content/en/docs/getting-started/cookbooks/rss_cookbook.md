@@ -25,7 +25,7 @@ connectors: [
 There are a few additional configuration options that we won't use here, but are useful:
 
 ```hocon
-    useGuidForDocID: true       # default; set false to use UUID as ID instead
+    useGuidForDocID: true       # defaults to true; set false to use UUID as ID instead
     pubDateCutoff: "24h"        # only publish items from the last 24 hours
     runDuration: "1h"           # run incrementally for 1 hour total
     refreshIncrement: "5m"      # re-fetch the feed every 5 minutes
@@ -33,7 +33,14 @@ There are a few additional configuration options that we won't use here, but are
 
 Your pipeline name can be whatever you want. For our URL, we chose CNBC's RSS feed.
 
-3. Define what stages we would like to use to process our documents from the feed:
+3. Now we define what stages we would like to use to process our documents from the feed. To give context as to what these stages 
+are doing:
+
+News items in an RSS feed often have some article metadata, and then a link to the actual meat of the article in HTML as a field.
+
+- The fetchURI stage allows us to grab the actual content of our associated news article.
+- The ApplyJSoup stage parses that content into fields that will exist in addition to our article metadata from the RSS feed. These 
+fields include the body, bullet points, and the header.
 
 ```hocon
 pipelines: [
@@ -69,11 +76,6 @@ pipelines: [
   }
 ]
 ```
-
-News items in an RSS feed often have some article metadata, and then a link to the actual meat of the article in HTML as a field.
-
-- The fetchURI stage allows us to grab the actual content of our associated news article.
-- The ApplyJSoup stage parses that content into fields that will exist in addition to our article metadata from the RSS feed. These fields include the body, bullet points, and the header.
 
 4. We can index these documents into whatever we'd like. Here, we might decide to just print them to a CSV:
 
