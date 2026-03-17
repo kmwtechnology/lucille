@@ -182,18 +182,18 @@ public class FileConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try {
-        initialize();
+      initialize();
 
-        // discover and publish all valid file candidates
-        for (URI resource : storageURIs) {
-          traverseStoragePath(publisher, resource);
-        }
+      // discover and publish all valid file candidates
+      for (URI resource : storageURIs) {
+        traverseStoragePath(publisher, resource);
+      }
 
-        // find files no longer in datastore that need to be removed from index
-        sendExpiredFileTombstones(publisher);
+      // find files no longer in datastore that need to be removed from index
+      sendExpiredFileTombstones(publisher);
 
     } finally {
-        shutdown();
+      shutdown();
     }
   }
 
