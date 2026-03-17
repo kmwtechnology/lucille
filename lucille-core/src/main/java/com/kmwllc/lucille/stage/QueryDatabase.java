@@ -129,9 +129,10 @@ public class QueryDatabase extends Stage {
             preparedStatement.setBoolean(i + 1, doc.getBoolean(field));
             break;
           case DATE:
+            //TO-DO: Make sure new implementation here doesn't break anything unexpectedly
             Instant inst = doc.getInstant(field);
-            Date date = (Date) Date.from(inst);
-            preparedStatement.setDate(i + 1, date);
+            preparedStatement.setDate(i + 1, new java.sql.Date(inst.toEpochMilli()));
+            break;
           default:
             throw new StageException("Type " + t + " not recognized");
         }

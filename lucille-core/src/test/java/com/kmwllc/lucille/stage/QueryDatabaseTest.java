@@ -18,10 +18,7 @@ import com.kmwllc.lucille.core.StageException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.TimeZone;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import java.time.Instant;
 import java.util.Arrays;
 import org.junit.Rule;
 import org.junit.Test;
@@ -77,6 +74,25 @@ public class QueryDatabaseTest {
     stage.stop();
     assertEquals(1, dbHelper.checkNumConnections());
   }
+
+  @Test
+  public void testDateField() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+    Stage stage = factory.get("QueryDatabaseTest/date.conf");
+
+    Document d = Document.create("id");
+    d.setField("date", Instant.parse("2024-07-30T12:00:00Z"));
+
+    stage.processDocument(d);
+    System.out.println(d.getString("output1"));
+    assertEquals(Date.valueOf("2024-07-30"), d.getDate("output1"));
+
+    stage.stop();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
+  //TO-DO: tests for integer, double, float, bool types
+
 
   @Test
   public void testMultipleResults() throws Exception {
