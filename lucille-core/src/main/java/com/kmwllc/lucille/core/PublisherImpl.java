@@ -47,6 +47,9 @@ public class PublisherImpl implements Publisher {
 
   private final int logSeconds;
 
+  // the number of times a call to publish() was completed across all publishing threads
+  private AtomicLong numPublishCallsCompleted = new AtomicLong(0);
+
   // the actual number of documents sent for processing, which may be smaller
   // than the number of calls to publish() if isCollapsing==true
   private AtomicLong numPublished = new AtomicLong(0);
@@ -220,6 +223,8 @@ public class PublisherImpl implements Publisher {
       timerContext.set(timer.time());
       MDC.remove(Document.ID_FIELD);
     }
+
+    numPublishCallsCompleted.incrementAndGet();
   }
 
   private void publishInternal(Document document) throws Exception {
@@ -385,18 +390,21 @@ public class PublisherImpl implements Publisher {
       // In a Kafka deployment, the publisher should be the only consumer of the event topic, and the topic should
       // have a single partition
       if (!thread.isAlive() && !hasPending() && event == null) {
+        // note: the present waitForCompletion() method usually executes in a separate thread from publish()
+        // so this ThreadLocal timerContext is usually different from the one set by publish() and may not be set at all;
+        // we stop it here just in case it is set
         if (timerContext.get() != null) {
           timerContext.get().stop();
         }
         String collapseInfo = "";
-        if (isCollapsing && numPublished.get() < timer.getCount()) {
+        if (isCollapsing && numPublished.get() < numPublishCallsCompleted.get()) {
           collapseInfo = String.format(" (%d after collapsing)", numPublished.get());
         }
         // Did not replace the following String.format with interpolation due to unique formatting (".2f")
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
             timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
         log.info("{} docs published{}. {} children created. {} success events. {} failure events. {} drop events.",
-            timer.getCount(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
+            numPublishCallsCompleted.get(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
         if (numPublished.get() > 0 && numFailed == 0) {
           log.info("All documents SUCCEEDED.");
         }
@@ -410,7 +418,7 @@ public class PublisherImpl implements Publisher {
         if (thread.isAlive()) {
           log.info(String.format(
               "%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
-              timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
+              numPublishCallsCompleted.get(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
         } else {
           log.info("Connector complete. Waiting on {} docs.", numPending());
         }
