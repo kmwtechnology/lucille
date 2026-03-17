@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 import org.junit.Test;
 
@@ -218,7 +219,7 @@ public class TraversalParamsTest {
     );
 
     for (IncludeFileCase testCase : cases) {
-      Map<String, Object> filterOptions = new java.util.LinkedHashMap<>();
+      Map<String, Object> filterOptions = new LinkedHashMap<>();
       filterOptions.put("publishMode", testCase.publishMode());
       if (testCase.lastModifiedCutoff() != null) {
         filterOptions.put("lastModifiedCutoff", testCase.lastModifiedCutoff());
