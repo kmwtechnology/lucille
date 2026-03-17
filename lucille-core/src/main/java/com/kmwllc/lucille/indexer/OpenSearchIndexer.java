@@ -162,7 +162,9 @@ public class OpenSearchIndexer extends Indexer {
         if (!isMarkedForDeletionByField(doc)) {
           idsToDelete.add(indexAndId);
         } else {
-          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, deleteByFieldField);
+          //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
+          // deletion, so we need to do doc.getString(deleteByFieldField).
+          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
           if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
             termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }

@@ -527,7 +527,7 @@ public class OpenSearchIndexerTest {
 
     assertEquals(1, deleteByQueryRequestArgumentCaptor.getAllValues().size());
     DeleteByQueryRequest deleteByQueryRequestValue = deleteByQueryRequestArgumentCaptor.getAllValues().get(0);
-    assertNotNull(deleteByQueryRequestValue.query());
+    assert deleteByQueryRequestValue.query() != null;
     BoolQuery query = deleteByQueryRequestValue.query().bool();
     assertEquals("1", query.minimumShouldMatch());
 
@@ -536,18 +536,23 @@ public class OpenSearchIndexerTest {
     assertEquals(0, query.must().size());
     assertEquals(0, query.mustNot().size());
 
-    // with correct grouping by configured field name, we expect one terms query on "field"
-    // containing all deleteByFieldValue values from the batch.
+    // we expect 2 termQueries doc1field and doc2field
     List<Query> queries = query.should();
-    assertEquals(1, queries.size());
+    assertEquals(2, queries.size());
     TermsQuery query1 = queries.get(0).terms();
+    TermsQuery query2 = queries.get(1).terms();
 
-    assertEquals("field", query1.field());
+    assertEquals("doc1field", query1.field());
+    assertEquals("doc2field", query2.field());
 
     List<FieldValue> fieldValues1 = query1.terms().value();
-    assertEquals(3, fieldValues1.size());
-    Set<String> values = fieldValues1.stream().map(FieldValue::stringValue).collect(Collectors.toSet());
-    assertEquals(new HashSet<>(List.of("doc1value", "doc1v2value", "doc2value")), values);
+    List<FieldValue> fieldValues2 = query2.terms().value();
+    assertEquals(2, fieldValues1.size());
+    assertEquals(1, fieldValues2.size());
+
+    assertEquals("doc1value", fieldValues1.get(0).stringValue());
+    assertEquals("doc1v2value", fieldValues1.get(1).stringValue());
+    assertEquals("doc2value", fieldValues2.get(0).stringValue());
   }
 
   @Test
