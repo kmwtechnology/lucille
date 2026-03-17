@@ -84,7 +84,7 @@ public class TraversalParamsTest {
   @Test
   public void noExtensionsByDefault() {
     // with no handler config, no file extensions should be accepted
-    assertFalse(emptyParams().supportedFileExtension("json"));
+    assertFalse(emptyParams().supportsFileExtension("json"));
   }
 
   @Test
@@ -92,9 +92,9 @@ public class TraversalParamsTest {
     // configured handlers should be recognized, everything else rejected
     TraversalParams params =
         params(Map.of("fileHandlers", Map.of("json", Map.of(), "csv", Map.of())));
-    assertTrue(params.supportedFileExtension("json"));
-    assertTrue(params.supportedFileExtension("csv"));
-    assertFalse(params.supportedFileExtension("xml"));
+    assertTrue(params.supportsFileExtension("json"));
+    assertTrue(params.supportsFileExtension("csv"));
+    assertFalse(params.supportsFileExtension("xml"));
   }
 
   @Test

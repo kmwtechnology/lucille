@@ -130,7 +130,7 @@ public class TraversalParams {
     return applyLastPublishedFilter(fileLastPublished);
   }
 
-  public boolean supportedFileExtension(String fileExtension) {
+  public boolean supportsFileExtension(String fileExtension) {
     return fileHandlers.containsKey(fileExtension);
   }
 
