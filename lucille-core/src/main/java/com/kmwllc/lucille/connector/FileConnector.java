@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -48,7 +49,7 @@ import com.typesafe.config.Config;
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.lastModifiedCutoff (String, Optional) : Duration string to include only files modified within this period (e.g., "1h").</li>
  *   <li>filterOptions.lastPublishedCutoff (String, Optional) : Duration string to include only files not published within this period.</li>
- *    <li>filterOptions.publishMode (String, Optional) : Set as 'incremental' or 'full' to choose mode of publishing.</li>
+ *   <li>filterOptions.publishMode (String, Optional) : Set as 'incremental' or 'full' to choose mode of publishing.</li>
  *   <li>fileOptions.getFileContent (Boolean, Optional) : Fetch file content during traversal. Defaults to true.</li>
  *   <li>fileOptions.handleArchivedFiles (Boolean, Optional) : Process archive files. Defaults to false.</li>
  *   <li>fileOptions.handleCompressedFiles (Boolean, Optional) : Process compressed files. Defaults to false.</li>
@@ -163,7 +164,7 @@ public class FileConnector extends AbstractConnector {
 
     // incremental mode requires state tracking in order to function correctly
     if (config.hasPath("filterOptions.publishMode")) {
-      var mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
+      PublishMode mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
       if (mode == PublishMode.INCREMENTAL && !config.hasPath("state")) {
         throw new IllegalArgumentException("filterOptions.publishMode of 'incremental' requires state configuration.");
       }
@@ -205,18 +206,22 @@ public class FileConnector extends AbstractConnector {
   // gone for more than 16 hours", etc. Just a tunable safety measure.
   private void sendExpiredFileTombstones(Publisher publisher) throws ConnectorException {
     // skip if state not being managed
-    if (stateManager == null) return;
+    if (stateManager == null) {
+      return;
+    }
 
     try {
       List<URI> expiredFileUris = stateManager.listExpiredFiles();
-      if (expiredFileUris.isEmpty()) return;
-      var expiredFileCount = expiredFileUris.size();
-      var publishedFileCount = 0;
+      if (expiredFileUris.isEmpty()) {
+        return;
+      }
+      int expiredFileCount = expiredFileUris.size();
+      int publishedFileCount = 0;
       // indexer.idOverrideField: "docId"
       log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
       for (URI uri : expiredFileUris) {
-        var ref = TombstoneFileReference.of(uri);
-        var doc = ref.asDoc(buildTraversalParams(uri));
+        TombstoneFileReference ref = TombstoneFileReference.of(uri);
+        Document doc = ref.asDoc(buildTraversalParams(uri));
         doc.setField(EXPIRED, true);
         try {
           publisher.publish(doc);
