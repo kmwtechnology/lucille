@@ -95,22 +95,6 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
-  public void testStateManagerUsesProvidedTraversalInstant() throws Exception {
-    // constructor seam for deterministic timestamp assertions.
-    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
-    Instant fixedTraversalInstant = Instant.parse("2026-02-16T00:00:00Z");
-    FileConnectorStateManager manager = new FileConnectorStateManager(config, null, fixedTraversalInstant);
-    manager.init();
-
-    manager.markFileEncountered(helloFile);
-    manager.successfullyPublishedFile(helloFile);
-
-    assertEquals(fixedTraversalInstant, manager.getLastPublished(helloFile));
-
-    manager.shutdown();
-  }
-
-  @Test
   public void testGetLastPublished() throws Exception {
     Instant start = Instant.now();
 

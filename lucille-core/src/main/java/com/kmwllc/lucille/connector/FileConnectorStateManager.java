@@ -60,7 +60,7 @@ public class FileConnectorStateManager {
   private final boolean performDeletions;
   private final int pathLength;
 
-  private final Instant traversalInstant;
+  private Instant traversalInstant;
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -72,11 +72,7 @@ public class FileConnectorStateManager {
    * @param config Configuration for the FileConnectorStateManager.
    * @param connectorName The name of the connector using this connection. Uses the name for tableName, if it is not specified.
    */
-  public FileConnectorStateManager(Config config, String connectorName) {
-    this(config, connectorName, Instant.now());
-  }
-
-  FileConnectorStateManager(Config config, String connectorName, Instant traversalInstant) {
+  FileConnectorStateManager(Config config, String connectorName) {
     this.driver = ConfigUtils.getOrDefault(config, "driver", "org.h2.Driver");
     this.connectionString = ConfigUtils.getOrDefault(config, "connectionString", "jdbc:h2:./state/" + connectorName);
     this.jdbcUser = ConfigUtils.getOrDefault(config, "jdbcUser", "");
@@ -85,7 +81,6 @@ public class FileConnectorStateManager {
     this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", 200);
-    this.traversalInstant = Objects.requireNonNull(traversalInstant, "traversalInstant cannot be null");
   }
 
   /**
@@ -100,6 +95,7 @@ public class FileConnectorStateManager {
       throw e;
     }
 
+    traversalInstant = Instant.now();
     jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
 
     // After getting connection setup, make sure the table exists, create it if it doesn't.
