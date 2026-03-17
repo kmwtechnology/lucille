@@ -84,14 +84,26 @@ public class QueryDatabaseTest {
     d.setField("date", Instant.parse("2024-07-30T12:00:00Z"));
 
     stage.processDocument(d);
-    System.out.println(d.getString("output1"));
     assertEquals(Date.valueOf("2024-07-30"), d.getDate("output1"));
 
     stage.stop();
     assertEquals(1, dbHelper.checkNumConnections());
   }
 
-  //TO-DO: tests for integer, double, float, bool types
+  @Test
+  public void testBoolField() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+    Stage stage = factory.get("QueryDatabaseTest/bool.conf");
+
+    Document d = Document.create("id");
+    d.setField("bool", true);
+
+    stage.processDocument(d);
+    assertEquals(true, d.getBoolean("output1"));
+
+    stage.stop();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
 
 
   @Test
