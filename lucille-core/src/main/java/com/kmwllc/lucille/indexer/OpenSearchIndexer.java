@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Indexes documents to OpenSearch using the Java client.
+ * Additional parameters are made available by the {@link com.kmwllc.lucille.core.Indexer} abstract class.
  * <p>
  * Config Parameters -
  * <ul>
@@ -144,8 +145,7 @@ public class OpenSearchIndexer extends Indexer {
     // else if document is marked for deletion ONLY, then only add to idsToDelete
     // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
     for (Document doc : documents) {
-      // use doc id override if specified, otherwise delete will try to delete wrong id
-      String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
+      String id = doc.getId();
 
       // if an index override field has been specified, use its value as the index to send to opensearch,
       String indexOverride = getIndexOverride(doc);
@@ -161,7 +161,7 @@ public class OpenSearchIndexer extends Indexer {
         if (!isMarkedForDeletionByField(doc)) {
           idsToDelete.add(indexAndId);
         } else {
-          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, deleteByFieldField);
+          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
           if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
             termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }
