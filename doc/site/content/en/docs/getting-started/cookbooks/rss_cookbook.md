@@ -232,7 +232,7 @@ GET /rss-index/_search
         "_score": 1,
         "_source": {
           "id": "108275619",
-          "description": "The OpenAI deal fallout exposes the fundamental danger of being the most leveraged player in a market where the chip cycle moves faster than the concrete dries.",
+          "description": "The OpenAI deal fallout exposes the fundamental danger of being the most leveraged player.",
           "guid": "108275619",
           "isPermaLink": false,
           "link": "https://www.cnbc.com/2026/03/09/oracle-is-building-yesterdays-data-centers-with-tomorrows-debt.html",
@@ -247,7 +247,7 @@ GET /rss-index/_search
         "_score": 1,
         "_source": {
           "id": "108275649",
-          "description": "U.S. stock market indexes rose on the heels of reported comments by President Donald Trump that the war against Iran could be over sooner than first expected.",
+          "description": "U.S. stock market indexes rose on the heels of reported comments by President Donald Trump.",
           "guid": "108275649",
           "isPermaLink": false,
           "link": "https://www.cnbc.com/2026/03/09/trump-iran-war-end.html",
