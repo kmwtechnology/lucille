@@ -23,8 +23,8 @@ public class FieldFilter {
     String resolvedWhitelistKey = whitelistKey != null ? whitelistKey : "whitelist";
     String resolvedBlacklistKey = blacklistKey != null ? blacklistKey : "blacklist";
 
-    whitelist = config.hasPath(resolvedWhitelistKey) ? config.getStringList(resolvedWhitelistKey) : List.of();
-    blacklist = config.hasPath(resolvedBlacklistKey) ? config.getStringList(resolvedBlacklistKey) : List.of();
+    this.whitelist = config.hasPath(resolvedWhitelistKey) ? config.getStringList(resolvedWhitelistKey) : List.of();
+    this.blacklist = config.hasPath(resolvedBlacklistKey) ? config.getStringList(resolvedBlacklistKey) : List.of();
   }
 
   public boolean isActive() {
