@@ -27,6 +27,14 @@ public class FieldFilter {
     this.blacklist = config.hasPath(resolvedBlacklistKey) ? config.getStringList(resolvedBlacklistKey) : List.of();
   }
 
+  public List<String> getWhitelist() {
+    return whitelist;
+  }
+
+  public List<String> getBlacklist() {
+    return blacklist;
+  }
+
   public boolean isActive() {
     return !whitelist.isEmpty() || !blacklist.isEmpty();
   }
