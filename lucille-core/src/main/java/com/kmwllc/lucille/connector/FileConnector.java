@@ -238,7 +238,6 @@ public class FileConnector extends AbstractConnector {
     for (URI uri : expiredFileUris) {
       TombstoneFileReference ref = TombstoneFileReference.of(uri);
       Document doc = ref.asDoc(buildTraversalParams(uri));
-      doc.setField(EXPIRED, true);
       try {
         publisher.publish(doc);
         publishedTombstoneCount++;
@@ -316,6 +315,13 @@ public class FileConnector extends AbstractConnector {
     public static TombstoneFileReference of(URI uri) {
       Instant now = Instant.now();
       return new TombstoneFileReference(uri, now, 0L, now);
+    }
+
+    @Override
+    public Document asDoc(TraversalParams params) {
+      Document doc = super.asDoc(params);
+      doc.setField(FileConnector.EXPIRED, true);
+      return doc;
     }
 
     @Override
