@@ -935,7 +935,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void transform(Jsonata expr) throws DocumentException {
-    Object transformed = expr.evaluate(toJsonataInput(data));
+    Object transformed = expr.evaluate(asMapWithByteArrayConversion(data));
 
     if (transformed == null) {
       throw new DocumentException("Transformation must return a Map (JSON object), returned null");
@@ -959,8 +959,8 @@ public class JsonDocument implements Document {
 
   @Override
   public void transform(Jsonata expr, String sourceField, String destField) throws DocumentException {
-    JsonNode sourceNode = this.getNestedJson(sourceField);
-    Object transformed = expr.evaluate(toJsonataInput(sourceNode));
+    JsonNode sourceNode = getNestedJson(sourceField);
+    Object transformed = expr.evaluate(asMapWithByteArrayConversion(sourceNode));
 
     if (transformed == null) {
       throw new DocumentException("Transformation must return a Map (JSON object), returned null");
@@ -970,20 +970,28 @@ public class JsonDocument implements Document {
     if (destField == null) {
       destField = sourceField;
     }
-    this.setNestedJson(destField, MAPPER.valueToTree(transformed));
+    setNestedJson(destField, MAPPER.valueToTree(transformed));
   }
 
-  // recursively convert JsonNode to a Map/List/primitive for Jsonata to work with, including converting binary nodes to base64 strings
-  private Object toJsonataInput(JsonNode node) {
+  /**
+   * Recursively converts a JsonNode to a Map/List/primitive, including converting binary nodes to base64 strings
+   *  for compatibility with jsonata-java. It wants only raw values, Maps, or Lists (not arrays or binary types).
+   *
+   * This is used in place of this.asMap() when you need to handle byte[]. The asMap() method uses MAPPER.convertValue which does not handle byte[].
+   *
+   * @param node
+   * @return Object that can be evaluated by jsonata-java
+   */
+  private Object asMapWithByteArrayConversion(JsonNode node) {
     if (node.isObject()) {
       Map<String, Object> map = new HashMap<>();
       node.fields().forEachRemaining(entry ->
-          map.put(entry.getKey(), toJsonataInput(entry.getValue()))
+          map.put(entry.getKey(), asMapWithByteArrayConversion(entry.getValue()))
       );
       return map;
     } else if (node.isArray()) {
       List<Object> list = new ArrayList<>();
-      node.forEach(element -> list.add(toJsonataInput(element)));
+      node.forEach(element -> list.add(asMapWithByteArrayConversion(element)));
       return list;
     } else if (node.isBinary()) {
       try {
