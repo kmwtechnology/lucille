@@ -363,7 +363,8 @@ public class FileConnectorStateManagerTest {
     // incremental mode should only publish changed/new docs plus tombstones.
     String fileConnectorExampleDir = Paths.get("src/test/resources/FileConnectorTest/example").toUri().toString();
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
-        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
 
     TestMessenger messenger1 = new TestMessenger();
     TestMessenger messenger2 = new TestMessenger();
@@ -402,7 +403,8 @@ public class FileConnectorStateManagerTest {
   public void testTraversalWithStateAndMultiplePathsIncremental() throws Exception {
     // incremental mode across multiple paths should emit only tombstones here.
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
-        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
@@ -424,10 +426,36 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
+  public void testTraversalWithIncrementalTombstonesOff() throws Exception{
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/tombstonesOff.conf")
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("false"));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector connector = new FileConnector(config);
+    connector.execute(publisher);
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
+
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    connector.execute(publisher);
+    List<Document> secondRunDocs = messenger.getDocsSentForProcessing();
+    long tombstoneCount = secondRunDocs.stream()
+        .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+        .count();
+    assertEquals(0, secondRunDocs.size());
+    assertEquals(0, tombstoneCount);
+  }
+
+  @Test
   public void testTraversalWithPathRemovedFullModePublishesTombstones() throws Exception {
     // full mode still emits tombstones when previously tracked files disappear.
     Config configWithTwoPaths = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf");
-    Config configSinglePath = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
+    Config configSinglePath = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
 
     TestMessenger messenger1 = new TestMessenger();
     Publisher publisher1 = new PublisherImpl(configWithTwoPaths, messenger1, "run", "pipeline1");

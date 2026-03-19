@@ -124,7 +124,7 @@ public class FileConnector extends AbstractConnector {
               .optionalList("includes", new TypeReference<List<String>>(){})
               .optionalList("excludes", new TypeReference<List<String>>(){})
               // durations are strings.
-              .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode").build(),
+              .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode", "sendTombstones").build(),
           SpecBuilder.parent("fileOptions")
               .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
               .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
@@ -190,8 +190,11 @@ public class FileConnector extends AbstractConnector {
         traverseStoragePath(publisher, resource);
       }
 
-      // find files no longer in datastore that need to be removed from index
-      sendExpiredFileTombstones(publisher);
+      if (config.hasPath("filterOptions.sendTombstones") &&
+          config.getString("filterOptions.sendTombstones").equals("true")) {
+        // find files no longer in datastore that need to be removed from index
+        sendExpiredFileTombstones(publisher);
+      }
 
     } finally {
       shutdown();
@@ -210,30 +213,32 @@ public class FileConnector extends AbstractConnector {
       return;
     }
 
+    List<URI> expiredFileUris = null;
     try {
-      List<URI> expiredFileUris = stateManager.listExpiredFiles();
-      if (expiredFileUris.isEmpty()) {
-        return;
-      }
-      int expiredFileCount = expiredFileUris.size();
-      int publishedFileCount = 0;
-      // indexer.idOverrideField: "docId"
-      log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
-      for (URI uri : expiredFileUris) {
-        TombstoneFileReference ref = TombstoneFileReference.of(uri);
-        Document doc = ref.asDoc(buildTraversalParams(uri));
-        doc.setField(EXPIRED, true);
-        try {
-          publisher.publish(doc);
-          publishedFileCount++;
-        } catch (Exception e) {
-          log.warn("Error occurred while publishing document tombstone for file: %s".formatted(uri), e);
-        }
-      }
-      log.info("Published {} of {} document tombstones for tracking and index removal", publishedFileCount, expiredFileCount);
+      expiredFileUris = stateManager.listExpiredFiles();
     } catch (SQLException e) {
       log.warn("Error occurred while publishing missing document tombstones.", e);
     }
+
+    if (expiredFileUris.isEmpty()) {
+      return;
+    }
+    int expiredFileCount = expiredFileUris.size();
+    int publishedTombstoneCount = 0;
+    // indexer.idOverrideField: "docId"
+    log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
+    for (URI uri : expiredFileUris) {
+      TombstoneFileReference ref = TombstoneFileReference.of(uri);
+      Document doc = ref.asDoc(buildTraversalParams(uri));
+      doc.setField(EXPIRED, true);
+      try {
+        publisher.publish(doc);
+        publishedTombstoneCount++;
+      } catch (Exception e) {
+        log.warn("Error occurred while publishing document tombstone for file: %s".formatted(uri), e);
+      }
+    }
+    log.info("Published {} of {} document tombstones for tracking and index removal", publishedTombstoneCount, expiredFileCount);
 
   }
 
