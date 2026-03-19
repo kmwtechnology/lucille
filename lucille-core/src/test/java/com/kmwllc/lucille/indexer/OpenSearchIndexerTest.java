@@ -579,7 +579,7 @@ public class OpenSearchIndexerTest {
   }
 
   @Test
-  public void testDeleteUsesFileExpiredMarker() throws Exception {
+  public void testDeletionMarkerFieldAndValue() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf")
         .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("file_expired"))
