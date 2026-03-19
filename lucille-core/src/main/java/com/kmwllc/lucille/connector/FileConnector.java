@@ -162,12 +162,18 @@ public class FileConnector extends AbstractConnector {
 
     this.storageClientMap = StorageClient.createClients(config);
 
+    PublishMode mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
+
     // incremental mode requires state tracking in order to function correctly
     if (config.hasPath("filterOptions.publishMode")) {
-      PublishMode mode = PublishMode.fromString(config.getString("filterOptions.publishMode"));
       if (mode == PublishMode.INCREMENTAL && !config.hasPath("state")) {
         throw new IllegalArgumentException("filterOptions.publishMode of 'incremental' requires state configuration.");
       }
+    }
+
+    if (config.hasPath("filterOptions.sendTombstones") &&
+        (!config.hasPath("filterOptions.publishMode") || mode == PublishMode.FULL)) {
+      throw new IllegalArgumentException("publishMode must be set and be incremental to use the sendTombstones toggle.");
     }
 
     // Cannot specify multiple storage paths and a moveTo of some kind
@@ -191,7 +197,7 @@ public class FileConnector extends AbstractConnector {
       }
 
       if (config.hasPath("filterOptions.sendTombstones") &&
-          config.getString("filterOptions.sendTombstones").equals("true")) {
+          config.getBoolean("filterOptions.sendTombstones")) {
         // find files no longer in datastore that need to be removed from index
         sendExpiredFileTombstones(publisher);
       }
