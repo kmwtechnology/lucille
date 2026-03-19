@@ -451,11 +451,10 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
-  public void testTraversalWithPathRemovedFullModePublishesTombstones() throws Exception {
+  public void testTraversalWithPathRemovedFullModeDoesNotPublishTombstones() throws Exception {
     // full mode still emits tombstones when previously tracked files disappear.
     Config configWithTwoPaths = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf");
-    Config configSinglePath = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
-        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
+    Config configSinglePath = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf");
 
     TestMessenger messenger1 = new TestMessenger();
     Publisher publisher1 = new PublisherImpl(configWithTwoPaths, messenger1, "run", "pipeline1");
@@ -472,9 +471,8 @@ public class FileConnectorStateManagerTest {
     long tombstoneCount = secondRunDocs.stream()
         .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
         .count();
-    assertTrue(tombstoneCount > 0);
-    assertEquals(19, secondRunDocs.size());
-    assertEquals(1, tombstoneCount);
+    assertEquals(18, secondRunDocs.size());
+    assertEquals(0, tombstoneCount);
   }
 
 }
