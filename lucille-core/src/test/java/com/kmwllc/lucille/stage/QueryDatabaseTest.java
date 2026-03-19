@@ -18,10 +18,7 @@ import com.kmwllc.lucille.core.StageException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.TimeZone;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import java.time.Instant;
 import java.util.Arrays;
 import org.junit.Rule;
 import org.junit.Test;
@@ -77,6 +74,33 @@ public class QueryDatabaseTest {
     stage.stop();
     assertEquals(1, dbHelper.checkNumConnections());
   }
+
+  @Test
+  public void testAllInputTypes() throws Exception {
+    assertEquals(1, dbHelper.checkNumConnections());
+    Stage stage = factory.get("QueryDatabaseTest/inputtypes.conf");
+
+    // Ensure that all possible input types for our prepared statements are functional
+    Document d = Document.create("id");
+    d.setField("string", "Test VARCHAR");
+    d.setField("int", 2147483647);
+    d.setField("long", 9223372036854775807L);
+    d.setField("double", 3.14159265359);
+    d.setField("bool", true);
+    d.setField("date", Instant.parse("2024-07-30T12:00:00Z"));
+
+    stage.processDocument(d);
+    assertEquals("Test VARCHAR", d.getString("varchar_col"));
+    assertEquals((Integer) 2147483647, d.getInt("integer_col"));
+    assertEquals((Long) 9223372036854775807L, d.getLong("bigint_col"));
+    assertEquals((Double) 3.14159265359, d.getDouble("double_col"));
+    assertEquals(true, d.getBoolean("boolean_col"));
+    assertEquals(Date.valueOf("2024-07-30"), d.getDate("date_col"));
+
+    stage.stop();
+    assertEquals(1, dbHelper.checkNumConnections());
+  }
+
 
   @Test
   public void testMultipleResults() throws Exception {
