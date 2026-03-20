@@ -963,7 +963,7 @@ public class JsonDocument implements Document {
     Object transformed = expr.evaluate(asMapWithByteArrayConversion(sourceNode));
 
     if (transformed == null) {
-      throw new DocumentException("Transformation must return a Map (JSON object), returned null");
+      throw new DocumentException("Transformation returned null");
     }
 
     // Converting the output back to a Jackson-compatible value.
@@ -979,11 +979,13 @@ public class JsonDocument implements Document {
    *
    * This is used in place of this.asMap() when you need to handle byte[]. The asMap() method uses MAPPER.convertValue which does not handle byte[].
    *
-   * @param node
+   * @param node the JsonNode to convert
    * @return Object that can be evaluated by jsonata-java
    */
   private Object asMapWithByteArrayConversion(JsonNode node) {
-    if (node.isObject()) {
+    if (node == null || node.isNull()) {
+      return null;
+    } else if (node.isObject()) {
       Map<String, Object> map = new HashMap<>();
       node.fields().forEachRemaining(entry ->
           map.put(entry.getKey(), asMapWithByteArrayConversion(entry.getValue()))
@@ -1005,8 +1007,6 @@ public class JsonDocument implements Document {
       return node.numberValue();
     } else if (node.isBoolean()) {
       return node.booleanValue();
-    } else if (node.isNull()) {
-      return null;
     } else {
       return node.toString();
     }
