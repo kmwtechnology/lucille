@@ -133,11 +133,13 @@ public abstract class Stage {
    * are present on the given document, this should behave the same as if the fields were present but none of the supplied
    * values were found in the fields.
    *
+   * This doc should not be processed if it is set to be dropped or skipped.
+   *
    * @param doc the doc to determine processing for
    * @return boolean representing - should we process this doc according to its conditionals?
    */
   public boolean shouldProcess(Document doc) {
-    if (doc.isDropped()) {
+    if (doc.isDropped() || doc.isSkipped()) {
       return false;
     }
     return condition.test(doc);

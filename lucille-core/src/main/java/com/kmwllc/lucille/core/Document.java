@@ -52,7 +52,8 @@ public interface Document {
   String RUNID_FIELD = "run_id";
   String CHILDREN_FIELD = ".children";
   String DROP_FIELD = ".dropped";
-  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD));
+  String SKIP_FIELD = ".skipped";
+  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD));
 
 
   /* --- SINGLE-VALUE GETTERS --- */
@@ -517,6 +518,16 @@ public interface Document {
   boolean isDropped();
 
   void setDropped(boolean status);
+
+  /**
+   * Indicates whether the document is "skipped." A skipped document flowing through the pipeline will be ignored by downstream stages,
+   * but it WILL reach the Indexer and will be indexed as normal.
+   * This contrasts with a dropped document, which will be ignored by downstream stages and will NOT be indexed.
+   * @return true if this Document should skip processing in stages; false otherwise.
+   */
+  boolean isSkipped();
+
+  void setSkipped(boolean status);
 
   Document deepCopy();
 
