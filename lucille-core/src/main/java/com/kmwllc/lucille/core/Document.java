@@ -4,13 +4,11 @@ import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.invoke.MethodHandles;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -45,6 +43,7 @@ import org.slf4j.LoggerFactory;
  *
  */
 public interface Document {
+
   Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   /* --- NAMES OF RESERVED FIELDS --- */
@@ -53,7 +52,8 @@ public interface Document {
   String RUNID_FIELD = "run_id";
   String CHILDREN_FIELD = ".children";
   String DROP_FIELD = ".dropped";
-  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD));
+  String SKIP_FIELD = ".skipped";
+  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD));
 
 
   /* --- SINGLE-VALUE GETTERS --- */
@@ -519,6 +519,16 @@ public interface Document {
 
   void setDropped(boolean status);
 
+  /**
+   * Indicates whether the document is "skipped." A skipped document flowing through the pipeline will be ignored by downstream stages,
+   * but it WILL reach the Indexer and will be indexed as normal.
+   * This contrasts with a dropped document, which will be ignored by downstream stages and will NOT be indexed.
+   * @return true if this Document should skip processing in stages; false otherwise.
+   */
+  boolean isSkipped();
+
+  void setSkipped(boolean status);
+
   Document deepCopy();
 
   /**
@@ -528,6 +538,12 @@ public interface Document {
    * @see <a href="https://github.com/dashjoin/jsonata-java">JSONNata implementation</a>
    */
   void transform(Jsonata expr) throws DocumentException;
+
+  /**
+   * Applies a JSONNata expression to the value of the source field and places the resulting object in the destination field.
+   * @throws DocumentException if the evaluation fails
+   */
+  void transform(Jsonata expr, String sourceField, String destField) throws DocumentException;
 
   /**
    * Returns an Iterator that contains only this document.
@@ -577,6 +593,11 @@ public interface Document {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
+  static Document createFromJson(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields)
+      throws DocumentException, JsonProcessingException {
+    return JsonDocument.fromJsonString(json, idUpdater, ignoreFields);
+  }
+
   /* --- JSON Getters/Setters --- */
 
   /**
@@ -585,6 +606,7 @@ public interface Document {
    * For example, if the full path the nested json value is a.b.c[4].d[10].e.f[0], the segments would be a, b, c, 4, d, 10, e, f, 0
    */
   class Segment {
+
     final String name;
     final Integer index;
 
@@ -692,12 +714,12 @@ public interface Document {
    * @return the JsonNode at the nested path or null if not found
    */
   default JsonNode getNestedJson(List<Segment> segments) {
-    if (segments.isEmpty()|| !has(segments.get(0).name)) {
+    if (segments.isEmpty() || !has(segments.get(0).name)) {
       return null;
     }
     JsonNode node = getJson(segments.get(0).name);
 
-    for (Segment segment : segments.subList(1,segments.size())) {
+    for (Segment segment : segments.subList(1, segments.size())) {
       if (!hasFieldSegment(node, segment)) {
         return null;
       } else {
@@ -739,19 +761,19 @@ public interface Document {
     JsonNode node = has(segments.get(0).name) ? getJson(segments.get(0).name) : createNewNode(segments.get(1));
 
     JsonNode currentNode = node;
-    for (int i = 1; i < segments.size()-1; i++) {
+    for (int i = 1; i < segments.size() - 1; i++) {
       Segment segment = segments.get(i);
       if (hasFieldSegment(currentNode, segment)) {
-        currentNode = getFieldSegment(currentNode,segment);
+        currentNode = getFieldSegment(currentNode, segment);
       } else {
-        JsonNode childNode = createNewNode(segments.get(i+1));
+        JsonNode childNode = createNewNode(segments.get(i + 1));
         setFieldSegment(currentNode, segment, childNode);
         currentNode = childNode;
       }
     }
 
     // set last node
-    setFieldSegment(currentNode, segments.get(segments.size()-1), value);
+    setFieldSegment(currentNode, segments.get(segments.size() - 1), value);
 
     setField(segments.get(0).name, node);
   }
@@ -770,7 +792,7 @@ public interface Document {
       return;
     }
 
-    JsonNode parent = getNestedJson(segments.subList(0, segments.size()-1));
+    JsonNode parent = getNestedJson(segments.subList(0, segments.size() - 1));
     if (parent == null) {
       return;
     }

@@ -81,12 +81,19 @@ public class JsonDocument implements Document {
   }
 
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return fromJsonString(json, null);
+    return fromJsonString(json, null, Set.of());
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
-    JsonDocument doc = new JsonDocument((ObjectNode) MAPPER.readTree(json));
+    return fromJsonString(json, idUpdater, Set.of());
+  }
+
+  public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields)
+      throws DocumentException, JsonProcessingException {
+    ObjectNode node = (ObjectNode) MAPPER.readTree(json);
+    node.remove(ignoreFields);
+    JsonDocument doc = new JsonDocument(node);
     doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
   }
@@ -896,6 +903,20 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public boolean isSkipped() {
+    return data.has(SKIP_FIELD);
+  }
+
+  @Override
+  public void setSkipped(boolean status) {
+    if (status) {
+      data.put(SKIP_FIELD, true);
+    } else {
+      data.remove(SKIP_FIELD);
+    }
+  }
+
+  @Override
   public void removeDuplicateValues(String fieldName, String targetFieldName) {
     if (!isMultiValued(fieldName)) {
       return;
@@ -928,19 +949,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void transform(Jsonata expr) throws DocumentException {
-    HashMap<String, JsonNode> reserved = new HashMap<>();
-    RESERVED_FIELDS.stream().filter(field -> has(field)).forEach(field -> reserved.put(field, data.get(field)));
-
-    Object transformed;
-    try {
-      // This is in-line with Jsonata-Java's suggested ways to evaluate expressions on JSON.
-      // We aren't able to call expr.evaluate on this.asMap() directly, because byte[] is incompatible - jsonata-java wants
-      // only raw values, Maps, or Lists (not arrays).
-      Map<String, Object> dataAsMap = MAPPER.readValue(data.toString(), TYPE);
-      transformed = expr.evaluate(dataAsMap);
-    } catch (JsonProcessingException e) {
-      throw new DocumentException("Error converting JSON to Map: " + e.getMessage());
-    }
+    Object transformed = expr.evaluate(asMapWithByteArrayConversion(data));
 
     if (transformed == null) {
       throw new DocumentException("Transformation must return a Map (JSON object), returned null");
@@ -949,8 +958,10 @@ public class JsonDocument implements Document {
     }
 
     // Jsonata-java outputs a Map, converting to ObjectNode so we can update data.
-    ObjectNode transformedNode = new ObjectMapper().valueToTree(transformed);
+    ObjectNode transformedNode = MAPPER.valueToTree(transformed);
 
+    HashMap<String, JsonNode> reserved = new HashMap<>();
+    RESERVED_FIELDS.stream().filter(this::has).forEach(field -> reserved.put(field, data.get(field)));
     for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
       if (!entry.getValue().equals(transformedNode.get(entry.getKey()))) {
         throw new DocumentException("The given transformation mutates a reserved field");
@@ -958,6 +969,61 @@ public class JsonDocument implements Document {
     }
 
     data = transformedNode;
+  }
+
+  @Override
+  public void transform(Jsonata expr, String sourceField, String destField) throws DocumentException {
+    JsonNode sourceNode = getNestedJson(sourceField);
+    Object transformed = expr.evaluate(asMapWithByteArrayConversion(sourceNode));
+
+    if (transformed == null) {
+      throw new DocumentException("Transformation returned null");
+    }
+
+    // Converting the output back to a Jackson-compatible value.
+    if (destField == null) {
+      destField = sourceField;
+    }
+    setNestedJson(destField, MAPPER.valueToTree(transformed));
+  }
+
+  /**
+   * Recursively converts a JsonNode to a Map/List/primitive, including converting binary nodes to base64 strings
+   *  for compatibility with jsonata-java. It wants only raw values, Maps, or Lists (not arrays or binary types).
+   *
+   * This is used in place of this.asMap() when you need to handle byte[]. The asMap() method uses MAPPER.convertValue which does not handle byte[].
+   *
+   * @param node the JsonNode to convert
+   * @return Object that can be evaluated by jsonata-java
+   */
+  private Object asMapWithByteArrayConversion(JsonNode node) {
+    if (node == null || node.isNull()) {
+      return null;
+    } else if (node.isObject()) {
+      Map<String, Object> map = new HashMap<>();
+      node.fields().forEachRemaining(entry ->
+          map.put(entry.getKey(), asMapWithByteArrayConversion(entry.getValue()))
+      );
+      return map;
+    } else if (node.isArray()) {
+      List<Object> list = new ArrayList<>();
+      node.forEach(element -> list.add(asMapWithByteArrayConversion(element)));
+      return list;
+    } else if (node.isBinary()) {
+      try {
+        return Base64.getEncoder().encodeToString(node.binaryValue());
+      } catch (IOException e) {
+        return null;
+      }
+    } else if (node.isTextual()) {
+      return node.asText();
+    } else if (node.isNumber()) {
+      return node.numberValue();
+    } else if (node.isBoolean()) {
+      return node.booleanValue();
+    } else {
+      return node.toString();
+    }
   }
 
   private static ObjectNode getData(Document other) {
@@ -972,6 +1038,6 @@ public class JsonDocument implements Document {
 
   @Override
   public void removeChildren() {
-   data.remove(CHILDREN_FIELD); 
+    data.remove(CHILDREN_FIELD);
   }
 }

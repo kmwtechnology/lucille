@@ -4,6 +4,7 @@ import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -21,11 +22,14 @@ import java.util.function.UnaryOperator;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 
 public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
+
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Override
   public Document createDocument(ObjectNode node) throws DocumentException {
@@ -78,6 +82,37 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
 
     Document document2 = createDocumentFromJson(document.toString());
     assertArrayEquals(value1, document2.getBytes("field1"));
+  }
+
+  @Test
+  public void testCreateFromJsonStringWithIgnoreFields() throws Exception {
+    UnaryOperator<String> updater = s -> s;
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    Set<String> ignoreFields = Set.of("field2");
+
+    Document document = JsonDocument.fromJsonString(json, updater, ignoreFields);
+    assertEquals("123", document.getId());
+    assertEquals("val1", document.getString("field1"));
+    assertFalse(document.has("field2"));
+  }
+
+  @Test
+  public void testCreateFromJsonStringWithEmptyIgnoreFields() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    Set<String> ignoreFields = Set.of();
+
+    Document document = JsonDocument.fromJsonString(json, null, ignoreFields);
+    assertEquals("123", document.getId());
+    assertEquals("val1", document.getString("field1"));
+    assertEquals("val2", document.getString("field2"));
+  }
+
+  @Test(expected = DocumentException.class)
+  public void testCreateFromJsonStringWithIdInIgnoreFields() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    Set<String> ignoreFields = Set.of("id");
+
+    JsonDocument.fromJsonString(json, null, ignoreFields);
   }
 
   @Test
@@ -262,7 +297,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals("bar", doc.getString("foo"));
     assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
 
-    // test mutatation does not create object
+    // test mutation does not create object
     Jsonata mutateIntoArray = Jsonata.jsonata("[1, 2, 3]");
     Jsonata mutateIntoNum = Jsonata.jsonata("3");
     assertThrows(DocumentException.class, () -> doc.transform(mutateIntoArray));
@@ -279,6 +314,51 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals("id", doc.getId());
     assertEquals("r", doc.getString("foo"));
     assertArrayEquals(new byte[]{1, 2, 3}, doc.getBytes("bytes"));
+  }
+
+  @Test
+  public void testTransformNestedJson() throws Exception {
+    Document doc = createDocumentFromJson("{\"id\":\"id\",\"foo\": \"bar\"}");
+    doc.setField("nested", MAPPER.createObjectNode()
+        .put("bytes", new byte[]{1, 2, 3})
+        .put("int", 1)
+        .put("string", "text, with; delimiters"));
+    doc.setNestedJson("nested.bool", BooleanNode.getTrue());
+
+    // test valid mutation with new destination
+    Jsonata mutateString = Jsonata.jsonata("$trim($split(string, /[,;、，،؛；]/)[1])");
+    doc.transform(mutateString, "nested", "nested.newString");
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("text, with; delimiters", doc.getNestedJson("nested.string").asText());
+    assertEquals("with", doc.getNestedJson("nested.newString").asText());
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getNestedJson("nested.bytes").binaryValue());
+    assertEquals(1, doc.getNestedJson("nested.int").asInt());
+
+    // test null source node
+    assertThrows(DocumentException.class, () ->  doc.transform(mutateString, "nested.nonexistent", "nested.null"));
+    doc.setNestedJson("nested.null", MAPPER.nullNode());
+    assertThrows(DocumentException.class, () ->  doc.transform(mutateString, "nested.null", "nested.null"));
+
+    // test valid mutation with same destination
+    Jsonata mutateInt = Jsonata.jsonata("int + 10");
+    doc.transform(mutateInt, "nested", "nested.int");
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertEquals("text, with; delimiters", doc.getNestedJson("nested.string").asText());
+    assertEquals("with", doc.getNestedJson("nested.newString").asText());
+    assertArrayEquals(new byte[]{1, 2, 3}, doc.getNestedJson("nested.bytes").binaryValue());
+    assertEquals(11, doc.getNestedJson("nested.int").asInt());
+
+    // test null destination node
+    doc.transform(mutateString, "nested", null);
+    assertEquals("with", doc.getString("nested"));
+    assertEquals(3, doc.getFieldNames().size());
+    assertEquals("id", doc.getId());
+    assertNull(doc.getNestedJson("nested.string"));
+    assertNull(doc.getNestedJson("nested.newString"));
+    assertNull(doc.getNestedJson("nested.bytes"));
+    assertNull(doc.getNestedJson("nested.int"));
   }
 
   @Test
