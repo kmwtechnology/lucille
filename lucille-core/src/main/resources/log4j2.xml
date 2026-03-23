@@ -52,7 +52,7 @@
         </Logger>
 
         <!-- Will output lots of log statements about individual documents as they are processed. -->
-        <Logger name="com.kmwllc.lucille.core.DocLogger" level="OFF" additivity="false">
+        <Logger name="com.kmwllc.lucille.core.DocLogger" level="ERROR" additivity="false">
             <AppenderRef ref="console" />
             <AppenderRef ref="file" />
 
