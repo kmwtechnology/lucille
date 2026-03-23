@@ -330,7 +330,7 @@ public class RunnerTest {
   @Test
   public void testSkipParent() throws Exception {
     TestMessenger messenger =
-        Runner.runInTestMode("SkipDocumentTest/skipParent.conf").get("connector1");
+        Runner.runInTestMode("RunnerTest/skipParent.conf").get("connector1");
 
     // one doc will be sent from the connector
     List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
@@ -355,7 +355,7 @@ public class RunnerTest {
   @Test
   public void testSkipAttachedChild() throws Exception {
     TestMessenger messenger =
-        Runner.runInTestMode("SkipDocumentTest/skipChild.conf").get("connector1");
+        Runner.runInTestMode("RunnerTest/skipChild.conf").get("connector1");
 
     // one doc will be sent from the connector
     List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
