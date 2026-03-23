@@ -325,7 +325,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
         .put("string", "text, with; delimiters"));
     doc.setNestedJson("nested.bool", BooleanNode.getTrue());
 
-    // test valid mutation with no new destination
+    // test valid mutation with new destination
     Jsonata mutateString = Jsonata.jsonata("$trim($split(string, /[,;、，،؛；]/)[1])");
     doc.transform(mutateString, "nested", "nested.newString");
     assertEquals(3, doc.getFieldNames().size());
