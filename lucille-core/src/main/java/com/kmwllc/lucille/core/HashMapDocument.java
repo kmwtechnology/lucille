@@ -681,6 +681,11 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public void transform(Jsonata expr, String sourceField, String destField) throws DocumentException {
+    throw new UnsupportedOperationException("Transform is not supported for HashMap implementation of Document");
+  }
+
+  @Override
   public String toString() {
     try {
       return MAPPER.writeValueAsString(asMap());
