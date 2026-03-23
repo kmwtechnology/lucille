@@ -106,7 +106,7 @@ public class TraversalParams {
    * and the last time it was modified.
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
-    // file mush pass include/exclude path patterns, if specified, to even be a publishing candidate
+    // file must pass include/exclude path patterns, if specified, to even be a publishing candidate
     if (!applyPatternFilters(fileName)) {
       return false;
     }

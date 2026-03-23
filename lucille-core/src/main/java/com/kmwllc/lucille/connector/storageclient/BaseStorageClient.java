@@ -137,11 +137,27 @@ public abstract class BaseStorageClient implements StorageClient {
 
       Instant lastPublished = stateMgr == null ? null : stateMgr.getLastPublished(fullPath.toString());
 
-      // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
+      // Skip files that aren't valid (e.g. directories)
+      if (!fileReference.isValidFile()) {
+        return;
+      }
+
+      // Skip files that don't pass the filter options
+      if (!params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)) {
+        // If this is a previously-published archive or compressed file, its entries won't be traversed
+        // this run. Mark all entries as encountered so they are not incorrectly marked as tombstones
+        if (stateMgr != null && lastPublished != null) {
+          if ((params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPath.toString()))
+              || (params.getHandleCompressedFiles() && isSupportedCompressedFileType(fullPath.toString()))) {
+            stateMgr.markAllEntriesEncountered(fullPath + ARCHIVE_FILE_SEPARATOR);
+          }
+        }
+        return;
+      }
+
+      // Skip the file if pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
-      if (!fileReference.isValidFile()
-          || !params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)
-          || !beforeProcessingFile(fullPath)) {
+      if (!beforeProcessingFile(fullPath)) {
         return;
       }
 

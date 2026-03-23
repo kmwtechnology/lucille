@@ -12,7 +12,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -218,6 +217,30 @@ public class FileConnectorStateManager {
       }
     } catch (SQLException e) {
       log.warn("Error marking file encountered in state database.", e);
+    }
+  }
+
+  /**
+   * Marks all state database entries whose name starts with the given prefix as encountered.
+   * Used to mark archive/compressed file entries as encountered when their container file is visited
+   * but not re-published (e.g., in incremental mode when the archive has not been modified since last publish).
+   *
+   * @param prefix The prefix to match against entry names (typically archivePath + ARCHIVE_FILE_SEPARATOR).
+   */
+  public void markAllEntriesEncountered(String prefix) {
+    // updates every entry whose name starts with the given prefix
+    // this is useful for archive files, in which the paths look like:
+    // file:///tmp/archive.zip!entry1.txt or file:///tmp/archive.zip!subdir/entry2.txt.
+    // the LIKE operator allows us to target entries which don't match our parameter, but contain it.
+    // So the parameter/prefix could be "file:///tmp/archive.zip!" and those aforementioned paths would get updated.
+    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name LIKE ?";
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(updateSQL)) {
+      // the "%" says anything can come after the prefix in a given DB entry and it will still match
+      ps.setString(1, prefix + "%");
+      int rowsChanged = ps.executeUpdate();
+      log.debug("Marked {} archive entries as encountered for prefix '{}'", rowsChanged, prefix);
+    } catch (SQLException e) {
+      log.warn("Error marking archive entries as encountered for prefix '{}'.", prefix, e);
     }
   }
 
