@@ -102,14 +102,6 @@ version_menu = "Releases"
 # Set this flag to "true" if you want to display the banner.
 archived_version = false
 
-# The version number for the version of the docs represented in this doc set.
-# Used in the "version-banner" partial to display a version number for the
-# current doc set.
-version = "0.0"
-
-# A link to latest version of the docs. Used in the "version-banner" partial to
-# point people to the main doc site.
-url_latest_version = "https://example.com"
 
 # Repository configuration (URLs for in-page links to opening issues and suggesting changes)
 github_repo = "https://github.com/kmwtechnology/lucille"
@@ -134,6 +126,17 @@ offlineSearch = true
 
 # Enable syntax highlighting and copy buttons on code blocks with Prism
 prism_syntax_highlighting = false
+
+version = "Latest"
+url_latest_version = "http://localhost:1313/docs/"
+
+[[params.versions]]
+  version = "Latest"
+  url = "http://localhost:1313/docs/"
+
+[[params.versions]]
+  version = "v7.0.0"
+  url = "http://localhost:1313/docs-0.7.0/"
 
 # User interface configuration
 [params.ui]
