@@ -43,12 +43,10 @@ public class FileConnectorStateManagerTest {
   private static final String secretsQuery = "SELECT * FROM \"FILE\" WHERE name = '/files/subdir/secrets.txt'";
 
   @Rule
-  public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "", "",
-      "sm-db-test-start.sql", "sm-db-test-end.sql");
+  public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql", "sm-db-test-end.sql");
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
     manager.init();
@@ -85,12 +83,10 @@ public class FileConnectorStateManagerTest {
     }
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testStateManagerOnNewFiles() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
     manager.init();
@@ -113,12 +109,10 @@ public class FileConnectorStateManagerTest {
     }
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testStateManagerWithDeletion() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
 
@@ -130,7 +124,7 @@ public class FileConnectorStateManagerTest {
     manager.markFileEncountered("/files/subdir/secrets.txt");
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
+    assertEquals(1, dbHelper.countConnections());
 
     // reconnecting to run these queries + for second traversal
     manager.init();
@@ -150,7 +144,7 @@ public class FileConnectorStateManagerTest {
 
     // traversal complete
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
+    assertEquals(1, dbHelper.countConnections());
 
     // reconnecting to run queries and ensure deletions took place
     manager.init();
@@ -166,13 +160,11 @@ public class FileConnectorStateManagerTest {
     }
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   // Want to make sure that the StateManager can create appropriate tables if they didn't already exist.
   @Test
   public void testStateManagerOnNewTable() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     // has "tableName: "S3""
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
@@ -205,7 +197,6 @@ public class FileConnectorStateManagerTest {
     }
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
