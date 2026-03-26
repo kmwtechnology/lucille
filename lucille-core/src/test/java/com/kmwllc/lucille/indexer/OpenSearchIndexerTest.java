@@ -864,15 +864,15 @@ public class OpenSearchIndexerTest {
   }
 
   /**
-   * Tests that the indexer correctly ignores fields stated in the ignoreFields portion of the config file
+   * Tests that the indexer correctly ignores fields stated in the blacklist portion of the config file
    * Note that indexer would even ignore the "id" field if configured, removing the id field in the Lucille document.
    * However, the id would still be passed to the OpenSearch index to id the documents.
    * @throws Exception
    */
   @Test
-  public void testIgnoreFields() throws Exception {
+  public void testBlacklist() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("OpenSearchIndexerTest/ignoreFields.conf");
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/blacklist.conf");
 
     Document doc = Document.create("doc1");
 
@@ -898,17 +898,81 @@ public class OpenSearchIndexerTest {
     assertEquals(Map.of("normalField", "normalValue"), map);
   }
 
+  @Test
+  public void testWhitelist() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/whitelist.conf");
+
+    Document doc = Document.create("doc1");
+
+    doc.setField("includeField1", "value1");
+    doc.setField("includeField2", "value2");
+    doc.setField("normalField", "normalValue");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    // verify that the bulk method has been called once by mockClient
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+
+    // check that normalField and id have been removed
+    assertFalse(map.containsKey("normalField"));
+    assertFalse(map.containsValue("normalValue"));
+    assertFalse(map.containsKey("id"));
+  }
+
+  @Test
+  public void testBlacklistAndWhitelist() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/whitelist.conf");
+
+    Document doc = Document.create("doc1");
+
+    doc.setField("ignoreField1", "value1");
+    doc.setField("includeField2", "value2");
+    doc.setField("normalField", "normalValue");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    // verify that the bulk method has been called once by mockClient
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+
+    // check that ignoreField1, normalField, and id have been removed
+    assertFalse(map.containsKey("ignoreField1"));
+    assertFalse(map.containsKey("normalField1"));
+    assertTrue(map.containsKey("includeField2"));
+    assertTrue(map.containsValue("value2"));
+    assertFalse(map.containsKey("id"));
+  }
+
   /**
-   * Tests that the indexer correctly ignores fields stated in the ignoreFields portion of the config file
+   * Tests that the indexer correctly ignores fields stated in the blacklist portion of the config file
    * In this case both id & idOverride is removed from the Lucille Document, but the idOverride is still
    * used as the Document id for the Indexer
    *
    * @throws Exception
    */
   @Test
-  public void testIgnoreFieldsWithOverride() throws Exception {
+  public void testBlacklistWithOverride() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("OpenSearchIndexerTest/ignoreFieldsWithOverride.conf");
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/blacklistWithOverride.conf");
 
     Document doc = Document.create("doc1");
 
@@ -933,15 +997,43 @@ public class OpenSearchIndexerTest {
     assertEquals(Map.of("normalField", "normalValue"), map);
   }
 
+  @Test
+  public void testWhitelistWithOverride() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/blacklistWithOverride.conf");
+
+    Document doc = Document.create("doc1");
+
+    doc.setField("whitelistField", "whitelistValue");
+    doc.setField("other_id", "otherId");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    // verify that the bulk method has been called once by mockClient
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+
+    // check that id and other_id has been removed
+    assertEquals(Map.of("whitelistField", "whitelistValue"), map);
+  }
+
   /**
-   * Tests that the indexer correctly ignores fields stated in the ignoreFields portion of the config file
+   * Tests that the indexer correctly ignores fields stated in the blacklist portion of the config file
    * Even if idOverride exists, id is still removed and Indexer will use the idOverride as document id
    * @throws Exception
    */
   @Test
-  public void testIgnoreFieldsWithOverride2() throws Exception {
+  public void testBlacklistWithOverride2() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("OpenSearchIndexerTest/ignoreFieldsWithOverride2.conf");
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/blacklistWithOverride2.conf");
 
     Document doc = Document.create("doc1");
 
@@ -966,6 +1058,33 @@ public class OpenSearchIndexerTest {
     assertEquals(Map.of("other_id", "otherId", "normalField", "normalValue"), map);
   }
 
+  @Test
+  public void testWhitelistWithOverride2() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/whitelistWithOverride2.conf");
+
+    Document doc = Document.create("doc1");
+
+    doc.setField("normalField", "normalValue");
+    doc.setField("other_id", "otherId");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    // verify that the bulk method has been called once by mockClient
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+
+    // check that id has been removed and that other_id field remains
+    assertEquals(Map.of("other_id", "otherId"), map);
+  }
 
   /**
    * Tests that the indexer correctly overrides the id if it exists in conf

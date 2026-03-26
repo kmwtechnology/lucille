@@ -164,13 +164,13 @@ public class SolrIndexerTest {
 
 
   /**
-   * Tests that id would be deleted if stated in ignoreFields
+   * Tests that id would be deleted if stated in blacklist
    *
    * @throws Exception
    */
   @Test
-  public void testIgnoreIdInIgnoreFields() throws Exception {
-    Config config = ConfigFactory.load("SolrIndexerTest/ignoreId.conf");
+  public void testIgnoreIdInBlacklist() throws Exception {
+    Config config = ConfigFactory.load("SolrIndexerTest/blacklistId.conf");
     TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
@@ -194,11 +194,11 @@ public class SolrIndexerTest {
   }
 
   /**
-   * test that children documents would obey ignoreFields configurations
+   * test that children documents would obey blacklist configurations
    */
   @Test
-  public void testIgnoreFieldsInChildren() throws Exception {
-    Config config = ConfigFactory.load("SolrIndexerTest/ignoreId.conf");
+  public void testBlacklistInChildren() throws Exception {
+    Config config = ConfigFactory.load("SolrIndexerTest/blacklistId.conf");
     TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1", "test_run");
@@ -941,13 +941,13 @@ public class SolrIndexerTest {
   }
 
   /**
-   * Tests that the indexer remove the fields in ignoreFields configuration before sending to the Client
+   * Tests that the indexer remove the fields in blacklist configuration before sending to the Client
    *
    * @throws Exception
    */
   @Test
-  public void testIgnoreFieldsConfig() throws Exception {
-    Config config = ConfigFactory.load("SolrIndexerTest/ignoreFields.conf");
+  public void testBlacklistConfig() throws Exception {
+    Config config = ConfigFactory.load("SolrIndexerTest/blacklist.conf");
     TestMessenger messenger = new TestMessenger();
 
     Document doc = Document.create("doc1");

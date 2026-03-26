@@ -15,7 +15,7 @@ public class FieldFilterTest {
   @Test
   public void testWhitelist() {
     Config config = ConfigFactory.parseString("whitelist = [field1, field2]");
-    FieldFilter filter = new FieldFilter(config, null, null);
+    FieldFilter filter = new FieldFilter(config);
     assertTrue(filter.shouldInclude("field1"));
     assertTrue(filter.shouldInclude("field2"));
     assertFalse(filter.shouldInclude("field3"));
@@ -24,7 +24,7 @@ public class FieldFilterTest {
   @Test
   public void testBlacklist() {
     Config config = ConfigFactory.parseString("blacklist = [field1, field2]");
-    FieldFilter filter = new FieldFilter(config, null, null);
+    FieldFilter filter = new FieldFilter(config);
     assertFalse(filter.shouldInclude("field1"));
     assertFalse(filter.shouldInclude("field2"));
     assertTrue(filter.shouldInclude("field3"));
@@ -37,7 +37,7 @@ public class FieldFilterTest {
             "ignoreFields = [field3]"
     );
 
-    FieldFilter filter = new FieldFilter(config, "keepFields", "ignoreFields");
+    FieldFilter filter = new FieldFilter(config);
     assertEquals(List.of("field1", "field2", "field3"), filter.getWhitelist());
     assertEquals(List.of("field3"), filter.getBlacklist());
 
@@ -50,8 +50,8 @@ public class FieldFilterTest {
 
   @Test
   public void testWhitelistKey() {
-    Config config = ConfigFactory.parseString("keepFields = [field1, field2]");
-    FieldFilter filter = new FieldFilter(config, "keepFields", null);
+    Config config = ConfigFactory.parseString("whitelist = [field1, field2]");
+    FieldFilter filter = new FieldFilter(config);
     assertTrue(filter.shouldInclude("field1"));
     assertTrue(filter.shouldInclude("field2"));
     assertFalse(filter.shouldInclude("field3"));
@@ -59,8 +59,8 @@ public class FieldFilterTest {
 
   @Test
   public void testBlacklistKey() {
-    Config config = ConfigFactory.parseString("ignoreFields = [field1, field2]");
-    FieldFilter filter = new FieldFilter(config, null, "ignoreFields");
+    Config config = ConfigFactory.parseString("blacklist = [field1, field2]");
+    FieldFilter filter = new FieldFilter(config);
     assertFalse(filter.shouldInclude("field1"));
     assertFalse(filter.shouldInclude("field2"));
     assertTrue(filter.shouldInclude("field3"));
@@ -73,7 +73,7 @@ public class FieldFilterTest {
             "ignoreFields = [field3]"
     );
 
-    FieldFilter filter = new FieldFilter(config, "keepFields", "ignoreFields");
+    FieldFilter filter = new FieldFilter(config);
     assertTrue(filter.shouldInclude("field1"));
     assertTrue(filter.shouldInclude("field2"));
     assertFalse(filter.shouldInclude("field3"));
@@ -85,14 +85,14 @@ public class FieldFilterTest {
   @Test
   public void testBlacklistIsActive() {
     Config config = ConfigFactory.parseString("blacklist = [field3]");
-    FieldFilter filter = new FieldFilter(config, null, null);
+    FieldFilter filter = new FieldFilter(config);
     assertTrue(filter.isActive());
   }
 
   @Test
   public void testWhitelistIsActive() {
     Config config = ConfigFactory.parseString("whitelist = [field3]");
-    FieldFilter filter = new FieldFilter(config, null, null);
+    FieldFilter filter = new FieldFilter(config);
     assertTrue(filter.isActive());
   }
 
@@ -101,7 +101,7 @@ public class FieldFilterTest {
     Config config = ConfigFactory.parseString(
         ""
     );
-    FieldFilter filter = new FieldFilter(config, null, null);
+    FieldFilter filter = new FieldFilter(config);
     assertFalse(filter.isActive());
   }
 }

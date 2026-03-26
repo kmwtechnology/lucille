@@ -12,19 +12,12 @@ public class FieldFilter {
   private final List<String> blacklist;
 
   /**
-   * If no naming schematic is passed in but the class still uses a whitelist or blacklist, default name to "whitelist" and
-   * "blacklist"
-   * @param config
-   * @param whitelistKey
-   * @param blacklistKey
+   * If no naming schematic is passed in but the class still uses a whitelist or blacklist, default name to "whitelist" and "blacklist"
+   * @param config the config for Lucille
    */
-  public FieldFilter(Config config, String whitelistKey, String blacklistKey) {
-
-    String resolvedWhitelistKey = whitelistKey != null ? whitelistKey : "whitelist";
-    String resolvedBlacklistKey = blacklistKey != null ? blacklistKey : "blacklist";
-
-    this.whitelist = config.hasPath(resolvedWhitelistKey) ? List.copyOf(config.getStringList(resolvedWhitelistKey)) : List.of();
-    this.blacklist = config.hasPath(resolvedBlacklistKey) ? List.copyOf(config.getStringList(resolvedBlacklistKey)) : List.of();
+  public FieldFilter(Config config) {
+    this.whitelist = config.hasPath("whitelist") ? List.copyOf(config.getStringList("whitelist")) : List.of();
+    this.blacklist = config.hasPath("blacklist") ? List.copyOf(config.getStringList("blacklist")) : List.of();
   }
 
   public List<String> getWhitelist() {

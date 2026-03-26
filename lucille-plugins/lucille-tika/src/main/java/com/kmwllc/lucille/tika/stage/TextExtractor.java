@@ -46,8 +46,8 @@ import org.xml.sax.SAXException;
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
  * parseTimeout (Long, Optional) : timeout for parsing in milliseconds
- * metadataWhitelist (StringList, Optional) : list of metadata names that are to be included in document
- * metadataBlacklist (StringList, Optional) : list of metadata names that are not to be included in document
+ * whitelist (StringList, Optional) : list of metadata names that are to be included in document
+ * blacklist (StringList, Optional) : list of metadata names that are not to be included in document
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
@@ -56,8 +56,8 @@ public class TextExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix")
-      .optionalList("metadataWhitelist", new TypeReference<List<String>>() {})
-      .optionalList("metadataBlacklist", new TypeReference<List<String>>() {})
+      .optionalList("whitelist", new TypeReference<List<String>>() {})
+      .optionalList("blacklist", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeout")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .include(FileContentFetcher.SPEC).build();
@@ -87,7 +87,7 @@ public class TextExtractor extends Stage {
     textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
 
-    this.fieldFilter = new FieldFilter(config, "metadataWhitelist", "metadataBlacklist");
+    this.fieldFilter = new FieldFilter(config);
 
 
     if (filePathField != null && byteArrayField != null) {

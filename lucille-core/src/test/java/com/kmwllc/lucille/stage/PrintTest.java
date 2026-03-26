@@ -105,7 +105,8 @@ public class PrintTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("PrintTest/config.conf");
-    assertEquals(Set.of("overwriteFile", "outputFile", "shouldLog", "name", "excludeFields", "conditions", "class", "conditionPolicy", "appendThreadName"),
+    assertEquals(Set.of("overwriteFile", "outputFile", "shouldLog", "name", "blacklist", "whitelist", "conditions", "class",
+            "conditionPolicy", "appendThreadName"),
         stage.getLegalProperties());
   }
 
