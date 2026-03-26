@@ -11,7 +11,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
 
 import org.junit.Test;
 
@@ -23,13 +22,6 @@ public class TraversalParamsTest {
   private static final String DEFAULT_PREFIX = "test-";
   private static final Instant BASE_TIME = Instant.parse("2026-01-15T10:00:00Z");
   private static final Instant LATER_TIME = Instant.parse("2026-01-19T14:30:00Z");
-
-  // one table row for includefile behavior plus optional cutoff config.
-  private record IncludeFileCase(
-      String name, String publishMode,
-      Instant fileLastModified, Instant fileLastPublished,
-      String lastModifiedCutoff, String lastPublishedCutoff,
-      boolean expected) {}
 
   private TraversalParams params(Map<String, Object> config) {
     // helper to construct params with a small config override
@@ -150,15 +142,6 @@ public class TraversalParamsTest {
   }
 
   @Test
-  public void singleChangeOnly() {
-    // only the doc with a newer modified timestamp should pass.
-    TraversalParams params = incrementalParams();
-    assertFalse(params.includeFile("doc_a.json", BASE_TIME, BASE_TIME));
-    assertTrue(params.includeFile("doc_b.json", LATER_TIME, BASE_TIME));
-    assertFalse(params.includeFile("doc_c.json", BASE_TIME, BASE_TIME));
-  }
-
-  @Test
   public void mixedNewAndUpdated() {
     // unchanged, updated, and brand-new files should be handled in one pass.
     TraversalParams params = incrementalParams();
@@ -185,44 +168,54 @@ public class TraversalParamsTest {
     ));
   }
 
+  // full mode and cutoff tests
+
   @Test
-  public void includeFileModeMatrix() {
-    // cutoff filters are relative to now, so this matrix intentionally anchors around current time.
+  public void fullModeAlwaysIncludes() {
+    // full mode should include files regardless of publish history
     Instant now = Instant.now();
-    Instant modifiedOld = now.minus(Duration.ofDays(10));
-    Instant modifiedNew = now;
-    Instant publishedRecent = now.minus(Duration.ofHours(1));
-    Instant publishedOld = now.minus(Duration.ofDays(7));
+    TraversalParams params = paramsWithFilterOptions(Map.of("publishMode", "full"));
+    assertTrue(params.includeFile("doc.json", now.minus(Duration.ofDays(10)), now.minus(Duration.ofHours(1))));
+  }
 
-    List<IncludeFileCase> cases = List.of(
-        new IncludeFileCase("full_includes_unchanged", "full", modifiedOld, publishedRecent, null, null, true),
-        new IncludeFileCase("incremental_skips_unchanged", "incremental", modifiedOld, publishedRecent, null, null, false),
-        new IncludeFileCase("incremental_includes_new", "incremental", modifiedOld, null, null, null, true),
-        new IncludeFileCase("incremental_includes_modified", "incremental", modifiedNew, publishedRecent, null, null, true),
-        new IncludeFileCase("full_respects_last_modified_cutoff", "full", modifiedOld, null, "24h", null, false),
-        new IncludeFileCase("incremental_respects_last_modified_cutoff", "incremental", modifiedOld, null, "24h", null, false),
-        new IncludeFileCase("full_ignores_last_published_cutoff", "full", modifiedNew, publishedRecent, null, "24h", true),
-        new IncludeFileCase("incremental_respects_last_published_cutoff", "incremental", modifiedNew, publishedRecent, null, "24h", false),
-        new IncludeFileCase("incremental_allows_old_publish_by_cutoff", "incremental", modifiedNew, publishedOld, null, "24h", true)
-    );
+  @Test
+  public void lastModifiedCutoffExcludesOldFileInFullMode() {
+    // full mode with lastModifiedCutoff should exclude files older than the cutoff
+    Instant now = Instant.now();
+    TraversalParams params = paramsWithFilterOptions(Map.of("publishMode", "full", "lastModifiedCutoff", "24h"));
+    assertFalse(params.includeFile("doc.json", now.minus(Duration.ofDays(10)), null));
+  }
 
-    for (IncludeFileCase testCase : cases) {
-      Map<String, Object> filterOptions = new LinkedHashMap<>();
-      filterOptions.put("publishMode", testCase.publishMode());
-      if (testCase.lastModifiedCutoff() != null) {
-        filterOptions.put("lastModifiedCutoff", testCase.lastModifiedCutoff());
-      }
-      if (testCase.lastPublishedCutoff() != null) {
-        filterOptions.put("lastPublishedCutoff", testCase.lastPublishedCutoff());
-      }
+  @Test
+  public void lastModifiedCutoffExcludesOldFile() {
+    // incremental mode with lastModifiedCutoff should exclude files older than the cutoff
+    Instant now = Instant.now();
+    TraversalParams params = paramsWithFilterOptions(Map.of("publishMode", "incremental", "lastModifiedCutoff", "24h"));
+    assertFalse(params.includeFile("doc.json", now.minus(Duration.ofDays(10)), null));
+  }
 
-      TraversalParams params = paramsWithFilterOptions(filterOptions);
+  @Test
+  public void fullModeIgnoresLastPublishedCutoff() {
+    // full mode should ignore lastPublishedCutoff and always include
+    Instant now = Instant.now();
+    TraversalParams params = paramsWithFilterOptions(Map.of("publishMode", "full", "lastPublishedCutoff", "24h"));
+    assertTrue(params.includeFile("doc.json", now, now.minus(Duration.ofHours(1))));
+  }
 
-      assertEquals(
-          testCase.name(),
-          testCase.expected(),
-          params.includeFile("doc.json", testCase.fileLastModified(), testCase.fileLastPublished()));
-    }
+  @Test
+  public void lastPublishedCutoffExcludesRecentlyPublished() {
+    // incremental mode should skip files published within the cutoff window
+    Instant now = Instant.now();
+    TraversalParams params = paramsWithFilterOptions(Map.of("publishMode", "incremental", "lastPublishedCutoff", "24h"));
+    assertFalse(params.includeFile("doc.json", now, now.minus(Duration.ofHours(1))));
+  }
+
+  @Test
+  public void lastPublishedCutoffIncludesOldPublish() {
+    // incremental mode should include files whose last publish is older than the cutoff
+    Instant now = Instant.now();
+    TraversalParams params = paramsWithFilterOptions(Map.of("publishMode", "incremental", "lastPublishedCutoff", "24h"));
+    assertTrue(params.includeFile("doc.json", now, now.minus(Duration.ofDays(7))));
   }
 
   @Test
