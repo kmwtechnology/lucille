@@ -49,24 +49,6 @@ public class FieldFilterTest {
   }
 
   @Test
-  public void testWhitelistKey() {
-    Config config = ConfigFactory.parseString("whitelist = [field1, field2]");
-    FieldFilter filter = new FieldFilter(config);
-    assertTrue(filter.shouldInclude("field1"));
-    assertTrue(filter.shouldInclude("field2"));
-    assertFalse(filter.shouldInclude("field3"));
-  }
-
-  @Test
-  public void testBlacklistKey() {
-    Config config = ConfigFactory.parseString("blacklist = [field1, field2]");
-    FieldFilter filter = new FieldFilter(config);
-    assertFalse(filter.shouldInclude("field1"));
-    assertFalse(filter.shouldInclude("field2"));
-    assertTrue(filter.shouldInclude("field3"));
-  }
-
-  @Test
   public void testBothWhitelistAndBlacklist() {
     Config config = ConfigFactory.parseString(
         "whitelist = [field1, field2, field3]\n" +

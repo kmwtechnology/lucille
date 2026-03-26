@@ -12,7 +12,7 @@ public class FieldFilter {
   private final List<String> blacklist;
 
   /**
-   * If no naming schematic is passed in but the class still uses a whitelist or blacklist, default name to "whitelist" and "blacklist"
+   * If a whitelist or blacklist is not passed in, default to an empty list.
    * @param config the config for Lucille
    */
   public FieldFilter(Config config) {
