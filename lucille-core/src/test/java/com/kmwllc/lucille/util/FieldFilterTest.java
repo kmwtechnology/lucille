@@ -33,8 +33,8 @@ public class FieldFilterTest {
   @Test
   public void testGetters() {
     Config config = ConfigFactory.parseString(
-        "keepFields = [field1, field2, field3]\n" +
-            "ignoreFields = [field3]"
+        "whitelist = [field1, field2, field3]\n" +
+            "blacklist = [field3]"
     );
 
     FieldFilter filter = new FieldFilter(config);
@@ -69,8 +69,8 @@ public class FieldFilterTest {
   @Test
   public void testBothWhitelistAndBlacklist() {
     Config config = ConfigFactory.parseString(
-        "keepFields = [field1, field2, field3]\n" +
-            "ignoreFields = [field3]"
+        "whitelist = [field1, field2, field3]\n" +
+            "blacklist = [field3]"
     );
 
     FieldFilter filter = new FieldFilter(config);

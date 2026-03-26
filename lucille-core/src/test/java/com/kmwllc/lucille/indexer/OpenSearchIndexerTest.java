@@ -722,7 +722,7 @@ public class OpenSearchIndexerTest {
 
     assertEquals("doc1", indexRequest.id());
 
-    // routing has been set appropriately even though routing field has been deleted by ignoreFields
+    // routing has been set appropriately even though routing field has been deleted by blacklist
     // note that id has also been deleted from the document, but the id is still passed to the OpenSearch Index
     // to id documents. Can be found as the field "_id"
     assertEquals("routing1", indexRequest.routing());
