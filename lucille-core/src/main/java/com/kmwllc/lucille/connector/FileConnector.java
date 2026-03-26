@@ -226,6 +226,7 @@ public class FileConnector extends AbstractConnector {
       expiredFileUris = stateManager.listExpiredFiles();
     } catch (SQLException e) {
       log.warn("Error occurred while publishing missing document tombstones.", e);
+      return;
     }
 
     if (expiredFileUris.isEmpty()) {
@@ -233,7 +234,6 @@ public class FileConnector extends AbstractConnector {
     }
     int expiredFileCount = expiredFileUris.size();
     int publishedTombstoneCount = 0;
-    // indexer.idOverrideField: "docId"
     log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
     for (URI uri : expiredFileUris) {
       TombstoneFileReference ref = TombstoneFileReference.of(uri);

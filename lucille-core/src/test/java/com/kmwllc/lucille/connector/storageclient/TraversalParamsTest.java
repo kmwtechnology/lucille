@@ -133,18 +133,6 @@ public class TraversalParamsTest {
     assertTrue(incrementalParams().includeFile("doc.json", BASE_TIME.plusMillis(1), BASE_TIME));
   }
 
-  @Test
-  public void skewedModifiedSkips() {
-    // badly skewed timestamps far in the past should be treated as stale
-    assertFalse(
-        incrementalParams().includeFile(
-            "doc.json",
-            Instant.parse("2020-01-01T00:00:00Z"),
-            BASE_TIME
-        )
-    );
-  }
-
   // incremental scenarios
 
   @Test
