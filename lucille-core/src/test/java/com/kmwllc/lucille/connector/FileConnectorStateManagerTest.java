@@ -43,7 +43,7 @@ public class FileConnectorStateManagerTest {
   private static final String secretsQuery = "SELECT * FROM \"FILE\" WHERE name = '/files/subdir/secrets.txt'";
 
   @Rule
-  public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql", "sm-db-test-end.sql");
+  public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {

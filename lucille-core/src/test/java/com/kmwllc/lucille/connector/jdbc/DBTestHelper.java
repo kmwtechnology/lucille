@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector.jdbc;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 import org.h2.tools.RunScript;
 import org.junit.rules.ExternalResource;
@@ -21,7 +20,7 @@ import java.sql.SQLException;
  *
  * <pre>
  *   @Rule
- *   public final DBTestHelper dbHelper = new DBTestHelper("db-test-start.sql", "db-test-end.sql");
+ *   public final DBTestHelper dbHelper = new DBTestHelper("db-test-start.sql");
  * </pre>
  *
  * With this declaration, a new instance of DBTestHelper will be created and initialized (by calling the before() method)
@@ -34,27 +33,35 @@ import java.sql.SQLException;
  * the last connection will be closed in after() and the database will be dropped. This assures that the database
  * is fully re-initialized between tests and no database state can persist across test boundaries.
  *
+ * Note that a "start script" is supported but an "end script" is not supported because the database is dropped after each
+ * test. Running an end script right before the database is dropped would have no point.
  */
 public class DBTestHelper extends ExternalResource {
 
   public static final String CONNECTION_STRING = "jdbc:h2:mem:test";
 
   private final String startScriptPath;
-  private final String endScriptPath;
   private Connection connection;
 
-  public DBTestHelper(String startScriptPath, String endScriptPath) {
+  public DBTestHelper(String startScriptPath) {
     this.startScriptPath = startScriptPath;
-    this.endScriptPath = endScriptPath;
   }
 
   @Override
   protected void before() throws Throwable {
     super.before();
+
     connection = DriverManager.getConnection(CONNECTION_STRING);
-    InputStream in = getClass().getClassLoader().getResourceAsStream(startScriptPath);
-    RunScript.execute(connection, new InputStreamReader(in));
-    connection.commit();
+
+    try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(startScriptPath)) {
+      if (inputStream == null) {
+        throw new IllegalArgumentException("Start script not found on classpath: " + startScriptPath);
+      }
+      try (InputStreamReader reader = new InputStreamReader(inputStream)) {
+        RunScript.execute(connection, reader);
+        connection.commit();
+      }
+    }
 
     // at the beginning of a test, the only open DB connection should be the one held by DBTestHelper
     assertEquals(1, countConnections());
@@ -63,24 +70,25 @@ public class DBTestHelper extends ExternalResource {
   @Override
   protected void after() {
     super.after();
+
     try {
       // at the end of a test, the only open DB connection should be the one held by DBTestHelper
       assertEquals(1, countConnections());
-
-      InputStream in = getClass().getClassLoader().getResourceAsStream(endScriptPath);
-      RunScript.execute(connection, new InputStreamReader(in));
-      connection.commit();
-      connection.close();
-    } catch (SQLException e) {
-      e.printStackTrace();
-      fail();
+    } finally {
+      try {
+        connection.close();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
     }
   }
   
-  public int countConnections() throws SQLException {
+  public int countConnections() {
     try (ResultSet rs = RunScript.execute(connection, new StringReader("select count(*) from information_schema.sessions;"))) {
       rs.next();
       return rs.getInt(1);
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
     }
   }
 }

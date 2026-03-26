@@ -39,7 +39,7 @@ public class QueryDatabaseTest {
   StageFactory factory = StageFactory.of(QueryDatabase.class);
 
   @Rule
-  public final DBTestHelper dbHelper = new DBTestHelper("db-test-start.sql", "db-test-end.sql");
+  public final DBTestHelper dbHelper = new DBTestHelper("db-test-start.sql");
 
   @Test
   public void testSingleKeyField() throws Exception {

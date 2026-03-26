@@ -46,7 +46,7 @@ public class DatabaseConnectorTest {
   private static final Logger log = LoggerFactory.getLogger(DatabaseConnectorTest.class);
 
   @Rule
-  public final DBTestHelper dbHelper = new DBTestHelper("db-test-start.sql", "db-test-end.sql");
+  public final DBTestHelper dbHelper = new DBTestHelper("db-test-start.sql");
   private static final TimeZone originalTimeZone = TimeZone.getDefault();
 
   private Publisher publisher;
