@@ -179,10 +179,10 @@ public class JsonFileHandlerTest {
   }
 
   @Test
-  public void testIgnoreFieldsWithoutIdFields() throws Exception {
+  public void testBlacklistWithoutIdField() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
-            "ignoreFields", List.of("field2"),
+            "blacklist", List.of("field2"),
             "docIdPrefix", ""
         )
     ));
@@ -200,11 +200,55 @@ public class JsonFileHandlerTest {
   }
 
   @Test
-  public void testIgnoreFieldsWithIdFields() throws Exception {
+  public void testWhitelistWithIdField() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "json", Map.of(
+            "whitelist", List.of("field1", "id"),
+            "docIdPrefix", ""
+        )
+    ));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
+    File file = new File(filePath);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
+
+    Document doc1 = docs.next();
+    assertEquals("1", doc1.getId());
+    assertEquals("val1-1", doc1.getString("field1"));
+    assertFalse(doc1.has("field2"));
+  }
+
+  @Test
+  public void testBlacklistWithoutIdFields() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
-            "ignoreFields", List.of("field3"),
+            "blacklist", List.of("field3", "id"),
+            "docIdPrefix", ""
+        )
+    ));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
+    File file = new File(filePath);
+
+    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
+
+    Document doc1 = docs.next();
+    assertEquals("one_1", doc1.getId());
+    assertEquals("one", doc1.getString("field1"));
+    assertEquals("1", doc1.getString("field2"));
+    assertFalse(doc1.has("field3"));
+  }
+
+  @Test
+  public void testWhitelistWithIdFields() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "json", Map.of(
+            "idFields", List.of("field1", "field2"),
+            "whitelist", List.of("field1", "field2", "id"),
             "docIdPrefix", ""
         )
     ));
@@ -223,37 +267,28 @@ public class JsonFileHandlerTest {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testIdFieldIgnored() throws Exception {
+  public void testIdFieldBlacklisted() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
-            "ignoreFields", List.of("field1"),
+            "blacklist", List.of("field1"),
             "docIdPrefix", ""
         )
     ));
     FileHandler handler = FileHandler.create("json", config);
   }
 
-  @Test
-  public void testIdFieldsWithoutIgnoreFields() throws Exception {
+  @Test(expected = IllegalArgumentException.class)
+  public void testIdFieldNotWhitelisted() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
+            // no field2
+            "whitelist", List.of("field1"),
             "docIdPrefix", ""
         )
     ));
     FileHandler handler = FileHandler.create("json", config);
-
-    String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/noids.jsonl";
-    File file = new File(filePath);
-
-    Iterator<Document> docs = handler.processFile(new FileInputStream(file), filePath);
-
-    Document doc1 = docs.next();
-    assertEquals("one_1", doc1.getId());
-    assertEquals("one", doc1.getString("field1"));
-    assertEquals("1", doc1.getString("field2"));
-    assertEquals("test", doc1.getString("field3"));
   }
 
   @Test

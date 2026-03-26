@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -15,6 +16,7 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -40,7 +42,8 @@ public class JsonFileHandler extends BaseFileHandler {
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .optionalString("docIdFormat", "idField")
       .optionalList("idFields", new TypeReference<List<String>>() {})
-      .optionalList("ignoreFields", new TypeReference<List<String>>() {})
+      .optionalList("blacklist", new TypeReference<List<String>>() {})
+      .optionalList("whitelist", new TypeReference<List<String>>() {})
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
@@ -49,7 +52,7 @@ public class JsonFileHandler extends BaseFileHandler {
   private final List<String> idFields;
   private final String docIdFormat;
   private final ObjectMapper mapper = new ObjectMapper();
-  private final Set<String> ignoreFields;
+  private final FieldFilter fieldFilter;
 
   public JsonFileHandler(Config config) {
     super(config);
@@ -64,14 +67,24 @@ public class JsonFileHandler extends BaseFileHandler {
 
     this.idUpdater = (id) -> docIdPrefix + id;
 
-    this.ignoreFields = config.hasPath("ignoreFields") ? Set.copyOf(config.getStringList("ignoreFields")) : Set.of();
+    this.fieldFilter = new FieldFilter(config);
 
-    Collection<String> intersection = CollectionUtils.intersection(this.idFields, this.ignoreFields);
+    if (!fieldFilter.getBlacklist().isEmpty()) {
+      Collection<String> intersection = CollectionUtils.intersection(this.idFields, fieldFilter.getBlacklist());
+      if (!intersection.isEmpty()) {
+        throw new IllegalArgumentException(
+            "blacklist cannot contain idFields. Conflicting fields: " + intersection
+        );
+      }
+    }
 
-    if (!intersection.isEmpty()) {
-      throw new IllegalArgumentException(
-          "ignoreFields cannot contain idFields. Conflicting fields: " + intersection
-      );
+    if (!fieldFilter.getWhitelist().isEmpty()) {
+      Collection<String> missing = CollectionUtils.subtract(this.idFields, fieldFilter.getWhitelist());
+      if (!missing.isEmpty()) {
+        throw new IllegalArgumentException(
+            "whitelist must contain all idFields. Missing fields: " + missing
+        );
+      }
     }
   }
 
@@ -122,11 +135,22 @@ public class JsonFileHandler extends BaseFileHandler {
           return next();
         }
         try {
+          // determine which fields need to be removed based on fieldFilter
+          ObjectNode node = (ObjectNode) mapper.readTree(line);
+          Iterator<String> iter = node.fieldNames();
+          Set<String> discardedFields = new HashSet<>();
+          if (fieldFilter.isActive()) {
+            while (iter.hasNext()) {
+              String fieldName = iter.next();
+              if (!fieldFilter.shouldInclude(fieldName)) {
+                discardedFields.add(fieldName);
+              }
+            }
+          }
           if (idFields.isEmpty()) {
-            return Document.createFromJson(line, idUpdater, ignoreFields);
+            return Document.createFromJson(line, idUpdater, discardedFields);
           } else {
-            ObjectNode node = (ObjectNode) mapper.readTree(line);
-            node.remove(ignoreFields);
+            node.remove(discardedFields);
             List<String> parts = new ArrayList<>(idFields.size());
 
             for (String fieldName : idFields) {
