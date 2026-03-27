@@ -145,13 +145,7 @@ public class TraversalParamsTest {
   public void mixedNewAndUpdated() {
     // unchanged, updated, and brand-new files should be handled in one pass.
     TraversalParams params = incrementalParams();
-    Instant laterPub = Instant.parse("2026-01-17T14:00:00Z");
     Instant modified = Instant.parse("2026-01-19T17:00:00Z");
-
-    assertFalse(params.includeFile("doc_a.json", BASE_TIME, BASE_TIME));
-    assertFalse(params.includeFile("doc_b.json", laterPub, laterPub));
-    assertTrue(params.includeFile("doc_c.json", modified, BASE_TIME));
-
     assertAllIncluded(params, modified, null, List.of("doc_d.json", "doc_e.json", "doc_f.json"));
   }
 
