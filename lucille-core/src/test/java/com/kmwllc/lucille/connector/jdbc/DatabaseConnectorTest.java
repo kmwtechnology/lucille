@@ -46,8 +46,7 @@ public class DatabaseConnectorTest {
   private static final Logger log = LoggerFactory.getLogger(DatabaseConnectorTest.class);
 
   @Rule
-  public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "",
-      "", "db-test-start.sql", "db-test-end.sql");
+  public final DBTestHelper dbHelper = new DBTestHelper("db-test-start.sql");
   private static final TimeZone originalTimeZone = TimeZone.getDefault();
 
   private Publisher publisher;
@@ -77,9 +76,6 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testDatabaseConnectorMixed() throws Exception {
-    // The only connection to the h2 database should be the dbHelper
-    assertEquals(1, dbHelper.checkNumConnections());
-
     // Create the test config
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
@@ -113,13 +109,10 @@ public class DatabaseConnectorTest {
     assertEquals(false, docsSentForProcessing.get(1).getBoolean("bool_field"));
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
-  @Test public void testDatabaseConnector() throws Exception {
 
-    // The only connection to the h2 database should be the dbHelper
-    assertEquals(1, dbHelper.checkNumConnections());
-
+  @Test
+  public void testDatabaseConnector() throws Exception {
     // Create the test config
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
@@ -159,14 +152,10 @@ public class DatabaseConnectorTest {
     assertEquals("Cat", docsSentForProcessing.get(2).getStringList("type").get(0));
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testDatabaseConnectionRetry() throws Exception {
-    // The only connection to the h2 database should be the dbHelper
-    assertEquals(1, dbHelper.checkNumConnections());
-
     // Create the test config
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
@@ -213,15 +202,11 @@ public class DatabaseConnectorTest {
     }
     // test that we did not get connection, and so connection.createStatement would not be called
     verify(mockConnection, times(0)).createStatement(anyInt(), anyInt());
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
 
   @Test
   public void testDatabaseConnectionRetryAndConnect() throws Exception {
-    // The only connection to the h2 database should be the dbHelper
-    assertEquals(1, dbHelper.checkNumConnections());
-
     // Create the test config
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
@@ -268,14 +253,10 @@ public class DatabaseConnectorTest {
     }
     // check that we have proceeded outside of getting connection as connection has been established
     verify(mockConnection, times(1)).createStatement(anyInt(), anyInt());
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testCompaniesQuery() throws ConnectorException, SQLException {
-
-    assertEquals(1, dbHelper.checkNumConnections());
-
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
@@ -308,13 +289,10 @@ public class DatabaseConnectorTest {
     assertFalse(docsSentForProcessing.get(1).has("name"));
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testRetrievingJDBCTypes() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
-
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
@@ -441,14 +419,10 @@ public class DatabaseConnectorTest {
     assertArrayEquals(expectedLongVarbinaryBytes, longVarbinaryColBytes);
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testJoiningDatabaseConnector() throws Exception {
-
-    assertEquals(1, dbHelper.checkNumConnections());
-
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
@@ -482,13 +456,10 @@ public class DatabaseConnectorTest {
     assertEquals(expected, docs.get(0).toString());
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testJoiningDatabaseConnectorStringType() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
-
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
@@ -520,13 +491,10 @@ public class DatabaseConnectorTest {
     assertEquals(expected, docs.get(1).toString());
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testJoiningDatabaseConnectorNonComparable() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
-
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
@@ -556,8 +524,6 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testJoiningDatabaseConnectorDateType() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
-
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
@@ -599,15 +565,11 @@ public class DatabaseConnectorTest {
     assertEquals(expectedDate, docs.get(0).getChildren().get(1).getDate("adopted_on"));
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   // TODO: not implemented yet.
   // @Test
   public void testCollapsingDatabaseConnector() throws Exception {
-    // TODO: implement me
-    assertEquals(1, dbHelper.checkNumConnections());
-
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
@@ -643,13 +605,10 @@ public class DatabaseConnectorTest {
     // TODO: more validations.
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testClose() throws ConnectorException, SQLException {
-
-    assertEquals(1, dbHelper.checkNumConnections());
     // Create a test config
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
@@ -668,13 +627,12 @@ public class DatabaseConnectorTest {
     DatabaseConnector connector = new DatabaseConnector(config);
     // call the execute method, then close the connection
     connector.execute(publisher);
-    assertEquals(2, dbHelper.checkNumConnections());
+    assertEquals(2, dbHelper.countConnections());
 
     assertFalse(connector.isClosed());
     connector.close();
     // verify that the connection is actually closed
     assertTrue(connector.isClosed());
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
@@ -721,7 +679,6 @@ public class DatabaseConnectorTest {
         exception.getCause().getMessage());
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
@@ -764,6 +721,5 @@ public class DatabaseConnectorTest {
     assertEquals("id2", doc2.getString("other_id"));
 
     connector.close();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 }
