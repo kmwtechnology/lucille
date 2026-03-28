@@ -59,7 +59,6 @@ public class DBTestHelper extends ExternalResource {
       }
       try (InputStreamReader reader = new InputStreamReader(inputStream)) {
         RunScript.execute(connection, reader);
-        connection.commit();
       }
     }
 
