@@ -48,11 +48,21 @@ public abstract class BaseFileReference implements FileReference {
    */
   protected abstract byte[] getFileContent(TraversalParams params);
 
-  @Override
-  public Document asDoc(TraversalParams params) {
-    Document doc = createEmptyDocument(params);
+  /**
+   * Builds a Document populated with the standard file metadata fields (file path, modification date, size, creation date).
+   * The document ID is derived from an MD5 hash of the full path string combined with the traversal params.
+   *
+   * @param fullPath     the full path string of the file
+   * @param lastModified the last modification time of the file
+   * @param size         the size of the file in bytes
+   * @param created      the creation time of the file
+   * @param params       the traversal parameters used to derive the document ID
+   * @return a Document with standard file metadata fields populated
+   */
+  public static Document buildBaseDoc(String fullPath, Instant lastModified, Long size, Instant created, TraversalParams params) {
+    Document doc = createEmptyDocument(params, fullPath);
 
-    doc.setField(FILE_PATH, getFullPath().toString());
+    doc.setField(FILE_PATH, fullPath);
 
     if (lastModified != null) {
       doc.setField(MODIFIED, lastModified);
@@ -65,6 +75,13 @@ public abstract class BaseFileReference implements FileReference {
     if (created != null) {
       doc.setField(CREATED, created);
     }
+
+    return doc;
+  }
+
+  @Override
+  public Document asDoc(TraversalParams params) {
+    Document doc = buildBaseDoc(getFullPath().toString(), lastModified, size, created, params);
 
     if (params.shouldGetFileContent()) {
       doc.setField(CONTENT, getFileContent(params));
@@ -75,21 +92,7 @@ public abstract class BaseFileReference implements FileReference {
 
   @Override
   public Document decompressedFileAsDoc(InputStream in, String decompressedFullPathStr, TraversalParams params) throws IOException {
-    Document doc = createEmptyDocument(params, decompressedFullPathStr);
-
-    doc.setField(FILE_PATH, decompressedFullPathStr);
-
-    if (lastModified != null) {
-      doc.setField(MODIFIED, lastModified);
-    }
-
-    if (size != null) {
-      doc.setField(SIZE, size);
-    }
-
-    if (created != null) {
-      doc.setField(CREATED, created);
-    }
+    Document doc = buildBaseDoc(decompressedFullPathStr, lastModified, size, created, params);
 
     if (params.shouldGetFileContent()) {
       doc.setField(CONTENT, in.readAllBytes());
@@ -99,23 +102,12 @@ public abstract class BaseFileReference implements FileReference {
   }
 
   /**
-   * Creates an empty document for this FileReference. Uses the full path of this FileReference
-   * and the given params to create an appropriate docId.
-   * @param params Parameters for your storage traversal.
-   * @return An empty Document with an appropriate docId representing this file reference.
-   */
-  protected Document createEmptyDocument(TraversalParams params) {
-    String fullPath = getFullPath().toString();
-    return createEmptyDocument(params, fullPath);
-  }
-
-  /**
    * Creates an empty document for this FileReference. Uses the given full path and params to create an appropriate docId.
    * @param params Parameters for your storage traversal.
    * @param fullPathString The full path String to the file reference
    * @return An empty Document with an appropriate docId representing this file reference.
    */
-  protected Document createEmptyDocument(TraversalParams params, String fullPathString) {
+  protected static Document createEmptyDocument(TraversalParams params, String fullPathString) {
     String docId = DigestUtils.md5Hex(fullPathString);
     return Document.create(StorageClient.createDocId(docId, params));
   }

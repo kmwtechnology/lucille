@@ -2,7 +2,6 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
@@ -236,8 +235,7 @@ public class FileConnector extends AbstractConnector {
     int publishedTombstoneCount = 0;
     log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
     for (URI uri : expiredFileUris) {
-      TombstoneFileReference ref = TombstoneFileReference.of(uri);
-      Document doc = ref.asDoc(buildTraversalParams(uri));
+      Document doc = buildTombstoneDoc(uri);
       try {
         publisher.publish(doc);
         publishedTombstoneCount++;
@@ -305,36 +303,19 @@ public class FileConnector extends AbstractConnector {
     return new TraversalParams(config, pathToTraverse, getDocIdPrefix());
   }
 
-  // helper class for building document tombstones
-  protected static class TombstoneFileReference extends BaseFileReference {
-
-    public TombstoneFileReference(URI pathToFile, Instant lastModified, Long size, Instant created) {
-      super(pathToFile, lastModified, size, created);
-    }
-
-    public static TombstoneFileReference of(URI uri) {
-      Instant now = Instant.now();
-      return new TombstoneFileReference(uri, now, 0L, now);
-    }
-
-    @Override
-    public Document asDoc(TraversalParams params) {
-      Document doc = super.asDoc(params);
-      doc.setField(FileConnector.EXPIRED, true);
-      return doc;
-    }
-
-    @Override
-    public String getName() { throw new UnsupportedOperationException("Unimplemented method 'getName'"); }
-
-    @Override
-    public boolean isValidFile() { return true; }
-
-    @Override
-    public InputStream getContentStream(TraversalParams params) { return InputStream.nullInputStream(); }
-
-    @Override
-    protected byte[] getFileContent(TraversalParams params) { return new byte[0]; }
+  /**
+   * Builds a tombstone Document for the given URI. The document is marked as expired and skipped,
+   * so it bypasses pipeline stages and signals downstream indexers to delete the corresponding entry.
+   *
+   * @param uri the URI of the file that is no longer present in storage
+   * @return a Document with {@link #EXPIRED} set to {@code true} and marked as skipped
+   */
+  private Document buildTombstoneDoc(URI uri) {
+    Instant now = Instant.now();
+    Document doc = BaseFileReference.buildBaseDoc(uri.toString(), now, 0L, now, buildTraversalParams(uri));
+    doc.setField(EXPIRED, true);
+    doc.setSkipped(true);
+    return doc;
   }
 
 }
