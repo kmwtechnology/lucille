@@ -322,6 +322,60 @@ public class RunnerTest {
 
   /**
    * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
+   * marks the document as skipped and then creates 2 children. The skipped parent is sent for indexing and the children are never created.
+   */
+  @Test
+  public void testSkipParent() throws Exception {
+    TestMessenger messenger =
+        Runner.runInTestMode("RunnerTest/skipParent.conf").get("connector1");
+
+    // one doc will be sent from the connector
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
+    assertEquals(1, docsSentForProcessing.size());
+    Document parent = docsSentForProcessing.get(0);
+    assertEquals("1", parent.getId());
+
+    // only skipped parent will be sent for indexing because children should have never been created
+    List<Document> docsSentForIndexing = messenger.getDocsSentForIndexing();
+    assertEquals(1, docsSentForIndexing.size());
+    assertEquals("1", docsSentForIndexing.get(0).getId());
+  }
+
+
+  /**
+   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that creates 2 children
+   * and marks the first child as skipped as well as the parent, and finally sets a static value on the doc (field5: foobar).
+   * The skipped child and parent should be sent for indexing but should not have the 'field5'. The non-skipped child should have that field
+   * and be sent for indexing.
+    *
+   */
+  @Test
+  public void testSkipAttachedChild() throws Exception {
+    TestMessenger messenger =
+        Runner.runInTestMode("RunnerTest/skipChild.conf").get("connector1");
+
+    // one doc will be sent from the connector
+    List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
+    assertEquals(1, docsSentForProcessing.size());
+    Document parent = docsSentForProcessing.get(0);
+    assertEquals("1", parent.getId());
+
+    List<Document> docsSentForIndexing = messenger.getDocsSentForIndexing();
+
+    // make sure only non-skipped child was processed on the final stage
+    assertFalse(docsSentForIndexing.get(0).has("field5")); // child1
+    assertTrue(docsSentForIndexing.get(1).has("field5")); // child2
+    assertFalse(docsSentForIndexing.get(2).has("field5")); // parent
+
+    // skipped parent, skipped child 1, and child 2 will be sent for indexing
+    assertEquals(3, docsSentForIndexing.size());
+    assertEquals("1_child1", docsSentForIndexing.get(0).getId());
+    assertEquals("1_child2", docsSentForIndexing.get(1).getId());
+    assertEquals("1", docsSentForIndexing.get(2).getId());
+  }
+
+  /**
+   * Test an end-to-end run with a single connector that generates 1 document, and a pipeline that
    * attempts to generate 5 children but fails when the 3rd child is requested
    */
   @Test
