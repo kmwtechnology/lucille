@@ -64,8 +64,16 @@ It's important to note that File Connector state is designed to be efficient and
 * `publishMode`: The connector can be configured to have a publishing mode of `FULL` or `INCREMENTAL`, which are relevant on the second and subsequent runs of Lucille. 
 `FULL` mode will republish every document your connector encounters. `INCREMENTAL` mode (requires state management with a JDBC database) will only publish files that are 
 new or have been modified since the last time the connector ran.
-* `sendTombstones`: If `INCREMENTAL` mode is on, the user has the option to toggle on tombstones with `sendTombstones: true`. If a document in the data source is deleted,
-it will still appear in the index until it is manually deleted. By toggling on `sendTombstones`, you can opt to replace these deleted documents with ghost documents
-called tombstones. These documents will have a field `file_expired: true` making them easy to delete, and will automatically be set as skipped by all stages in the pipeline.
-So, if we wanted to have these tombstones automatically deleted once they get to the indexer, and we're using Solr or OpenSearch, we might do this in the indexer section of 
-our config: `indexer.deletionMarkerField: "file_expired"` and `indexer.deletionMarkerFieldValue: "true"`.
+* `sendTombstones`:  By default, if a file in the file system is deleted, documents from the file will still appear in the index until they are manually deleted.
+In order for these deletions to be recognized automatically, we can set `sendTombstones` to be `true`. This will create a tombstone with field `file_expired: true`
+for each deleted document. These can be deleted in the indexer using:
+
+```hocon
+indexer {
+  type: "solr"
+  deletionMarkerField: "file_expired"
+  deletionMarkerFieldValue: "true"
+}
+```
+
+NOTE: This parameter only applies in incremental mode.
