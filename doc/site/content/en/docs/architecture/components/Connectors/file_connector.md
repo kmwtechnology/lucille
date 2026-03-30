@@ -59,3 +59,13 @@ It's important to note that File Connector state is designed to be efficient and
 1. Files that were recently moved / renamed files will not have the `lastPublishedCutoff` applied.
 2. In your File Connector configuration, it is important that you consistently capitalize directory names in your `paths`, if you are using state.
 3. Each database table should be used for only one connector configuration.
+
+### Publishing Options
+* `publishMode`: The connector can be configured to have a publishing mode of `FULL` or `INCREMENTAL`, which are relevant on the second and subsequent runs of Lucille. 
+`FULL` mode will republish every document your connector encounters. `INCREMENTAL` mode (requires state management with a JDBC database) will only publish files that are 
+new or have been modified since the last time the connector ran.
+* `sendTombstones`: If `INCREMENTAL` mode is on, the user has the option to toggle on tombstones with `sendTombstones: true`. If a document in the data source is deleted,
+it will still appear in the index until it is manually deleted. By toggling on `sendTombstones`, you can opt to replace these deleted documents with ghost documents
+called tombstones. These documents will have a field `file_expired: true` making them easy to delete, and will automatically be set as skipped by all stages in the pipeline.
+So, if we wanted to have these tombstones automatically deleted once they get to the indexer, and we're using Solr or OpenSearch, we might do this in the indexer section of 
+our config: `indexer.deletionMarkerField: "file_expired"` and `indexer.deletionMarkerFieldValue: "true"`.
