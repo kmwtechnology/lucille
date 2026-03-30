@@ -443,6 +443,11 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
+  public long numPublishCallsCompleted() {
+    return numPublishCallsCompleted.get();
+  }
+
+  @Override
   public long numCreated() {
     return numCreated;
   }
