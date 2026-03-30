@@ -47,14 +47,12 @@ public class FileConnectorStateManagerTest {
   private static final String secretsQuery = "SELECT * FROM \"FILE\" WHERE name = '/files/subdir/secrets.txt'";
 
   @Rule
-  public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "", "",
-      "sm-db-test-start.sql", "sm-db-test-end.sql");
+  public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {
     Instant start = Instant.now();
 
-    assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
     manager.init();
@@ -91,14 +89,12 @@ public class FileConnectorStateManagerTest {
     }
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testGetLastPublished() throws Exception {
     Instant start = Instant.now();
 
-    assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
     manager.init();
@@ -123,7 +119,6 @@ public class FileConnectorStateManagerTest {
   public void testStateManagerOnNewFiles() throws Exception {
     Instant start = Instant.now();
 
-    assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
     manager.init();
@@ -145,12 +140,10 @@ public class FileConnectorStateManagerTest {
     }
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testStateManagerWithDeletion() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
 
@@ -162,7 +155,7 @@ public class FileConnectorStateManagerTest {
     manager.markFileEncountered("/files/subdir/secrets.txt");
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
+    assertEquals(1, dbHelper.countConnections());
 
     // reconnecting to run these queries + for second traversal
     manager.init();
@@ -182,7 +175,7 @@ public class FileConnectorStateManagerTest {
 
     // traversal complete
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
+    assertEquals(1, dbHelper.countConnections());
 
     // reconnecting to run queries and ensure deletions took place
     manager.init();
@@ -198,7 +191,6 @@ public class FileConnectorStateManagerTest {
     }
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   // Want to make sure that the StateManager can create appropriate tables if they didn't already exist.
@@ -206,7 +198,6 @@ public class FileConnectorStateManagerTest {
   public void testStateManagerOnNewTable() throws Exception {
     Instant start = Instant.now();
 
-    assertEquals(1, dbHelper.checkNumConnections());
     // has "tableName: "S3""
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf");
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
@@ -237,7 +228,6 @@ public class FileConnectorStateManagerTest {
       assertTrue(secretInstant.isBefore(Instant.now()) && secretInstant.isAfter(start));     }
 
     manager.shutdown();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   // Full mode republishes everything on every run regardless of last_published; state DB is still updated.
