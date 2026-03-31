@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -252,34 +251,34 @@ public class PublisherImplTest {
     Document doc4 = Document.create("after");
 
     assertEquals(0, publisher.numPublished());
-    assertEquals(0, publisher.numPublishCallsCompleted());
+    assertEquals(0, publisher.numOffered());
     assertEquals(0, publisher.numPending());
     assertEquals(0, messenger.getDocsSentForProcessing().size());
     publisher.publish(doc1);
     assertEquals(0, publisher.numPublished());
-    assertEquals(1, publisher.numPublishCallsCompleted());
+    assertEquals(1, publisher.numOffered());
     assertEquals(0, publisher.numPending());
     assertEquals(0, messenger.getDocsSentForProcessing().size());
     publisher.publish(doc2);
     assertEquals(1, publisher.numPublished());
-    assertEquals(2, publisher.numPublishCallsCompleted());
+    assertEquals(2, publisher.numOffered());
     assertEquals(1, publisher.numPending());
     assertEquals(1, messenger.getDocsSentForProcessing().size());
     assertEquals("before", messenger.getDocsSentForProcessing().get(0).getId());
     publisher.publish(doc3);
     assertEquals(1, publisher.numPublished());
-    assertEquals(3, publisher.numPublishCallsCompleted());
+    assertEquals(3, publisher.numOffered());
     assertEquals(1, publisher.numPending());
     assertEquals(1, messenger.getDocsSentForProcessing().size());
     publisher.publish(doc4);
     assertEquals(2, publisher.numPublished());
-    assertEquals(4, publisher.numPublishCallsCompleted());
+    assertEquals(4, publisher.numOffered());
     assertEquals(2, publisher.numPending());
     assertEquals(2, messenger.getDocsSentForProcessing().size());
     assertEquals("collapseMe", messenger.getDocsSentForProcessing().get(1).getId());
     publisher.flush();
     assertEquals(3, publisher.numPublished());
-    assertEquals(4, publisher.numPublishCallsCompleted());
+    assertEquals(4, publisher.numOffered());
     assertEquals(3, publisher.numPending());
     assertEquals(3, messenger.getDocsSentForProcessing().size());
     assertEquals("after", messenger.getDocsSentForProcessing().get(2).getId());
@@ -412,7 +411,7 @@ public class PublisherImplTest {
     // make sure that the number of published documents is accurately reported as 100K (via 10 threads publishing 10K each)
     // an accurate number here builds confidence that the internal counter of published documents is mantained in a thread-safe way
     assertEquals(100000, publisher.numPublished());
-    assertEquals(100000, publisher.numPublishCallsCompleted());
+    assertEquals(100000, publisher.numOffered());
 
     // the number of pending documents should also be 100K because none have been processed;
     // an accurate number here builds confidence that the internal Bag of pending docIds has not been corrupted
@@ -507,7 +506,7 @@ public class PublisherImplTest {
 
     // the publisher should report 10000 published documents with 0 pending
     assertEquals(10000, publisher.numPublished());
-    assertEquals(10000, publisher.numPublishCallsCompleted());
+    assertEquals(10000, publisher.numOffered());
     assertEquals(0, publisher.numPending());
   }
 

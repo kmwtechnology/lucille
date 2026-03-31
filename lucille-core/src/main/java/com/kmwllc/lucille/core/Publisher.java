@@ -36,9 +36,9 @@ public interface Publisher {
    * Returns the number of times publish() was called and completed without error.
    * This may be higher than numPublished() if the Publisher is in "collapsing mode" where consecutive Documents
    * with the same ID are collapsed into a single Document. numPublished() would count 1 for each output of the collapsing process
-   * while numPublishCallsCompleted() would count 1 for each input.
+   * while numOffered() would count 1 for each input.
    */
-  long numPublishCallsCompleted();
+  long numOffered();
 
   /**
    * Returns the number of documents for which we are still awaiting a terminal event.
