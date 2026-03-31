@@ -135,22 +135,21 @@ public class JsonFileHandler extends BaseFileHandler {
           return next();
         }
         try {
-          // determine which fields need to be removed based on fieldFilter
-          ObjectNode node = (ObjectNode) mapper.readTree(line);
-          Iterator<String> iter = node.fieldNames();
-          Set<String> discardedFields = new HashSet<>();
-          if (fieldFilter.isActive()) {
-            while (iter.hasNext()) {
-              String fieldName = iter.next();
-              if (!fieldFilter.shouldInclude(fieldName)) {
-                discardedFields.add(fieldName);
-              }
-            }
-          }
           if (idFields.isEmpty()) {
-            return Document.createFromJson(line, idUpdater, discardedFields);
+            return Document.createFromJson(line, idUpdater, fieldFilter);
           } else {
-            node.remove(discardedFields);
+            ObjectNode node = (ObjectNode) mapper.readTree(line);
+            if (fieldFilter.isActive()) {
+              Set<String> discardedFields = new HashSet<>();
+              Iterator<String> iter = node.fieldNames();
+              while (iter.hasNext()) {
+                String fieldName = iter.next();
+                if (!fieldFilter.shouldInclude(fieldName)) {
+                  discardedFields.add(fieldName);
+                }
+              }
+              node.remove(discardedFields);
+            }
             List<String> parts = new ArrayList<>(idFields.size());
 
             for (String fieldName : idFields) {

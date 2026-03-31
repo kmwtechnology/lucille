@@ -12,6 +12,14 @@ public class FieldFilter {
   private final List<String> blacklist;
 
   /**
+   * Creates an inactive FieldFilter with empty whitelist and blacklist.
+   */
+  public FieldFilter() {
+    this.whitelist = List.of();
+    this.blacklist = List.of();
+  }
+
+  /**
    * If a whitelist or blacklist is not passed in, default to an empty list.
    * @param config the config for Lucille
    */

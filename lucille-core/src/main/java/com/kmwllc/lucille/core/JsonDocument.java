@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.kmwllc.lucille.util.FieldFilter;
 import java.sql.Timestamp;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -81,18 +82,31 @@ public class JsonDocument implements Document {
   }
 
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return fromJsonString(json, null, Set.of());
+    return fromJsonString(json, null, new FieldFilter());
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
-    return fromJsonString(json, idUpdater, Set.of());
+    return fromJsonString(json, idUpdater, new FieldFilter());
   }
 
-  public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields)
+  public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, FieldFilter filter)
       throws DocumentException, JsonProcessingException {
+
     ObjectNode node = (ObjectNode) MAPPER.readTree(json);
-    node.remove(ignoreFields);
+
+    Iterator<String> iter = node.fieldNames();
+    Set<String> discardedFields = new HashSet<>();
+    if (filter.isActive()) {
+      while (iter.hasNext()) {
+        String fieldName = iter.next();
+        if (!filter.shouldInclude(fieldName)) {
+          discardedFields.add(fieldName);
+        }
+      }
+    }
+
+    node.remove(discardedFields);
     JsonDocument doc = new JsonDocument(node);
     doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
