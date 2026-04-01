@@ -1000,7 +1000,7 @@ public class OpenSearchIndexerTest {
   @Test
   public void testWhitelistWithOverride() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("OpenSearchIndexerTest/blacklistWithOverride.conf");
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/whitelistWithOverride.conf");
 
     Document doc = Document.create("doc1");
 
