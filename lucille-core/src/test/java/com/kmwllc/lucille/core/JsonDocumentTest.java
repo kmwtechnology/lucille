@@ -87,7 +87,7 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   }
 
   @Test
-  public void testCreateFromJsonStringWithIgnoreFields() throws Exception {
+  public void testCreateFromJsonStringWithBlacklist() throws Exception {
     UnaryOperator<String> updater = s -> s;
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
     FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("field2"))));
@@ -99,7 +99,19 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   }
 
   @Test
-  public void testCreateFromJsonStringWithEmptyIgnoreFields() throws Exception {
+  public void testCreateFromJsonStringWithWhitelist() throws Exception {
+    UnaryOperator<String> updater = s -> s;
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("field2", "id"))));
+
+    Document document = JsonDocument.fromJsonString(json, updater, filter);
+    assertEquals("123", document.getId());
+    assertEquals("val2", document.getString("field2"));
+    assertFalse(document.has("field1"));
+  }
+
+  @Test
+  public void testCreateFromJsonStringWithEmptyFieldFilter() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
     FieldFilter filter = new FieldFilter();
 
@@ -109,10 +121,51 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals("val2", document.getString("field2"));
   }
 
+  @Test
+  public void testCreateFromJsonStringWithEmptyBlacklist() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of())));
+
+    Document document = JsonDocument.fromJsonString(json, null, filter);
+    assertEquals("123", document.getId());
+    assertEquals("val1", document.getString("field1"));
+    assertEquals("val2", document.getString("field2"));
+  }
+
+  @Test
+  public void testCreateFromJsonStringWithEmptyWhitelist() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of())));
+
+    Document document = JsonDocument.fromJsonString(json, null, filter);
+    assertEquals("123", document.getId());
+    assertEquals("val1", document.getString("field1"));
+    assertEquals("val2", document.getString("field2"));
+  }
+
+  @Test
+  public void testCreateFromJsonStringWhitelistAndBlacklist() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("id", "field1"), "blacklist", List.of("field1"))));
+
+    Document document = JsonDocument.fromJsonString(json, null, filter);
+    assertEquals("123", document.getId());
+    assertFalse(document.has("field1"));
+    assertFalse(document.has("field2"));
+  }
+
   @Test(expected = DocumentException.class)
-  public void testCreateFromJsonStringWithIdInIgnoreFields() throws Exception {
+  public void testCreateFromJsonStringWithIdInBlacklist() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
     FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("id"))));
+
+    JsonDocument.fromJsonString(json, null, filter);
+  }
+
+  @Test(expected = DocumentException.class)
+  public void testCreateFromJsonStringWithNoIdInWhitelist() throws Exception {
+    String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("whitelist", List.of("field1"))));
 
     JsonDocument.fromJsonString(json, null, filter);
   }
