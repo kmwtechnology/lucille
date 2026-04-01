@@ -95,18 +95,18 @@ public class JsonDocument implements Document {
 
     ObjectNode node = (ObjectNode) MAPPER.readTree(json);
 
-    Iterator<String> iter = node.fieldNames();
-    Set<String> discardedFields = new HashSet<>();
     if (filter.isActive()) {
+      Iterator<String> iter = node.fieldNames();
+      Set<String> discardedFields = new HashSet<>();
       while (iter.hasNext()) {
         String fieldName = iter.next();
         if (!filter.shouldInclude(fieldName)) {
           discardedFields.add(fieldName);
         }
       }
+      node.remove(discardedFields);
     }
-
-    node.remove(discardedFields);
+    
     JsonDocument doc = new JsonDocument(node);
     doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
     return doc;
