@@ -291,6 +291,28 @@ public class JsonFileHandlerTest {
     FileHandler handler = FileHandler.create("json", config);
   }
 
+  @Test(expected = IllegalArgumentException.class)
+  public void testIdBlacklistedWithNoIdFields() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "json", Map.of(
+            "blacklist", List.of("id"),
+            "docIdPrefix", ""
+        )
+    ));
+    FileHandler handler = FileHandler.create("json", config);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testIdNotWhitelistedWithNoIdFields() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "json", Map.of(
+            "whitelist", List.of("field1"),
+            "docIdPrefix", ""
+        )
+    ));
+    FileHandler handler = FileHandler.create("json", config);
+  }
+
   @Test
   public void testCompositeWithDocIdFormat() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(

@@ -86,6 +86,19 @@ public class JsonFileHandler extends BaseFileHandler {
         );
       }
     }
+
+    if (idFields.isEmpty()) {
+      if (fieldFilter.getBlacklist().contains(Document.ID_FIELD)) {
+        throw new IllegalArgumentException(
+            "blacklist cannot contain \"" + Document.ID_FIELD + "\" when no idFields are configured."
+        );
+      }
+      if (!fieldFilter.getWhitelist().isEmpty() && !fieldFilter.getWhitelist().contains(Document.ID_FIELD)) {
+        throw new IllegalArgumentException(
+            "whitelist must contain \"" + Document.ID_FIELD + "\" when no idFields are configured."
+        );
+      }
+    }
   }
 
   @Override
