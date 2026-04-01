@@ -82,12 +82,12 @@ public class JsonDocument implements Document {
   }
 
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
-    return fromJsonString(json, null, new FieldFilter());
+    return fromJsonString(json, null, null);
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
-    return fromJsonString(json, idUpdater, new FieldFilter());
+    return fromJsonString(json, idUpdater, null);
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, FieldFilter filter)
@@ -95,7 +95,7 @@ public class JsonDocument implements Document {
 
     ObjectNode node = (ObjectNode) MAPPER.readTree(json);
 
-    if (filter.isActive()) {
+    if (filter != null && filter.isActive()) {
       Iterator<String> iter = node.fieldNames();
       Set<String> discardedFields = new HashSet<>();
       while (iter.hasNext()) {

@@ -111,11 +111,10 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   }
 
   @Test
-  public void testCreateFromJsonStringWithEmptyFieldFilter() throws Exception {
+  public void testCreateFromJsonStringWithNullFieldFilter() throws Exception {
     String json = "{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}";
-    FieldFilter filter = new FieldFilter();
 
-    Document document = JsonDocument.fromJsonString(json, null, filter);
+    Document document = JsonDocument.fromJsonString(json, null, null);
     assertEquals("123", document.getId());
     assertEquals("val1", document.getString("field1"));
     assertEquals("val2", document.getString("field2"));
