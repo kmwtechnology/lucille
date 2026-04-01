@@ -591,10 +591,24 @@ public class FileConnectorStateManagerTest {
   @Test(expected = IllegalArgumentException.class)
   // Constructing a FileConnector with sendTombstones=true and publishMode=full must throw.
   public void testSendTombstonesRequiresIncrementalMode() throws Exception {
-    // Ensure an exception is thrown when sendTombstones is on and publishMode is on full
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
         .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("full"))
         .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
+    new FileConnector(config);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testSendTombstonesRequiresPublishMode() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
+    new FileConnector(config);
+  }
+
+  @Test
+  public void testSendTombstonesFalseDoesNotRequireIncrementalMode() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("full"))
+        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("false"));
     new FileConnector(config);
   }
 

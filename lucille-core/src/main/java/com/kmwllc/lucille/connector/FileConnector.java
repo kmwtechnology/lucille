@@ -171,7 +171,7 @@ public class FileConnector extends AbstractConnector {
       }
     }
 
-    if (config.hasPath("filterOptions.sendTombstones") &&
+    if (config.hasPath("filterOptions.sendTombstones") && config.getBoolean("filterOptions.sendTombstones") &&
         (!config.hasPath("filterOptions.publishMode") ||
             PublishMode.fromString(config.getString("filterOptions.publishMode")) == PublishMode.FULL)) {
       throw new IllegalArgumentException("publishMode must be set and be incremental to use the sendTombstones toggle.");
