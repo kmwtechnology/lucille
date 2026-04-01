@@ -620,6 +620,7 @@ public class FileConnectorStateManagerTest {
           .findFirst()
           .orElseThrow();
       assertTrue(tombstone.getString(FileConnector.FILE_PATH).contains("file2.txt"));
+      assertTrue(tombstone.isSkipped());
 
       // Verify non-tombstone is for modified file1
       Document modifiedDoc = secondRunDocs.stream()
