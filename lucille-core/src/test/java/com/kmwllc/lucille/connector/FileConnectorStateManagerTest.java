@@ -302,6 +302,48 @@ public class FileConnectorStateManagerTest {
     }
   }
 
+  @Test
+  public void testMarkAllEntriesEncountered() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    // insert archive entries and an unrelated archive entry directly, all with encountered=false
+    String archivePrefix = "file:///tmp/archive.zip!";
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement()) {
+      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "entry1.txt', NULL, FALSE)");
+      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "subdir/entry2.txt', NULL, FALSE)");
+      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('file:///tmp/other.zip!entry.txt', NULL, FALSE)");
+    }
+
+    manager.markAllEntriesEncountered(archivePrefix);
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement()) {
+      // every matching archive entry should be encountered
+      ResultSet rs1 = stmt.executeQuery("SELECT encountered FROM \"FILE\" WHERE name = '" + archivePrefix + "entry1.txt'");
+      assertTrue(rs1.next());
+      assertTrue(rs1.getBoolean("encountered"));
+
+      ResultSet rs2 = stmt.executeQuery("SELECT encountered FROM \"FILE\" WHERE name = '" + archivePrefix + "subdir/entry2.txt'");
+      assertTrue(rs2.next());
+      assertTrue(rs2.getBoolean("encountered"));
+
+      // entry from a diff archive shouldn't be encountered
+      ResultSet rs3 = stmt.executeQuery("SELECT encountered FROM \"FILE\" WHERE name = 'file:///tmp/other.zip!entry.txt'");
+      assertTrue(rs3.next());
+      assertFalse(rs3.getBoolean("encountered"));
+
+      // preexisting non-archive entries should also not have been encountered
+      ResultSet rs4 = stmt.executeQuery("SELECT encountered FROM \"FILE\" WHERE name = '/hello.txt'");
+      assertTrue(rs4.next());
+      assertFalse(rs4.getBoolean("encountered"));
+    }
+
+    manager.shutdown();
+  }
+
   // FileConnector tests taking advantage of our embedded test database
   @Test
   public void testTraversalWithStateAndExclusion() throws Exception {
