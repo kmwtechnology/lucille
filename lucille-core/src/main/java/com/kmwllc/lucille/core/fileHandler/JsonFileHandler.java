@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FieldFilter;
@@ -149,7 +150,7 @@ public class JsonFileHandler extends BaseFileHandler {
         }
         try {
           if (idFields.isEmpty()) {
-            return Document.createFromJson(line, idUpdater, fieldFilter);
+            return JsonDocument.fromJsonString(line, idUpdater, fieldFilter);
           } else {
             ObjectNode node = (ObjectNode) mapper.readTree(line);
             if (fieldFilter.isActive()) {

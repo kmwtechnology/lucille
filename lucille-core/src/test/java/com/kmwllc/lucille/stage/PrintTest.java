@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockConstruction;
@@ -204,8 +205,40 @@ public class PrintTest {
     stage.processDocument(doc);
     stage.stop();
 
-    // only the id (which needs to be included since it's a reserved field), and keepField1 should be included
+    // only id (required for a valid Document) and keepField1 (in whitelist, not in blacklist) should be included
     String contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));
     assertTrue(contents.startsWith("{\"id\":\"doc\",\"keepField1\":\"value\"}"));
+  }
+
+  @Test
+  public void testRunIdPreservedWhenWhitelisted() throws Exception {
+    Stage stage = factory.get("PrintTest/whitelistWithRunId.conf");
+
+    Document doc = Document.create("doc", "myRunId");
+    doc.setField("keepField", "value");
+    doc.setField("dropField", "value");
+
+    stage.processDocument(doc);
+    stage.stop();
+
+    String contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));
+    assertTrue(contents.contains("\"run_id\":\"myRunId\""));
+    assertTrue(contents.contains("\"keepField\":\"value\""));
+    assertFalse(contents.contains("dropField"));
+    Files.delete(Paths.get(outputFilePath));
+  }
+
+  @Test
+  public void testOriginalDocUnchangedAfterFilter() throws StageException {
+    Stage stage = factory.get("PrintTest/config.conf");
+
+    Document doc = Document.create("doc", "run1");
+    doc.setField("test", "value");
+    doc.setField("otherField", "value");
+
+    stage.processDocument(doc);
+
+    assertEquals("run1", doc.getRunId());
+    assertTrue(doc.has("otherField"));
   }
 }

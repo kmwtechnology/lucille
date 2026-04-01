@@ -306,7 +306,7 @@ public class SolrIndexer extends Indexer {
 
   private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
       throws IndexerException {
-    // removes fields from ignoredFields config, including id
+    // removes fields specified by fieldFilter config, including id
     Map<String, Object> map = getIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
 

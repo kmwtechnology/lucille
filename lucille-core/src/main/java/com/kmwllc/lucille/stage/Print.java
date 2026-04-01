@@ -93,15 +93,7 @@ public class Print extends Stage {
     }
 
     if (fieldFilter.isActive()) {
-      doc = doc.deepCopy();
-      if (!fieldFilter.shouldInclude(Document.RUNID_FIELD)) {
-        doc.clearRunId();
-      }
-      for (String field : doc.getFieldNames()) {
-        if (!fieldFilter.shouldInclude(field) && !field.equals("id")) {
-          doc.removeField(field);
-        }
-      }
+      doc = fieldFilter.getFilteredDocument(doc);
     }
 
     if (shouldLog) {

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.kmwllc.lucille.util.FieldFilter;
 import java.lang.invoke.MethodHandles;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -592,11 +591,6 @@ public interface Document {
 
   static Document createFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
-  }
-
-  static Document createFromJson(String json, UnaryOperator<String> idUpdater, FieldFilter filter)
-      throws DocumentException, JsonProcessingException {
-    return JsonDocument.fromJsonString(json, idUpdater, filter);
   }
 
   /* --- JSON Getters/Setters --- */
