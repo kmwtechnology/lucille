@@ -300,7 +300,7 @@ public class OpenSearchIndexer extends Indexer {
       String indexOverride = getIndexOverride(doc);
       final String indexToSend = indexOverride != null ? indexOverride : index;
 
-      // removing the fields mentioned in the blacklist setting in configurations
+      // removing fields in the blacklist or not in the whitelist in configurations
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
