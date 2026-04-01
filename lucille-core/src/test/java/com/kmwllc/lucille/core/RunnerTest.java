@@ -1,23 +1,21 @@
 package com.kmwllc.lucille.core;
 
-import com.apptasticsoftware.rssreader.RssReader;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
-import com.kmwllc.lucille.connector.RSSConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
+import com.kmwllc.lucille.util.StoringAppender;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
-import java.util.stream.Stream;
-import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
-import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Logger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,7 +27,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -1027,4 +1024,70 @@ public class RunnerTest {
     verify(indexer, times(1)).terminate();
     verify(indexerThread, times(1)).join(anyLong());
   }
+
+  /**
+   * Test that we report the correct number of documents published at the end of a run
+   *
+   * Note that PublisherImpl is responsible for logging the number of documents published, but
+   * we want to invoke PublisherImpl via Runner so that the threading model is as close to an actual
+   * run as possible. In earlier versions of PublisherImpl, we were relying on a Timer and a ThreadLocal Context
+   * to report the number of calls to publish() and there were multi-threading edge cases that caused
+   * the count to be off by 1.
+   *
+   */
+  @Test
+  public void testPublisherCountLogMessage() throws Exception {
+    StoringAppender appender = null;
+    Logger logger = null;
+    boolean wasAdditivityOff = false;
+
+    try {
+      // temporarily attach a StoringAppender to PublisherImpl's logger so we can capture its log output
+      // note that the use of StoringAppender introduces an explicit dependency on log4j (breaking the SLF4J abstraction)
+      // and we should do this sparingly;
+      // this test provides an example of how to capture and inspect log output in a unit test but we should avoid
+      // copy/pasting this approach whenever we might be inclined to do this in other tests and ONLY use this approach
+      // in rare cases when the log output is particularly significant/important to test and we don't have another way
+      // of accessing what would be logged
+      appender = new StoringAppender();
+      appender.start();
+      logger = (Logger) LogManager.getLogger(PublisherImpl.class);
+      logger.addAppender(appender);
+      if (!logger.isAdditive()) {
+        wasAdditivityOff = true;
+        logger.setAdditive(true);
+      }
+
+      assertEquals(0, appender.getMessages().size());
+
+      // scenario with no docs published
+      Runner.run(ConfigFactory.load("RunnerTest/noDocs.conf"), Runner.RunType.TEST);
+      assertTrue(appender.getMessages().stream().anyMatch(msg -> msg.contains("0 docs published")));
+
+      appender.clear();
+      assertEquals(0, appender.getMessages().size());
+
+      // scenario with one doc published
+      Runner.run(ConfigFactory.load("RunnerTest/singleDoc.conf"), Runner.RunType.TEST);
+      assertTrue(appender.getMessages().stream().anyMatch(msg -> msg.contains("1 docs published")));
+
+      appender.clear();
+      assertEquals(0, appender.getMessages().size());
+
+      // scenario with three docs published
+      Runner.run(ConfigFactory.load("RunnerTest/threeDocsOneFailure.conf"), Runner.RunType.TEST);
+      assertTrue(appender.getMessages().stream().anyMatch(msg -> msg.contains("3 docs published")));
+
+    } finally {
+      // reset PublisherImple's logger to its previous state
+      if (logger != null && appender != null) {
+        logger.removeAppender(appender);
+        appender.stop();
+        if (wasAdditivityOff) {
+          logger.setAdditive(false);
+        }
+      }
+    }
+  }
+
 }
