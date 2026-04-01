@@ -178,7 +178,7 @@ public class PrintTest {
 
     doc = Document.create("doc", "run456");
     doc.setField("abc", "123");
-    // in excludeFields, shouldn't be part of the response.
+    // in blacklist, shouldn't be part of the response.
     doc.setField("to_remove", "abcdef");
 
     stage.processDocument(doc);
@@ -189,5 +189,23 @@ public class PrintTest {
     assertTrue(contents.startsWith("{\"id\":\"doc\",\"abc\":\"123\"}"));
 
     Files.delete(Paths.get(outputFilePath));
+  }
+
+  @Test
+  public void testWhitelistAndBlacklist() throws Exception {
+    Stage stage = factory.get("PrintTest/whitelistAndBlacklist.conf");
+
+    Document doc = Document.create("doc", "run");
+    doc.setField("field", "value");
+    doc.setField("removeField1", "value");
+    doc.setField("removeField2", "value");
+    doc.setField("keepField1", "value");
+
+    stage.processDocument(doc);
+    stage.stop();
+
+    // only the id (which needs to be included since it's a reserved field), and keepField1 should be included
+    String contents = new String(Files.readAllBytes(Paths.get(outputFilePath)));
+    assertTrue(contents.startsWith("{\"id\":\"doc\",\"keepField1\":\"value\"}"));
   }
 }
