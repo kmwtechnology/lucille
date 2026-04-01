@@ -48,7 +48,7 @@ public class PublisherImpl implements Publisher {
   private final int logSeconds;
 
   // the number of times a call to publish() was completed across all publishing threads
-  private AtomicLong numOffered = new AtomicLong(0);
+  private AtomicLong numReceived = new AtomicLong(0);
 
   // the actual number of documents sent for processing, which may be smaller
   // than the number of calls to publish() if isCollapsing==true
@@ -224,7 +224,7 @@ public class PublisherImpl implements Publisher {
       MDC.remove(Document.ID_FIELD);
     }
 
-    numOffered.incrementAndGet();
+    numReceived.incrementAndGet();
   }
 
   private void publishInternal(Document document) throws Exception {
@@ -397,14 +397,14 @@ public class PublisherImpl implements Publisher {
           timerContext.get().stop();
         }
         String collapseInfo = "";
-        if (isCollapsing && numPublished.get() < numOffered.get()) {
+        if (isCollapsing && numPublished.get() < numReceived.get()) {
           collapseInfo = String.format(" (%d after collapsing)", numPublished.get());
         }
         // Did not replace the following String.format with interpolation due to unique formatting (".2f")
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
             timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
         log.info("{} docs published{}. {} children created. {} success events. {} failure events. {} drop events.",
-            numOffered.get(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
+            numReceived.get(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
         if (numPublished.get() > 0 && numFailed == 0) {
           log.info("All documents SUCCEEDED.");
         }
@@ -418,7 +418,7 @@ public class PublisherImpl implements Publisher {
         if (thread.isAlive()) {
           log.info(String.format(
               "%d docs published. One minute rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc. Waiting on %d docs.",
-              numOffered.get(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
+              numReceived.get(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000, numPending()));
         } else {
           log.info("Connector complete. Waiting on {} docs.", numPending());
         }
@@ -443,8 +443,8 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
-  public long numOffered() {
-    return numOffered.get();
+  public long numReceived() {
+    return numReceived.get();
   }
 
   @Override
