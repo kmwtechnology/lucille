@@ -152,7 +152,12 @@ public class ElasticsearchIndexer extends Indexer {
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
       documentsUploaded.put(docId, doc);
 
-      // only add id if our field filter allows it
+      // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
+      // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
+      // - Case 2: id is filtered, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testBlacklistWithOverride2)
+      // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
+      // - Case 4: both unfiltered, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
+      // - Case 5: both unfiltered, idOverride null -> document id remains and used by Indexer (Default case & tested)
       if (fieldFilter.shouldInclude(Document.ID_FIELD)) {
         indexerDoc.put(Document.ID_FIELD, docId);
       }
