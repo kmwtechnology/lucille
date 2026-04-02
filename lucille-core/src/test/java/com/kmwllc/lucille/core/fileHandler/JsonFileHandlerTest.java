@@ -179,7 +179,7 @@ public class JsonFileHandlerTest {
   }
 
   @Test
-  public void testBlacklistNoIdFieldsConfigured() throws Exception {
+  public void testBlacklist() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "blacklist", List.of("field2"),
@@ -200,7 +200,7 @@ public class JsonFileHandlerTest {
   }
 
   @Test
-  public void testWhitelistNoIdFieldsConfigured() throws Exception {
+  public void testWhitelist() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "whitelist", List.of("field1", "id"),
