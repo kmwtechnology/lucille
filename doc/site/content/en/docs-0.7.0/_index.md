@@ -4,4 +4,5 @@ linkTitle: Docs-0.7.0
 weight: 20
 cascade:
   type: docs
+  exclude_search: true
 ---
