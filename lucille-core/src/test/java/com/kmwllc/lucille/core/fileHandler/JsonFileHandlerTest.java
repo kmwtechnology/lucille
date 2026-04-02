@@ -179,7 +179,7 @@ public class JsonFileHandlerTest {
   }
 
   @Test
-  public void testBlacklistWithoutIdField() throws Exception {
+  public void testBlacklistNoIdFieldsConfigured() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "blacklist", List.of("field2"),
@@ -200,7 +200,7 @@ public class JsonFileHandlerTest {
   }
 
   @Test
-  public void testWhitelistWithIdField() throws Exception {
+  public void testWhitelistNoIdFieldsConfigured() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "whitelist", List.of("field1", "id"),
@@ -221,7 +221,7 @@ public class JsonFileHandlerTest {
   }
 
   @Test
-  public void testBlacklistWithoutIdFields() throws Exception {
+  public void testBlacklistWithIdFieldsConfigured() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
@@ -244,7 +244,7 @@ public class JsonFileHandlerTest {
   }
 
   @Test
-  public void testWhitelistWithIdFields() throws Exception {
+  public void testWhitelistWithIdFieldsConfigured() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
         "json", Map.of(
             "idFields", List.of("field1", "field2"),
