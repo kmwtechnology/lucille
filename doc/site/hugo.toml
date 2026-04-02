@@ -127,16 +127,16 @@ offlineSearch = true
 # Enable syntax highlighting and copy buttons on code blocks with Prism
 prism_syntax_highlighting = false
 
-version = "Version"
-url_latest_version = "http://localhost:1313/docs/"
+version = "Lucille Latest"
+url_latest_version = "/docs/"
 
 [[params.versions]]
   version = "Lucille Latest"
-  url = "http://localhost:1313/docs/"
+  url = "/docs/"
 
 [[params.versions]]
   version = "Lucille v0.7.0"
-  url = "http://localhost:1313/docs-0.7.0/"
+  url = "/docs-0.7.0/"
 
 # User interface configuration
 [params.ui]

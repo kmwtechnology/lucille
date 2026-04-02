@@ -58,13 +58,19 @@ bar menu for bigger sites.
 "sidebarRootID" $sidebarRootID
 -}}
 {{ if .Site.Params.versions -}}
+{{ $activeVersion := .Site.Params.version -}}
+{{ range .Site.Params.versions -}}
+  {{ if hasPrefix $.RelPermalink (urls.Parse .url).Path -}}
+    {{ $activeVersion = .version -}}
+  {{ end -}}
+{{ end -}}
 <div class="px-3 pt-3 pb-2">
   <div class="dropdown td-version-selector">
     <button class="btn btn-sm dropdown-toggle w-100 text-start"
             type="button"
             data-bs-toggle="dropdown"
             aria-expanded="false">
-      {{ .Site.Params.version }}
+      {{ $activeVersion }}
     </button>
     <ul class="dropdown-menu w-100">
       {{ range .Site.Params.versions -}}

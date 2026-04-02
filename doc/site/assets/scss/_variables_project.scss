@@ -13,5 +13,11 @@ $td-navbar-bg-color: #6bb8ff;
     font-weight: bold;
   }
 
+.td-version-selector .dropdown-item:hover,
+.td-version-selector .dropdown-item:active {
+    background-color: $td-navbar-bg-color;
+    color: white;
+  }
+
 
 
