@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -57,7 +58,9 @@ import sun.misc.Signal;
  *   <li>indexer.indexOverrideField (String, Optional) : Name of a document field whose value will be used as the destination
  *   index, overriding the default index specified in the Indexer's configuration. Not supported by CSVIndexer or
  *   ElasticSearchIndexer classes.</li>
- *   <li>indexer.ignoreFields (List&lt;String&gt;, Optional) : Fields to exclude from the document sent to the destination.</li>
+ *   <li>indexer.blacklist (List&lt;String&gt;, Optional) : Fields to exclude from the document sent to the destination.</li>
+ *   <li>indexer.whitelist (List&lt;String&gt;, Optional) : Only include these fields from the document when sending to the
+ *   destination.</li>
  *   <li>indexer.batchSize (Integer, Optional) : Number of documents to accumulate before sending to the destination. Defaults to
  *   {@value #DEFAULT_BATCH_SIZE}.</li>
  *   <li>indexer.batchTimeout (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
@@ -99,7 +102,7 @@ public abstract class Indexer implements Runnable {
   protected final String deleteByFieldField;
   protected final String deleteByFieldValue;
 
-  protected final List<String> ignoreFields;
+  protected final FieldFilter fieldFilter;
 
   private Instant lastLog = Instant.now();
 
@@ -133,10 +136,6 @@ public abstract class Indexer implements Runnable {
     this.indexOverrideField =
         config.hasPath("indexer.indexOverrideField")
             ? config.getString("indexer.indexOverrideField")
-            : null;
-    this.ignoreFields =
-        config.hasPath("indexer.ignoreFields")
-            ? config.getStringList("indexer.ignoreFields")
             : null;
     this.deletionMarkerField =
         config.hasPath("indexer.deletionMarkerField")
@@ -184,6 +183,8 @@ public abstract class Indexer implements Runnable {
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
     this.localRunId = localRunId;
+
+    this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
 
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
@@ -407,8 +408,8 @@ public abstract class Indexer implements Runnable {
 
   protected Map<String, Object> getIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
-    if (ignoreFields != null) {
-      ignoreFields.forEach(indexerDoc::remove);
+    if (fieldFilter.isActive()) {
+      indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
     return indexerDoc;
   }
@@ -458,7 +459,8 @@ public abstract class Indexer implements Runnable {
             "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
         .optionalNumber("batchSize", "batchTimeout", "logRate")
         .optionalBoolean("sendEnabled")
-        .optionalList("ignoreFields", new TypeReference<List<String>>(){}).build()
+        .optionalList("whitelist", new TypeReference<List<String>>(){})
+        .optionalList("blacklist", new TypeReference<List<String>>(){}).build()
         .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
