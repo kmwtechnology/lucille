@@ -174,10 +174,12 @@ public class FieldFilterTest {
     doc.setField("field1", "val1");
     doc.setField("field2", "val2");
 
-    filter.getFilteredDocument(doc);
+    Document filteredDoc = filter.getFilteredDocument(doc);
+    filteredDoc.setField("field3", "val3");
 
     assertEquals("val1", doc.getString("field1"));
     assertEquals("val2", doc.getString("field2"));
+    assertFalse(doc.has("field3"));
   }
 
   @Test
