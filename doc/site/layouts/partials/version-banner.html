@@ -2,7 +2,14 @@
 {{- $latest_version_url := .Site.Params.url_latest_version }}
 {{- $current_version := replace .Site.Params.version "v" "" | markdownify }}
 {{- $isArchived := .Site.Params.archived_version | default false }}
-{{- if or $isArchived (hasPrefix .RelPermalink "/docs-0.7.0/") }}
+{{- range .Site.Params.versions }}
+  {{- if ne .version $.Site.Params.version }}
+    {{- if hasPrefix $.RelPermalink (urls.Parse .url).Path }}
+      {{- $isArchived = true }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if $isArchived }}
 
 <style>
   .version-banner {

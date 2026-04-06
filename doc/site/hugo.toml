@@ -138,6 +138,10 @@ url_latest_version = "/docs/"
   version = "Lucille v0.7.0"
   url = "/docs-0.7.0/"
 
+[[params.versions]]
+version = "Lucille v0.8.0"
+url = "/docs-0.8.0/"
+
 # User interface configuration
 [params.ui]
 #  Set to true to disable breadcrumb navigation.
