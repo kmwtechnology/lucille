@@ -593,11 +593,6 @@ public interface Document {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
-  static Document createFromJson(String json, UnaryOperator<String> idUpdater, Set<String> ignoreFields)
-      throws DocumentException, JsonProcessingException {
-    return JsonDocument.fromJsonString(json, idUpdater, ignoreFields);
-  }
-
   /* --- JSON Getters/Setters --- */
 
   /**

@@ -306,7 +306,7 @@ public class SolrIndexer extends Indexer {
 
   private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
       throws IndexerException {
-    // removes fields from ignoredFields config, including id
+    // removes fields specified by fieldFilter config, including id
     Map<String, Object> map = getIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
 
@@ -346,7 +346,7 @@ public class SolrIndexer extends Indexer {
       return;
     }
     for (Document child : children) {
-      // remove key:value pair mappings if they appear in ignoreFields
+      // remove key:value pair mappings if they appear in blacklist
       Map<String, Object> map = getIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();

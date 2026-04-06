@@ -277,7 +277,7 @@ public abstract class DocumentTest {
   public void testAsMapReturnsCopy() {
     // confirm that modifying the map returned by Document.asMap does not affect the original document
     // this assumption is important in various Indexers where a Document is converted to a Map and then
-    // various "ignoreFields" are removed from that map before indexing. The list of "ignoreFields" might include
+    // blacklisted fields are removed from that map before indexing. The blacklist might include
     // the id field. But we never want the id of the _original_ document to be removed. In particular, that ID
     // is needed later in the workflow for accounting.
     Document document = createDocument("123");
