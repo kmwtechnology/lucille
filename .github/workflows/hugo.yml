@@ -5,9 +5,6 @@ on:
   # Runs on pushes targeting the default branch
   push:
     branches: ["main"]
-    # so that our action also runs on release
-  release:
-    types: ["published"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -47,6 +44,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
