@@ -5,13 +5,17 @@ on:
   # Runs on pushes targeting the default branch
   push:
     branches: ["main"]
+    # so that our action also runs on release
+  release:
+    types: ["published"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: read
+  # change contents to write access so we can add the version docs
+  contents: write
   pages: write
   id-token: write
 
@@ -52,6 +56,40 @@ jobs:
       - name: Install postcss
         run: npm install postcss-cli
         working-directory: doc/site
+
+      # possible to-do for both: adding working-directory and shortening the paths
+
+      - name: Get Versions
+        run: |
+          tags=$(git tag)
+          for tag in $tags; do
+            git checkout $tag -- doc/site/content/en/docs
+            cp -r doc/site/content/en/docs doc/site/content/en/docs-$tag
+          done
+
+      - name: Update hugo.toml
+        run: |
+          tags=$(git tag)
+          # Build the versions block
+          versions_block=""
+          for tag in $tags; do
+            versions_block="${versions_block}[[params.versions]]\n  version = \"${tag}\"\n  url = \"https://kmwtechnology.github.io/lucille/docs-${tag}/\"\n\n"
+          done
+          
+          # Insert it before the placeholder comment
+          sed -i "s/# versions injected at build time/${versions_block}/" doc/site/hugo.toml
+
+        # little debug
+      - name: Debug versions
+        run: |
+          echo "Tags found:"
+          git tag
+          echo "Content folder:"
+          ls doc/site/content/en/
+          echo "hugo.toml versions section:"
+          cat doc/site/hugo.toml
+        working-directory: doc/site
+
       - name: Build with Hugo
         env:
           # For maximum backward compatibility with Hugo modules
