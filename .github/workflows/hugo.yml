@@ -62,20 +62,23 @@ jobs:
           tags=$(git tag)
           for tag in $tags; do
             git checkout $tag -- doc/site/content/en/docs
-            cp -r doc/site/content/en/docs doc/site/content/en/docs-$tag
+            cp -r content/en/docs content/en/docs-$tag
           done
+          git checkout HEAD -- doc/site/content/en/docs
+        working-directory: doc/site
 
       - name: Update hugo.toml
         run: |
           tags=$(git tag)
           # Build the versions block
-          versions_block=""
+          versions_block="[[params.versions]]\n  version = \"latest\"\n  url = \"https://kmwtechnology.github.io/lucille/\"\n\n"
           for tag in $tags; do
             versions_block="${versions_block}[[params.versions]]\n  version = \"${tag}\"\n  url = \"https://kmwtechnology.github.io/lucille/docs-${tag}/\"\n\n"
           done
           
           # Insert it before the placeholder comment
-          sed -i "s/# versions injected at build time/${versions_block}/" doc/site/hugo.toml
+          sed -i "s/# versions injected at build time/${versions_block}/" hugo.toml
+        working-directory: doc/site
 
         # little debug
       - name: Debug versions
@@ -83,9 +86,9 @@ jobs:
           echo "Tags found:"
           git tag
           echo "Content folder:"
-          ls doc/site/content/en/
+          ls content/en/
           echo "hugo.toml versions section:"
-          cat doc/site/hugo.toml
+          cat hugo.toml
         working-directory: doc/site
 
       - name: Build with Hugo

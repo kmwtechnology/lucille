@@ -130,13 +130,8 @@ prism_syntax_highlighting = false
 version = "Lucille Latest"
 url_latest_version = "/docs/"
 
-[[params.versions]]
-  version = "Lucille Latest"
-  url = "/docs/"
+# versions injected at build time
 
-[[params.versions]]
-version = "Lucille v0.8.0"
-url = "/docs-0.8.0/"
 
 # User interface configuration
 [params.ui]
