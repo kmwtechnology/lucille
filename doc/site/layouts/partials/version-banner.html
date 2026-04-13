@@ -1,3 +1,15 @@
+<!--
+
+NOTE: File currently commented out to prevent banner displaying on version 0.8.0 on the docs.
+"Lucille Latest" is the latest version of Lucille consistent with main, but 0.8.0 is the latest release,
+so we shouldn't have a banner for either of these versions of the docs that says they are archived. Our
+current banner logic has us place the banner on any doc version that isn't considered the latest in the
+hugo.toml file, meaning only one version can block the banner at a time. In the future, we will remove Lucille
+Latest and only show the latest release (in this case 0.8.0). This will make our banner correctly appear for
+every version except 0.8.0.
+
+-->
+
 <!-- Check the variable that indicates whether this is an archived doc set. If yes, display a banner. -->
 <!--
 {{- $latest_version_url := .Site.Params.url_latest_version }}
