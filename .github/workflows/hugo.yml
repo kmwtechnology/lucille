@@ -63,6 +63,16 @@ jobs:
           for tag in $tags; do
             git checkout $tag -- doc/site/content/en/docs
             cp -r content/en/docs content/en/docs-$tag
+            cat > content/en/docs-$tag/_index.md << EOF
+            ---
+            title: Documentation $tag
+            linkTitle: Docs-$tag
+            weight: 20
+            cascade:
+              type: docs
+            exclude_search: true
+            ---
+            EOF
           done
           git checkout HEAD -- doc/site/content/en/docs
         working-directory: doc/site
