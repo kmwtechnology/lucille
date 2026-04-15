@@ -49,9 +49,16 @@ class Worker implements Runnable {
     this.localRunId = localRunId;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
-      log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
+      String store = config.hasPath("worker.retryCounterStore") ? config.getString("worker.retryCounterStore") : "zookeeper";
+      int maxRetries = config.getInt("worker.maxRetries");
+      if ("redis".equalsIgnoreCase(store)) {
+        log.info("Retries will be tracked in Redis with a configured maximum of: " + maxRetries);
+        this.counter = new RedisRetryCounter(config);
+      } else {
+        log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + maxRetries);
+        this.counter = new ZKRetryCounter(config);
+      }
       this.trackRetries = true;
-      this.counter = new ZKRetryCounter(config);
     }
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
