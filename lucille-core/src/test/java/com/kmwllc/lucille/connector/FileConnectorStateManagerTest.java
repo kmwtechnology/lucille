@@ -20,6 +20,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 
+import org.apache.commons.io.FileUtils;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
@@ -297,8 +298,7 @@ public class FileConnectorStateManagerTest {
     } finally {
       stateMgr.shutdown();
 
-      Files.delete(dbFile.toPath());
-      Files.delete(stateDirectory.toPath());
+      FileUtils.deleteDirectory(stateDirectory);
     }
   }
 
@@ -529,7 +529,7 @@ public class FileConnectorStateManagerTest {
     Files.writeString(file3.toPath(), "Content 3");
 
     try {
-      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/tombstonesOff.conf")
+      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
           .withValue("paths", ConfigValueFactory.fromIterable(List.of(tempDir.toURI().toString())))
           .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
           .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("false"));
@@ -555,18 +555,7 @@ public class FileConnectorStateManagerTest {
       List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
       assertEquals(0, secondRunDocs.size());
     } finally {
-      if (file1.exists()) {
-        Files.delete(file1.toPath());
-      }
-      if (file2.exists()) {
-        Files.delete(file2.toPath());
-      }
-      if (file3.exists()) {
-        Files.delete(file3.toPath());
-      }
-      if (tempDir.exists()) {
-        tempDir.delete();
-      }
+      FileUtils.deleteDirectory(tempDir);
     }
   }
 
@@ -612,7 +601,8 @@ public class FileConnectorStateManagerTest {
     new FileConnector(config);
   }
 
-  // Verifies that files generate tombstones and modified files are re-published in the same incremental run (when configured).
+  // Verifies that files generate tombstones and modified files are re-published in the same incremental run (when configured). Uses
+  // an empty state to trigger a database being created on disk to replicate a production environment
   @Test
   public void testTombstonesWithFileSystemChanges() throws Exception {
 
@@ -686,29 +676,10 @@ public class FileConnectorStateManagerTest {
       assertTrue(modifiedDoc.getString(FileConnector.FILE_PATH).contains("file1.txt"));
 
     } finally {
-      if (file1.exists()) {
-        Files.delete(file1.toPath());
-      }
-      if (file2.exists()) {
-        Files.delete(file2.toPath());
-      }
-      if (file3.exists()) {
-        Files.delete(file3.toPath());
-      }
-      if (tempDir.exists()) {
-        tempDir.delete();
-      }
+      FileUtils.deleteDirectory(tempDir);
 
-      File stateDir = new File("state");
-      if (stateDir.exists()) {
-        File[] stateFiles = stateDir.listFiles();
-        if (stateFiles != null) {
-          for (File f : stateFiles) {
-            f.delete();
-          }
-        }
-        stateDir.delete();
-      }
+      // Needed since our db is on disk
+      FileUtils.deleteDirectory(new File("state"));
     }
   }
 
