@@ -60,7 +60,8 @@ public abstract class BaseFileReference implements FileReference {
    * @return a Document with standard file metadata fields populated
    */
   public static Document buildBaseDoc(String fullPath, Instant lastModified, Long size, Instant created, TraversalParams params) {
-    Document doc = createEmptyDocument(params, fullPath);
+    String docId = DigestUtils.md5Hex(fullPath);
+    Document doc = Document.create(StorageClient.createDocId(docId, params));
 
     doc.setField(FILE_PATH, fullPath);
 
@@ -101,14 +102,4 @@ public abstract class BaseFileReference implements FileReference {
     return doc;
   }
 
-  /**
-   * Creates an empty document for this FileReference. Uses the given full path and params to create an appropriate docId.
-   * @param params Parameters for your storage traversal.
-   * @param fullPathString The full path String to the file reference
-   * @return An empty Document with an appropriate docId representing this file reference.
-   */
-  protected static Document createEmptyDocument(TraversalParams params, String fullPathString) {
-    String docId = DigestUtils.md5Hex(fullPathString);
-    return Document.create(StorageClient.createDocId(docId, params));
-  }
 }
