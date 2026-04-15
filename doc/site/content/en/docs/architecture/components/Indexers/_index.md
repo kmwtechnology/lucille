@@ -22,7 +22,7 @@ Here's what using the SolrIndexer might look like:
 # Generic indexer config
 indexer {
   type: "solr"
-  ignoreFields: ["city_temp"]
+  blacklist: ["city_temp"]
   batchSize: 100
 }
 # Specific implementation (Solr) config
