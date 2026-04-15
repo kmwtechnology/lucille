@@ -2,8 +2,11 @@
 rm -rf content/en/docs-*
 git checkout HEAD -- hugo.toml
 
-# Get the latest tag so we can skip it, its docs are already the main /docs/.
-latest_tag=$(git tag --list --sort=-version:refname | grep -v '^v' | head -1)
+tags=$(git tag --list)
+tags_descending=$(git tag --list --sort=-version:refname)
+
+# Get the latest tag; its docs will replace the working directory's docs/
+latest_tag=$(echo "$tags_descending" | grep -v '^v' | head -1)
 echo "Latest tag: $latest_tag"
 
 # Use "git archive" to extract docs from each tag into a temp directory, then
@@ -12,19 +15,20 @@ echo "Latest tag: $latest_tag"
 while IFS= read -r tag; do
   echo "Processing tag: $tag"
 
-  # Skip the latest tag, its docs are already served at the main /docs/ path
-  if [ "$tag" = "$latest_tag" ]; then echo "Skipping $tag - latest version"; continue; fi
-
   # Check if docs exist in this tag
   git ls-tree "$tag" content/en/docs >/dev/null 2>&1 || { echo "Skipping $tag - docs not found"; continue; }
 
-  # Use git archive to extract just the docs folder from the tag into a temp dir
   tmpdir=$(mktemp -d)
   git archive "$tag" content/en/docs | tar -x -C "$tmpdir"
-  cp -r "$tmpdir/content/en/docs" "content/en/docs-$tag"
-  rm -rf "$tmpdir"
 
-  cat > "content/en/docs-$tag/_index.md" << EOF
+  if [ "$tag" = "$latest_tag" ]; then
+    # Latest tag replaces the main docs/ folder
+    rm -rf content/en/docs
+    cp -r "$tmpdir/content/en/docs" content/en/docs
+  else
+    # Older tags go into their own docs-{tag} folder
+    cp -r "$tmpdir/content/en/docs" "content/en/docs-$tag"
+    cat > "content/en/docs-$tag/_index.md" << EOF
 ---
 title: Documentation $tag
 linkTitle: Docs-$tag
@@ -34,7 +38,9 @@ cascade:
   exclude_search: true
 ---
 EOF
-done <<< "$(git tag --list)"
+  fi
+  rm -rf "$tmpdir"
+done <<< "$tags"
 
 # Write versions block directly to a temp file instead of building it in a
 # variable. Bash's $(...) command substitution strips trailing newlines, which
@@ -57,14 +63,20 @@ done <<< "$(git tag --list)"
     printf '  version = "%s"\n' "$tag"
     printf '  url = "http://localhost:1313/docs-%s/"\n' "$tag"
     printf '\n'
-  done <<< "$(git tag --list --sort=-version:refname)"
+  done <<< "$tags_descending"
 } > /tmp/versions_block.txt
 
-awk '/# versions injected at build time/{while((getline line < "/tmp/versions_block.txt") > 0) print line; next} {print}' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
+# Insert versions block after the url_latest_version line in hugo.toml
+awk '/^url_latest_version/{print; print ""; while((getline line < "/tmp/versions_block.txt") > 0) print line; next} {print}' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
 
 echo "Tags found:"
-git tag
+echo "$tags"
 echo "Content folder:"
 ls content/en/
 echo "hugo.toml versions section:"
 cat hugo.toml
+
+hugo build
+
+rm -rf content/en/docs-*
+git checkout HEAD -- content/en/docs
