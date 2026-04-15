@@ -183,8 +183,8 @@ public class FileConnectorStateManager {
    */
   public List<URI> listExpiredFiles() throws SQLException {
     String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered = FALSE";
-    var fileUris = new ArrayList<URI>();
-    try (var ps = jdbcConnection.prepareStatement(selectSQL); var rs = ps.executeQuery()) {
+    List<URI> fileUris = new ArrayList<>();
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL); ResultSet rs = ps.executeQuery()) {
       while (rs.next()) {
         fileUris.add(URI.create(rs.getString("name")));
       }
