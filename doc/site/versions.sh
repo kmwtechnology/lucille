@@ -3,10 +3,23 @@ rm -rf content/en/docs-*
 # Restore hugo.toml
 git checkout HEAD -- hugo.toml
 
-# Store the list of tags in a list
-tags=$(git tag --list)
-# Store the descending list of tags, which will be used for the version dropdown selector
-tags_descending=$(git tag --list --sort=-version:refname)
+# Minimum version to expose on the docs site. Tags older than this are
+# skipped entirely, they get no docs-<tag> folder and no dropdown entry.
+min_version="0.5.10"
+
+# Helper which returns success if $1 a tag is at or above $min_version. Strips leading v for v0.2.4
+tag_at_least_min() {
+  local t="${1#v}"
+  [ "$(printf '%s\n%s\n' "$min_version" "$t" | sort -V | head -n1)" = "$min_version" ]
+}
+
+# Filtered list of tags at or above min_version
+tags=$(git tag --list | while IFS= read -r t; do
+  tag_at_least_min "$t" && printf '%s\n' "$t"
+done)
+
+# Descending (newest-first) list used for the dropdown selector order
+tags_descending=$(echo "$tags" | sort -rV)
 
 # Get the latest tag; its docs will replace the working directory's docs/
 latest_tag=$(echo "$tags_descending" | grep -v '^v' | head -1)
@@ -85,6 +98,7 @@ done <<< "$tags"
 # Also strip any pre-existing top-level `version =` / `url_latest_version =`
 # lines so we don't end up with duplicate keys (indented ones inside
 # [[params.versions]] blocks are left alone).
+
 awk '
   /^\[params\.ui\]/{while((getline line < "/tmp/versions_block.txt") > 0) print line; print ""; print; next}
   /^version = /{next}
