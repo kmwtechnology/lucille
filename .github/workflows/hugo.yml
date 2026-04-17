@@ -59,23 +59,85 @@ jobs:
 
       - name: Get Versions
         run: |
-          tags=$(git tag)
-          for tag in $tags; do
-            git checkout $tag -- doc/site/content/en/docs
-            cp -r content/en/docs content/en/docs-$tag
-            cat > content/en/docs-$tag/_index.md << EOF
-            ---
-            title: Documentation $tag
-            linkTitle: Docs-$tag
-            weight: 20
-            cascade:
-              type: docs
-            exclude_search: true
-            ---
-            EOF
-          done
-          git checkout HEAD -- doc/site/content/en/docs
-        working-directory: doc/site
+          # Remove any version folders from previous runs
+                    rm -rf content/en/docs-*
+                    # Restore hugo.toml
+                    git checkout HEAD -- hugo.toml
+          
+                    # Store the list of tags in a list
+                    tags=$(git tag --list)
+                    # Store the descending list of tags, which will be used for the version dropdown selector
+                    tags_descending=$(git tag --list --sort=-version:refname)
+          
+                    # Get the latest tag; its docs will replace the working directory's docs/
+                    latest_tag=$(echo "$tags_descending" | grep -v '^v' | head -1)
+                    # REMOVE
+                    echo "Latest tag: $latest_tag"
+          
+                    # Use "git archive" to extract docs from each tag into a temp directory, then
+                    # copy them into place. This avoids "git checkout" which would overwrite the
+                    # current docs folder and leave behind extra files from older tags.
+          
+                    # IFS= means preserve any whitespace, read -r says to read the tag exactly as is (ignoring backslashes)
+                    while IFS= read -r tag; do
+                      echo "Processing tag: $tag"
+          
+                      # Check if docs exist in this tag
+                      git ls-tree "$tag" content/en/docs >/dev/null 2>&1 || { echo "Skipping $tag - docs not found"; continue; }
+          
+                      # Make temporary directory for git archive to use, then archive the tag into it
+                      tmpdir=$(mktemp -d)
+                      git archive "$tag" content/en/docs | tar -x -C "$tmpdir"
+          
+                      if [ "$tag" = "$latest_tag" ]; then
+                        # Latest tag replaces the main docs/ folder
+                        rm -rf content/en/docs
+                        cp -r "$tmpdir/content/en/docs" content/en/docs
+                      else
+                        # Older tags go into their own docs-{tag} folder
+                        cp -r "$tmpdir/content/en/docs" "content/en/docs-$tag"
+          
+                        # Update _index.md to specify title and link title
+                        cat > "content/en/docs-$tag/_index.md" << EOF
+                    ---
+                    title: Documentation $tag
+                    linkTitle: Docs-$tag
+                    weight: 20
+                    cascade:
+                      type: docs
+                      exclude_search: true
+                    ---
+                    EOF
+                      fi
+                      rm -rf "$tmpdir"
+                    done <<< "$tags"
+          
+                    # Write versions block directly to a temp file instead of building it in a
+                    # variable. Bash's $(...) command substitution strips trailing newlines, which
+                    # is why the previous approach jammed all the [[params.versions]] entries
+                    # together on one line.
+                    #
+                    # Tags are listed in reverse version order (newest first) so the dropdown
+                    # reads top-to-bottom from newest to oldest.
+                    {
+                      # Add the latest version first, it points to the main /docs/ path
+                      printf '[[params.versions]]\n'
+                      printf '  version = "Lucille Latest"\n'
+                      printf '  url = "https://kmwtechnology.github.io/lucille/docs/"\n'
+                      printf '\n'
+          
+                      while IFS= read -r tag; do
+                        # Skip the latest tag — already added above
+                        if [ "$tag" = "$latest_tag" ]; then continue; fi
+                        printf '[[params.versions]]\n'
+                        printf '  version = "%s"\n' "$tag"
+                        printf '  url = "https://kmwtechnology.github.io/lucille/docs-%s/"\n' "$tag"
+                        printf '\n'
+                      done <<< "$tags_descending"
+                    } > /tmp/versions_block.txt
+          
+                    # Insert versions block after the url_latest_version line in hugo.toml
+                    awk '/^url_latest_version/{print; print ""; while((getline line < "/tmp/versions_block.txt") > 0) print line; next} {print}' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
 
       - name: Update hugo.toml
         run: |
@@ -115,6 +177,11 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./doc/site/public
+
+      - name: Remove content from docs folder and restore it
+        run: |
+          rm -rf content/en/docs-*
+          git checkout HEAD -- content/en/docs 
 
   # Deployment job
   deploy:

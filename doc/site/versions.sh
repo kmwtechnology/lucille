@@ -1,23 +1,30 @@
-# Clean up version folders and hugo.toml from any previous run
+# Remove any version folders from previous runs
 rm -rf content/en/docs-*
+# Restore hugo.toml
 git checkout HEAD -- hugo.toml
 
+# Store the list of tags in a list
 tags=$(git tag --list)
+# Store the descending list of tags, which will be used for the version dropdown selector
 tags_descending=$(git tag --list --sort=-version:refname)
 
 # Get the latest tag; its docs will replace the working directory's docs/
 latest_tag=$(echo "$tags_descending" | grep -v '^v' | head -1)
+# REMOVE
 echo "Latest tag: $latest_tag"
 
 # Use "git archive" to extract docs from each tag into a temp directory, then
 # copy them into place. This avoids "git checkout" which would overwrite the
 # current docs folder and leave behind extra files from older tags.
+
+# IFS= means preserve any whitespace, read -r says to read the tag exactly as is (ignoring backslashes)
 while IFS= read -r tag; do
   echo "Processing tag: $tag"
 
   # Check if docs exist in this tag
   git ls-tree "$tag" content/en/docs >/dev/null 2>&1 || { echo "Skipping $tag - docs not found"; continue; }
 
+  # Make temporary directory for git archive to use, then archive the tag into it
   tmpdir=$(mktemp -d)
   git archive "$tag" content/en/docs | tar -x -C "$tmpdir"
 
@@ -28,6 +35,8 @@ while IFS= read -r tag; do
   else
     # Older tags go into their own docs-{tag} folder
     cp -r "$tmpdir/content/en/docs" "content/en/docs-$tag"
+
+    # Update _index.md to specify title and link title
     cat > "content/en/docs-$tag/_index.md" << EOF
 ---
 title: Documentation $tag
@@ -42,17 +51,17 @@ EOF
   rm -rf "$tmpdir"
 done <<< "$tags"
 
-# Write versions block directly to a temp file instead of building it in a
-# variable. Bash's $(...) command substitution strips trailing newlines, which
-# is why the previous approach jammed all the [[params.versions]] entries
-# together on one line.
-#
+# Write the version params and versions block to a temp file.
 # Tags are listed in reverse version order (newest first) so the dropdown
 # reads top-to-bottom from newest to oldest.
 {
+  printf 'version = "%s (latest)"\n' "$latest_tag"
+  printf 'url_latest_version = "/docs/"\n'
+  printf '\n'
+
   # Add the latest version first, it points to the main /docs/ path
   printf '[[params.versions]]\n'
-  printf '  version = "Lucille Latest"\n'
+  printf '  version = "%s (latest)"\n' "$latest_tag"
   printf '  url = "http://localhost:1313/docs/"\n'
   printf '\n'
 
@@ -66,15 +75,22 @@ done <<< "$tags"
   done <<< "$tags_descending"
 } > /tmp/versions_block.txt
 
-# Insert versions block after the url_latest_version line in hugo.toml
-awk '/^url_latest_version/{print; print ""; while((getline line < "/tmp/versions_block.txt") > 0) print line; next} {print}' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
-
-echo "Tags found:"
-echo "$tags"
-echo "Content folder:"
-ls content/en/
-echo "hugo.toml versions section:"
-cat hugo.toml
+# Insert the versions block immediately before [params.ui] in hugo.toml.
+# This placement matters: [[params.versions]] is an array-of-tables, and any
+# plain key/value pairs appearing after it are parsed as properties of the
+# last version entry rather than of [params] itself, which silently breaks
+# things like offlineSearch, algolia_docsearch, github_repo. Anchoring on
+# [params.ui] puts the versions block after all top-level [params] keys and
+# right before the next sub-table header.
+# Also strip any pre-existing top-level `version =` / `url_latest_version =`
+# lines so we don't end up with duplicate keys (indented ones inside
+# [[params.versions]] blocks are left alone).
+awk '
+  /^\[params\.ui\]/{while((getline line < "/tmp/versions_block.txt") > 0) print line; print ""; print; next}
+  /^version = /{next}
+  /^url_latest_version = /{next}
+  {print}
+' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
 
 hugo build
 

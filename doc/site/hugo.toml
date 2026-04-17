@@ -127,13 +127,100 @@ offlineSearch = true
 # Enable syntax highlighting and copy buttons on code blocks with Prism
 prism_syntax_highlighting = false
 
-version = "Lucille Latest"
-url_latest_version = "/docs/"
-
-# versions injected at build time
-
 
 # User interface configuration
+version = "0.8.0 (latest)"
+url_latest_version = "/docs/"
+
+[[params.versions]]
+  version = "0.8.0 (latest)"
+  url = "http://localhost:1313/docs/"
+
+[[params.versions]]
+  version = "v0.2.4"
+  url = "http://localhost:1313/docs-v0.2.4/"
+
+[[params.versions]]
+  version = "0.7.0"
+  url = "http://localhost:1313/docs-0.7.0/"
+
+[[params.versions]]
+  version = "0.6.0"
+  url = "http://localhost:1313/docs-0.6.0/"
+
+[[params.versions]]
+  version = "0.5.10"
+  url = "http://localhost:1313/docs-0.5.10/"
+
+[[params.versions]]
+  version = "0.5.9"
+  url = "http://localhost:1313/docs-0.5.9/"
+
+[[params.versions]]
+  version = "0.5.8"
+  url = "http://localhost:1313/docs-0.5.8/"
+
+[[params.versions]]
+  version = "0.5.7"
+  url = "http://localhost:1313/docs-0.5.7/"
+
+[[params.versions]]
+  version = "0.5.6"
+  url = "http://localhost:1313/docs-0.5.6/"
+
+[[params.versions]]
+  version = "0.5.5"
+  url = "http://localhost:1313/docs-0.5.5/"
+
+[[params.versions]]
+  version = "0.5.4"
+  url = "http://localhost:1313/docs-0.5.4/"
+
+[[params.versions]]
+  version = "0.5.3"
+  url = "http://localhost:1313/docs-0.5.3/"
+
+[[params.versions]]
+  version = "0.5.2"
+  url = "http://localhost:1313/docs-0.5.2/"
+
+[[params.versions]]
+  version = "0.5.1"
+  url = "http://localhost:1313/docs-0.5.1/"
+
+[[params.versions]]
+  version = "0.5.0"
+  url = "http://localhost:1313/docs-0.5.0/"
+
+[[params.versions]]
+  version = "0.4.1"
+  url = "http://localhost:1313/docs-0.4.1/"
+
+[[params.versions]]
+  version = "0.4.0"
+  url = "http://localhost:1313/docs-0.4.0/"
+
+[[params.versions]]
+  version = "0.3.0"
+  url = "http://localhost:1313/docs-0.3.0/"
+
+[[params.versions]]
+  version = "0.2.3"
+  url = "http://localhost:1313/docs-0.2.3/"
+
+[[params.versions]]
+  version = "0.2.2"
+  url = "http://localhost:1313/docs-0.2.2/"
+
+[[params.versions]]
+  version = "0.2.1"
+  url = "http://localhost:1313/docs-0.2.1/"
+
+[[params.versions]]
+  version = "0.2.0"
+  url = "http://localhost:1313/docs-0.2.0/"
+
+
 [params.ui]
 #  Set to true to disable breadcrumb navigation.
 breadcrumb_disable = false
