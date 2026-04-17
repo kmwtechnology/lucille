@@ -60,9 +60,9 @@ jobs:
         env:
           BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: |
-          # Remove any version folders from previous runs
+          # Remove any version folders from previous runs in case there are any
           rm -rf content/en/docs-*
-          # Restore hugo.toml
+          # Restore hugo.toml in case it was somehow altered
           git checkout HEAD -- hugo.toml
 
           # Minimum version to expose on the docs site. Tags older than this are
@@ -164,17 +164,6 @@ jobs:
             /^url_latest_version = /{next}
             {print}
           ' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
-
-        # little debug
-      - name: Debug versions
-        run: |
-          echo "Tags found:"
-          git tag
-          echo "Content folder:"
-          ls content/en/
-          echo "hugo.toml versions section:"
-          cat hugo.toml
-        working-directory: doc/site
 
       - name: Build with Hugo
         env:

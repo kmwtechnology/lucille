@@ -1,6 +1,18 @@
+# This is a script which will generate the user-facing versioned documentation site locally. When you build
+# the site locally without running this script, you will only get the most updated docs from the
+# working directory. This script allows you to see what the doc site will look like in production.
+
+# Keep in mind that the latest version of the docs here will not reflect your changes to the doc site content
+# folder in the working directory, because it pulls from the latest release. Your changes will not appear until
+# the next release.
+
+# Also keep in mind that this script will alter the hugo.toml file.
+# MAKE SURE TO REVERT THE hugo.toml BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
+
+
 # Remove any version folders from previous runs
 rm -rf content/en/docs-*
-# Restore hugo.toml
+# Restore hugo.toml in case there are any leftover changes from last run
 git checkout HEAD -- hugo.toml
 
 # Minimum version to expose on the docs site. Tags older than this are
@@ -24,12 +36,10 @@ tags_descending=$(echo "$tags" | sort -rV)
 
 # Get the latest tag; its docs will replace the working directory's docs/
 latest_tag=$(echo "$tags_descending" | grep -v '^v' | head -1)
-# REMOVE
 echo "Latest tag: $latest_tag"
 
 # Use "git archive" to extract docs from each tag into a temp directory, then
-# copy them into place. This avoids "git checkout" which would overwrite the
-# current docs folder and leave behind extra files from older tags.
+# copy them into place.
 
 # IFS= means preserve any whitespace, read -r says to read the tag exactly as is (ignoring backslashes)
 while IFS= read -r tag; do
