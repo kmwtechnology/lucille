@@ -9,6 +9,7 @@ min_version="0.5.10"
 
 # Helper which returns success if $1 a tag is at or above $min_version. Strips leading v for v0.2.4
 tag_at_least_min() {
+  # local scopes the variable to this function only, 1#v removes a v if it's there
   local t="${1#v}"
   [ "$(printf '%s\n%s\n' "$min_version" "$t" | sort -V | head -n1)" = "$min_version" ]
 }
