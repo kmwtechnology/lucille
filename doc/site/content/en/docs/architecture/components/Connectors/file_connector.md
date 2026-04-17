@@ -67,7 +67,7 @@ new or have been modified since the last time the connector ran.
 * `sendTombstones`:  By default, if a file in the file system is deleted, documents from the file will still appear in the index until they are manually deleted.
 In order for these deletions to be recognized automatically, we can set `sendTombstones` to be `true`. This will create a tombstone with field `file_expired: true`
 for each deleted document. The indexer can be configured to issue deletes against the search backend when tombstones are encountered. This only works with indexers such 
-* as SolrIndexer and OpenSearchIndexer that respect the deletionMarkerField configuration parameter. Example:
+as SolrIndexer and OpenSearchIndexer that respect the deletionMarkerField configuration parameter. Example:
 
 ```hocon
 indexer {
