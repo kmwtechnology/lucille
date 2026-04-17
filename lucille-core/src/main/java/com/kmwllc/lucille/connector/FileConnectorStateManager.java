@@ -170,17 +170,7 @@ public class FileConnectorStateManager {
       }
     }
   }
-
-  /*
-   * Needed to support publishing document tombstones suggestion: we should add
-   * options for setting what is "expired" to include as a safety measure so
-   * transient upstream source flakiness doesn't immediately cause content to be
-   * deleted from index
-   * - expiredFileRetryCutoff [1..N]
-   *   file has to be missing N times before marked as expired)
-   * - expiredFileDurationCutoff [Duration]
-   *   Amount if time file must be missing before marked as expired)
-   */
+  
   public List<URI> listExpiredFiles() throws SQLException {
     String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered = FALSE";
     List<URI> fileUris = new ArrayList<>();
