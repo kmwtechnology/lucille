@@ -60,7 +60,7 @@ jobs:
         env:
           MIN_VERSION: "0.5.10"
         working-directory: doc/site
-        run: |
+        run: >
           # Helper which returns success if $1 a tag is at or above $MIN_VERSION. Strips leading v for v0.2.4
           tag_at_least_min() {
             local t="${1#v}"
@@ -83,7 +83,7 @@ jobs:
         working-directory: doc/site
         env:
           BASE_URL: ${{ steps.pages.outputs.base_url }}
-        run: |
+        run: >
           echo "Latest tag: $LATEST_TAG"
           
           # Remove any version folders from previous runs in case there are any
