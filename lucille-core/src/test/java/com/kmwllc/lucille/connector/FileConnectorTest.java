@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
+import java.nio.file.attribute.FileTime;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -632,7 +633,7 @@ public class FileConnectorTest {
       // Set file1's modification time explicitly to a point after the first run's traversalInstant just in case
       Files.delete(file2.toPath());
       Files.writeString(file1.toPath(), "Modified Content 1");
-      Files.setLastModifiedTime(file1.toPath(), java.nio.file.attribute.FileTime.from(Instant.now().plusSeconds(5)));
+      Files.setLastModifiedTime(file1.toPath(), FileTime.from(Instant.now()));
 
       // Second run, should publish modified file1 + tombstone for deleted file2
       Connector connector2 = new FileConnector(config);
