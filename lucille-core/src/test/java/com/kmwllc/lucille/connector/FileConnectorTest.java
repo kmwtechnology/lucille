@@ -618,13 +618,14 @@ public class FileConnectorTest {
       TestMessenger messenger1 = new TestMessenger();
       Publisher publisher1 = new PublisherImpl(config, messenger1, "run1", "pipeline1");
       Connector connector = new FileConnector(config);
+      connector.execute(publisher1);
 
       // First run, publish all 3 files
-      connector.execute(publisher1);
-      assertEquals(3, messenger1.getDocsSentForProcessing().size());
+      List<Document> firstRunDocs = messenger1.getDocsSentForProcessing();
+      assertEquals(3, firstRunDocs.size());
 
       // Verify no tombstones on first run
-      long firstRunTombstones = messenger1.getDocsSentForProcessing().stream()
+      long firstRunTombstones = firstRunDocs.stream()
           .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
           .count();
       assertEquals(0, firstRunTombstones);
@@ -636,13 +637,14 @@ public class FileConnectorTest {
       Files.setLastModifiedTime(file1.toPath(), FileTime.from(Instant.now()));
 
       // Second run, should publish modified file1 + tombstone for deleted file2
-      Connector connector2 = new FileConnector(config);
       TestMessenger messenger2 = new TestMessenger();
       Publisher publisher2 = new PublisherImpl(config, messenger2, "run2", "pipeline1");
+      Connector connector2 = new FileConnector(config);
       connector2.execute(publisher2);
 
+      // 1 modified file + 1 tombstone
       List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
-      assertEquals(2, secondRunDocs.size());  // 1 modified file + 1 tombstone
+      assertEquals(2, secondRunDocs.size());
 
       // Verify 1 tombstone
       long tombstoneCount = secondRunDocs.stream()
@@ -664,6 +666,13 @@ public class FileConnectorTest {
           .findFirst()
           .orElseThrow();
       assertTrue(modifiedDoc.getString(FileConnector.FILE_PATH).contains("file1.txt"));
+
+      // Third run, should not publish anything
+      TestMessenger messenger3 = new TestMessenger();
+      Publisher publisher3 = new PublisherImpl(config, messenger3, "run1", "pipeline1");
+      Connector connector3 = new FileConnector(config);
+      connector3.execute(publisher3);
+      assertEquals(0, messenger3.getDocsSentForProcessing().size());
 
     } finally {
       FileUtils.deleteDirectory(tempDir);
