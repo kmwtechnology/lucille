@@ -91,7 +91,8 @@ public class TraversalParams {
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
 
-    this.publishMode = PublishMode.fromString(filterOptions.hasPath("publishMode") ? filterOptions.getString("publishMode") : "full");
+    this.publishMode = filterOptions.hasPath("publishMode") ? PublishMode.fromString(filterOptions.getString("publishMode")) : PublishMode.FULL;
+
 
     this.lastModifiedCutoff = filterOptions.hasPath("lastModifiedCutoff") ? filterOptions.getDuration("lastModifiedCutoff") : null;
     this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
