@@ -61,21 +61,17 @@ jobs:
           MIN_VERSION: "0.5.10"
         working-directory: doc/site
         run: >
-          # Helper which returns success if $1 a tag is at or above $MIN_VERSION. Strips leading v for v0.2.4
           tag_at_least_min() {
-            local t="${1#v}"
+            t="${1#v}"
             [ "$(printf '%s\n%s\n' "$MIN_VERSION" "$t" | sort -V | head -n1)" = "$MIN_VERSION" ]
           }
 
-          # Filtered list of tags at or above MIN_VERSION
           tags=$(git tag --list | while IFS= read -r t; do
             tag_at_least_min "$t" && printf '%s\n' "$t"
           done)
 
-          # Descending (newest-first) list used for the dropdown selector order
           export TAGS_DESCENDING=$(echo "$tags" | sort -rV)
 
-          # Get the latest tag; its docs will replace the working directory's docs/
           export LATEST_TAG=$(echo "$TAGS_DESCENDING" | grep -v '^v' | head -1)
           echo "Latest tag: $LATEST_TAG"
 
