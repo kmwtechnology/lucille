@@ -674,6 +674,41 @@ public class FileConnectorTest {
       connector3.execute(publisher3);
       assertEquals(0, messenger3.getDocsSentForProcessing().size());
 
+      Files.writeString(file2.toPath(), "Content 2 Restored");
+
+      // Fourth run, should publish file2 which has now been restored after being deleted earlier
+      TestMessenger messenger4 = new TestMessenger();
+      Publisher publisher4 = new PublisherImpl(config, messenger4, "run1", "pipeline1");
+      Connector connector4 = new FileConnector(config);
+      connector4.execute(publisher4);
+      List<Document> fourthRunDocs = messenger4.getDocsSentForProcessing();
+      assertEquals(1, fourthRunDocs.size());
+
+      // Verify non-tombstone is for restored file2
+      Document restoredDoc = fourthRunDocs.stream()
+          .filter(doc -> !Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+          .findFirst()
+          .orElseThrow();
+      assertTrue(restoredDoc.getString(FileConnector.FILE_PATH).contains("file2.txt"));
+
+      Files.delete(file2.toPath());
+
+      // Fifth run, should publish tombstone for file2 which has been deleted a second time
+      TestMessenger messenger5 = new TestMessenger();
+      Publisher publisher5 = new PublisherImpl(config, messenger5, "run1", "pipeline1");
+      Connector connector5 = new FileConnector(config);
+      connector5.execute(publisher5);
+      List<Document> fifthRunDocs = messenger5.getDocsSentForProcessing();
+      assertEquals(1, fifthRunDocs.size());
+
+      // Verify tombstone is for file2
+      Document tombstone2 = fifthRunDocs.stream()
+          .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+          .findFirst()
+          .orElseThrow();
+      assertTrue(tombstone2.getString(FileConnector.FILE_PATH).contains("file2.txt"));
+      assertTrue(tombstone2.isSkipped());
+
     } finally {
       FileUtils.deleteDirectory(tempDir);
 
