@@ -11,7 +11,7 @@ on:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  # change contents to write access so we can add the version docs
+  # Write access needed to change the toml and add the versioned docs
   contents: write
   pages: write
   id-token: write
@@ -44,6 +44,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          # required to clone the full working history of the repo (default is fetch-depth: 1, which is just the latest commit)
           fetch-depth: 0
       - name: Setup Pages
         id: pages
