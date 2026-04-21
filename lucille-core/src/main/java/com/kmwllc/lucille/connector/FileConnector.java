@@ -189,18 +189,18 @@ public class FileConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-      initialize();
+    initialize();
 
-      // discover and publish all valid file candidates
-      for (URI resource : storageURIs) {
-        traverseStoragePath(publisher, resource);
-      }
+    // discover and publish all valid file candidates
+    for (URI resource : storageURIs) {
+      traverseStoragePath(publisher, resource);
+    }
 
-      if (config.hasPath("filterOptions.sendTombstones") &&
-          config.getBoolean("filterOptions.sendTombstones")) {
-        // find files no longer in datastore that need to be removed from index
-        sendExpiredFileTombstones(publisher);
-      }
+    if (config.hasPath("filterOptions.sendTombstones") &&
+        config.getBoolean("filterOptions.sendTombstones")) {
+      // find files no longer in datastore that need to be removed from index
+      sendExpiredFileTombstones(publisher);
+    }
   }
 
   // stateful only: publish tombstones for files seen during prior ingests but not the current
