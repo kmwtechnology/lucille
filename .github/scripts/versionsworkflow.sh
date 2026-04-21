@@ -136,6 +136,4 @@ if [ $mode = "local" ]; then
   hugo build
   rm -rf content/en/docs-*
   git checkout HEAD -- content/en/docs
-else
-  return;
 fi
