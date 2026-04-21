@@ -25,6 +25,7 @@ import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import java.nio.file.attribute.FileTime;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -54,6 +55,15 @@ public class FileConnectorTest {
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
 
+  FileConnector connector;
+
+  @After
+  public void closeConnection() {
+    if (connector != null) {
+      connector.close();
+    }
+  }
+
   @Test
   public void testExecuteSuccessful() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
@@ -67,9 +77,9 @@ public class FileConnectorTest {
               "file", new LocalStorageClient(),
               "gs", mockCloudClient));
 
-      Connector connector = new FileConnector(config);
+      connector = new FileConnector(config);
       connector.execute(publisher);
-
+      connector.close();
       verify(mockCloudClient, times(1)).init();
       verify(mockCloudClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       verify(mockCloudClient, times(1)).shutdown();
@@ -91,8 +101,9 @@ public class FileConnectorTest {
               "gs", mockForGoogle,
               "https", mockForAzure));
 
-      Connector connector = new FileConnector(config);
+      connector = new FileConnector(config);
       connector.execute(publisher);
+      connector.close();
       verify(mockForGoogle, times(1)).init();
       verify(mockForGoogle, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       verify(mockForGoogle, times(1)).shutdown();
@@ -117,7 +128,7 @@ public class FileConnectorTest {
               "file", new LocalStorageClient(),
               "gs", mockCloudClient));
 
-      Connector connector = new FileConnector(config);
+      connector = new FileConnector(config);
 
       // nothing takes place if a client fails to initialize
       doThrow(new IOException("Failed to initialize client")).when(mockCloudClient).init();
@@ -138,10 +149,11 @@ public class FileConnectorTest {
               "file", new LocalStorageClient(),
               "gs", mockCloudClient));
 
-      Connector connector = new FileConnector(config);
+      connector = new FileConnector(config);
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
       doThrow(new Exception("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      connector.close();
       // verify that shutdown is called, even after a traversal fails
       verify(mockCloudClient, times(1)).shutdown();
     }
@@ -158,7 +170,7 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/faulty.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
 
     connector.execute(publisher);
 
@@ -190,7 +202,7 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/success.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
 
     connector.execute(publisher);
 
@@ -216,7 +228,7 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
 
     connector.execute(publisher);
     List<Document> documentList = messenger.getDocsSentForProcessing();
@@ -300,7 +312,7 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
 
     connector.execute(publisher);
     List<Document> documentList = messenger.getDocsSentForProcessing();
@@ -313,7 +325,6 @@ public class FileConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
-    Connector connector;
     try (MockedStatic<StorageClient> mockStaticStorageClient = mockStatic(StorageClient.class)) {
       StorageClient s3StorageClient = mock(StorageClient.class);
       StorageClient googleStorageClient = mock(StorageClient.class);
@@ -352,7 +363,7 @@ public class FileConnectorTest {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsSomeInvalid.conf");
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
 
     assertThrows(ConnectorException.class, () -> connector.execute(publisher));
   }
@@ -391,10 +402,11 @@ public class FileConnectorTest {
       Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
       TestMessenger messenger = new TestMessenger();
       Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-      Connector connector = new FileConnector(config);
+      connector = new FileConnector(config);
 
       // the stateManager doesn't get initialized until execution begins.
       connector.execute(publisher);
+      connector.close();
 
       // now the database file should exist.
       assertTrue(stateDirectory.isDirectory());
@@ -410,12 +422,11 @@ public class FileConnectorTest {
       // default full mode republishes all docs on subsequent runs
       assertEquals(18, messenger.getDocsSentForProcessing().size());
     } finally {
-      try {
-        Files.delete(dbFile.toPath());
-        Files.delete(stateDirectory.toPath());
-      } catch (IOException e) {
-        fail("The state file / directory was not found - an exception may have been thrown during the test.");
+      if (connector != null) {
+        connector.close();
+        connector = null;
       }
+      FileUtils.deleteDirectory(stateDirectory);
     }
   }
 
@@ -425,9 +436,10 @@ public class FileConnectorTest {
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(cfg, messenger, "run", "pipeline1");
-    Connector connector = new FileConnector(cfg);
+    connector = new FileConnector(cfg);
 
     connector.execute(publisher);
+
     List<Document> docs = messenger.getDocsSentForProcessing();
 
     assertEquals(3, docs.size());
@@ -478,8 +490,9 @@ public class FileConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
     connector.execute(publisher);
+    connector.close();
     assertEquals(21, messenger.getDocsSentForProcessing().size());
 
     messenger = new TestMessenger();
@@ -503,8 +516,9 @@ public class FileConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
     connector.execute(publisher);
+    connector.close();
     assertEquals(21, messenger.getDocsSentForProcessing().size());
 
     // second run in default full mode republishes everything.
@@ -526,14 +540,15 @@ public class FileConnectorTest {
 
     TestMessenger messenger1 = new TestMessenger();
     Publisher publisher1 = new PublisherImpl(configWithTwoPaths, messenger1, "run", "pipeline1");
-    Connector connector1 = new FileConnector(configWithTwoPaths);
-    connector1.execute(publisher1);
+    connector = new FileConnector(configWithTwoPaths);
+    connector.execute(publisher1);
+    connector.close();
     assertEquals(21, messenger1.getDocsSentForProcessing().size());
 
     TestMessenger messenger2 = new TestMessenger();
     Publisher publisher2 = new PublisherImpl(configSinglePath, messenger2, "run", "pipeline1");
-    Connector connector2 = new FileConnector(configSinglePath);
-    connector2.execute(publisher2);
+    connector = new FileConnector(configSinglePath);
+    connector.execute(publisher2);
 
     List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
     long tombstoneCount = secondRunDocs.stream()
@@ -568,10 +583,11 @@ public class FileConnectorTest {
 
       TestMessenger messenger1 = new TestMessenger();
       Publisher publisher1 = new PublisherImpl(config, messenger1, "run1", "pipeline1");
-      Connector connector = new FileConnector(config);
+      connector = new FileConnector(config);
 
       // First run: all 3 files published
       connector.execute(publisher1);
+      connector.close();
       assertEquals(3, messenger1.getDocsSentForProcessing().size());
 
       // Delete file2 between runs
@@ -581,8 +597,8 @@ public class FileConnectorTest {
       // file1 and file3 are unchanged, so they are not republished either
       TestMessenger messenger2 = new TestMessenger();
       Publisher publisher2 = new PublisherImpl(config, messenger2, "run2", "pipeline1");
-      Connector connector2 = new FileConnector(config);
-      connector2.execute(publisher2);
+      connector = new FileConnector(config);
+      connector.execute(publisher2);
 
       List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
       assertEquals(0, secondRunDocs.size());
@@ -617,8 +633,9 @@ public class FileConnectorTest {
 
       TestMessenger messenger1 = new TestMessenger();
       Publisher publisher1 = new PublisherImpl(config, messenger1, "run1", "pipeline1");
-      Connector connector = new FileConnector(config);
+      connector = new FileConnector(config);
       connector.execute(publisher1);
+      connector.close();
 
       // First run, publish all 3 files
       List<Document> firstRunDocs = messenger1.getDocsSentForProcessing();
@@ -639,8 +656,9 @@ public class FileConnectorTest {
       // Second run, should publish modified file1 + tombstone for deleted file2
       TestMessenger messenger2 = new TestMessenger();
       Publisher publisher2 = new PublisherImpl(config, messenger2, "run2", "pipeline1");
-      Connector connector2 = new FileConnector(config);
-      connector2.execute(publisher2);
+      connector = new FileConnector(config);
+      connector.execute(publisher2);
+      connector.close();
 
       // 1 modified file + 1 tombstone
       List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
@@ -670,8 +688,9 @@ public class FileConnectorTest {
       // Third run, should not publish anything
       TestMessenger messenger3 = new TestMessenger();
       Publisher publisher3 = new PublisherImpl(config, messenger3, "run1", "pipeline1");
-      Connector connector3 = new FileConnector(config);
-      connector3.execute(publisher3);
+      connector = new FileConnector(config);
+      connector.execute(publisher3);
+      connector.close();
       assertEquals(0, messenger3.getDocsSentForProcessing().size());
 
       Files.writeString(file2.toPath(), "Content 2 Restored");
@@ -679,8 +698,9 @@ public class FileConnectorTest {
       // Fourth run, should publish file2 which has now been restored after being deleted earlier
       TestMessenger messenger4 = new TestMessenger();
       Publisher publisher4 = new PublisherImpl(config, messenger4, "run1", "pipeline1");
-      Connector connector4 = new FileConnector(config);
-      connector4.execute(publisher4);
+      connector = new FileConnector(config);
+      connector.execute(publisher4);
+      connector.close();
       List<Document> fourthRunDocs = messenger4.getDocsSentForProcessing();
       assertEquals(1, fourthRunDocs.size());
 
@@ -696,8 +716,8 @@ public class FileConnectorTest {
       // Fifth run, should publish tombstone for file2 which has been deleted a second time
       TestMessenger messenger5 = new TestMessenger();
       Publisher publisher5 = new PublisherImpl(config, messenger5, "run1", "pipeline1");
-      Connector connector5 = new FileConnector(config);
-      connector5.execute(publisher5);
+      connector = new FileConnector(config);
+      connector.execute(publisher5);
       List<Document> fifthRunDocs = messenger5.getDocsSentForProcessing();
       assertEquals(1, fifthRunDocs.size());
 

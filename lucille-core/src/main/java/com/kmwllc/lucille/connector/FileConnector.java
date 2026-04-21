@@ -189,7 +189,6 @@ public class FileConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    try {
       initialize();
 
       // discover and publish all valid file candidates
@@ -202,10 +201,6 @@ public class FileConnector extends AbstractConnector {
         // find files no longer in datastore that need to be removed from index
         sendExpiredFileTombstones(publisher);
       }
-
-    } finally {
-      shutdown();
-    }
   }
 
   // stateful only: publish tombstones for files seen during prior ingests but not the current
@@ -264,7 +259,8 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
-  private void shutdown() {
+  @Override
+  public void close() {
     if (stateManager != null) {
       try {
         stateManager.shutdown();

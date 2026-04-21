@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.apache.commons.io.FileUtils;
 import org.h2.tools.RunScript;
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -49,6 +50,15 @@ public class FileConnectorStateManagerTest {
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
+
+  FileConnector connector;
+
+  @After
+  public void closeConnection() {
+    if (connector != null) {
+      connector.close();
+    }
+  }
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {
@@ -244,8 +254,9 @@ public class FileConnectorStateManagerTest {
     Publisher publisher1 = new PublisherImpl(config, messenger1, "run", "pipeline1");
     Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
 
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
     connector.execute(publisher1);
+    connector.close();
     // See above - textExampleTraversal has 16 files. This has 18, since we don't exclude "skipFile.txt".
     assertEquals(18, messenger1.getDocsSentForProcessing().size());
 
@@ -275,6 +286,7 @@ public class FileConnectorStateManagerTest {
 
     // second run in default full mode republishes all docs.
     connector.execute(publisher2);
+    connector.close();
     assertEquals(18, messenger2.getDocsSentForProcessing().size());
   }
 
@@ -353,8 +365,9 @@ public class FileConnectorStateManagerTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
     connector.execute(publisher);
+    connector.close();
     assertEquals(16, messenger.getDocsSentForProcessing().size());
 
     // Even though "skipFile.txt" is excluded, we should still have a state entry for it, without a lastPublished time
@@ -397,8 +410,9 @@ public class FileConnectorStateManagerTest {
     Publisher publisher1 = new PublisherImpl(config, messenger1, "run", "pipeline1");
     Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
 
-    Connector connector = new FileConnector(config);
+    connector = new FileConnector(config);
     connector.execute(publisher1);
+    connector.close();
     assertEquals(18, messenger1.getDocsSentForProcessing().size());
 
     // Simulate two files being stale by changing their last_published to 2022, making them appear older than the files on disk so
