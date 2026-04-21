@@ -10,6 +10,19 @@
 # MAKE SURE TO REVERT THE hugo.toml BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
 
 cd ${GITHUB_WORKSPACE}/doc/site
+mode=${1:-"local"}
+if [ $mode = "local" ]; then
+  rm -rf content/en/docs-*
+  git checkout HEAD -- hugo.toml
+  cd ../../doc/site
+  url="http://localhost:1313/docs"
+elif [ $mode = "production" ]; then
+  cd ${GITHUB_WORKSPACE}/doc/site
+  url="https://kmwtechnology.github.io/lucille/docs"
+else
+  echo "Invalid mode specified: $mode"
+  exit 1
+fi
 
 # Remove any version folders from previous runs
 rm -rf content/en/docs-*
@@ -87,15 +100,15 @@ done <<< "$tags"
   # Add the latest version first, it points to the main /docs/ path
   printf '[[params.versions]]\n'
   printf '  version = "%s (latest)"\n' "$latest_tag"
-  printf '  url = "https://kmwtechnology.github.io/lucille/docs"\n'
+  printf '  url = "%s"\n' "$url"
   printf '\n'
 
   while IFS= read -r tag; do
     # Skip the latest tag — already added above
     if [ "$tag" = "$latest_tag" ]; then continue; fi
-    printf '[[params.versions]]\n'
+    printf "[[params.versions]]\n"
     printf '  version = "%s"\n' "$tag"
-    printf '  url = "https://kmwtechnology.github.io/lucille/docs-%s"\n' "$tag"
+    printf '  url = "%s-%s/"\n' "$url" "$tag"
     printf '\n'
   done <<< "$tags_descending"
 } > /tmp/versions_block.txt
@@ -117,3 +130,12 @@ awk '
   /^url_latest_version = /{next}
   {print}
 ' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
+
+# We can skip the cleanup if deploying on our production VM
+if [ $mode = "local" ]; then
+  hugo build
+  rm -rf content/en/docs-*
+  git checkout HEAD -- content/en/docs
+else
+  return;
+fi

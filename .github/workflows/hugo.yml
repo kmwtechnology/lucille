@@ -57,7 +57,7 @@ jobs:
         working-directory: doc/site
 
       - name: Run script to generate versioned docs and update toml before build
-        run: bash ${GITHUB_WORKSPACE}/.github/scripts/versionsworkflow.sh
+        run: bash ${GITHUB_WORKSPACE}/.github/scripts/versionsworkflow.sh production
 
       - name: Build with Hugo
         env:
