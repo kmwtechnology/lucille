@@ -51,15 +51,6 @@ public class FileConnectorStateManagerTest {
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
 
-  FileConnector connector;
-
-  @After
-  public void closeConnection() {
-    if (connector != null) {
-      connector.close();
-    }
-  }
-
   @Test
   public void testStateManagerRootDirectory() throws Exception {
     Instant start = Instant.now();
@@ -254,9 +245,9 @@ public class FileConnectorStateManagerTest {
     Publisher publisher1 = new PublisherImpl(config, messenger1, "run", "pipeline1");
     Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
 
-    connector = new FileConnector(config);
-    connector.execute(publisher1);
-    connector.close();
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher1);
+    conn.close();
     // See above - textExampleTraversal has 16 files. This has 18, since we don't exclude "skipFile.txt".
     assertEquals(18, messenger1.getDocsSentForProcessing().size());
 
@@ -285,8 +276,8 @@ public class FileConnectorStateManagerTest {
     }
 
     // second run in default full mode republishes all docs.
-    connector.execute(publisher2);
-    connector.close();
+    conn.execute(publisher2);
+    conn.close();
     assertEquals(18, messenger2.getDocsSentForProcessing().size());
   }
 
@@ -365,9 +356,9 @@ public class FileConnectorStateManagerTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
-    connector = new FileConnector(config);
-    connector.execute(publisher);
-    connector.close();
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher);
+    conn.close();
     assertEquals(16, messenger.getDocsSentForProcessing().size());
 
     // Even though "skipFile.txt" is excluded, we should still have a state entry for it, without a lastPublished time
@@ -410,9 +401,9 @@ public class FileConnectorStateManagerTest {
     Publisher publisher1 = new PublisherImpl(config, messenger1, "run", "pipeline1");
     Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
 
-    connector = new FileConnector(config);
-    connector.execute(publisher1);
-    connector.close();
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher1);
+    conn.close();
     assertEquals(18, messenger1.getDocsSentForProcessing().size());
 
     // Simulate two files being stale by changing their last_published to 2022, making them appear older than the files on disk so
@@ -439,7 +430,8 @@ public class FileConnectorStateManagerTest {
     // The three unchanged archives (helloWorld.txt.gz, subDirWith2TxtFiles.zip, subdir/b.json.gz)
     // are visited but skipped by includeFile. Their entries are marked encountered via
     // markAllEntriesEncountered, so they are not seen as expired and no tombstones are generated.
-    connector.execute(publisher2);
+    conn.execute(publisher2);
+    conn.close();
     List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
     long tombstoneCount = secondRunDocs.stream()
         .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
