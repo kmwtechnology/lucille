@@ -77,9 +77,9 @@ public class FileConnectorTest {
               "file", new LocalStorageClient(),
               "gs", mockCloudClient));
 
-      connector = new FileConnector(config);
-      connector.execute(publisher);
-      connector.close();
+      Connector conn = new FileConnector(config);
+      conn.execute(publisher);
+      conn.close();
       verify(mockCloudClient, times(1)).init();
       verify(mockCloudClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       verify(mockCloudClient, times(1)).shutdown();
@@ -101,9 +101,9 @@ public class FileConnectorTest {
               "gs", mockForGoogle,
               "https", mockForAzure));
 
-      connector = new FileConnector(config);
-      connector.execute(publisher);
-      connector.close();
+      Connector conn = new FileConnector(config);
+      conn.execute(publisher);
+      conn.close();
       verify(mockForGoogle, times(1)).init();
       verify(mockForGoogle, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
       verify(mockForGoogle, times(1)).shutdown();
@@ -149,11 +149,11 @@ public class FileConnectorTest {
               "file", new LocalStorageClient(),
               "gs", mockCloudClient));
 
-      connector = new FileConnector(config);
+      Connector conn = new FileConnector(config);
       // the try catch block in FileConnector will catch any Exception class and throw a ConnectorException
       doThrow(new Exception("Failed to publish files")).when(mockCloudClient).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
-      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
-      connector.close();
+      assertThrows(ConnectorException.class, () -> conn.execute(publisher));
+      conn.close();
       // verify that shutdown is called, even after a traversal fails
       verify(mockCloudClient, times(1)).shutdown();
     }
@@ -402,11 +402,11 @@ public class FileConnectorTest {
       Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
       TestMessenger messenger = new TestMessenger();
       Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-      connector = new FileConnector(config);
+      Connector conn = new FileConnector(config);
 
       // the stateManager doesn't get initialized until execution begins.
-      connector.execute(publisher);
-      connector.close();
+      conn.execute(publisher);
+      conn.close();
 
       // now the database file should exist.
       assertTrue(stateDirectory.isDirectory());
@@ -417,15 +417,12 @@ public class FileConnectorTest {
       messenger = new TestMessenger();
       publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
-      connector.execute(publisher);
+      conn.execute(publisher);
+      conn.close();
 
       // default full mode republishes all docs on subsequent runs
       assertEquals(18, messenger.getDocsSentForProcessing().size());
     } finally {
-      if (connector != null) {
-        connector.close();
-        connector = null;
-      }
       FileUtils.deleteDirectory(stateDirectory);
     }
   }
@@ -490,16 +487,18 @@ public class FileConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
-    connector = new FileConnector(config);
-    connector.execute(publisher);
-    connector.close();
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher);
+    conn.close();
+
     assertEquals(21, messenger.getDocsSentForProcessing().size());
 
     messenger = new TestMessenger();
     publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
     // Second run: nothing changed, so nothing is republished and no tombstones are generated.
-    connector.execute(publisher);
+    conn.execute(publisher);
+    conn.close();
     List<Document> secondRunDocs = messenger.getDocsSentForProcessing();
     long tombstoneCount = secondRunDocs.stream()
         .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
@@ -516,16 +515,17 @@ public class FileConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
-    connector = new FileConnector(config);
-    connector.execute(publisher);
-    connector.close();
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher);
+    conn.close();
     assertEquals(21, messenger.getDocsSentForProcessing().size());
 
     // second run in default full mode republishes everything.
     messenger = new TestMessenger();
     publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
-    connector.execute(publisher);
+    conn.execute(publisher);
+    conn.close();
     assertEquals(21, messenger.getDocsSentForProcessing().size());
   }
 
@@ -540,15 +540,16 @@ public class FileConnectorTest {
 
     TestMessenger messenger1 = new TestMessenger();
     Publisher publisher1 = new PublisherImpl(configWithTwoPaths, messenger1, "run", "pipeline1");
-    connector = new FileConnector(configWithTwoPaths);
-    connector.execute(publisher1);
-    connector.close();
+    Connector conn = new FileConnector(configWithTwoPaths);
+    conn.execute(publisher1);
+    conn.close();
     assertEquals(21, messenger1.getDocsSentForProcessing().size());
 
     TestMessenger messenger2 = new TestMessenger();
     Publisher publisher2 = new PublisherImpl(configSinglePath, messenger2, "run", "pipeline1");
-    connector = new FileConnector(configSinglePath);
-    connector.execute(publisher2);
+    conn = new FileConnector(configSinglePath);
+    conn.execute(publisher2);
+    conn.close();
 
     List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
     long tombstoneCount = secondRunDocs.stream()
@@ -583,11 +584,11 @@ public class FileConnectorTest {
 
       TestMessenger messenger1 = new TestMessenger();
       Publisher publisher1 = new PublisherImpl(config, messenger1, "run1", "pipeline1");
-      connector = new FileConnector(config);
+      Connector conn = new FileConnector(config);
 
       // First run: all 3 files published
-      connector.execute(publisher1);
-      connector.close();
+      conn.execute(publisher1);
+      conn.close();
       assertEquals(3, messenger1.getDocsSentForProcessing().size());
 
       // Delete file2 between runs
@@ -597,8 +598,9 @@ public class FileConnectorTest {
       // file1 and file3 are unchanged, so they are not republished either
       TestMessenger messenger2 = new TestMessenger();
       Publisher publisher2 = new PublisherImpl(config, messenger2, "run2", "pipeline1");
-      connector = new FileConnector(config);
-      connector.execute(publisher2);
+      conn = new FileConnector(config);
+      conn.execute(publisher2);
+      conn.close();
 
       List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
       assertEquals(0, secondRunDocs.size());
@@ -633,9 +635,9 @@ public class FileConnectorTest {
 
       TestMessenger messenger1 = new TestMessenger();
       Publisher publisher1 = new PublisherImpl(config, messenger1, "run1", "pipeline1");
-      connector = new FileConnector(config);
-      connector.execute(publisher1);
-      connector.close();
+      Connector conn = new FileConnector(config);
+      conn.execute(publisher1);
+      conn.close();
 
       // First run, publish all 3 files
       List<Document> firstRunDocs = messenger1.getDocsSentForProcessing();
@@ -656,9 +658,9 @@ public class FileConnectorTest {
       // Second run, should publish modified file1 + tombstone for deleted file2
       TestMessenger messenger2 = new TestMessenger();
       Publisher publisher2 = new PublisherImpl(config, messenger2, "run2", "pipeline1");
-      connector = new FileConnector(config);
-      connector.execute(publisher2);
-      connector.close();
+      conn = new FileConnector(config);
+      conn.execute(publisher2);
+      conn.close();
 
       // 1 modified file + 1 tombstone
       List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
@@ -688,9 +690,9 @@ public class FileConnectorTest {
       // Third run, should not publish anything
       TestMessenger messenger3 = new TestMessenger();
       Publisher publisher3 = new PublisherImpl(config, messenger3, "run1", "pipeline1");
-      connector = new FileConnector(config);
-      connector.execute(publisher3);
-      connector.close();
+      conn = new FileConnector(config);
+      conn.execute(publisher3);
+      conn.close();
       assertEquals(0, messenger3.getDocsSentForProcessing().size());
 
       Files.writeString(file2.toPath(), "Content 2 Restored");
@@ -698,9 +700,9 @@ public class FileConnectorTest {
       // Fourth run, should publish file2 which has now been restored after being deleted earlier
       TestMessenger messenger4 = new TestMessenger();
       Publisher publisher4 = new PublisherImpl(config, messenger4, "run1", "pipeline1");
-      connector = new FileConnector(config);
-      connector.execute(publisher4);
-      connector.close();
+      conn = new FileConnector(config);
+      conn.execute(publisher4);
+      conn.close();
       List<Document> fourthRunDocs = messenger4.getDocsSentForProcessing();
       assertEquals(1, fourthRunDocs.size());
 
@@ -716,8 +718,9 @@ public class FileConnectorTest {
       // Fifth run, should publish tombstone for file2 which has been deleted a second time
       TestMessenger messenger5 = new TestMessenger();
       Publisher publisher5 = new PublisherImpl(config, messenger5, "run1", "pipeline1");
-      connector = new FileConnector(config);
-      connector.execute(publisher5);
+      conn = new FileConnector(config);
+      conn.execute(publisher5);
+      conn.close();
       List<Document> fifthRunDocs = messenger5.getDocsSentForProcessing();
       assertEquals(1, fifthRunDocs.size());
 
