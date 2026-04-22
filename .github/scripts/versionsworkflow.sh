@@ -16,7 +16,6 @@
 # MAKE SURE TO REVERT THE hugo.toml BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
 
 # Pre-run cleanup if running in local mode, not necessary for production
-cd ${GITHUB_WORKSPACE}/doc/site
 mode=${1:-"local"}
 if [ $mode = "local" ]; then
   rm -rf content/en/docs-*
@@ -30,11 +29,6 @@ else
   echo "Invalid mode specified: $mode"
   exit 1
 fi
-
-# Remove any version folders from previous runs
-rm -rf content/en/docs-*
-# Restore hugo.toml in case there are any leftover changes from last run
-git checkout HEAD -- hugo.toml
 
 # Minimum version to expose on the docs site. Tags older than this are
 # skipped entirely, they get no docs-<tag> folder and no dropdown entry.
