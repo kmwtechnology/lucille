@@ -53,7 +53,7 @@ public class SolrConnectorTest {
     Connector connector = new SolrConnector(config, mockClient);
     connector.execute(publisher);
 
-    Document testDoc = Document.create("doc", "run");
+    Document testDoc = Document.create("doc", "run", false);
     testDoc.update("q", UpdateMode.DEFAULT, "type:product");
     testDoc.update("fq", UpdateMode.DEFAULT, "devId:[5 TO 20]", "date:today");
     testDoc.update("fl", UpdateMode.DEFAULT, "date", "devId", "id", "name", "category");
@@ -64,6 +64,7 @@ public class SolrConnectorTest {
 
     assertEquals(2, messenger.getDocsSentForProcessing().size());
     for (Document doc : messenger.getDocsSentForProcessing()) {
+      doc.clearInternalId();
       assertEquals(testDoc, doc);
     }
   }

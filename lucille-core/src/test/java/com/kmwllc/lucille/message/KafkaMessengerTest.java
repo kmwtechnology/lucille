@@ -30,15 +30,9 @@ public class KafkaMessengerTest {
       Mockito.when(mockProducer.send(Mockito.any())).thenReturn(mockResult);
       KafkaConsumer<String, KafkaDocument> mockConsumer = (KafkaConsumer<String, KafkaDocument>) Mockito.mock(KafkaConsumer.class);
       randomUtils.when(() -> RandomStringUtils.randomAlphanumeric(8)).thenReturn("random");
-      kafkaUtils.when(() -> {
-        KafkaUtils.createDocumentProducer(config);
-      }).thenReturn(mockProducer);
-      kafkaUtils.when(() -> {
-        KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random");
-      }).thenReturn(mockConsumer);
-      kafkaUtils.when(() -> {
-        KafkaUtils.getFailTopicName("foo");
-      }).thenReturn("foo_fail");
+      kafkaUtils.when(() -> KafkaUtils.createDocumentProducer(config)).thenReturn(mockProducer);
+      kafkaUtils.when(() -> KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random")).thenReturn(mockConsumer);
+      kafkaUtils.when(() -> KafkaUtils.getFailTopicName("foo")).thenReturn("foo_fail");
       KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, "foo");
       Document doc = Document.create("doc2");
       doc.setOrAdd("key1", "val1");
@@ -70,28 +64,17 @@ public class KafkaMessengerTest {
       Mockito.when(mockProducer.send(Mockito.any())).thenReturn(mockResult);
       KafkaConsumer<String, KafkaDocument> mockConsumer = (KafkaConsumer<String, KafkaDocument>) Mockito.mock(KafkaConsumer.class);
       randomUtils.when(() -> RandomStringUtils.randomAlphanumeric(8)).thenReturn("random");
-      kafkaUtils.when(() -> {
-        KafkaUtils.createEventProducer(config);
-      }).thenReturn(null);
-      kafkaUtils.when(() -> {
-        KafkaUtils.createEventProducer(config2);
-      }).thenReturn(mockProducer);
-      kafkaUtils.when(() -> {
-        KafkaUtils.createDocumentConsumer(config2, "com.kmwllc.lucille-worker-foo2-random");
-      }).thenReturn(mockConsumer);
-      kafkaUtils.when(() -> {
-        KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random");
-      }).thenReturn(mockConsumer);
-      kafkaUtils.when(() -> {
-        KafkaUtils.getEventTopicName(config, "foo", "id");
-      }).thenReturn("foo_event_id");
-      kafkaUtils.when(() -> {
-        KafkaUtils.getEventTopicName(config2, "foo2", "id");
-      }).thenReturn("foo2_event_id");
+      kafkaUtils.when(() -> KafkaUtils.createEventProducer(config)).thenReturn(null);
+      kafkaUtils.when(() -> KafkaUtils.createEventProducer(config2)).thenReturn(mockProducer);
+      kafkaUtils.when(() -> KafkaUtils.createDocumentConsumer(config2, "com.kmwllc.lucille-worker-foo2-random")).thenReturn(mockConsumer);
+      kafkaUtils.when(() -> KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random")).thenReturn(mockConsumer);
+      kafkaUtils.when(() -> KafkaUtils.getEventTopicName(config, "foo", "run1")).thenReturn("foo_event_id");
+      kafkaUtils.when(() -> KafkaUtils.getEventTopicName(config2, "foo2", "run1")).thenReturn("foo2_event_id");
       KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, "foo");
       KafkaWorkerMessenger messenger2 = new KafkaWorkerMessenger(config2, "foo2");
 
-      Event event = new Event("doc1", "id", "bar", Type.CREATE);
+      Document doc = Document.create("doc1", "run1", true);
+      Event event = new Event(doc, "bar", Type.CREATE);
         
       messenger.sendEvent(event);
       messenger2.sendEvent(event);
@@ -106,7 +89,7 @@ public class KafkaMessengerTest {
       assertEquals(Event.Type.CREATE, after.getType());
       assertEquals("doc1", after.getDocumentId());
       assertEquals("bar", after.getMessage());
-      assertEquals("id", after.getRunId());
+      assertEquals("run1", after.getRunId());
     }
   }
 
@@ -114,7 +97,7 @@ public class KafkaMessengerTest {
   public void testSendEvent2() throws Exception {
     Config config = ConfigFactory.load("WorkerPoolTest/config.conf");
     Config config2 = ConfigFactory.load("WorkerTest/config.conf");
-    Document doc = Document.create("doc1");
+    Document doc = Document.create("doc1", null, true);
     try (MockedStatic<KafkaUtils> kafkaUtils = Mockito.mockStatic(KafkaUtils.class);
         MockedStatic<RandomStringUtils> randomUtils = Mockito.mockStatic(RandomStringUtils.class)) {
       Future<RecordMetadata> mockResult = Mockito.mock(Future.class);
@@ -122,24 +105,12 @@ public class KafkaMessengerTest {
       Mockito.when(mockProducer.send(Mockito.any())).thenReturn(mockResult);
       KafkaConsumer<String, KafkaDocument> mockConsumer = (KafkaConsumer<String, KafkaDocument>) Mockito.mock(KafkaConsumer.class);
       randomUtils.when(() -> RandomStringUtils.randomAlphanumeric(8)).thenReturn("random");
-      kafkaUtils.when(() -> {
-        KafkaUtils.createEventProducer(config);
-      }).thenReturn(null);
-      kafkaUtils.when(() -> {
-        KafkaUtils.createEventProducer(config2);
-      }).thenReturn(mockProducer);
-      kafkaUtils.when(() -> {
-        KafkaUtils.createDocumentConsumer(config2, "com.kmwllc.lucille-worker-foo2-random");
-      }).thenReturn(mockConsumer);
-      kafkaUtils.when(() -> {
-        KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random");
-      }).thenReturn(mockConsumer);
-      kafkaUtils.when(() -> {
-        KafkaUtils.getEventTopicName(config, "foo", doc.getRunId());
-      }).thenReturn("foo_event_id");
-      kafkaUtils.when(() -> {
-        KafkaUtils.getEventTopicName(config2, "foo2", doc.getRunId());
-      }).thenReturn("foo2_event_id");
+      kafkaUtils.when(() -> KafkaUtils.createEventProducer(config)).thenReturn(null);
+      kafkaUtils.when(() -> KafkaUtils.createEventProducer(config2)).thenReturn(mockProducer);
+      kafkaUtils.when(() -> KafkaUtils.createDocumentConsumer(config2, "com.kmwllc.lucille-worker-foo2-random")).thenReturn(mockConsumer);
+      kafkaUtils.when(() -> KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random")).thenReturn(mockConsumer);
+      kafkaUtils.when(() -> KafkaUtils.getEventTopicName(config, "foo", doc.getRunId())).thenReturn("foo_event_id");
+      kafkaUtils.when(() -> KafkaUtils.getEventTopicName(config2, "foo2", doc.getRunId())).thenReturn("foo2_event_id");
       KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, "foo");
       KafkaWorkerMessenger messenger2 = new KafkaWorkerMessenger(config2, "foo2");;
 
@@ -158,6 +129,7 @@ public class KafkaMessengerTest {
       assertEquals("doc1", after.getDocumentId());
       assertEquals("message", after.getMessage());
       assertEquals(doc.getRunId(), after.getRunId());
+      assertEquals(doc.getInternalId(), after.getInternalId());
     }
   }
 }

@@ -164,7 +164,7 @@ public class PrintTest {
   public void testOverwriting() throws Exception {
     Stage stage = factory.get("PrintTest/outputFileOverwrite.conf");
 
-    Document doc = Document.create("doc", "run123");
+    Document doc = Document.create("doc", "run123", false);
     doc.setField("field", "value");
 
     stage.processDocument(doc);
@@ -177,7 +177,7 @@ public class PrintTest {
     // now, we will attempt to overwrite the file contents
     stage = factory.get("PrintTest/outputFileOverwrite.conf");
 
-    doc = Document.create("doc", "run456");
+    doc = Document.create("doc", "run456", false);
     doc.setField("abc", "123");
     // in blacklist, shouldn't be part of the response.
     doc.setField("to_remove", "abcdef");
@@ -196,7 +196,7 @@ public class PrintTest {
   public void testWhitelistAndBlacklist() throws Exception {
     Stage stage = factory.get("PrintTest/whitelistAndBlacklist.conf");
 
-    Document doc = Document.create("doc", "run");
+    Document doc = Document.create("doc", "run", false);
     doc.setField("field", "value");
     doc.setField("removeField1", "value");
     doc.setField("removeField2", "value");

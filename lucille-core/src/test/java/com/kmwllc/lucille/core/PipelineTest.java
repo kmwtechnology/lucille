@@ -6,6 +6,8 @@ import com.kmwllc.lucille.stage.CreateChildrenStage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.commons.collections4.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -181,7 +183,7 @@ public class PipelineTest {
     pipeline.addStage(new Stage3(config));
     pipeline.addStage(new Stage4(config));
 
-    final String runId = "runId1";
+    String runId = "runId1";
     Document doc = Document.create("d1");
     doc.initializeRunId(runId);
 
@@ -192,9 +194,39 @@ public class PipelineTest {
     assertEquals(9, results.size());
     for (Document result : results) {
       assertEquals(runId, result.getRunId());
+      assertNull(result.getInternalId()); // internal ID is null because it wasn't set on the parent documents
     }
-
   }
+
+  @Test
+  public void testInternalIdInitializedForChildren() throws Exception {
+    // create a pipeline with Stages 1 through 4 in sequence
+    Pipeline pipeline = new Pipeline();
+    Config config = ConfigFactory.empty();
+    pipeline.addStage(new Stage1(config));
+    pipeline.addStage(new Stage2(config));
+    pipeline.addStage(new Stage3(config));
+    pipeline.addStage(new Stage4(config));
+
+    String runId = "runId1";
+    String internalId = "123";
+    Document doc = Document.create("d1");
+    doc.initializeRunId(runId);
+    doc.initializeInternalId();
+
+    pipeline.startStages();
+    List<Document> results = IteratorUtils.toList(pipeline.processDocument(doc));
+    pipeline.stopStages();
+
+    assertEquals(9, results.size());
+    Set<String> internalIds = new HashSet<>();
+    for (Document result : results) {
+      assertEquals(runId, result.getRunId());
+      internalIds.add(result.getInternalId());
+    }
+    assertEquals(9, internalIds.size());
+  }
+
 
   @Test
   public void testConditional() throws Exception {

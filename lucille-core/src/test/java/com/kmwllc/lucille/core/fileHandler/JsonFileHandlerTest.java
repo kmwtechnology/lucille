@@ -105,6 +105,9 @@ public class JsonFileHandlerTest {
     Document doc2 = Document.createFromJson(
         "{\"id\": \"PREFIX2\", \"field3\":\"val3\", \"field2\":[\"val2-2a\", \"val2-2b\"],\"run_id\":\"run1\"}");
     Document doc3 = Document.createFromJson("{\"id\": \"PREFIX3\", \"field4\":\"val4\", \"field5\":\"val5\",\"run_id\":\"run1\"}");
+    docs.get(0).clearInternalId();
+    docs.get(1).clearInternalId();
+    docs.get(2).clearInternalId();
     assertEquals(doc1, docs.get(0));
     assertEquals(doc2, docs.get(1));
     assertEquals(doc3, docs.get(2));

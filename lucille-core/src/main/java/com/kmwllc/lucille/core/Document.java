@@ -38,8 +38,8 @@ import org.slf4j.LoggerFactory;
  * any value(s) that were there previously. addToField() methods append a value a given field, converting the field
  * into a list or multi-valued field if it was not already multi-valued. setOrAdd() methods either create the field
  * as single-valued if the field did not exist previously, or append the value to the field if the field already existed.
- * update() methods provide a convient way of toggling between the behaviors of the other setter types: they
- * accept an UpdateMode which specifies the desired behavior and they accept varargs.
+ * update() methods provide a convenient way of toggling between the behaviors of the other setter types: they
+ * accept an UpdateMode which specifies the desired behavior, and they accept varargs.
  *
  */
 public interface Document {
@@ -50,10 +50,11 @@ public interface Document {
 
   String ID_FIELD = "id";
   String RUNID_FIELD = "run_id";
+  String INTERNAL_ID_FIELD = "internal_id";
   String CHILDREN_FIELD = ".children";
   String DROP_FIELD = ".dropped";
   String SKIP_FIELD = ".skipped";
-  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD));
+  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, INTERNAL_ID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD));
 
 
   /* --- SINGLE-VALUE GETTERS --- */
@@ -515,6 +516,12 @@ public interface Document {
 
   void clearRunId();
 
+  String getInternalId();
+
+  String initializeInternalId();
+
+  void clearInternalId();
+
   boolean isDropped();
 
   void setDropped(boolean status);
@@ -582,7 +589,15 @@ public interface Document {
   }
 
   static Document create(String id, String runId) {
-    return new JsonDocument(id, runId);
+    return create(id, runId, true);
+  }
+
+  static Document create(String id, String runId, boolean initializeInternalId) {
+    Document doc = new JsonDocument(id, runId);
+    if (initializeInternalId) {
+      doc.initializeInternalId();
+    }
+    return doc;
   }
 
   static Document createFromJson(String json) throws DocumentException, JsonProcessingException {

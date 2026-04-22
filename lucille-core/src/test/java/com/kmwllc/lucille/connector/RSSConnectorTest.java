@@ -106,15 +106,15 @@ public class RSSConnectorTest {
     assertEquals("Afternoon Market Update - April 21, 2025", publishedDocs.get(0).getString("title"));
     // checking here that the formatting around the description (in the XML file) gets removed...
     assertEquals("The Dow is down more than 1,000 points. All indices are lower by 3%+.", publishedDocs.get(0).getString("description"));
-    assertEquals(Set.of("guid", "description", "title", "pubDate", "run_id", "id"), publishedDocs.get(0).getFieldNames());
+    assertEquals(Set.of("guid", "description", "title", "pubDate", "run_id", "id", "internal_id"), publishedDocs.get(0).getFieldNames());
 
     assertEquals("uber-news042125", publishedDocs.get(1).getId());
     assertEquals("BREAKING: UBER SUED BY FTC", publishedDocs.get(1).getString("title"));
-    assertEquals(Set.of("guid", "title", "pubDate", "run_id", "id"), publishedDocs.get(1).getFieldNames());
+    assertEquals(Set.of("guid", "title", "pubDate", "run_id", "id", "internal_id"), publishedDocs.get(1).getFieldNames());
 
     assertEquals("lei042125", publishedDocs.get(2).getId());
     assertEquals("Leading Economic Indicators - April 21, 2025", publishedDocs.get(2).getString("title"));
-    assertEquals(Set.of("guid", "title", "pubDate", "run_id", "id"), publishedDocs.get(2).getFieldNames());
+    assertEquals(Set.of("guid", "title", "pubDate", "run_id", "id", "internal_id"), publishedDocs.get(2).getFieldNames());
   }
 
   @Test

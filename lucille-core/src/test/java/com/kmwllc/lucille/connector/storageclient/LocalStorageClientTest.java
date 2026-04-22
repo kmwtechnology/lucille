@@ -234,11 +234,13 @@ public class LocalStorageClientTest {
     List<Document> docsWithId2 = docs.stream().filter(d -> d.getId().equals("2")).toList();
     assertEquals(2, docsWithId2.size());
     assertEquals("Gorgeous Woman Mug", docsWithId2.get(0).getString("name"));
+    docsWithId2.forEach(d -> d.clearInternalId());
     assertEquals(docsWithId2.get(0), docsWithId2.get(1));
 
     List<Document> docsWithId3 = docs.stream().filter(d -> d.getId().equals("3")).toList();
     assertEquals(2, docsWithId3.size());
     assertEquals("Awesome City Mug", docsWithId3.get(0).getString("name"));
+    docsWithId3.forEach(d -> d.clearInternalId());
     assertEquals(docsWithId3.get(0), docsWithId3.get(1));
 
     docs.stream().filter(d ->

@@ -23,6 +23,7 @@ public class Event {
 
   private Type type;
   private String documentId;
+  private String internalId;
   private String message;
   private String runId;
   private Instant instant = Instant.now();
@@ -42,6 +43,10 @@ public class Event {
   }
 
   public Event(Document document, String message, Type type) {
+    if (document.getInternalId() == null) {
+      throw new IllegalArgumentException("Document's internal ID must be set before a related Event can be created.");
+    }
+    this.internalId = document.getInternalId();
     this.documentId = document.getId();
     this.runId = document.getRunId();
     this.message = message;
@@ -55,15 +60,9 @@ public class Event {
     }
   }
 
-  public Event(String documentId, String runId, String message, Type type) {
-    this.documentId = documentId;
-    this.runId = runId;
-    this.message = message;
-    this.type = type;
-  }
-
   public Event(ObjectNode node) throws Exception {
     this.documentId = node.get("documentId").asText();
+    this.internalId = node.has("internalId") ? node.get("internalId").asText() : null;
     this.message = node.get("message").asText();
     this.runId = node.get("runId").asText();
     this.type = Type.valueOf(node.get("type").asText());
@@ -71,6 +70,10 @@ public class Event {
 
   public String getDocumentId() {
     return documentId;
+  }
+
+  public String getInternalId() {
+    return internalId;
   }
 
   public String getRunId() {
@@ -133,6 +136,7 @@ public class Event {
 
     Event e = (Event) o;
     return Objects.equals(documentId, e.documentId) &&
+        Objects.equals(internalId, e.internalId) &&
         Objects.equals(runId, e.runId) &&
         Objects.equals(message, e.message) &&
         Objects.equals(type, e.type) &&
@@ -144,7 +148,7 @@ public class Event {
   }
 
   public int hashCode() {
-    return Objects.hash(documentId, runId, message, type, instant, topic, partition, offset, key);
+    return Objects.hash(documentId, internalId, runId, message, type, instant, topic, partition, offset, key);
   }
 
 }

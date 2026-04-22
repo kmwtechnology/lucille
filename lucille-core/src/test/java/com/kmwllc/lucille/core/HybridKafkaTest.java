@@ -527,7 +527,7 @@ public class HybridKafkaTest {
   }
 
   private Document sendDoc(String id, String runId, String topic) {
-    Document doc = (runId == null) ? Document.create(id) : Document.create(id, runId);
+    Document doc = (runId == null) ? Document.create(id, null) : Document.create(id, runId);
     ProducerRecord<String, String> record = new ProducerRecord<>(topic, id, doc.toString());
     producer.send(record);
     return doc;

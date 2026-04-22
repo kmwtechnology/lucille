@@ -16,6 +16,7 @@ import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.TimeZone;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -51,6 +52,7 @@ public class DatabaseConnectorTest {
 
   private Publisher publisher;
   private TestMessenger messenger;
+  private DatabaseConnector connector;
 
   private String testRunId = "testRunId";
   private String connectorName = "testConnector";
@@ -58,9 +60,15 @@ public class DatabaseConnectorTest {
 
   @Before
   public void initTestMode() throws Exception {
-    // set com.kmwllc.lucille into loopback mode for local / standalone testing.
     messenger = new TestMessenger();
     publisher = new PublisherImpl(ConfigFactory.empty(), messenger, testRunId, pipelineName);
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    if (connector != null) {
+      connector.close();
+    }
   }
 
   @BeforeClass
@@ -91,7 +99,7 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
 
     // create the connector with the config
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
 
     // start the connector
     connector.execute(publisher);
@@ -107,8 +115,6 @@ public class DatabaseConnectorTest {
     assertEquals("2", docsSentForProcessing.get(1).getId());
     assertEquals((Integer)4, docsSentForProcessing.get(1).getInt("int_field"));
     assertEquals(false, docsSentForProcessing.get(1).getBoolean("bool_field"));
-
-    connector.close();
   }
 
   @Test
@@ -128,7 +134,7 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
 
     // create the connector with the config
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
 
     // start the connector
     connector.execute(publisher);
@@ -150,8 +156,6 @@ public class DatabaseConnectorTest {
     assertEquals("3", docsSentForProcessing.get(2).getId());
     assertEquals("Blaze", docsSentForProcessing.get(2).getStringList("name").get(0));
     assertEquals("Cat", docsSentForProcessing.get(2).getStringList("type").get(0));
-
-    connector.close();
   }
 
   @Test
@@ -270,7 +274,7 @@ public class DatabaseConnectorTest {
 
     Config config = ConfigFactory.parseMap(configValues);
 
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
 
     connector.execute(publisher);
 
@@ -287,8 +291,6 @@ public class DatabaseConnectorTest {
     assertEquals("1-2", docsSentForProcessing.get(1).getStringList("company_id").get(0));
     // The name field shouldn't be set because the value was null in the database
     assertFalse(docsSentForProcessing.get(1).has("name"));
-
-    connector.close();
   }
 
   @Test
@@ -305,7 +307,7 @@ public class DatabaseConnectorTest {
 
     Config config = ConfigFactory.parseMap(configValues);
 
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
     connector.execute(publisher);
     List<Document> docsSentForProcessing = messenger.getDocsSentForProcessing();
     assertEquals(2, docsSentForProcessing.size());
@@ -417,8 +419,6 @@ public class DatabaseConnectorTest {
         0x00, 0x11, 0x22, 0x33
     };
     assertArrayEquals(expectedLongVarbinaryBytes, longVarbinaryColBytes);
-
-    connector.close();
   }
 
   @Test
@@ -444,7 +444,7 @@ public class DatabaseConnectorTest {
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
     // create the connector with the config
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
     // run the connector
     connector.execute(publisher);
 
@@ -453,9 +453,8 @@ public class DatabaseConnectorTest {
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
     String expected = "{\"id\":\"1\",\"name\":\"Matt\",\".children\":[{\"id\":\"0\",\"meal_id\":1,\"animal_id\":1,\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":2,\"animal_id\":1,\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":3,\"animal_id\":1,\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
+    docs.get(0).clearInternalId();
     assertEquals(expected, docs.get(0).toString());
-
-    connector.close();
   }
 
   @Test
@@ -481,16 +480,15 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
 
     // create the connector with the config
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
     // run the connector
     connector.execute(publisher);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
     String expected = "{\"id\":\"Matt\",\"name\":\"Matt\",\"type\":\"Human\",\".children\":[{\"id\":\"0\",\"network_id\":3,\"name\":\"Matt\",\"friends_with\":\"Bob\"},{\"id\":\"1\",\"network_id\":4,\"name\":\"Matt\",\"friends_with\":\"Sonny\"},{\"id\":\"2\",\"network_id\":5,\"name\":\"Matt\",\"friends_with\":\"Blaze\"}],\"run_id\":\"testRunId\"}";
+    docs.get(1).clearInternalId();
     assertEquals(expected, docs.get(1).toString());
-
-    connector.close();
   }
 
   @Test
@@ -516,10 +514,9 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
 
     // create the connector with the config
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
     // throws error as JSON type is not comparable
     assertThrows(ConnectorException.class, () -> connector.execute(publisher));
-    connector.close();
   }
 
   @Test
@@ -545,7 +542,7 @@ public class DatabaseConnectorTest {
     Config config = ConfigFactory.parseMap(configValues);
 
     // create the connector with the config
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
     // run the connector
     connector.execute(publisher);
 
@@ -553,6 +550,7 @@ public class DatabaseConnectorTest {
     assertEquals(1, docs.size());
     // birthday is idField
     String expected = "{\"id\":\"2024-07-30\",\"name\":\"Sonny\",\"type\":\"Cat\",\"birthday\":\"2024-07-30T00:00:00Z\",\".children\":[{\"id\":\"0\",\"adoption_id\":1,\"name\":\"Sonny\",\"adopted_on\":\"2024-07-30T00:00:00Z\"},{\"id\":\"1\",\"adoption_id\":2,\"name\":\"Blaze\",\"adopted_on\":\"2024-07-30T00:00:00Z\"}],\"run_id\":\"testRunId\"}";
+    docs.get(0).clearInternalId();
     assertEquals(expected, docs.get(0).toString());
 
     String expectedDateStr = "2024-07-30";
@@ -563,8 +561,6 @@ public class DatabaseConnectorTest {
     assertEquals(expectedDate, docs.get(0).getDate("birthday"));
     assertEquals(expectedDate, docs.get(0).getChildren().get(0).getDate("adopted_on"));
     assertEquals(expectedDate, docs.get(0).getChildren().get(1).getDate("adopted_on"));
-
-    connector.close();
   }
 
   // TODO: not implemented yet.
@@ -583,7 +579,7 @@ public class DatabaseConnectorTest {
     // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
     // create the connector with the config
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
     // create a publisher to record all the docs sent to it.
     // run the connector
 
@@ -603,8 +599,6 @@ public class DatabaseConnectorTest {
     //    // TODO?
     //    assertEquals(3, publisher.getPublishedDocs().size());
     // TODO: more validations.
-
-    connector.close();
   }
 
   @Test
@@ -637,7 +631,6 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testIdColumnException() throws ConnectorException {
-    // Create a test config
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
@@ -647,16 +640,12 @@ public class DatabaseConnectorTest {
     configValues.put("jdbcPassword", "");
     configValues.put("sql", "select * from companies");
     configValues.put("idField", "NONEXISTENT_ID_COLUMN");
-
-    // create a config object off that map
     Config config = ConfigFactory.parseMap(configValues);
 
-    // create the connector with the config
-    DatabaseConnector connector = new DatabaseConnector(config);
-    // call the execute method, then close the connection
+    connector = new DatabaseConnector(config);
+
     Throwable exception = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     assertEquals("Unable to find id column: NONEXISTENT_ID_COLUMN", exception.getCause().getMessage());
-    connector.close();
   }
 
   @Test
@@ -672,13 +661,11 @@ public class DatabaseConnectorTest {
     configValues.put("idField", "other_id");
 
     Config config = ConfigFactory.parseMap(configValues);
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
 
     Throwable exception = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     assertEquals("Field name \"id\" is reserved, please rename it or add it to the ignore list",
         exception.getCause().getMessage());
-
-    connector.close();
   }
 
   @Test
@@ -696,7 +683,7 @@ public class DatabaseConnectorTest {
     configValues.put("idField", "other_id");
 
     Config config = ConfigFactory.parseMap(configValues);
-    DatabaseConnector connector = new DatabaseConnector(config);
+    connector = new DatabaseConnector(config);
 
     connector.execute(publisher);
 
@@ -719,7 +706,5 @@ public class DatabaseConnectorTest {
     assertEquals("id1", doc1.getString("other_id"));
     assertTrue(doc2.has("other_id"));
     assertEquals("id2", doc2.getString("other_id"));
-
-    connector.close();
   }
 }

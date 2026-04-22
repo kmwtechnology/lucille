@@ -32,6 +32,10 @@ public class SequenceConnectorTest {
         "{\"id\": \"PREFIX10001\", \"run_id\": \"run1\"}");
     Document doc3 = Document.createFromJson("{\"id\": \"PREFIX10002\", \"run_id\": \"run1\"}");
     Document doc99 = Document.createFromJson("{\"id\": \"PREFIX10099\", \"run_id\": \"run1\"}");
+    docs.get(0).clearInternalId();
+    docs.get(1).clearInternalId();
+    docs.get(2).clearInternalId();
+    docs.get(99).clearInternalId();
     assertEquals(doc1, docs.get(0));
     assertEquals(doc2, docs.get(1));
     assertEquals(doc3, docs.get(2));

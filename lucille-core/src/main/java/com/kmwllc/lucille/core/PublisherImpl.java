@@ -7,6 +7,7 @@ import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
@@ -249,21 +250,24 @@ public class PublisherImpl implements Publisher {
   private void sendForProcessing(Document document) throws Exception {
     document.initializeRunId(runId);
 
-    // capture the docId before we make the document available for update by other threads
-    String docId = document.getId();
+    // Assign a unique internal ID to this document instance.
+    // This allows the Publisher to distinguish between two documents with the same user-visible ID
+    // that are published in the same run. The internal ID is stored as a reserved field so it
+    // survives Kafka serialization/deserialization and can be read back from Events.
+    String internalId = document.initializeInternalId();
 
-    // It is important to add the docId to docIdsToTrack before sending it for processing, not after.
+    // It is important to add the internalId to docIdsToTrack before sending it for processing, not after.
     // As soon as the document has been sent for processing, the publisher could begin receiving Events relating to that document.
-    // If the publisher quickly receives a DROP event, for example, we want to be sure that the docId has already been
+    // If the publisher quickly receives a DROP event, for example, we want to be sure that the internalId has already been
     // added to docIdsToTrack so that it can be found there and removed, not mistakenly added to docIdsIndexedBeforeTracking
-    docIdsToTrack.add(docId);
+    docIdsToTrack.add(internalId);
 
     try {
       messenger.sendForProcessing(document);
     } catch (Exception e) {
       // we assume that if an exception was encountered here, the doc was not actually made available for processing,
-      // and that we won't be receiving any Events relating to it, so we can stop tracking its docId now
-      docIdsToTrack.remove(docId, 1);
+      // and that we won't be receiving any Events relating to it, so we can stop tracking its internalId now
+      docIdsToTrack.remove(internalId, 1);
       throw e;
     }
 
@@ -298,6 +302,7 @@ public class PublisherImpl implements Publisher {
   @Override
   public void handleEvent(Event event) {
     String docId = event.getDocumentId();
+    String internalId = event.getInternalId();
     MDC.put(Document.ID_FIELD, docId);
     docLogger.info("Publisher is handling an event ({}) for doc {}.", event.getType(), docId);
 
@@ -308,8 +313,8 @@ public class PublisherImpl implements Publisher {
       // if we're learning that a child document has been created, we need to begin tracking it unless
       // we have already received an early confirmation that it was indexed
       // TODO: this does not handle redundant create events
-      if (!docIdsIndexedBeforeTracking.remove(docId, 1)) {
-        docIdsToTrack.add(docId);
+      if (!docIdsIndexedBeforeTracking.remove(internalId, 1)) {
+        docIdsToTrack.add(internalId);
       }
 
     } else {
@@ -326,13 +331,13 @@ public class PublisherImpl implements Publisher {
       // but if we weren't previously tracking it, we need to remember that we've seen it so that
       // if we receive an out-of-order or late create event for this document in the future,
       // we won't start tracking it then
-      if (!docIdsToTrack.remove(docId, 1)) {
-        docIdsIndexedBeforeTracking.add(docId);
+      if (!docIdsToTrack.remove(internalId, 1)) {
+        docIdsIndexedBeforeTracking.add(internalId);
       } else {
         if (maxPendingDocs != null) {
           try {
             lockForPendingDocs.lock();
-            // since we have removed a docID from the bag of docIdsToTrack (and this is the main place where we do this),
+            // since we have removed a tracking ID from the bag of docIdsToTrack (and this is the main place where we do this),
             // check to see if the number of pending docs has fallen below the specified max and
             // notify any threads that are waiting on that condition; specifically, notify the connector thread(s)
             // where publish() is being called

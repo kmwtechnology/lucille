@@ -36,8 +36,9 @@ public class PublisherImplTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Event createEvent = new Event("doc1", "run1", "", Event.Type.CREATE);
-    Event finishEvent = new Event("doc1", "run1", "", Event.Type.FINISH);
+    Document doc = Document.create("doc1", "run1");
+    Event createEvent = new Event(doc, "", Event.Type.CREATE);
+    Event finishEvent = new Event(doc, "", Event.Type.FINISH);
 
     // if we receive a late CREATE event (i.e. one that arrives after the corresponding FINISH event)
     // we shouldn't treat this as a newly created document that adds to the count of pending documents
@@ -58,8 +59,10 @@ public class PublisherImplTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Event createEvent = new Event("doc1", "run1", "", Event.Type.CREATE);
-    Event finishEvent = new Event("doc1", "run1", "", Event.Type.FINISH);
+    Document doc = Document.create("doc1", "run1");
+
+    Event createEvent = new Event(doc, "", Event.Type.CREATE);
+    Event finishEvent = new Event(doc, "", Event.Type.FINISH);
 
     publisher.handleEvent(createEvent);
     assertEquals(1, publisher.numPending());
@@ -77,10 +80,10 @@ public class PublisherImplTest {
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
 
+    Document doc = Document.create("doc1");
     publisher.publish(doc);
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
@@ -88,7 +91,7 @@ public class PublisherImplTest {
     assertEquals(1, messenger.getDocsSentForProcessing().size());
     assertEquals(doc, messenger.getDocsSentForProcessing().get(0));
 
-    Event finishEvent = new Event(doc.getId(), "run1", "", Event.Type.FINISH);
+    Event finishEvent = new Event(doc, "", Event.Type.FINISH);
     publisher.handleEvent(finishEvent);
     assertEquals(1, publisher.numPublished());
     assertEquals(0, publisher.numPending());
@@ -116,36 +119,56 @@ public class PublisherImplTest {
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
 
-    Event failEvent = new Event(doc.getId(), "run1", "", Event.Type.FAIL);
+    Event failEvent = new Event(doc, "", Event.Type.FAIL);
     publisher.handleEvent(failEvent);
     assertEquals(1, publisher.numPublished());
     assertEquals(0, publisher.numPending());
   }
 
+  @Test( expected = IllegalStateException.class )
+  public void testRepeatPublishSameDoc() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    Document doc = Document.create("doc1");
+    publisher.publish(doc);
+    publisher.publish(doc); // can't republish a doc because this involves reinitializing its internal ID which isn't allowed
+  }
+
   @Test
   public void testRedundantDocIDs() throws Exception {
+
+    Document myDoc1 = Document.create("myDoc");
+    Document myDoc2 = Document.create("myDoc");
 
     TestMessenger messenger = new TestMessenger();
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
-    Document doc = Document.create("doc1");
     assertEquals(0, publisher.numPublished());
     assertEquals(0, publisher.numPending());
 
-    publisher.publish(doc);
+    publisher.publish(myDoc1);
     assertEquals(1, publisher.numPublished());
     assertEquals(1, publisher.numPending());
 
-    publisher.publish(Document.create("doc1"));
+    publisher.publish(myDoc2);
     assertEquals(2, publisher.numPublished());
     assertEquals(2, publisher.numPending());
 
-    Event finishEvent = new Event(doc.getId(), "run1", "", Event.Type.FINISH);
-    publisher.handleEvent(finishEvent);
+    Event finishEvent1 = new Event(myDoc1, "", Event.Type.FINISH);
+    publisher.handleEvent(finishEvent1);
     assertEquals(2, publisher.numPublished());
     assertEquals(1, publisher.numPending());
 
-    publisher.handleEvent(finishEvent); // redundant finish event
+    publisher.handleEvent(finishEvent1); // redundant finish event
+    assertEquals(2, publisher.numPublished());
+    assertEquals(1, publisher.numPending()); // one doc is still pending because finishEvent1 is specific to myDoc1's internal id
+
+    Event finishEvent2 = new Event(myDoc2, "", Event.Type.FINISH);
+    publisher.handleEvent(finishEvent2);
+    assertEquals(2, publisher.numPublished());
+    assertEquals(0, publisher.numPending());
+
+    publisher.handleEvent(finishEvent2); // redundant finish event
     assertEquals(2, publisher.numPublished());
     assertEquals(0, publisher.numPending());
   }
@@ -161,19 +184,32 @@ public class PublisherImplTest {
     assertEquals(0, publisher.numFailed());
     assertEquals(0, publisher.numCreated());
 
-    publisher.publish(Document.create("doc1"));
-    publisher.publish(Document.create("doc2"));
-    publisher.publish(Document.create("doc3"));
-    publisher.publish(Document.create("doc4"));
-    publisher.handleEvent(new Event("doc3-child1", "run1", "", Event.Type.CREATE));
-    publisher.handleEvent(new Event("doc3-child2", "run1", "", Event.Type.CREATE));
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
+    Document doc4 = Document.create("doc4");
 
-    publisher.handleEvent(new Event("doc1", "run1", "", Event.Type.FINISH));
-    publisher.handleEvent(new Event("doc2", "run1", "", Event.Type.FAIL));
-    publisher.handleEvent(new Event("doc3-child1", "run1", "", Event.Type.FAIL));
-    publisher.handleEvent(new Event("doc3-child2", "run1", "", Event.Type.FINISH));
-    publisher.handleEvent(new Event("doc3", "run1", "", Event.Type.FINISH));
-    publisher.handleEvent(new Event("doc4", "run1", "", Event.Type.DROP));
+    publisher.publish(doc1);
+    publisher.publish(doc2);
+    publisher.publish(doc3);
+    publisher.publish(doc4);
+
+    Document doc3child1 = Document.create("doc3child1");
+    Document doc3child2 = Document.create("doc3child2");
+    // need to initialize internal IDs for children because they are not passed through publish() and
+    // are not being processed by the pipeline where these IDs would normally be initialized
+    doc3child1.initializeInternalId();
+    doc3child2.initializeInternalId();
+
+    publisher.handleEvent(new Event(doc3child1, "", Event.Type.CREATE));
+    publisher.handleEvent(new Event(doc3child2, "", Event.Type.CREATE));
+
+    publisher.handleEvent(new Event(doc1, "", Event.Type.FINISH));
+    publisher.handleEvent(new Event(doc2, "", Event.Type.FAIL));
+    publisher.handleEvent(new Event(doc3child1, "", Event.Type.FAIL));
+    publisher.handleEvent(new Event(doc3child2, "", Event.Type.FINISH));
+    publisher.handleEvent(new Event(doc3, "", Event.Type.FINISH));
+    publisher.handleEvent(new Event(doc4, "", Event.Type.DROP));
 
     assertEquals(4, publisher.numPublished());
     assertEquals(0, publisher.numPending());
@@ -190,7 +226,8 @@ public class PublisherImplTest {
 
     assertEquals(0, publisher.numSucceeded());
 
-    Event event = new Event("doc1", "run1", "", Event.Type.FINISH);
+    Document doc = Document.create("doc1", "run1");
+    Event event = new Event(doc, "", Event.Type.FINISH);
 
     publisher.handleEvent(event);
     publisher.handleEvent(event);
@@ -294,9 +331,11 @@ public class PublisherImplTest {
     LocalMessenger messenger = new LocalMessenger(config);
     PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
+    Document doc1 = Document.create("doc1");
+
     // test that publish() is "fast" when maxPendingDocs is not exceeded
     assertTimeout(ofMillis(500), () -> {
-      publisher.publish(Document.create("doc1"));
+      publisher.publish(doc1);
       publisher.publish(Document.create("doc2"));
       publisher.publish(Document.create("doc3"));
       publisher.preClose();
@@ -325,7 +364,7 @@ public class PublisherImplTest {
     }
 
     assertEquals(3, publisher.numPending());
-    publisher.handleEvent(new Event("doc1", "run1", "success", Event.Type.FINISH));
+    publisher.handleEvent(new Event(doc1, "success", Event.Type.FINISH));
     assertEquals(2, publisher.numPending());
 
     // test that publish() is "fast" again now that maxPendingDocs is no longer exceeded
@@ -342,11 +381,13 @@ public class PublisherImplTest {
     LocalMessenger messenger = new LocalMessenger(config);
     PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
+    Document doc1 = Document.create("doc1");
+
     // this thread should publish the 3 docs and block when it tries to publish the fourth
     // until the number of pending docs is brought back underneath maxPendingDocs via a call to publisher.handleEvent()
     Thread publisherThread = new Thread(() -> {
         try {
-          publisher.publish(Document.create("doc1"));
+          publisher.publish(doc1);
           publisher.publish(Document.create("doc2"));
           publisher.publish(Document.create("doc3"));
           publisher.publish(Document.create("doc4"));
@@ -362,7 +403,7 @@ public class PublisherImplTest {
 
     // after we handle a FINISH event, the number of pending docs should fall below maxPendingDocs, which should cause
     // the publication of the 4th document to unblock, allowing publisherThread to complete
-    publisher.handleEvent(new Event("doc1", "run1", "success", Event.Type.FINISH));
+    publisher.handleEvent(new Event(doc1, "success", Event.Type.FINISH));
     publisherThread.join();
     publisher.close();
     assertEquals(4, publisher.numPublished());
@@ -427,7 +468,7 @@ public class PublisherImplTest {
     PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     // publishing threads will add ids of published docs to this queue; event handling thread will drain it
-    final LinkedBlockingQueue<String> publishedIds = new LinkedBlockingQueue<>();
+    final LinkedBlockingQueue<Document> publishedDocs = new LinkedBlockingQueue<>();
 
     // keep a list of all threads we'll start in this test;
     // the event handling thread will be added at position 0, followed by publishing threads
@@ -438,14 +479,14 @@ public class PublisherImplTest {
     Thread eventHandlingThread = new Thread(() -> {
       int numEventsHandled = 0;
       while (true) {
-        String id;
+        Document doc;
         try {
-          id = publishedIds.take();
+          doc = publishedDocs.take();
         } catch (InterruptedException e) {
           e.printStackTrace();
           return;
         }
-        publisher.handleEvent(new Event(id, "run1", "message", Type.FINISH));
+        publisher.handleEvent(new Event(doc, "message", Type.FINISH));
         numEventsHandled++;
         if (numEventsHandled == 10000) {
           return;
@@ -462,14 +503,13 @@ public class PublisherImplTest {
       final int i2 = i;
       threads.add(new Thread(() -> {
         for (int j = 0; j < 1000; j++) {
-          String id = i2 + "_" + j;
+          Document doc = Document.create(i2 + "_" + j);
           try {
-            publisher.publish(Document.create(id));
+            publisher.publish(doc);
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
-
-          publishedIds.add(id);
+          publishedDocs.add(doc);
 
           // periodically check that the number of pending docs is not reported as much higher than declared max of 100
           // if we find too many pending docs, we interrupt all the threads (to prevent the test from hanging) and
@@ -543,7 +583,7 @@ public class PublisherImplTest {
     PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     // publishing threads will add ids of published docs to this queue; event handling thread will drain it
-    final LinkedBlockingQueue<String> publishedIds = new LinkedBlockingQueue<>();
+    final LinkedBlockingQueue<Document> publishedDocs = new LinkedBlockingQueue<>();
 
     // publishing threads will use this to know when to stop
     AtomicBoolean stop = new AtomicBoolean(false);
@@ -555,8 +595,9 @@ public class PublisherImplTest {
       threads.add(new Thread(() -> {
         try {
           for (int j = 0; j < 10000; j++) {
-            publisher.publish(Document.create(i2 + "_" + j));
-            publishedIds.add(i2 + "_" + j);
+            Document doc = Document.create(i2 + "_" + j);
+            publisher.publish(doc);
+            publishedDocs.add(doc);
             Thread.sleep(50);
             if (stop.get()) {
               return;
@@ -589,7 +630,7 @@ public class PublisherImplTest {
     assertEquals(numPublishedAtTime1, publisher.numPending());
 
     // handle success events for all docs that have been published so far
-    publishedIds.forEach(id -> publisher.handleEvent(new Event(id, "run1", "message", Type.FINISH)));
+    publishedDocs.forEach(doc -> publisher.handleEvent(new Event(doc, "message", Type.FINISH)));
     // there should be no pending docs after we've handled events for all published docs
     assertEquals(0, publisher.numPending());
 

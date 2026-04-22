@@ -197,6 +197,7 @@ public abstract class Stage {
       return parent;
     }
     String runId = doc.getRunId();
+    String internalId = doc.getInternalId();
 
     Iterator<Document> wrappedChildren = new Iterator<>() {
 
@@ -215,9 +216,12 @@ public abstract class Stage {
           }
 
           // copy the parent's RunID to the child
-          // TODO: copy the parent's ID as well and store it as parentID on the child
           if ((runId != null) && !child.has(Document.RUNID_FIELD)) {
             child.initializeRunId(runId);
+          }
+          // if the parent's internal ID is initialized, then initialize the child's as well
+          if (internalId != null) {
+            child.initializeInternalId();
           }
         }
 
