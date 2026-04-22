@@ -1,4 +1,10 @@
-# This is a script which will generate the user-facing versioned documentation site locally. When you build
+# The following script is used in hugo.yml for the github workflow which builds and deploys our documentation site.
+
+# The script will run in production mode if a production flag is added to it, like this: versionsworkflow.sh production
+# It runs in local mode by default, which you can see in the first few lines of the script. Further information can be found
+# on local mode in the following comments:
+
+# Local mode which will generate the user-facing versioned documentation site locally. When you build
 # the site locally without running this script, you will only get the most updated docs from the
 # working directory. This script allows you to see what the doc site will look like in production.
 
@@ -9,6 +15,7 @@
 # Also keep in mind that this script will alter the hugo.toml file.
 # MAKE SURE TO REVERT THE hugo.toml BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
 
+# Pre-run cleanup if running in local mode, not necessary for production
 cd ${GITHUB_WORKSPACE}/doc/site
 mode=${1:-"local"}
 if [ $mode = "local" ]; then
