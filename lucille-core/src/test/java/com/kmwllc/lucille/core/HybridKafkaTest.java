@@ -383,6 +383,8 @@ public class HybridKafkaTest {
     workerIndexer.stop();
 
     assertEquals(1, pipelineDest.getHistory().size());
+    assertNotNull(pipelineDest.getHistory().get(0).getInternalId());
+    pipelineDest.getHistory().get(0).clearInternalId();
     assertEquals(outputJson, pipelineDest.getHistory().get(0).toString());
   }
 
@@ -527,7 +529,10 @@ public class HybridKafkaTest {
   }
 
   private Document sendDoc(String id, String runId, String topic) {
-    Document doc = (runId == null) ? Document.create(id, null) : Document.create(id, runId);
+    // create the new document without initializing its internal ID to match the scenario
+    // where the WorkerIndexer is consuming externally generated documents from Kafka that have
+    // not passed through the Publisher and do not have internal IDs -- pass false as third arg in Document.create
+    Document doc = (runId == null) ? Document.create(id, null, false) : Document.create(id, runId, false);
     ProducerRecord<String, String> record = new ProducerRecord<>(topic, id, doc.toString());
     producer.send(record);
     return doc;

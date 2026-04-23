@@ -16,6 +16,7 @@ import java.lang.Thread.State;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,6 +27,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
 public class PublisherImplTest {
@@ -169,6 +172,43 @@ public class PublisherImplTest {
     assertEquals(0, publisher.numPending());
 
     publisher.handleEvent(finishEvent2); // redundant finish event
+    assertEquals(2, publisher.numPublished());
+    assertEquals(0, publisher.numPending());
+  }
+
+  @Test
+  public void testRedundantInternalIDs() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+
+    UUID fixedId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
+    // Force both calls to UUID.randomUUID() inside initializeInternalId() to return the same value,
+    // simulating a UUID collision that cannot occur in practice but that we want the publisher to survive.
+    try (MockedStatic<UUID> mockedUUID = Mockito.mockStatic(UUID.class)) {
+      mockedUUID.when(UUID::randomUUID).thenReturn(fixedId);
+      publisher.publish(doc1);
+      publisher.publish(doc2);
+    }
+
+    assertEquals(fixedId.toString(), doc1.getInternalId());
+    assertEquals(fixedId.toString(), doc2.getInternalId());
+    assertEquals(2, publisher.numPublished());
+    assertEquals(2, publisher.numPending());
+
+    // The publisher tracks internal IDs in a multiset (HashBag), so two entries with the same value
+    // are stored independently. As long as each document produces exactly one terminal event and
+    // no events are replayed, the publisher resolves both correctly.
+    Event finishEvent1 = new Event(doc1, "", Event.Type.FINISH);
+    publisher.handleEvent(finishEvent1);
+    assertEquals(2, publisher.numPublished());
+    assertEquals(1, publisher.numPending());
+
+    Event finishEvent2 = new Event(doc2, "", Event.Type.FINISH);
+    publisher.handleEvent(finishEvent2);
     assertEquals(2, publisher.numPublished());
     assertEquals(0, publisher.numPending());
   }

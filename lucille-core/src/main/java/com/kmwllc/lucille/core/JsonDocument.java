@@ -77,7 +77,9 @@ public class JsonDocument implements Document {
 
   public JsonDocument(String id, String runId) {
     this(id);
-    this.data.put(RUNID_FIELD, runId);
+    if (runId != null) {
+      this.data.put(RUNID_FIELD, runId);
+    }
   }
 
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
