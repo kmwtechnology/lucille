@@ -18,9 +18,9 @@
 # Pre-run cleanup if running in local mode, not necessary for production
 mode=${1:-"local"}
 if [ $mode = "local" ]; then
+  cd ../../doc/site
   rm -rf content/en/docs-*
   git checkout HEAD -- hugo.toml
-  cd ../../doc/site
   url="http://localhost:1313/docs"
 elif [ $mode = "production" ]; then
   cd ${GITHUB_WORKSPACE}/doc/site
@@ -126,7 +126,7 @@ done <<< "$tags"
 # [[params.versions]] blocks are left alone).
 
 awk '
-  /^\[params\.ui\]/{while((getline line < "/tmp/versions_block.txt") > 0) print line; print ""; print; next}
+  /^# PLACEHOLDER/{while((getline line < "/tmp/versions_block.txt") > 0) print line; next}
   /^version = /{next}
   /^url_latest_version = /{next}
   {print}

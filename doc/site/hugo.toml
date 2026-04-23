@@ -128,6 +128,10 @@ offlineSearch = true
 prism_syntax_highlighting = false
 
 
+# The following line is a placeholder for where the version generation script will place the version blocks. Do not change or remove it.
+# PLACEHOLDER
+
+# User interface configuration
 [params.ui]
 #  Set to true to disable breadcrumb navigation.
 breadcrumb_disable = false
