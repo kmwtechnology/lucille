@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.core.Document.ID_FIELD;
 import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.*;
+import com.kmwllc.lucille.core.Document.InternalIdSource;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
@@ -79,9 +80,9 @@ class Worker implements Runnable {
         // (that were not published via Publisher) will not have internal IDs, so
         // we initialize the internal ID now; while the internal ID is mostly relevant for the
         // the Publisher accounting mechanism, we still want all documents processed by Lucille
-        // to have internal IDs 
+        // to have internal IDs
         if (doc != null && doc.getInternalId() == null) {
-          doc.initializeInternalId();
+          doc.initializeInternalId(InternalIdSource.WORKER);
         }
 
         // continuously update the MDC if we haven't been given a localRunID (in Kafka modes).

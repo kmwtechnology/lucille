@@ -1,10 +1,13 @@
 package com.kmwllc.lucille.core;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.kmwllc.lucille.core.Document.InternalIdSource;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.util.CounterUtils;
 import com.kmwllc.lucille.util.RecordingLinkedBlockingQueue;
@@ -108,7 +111,8 @@ public class HybridKafkaTest {
     embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
 
     // send doc - doc1
-    sendDoc("doc1", topicName);
+    Document doc1 = sendDoc("doc1", topicName);
+    assertNull(doc1.getInternalId());
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
@@ -155,6 +159,13 @@ public class HybridKafkaTest {
     assertEquals(1, offsets.getHistory().size());
     assertEquals(1, offsets.getHistory().get(0).entrySet().size());
     assertEquals(3, offsets.getHistory().get(0).get(topicPartition).offset());
+
+    Document processedDoc1 =
+        pipelineDest.getHistory().stream().filter(item -> "doc1".equals(item.getId())).findFirst().orElseThrow();
+    assertNotEquals(doc1, processedDoc1);
+    assertNull(doc1.getInternalId());
+    assertNotNull(processedDoc1.getInternalId());
+    assertTrue(processedDoc1.getInternalId().endsWith(InternalIdSource.WORKER.getSuffix()));
   }
 
   @Test

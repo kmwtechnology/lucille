@@ -520,7 +520,37 @@ public interface Document {
 
   String initializeInternalId();
 
+  /**
+   * Initializes the Document's internal ID with a suffix identifying the point in the pipeline where
+   * the ID was created. The suffix is included only to aid debugging and has no meaning to
+   * Publisher accounting, which treats the internal ID as an opaque string.
+   */
+  String initializeInternalId(InternalIdSource source);
+
   void clearInternalId();
+
+  /**
+   * Identifies where a Document's internal ID was initialized.
+   * Each value carries a single-character suffix that can be appended to the generated UUID.
+   * PUBLISHER: Publisher.publish when Lucille runs in batch mode via Runner.
+   * STAGE: Stage.apply when a Stage emits a child Document.
+   * WORKER: Worker when a Document is consumed from Kafka in streaming mode without a Publisher.
+   */
+  enum InternalIdSource {
+    PUBLISHER("P"),
+    STAGE("S"),
+    WORKER("W");
+
+    private final String suffix;
+
+    InternalIdSource(String suffix) {
+      this.suffix = suffix;
+    }
+
+    public String getSuffix() {
+      return suffix;
+    }
+  }
 
   boolean isDropped();
 

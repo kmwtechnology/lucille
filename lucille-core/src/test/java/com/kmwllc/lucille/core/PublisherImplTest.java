@@ -2,11 +2,14 @@ package com.kmwllc.lucille.core;
 
 import static java.time.Duration.ofMillis;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
 
+import com.kmwllc.lucille.core.Document.InternalIdSource;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -174,6 +177,18 @@ public class PublisherImplTest {
     publisher.handleEvent(finishEvent2); // redundant finish event
     assertEquals(2, publisher.numPublished());
     assertEquals(0, publisher.numPending());
+  }
+
+  @Test
+  public void testInternalIDInitialization() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    Document doc1 = Document.create("doc1");
+    assertNull(doc1.getInternalId());
+    publisher.publish(doc1);
+    assertNotNull(doc1.getInternalId());
+    assertTrue(doc1.getInternalId().endsWith(InternalIdSource.PUBLISHER.getSuffix()));
   }
 
   @Test

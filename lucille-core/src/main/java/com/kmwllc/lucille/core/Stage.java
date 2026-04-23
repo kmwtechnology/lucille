@@ -4,6 +4,7 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import com.kmwllc.lucille.core.Document.InternalIdSource;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.LogUtils;
@@ -221,7 +222,7 @@ public abstract class Stage {
           }
           // if the parent's internal ID is initialized, then initialize the child's as well
           if (internalId != null) {
-            child.initializeInternalId();
+            child.initializeInternalId(InternalIdSource.STAGE);
           }
         }
 

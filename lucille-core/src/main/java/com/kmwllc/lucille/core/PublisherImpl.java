@@ -2,12 +2,12 @@ package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import com.kmwllc.lucille.core.Document.InternalIdSource;
 import com.kmwllc.lucille.message.PublisherMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
@@ -254,7 +254,7 @@ public class PublisherImpl implements Publisher {
     // This allows the Publisher to distinguish between two documents with the same user-visible ID
     // that are published in the same run. The internal ID is stored as a reserved field so it
     // survives Kafka serialization/deserialization and can be read back from Events.
-    String internalId = document.initializeInternalId();
+    String internalId = document.initializeInternalId(InternalIdSource.PUBLISHER);
 
     // It is important to add the internalId to docIdsToTrack before sending it for processing, not after.
     // As soon as the document has been sent for processing, the publisher could begin receiving Events relating to that document.

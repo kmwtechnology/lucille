@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.core.Document.InternalIdSource;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.stage.CreateChildrenStage;
@@ -209,10 +210,9 @@ public class PipelineTest {
     pipeline.addStage(new Stage4(config));
 
     String runId = "runId1";
-    String internalId = "123";
     Document doc = Document.create("d1");
     doc.initializeRunId(runId);
-    doc.initializeInternalId();
+    String parentInternalId = doc.initializeInternalId();
 
     pipeline.startStages();
     List<Document> results = IteratorUtils.toList(pipeline.processDocument(doc));
@@ -225,6 +225,11 @@ public class PipelineTest {
       internalIds.add(result.getInternalId());
     }
     assertEquals(9, internalIds.size());
+    assertTrue(internalIds.contains(parentInternalId));
+
+    // internal Ids of child documents should have a suffix indicating that the internal ID was initialized in a Stage
+    internalIds.remove(parentInternalId);
+    internalIds.forEach(childInternalId -> assertTrue(childInternalId.endsWith(InternalIdSource.STAGE.getSuffix())));
   }
 
 

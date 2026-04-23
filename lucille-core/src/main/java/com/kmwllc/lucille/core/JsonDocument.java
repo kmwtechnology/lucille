@@ -148,10 +148,18 @@ public class JsonDocument implements Document {
 
   @Override
   public String initializeInternalId() {
+    return initializeInternalId(null);
+  }
+
+  @Override
+  public String initializeInternalId(InternalIdSource source) {
     if (data.has(INTERNAL_ID_FIELD)) {
       throw new IllegalStateException();
     }
     String internalId = UUID.randomUUID().toString();
+    if (source != null) {
+      internalId += "_" + source.getSuffix();
+    }
     data.put(INTERNAL_ID_FIELD, internalId);
     return internalId;
   }
