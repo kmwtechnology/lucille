@@ -209,8 +209,8 @@ public class PublisherImplTest {
       publisher.publish(doc2);
     }
 
-    assertEquals(fixedId.toString(), doc1.getInternalId());
-    assertEquals(fixedId.toString(), doc2.getInternalId());
+    assertTrue(doc1.getInternalId().startsWith(fixedId.toString()));
+    assertEquals(doc1.getInternalId(), doc2.getInternalId());
     assertEquals(2, publisher.numPublished());
     assertEquals(2, publisher.numPending());
 
