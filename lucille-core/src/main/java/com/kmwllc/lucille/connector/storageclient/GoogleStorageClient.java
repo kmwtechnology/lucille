@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 public class GoogleStorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);
-  private Storage storage;
+  protected Storage storage;
 
   public GoogleStorageClient(Config googleCloudOptions) {
     super(googleCloudOptions);

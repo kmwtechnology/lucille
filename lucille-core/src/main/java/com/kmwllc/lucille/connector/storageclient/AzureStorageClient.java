@@ -29,8 +29,8 @@ import org.slf4j.LoggerFactory;
  */
 public class AzureStorageClient extends BaseStorageClient {
 
-  private BlobServiceClient serviceClient;
   private static final Logger log = LoggerFactory.getLogger(AzureStorageClient.class);
+  protected BlobServiceClient serviceClient;
 
   /**
    * Creates an AzureStorageClient from the given azureCloudOptions, which must contain either "connectionString" OR
