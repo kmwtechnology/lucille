@@ -3,7 +3,6 @@ package com.kmwllc.lucille.util;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,10 +18,14 @@ import java.security.KeyStore;
 import java.util.HashMap;
 import java.util.Map;
 import javax.net.ssl.SSLContext;
+import org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.HttpResponse;
+import org.apache.hc.core5.http.message.BasicHttpResponse;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.apache.hc.core5.util.TimeValue;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -187,4 +190,44 @@ public class OpenSearchUtilsTest {
     assertThrows(Exception.class, () -> OpenSearchUtils.getOpenSearchRestClient(badUrlConfig));
 
   }
+
+  @Test
+  public void testRetryOn429and503WithIncrementalBackoff() {
+    DefaultHttpRequestRetryStrategy strategy = OpenSearchUtils.buildRetryStrategy();
+
+    HttpResponse response429 = new BasicHttpResponse(429, "Too Many Requests");
+
+    // On a 429, retry is allowed up to maxRetries of 3
+    assertTrue(strategy.retryRequest(response429, 1, null));
+    assertEquals(TimeValue.ofSeconds(2), strategy.getRetryInterval(response429, 1, null));
+
+    assertTrue(strategy.retryRequest(response429, 2, null));
+    assertEquals(TimeValue.ofSeconds(4), strategy.getRetryInterval(response429, 2, null));
+
+    assertTrue(strategy.retryRequest(response429, 3, null));
+    assertEquals(TimeValue.ofSeconds(8), strategy.getRetryInterval(response429, 3, null));
+
+    // No more retrying after maxRetries is hit
+    assertFalse(strategy.retryRequest(response429, 4, null));
+
+    // Replicate for a 503 code
+    HttpResponse response503 = new BasicHttpResponse(503, "Service Unavailable");
+
+    assertTrue(strategy.retryRequest(response503, 1, null));
+    assertEquals(TimeValue.ofSeconds(2), strategy.getRetryInterval(response429, 1, null));
+
+    assertTrue(strategy.retryRequest(response503, 2, null));
+    assertEquals(TimeValue.ofSeconds(4), strategy.getRetryInterval(response429, 2, null));
+
+    assertTrue(strategy.retryRequest(response503, 3, null));
+    assertEquals(TimeValue.ofSeconds(8), strategy.getRetryInterval(response429, 3, null));
+
+    // No more retrying after maxRetries is hit
+    assertFalse(strategy.retryRequest(response503, 4, null));
+
+    // 200 should not retry
+    HttpResponse response200 = new BasicHttpResponse(200, "OK");
+    assertFalse(strategy.retryRequest(response200, 1, null));
+  }
+
 }

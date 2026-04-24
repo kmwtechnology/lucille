@@ -8,13 +8,17 @@ import java.net.URI;
 import javax.net.ssl.SSLContext;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.HttpResponse;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
+import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
+import org.apache.hc.core5.util.TimeValue;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
@@ -100,11 +104,21 @@ public class OpenSearchUtils {
 
           return httpClientBuilder
               .setDefaultCredentialsProvider(credentialsProvider)
-              .setConnectionManager(connectionManager);
+              .setConnectionManager(connectionManager)
+              .setRetryStrategy(buildRetryStrategy());
         })
         .build();
 
     return new OpenSearchClient(transport);
+  }
+
+  static DefaultHttpRequestRetryStrategy buildRetryStrategy() {
+    return new DefaultHttpRequestRetryStrategy(3, TimeValue.ofSeconds(1)) {
+      @Override
+      public TimeValue getRetryInterval(HttpResponse response, int execCount, HttpContext context) {
+        return TimeValue.ofSeconds((long) Math.pow(2, execCount)); // 2s, 4s, 8s
+      }
+    };
   }
 
   public static String getOpenSearchUrl(Config config) {
