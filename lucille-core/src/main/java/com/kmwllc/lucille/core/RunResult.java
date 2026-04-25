@@ -37,9 +37,10 @@ public class RunResult {
   }
 
   public String getMessage() {
-    return message; 
+    return message;
   }
 
+  @Override
   public String toString() {
     return message;
   }

@@ -6,7 +6,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.apache.solr.common.annotation.JsonProperty;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -110,6 +109,7 @@ public class Event {
     return Type.CREATE.equals(type);
   }
 
+  @Override
   public String toString() {
     try {
       return MAPPER.writeValueAsString(this);
@@ -122,6 +122,7 @@ public class Event {
     return MAPPER.readValue(json, Event.class);
   }
 
+  @Override
   public boolean equals(Object o) {
     if (o == this) {
       return true;
@@ -143,6 +144,7 @@ public class Event {
         Objects.equals(key, e.key);
   }
 
+  @Override
   public int hashCode() {
     return Objects.hash(documentId, runId, message, type, instant, topic, partition, offset, key);
   }
