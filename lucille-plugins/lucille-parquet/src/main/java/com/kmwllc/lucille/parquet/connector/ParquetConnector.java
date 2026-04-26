@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.parquet.connector;
 
 import com.kmwllc.lucille.connector.AbstractConnector;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -64,8 +65,8 @@ public class ParquetConnector extends AbstractConnector {
     this.idField = config.getString("idField");
     this.fsUri = config.getString("fsUri");
 
-    this.limit = config.hasPath("limit") ? config.getLong("limit") : -1;
-    this.start = config.hasPath("start") ? config.getLong("start") : 0L;
+    this.limit = ConfigUtils.getOrDefault(config, "limit", -1L);
+    this.start = ConfigUtils.getOrDefault(config, "start", 0L);
 
     this.hadoopConfig = new Configuration();
 

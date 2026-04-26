@@ -111,7 +111,6 @@ public class ApplyOCR extends Stage {
   private final Map<String, FormTemplate> extractionTemplates;
   private final String extractAllDest;
 
-
   public ApplyOCR(Config config) throws StageException {
     super(config);
 
@@ -245,7 +244,6 @@ public class ApplyOCR extends Stage {
     }
     String path = doc.getString(pathField);
     String type = FilenameUtils.getExtension(path);
-
 
     // doing pdf extraction
     ArrayList<BufferedImage> images = new ArrayList<>();

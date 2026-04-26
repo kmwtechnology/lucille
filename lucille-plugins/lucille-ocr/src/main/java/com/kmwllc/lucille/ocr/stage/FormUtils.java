@@ -34,7 +34,6 @@ public class FormUtils {
       // Rendering an image from the PDF document
       BufferedImage image = renderer.renderImageWithDPI(i, ApplyOCR.SOURCE_RESOLUTION);
       images.add(image);
-      // System.out.println("Image created");
     }
     return images;
   }

@@ -54,7 +54,7 @@ public class PineconeIndexer extends Indexer {
       .optionalString("mode", "defaultEmbeddingField").build();
 
   private static final Logger log = LoggerFactory.getLogger(PineconeIndexer.class);
-  private static final Integer MAX_PINECONE_BATCH_SIZE = 1000;
+  private static final int MAX_PINECONE_BATCH_SIZE = 1000;
   private final Pinecone client;
   private final Index index;
   private final String indexName;
@@ -76,7 +76,7 @@ public class PineconeIndexer extends Indexer {
     this.namespaces = config.hasPath("pinecone.namespaces") ? config.getConfig("pinecone.namespaces").root().unwrapped() : null;
     this.metadataFields = config.hasPath("pinecone.metadataFields")
         ? new HashSet<>(config.getStringList("pinecone.metadataFields")) : new HashSet<>();
-    this.mode = config.hasPath("pinecone.mode") ? config.getString("pinecone.mode") : "upsert";
+    this.mode = ConfigUtils.getOrDefault(config, "pinecone.mode", "upsert");
     this.defaultEmbeddingField = ConfigUtils.getOrDefault(config, "pinecone.defaultEmbeddingField", null);
     if (namespaces != null && namespaces.isEmpty()) {
       throw new IndexerException("Namespaces mapping must be non-empty if provided.");

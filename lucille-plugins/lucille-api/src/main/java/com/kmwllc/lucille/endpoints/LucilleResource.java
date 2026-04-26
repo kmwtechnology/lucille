@@ -45,7 +45,7 @@ public class LucilleResource {
   /**
    * Logger for the LucilleResource.
    */
-  private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
+  private static final Logger log = LoggerFactory.getLogger(LucilleResource.class);
 
   /**
    * Runner manager instance for handling Lucille runs.
@@ -93,7 +93,7 @@ public class LucilleResource {
     try {
       Config config = ConfigFactory.parseMap(configBody);
       String configId = runnerManager.createConfig(config);
-      log.info("a lucille config has been created. Config ID: " + configId);
+      log.info("a lucille config has been created. Config ID: {}", configId);
       Map<String, Object> ret = new HashMap<>();
       ret.put("configId", configId);
       return Response.ok(ret).build();
@@ -191,10 +191,9 @@ public class LucilleResource {
 
       String runId = Runner.generateRunId();
       RunDetails details = runnerManager.runWithConfig(runId, configId);
-      log.debug("Lucille run has been triggered. Run ID: " + runId);
+      log.debug("Lucille run has been triggered. Run ID: {}", runId);
       log.debug("details: {}", details);
       return Response.ok(details).build();
-      
     } catch (Exception e) {
       return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
           "Invalid configuration provided: " + e.getMessage());
