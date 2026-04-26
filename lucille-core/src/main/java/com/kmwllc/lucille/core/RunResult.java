@@ -49,7 +49,7 @@ public class RunResult {
       List<ConnectorResult> connectorResults) {
     boolean failingDocs = connectorResults.stream().anyMatch(cr -> cr.hasFailingDocs());
     boolean anyDocs = connectorResults.stream().anyMatch(cr -> cr.hasDocs());
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     sb.append("\n\nRUN SUMMARY: ");
     if (status) {
       if (failingDocs) {
@@ -60,8 +60,8 @@ public class RunResult {
     } else {
       sb.append("Failure.");
     }
-    long succesfulConnectors = connectorResults.stream().filter(cr -> cr.getStatus()).count();
-    sb.append(" " + succesfulConnectors + "/" + connectors.size() + " connectors complete. ");
+    long successfulConnectors = connectorResults.stream().filter(cr -> cr.getStatus()).count();
+    sb.append(" ").append(successfulConnectors).append("/").append(connectors.size()).append(" connectors complete. ");
     if (anyDocs) {
       if (failingDocs) {
         sb.append("Some docs failed.");
@@ -76,9 +76,9 @@ public class RunResult {
       sb.append(result.toString());
       sb.append("\n");
     }
-    if (connectors.size() > 0 && connectors.size() > connectorResults.size()) {
+    if (connectors.size() > connectorResults.size()) {
       for (int i = connectorResults.size(); i < connectors.size(); i++) {
-        sb.append(connectors.get(i).getName() + ": skipped.\n");
+        sb.append(connectors.get(i).getName()).append(": skipped.\n");
       }
     }
     return sb.toString();

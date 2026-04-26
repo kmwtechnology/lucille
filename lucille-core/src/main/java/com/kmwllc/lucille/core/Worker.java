@@ -55,8 +55,7 @@ class Worker implements Runnable {
       this.trackRetries = true;
       this.counter = new ZKRetryCounter(config);
     }
-    this.pollInstant = new AtomicReference();
-    this.pollInstant.set(Instant.now());
+    this.pollInstant = new AtomicReference<>(Instant.now());
     this.metricsPrefix = metricsPrefix;
   }
 

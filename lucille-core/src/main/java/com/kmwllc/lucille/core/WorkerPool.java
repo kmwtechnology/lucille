@@ -30,22 +30,22 @@ public class WorkerPool {
 
   private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
   private static final long WATCHER_PERIOD_MILLISECONDS = 500;
+  private static final String HEARTBEAT_LOG_NAME = "com.kmwllc.lucille.core.Heartbeat";
+  private static final Logger heartbeatLog = LoggerFactory.getLogger(HEARTBEAT_LOG_NAME);
 
   private final List<WorkerThread> threads = new ArrayList<>();
   private ScheduledExecutorService watcherService;
-  public static final String HEARTBEAT_LOG_NAME = "com.kmwllc.lucille.core.Heartbeat";
-  private static final Logger heartbeatLog = LoggerFactory.getLogger(HEARTBEAT_LOG_NAME);
 
-  private boolean enableHeartbeat;
-  private int maxProcessingSecs;
-  private boolean exitOnTimeout;
+  private final boolean enableHeartbeat;
+  private final int maxProcessingSecs;
+  private final boolean exitOnTimeout;
 
   private final Config config;
   private final String pipelineName;
   // The current runId, if in a local mode.
   private final String localRunId;
-  private Integer numWorkers = null;
-  private WorkerMessengerFactory workerMessengerFactory;
+  private final int numWorkers;
+  private final WorkerMessengerFactory workerMessengerFactory;
   private boolean started = false;
   private final int logSeconds;
   private final String metricsPrefix;
@@ -56,20 +56,20 @@ public class WorkerPool {
     this.localRunId = localRunId;
     this.workerMessengerFactory = factory;
     this.metricsPrefix = metricsPrefix;
+    Integer numWorkersFromPipeline = null;
     try {
-      this.numWorkers = Pipeline.getIntProperty(config, pipelineName, "threads");
+      numWorkersFromPipeline = Pipeline.getIntProperty(config, pipelineName, "threads");
     } catch (PipelineException e) {
       log.error("Error reading pipeline config", e);
     }
-    if (this.numWorkers == null) {
-      this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
-    }
+    this.numWorkers = numWorkersFromPipeline != null
+        ? numWorkersFromPipeline
+        : ConfigUtils.getOrDefault(config, "worker.threads", DEFAULT_POOL_SIZE);
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    this.enableHeartbeat = config.hasPath("worker.enableHeartbeat") ? config.getBoolean("worker.enableHeartbeat") : false;
+    this.enableHeartbeat = ConfigUtils.getOrDefault(config, "worker.enableHeartbeat", false);
     // maxProcessingSecs default should be at least 10 minutes
-    this.maxProcessingSecs =
-        config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60;
-    this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
+    this.maxProcessingSecs = ConfigUtils.getOrDefault(config, "worker.maxProcessingSecs", 10 * 60);
+    this.exitOnTimeout = ConfigUtils.getOrDefault(config, "worker.exitOnTimeout", false);
   }
 
   public void start() throws Exception {
@@ -77,7 +77,7 @@ public class WorkerPool {
       throw new IllegalStateException("WorkerPool can be started at most once");
     }
     started = true;
-    log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
+    log.info("Starting {} worker threads for pipeline {}", numWorkers, pipelineName);
     List<Worker> workers = new ArrayList<>();
 
     try {
@@ -94,7 +94,7 @@ public class WorkerPool {
 
       watcherService = startWatcher(workers, maxProcessingSecs);
     } catch (Exception e) {
-      log.error("Exception caught when starting Worker threads; aborting");
+      log.error("Exception caught when starting Worker threads; aborting", e);
       try {
         stop();
       } catch (Exception e2) {
@@ -105,7 +105,7 @@ public class WorkerPool {
   }
 
   public void stop() {
-    log.debug("Stopping " + threads.size() + " worker threads");
+    log.debug("Stopping {} worker threads", threads.size());
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
     }
@@ -117,7 +117,7 @@ public class WorkerPool {
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    if (threads.size() > 0) {
+    if (!threads.isEmpty()) {
       threads.get(0).logMetrics();
     }
   }
@@ -149,7 +149,7 @@ public class WorkerPool {
       public void run() {
         MDC.put(Document.RUNID_FIELD, localRunId);
         // log statistics about pipeline rate and latency
-        if (lastLogInstant==null || Duration.between(lastLogInstant, Instant.now()).getSeconds() >= logSeconds) {
+        if (lastLogInstant == null || Duration.between(lastLogInstant, Instant.now()).getSeconds() >= logSeconds) {
           lastLogInstant = Instant.now();
           log.info(String.format("%d docs processed. One minute rate: %.2f docs/sec. Mean pipeline latency: %.2f ms/doc.",
               timer.getCount(), timer.getOneMinuteRate(), timer.getSnapshot().getMean() / 1000000));
@@ -168,7 +168,7 @@ public class WorkerPool {
         // look for workers that might be "stuck"
         for (Worker worker : workers) {
           if (Duration.between(worker.getPreviousPollInstant().get(), Instant.now()).getSeconds() > maxProcessingSecs) {
-            log.error("Worker has not polled in " + maxProcessingSecs + " seconds.");
+            log.error("Worker has not polled in {} seconds.", maxProcessingSecs);
             if (exitOnTimeout) {
               log.error("Shutting down because maximum allowed time between previous poll is exceeded.");
               System.exit(1);

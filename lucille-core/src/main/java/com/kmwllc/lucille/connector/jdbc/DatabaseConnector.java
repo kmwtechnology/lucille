@@ -165,7 +165,7 @@ public class DatabaseConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     ResultSet rs = null;
-    ArrayList<ResultSet> otherResults = null;
+    List<ResultSet> otherResults = null;
     Connection connection = null;
     Statement statement = null;
     try {
@@ -192,7 +192,7 @@ public class DatabaseConnector extends AbstractConnector {
       int idColumn = getIdColumnIndex(columns);
 
       otherResults = new ArrayList<>();
-      ArrayList<String[]> otherColumns = new ArrayList<>();
+      List<String[]> otherColumns = new ArrayList<>();
 
       for (String otherSQL : otherSQLs) {
         log.info("Describing other result set... {}", otherSQL);
@@ -339,30 +339,23 @@ public class DatabaseConnector extends AbstractConnector {
 
   // TODO: can we remove this method and just use runSql instead?
   private ResultSet runJoinSQL(String sql) throws SQLException {
-    ResultSet rs2;
+    // Running the sql
+    log.info("Running other sql");
+    // create a new connection instead of re-using this one because we're using forward only result sets
+    Connection connection = null;
     try {
-      // Running the sql
-      log.info("Running other sql");
-      // create a new connection instead of re-using this one because we're using forward only result sets
-      Connection connection = null;
-      try {
-        connection = createConnectionWithRetries();
-      } catch (ClassNotFoundException e) {
-        log.error("Error creating connection.", e);
-      }
-      Statement state2 = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-      // Statement state2 = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-      // make sure we stream the results instead of buffering in memory.
-      // TODO: this doesn't work for h2 db..  it does work for mysql..  *shrug*
-      // Mysql needs this hint so it the mysql driver doesn't try to buffer the entire resultset in memory.
-      if (fetchSize != null) {
-        state2.setFetchSize(fetchSize);
-      }
-      rs2 = state2.executeQuery(sql);
-    } catch (SQLException e) {
-      log.error("Error executing SQL", e);
-      throw e;
+      connection = createConnectionWithRetries();
+    } catch (ClassNotFoundException e) {
+      log.error("Error creating connection.", e);
     }
+    Statement state2 = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    // make sure we stream the results instead of buffering in memory.
+    // TODO: this doesn't work for h2 db..  it does work for mysql..  *shrug*
+    // Mysql needs this hint so it the mysql driver doesn't try to buffer the entire resultset in memory.
+    if (fetchSize != null) {
+      state2.setFetchSize(fetchSize);
+    }
+    ResultSet rs2 = state2.executeQuery(sql);
     log.info("Other SQL Executed.");
     return rs2;
   }

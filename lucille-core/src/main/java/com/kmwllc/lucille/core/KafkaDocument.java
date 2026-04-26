@@ -77,9 +77,7 @@ public class KafkaDocument extends JsonDocument {
     if (this == other) {
       return true;
     }
-    if (other instanceof KafkaDocument) {
-      KafkaDocument doc = (KafkaDocument) other;
-
+    if (other instanceof KafkaDocument doc) {
       return
           Objects.equals(topic, doc.topic) &&
               Objects.equals(partition, doc.partition) &&

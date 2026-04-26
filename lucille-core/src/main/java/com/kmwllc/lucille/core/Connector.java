@@ -88,14 +88,14 @@ public interface Connector extends AutoCloseable {
    * Instantiates a list of Connectors from the designated Config.
    *
    * @param config The configuration you want to extract Connectors from.
+   * @return A list of Connectors built from the given Config.
    * @throws ReflectiveOperationException If a reflective error occurs while constructing a Connector.
    * @throws ConnectorException In the event you specify multiple connectors with the same name.
-   * @return A list of Connectors build from the given Config.
    */
   static List<Connector> fromConfig(Config config) throws ReflectiveOperationException, ConnectorException {
     List<? extends Config> connectorConfigs = config.getConfigList("connectors");
 
-    List<Connector> connectors = new ArrayList();
+    List<Connector> connectors = new ArrayList<>();
     int index = 1;
     for (Config c : connectorConfigs) {
       final String name = c.hasPath("name") ? c.getString("name") : ("connector_" + index);

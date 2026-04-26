@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.indexer;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -68,15 +69,15 @@ public class OpenSearchIndexer extends Indexer {
   private final boolean update;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
-      String metricsPrefix,String localRunId, OpenSearchClient client) {
+      String metricsPrefix, String localRunId, OpenSearchClient client) {
     super(config, messenger, bypass, metricsPrefix, localRunId);
 
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
-    this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
-    this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
-    this.versionType =
-        config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
+    this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
+    this.update = ConfigUtils.getOrDefault(config, "opensearch.update", false);
+    this.versionType = config.hasPath("indexer.versionType")
+        ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {

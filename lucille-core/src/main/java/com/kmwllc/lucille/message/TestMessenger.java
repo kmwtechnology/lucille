@@ -16,9 +16,9 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
 
   private final LocalMessenger messenger;
 
-  private List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<Event>());
-  private List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<Document>());
-  private List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<Document>());
+  private final List<Event> savedEventMessages = Collections.synchronizedList(new ArrayList<>());
+  private final List<Document> savedSourceMessages = Collections.synchronizedList(new ArrayList<>());
+  private final List<Document> savedDestMessages = Collections.synchronizedList(new ArrayList<>());
 
   public TestMessenger() {
     this.messenger = new LocalMessenger();
