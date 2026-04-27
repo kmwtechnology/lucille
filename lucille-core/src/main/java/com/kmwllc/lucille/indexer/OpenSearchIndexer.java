@@ -3,6 +3,7 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -286,7 +287,7 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, String>> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Pair<Document, String>> uploadDocuments(Collection<Document> documentsToUpload) throws IndexerException {
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }
@@ -355,7 +356,16 @@ public class OpenSearchIndexer extends Indexer {
 
     Set<Pair<Document, String>> failedDocs = new HashSet<>();
 
-    BulkResponse response = client.bulk(br.build());
+    BulkResponse response;
+    try {
+      response = client.bulk(br.build());
+    } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+      // HTTP-level error with a known status code — wrap so the base Indexer can apply retry policy
+      throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      // Transport-level failure (connection refused, timeout, etc.) — no status code available
+      throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+    }
 
     if (response != null) {
       for (BulkResponseItem item : response.items()) {

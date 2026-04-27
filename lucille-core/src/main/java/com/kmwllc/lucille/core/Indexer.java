@@ -20,6 +20,9 @@ import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.time.StopWatch;
@@ -81,6 +84,9 @@ import sun.misc.Signal;
  *   <li>indexer.retryWaitDurationMs (Integer, Optional) : Initial wait duration in milliseconds before the first retry.
  *   Subsequent retries use exponential backoff, doubling the wait on each attempt. Only relevant when maxRetries is greater than 0.
  *   Defaults to {@value #DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS}.</li>
+ *   <li>indexer.retryableStatusCodes (List&lt;Integer&gt;, Optional) : HTTP status codes that should trigger a retry when thrown
+ *   as an {@link IndexerRetryableException}. Failures with status codes not in this list, or plain {@link IndexerException}
+ *   failures, will not be retried. Defaults to {@code [429, 503]}. Only relevant when maxRetries is greater than 0.</li>
  * </ul>
  */
 public abstract class Indexer implements Runnable {
@@ -89,6 +95,7 @@ public abstract class Indexer implements Runnable {
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
   public static final int DEFAULT_MAX_RETRIES = 0;
   public static final int DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS = 1000;
+  public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503);
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -202,9 +209,21 @@ public abstract class Indexer implements Runnable {
     int maxRetries = ConfigUtils.getOrDefault(config, "indexer.maxRetries", DEFAULT_MAX_RETRIES);
     int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
     if (maxRetries > 0) {
+      List<Integer> retryableStatusCodes = config.hasPath("indexer.retryableStatusCodes")
+          ? config.getIntList("indexer.retryableStatusCodes")
+          : DEFAULT_RETRYABLE_STATUS_CODES;
       this.retry = Retry.of("indexer-batch-retry", RetryConfig.custom()
           .maxAttempts(maxRetries + 1) // maxAttempts includes the initial attempt
           .intervalFunction(IntervalFunction.ofExponentialBackoff(retryInitialWaitDurationMs))
+          .retryOnException(e -> {
+            if (e instanceof IndexerRetryableException retryable) {
+              // Retry if the status code is in the configured list, or if no status code is known
+              return retryable.getStatusCode() == IndexerRetryableException.UNKNOWN_STATUS_CODE
+                  || retryableStatusCodes.contains(retryable.getStatusCode());
+            }
+            // Plain IndexerException (non-HTTP failure) — do not retry
+            return false;
+          })
           .build());
       this.retry.getEventPublisher().onRetry(event ->
           log.warn("Retrying batch send (attempt {}/{}), waiting {}ms: {}",
@@ -491,7 +510,8 @@ public abstract class Indexer implements Runnable {
         .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
-        .optionalList("blacklist", new TypeReference<List<String>>(){}).build()
+        .optionalList("blacklist", new TypeReference<List<String>>(){})
+        .optionalList("retryableStatusCodes", new TypeReference<List<Integer>>(){}).build()
         .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
