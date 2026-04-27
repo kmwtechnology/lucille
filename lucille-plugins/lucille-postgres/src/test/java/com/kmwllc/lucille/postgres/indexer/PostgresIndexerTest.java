@@ -4,9 +4,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.List;
+import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 
 public class PostgresIndexerTest {
@@ -38,6 +42,16 @@ public class PostgresIndexerTest {
     assertEquals(
         "INSERT INTO \"documents\" (\"id\", \"title\") VALUES (?, ?)",
         sql);
+  }
+
+  @Test
+  public void testBypassModeSkipsIndexing() throws Exception {
+    PostgresIndexer indexer = buildBypass("PostgresIndexerTest/good-config.conf");
+    Document doc = Document.create("doc1");
+    doc.setField("title", "hello");
+
+    Set<Pair<Document, String>> failed = indexer.sendToIndex(List.of(doc));
+    assertTrue(failed.isEmpty());
   }
 
   @Test

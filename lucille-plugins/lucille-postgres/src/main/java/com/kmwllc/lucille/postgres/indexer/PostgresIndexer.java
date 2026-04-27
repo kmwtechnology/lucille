@@ -147,6 +147,10 @@ public class PostgresIndexer extends Indexer {
 
   @Override
   protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+    if (bypass) {
+      return Set.of();
+    }
+
     Set<Pair<Document, String>> failed = new HashSet<>();
     if (documents.isEmpty()) {
       return failed;
