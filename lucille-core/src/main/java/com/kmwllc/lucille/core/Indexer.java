@@ -17,6 +17,9 @@ import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.github.resilience4j.core.IntervalFunction;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.time.StopWatch;
@@ -73,12 +76,19 @@ import sun.misc.Signal;
  *   together with indexer.deleteByFieldValue.</li>
  *   <li>indexer.deleteByFieldValue (String, Optional) : Field whose value specifies which documents to delete by query. Must be set
  *   together with indexer.deleteByFieldField.</li>
+ *   <li>indexer.maxRetries (Integer, Optional) : Maximum number of times to retry a failed batch before treating all documents
+ *   in the batch as failures. Retries are disabled by default ({@value #DEFAULT_MAX_RETRIES}); set to a positive integer to opt in.</li>
+ *   <li>indexer.retryWaitDurationMs (Integer, Optional) : Initial wait duration in milliseconds before the first retry.
+ *   Subsequent retries use exponential backoff, doubling the wait on each attempt. Only relevant when maxRetries is greater than 0.
+ *   Defaults to {@value #DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS}.</li>
  * </ul>
  */
 public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
+  public static final int DEFAULT_MAX_RETRIES = 0;
+  public static final int DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS = 1000;
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -110,6 +120,9 @@ public abstract class Indexer implements Runnable {
   private final String localRunId;
 
   protected final boolean bypass;
+
+  // Non-null only when indexer.maxRetries > 0; null means retries are disabled (the default).
+  private final Retry retry;
 
   public void terminate() {
     running = false;
@@ -185,6 +198,22 @@ public abstract class Indexer implements Runnable {
     this.localRunId = localRunId;
 
     this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
+
+    int maxRetries = ConfigUtils.getOrDefault(config, "indexer.maxRetries", DEFAULT_MAX_RETRIES);
+    int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
+    if (maxRetries > 0) {
+      this.retry = Retry.of("indexer-batch-retry", RetryConfig.custom()
+          .maxAttempts(maxRetries + 1) // maxAttempts includes the initial attempt
+          .intervalFunction(IntervalFunction.ofExponentialBackoff(retryInitialWaitDurationMs))
+          .build());
+      this.retry.getEventPublisher().onRetry(event ->
+          log.warn("Retrying batch send (attempt {}/{}), waiting {}ms: {}",
+              event.getNumberOfRetryAttempts(), maxRetries,
+              event.getWaitInterval().toMillis(),
+              event.getLastThrowable().getMessage()));
+    } else {
+      this.retry = null;
+    }
 
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
@@ -307,7 +336,9 @@ public abstract class Indexer implements Runnable {
     try {
       stopWatch.reset();
       stopWatch.start();
-      Set<Pair<Document, String>> failedDocPairs = sendToIndex(batchedDocs);
+      Set<Pair<Document, String>> failedDocPairs = retry != null
+          ? Retry.decorateCheckedSupplier(retry, () -> sendToIndex(batchedDocs)).get()
+          : sendToIndex(batchedDocs);
       stopWatch.stop();
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
@@ -350,7 +381,7 @@ public abstract class Indexer implements Runnable {
           }
         }
       }
-    } catch (Exception e) {
+    } catch (Throwable e) {
       // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing) to be indexed.
       // So everything is considered to have failed - we won't even look at failedDocs.
       log.error("Error sending documents to index: " + e.getMessage(), e);
@@ -457,7 +488,7 @@ public abstract class Indexer implements Runnable {
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
             "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
-        .optionalNumber("batchSize", "batchTimeout", "logRate")
+        .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
         .optionalList("blacklist", new TypeReference<List<String>>(){}).build()

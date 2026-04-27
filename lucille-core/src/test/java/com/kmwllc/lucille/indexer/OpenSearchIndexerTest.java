@@ -1146,6 +1146,88 @@ public class OpenSearchIndexerTest {
     indexer.closeConnection();
   }
 
+  /**
+   * Tests that the indexer retries a failed batch and succeeds on a subsequent attempt.
+   * The mock client throws on the first bulk call and succeeds on the second.
+   * With maxRetries=3 and retryWaitDurationMs=0, the indexer should retry and ultimately
+   * send FINISH events for all documents.
+   */
+  @Test
+  public void testRetrySucceedsOnSecondAttempt() throws Exception {
+    OpenSearchClient retryClient = Mockito.mock(OpenSearchClient.class);
+
+    BooleanResponse mockBooleanResponse = Mockito.mock(BooleanResponse.class);
+    Mockito.when(retryClient.ping()).thenReturn(mockBooleanResponse);
+    Mockito.when(mockBooleanResponse.value()).thenReturn(true);
+
+    BulkResponse successResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(successResponse.errors()).thenReturn(false);
+    Mockito.when(successResponse.items()).thenReturn(new ArrayList<>());
+
+    // Throw on the first call, succeed on the second
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new IOException("Simulated transient failure"))
+        .thenReturn(successResponse);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf");
+
+    Document doc1 = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    indexer.run(2);
+
+    // bulk() should have been called twice: once failing, once succeeding
+    verify(retryClient, times(2)).bulk(any(BulkRequest.class));
+
+    // Both documents should have received FINISH events
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(2, events.size());
+    assertTrue(events.stream().allMatch(e -> e.getType() == Event.Type.FINISH));
+  }
+
+  /**
+   * Tests that the indexer exhausts all retries when every attempt fails, and that all
+   * documents in the batch receive FAIL events after the final attempt.
+   * With maxRetries=3, bulk() should be called 4 times total (1 initial + 3 retries).
+   */
+  @Test
+  public void testRetryExhaustedAllDocumentsFail() throws Exception {
+    OpenSearchClient retryClient = Mockito.mock(OpenSearchClient.class);
+
+    BooleanResponse mockBooleanResponse = Mockito.mock(BooleanResponse.class);
+    Mockito.when(retryClient.ping()).thenReturn(mockBooleanResponse);
+    Mockito.when(mockBooleanResponse.value()).thenReturn(true);
+
+    // Always throw — every attempt fails
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new IOException("Persistent failure"));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf");
+
+    Document doc1 = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+    Document doc3 = Document.create("doc3", "test_run");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    messenger.sendForIndexing(doc3);
+    indexer.run(3);
+
+    // bulk() should have been called 4 times: 1 initial + 3 retries
+    verify(retryClient, times(4)).bulk(any(BulkRequest.class));
+
+    // All documents should have received FAIL events
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(3, events.size());
+    assertTrue(events.stream().allMatch(e -> e.getType() == Event.Type.FAIL));
+  }
+
   public static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
     public static final Spec SPEC = OpenSearchIndexer.SPEC;
