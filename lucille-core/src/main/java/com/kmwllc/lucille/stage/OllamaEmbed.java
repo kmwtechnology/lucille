@@ -66,13 +66,6 @@ public class OllamaEmbed extends Stage {
       ollamaAPI.setRequestTimeoutSeconds(timeout);
     }
 
-    // Verify the model is available
-    try {
-      ollamaAPI.listModels();
-    } catch (Exception e) {
-      throw new StageException("Cannot connect to Ollama server at " + hostURL, e);
-    }
-
     log.info("OllamaEmbed initialized: model={}, source={}, dest={}", modelName, source, dest);
   }
 

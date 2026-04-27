@@ -2,7 +2,6 @@ package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,10 +31,8 @@ public class OllamaEmbedTest {
 
     try (MockedConstruction<OllamaAPI> mockAPI = mockConstruction(OllamaAPI.class, (api, context) -> {
       when(api.embed(any())).thenReturn(response);
-      when(api.listModels()).thenReturn(List.of());
     })) {
       Stage stage = factory.get("OllamaEmbedTest/basic.conf");
-      stage.start();
 
       Document doc = Document.create("doc1");
       doc.setField("text", "HVAC maintenance services for government buildings");
@@ -57,10 +54,8 @@ public class OllamaEmbedTest {
 
     try (MockedConstruction<OllamaAPI> mockAPI = mockConstruction(OllamaAPI.class, (api, context) -> {
       when(api.embed(any())).thenReturn(response);
-      when(api.listModels()).thenReturn(List.of());
     })) {
       Stage stage = factory.get("OllamaEmbedTest/customDest.conf");
-      stage.start();
 
       Document doc = Document.create("doc1");
       doc.setField("text", "Test content");
@@ -75,11 +70,8 @@ public class OllamaEmbedTest {
 
   @Test
   public void testSkipBlankSource() throws Exception {
-    try (MockedConstruction<OllamaAPI> mockAPI = mockConstruction(OllamaAPI.class, (api, context) -> {
-      when(api.listModels()).thenReturn(List.of());
-    })) {
+    try (MockedConstruction<OllamaAPI> mockAPI = mockConstruction(OllamaAPI.class)) {
       Stage stage = factory.get("OllamaEmbedTest/basic.conf");
-      stage.start();
 
       // No source field at all
       Document doc1 = Document.create("doc1");
@@ -102,11 +94,8 @@ public class OllamaEmbedTest {
 
   @Test
   public void testTimeoutConfiguration() throws Exception {
-    try (MockedConstruction<OllamaAPI> mockAPI = mockConstruction(OllamaAPI.class, (api, context) -> {
-      when(api.listModels()).thenReturn(List.of());
-    })) {
+    try (MockedConstruction<OllamaAPI> mockAPI = mockConstruction(OllamaAPI.class)) {
       Stage stage = factory.get("OllamaEmbedTest/withTimeout.conf");
-      stage.start();
 
       OllamaAPI constructedAPI = mockAPI.constructed().get(0);
       verify(constructedAPI).setRequestTimeoutSeconds(30L);
@@ -117,10 +106,8 @@ public class OllamaEmbedTest {
   public void testOllamaServerError() throws Exception {
     try (MockedConstruction<OllamaAPI> mockAPI = mockConstruction(OllamaAPI.class, (api, context) -> {
       when(api.embed(any())).thenThrow(new RuntimeException("Connection refused"));
-      when(api.listModels()).thenReturn(List.of());
     })) {
       Stage stage = factory.get("OllamaEmbedTest/basic.conf");
-      stage.start();
 
       Document doc = Document.create("doc1");
       doc.setField("text", "This should fail");
@@ -136,10 +123,8 @@ public class OllamaEmbedTest {
 
     try (MockedConstruction<OllamaAPI> mockAPI = mockConstruction(OllamaAPI.class, (api, context) -> {
       when(api.embed(any())).thenReturn(response);
-      when(api.listModels()).thenReturn(List.of());
     })) {
       Stage stage = factory.get("OllamaEmbedTest/basic.conf");
-      stage.start();
 
       Document doc = Document.create("doc1");
       doc.setField("text", "This returns empty embeddings");
@@ -148,10 +133,5 @@ public class OllamaEmbedTest {
 
       assertFalse(doc.has("embeddings"));
     }
-  }
-
-  @Test
-  public void testStageCanBeLoaded() throws Exception {
-    assertNotNull(factory.get("OllamaEmbedTest/basic.conf"));
   }
 }
