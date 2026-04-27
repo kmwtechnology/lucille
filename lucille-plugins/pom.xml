@@ -18,15 +18,15 @@
 
   <modules>
     <module>lucille-api</module>
-    <module>lucille-pinecone</module>
-    <module>lucille-weaviate</module>
-    <module>lucille-postgres</module>
-    <module>lucille-parquet</module>
-    <module>lucille-tika</module>
-    <module>lucille-ocr</module>
-    <module>lucille-jlama</module>
     <module>lucille-entity-extraction</module>
+    <module>lucille-jlama</module>
+    <module>lucille-ocr</module>
+    <module>lucille-parquet</module>
+    <module>lucille-pinecone</module>
+    <module>lucille-postgres</module>
+    <module>lucille-tika</module>
     <module>lucille-video</module>
+    <module>lucille-weaviate</module>
   </modules>
 
   <dependencies>
