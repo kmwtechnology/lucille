@@ -66,6 +66,16 @@ public class OllamaEmbed extends Stage {
       ollamaAPI.setRequestTimeoutSeconds(timeout);
     }
 
+    try {
+      if (!ollamaAPI.ping()) {
+        log.warn("Could not connect to Ollama server at {}. The server must be running for this stage to work.", hostURL);
+      } else if (!ollamaAPI.listModels().stream().anyMatch(m -> m.getName().startsWith(modelName))) {
+        log.warn("Ollama server is reachable, but model '{}' was not found. Please ensure it has been pulled.", modelName);
+      }
+    } catch (Exception e) {
+      log.warn("Failed to check Ollama connectivity during startup: {}. Will attempt to connect during processing.", e.getMessage());
+    }
+
     log.info("OllamaEmbed initialized: model={}, source={}, dest={}", modelName, source, dest);
   }
 
