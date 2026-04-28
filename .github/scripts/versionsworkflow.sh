@@ -132,7 +132,7 @@ awk '
   {print}
 ' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
 
-# We can skip the cleanup if deploying on our production VM
+# We can skip the cleanup if deploying to prod
 if [ $mode = "local" ]; then
   hugo build
   rm -rf content/en/docs-*
