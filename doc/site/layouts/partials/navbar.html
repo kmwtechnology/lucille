@@ -1,12 +1,12 @@
 {{ $cover := and
-(.HasShortcode "blocks/cover")
-(not .Site.Params.ui.navbar_translucent_over_cover_disable)
+    (.HasShortcode "blocks/cover")
+    (not .Site.Params.ui.navbar_translucent_over_cover_disable)
 -}}
 {{ $baseURL := urls.Parse $.Site.Params.Baseurl -}}
 
 <nav class="td-navbar js-navbar-scroll
       {{- if $cover }} td-navbar-cover td-navbar-transparent {{- end }}"
-     {{- if eq (.Param "ui.navbar_theme") "dark" }} data-bs-theme="dark" {{- end }}>
+      {{- if eq (.Param "ui.navbar_theme") "dark" }} data-bs-theme="dark" {{- end }}>
 <div class="td-navbar-container container-fluid flex-column flex-md-row">
   <a class="navbar-brand" href="{{ .Site.Home.RelPermalink }}">
     {{- /**/ -}}
@@ -32,21 +32,26 @@
         {{ $active := or ($p.IsMenuCurrent "main" .) ($p.HasMenuCurrent "main" .) -}}
         {{ $href := "" -}}
         {{ with .Page -}}
-        {{ $active = or $active ( $.IsDescendant .) -}}
-        {{ $href = .RelPermalink -}}
+          {{ $active = or $active ( $.IsDescendant .) -}}
+          {{ $href = .RelPermalink -}}
         {{ else -}}
-        {{ $href = .URL | relLangURL -}}
+          {{ $href = .URL | relLangURL -}}
         {{ end -}}
         {{ $isExternal := ne $baseURL.Host (urls.Parse .URL).Host -}}
         <a {{/**/ -}}
-        class="nav-link {{- if $active }} active {{- end }}" {{/**/ -}}
-        href="{{ $href }}"
-        {{- if $isExternal }} target="_blank" rel="noopener" {{- end -}}
+          class="nav-link {{- if $active }} active {{- end }}" {{/**/ -}}
+          href="{{ $href }}"
+          {{- if $isExternal }} target="_blank" rel="noopener" {{- end -}}
         >
-        {{- .Pre -}}
-        <span>{{ .Name }}</span>
-        {{- .Post -}}
+            {{- .Pre -}}
+            <span>{{ .Name }}</span>
+            {{- .Post -}}
         </a>
+      </li>
+      {{ end -}}
+      {{ if .Site.Params.versions -}}
+      <li class="nav-item dropdown d-none d-lg-block td-navbar__version-menu">
+        {{ partial "navbar-version-selector.html" . -}}
       </li>
       {{ end -}}
       {{ if (gt (len .Site.Home.Translations) 0) -}}
