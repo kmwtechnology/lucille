@@ -49,11 +49,6 @@
         </a>
       </li>
       {{ end -}}
-      {{ if .Site.Params.versions -}}
-      <li class="nav-item dropdown d-none d-lg-block td-navbar__version-menu">
-        {{ partial "navbar-version-selector.html" . -}}
-      </li>
-      {{ end -}}
       {{ if (gt (len .Site.Home.Translations) 0) -}}
       <li class="nav-item td-navbar__lang-menu">
         {{ partial "navbar-lang-selector.html" . -}}
