@@ -31,8 +31,8 @@ import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
  */
 public class S3StorageClient extends BaseStorageClient {
 
-  private S3Client s3;
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
+  protected S3Client s3;
 
   public S3StorageClient(Config s3CloudOptions) {
     super(s3CloudOptions);
