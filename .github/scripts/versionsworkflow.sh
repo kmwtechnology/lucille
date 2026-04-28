@@ -34,17 +34,9 @@ fi
 # skipped entirely, they get no docs-<tag> folder and no dropdown entry.
 min_version="0.5.10"
 
-# Helper which returns success if $1 a tag is at or above $min_version. Strips leading v for v0.2.4
-tag_at_least_min() {
-  # local scopes the variable to this function only, 1#v removes a v if it's there
-  local t="${1#v}"
-  [ "$(printf '%s\n%s\n' "$min_version" "$t" | sort -V | head -n1)" = "$min_version" ]
-}
-
-# Filtered list of tags at or above min_version
-tags=$(git tag --list | while IFS= read -r t; do
-  tag_at_least_min "$t" && printf '%s\n' "$t"
-done)
+# Filtered list of tags at or above min_version. sort -V puts tags in version
+# order, then awk emits everything from min_version onward.
+tags=$(git tag --list | sort -V | awk -v min="$min_version" '$0 == min { found=1 } found')
 
 # Descending (newest-first) list used for the dropdown selector order
 tags_descending=$(echo "$tags" | sort -rV)
