@@ -107,7 +107,7 @@ Note: Only the password is validated, so any non-empty username works.
 auth:
   type: basicAuth
   enabled: true
-  password: password
+  password: YourPassword
 ```
 
 ### Local HTTPS Configuration
