@@ -1,3 +1,7 @@
+# NOTE: This script will delete any changes made inside doc/site/content/en/docs.
+# It should ONLY be run by a developer when working in a fresh checkout that does not have any local changes to that folder
+# which they want to keep.
+
 # The following script is used in hugo.yml for the github workflow which builds and deploys our documentation site.
 
 # The script will run in production mode if a production flag is added to it, like this: versionsworkflow.sh production
@@ -14,6 +18,7 @@
 
 # Also keep in mind that this script will alter the hugo.toml file.
 # MAKE SURE TO REVERT THE hugo.toml BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
+
 
 # Pre-run cleanup if running in local mode, not necessary for production
 mode=${1:-"local"}
