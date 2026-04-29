@@ -19,7 +19,6 @@
 # Also keep in mind that this script will alter the hugo.toml file.
 # MAKE SURE TO REVERT THE hugo.toml BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
 
-
 # Pre-run cleanup if running in local mode, not necessary for production
 mode=${1:-"local"}
 if [ $mode = "local" ]; then
