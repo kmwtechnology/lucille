@@ -46,7 +46,7 @@ tags=$(git tag --list | sort -V | awk -v min="$min_version" '$0 == min { found=1
 tags_descending=$(echo "$tags" | sort -rV)
 
 # Get the latest tag; its docs will replace the working directory's docs/
-latest_tag=$(echo "$tags_descending" | grep -v '^v' | head -1)
+latest_tag=$(echo "$tags_descending" | head -1)
 echo "Latest tag: $latest_tag"
 
 # Use "git archive" to extract docs from each tag into a temp directory, then
