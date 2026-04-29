@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.ConfigUtils;
-import com.typesafe.config.Config;
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -9,10 +8,16 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.typesafe.config.Config;
 
 /**
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding FileConnector traversals and the last
@@ -54,7 +59,7 @@ public class FileConnectorStateManager {
   private final boolean performDeletions;
   private final int pathLength;
 
-  private final Timestamp traversalTimestamp = Timestamp.from(Instant.now());
+  private Instant traversalInstant;
 
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
@@ -66,7 +71,7 @@ public class FileConnectorStateManager {
    * @param config Configuration for the FileConnectorStateManager.
    * @param connectorName The name of the connector using this connection. Uses the name for tableName, if it is not specified.
    */
-  public FileConnectorStateManager(Config config, String connectorName) {
+  FileConnectorStateManager(Config config, String connectorName) {
     this.driver = ConfigUtils.getOrDefault(config, "driver", "org.h2.Driver");
     this.connectionString = ConfigUtils.getOrDefault(config, "connectionString", "jdbc:h2:./state/" + connectorName);
     this.jdbcUser = ConfigUtils.getOrDefault(config, "jdbcUser", "");
@@ -89,6 +94,7 @@ public class FileConnectorStateManager {
       throw e;
     }
 
+    traversalInstant = Instant.now();
     jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
 
     // After getting connection setup, make sure the table exists, create it if it doesn't.
@@ -99,7 +105,7 @@ public class FileConnectorStateManager {
       if (!rs.next()) {
         try (Statement statement = jdbcConnection.createStatement()) {
           statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
-              + ") PRIMARY KEY, last_published TIMESTAMP, encountered BOOLEAN)");
+              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
         }
       }
     }
@@ -164,6 +170,17 @@ public class FileConnectorStateManager {
       }
     }
   }
+  
+  public List<URI> listExpiredFiles() throws SQLException {
+    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered = FALSE";
+    List<URI> fileUris = new ArrayList<>();
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL); ResultSet rs = ps.executeQuery()) {
+      while (rs.next()) {
+        fileUris.add(URI.create(rs.getString("name")));
+      }
+    }
+    return fileUris;
+  }
 
   private void deleteFilesNotEncounteredAndResetTable() throws SQLException {
     String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE";
@@ -194,6 +211,30 @@ public class FileConnectorStateManager {
   }
 
   /**
+   * Marks all state database entries whose name starts with the given prefix as encountered.
+   * Used to mark archive/compressed file entries as encountered when their container file is visited
+   * but not re-published (e.g., in incremental mode when the archive has not been modified since last publish).
+   *
+   * @param prefix The prefix to match against entry names (typically archivePath + ARCHIVE_FILE_SEPARATOR).
+   */
+  public void markAllEntriesEncountered(String prefix) {
+    // updates every entry whose name starts with the given prefix
+    // this is useful for archive files, in which the paths look like:
+    // file:///tmp/archive.zip!entry1.txt or file:///tmp/archive.zip!subdir/entry2.txt.
+    // the LIKE operator allows us to target entries which don't match our parameter, but contain it.
+    // So the parameter/prefix could be "file:///tmp/archive.zip!" and those aforementioned paths would get updated.
+    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name LIKE ?";
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(updateSQL)) {
+      // the "%" says anything can come after the prefix in a given DB entry and it will still match
+      ps.setString(1, prefix + "%");
+      int rowsChanged = ps.executeUpdate();
+      log.debug("Marked {} archive entries as encountered for prefix '{}'", rowsChanged, prefix);
+    } catch (SQLException e) {
+      log.warn("Error marking archive entries as encountered for prefix '{}'.", prefix, e);
+    }
+  }
+
+  /**
    * Retrieves the instant at which this file was last known to be published by Lucille. If the State Database has
    * no record of publishing this file, a null Instant is returned.
    *
@@ -206,10 +247,11 @@ public class FileConnectorStateManager {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
         if (rs.next()) {
-          Timestamp timestamp = rs.getTimestamp("last_published");
-
-          if (timestamp != null) {
-            return timestamp.toInstant();
+          // Get timestamp as OffsetDateTime, which is stored in UTC
+          // Note: H2 may convert to local timezone on retrieval, but toInstant() returns the correct absolute point in time.
+          OffsetDateTime odt = rs.getObject("last_published", OffsetDateTime.class);
+          if (odt != null) {
+            return odt.toInstant();
           }
         }
       }
@@ -228,7 +270,7 @@ public class FileConnectorStateManager {
     String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
-      statement.setTimestamp(1, traversalTimestamp);
+      statement.setObject(1, traversalInstant);
       statement.setString(2, fullPathStr);
 
       int rowsChanged = statement.executeUpdate();

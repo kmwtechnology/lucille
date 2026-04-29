@@ -7,6 +7,7 @@ import com.kmwllc.lucille.auth.BasicAuthenticator;
 import com.kmwllc.lucille.config.AuthConfiguration.AuthType;
 import com.kmwllc.lucille.config.LucilleAPIConfiguration;
 import com.kmwllc.lucille.core.RunnerManager;
+import com.kmwllc.lucille.endpoints.ConfigInfo;
 import com.kmwllc.lucille.endpoints.LivenessResource;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import com.kmwllc.lucille.endpoints.ReadinessResource;
@@ -124,6 +125,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
     // Register SystemStatsResource
     env.jersey().register(new SystemStatsResource());
+    env.jersey().register(new ConfigInfo(authHandler));
   }
 
   /**
