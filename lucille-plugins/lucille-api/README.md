@@ -25,7 +25,7 @@ The API can be run locally or in a Docker container:
 
 ### Run Lucille with the Config
 1. `curl -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
-2. You can do `curl -s http://localhost:8080/v1/run` to check the status of your runs
+2. You can do `curl http://localhost:8080/v1/run` to check the status of your runs
 
 ## Available Endpoints
 
@@ -51,21 +51,21 @@ All requests are served from `localhost:8080` (or `localhost:8443` if HTTPS is e
 
 ```bash
 # Health
-curl -s http://localhost:8080/v1/livez
+curl http://localhost:8080/v1/livez
 
 # Register a config (returns {"configId": "<uuid>"})
-curl -s -X POST http://localhost:8080/v1/config \
+curl -X POST http://localhost:8080/v1/config \
   -H "Content-Type: application/json" \
   -d @conf/simple-config.json
 
 # Kick off a run with that configId
-curl -s -X POST http://localhost:8080/v1/run \
+curl -X POST http://localhost:8080/v1/run \
   -H "Content-Type: application/json" \
   -d '{"configId":"<uuid>"}'
 
 # Check run status
-curl -s http://localhost:8080/v1/run
-curl -s http://localhost:8080/v1/run/<runId>
+curl http://localhost:8080/v1/run
+curl http://localhost:8080/v1/run/<runId>
 ```
 
 If auth is enabled, add `-u <anyuser>:<password>` (the username is not validated, only the password). If HTTPS is enabled with a self-signed cert, also add `-k`:
