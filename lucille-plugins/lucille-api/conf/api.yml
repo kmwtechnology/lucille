@@ -2,13 +2,22 @@
 # to in prod. https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration
 server:
   type: default
+  applicationConnectors:
+        - type: https
+          port: 8443
+          keyStorePath: conf/keystore.jks
+          keyStorePassword: password
+          keyStoreType: JKS
+          validateCerts: false
+          validatePeers: false
+          disableSniHostCheck: true
   requestLog:
     type: external
 logging:
   type: external
 auth:
   type: "basicAuth"
-  enabled: false
+  enabled: true
   password: "password"
 swagger:
   resourcePackage: "com.kmwllc.lucille.endpoints"
@@ -21,4 +30,4 @@ swagger:
     basicAuth:
       type: "basic"
   security:
-    - basicAuth: []      
+    - basicAuth: []
