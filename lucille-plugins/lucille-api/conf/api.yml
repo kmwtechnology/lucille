@@ -8,8 +8,7 @@ logging:
   type: external
 auth:
   type: "basicAuth"
-  enabled: true
-  password: "password"
+  enabled: false
 swagger:
   resourcePackage: "com.kmwllc.lucille.endpoints"
   title: Lucille API
