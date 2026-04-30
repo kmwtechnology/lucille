@@ -176,7 +176,7 @@ public class ConfigInfo {
       throws NoSuchFieldException, IllegalAccessException {
     ArrayNode array = mapper.createArrayNode();
     // Use ClassGraph to scan the classpath
-    try (ScanResult scanResult = new ClassGraph().enableAllInfo().scan()) {
+    try (ScanResult scanResult = new ClassGraph().enableClassInfo().acceptPackages("com.kmwllc.lucille").scan()) {
       // Find every class that is a subclass of the provided class name
       ClassInfoList classes = scanResult.getSubclasses(baseClassName);
       // Load whatever matches were found as class objects
