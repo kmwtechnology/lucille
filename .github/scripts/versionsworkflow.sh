@@ -17,14 +17,12 @@
 # the next release.
 
 # Also keep in mind that this script will alter the hugo.toml file.
-# MAKE SURE TO REVERT THE hugo.toml BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
+# MAKE SURE TO REVERT THE hugo.toml AND THE doc/site/content folder BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
 
 # Pre-run cleanup if running in local mode, not necessary for production
 mode=${1:-"local"}
 if [ $mode = "local" ]; then
   cd ../../doc/site
-  rm -rf content/en/docs-*
-  git checkout HEAD -- hugo.toml
   url="http://localhost:1313/docs"
 elif [ $mode = "production" ]; then
   cd ${GITHUB_WORKSPACE}/doc/site
@@ -127,9 +125,3 @@ awk '
   /^url_latest_version = /{next}
   {print}
 ' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
-
-if [ $mode = "local" ]; then
-  hugo build
-  rm -rf content/en/docs-*
-  git checkout HEAD -- content/en/docs
-fi
