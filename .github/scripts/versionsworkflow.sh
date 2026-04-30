@@ -122,13 +122,12 @@ done <<< "$tags"
 # [[params.versions]] blocks are left alone).
 
 awk '
-  /^# PLACEHOLDER/{while((getline line < "/tmp/versions_block.txt") > 0) print line; next}
+  /^# VERSION_GENERATION_SCRIPT_PLACEHOLDER/{while((getline line < "/tmp/versions_block.txt") > 0) print line; next}
   /^version = /{next}
   /^url_latest_version = /{next}
   {print}
 ' hugo.toml > hugo.toml.tmp && mv hugo.toml.tmp hugo.toml
 
-# We can skip the cleanup if deploying to prod
 if [ $mode = "local" ]; then
   hugo build
   rm -rf content/en/docs-*
