@@ -94,7 +94,7 @@ done <<< "$tags"
 # reads top-to-bottom from newest to oldest.
 {
   printf 'version = "%s (latest)"\n' "$latest_tag"
-  printf 'url_latest_version = "/docs/"\n'
+  printf 'url_latest_version = "%s/"\n' "$url"
   printf '\n'
 
   # Add the latest version first, it points to the main /docs/ path
