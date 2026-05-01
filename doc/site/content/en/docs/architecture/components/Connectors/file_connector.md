@@ -26,8 +26,10 @@ may encounter a `.csv` file, where each row itself represents a Document to be p
 and create more Lucille documents from their data. See [File Handlers](../file_handlers.md) for more. 
 
 In order to use File Handlers, you need to specify the appropriate configuration within your Config - specifically, each File Handler
-you want to use will be a map within the `fileOptions` you specify. You can use `csv`, `json`, or `xml`.
-See the documentation for each File Handler to see what arguments are needed / accepted.
+you want to use will be a map within the `fileHandlers` block. You can use `csv`, `json`, or `xml`.
+See [File Handlers](../file_handlers.md) for the full list of parameters for each handler type.
+
+Note: `fileHandlers` (handler config) and `fileOptions` (traversal behavior) are separate top-level keys in the connector config block.
 
 ### File Options
 File options determine **how** you handle and process files you encounter during a traversal. Some commonly used options include:
@@ -48,12 +50,35 @@ files modified within the last hour will be processed & published.
 files published by Lucille more than an hour ago (or never published) will be processed & published. Requires you to provide **state** configuration,
 otherwise, it will not be enforced!
 
+### Document Fields
+
+Every document published by the FileConnector carries these fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `file_path` | String | Full path or URI to the file. |
+| `file_modification_date` | Instant | Last-modified timestamp of the file. |
+| `file_creation_date` | Instant | Creation timestamp of the file (where available). |
+| `file_size_bytes` | Long | File size in bytes. |
+| `file_content` | byte[] | Raw file bytes. Only populated when `getFileContent: true`. |
+| `file_expired` | Boolean | Set to `true` on tombstone documents for deleted files (requires `sendTombstones: true`). |
+
+When a file handler (CSV, JSON, XML) processes a file, it produces child documents with their own fields instead of a single file document. See [File Handlers](../file_handlers.md) for details.
+
 ### State
 The File Connector can keep track of when files were last known to be published by Lucille. This allows you to use `FilterOptions.lastPublishedCutoff` and
 avoid repeatedly publishing the same files in a short period of time.
 
 In order to use state with the File Connector, you'll need to configure a connection to a JDBC-compatible database. The database
-can be embedded, or it can be remote.
+can be embedded, or it can be remote. The default embedded database is **H2** (`org.h2.Driver`). A typical embedded H2 configuration:
+
+```hocon
+state {
+  driver: "org.h2.Driver"
+  connectionString: "jdbc:h2:./lucille-state"
+  tableName: "file_state"
+}
+```
 
 It's important to note that File Connector state is designed to be efficient and lightweight. As such, keep a few points in mind:
 1. Files that were recently moved / renamed files will not have the `lastPublishedCutoff` applied.

@@ -6,16 +6,10 @@ description: A Stage performs a specific transformation on a Document.
 
 ## Lucille Stages
 
-Stages are the building blocks of a Lucille pipeline. Each Stage performs a specific transformation on a Document. 
+Stages are the building blocks of a Lucille pipeline. Each Stage performs a specific transformation on a Document.
 
-Lucille Stages should have JavaDocs that describe their purpose and the parameters acceptable in their Config. On this site,
-you'll find more in-depth documentation for some more advanced / complex Lucille Stages. 
-
-To configure a stage, you have to provide its class (under `class`) in its config. You can also specify a `name` for the Stage as well,
+To configure a stage, provide its class (under `class`) in its config. You can also specify a `name` for the Stage,
 in addition to `conditions` and `conditionPolicy` (described below).
-
-You'll also provide the parameters needed by the Stage as well. For example, the `AddRandomBoolean` Stage accepts two optional parameters -
-`field_name` and `percent_true`. So, an `AddRandomBoolean` Config would look something like this:
 
 ```hocon
 {
@@ -26,32 +20,61 @@ You'll also provide the parameters needed by the Stage as well. For example, the
 }
 ```
 
-#### Conditions
+## Stage Reference
 
-For any Stage, you can specify "conditions" in its Config, controlling when the Stage will process a Document. Each
+See the [Stage Reference]({{< relref "docs/architecture/components/Stages/stages_reference" >}}) for a complete listing of all available stages organized by category, including their configuration parameters.
+
+Detailed pages are available for more complex stages:
+
+- [EmbeddedPython]({{< relref "docs/architecture/components/Stages/embedded_python" >}}) — Run Python code inside the JVM using GraalPy.
+- [ExternalPython]({{< relref "docs/architecture/components/Stages/external_python" >}}) — Delegate processing to an external Python process via Py4J.
+- [PromptOllama]({{< relref "docs/architecture/components/Stages/prompt_ollama" >}}) — Enrich documents using a locally-running LLM.
+- [QueryOpensearch]({{< relref "docs/architecture/components/Stages/query_opensearch" >}}) — Execute OpenSearch search templates per document.
+
+## Conditions
+
+For any Stage, you can specify `conditions` in its Config to control when the Stage processes a Document. Each
 condition has a required parameter, `fields`, and two optional parameters, `operator` and `values`.
 
-* `fields` is a list of field names that will determine whether the Stage applies to a Document.
+* `fields` — List of field names that will determine whether the Stage applies to a Document.
+* `values` — List of values to search for in those fields. If not specified, only field *existence* is checked.
+* `operator` — `"must"` (default) or `"must_not"`.
 
-* `values` is a list of values that the conditional fields will be searched for. (If not specified, only the existence of fields is checked.)
+In the root of the Stage's Config, specify `conditionPolicy` — `"any"` (default) or `"all"` — to control whether
+**any** or **all** conditions must be met for the Stage to execute.
 
-* `operator` is either `"must"` or `"must_not"` (defaults to `"must"`).
-
-In the root of the Stage's Config, you can also specify a `conditionPolicy` - either `"any"` or `"all"`, specifying whether
-**any** or **all** of your conditions must be met for the Stage to process a Document. (Defaults to `"any"`.)
-
-Let's say we are running the `Print` Stage, but we only want it to execute on a Document where `city = Boston` or `city = New York`.
-Our Config for this Stage would look something like this:
+**Example:** Run the `Print` Stage only when `city` equals `"Boston"` or `"New York"`:
 
 ```hocon
 {
-name: "print-1"
-class: "com.kmwllc.lucille.stage.Print"
-conditions: [
-  {
-    fields: ["city"]
-    values: ["Boston", "New York"]
-  }
-]
+  name: "print-1"
+  class: "com.kmwllc.lucille.stage.Print"
+  conditionPolicy: "any"
+  conditions: [
+    {
+      fields: ["city"]
+      values: ["Boston", "New York"]
+    }
+  ]
 }
 ```
+
+**Example:** Only embed documents that have both `content` and `content_type = "article"`:
+
+```hocon
+{
+  class: "com.kmwllc.lucille.stage.OpenAIEmbed"
+  fields: ["content"]
+  dest: ["content_vector"]
+  apiKey: ${OPENAI_API_KEY}
+  conditionPolicy: "all"
+  conditions: [
+    { fields: ["content"] },
+    { fields: ["content_type"], values: ["article"] }
+  ]
+}
+```
+
+## Plugin Stages
+
+Additional stages are available as optional plugin modules. See [Plugins]({{< relref "docs/architecture/components/plugins" >}}).

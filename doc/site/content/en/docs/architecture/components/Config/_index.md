@@ -46,13 +46,16 @@ See [Indexers]({{< relref "docs/architecture/components/indexers" >}}) for more 
 
 ### Other Run Configuration
 
-In addition to those three elements, you can also configure other parts of a Lucille run.
-* `publisher` - Define the `queueCapacity`.
-* `log`
-* `runner`
-* `zookeeper`
-* `kafka` - Provide a `consumerPropertyFile`, `producerPropertyFile`, `adminPropertyFile`, and other configuration.
-* `worker` - Control how many `threads` you want, the `maxRetries` in Zookeeper, and more.
+In addition to the three required elements, you can configure other parts of a Lucille run. The canonical reference for all available options — with comments explaining every field — is [application-example.conf](https://github.com/kmwtechnology/lucille/blob/main/application-example.conf).
+
+| Block | Key Settings | Notes |
+|---|---|---|
+| `worker` | `threads`, `maxRetries`, `exitOnTimeout`, `maxProcessingSecs`, `enableHeartbeat` | Per-thread pipeline isolation. See [Worker]({{< relref "docs/architecture/components/worker" >}}). |
+| `publisher` | `queueCapacity`, `maxPendingDocs` | Backpressure control. `queueCapacity` for local mode; `maxPendingDocs` for distributed. |
+| `runner` | `metricsLoggingLevel`, `connectorTimeout` | `connectorTimeout` defaults to 24 hours. |
+| `kafka` | `bootstrapServers`, `consumerGroupId`, `maxPollIntervalSecs`, `maxRequestSize`, `events`, `sourceTopic`, `eventTopic`, `documentDeserializer`, `documentSerializer`, `securityProtocol`, `consumerPropertyFile`, `producerPropertyFile`, `adminPropertyFile` | Required when running in distributed or Kafka-local mode. See [Deployment]({{< relref "docs/prod/deployment" >}}). |
+| `zookeeper` | `connectString` | Required only when `worker.maxRetries` is set. |
+| `log` | `seconds` | Controls how often Workers, Publisher, and Indexer log status updates and heartbeats. Default: 30. |
 
 ## Validation
 

@@ -106,6 +106,21 @@ public class ExampleStage extends Stage {
 * `processDocument(Document doc)` for transforming the current document and (optionally) returning child docs.
 * `stop()` for releasing resources on shutdown.
 
+### Conditional Execution
+
+Stages support a `conditions` config block that controls whether `processDocument()` is called for a given document. **This is handled entirely by the base `Stage` class** — stage authors never need to implement conditional logic. If the configured conditions are not met, the base class skips `processDocument()` automatically.
+
+```hocon
+{
+  class: "com.kmwllc.lucille.stage.MyStage"
+  conditions: [
+    { fields: ["status"], values: ["active"], operator: "must" }
+  ]
+}
+```
+
+Implement `processDocument()` as if conditions are always met.
+
 ### Reading & Writing Fields
 
 Lucille's `Document` API supports **single-valued** and **multi-valued** fields with strong typing and convenience updaters.

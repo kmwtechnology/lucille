@@ -23,7 +23,18 @@ The `DocLogger` is very verbose - it tracks the lifecycle of _each Document_ in 
 For example, a log statement is made when a Document is created, before it is published, before & after a Stage operates on it... etc. 
 As you can imagine, this results in _many_ log statements - it is recommended these logs are stored in a file, rather than just
 having them printed to the console.
-Logs from the `DocLogger` will primarily be `INFO`-level logs - very rarely, an `ERROR`-level log will be made for a Document.
+Logs from the `DocLogger` are at `ERROR` level by default. This means that without log4j2 configuration changes, only error-level document lifecycle events will appear. To capture the full document lifecycle, configure the `DocLogger` at `INFO` or `DEBUG` level in your `log4j2.xml` and route it to a file — the volume at full verbosity is high.
+
+## MDC Fields
+
+Lucille populates the SLF4J Mapped Diagnostic Context (MDC) so that every log line includes structured context you can filter on:
+
+| MDC Key | Value | Description |
+|---|---|---|
+| `run_id` | UUID string | The unique ID for the current run. Set at run start; present on all log lines during the run. |
+| `id` | Document ID string | The ID of the document currently being processed. Set per-document inside Workers. |
+
+When storing logs as JSON (ECS layout), these appear as top-level fields in each log record, making it easy to filter all activity for a specific document or run.
 
 ## Log Files
 Lucille can store logs in a file as plain text or as JSON objects. When storing logs as JSON, each line will be a JSON object representing
