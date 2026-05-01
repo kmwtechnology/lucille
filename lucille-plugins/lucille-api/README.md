@@ -112,7 +112,7 @@ auth:
 
 ### Local HTTPS Configuration
 
-Add an `applicationConnectors` block to the `server:` section of your `api.yml`:
+Add an `applicationConnectors` block to the `server:` section of your DropWizard yml config file:
 
 ```yaml
 server:
@@ -123,6 +123,7 @@ server:
       keyStorePassword: KEYSTORE_PASSWORD
       keyStoreType: JKS
 ```
+We provide an example of this for you at conf/https_api.yml.
 
 #### Local development (self-signed cert)
 
