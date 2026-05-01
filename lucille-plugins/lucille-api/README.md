@@ -107,7 +107,7 @@ Note: Only the password is validated, so any non-empty username works.
 auth:
   type: basicAuth
   enabled: true
-  password: YourPassword
+  password: KEYSTORE_PASSWORD
 ```
 
 ### Local HTTPS Configuration
@@ -119,8 +119,8 @@ server:
   applicationConnectors:
     - type: https
       port: 8443
-      keyStorePath: <PATH_TO_JKS>
-      keyStorePassword: <YOUR_PASSWORD>
+      keyStorePath: PATH_TO_JKS
+      keyStorePassword: KEYSTORE_PASSWORD
       keyStoreType: JKS
 ```
 
@@ -130,7 +130,7 @@ For local development you can generate a self-signed keystore. Run this from the
 
 ```bash
 keytool -genkeypair -alias dw-server -keyalg RSA -keysize 2048 \
-  -storetype JKS -keystore conf/keystore.jks -storepass YourPassword \
+  -storetype JKS -keystore PATH_TO_JKS -storepass KEYSTORE_PASSWORD \
   -validity 365 -dname "CN=localhost, OU=Dev, O=Local, L=., ST=., C=US" \
   -ext san=dns:localhost,ip:127.0.0.1
 ```
@@ -140,8 +140,8 @@ The `-ext san=...` is necessary, or else Jetty's SNI host check rejects requests
 ```yaml
     - type: https
       port: 8443
-      keyStorePath: conf/keystore.jks
-      keyStorePassword: YourPassword
+      keyStorePath: PATH_TO_JKS
+      keyStorePassword: KEYSTORE_PASSWORD
       disableSniHostCheck: true
 ```
 
