@@ -1,14 +1,20 @@
+# This script updates the working tree with all the content needed for "hugo build" to generate versioned docs. To do this:
+
+# It deletes doc/site/content/en/docs and replaces it with docs from the latest tagged release.
+# It uses git to get the docs from prior releases and places them in versioned folders under doc/site/content/en
+# It updates hugo.toml with information about the versions
+
+# The purpose of this is to be used in hugo.yml for the github workflow which builds and deploys our documentation site.
+
 # NOTE: This script will delete any changes made inside doc/site/content/en/docs.
 # It should ONLY be run by a developer when working in a fresh checkout that does not have any local changes to that folder
 # which they want to keep.
-
-# The following script is used in hugo.yml for the github workflow which builds and deploys our documentation site.
 
 # The script will run in production mode if a production flag is added to it, like this: versionsworkflow.sh production
 # It runs in local mode by default, which you can see in the first few lines of the script. Further information can be found
 # on local mode in the following comments:
 
-# Local mode which will generate the user-facing versioned documentation site locally. When you build
+# Local mode will generate the user-facing versioned documentation site locally. When you build
 # the site locally without running this script, you will only get the most updated docs from the
 # working directory. This script allows you to see what the doc site will look like in production.
 
@@ -16,7 +22,6 @@
 # folder in the working directory, because it pulls from the latest release. Your changes will not appear until
 # the next release.
 
-# Also keep in mind that this script will alter the hugo.toml file.
 # MAKE SURE TO REVERT THE hugo.toml AND THE doc/site/content folder BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
 
 # Pre-run cleanup if running in local mode, not necessary for production
