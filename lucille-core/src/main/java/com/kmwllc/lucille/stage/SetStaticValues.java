@@ -25,21 +25,25 @@ public class SetStaticValues extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("updateMode")
+      .optionalBoolean("skip")
       .requiredParent("staticValues", new TypeReference<Map<String, Object>>() {}).build();
 
   private final Map<String, Object> staticValues;
   private final UpdateMode updateMode;
+  private final Boolean skip;
 
   public SetStaticValues(Config config) {
     super(config);
 
-    staticValues = config.getConfig("staticValues").root().unwrapped();
-    updateMode = UpdateMode.fromConfig(config);
+    this.staticValues = config.getConfig("staticValues").root().unwrapped();
+    this.updateMode = UpdateMode.fromConfig(config);
+    this.skip = config.hasPath("skip") ? config.getBoolean("skip") : false;
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, staticValue));
+    doc.setSkipped(skip);
     return null;
   }
 }

@@ -8,6 +8,7 @@ import org.junit.Test;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class SetStaticValuesTest {
 
@@ -37,8 +38,18 @@ public class SetStaticValuesTest {
   }
 
   @Test
+  public void testSkip() throws Exception {
+    Stage stage = factory.get("SetStaticValuesTest/skipConfig.conf");
+
+    Document doc = Document.create("doc");
+    stage.processDocument(doc);
+
+    assertTrue(doc.getBoolean(".skipped"));
+  }
+
+  @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("SetStaticValuesTest/config.conf");
-    assertEquals(Set.of("updateMode", "name", "conditions", "class", "conditionPolicy", "staticValues"), stage.getLegalProperties());
+    assertEquals(Set.of("updateMode", "name", "conditions", "class", "conditionPolicy", "staticValues", "skip"), stage.getLegalProperties());
   }
 }
