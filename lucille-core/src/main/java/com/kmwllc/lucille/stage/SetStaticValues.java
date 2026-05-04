@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -19,6 +20,7 @@ import java.util.Map;
  * <ul>
  *   <li>staticValues (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
  *   <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
+ *   <li>skip (Boolean) : Sets the document to be skipped by the rest of the pipeline.</li>
  * </ul>
  */
 public class SetStaticValues extends Stage {
@@ -37,7 +39,7 @@ public class SetStaticValues extends Stage {
 
     this.staticValues = config.getConfig("staticValues").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
-    this.skip = config.hasPath("skip") ? config.getBoolean("skip") : false;
+    this.skip = ConfigUtils.getOrDefault(config, "skip", false);
   }
 
   @Override
