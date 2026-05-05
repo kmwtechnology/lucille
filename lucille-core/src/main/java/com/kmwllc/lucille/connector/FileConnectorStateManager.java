@@ -57,6 +57,7 @@ public class FileConnectorStateManager {
 
   private final String tableName;
   private final boolean performDeletions;
+  private final int runsBeforeExpiration;
   private final int pathLength;
 
   private Instant traversalInstant;
@@ -64,6 +65,7 @@ public class FileConnectorStateManager {
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
   private PreparedStatement updateStatement;
+  private PreparedStatement resetStatement;
   private PreparedStatement insertNewFileStatement;
 
   /**
@@ -79,6 +81,7 @@ public class FileConnectorStateManager {
 
     this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
+    this.runsBeforeExpiration = ConfigUtils.getOrDefault(config, "runsBeforeExpiration", 1);
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", 200);
   }
 
@@ -105,7 +108,7 @@ public class FileConnectorStateManager {
       if (!rs.next()) {
         try (Statement statement = jdbcConnection.createStatement()) {
           statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
-              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
+              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN, runs_not_encountered INTEGER)");
         }
       }
     }
@@ -125,8 +128,22 @@ public class FileConnectorStateManager {
     String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
     updateStatement = jdbcConnection.prepareStatement(updateSQL);
 
-    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE)";
+    String resetSQL = "UPDATE \"" + tableName + "\" SET runs_not_encountered = 0 WHERE name=?";
+    resetStatement = jdbcConnection.prepareStatement(resetSQL);
+
+    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE, 0)";
     insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
+  }
+
+  /**
+   * Increments the runs_not_encountered counter for every file that was not seen during the current traversal.
+   */
+  public void incrementRunsNotEncountered() throws SQLException {
+    String incrementSQL = "UPDATE \"" + tableName + "\" SET runs_not_encountered = runs_not_encountered + 1 WHERE encountered=FALSE";
+
+    try (Statement statement = jdbcConnection.createStatement()) {
+      statement.executeUpdate(incrementSQL);
+    }
   }
 
   /**
@@ -162,6 +179,14 @@ public class FileConnectorStateManager {
       }
     }
 
+    if (resetStatement != null) {
+      try {
+        resetStatement.close();
+      } catch (SQLException e) {
+        log.warn("Couldn't close update statement (PreparedStatement).", e);
+      }
+    }
+
     if (insertNewFileStatement != null) {
       try {
         insertNewFileStatement.close();
@@ -172,9 +197,11 @@ public class FileConnectorStateManager {
   }
   
   public List<URI> listExpiredFiles() throws SQLException {
-    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered = FALSE";
+    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
     List<URI> fileUris = new ArrayList<>();
-    try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL); ResultSet rs = ps.executeQuery()) {
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL)) {
+      ps.setInt(1, runsBeforeExpiration);
+      ResultSet rs = ps.executeQuery();
       while (rs.next()) {
         fileUris.add(URI.create(rs.getString("name")));
       }
@@ -183,10 +210,11 @@ public class FileConnectorStateManager {
   }
 
   private void deleteFilesNotEncounteredAndResetTable() throws SQLException {
-    String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE";
+    String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
 
-    try (Statement statement = jdbcConnection.createStatement()) {
-      int rowsAffected = statement.executeUpdate(deleteSQL);
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(deleteSQL)) {
+      ps.setInt(1, runsBeforeExpiration);
+      int rowsAffected = ps.executeUpdate();
       log.info("{} rows from the state database were deleted.", rowsAffected);
     }
   }
@@ -200,6 +228,8 @@ public class FileConnectorStateManager {
     try {
       updateStatement.setString(1, fullPathStr);
       int rowsChanged = updateStatement.executeUpdate();
+      resetStatement.setString(1, fullPathStr);
+      resetStatement.executeUpdate();
 
       // if it doesn't change any rows, then we need to insert this file - it is "new".
       if (rowsChanged == 0) {

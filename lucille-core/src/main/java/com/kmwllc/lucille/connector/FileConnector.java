@@ -130,6 +130,7 @@ public class FileConnector extends AbstractConnector {
           SpecBuilder.parent("state")
               .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
               .optionalBoolean("performDeletions")
+              .optionalNumber("runsBeforeExpiration")
               .optionalNumber("pathLength").build(),
           GCP_PARENT_SPEC,
           AZURE_PARENT_SPEC,
@@ -196,6 +197,15 @@ public class FileConnector extends AbstractConnector {
       traverseStoragePath(publisher, resource);
     }
 
+    // bump runs_not_encountered so listExpiredFiles and shutdown's deletion see up-to-date counters
+    if (stateManager != null) {
+      try {
+        stateManager.incrementRunsNotEncountered();
+      } catch (SQLException e) {
+        throw new ConnectorException("Error finalizing state after traversal.", e);
+      }
+    }
+
     if (config.hasPath("filterOptions.sendTombstones") &&
         config.getBoolean("filterOptions.sendTombstones")) {
       // find files no longer in datastore that need to be removed from index
@@ -204,11 +214,6 @@ public class FileConnector extends AbstractConnector {
   }
 
   // stateful only: publish tombstones for files seen during prior ingests but not the current
-  // todo: add 'missing' count column to track how many times we've not seen document
-  // so there is an option to not instantly delete it the first time but only if it
-  // has been missing from multiple runs. Or attach a TTL timestamp or LAST_SEEN 
-  // timestamp so a delete policy can be set like "send tombstone if document has been
-  // gone for more than 16 hours", etc. Just a tunable safety measure.
   private void sendExpiredFileTombstones(Publisher publisher) throws ConnectorException {
     // skip if state not being managed
     if (stateManager == null) {
