@@ -60,6 +60,7 @@ import com.typesafe.config.Config;
  *   <li>state.jdbcPassword (String, Optional) : Database password. Defaults to "".</li>
  *   <li>state.tableName (String, Optional) : Table name for state. Defaults to the connector name.</li>
  *   <li>state.performDeletions (Boolean, Optional) : Delete rows for files removed from storage. Defaults to true.</li>
+ *   <li>state.runsBeforeExpiration (Int, Optional) : The number of runs a file is not encountered consecutively before it is marked as expired. Defaults to 1.</li>
  *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 200.</li>
  *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
  *   <li>gcp.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
