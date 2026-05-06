@@ -19,8 +19,8 @@ The API can be run locally or in a Docker container:
 3. Run the image: `docker run --env LUCILLE_CONF=${LUCILLE_CONF} --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
 
 ### Upload Lucille Config
-1. This should be a JSON file
-2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/json" -d @${LUCILLE_CONF}`
+1. This should be a HOCON file
+2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}`
 3. This will respond with a configId for your config
 
 ### Run Lucille with the Config
