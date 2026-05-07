@@ -81,18 +81,24 @@ public class APIIntegrationTest {
   }
 
   @Test
-  public void testConfigInfo() {
-    Response status1 = client.target(url + "v1/config-info/connector-list").request()
+  public void testConfigInfoConnectorList() {
+    Response status = client.target(url + "v1/config-info/connector-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
-    assertEquals(200, status1.getStatus());
+    assertEquals(200, status.getStatus());
+  }
 
-    Response status2 = client.target(url + "v1/config-info/stage-list").request()
+  @Test
+  public void testConfigInfoStageList() {
+    Response status = client.target(url + "v1/config-info/stage-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
-    assertEquals(200, status2.getStatus());
+    assertEquals(200, status.getStatus());
+  }
 
-    Response status3 = client.target(url + "v1/config-info/indexer-list").request()
+  @Test
+  public void testConfigInfoIndexerList() {
+    Response status = client.target(url + "v1/config-info/indexer-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
-    assertEquals(200, status3.getStatus());
+    assertEquals(200, status.getStatus());
   }
 
   // Creates config and uses it to hit run endpoint, allowing us to test POST requests with specific IDs
