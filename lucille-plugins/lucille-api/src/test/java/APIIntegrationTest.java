@@ -5,7 +5,9 @@ import com.kmwllc.lucille.config.LucilleAPIConfiguration;
 import io.dropwizard.testing.ResourceHelpers;
 import io.dropwizard.testing.junit.DropwizardAppRule;
 import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Base64;
 import org.junit.ClassRule;
@@ -77,5 +79,48 @@ public class APIIntegrationTest {
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, status.getStatus());
   }
+
+  @Test
+  public void testConfigInfo() {
+    Response status1 = client.target(url + "v1/config-info/connector-list").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, status1.getStatus());
+
+    Response status2 = client.target(url + "v1/config-info/stage-list").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, status2.getStatus());
+
+    Response status3 = client.target(url + "v1/config-info/indexer-list").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, status3.getStatus());
+  }
+
+  // Creates config and uses it to hit run endpoint, allowing us to test POST requests with specific IDs
+  @Test
+  public void testConfigGenerationAndRunId() {
+    Response configStatus = client.target(url + "v1/config").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
+    String configResponse = configStatus.readEntity(String.class);
+    String configId = configResponse.substring(13, configResponse.length() - 2);
+
+    Response configIdStatus = client.target(url + "v1/config/" + configId).request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, configIdStatus.getStatus());
+
+    Response runPostStatus = client.target(url + "v1/run").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity(configResponse, MediaType.APPLICATION_JSON));
+    assertEquals(200, runPostStatus.getStatus());
+    String runResponse = runPostStatus.readEntity(String.class);
+    String runId = runResponse.substring(10, 46);
+
+    Response runStatus = client.target(url + "v1/run").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, runStatus.getStatus());
+
+    Response runIdStatus = client.target(url + "v1/run/" + runId).request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, runIdStatus.getStatus());
+  }
+
 
 }
