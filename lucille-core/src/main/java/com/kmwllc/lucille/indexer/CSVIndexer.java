@@ -56,6 +56,10 @@ public class CSVIndexer extends Indexer {
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
     }
+    if (this.deletionMarkerField != null) {
+      log.warn("indexer.deletionMarkerField is set but is not supported by CSVIndexer; documents marked for deletion will be written as regular rows.");
+    }
+    
     this.writer = writer;
     this.columns = config.getStringList("csv.columns");
     this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;

@@ -59,6 +59,10 @@ public class WeaviateIndexer extends Indexer {
       String metricsPrefix, String localRunId) {
     super(config, messenger, false, metricsPrefix, localRunId);
 
+    if (this.deletionMarkerField != null) {
+      log.warn("indexer.deletionMarkerField is set but is not supported by NopIndexer.");
+    }
+
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
