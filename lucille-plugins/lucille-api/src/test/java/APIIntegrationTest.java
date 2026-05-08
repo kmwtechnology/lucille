@@ -83,6 +83,7 @@ public class APIIntegrationTest {
 
   @Test
   public void testConfigInfoConnectorList() {
+    client.property(ClientProperties.READ_TIMEOUT, 30000);
     Response status = client.target(url + "v1/config-info/connector-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, status.getStatus());
@@ -90,6 +91,7 @@ public class APIIntegrationTest {
 
   @Test
   public void testConfigInfoStageList() {
+    client.property(ClientProperties.READ_TIMEOUT, 30000);
     Response status = client.target(url + "v1/config-info/stage-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, status.getStatus());
@@ -97,6 +99,7 @@ public class APIIntegrationTest {
 
   @Test
   public void testConfigInfoIndexerList() {
+    client.property(ClientProperties.READ_TIMEOUT, 30000);
     Response status = client.target(url + "v1/config-info/indexer-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, status.getStatus());
