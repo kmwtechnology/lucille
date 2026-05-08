@@ -211,11 +211,7 @@ public class ConfigInfo {
       Map<String, ComponentDoc> connectorDocs = loadDocs("connector-javadocs.json");
       cachedConnectorListJson = buildSpecArrayForSubclasses(AbstractConnector.class.getName(), connectorDocs);
     }
-    try {
-      Thread.sleep(10000);
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
+
     return Response.ok(cachedConnectorListJson, MediaType.APPLICATION_JSON).build();
   }
 
