@@ -4,8 +4,12 @@ server:
   type: default
   requestLog:
     type: external
+  applicationConnectors:
+    - type: http
+      idleTimeout: 30s
 logging:
   type: external
+
 
 auth:
   type: "basicAuth"

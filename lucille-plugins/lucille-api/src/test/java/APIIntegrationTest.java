@@ -78,7 +78,6 @@ public class APIIntegrationTest {
   public void testDropwizardMetrics() {
     Response status = client.target(url + "v1/systemstats/metrics").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
-    client.property(ClientProperties.READ_TIMEOUT, 30000);
     assertEquals(200, status.getStatus());
   }
 
@@ -86,7 +85,6 @@ public class APIIntegrationTest {
   public void testConfigInfoConnectorList() {
     Response status = client.target(url + "v1/config-info/connector-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
-    client.property(ClientProperties.READ_TIMEOUT, 30000);
     assertEquals(200, status.getStatus());
   }
 
@@ -94,7 +92,6 @@ public class APIIntegrationTest {
   public void testConfigInfoStageList() {
     Response status = client.target(url + "v1/config-info/stage-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
-    client.property(ClientProperties.READ_TIMEOUT, 30000);
     assertEquals(200, status.getStatus());
   }
 
