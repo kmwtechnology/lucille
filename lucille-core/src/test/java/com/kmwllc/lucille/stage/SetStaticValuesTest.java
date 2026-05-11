@@ -44,6 +44,10 @@ public class SetStaticValuesTest {
     Document doc = Document.create("doc");
     stage.processDocument(doc);
 
+    assertEquals("File", doc.getString("myString"));
+    assertEquals(1, doc.getInt("myInt").intValue());
+    assertEquals(true, doc.getBoolean("myBool"));
+
     assertTrue(doc.getBoolean(".skipped"));
   }
 
