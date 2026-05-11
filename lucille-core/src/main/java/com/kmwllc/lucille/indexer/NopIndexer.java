@@ -25,8 +25,8 @@ public class NopIndexer extends Indexer {
   public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     super(config, messenger, bypass, metricsPrefix, localRunId);
 
-    if (this.deletionMarkerField != null) {
-      log.warn("indexer.deletionMarkerField is set but is not supported by NopIndexer.");
+    if (this.deletionMarkerField != null || this.deleteByFieldField != null || this.deleteByFieldValue != null) {
+      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be written as regular rows.");
     }
   }
 

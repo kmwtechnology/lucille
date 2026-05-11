@@ -56,8 +56,8 @@ public class CSVIndexer extends Indexer {
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
     }
-    if (this.deletionMarkerField != null) {
-      log.warn("indexer.deletionMarkerField is set but is not supported by CSVIndexer; documents marked for deletion will be written as regular rows.");
+    if (this.deletionMarkerField != null || this.deleteByFieldField != null || this.deleteByFieldValue != null) {
+      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be written as regular rows.");
     }
     
     this.writer = writer;
