@@ -131,8 +131,7 @@ public class FileConnector extends AbstractConnector {
           SpecBuilder.parent("state")
               .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
               .optionalBoolean("performDeletions")
-              .optionalNumber("runsBeforeExpiration")
-              .optionalNumber("pathLength").build(),
+              .optionalNumber("pathLength", "runsBeforeExpiration").build(),
           GCP_PARENT_SPEC,
           AZURE_PARENT_SPEC,
           S3_PARENT_SPEC)
