@@ -80,8 +80,8 @@ public class LucilleResource {
   @Operation(summary = "Create a new Lucille config to be run later",
       description = "Creates a new Lucille config, which can be used later by its referenced uuid.")
   public Response createConfig(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
-      @RequestBody(description = "Run configuration as a key-value map", required = true,
-          content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
+      @RequestBody(description = "Run configuration as a HOCON string", required = true,
+          content = @Content(mediaType = "application/hocon", schema = @Schema(
               type = "object",
               example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
 

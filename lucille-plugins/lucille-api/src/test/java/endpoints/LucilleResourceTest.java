@@ -93,6 +93,25 @@ public class LucilleResourceTest {
   }
 
   @Test
+  public void testGetRunById_SuccessJsonConfig() {
+    // Create and start a run
+    String configBody = "{\"pipeline\": \"testPipeline\"}";
+    Response configResponse = lucilleResource.createConfig(mockUser, configBody);
+    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    Map<String, String> requestBody = new HashMap<>();
+    requestBody.put("configId", configId);
+    Response runResponse = lucilleResource.startRun(mockUser, requestBody);
+    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    String runId = runDetails.getRunId();
+    // Fetch run details
+    Response fetchedRunResponse = lucilleResource.getRunById(mockUser, runId);
+    assertEquals(Response.Status.OK.getStatusCode(), fetchedRunResponse.getStatus());
+    RunDetails fetchedRunDetails = (RunDetails) fetchedRunResponse.getEntity();
+    assertEquals(runId, fetchedRunDetails.getRunId());
+    assertEquals(configId, fetchedRunDetails.getConfigId());
+  }
+
+  @Test
   public void testGetRunById_NotFound() {
     Response response = lucilleResource.getRunById(mockUser, "non-existent-run-id");
     assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
