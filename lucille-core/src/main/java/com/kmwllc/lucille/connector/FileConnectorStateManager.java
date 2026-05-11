@@ -73,7 +73,7 @@ public class FileConnectorStateManager {
    * @param config Configuration for the FileConnectorStateManager.
    * @param connectorName The name of the connector using this connection. Uses the name for tableName, if it is not specified.
    */
-  FileConnectorStateManager(Config config, String connectorName) {
+  FileConnectorStateManager(Config config, String connectorName) throws IllegalArgumentException {
     this.driver = ConfigUtils.getOrDefault(config, "driver", "org.h2.Driver");
     this.connectionString = ConfigUtils.getOrDefault(config, "connectionString", "jdbc:h2:./state/" + connectorName);
     this.jdbcUser = ConfigUtils.getOrDefault(config, "jdbcUser", "");
@@ -82,6 +82,9 @@ public class FileConnectorStateManager {
     this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
     this.runsBeforeExpiration = ConfigUtils.getOrDefault(config, "runsBeforeExpiration", 1);
+    if (this.runsBeforeExpiration < 1) {
+      throw new IllegalArgumentException("state.runsBeforeExpiration must be >= 1");
+    }
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", 200);
   }
 
@@ -197,7 +200,7 @@ public class FileConnectorStateManager {
   }
   
   public List<URI> listExpiredFiles() throws SQLException {
-    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
+    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE runs_not_encountered >= ?";
     List<URI> fileUris = new ArrayList<>();
     try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL)) {
       ps.setInt(1, runsBeforeExpiration);
@@ -210,7 +213,7 @@ public class FileConnectorStateManager {
   }
 
   private void deleteFilesNotEncounteredAndResetTable() throws SQLException {
-    String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
+    String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE runs_not_encountered >= ?";
 
     try (PreparedStatement ps = jdbcConnection.prepareStatement(deleteSQL)) {
       ps.setInt(1, runsBeforeExpiration);
