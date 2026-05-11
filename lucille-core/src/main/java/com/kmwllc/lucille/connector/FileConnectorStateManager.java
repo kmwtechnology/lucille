@@ -183,7 +183,7 @@ public class FileConnectorStateManager {
       try {
         resetStatement.close();
       } catch (SQLException e) {
-        log.warn("Couldn't close update statement (PreparedStatement).", e);
+        log.warn("Couldn't close reset statement (PreparedStatement).", e);
       }
     }
 
