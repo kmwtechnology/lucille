@@ -559,4 +559,23 @@ public class FileConnectorStateManagerTest {
     manager.shutdown();
   }
 
+  @Test
+  public void testListExpiredFilesRespectsMultipleRunsBeforeExpiration() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/runsBeforeExpiration.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+
+    assertEquals(0, manager.listExpiredFiles().size());
+    manager.incrementRunsNotEncountered();
+
+    assertEquals(1, manager.listExpiredFiles().size());
+    assertTrue(manager.listExpiredFiles().contains(URI.create(secretsFile)));
+
+    manager.shutdown();
+  }
+
 }
