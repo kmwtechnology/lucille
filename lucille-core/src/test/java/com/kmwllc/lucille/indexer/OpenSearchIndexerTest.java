@@ -1155,7 +1155,7 @@ public class OpenSearchIndexerTest {
   /**
    * Tests that the indexer retries a failed batch and succeeds on a subsequent attempt.
    * The mock client throws on the first bulk call and succeeds on the second.
-   * With maxRetries=3 and retryWaitDurationMs=0, the indexer should retry and ultimately
+   * With maxRetries=3 and retryWaitDurationMs=1, the indexer should retry and ultimately
    * send FINISH events for all documents.
    */
   @Test
@@ -1312,6 +1312,93 @@ public class OpenSearchIndexerTest {
     assertEquals(Event.Type.FINISH, messenger.getSentEvents().get(0).getType()); // document should have succeeded
   }
 
+  /**
+   * Tests that unknown-status-code failures (e.g. network timeouts) are NOT retried when the user
+   * explicitly specifies retryableStatusCodes without including -1.
+   * Config uses retryableStatusCodes: [429] — no -1, so IOException-based failures should not retry.
+   */
+  @Test
+  public void testNoRetryForUnknownStatusCodeWhenNotInList() throws Exception {
+    OpenSearchClient retryClient = Mockito.mock(OpenSearchClient.class);
+
+    BooleanResponse mockBooleanResponse = Mockito.mock(BooleanResponse.class);
+    Mockito.when(retryClient.ping()).thenReturn(mockBooleanResponse);
+    Mockito.when(mockBooleanResponse.value()).thenReturn(true);
+
+    // IOException becomes IndexerRetryableException with UNKNOWN_STATUS_CODE
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new IOException("Connection refused"));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retryWith429Only.conf");
+
+    Document doc1 = Document.create("doc1", "test_run");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    messenger.sendForIndexing(doc1);
+    indexer.run(1);
+
+    // bulk() should have been called only once — no retries for unknown status code
+    verify(retryClient, times(1)).bulk(any(BulkRequest.class));
+
+    // Document should have received a FAIL event
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FAIL, events.get(0).getType());
+  }
+
+  /**
+   * Tests that an empty retryableStatusCodes list is rejected as invalid configuration.
+   */
+  @Test
+  public void testEmptyRetryableStatusCodesRejected() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf")
+        .withValue("indexer.retryableStatusCodes", ConfigValueFactory.fromIterable(List.of()));
+
+    assertThrows(IllegalArgumentException.class, () ->
+        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+  }
+
+  /**
+   * Tests that maxRetries of 0 is rejected as invalid.
+   */
+  @Test
+  public void testMaxRetriesZeroRejected() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf")
+        .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(0));
+
+    assertThrows(IllegalArgumentException.class, () ->
+        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+  }
+
+  /**
+   * Tests that retryWaitDurationMs without maxRetries is rejected.
+   */
+  @Test
+  public void testRetryWaitDurationWithoutMaxRetriesRejected() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(500));
+
+    assertThrows(IllegalArgumentException.class, () ->
+        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+  }
+
+  /**
+   * Tests that retryableStatusCodes without maxRetries is rejected.
+   */
+  @Test
+  public void testRetryableStatusCodesWithoutMaxRetriesRejected() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.retryableStatusCodes", ConfigValueFactory.fromIterable(List.of(429)));
+
+    assertThrows(IllegalArgumentException.class, () ->
+        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+  }
+
 
   public static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 
@@ -1349,3 +1436,4 @@ public class OpenSearchIndexerTest {
     }
   }
 }
+

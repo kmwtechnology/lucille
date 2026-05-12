@@ -80,22 +80,24 @@ import sun.misc.Signal;
  *   <li>indexer.deleteByFieldValue (String, Optional) : Field whose value specifies which documents to delete by query. Must be set
  *   together with indexer.deleteByFieldField.</li>
  *   <li>indexer.maxRetries (Integer, Optional) : Maximum number of times to retry a failed batch before treating all documents
- *   in the batch as failures. Retries are disabled by default ({@value #DEFAULT_MAX_RETRIES}); set to a positive integer to opt in.</li>
+ *   in the batch as failures. Retries are disabled by default; set to a positive integer to opt in. A value of 0 or less
+ *   is rejected as invalid — remove the parameter entirely to disable retries.</li>
  *   <li>indexer.retryWaitDurationMs (Integer, Optional) : Initial wait duration in milliseconds before the first retry.
- *   Subsequent retries use exponential backoff, doubling the wait on each attempt. Only relevant when maxRetries is greater than 0.
+ *   Subsequent retries use exponential backoff, doubling the wait on each attempt. Only allowed when maxRetries is also set.
  *   Defaults to {@value #DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS}.</li>
  *   <li>indexer.retryableStatusCodes (List&lt;Integer&gt;, Optional) : HTTP status codes that should trigger a retry when thrown
  *   as an {@link IndexerRetryableException}. Failures with status codes not in this list, or plain {@link IndexerException}
- *   failures, will not be retried. Defaults to {@code [429, 503]}. Only relevant when maxRetries is greater than 0.</li>
+ *   failures, will not be retried. Include the sentinel value {@code -1} to also retry failures where no HTTP status code
+ *   is available (e.g. network timeouts). When this parameter is omitted, the default {@code [429, 503, -1]} is used.
+ *   An empty list is rejected as invalid configuration. Only allowed when maxRetries is also set.</li>
  * </ul>
  */
 public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
-  public static final int DEFAULT_MAX_RETRIES = 0;
   public static final int DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS = 1000;
-  public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503);
+  public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503, IndexerRetryableException.UNKNOWN_STATUS_CODE);
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -128,7 +130,7 @@ public abstract class Indexer implements Runnable {
 
   protected final boolean bypass;
 
-  // Non-null only when indexer.maxRetries > 0; null means retries are disabled (the default).
+  // Non-null only when indexer.maxRetries is configured; null means retries are disabled (the default).
   private final Retry retry;
 
   public void terminate() {
@@ -206,20 +208,36 @@ public abstract class Indexer implements Runnable {
 
     this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
 
-    int maxRetries = ConfigUtils.getOrDefault(config, "indexer.maxRetries", DEFAULT_MAX_RETRIES);
-    int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
-    if (maxRetries > 0) {
-      List<Integer> retryableStatusCodes = config.hasPath("indexer.retryableStatusCodes")
-          ? config.getIntList("indexer.retryableStatusCodes")
-          : DEFAULT_RETRYABLE_STATUS_CODES;
+    if (!config.hasPath("indexer.maxRetries")) {
+      if (config.hasPath("indexer.retryWaitDurationMs") || config.hasPath("indexer.retryableStatusCodes")) {
+        throw new IllegalArgumentException(
+            "indexer.retryWaitDurationMs and indexer.retryableStatusCodes require indexer.maxRetries to be set.");
+      }
+      this.retry = null;
+    } else {
+      int maxRetries = config.getInt("indexer.maxRetries");
+      if (maxRetries <= 0) {
+        throw new IllegalArgumentException(
+            "indexer.maxRetries must be greater than 0 when specified. Remove the parameter to disable retries.");
+      }
+      int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
+      List<Integer> retryableStatusCodes;
+      if (!config.hasPath("indexer.retryableStatusCodes")) {
+        retryableStatusCodes = DEFAULT_RETRYABLE_STATUS_CODES;
+      } else {
+        retryableStatusCodes = config.getIntList("indexer.retryableStatusCodes");
+        if (retryableStatusCodes.isEmpty()) {
+          throw new IllegalArgumentException(
+              "indexer.retryableStatusCodes must not be empty when specified. "
+                  + "Remove the parameter to use the default, or provide at least one status code.");
+        }
+      }
       this.retry = Retry.of("indexer-batch-retry", RetryConfig.custom()
           .maxAttempts(maxRetries + 1) // maxAttempts includes the initial attempt
           .intervalFunction(IntervalFunction.ofExponentialBackoff(retryInitialWaitDurationMs))
           .retryOnException(e -> {
             if (e instanceof IndexerRetryableException retryable) {
-              // Retry if the status code is in the configured list, or if no status code is known
-              return retryable.getStatusCode() == IndexerRetryableException.UNKNOWN_STATUS_CODE
-                  || retryableStatusCodes.contains(retryable.getStatusCode());
+              return retryableStatusCodes.contains(retryable.getStatusCode());
             }
             // Plain IndexerException (non-HTTP failure) — do not retry
             return false;
@@ -230,8 +248,6 @@ public abstract class Indexer implements Runnable {
               event.getNumberOfRetryAttempts(), maxRetries,
               event.getWaitInterval().toMillis(),
               event.getLastThrowable().getMessage()));
-    } else {
-      this.retry = null;
     }
 
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
@@ -391,19 +407,22 @@ public abstract class Indexer implements Runnable {
           messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
           docLogger.info("Sent success message for doc {}.", d.getId());
         } catch (Exception e) {
-          // TODO: The run won't be able to finish if this event isn't received; can we do something
-          // special here?
-          log.error("Error sending completion event for doc {}", d.getId(), e);
+          log.error("Error sending completion event for doc {}. RUN WILL HANG.", d.getId(), e);
         } finally {
           if (d.getRunId() != null) {
             MDC.popByKey(RUNID_FIELD);
           }
         }
       }
-    } catch (Throwable e) {
+    } catch (Throwable t) {
+      // Rethrow Errors (OutOfMemoryError, etc.) — they should never be swallowed
+      if (t instanceof Error) {
+        throw (Error) t;
+      }
+      Exception e = (t instanceof Exception) ? (Exception) t : new RuntimeException(t);
       // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing) to be indexed.
       // So everything is considered to have failed - we won't even look at failedDocs.
-      log.error("Error sending documents to index: " + e.getMessage(), e);
+      log.error("Error sending documents to index: {}", e.getMessage(), e);
 
       for (Document d : batchedDocs) {
         try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
@@ -414,9 +433,7 @@ public abstract class Indexer implements Runnable {
           messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
           docLogger.error("Sent failure message for doc {}. Reason: {}", d.getId(), e.getMessage());
         } catch (Exception e2) {
-          // TODO: The run won't be able to finish if this event isn't received; can we do something
-          // special here?
-          log.error("Couldn't send failure event for doc {}", d.getId(), e2);
+          log.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e2);
         } finally {
           if (d.getRunId() != null) {
             MDC.popByKey(RUNID_FIELD);

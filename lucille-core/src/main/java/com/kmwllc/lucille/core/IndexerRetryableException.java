@@ -6,6 +6,11 @@ package com.kmwllc.lucille.core;
  * {@link Indexer} can decide whether to retry based on the configured
  * {@code indexer.retryableStatusCodes} list.
  *
+ * <p>When no HTTP status code is available (e.g. a pure network failure), the sentinel value
+ * {@link #UNKNOWN_STATUS_CODE} ({@value #UNKNOWN_STATUS_CODE}) is used. The Indexer retries
+ * unknown-status-code failures only when the user omits {@code indexer.retryableStatusCodes}
+ * (using the default) or explicitly includes {@value #UNKNOWN_STATUS_CODE} in the list.
+ *
  * <p>Use {@link IndexerException} instead when the failure is not HTTP-based or should never
  * be retried regardless of configuration.
  */
