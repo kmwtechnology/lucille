@@ -220,7 +220,8 @@ public final class Py4JRuntime {
         try {
           Thread.sleep(100);
         } catch (InterruptedException e) {
-          e.printStackTrace();
+          log.warn("Interrupted while waiting for Python process to start", e);
+          Thread.currentThread().interrupt();
         }
       }
     } catch (Exception e) {

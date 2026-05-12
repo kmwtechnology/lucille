@@ -6,7 +6,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.apache.solr.common.annotation.JsonProperty;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -21,6 +20,12 @@ public class Event {
 
   public enum Type {CREATE, FINISH, FAIL, DROP}
 
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
+  static {
+    MAPPER.registerModule(new JavaTimeModule());
+  }
+
   private Type type;
   private String documentId;
   private String message;
@@ -32,12 +37,6 @@ public class Event {
   private Long offset;
   private String key;
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
-
-  static {
-    MAPPER.registerModule(new JavaTimeModule());
-  }
-
   private Event() {
   }
 
@@ -46,8 +45,7 @@ public class Event {
     this.runId = document.getRunId();
     this.message = message;
     this.type = type;
-    if (document instanceof KafkaDocument) {
-      KafkaDocument kafkaDocument = (KafkaDocument) document;
+    if (document instanceof KafkaDocument kafkaDocument) {
       this.topic = kafkaDocument.getTopic();
       this.partition = kafkaDocument.getPartition();
       this.offset = kafkaDocument.getOffset();
@@ -110,6 +108,7 @@ public class Event {
     return Type.CREATE.equals(type);
   }
 
+  @Override
   public String toString() {
     try {
       return MAPPER.writeValueAsString(this);
@@ -122,16 +121,16 @@ public class Event {
     return MAPPER.readValue(json, Event.class);
   }
 
+  @Override
   public boolean equals(Object o) {
     if (o == this) {
       return true;
     }
 
-    if (!(o instanceof Event)) {
+    if (!(o instanceof Event e)) {
       return false;
     }
 
-    Event e = (Event) o;
     return Objects.equals(documentId, e.documentId) &&
         Objects.equals(runId, e.runId) &&
         Objects.equals(message, e.message) &&
@@ -143,6 +142,7 @@ public class Event {
         Objects.equals(key, e.key);
   }
 
+  @Override
   public int hashCode() {
     return Objects.hash(documentId, runId, message, type, instant, topic, partition, offset, key);
   }

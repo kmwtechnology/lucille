@@ -17,17 +17,16 @@ import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
 import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 import sun.misc.Signal;
@@ -129,38 +128,14 @@ public abstract class Indexer implements Runnable {
   public Indexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.bypass = bypass;
-    this.idOverrideField =
-        config.hasPath("indexer.idOverrideField")
-            ? config.getString("indexer.idOverrideField")
-            : null;
-    this.indexOverrideField =
-        config.hasPath("indexer.indexOverrideField")
-            ? config.getString("indexer.indexOverrideField")
-            : null;
-    this.deletionMarkerField =
-        config.hasPath("indexer.deletionMarkerField")
-            ? config.getString("indexer.deletionMarkerField")
-            : null;
-    this.deletionMarkerFieldValue =
-        config.hasPath("indexer.deletionMarkerFieldValue")
-            ? config.getString("indexer.deletionMarkerFieldValue")
-            : null;
-    this.deleteByFieldField =
-        config.hasPath("indexer.deleteByFieldField")
-            ? config.getString("indexer.deleteByFieldField")
-            : null;
-    this.deleteByFieldValue =
-        config.hasPath("indexer.deleteByFieldValue")
-            ? config.getString("indexer.deleteByFieldValue")
-            : null;
-    int batchSize =
-        config.hasPath("indexer.batchSize")
-            ? config.getInt("indexer.batchSize")
-            : DEFAULT_BATCH_SIZE;
-    int batchTimeout =
-        config.hasPath("indexer.batchTimeout")
-            ? config.getInt("indexer.batchTimeout")
-            : DEFAULT_BATCH_TIMEOUT;
+    this.idOverrideField = ConfigUtils.getOrDefault(config, "indexer.idOverrideField", null);
+    this.indexOverrideField = ConfigUtils.getOrDefault(config, "indexer.indexOverrideField", null);
+    this.deletionMarkerField = ConfigUtils.getOrDefault(config, "indexer.deletionMarkerField", null);
+    this.deletionMarkerFieldValue = ConfigUtils.getOrDefault(config, "indexer.deletionMarkerFieldValue", null);
+    this.deleteByFieldField = ConfigUtils.getOrDefault(config, "indexer.deleteByFieldField", null);
+    this.deleteByFieldValue = ConfigUtils.getOrDefault(config, "indexer.deleteByFieldValue", null);
+    int batchSize = ConfigUtils.getOrDefault(config, "indexer.batchSize", DEFAULT_BATCH_SIZE);
+    int batchTimeout = ConfigUtils.getOrDefault(config, "indexer.batchTimeout", DEFAULT_BATCH_TIMEOUT);
     this.batch =
         (indexOverrideField == null)
             ? new SingleBatch(batchSize, batchTimeout)
@@ -176,16 +151,13 @@ public abstract class Indexer implements Runnable {
       throw new IllegalArgumentException(
           "When one of indexer.deletionMarkerField and indexer.deletionMarkerFieldValue are set, both must be set.");
     }
-
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
     this.stopWatch = new StopWatch();
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
     this.localRunId = localRunId;
-
     this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
-
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
   }
@@ -353,7 +325,7 @@ public abstract class Indexer implements Runnable {
     } catch (Exception e) {
       // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing) to be indexed.
       // So everything is considered to have failed - we won't even look at failedDocs.
-      log.error("Error sending documents to index: " + e.getMessage(), e);
+      log.error("Error sending documents to index: {}", e.getMessage(), e);
 
       for (Document d : batchedDocs) {
         try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
@@ -417,7 +389,7 @@ public abstract class Indexer implements Runnable {
   public static void main(String[] args) throws Exception {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
-    log.info("Starting Indexer for pipeline: " + pipelineName);
+    log.info("Starting Indexer for pipeline: {}", pipelineName);
     IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName, null);
 
@@ -447,7 +419,8 @@ public abstract class Indexer implements Runnable {
     try {
       return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
     } catch (Exception e) {
-      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
+      throw new RuntimeException(
+          String.format("Error accessing %s Spec. Is it publicly and statically available under \"SPEC\"?", getClass()), e);
     }
   }
 

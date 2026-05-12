@@ -64,7 +64,7 @@ public class ParquetConnector extends AbstractConnector {
     this.idField = config.getString("idField");
     this.fsUri = config.getString("fsUri");
 
-    this.limit = config.hasPath("limit") ? config.getLong("limit") : -1;
+    this.limit = config.hasPath("limit") ? config.getLong("limit") : -1L;
     this.start = config.hasPath("start") ? config.getLong("start") : 0L;
 
     this.hadoopConfig = new Configuration();

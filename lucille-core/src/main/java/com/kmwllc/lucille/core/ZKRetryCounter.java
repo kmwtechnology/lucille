@@ -35,7 +35,7 @@ public class ZKRetryCounter implements RetryCounter {
       retryCount = counter.getCount();
       counter.setCount(++retryCount);
     } catch (Exception e) {
-      log.error("Couldn't access retry counter for doc " + document.getId(), e);
+      log.error("Couldn't access retry counter for doc {}", document.getId(), e);
     }
     // if we weren't able to access the retry counter we optimistically assume the document
     // has not exceeded the max
@@ -48,13 +48,12 @@ public class ZKRetryCounter implements RetryCounter {
     try {
       curatorFramework.delete().quietly().deletingChildrenIfNeeded().forPath(counterPath);
     } catch (Exception e) {
-      log.error("Couldn't delete retry counter for doc " + document.getId(), e);
+      log.error("Couldn't delete retry counter for doc {}", document.getId(), e);
     }
   }
 
   private String getCounterPath(Document document) {
-    if (document instanceof KafkaDocument) {
-      KafkaDocument doc = (KafkaDocument) document;
+    if (document instanceof KafkaDocument doc) {
       return retryCounterPrefix + doc.getTopic() + "/" + doc.getRunId() + "/" + doc.getKey() + "___" + doc.getPartition() + "_"
           + doc.getOffset();
     }

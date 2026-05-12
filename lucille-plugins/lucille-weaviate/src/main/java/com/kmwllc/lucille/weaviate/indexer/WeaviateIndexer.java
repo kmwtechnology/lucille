@@ -34,7 +34,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 public class WeaviateIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
@@ -59,9 +58,8 @@ public class WeaviateIndexer extends Indexer {
       String metricsPrefix, String localRunId) {
     super(config, messenger, false, metricsPrefix, localRunId);
 
-    this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
-    this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
-        "id_original";
+    this.weaviateClassName = ConfigUtils.getOrDefault(config, "weaviate.className", "Document");
+    this.idDestinationName = ConfigUtils.getOrDefault(config, "weaviate.idDestinationName", "id_original");
 
     this.vectorField = ConfigUtils.getOrDefault(config, "weaviate.vectorField", null);
     this.client = client;

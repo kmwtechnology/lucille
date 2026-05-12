@@ -57,7 +57,6 @@ public class MatchQuery extends Stage {
 
   private Monitor monitor;
 
-
   public MatchQuery(Config config) {
     super(config);
     fieldsList = config.getStringList(FIELDS_PARAM);
@@ -67,10 +66,10 @@ public class MatchQuery extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fieldsList.size() == 0) {
+    if (fieldsList.isEmpty()) {
       throw new StageException(String.format("MatchQuery requires at least one %s property.", FIELDS_PARAM));
     }
-    if (queryList.size() == 0) {
+    if (queryList.isEmpty()) {
       throw new StageException(String.format("MatchQuery requires at least one %s property.", QUERIES_PARAM));
     }
     if (StringUtils.isBlank(matchedQueriesField)) {

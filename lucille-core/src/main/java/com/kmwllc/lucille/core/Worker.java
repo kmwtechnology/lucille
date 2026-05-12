@@ -3,7 +3,9 @@ package com.kmwllc.lucille.core;
 import static com.kmwllc.lucille.core.Document.ID_FIELD;
 import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
-import com.codahale.metrics.*;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
@@ -49,12 +51,11 @@ class Worker implements Runnable {
     this.localRunId = localRunId;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
-      log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
+      log.info("Retries will be tracked in Zookeeper with a configured maximum of: {}", config.getInt("worker.maxRetries"));
       this.trackRetries = true;
       this.counter = new ZKRetryCounter(config);
     }
-    this.pollInstant = new AtomicReference();
-    this.pollInstant.set(Instant.now());
+    this.pollInstant = new AtomicReference<>(Instant.now());
     this.metricsPrefix = metricsPrefix;
   }
 
@@ -80,7 +81,7 @@ class Worker implements Runnable {
           MDC.put(RUNID_FIELD, doc.getRunId());
         }
       } catch (Exception e) {
-        log.info("interrupted " + e);
+        log.info("interrupted {}", e);
         terminate();
         return;
       }
@@ -95,16 +96,16 @@ class Worker implements Runnable {
 
         if (trackRetries && counter.add(doc)) {
           try {
-            log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
+            log.info("Retry count exceeded for document {}; Sending to failure topic", doc.getId());
             messenger.sendFailed(doc);
           } catch (Exception e) {
-            log.error("Failed to send doc to failure topic: " + doc.getId(), e);
+            log.error("Failed to send doc to failure topic: {}", doc.getId(), e);
           }
 
           try {
             messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
           } catch (Exception e) {
-            log.error("Failed to send completion event for: " + doc.getId(), e);
+            log.error("Failed to send completion event for: {}", doc.getId(), e);
           }
 
           commitOffsetsAndRemoveCounter(doc);
@@ -139,11 +140,11 @@ class Worker implements Runnable {
 
           context.stop();
         } catch (Exception e) {
-          log.error("Error processing document: " + doc.getId(), e);
+          log.error("Error processing document: {}", doc.getId(), e);
           try {
             messenger.sendEvent(doc, null, Event.Type.FAIL);
           } catch (Exception e2) {
-            log.error("Error sending failure event for document: " + doc.getId(), e2);
+            log.error("Error sending failure event for document: {}", doc.getId(), e2);
           }
 
           commitOffsetsAndRemoveCounter(doc);
@@ -206,7 +207,7 @@ class Worker implements Runnable {
   public static void main(String[] args) throws Exception {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    log.debug("Starting Workers for pipeline: " + pipelineName);
+    log.debug("Starting Workers for pipeline: {}", pipelineName);
 
     WorkerMessengerFactory workerMessengerFactory =
         WorkerMessengerFactory.getKafkaFactory(config, pipelineName);

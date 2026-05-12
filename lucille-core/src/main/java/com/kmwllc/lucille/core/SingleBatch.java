@@ -49,7 +49,7 @@ public class SingleBatch implements Batch {
 
   @Override
   public List<Document> flushIfExpired() {
-    return isExpired() ? flush() : new ArrayList();
+    return isExpired() ? flush() : new ArrayList<>();
   }
 
 

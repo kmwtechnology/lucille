@@ -39,6 +39,9 @@ public class PublisherImpl implements Publisher {
   private static final Logger log = LoggerFactory.getLogger(PublisherImpl.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
+  /** Timeout in seconds for re-checking the pending-docs condition when maxPendingDocs is set. */
+  private static final int PENDING_DOCS_POLL_TIMEOUT_SECONDS = 10;
+
   private final PublisherMessenger messenger;
 
   private final String runId;
@@ -48,18 +51,17 @@ public class PublisherImpl implements Publisher {
   private final int logSeconds;
 
   // the number of times a call to publish() was completed across all publishing threads
-  private AtomicLong numReceived = new AtomicLong(0);
+  private final AtomicLong numReceived = new AtomicLong(0);
 
   // the actual number of documents sent for processing, which may be smaller
   // than the number of calls to publish() if isCollapsing==true
-  private AtomicLong numPublished = new AtomicLong(0);
+  private final AtomicLong numPublished = new AtomicLong(0);
 
   private long numCreated = 0;
   private long numFailed = 0;
   private long numSucceeded = 0;
   private long numDropped = 0;
 
-  private Instant start;
   private final Timer timer;
   private final ThreadLocal<Timer.Context> timerContext = ThreadLocal.withInitial(() -> null);
   private final boolean isCollapsing;
@@ -180,9 +182,9 @@ public class PublisherImpl implements Publisher {
         lockForPendingDocs.lock();
         // if the number of pending docs is higher than the specified max,
         // wait to be notified by the event handling thread when the size falls below the max;
-        // retest the condition every 10 seconds to handle any possible edge cases where the notification is not received
+        // retest the condition every PENDING_DOCS_POLL_TIMEOUT_SECONDS seconds to handle any possible edge cases where the notification is not received
         while (docIdsToTrack.size() >= maxPendingDocs) {
-          pendingDocsBelowMaxCondition.await(10, TimeUnit.SECONDS);
+          pendingDocsBelowMaxCondition.await(PENDING_DOCS_POLL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
           // note that in a scenario where N threads are calling publish() and the number of pending docs reaches maxPendingDocs,
           // all N threads will block on docIdsToTracBelowMax.await();
           // when numPending eventually drops to maxPendingDocs-1 via handleEvent(), all N threads are signalled simultaneously;
@@ -206,7 +208,7 @@ public class PublisherImpl implements Publisher {
       synchronized (this) {
         if (firstDocStopWatch != null) {
           firstDocStopWatch.stop();
-          log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
+          log.info("First doc published after {} ms", firstDocStopWatch.getTime(TimeUnit.MILLISECONDS));
           firstDocStopWatch = null;
         }
       }
@@ -351,7 +353,7 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public PublisherResult waitForCompletion(ConnectorThread thread, int timeout) throws Exception {
-    start = Instant.now();
+    Instant start = Instant.now();
     Instant lastLog = Instant.now();
 
     // poll for Events relating the current run; loop until all work is complete;
@@ -373,13 +375,13 @@ public class PublisherImpl implements Publisher {
       }
 
       if (timeout > 0 && ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
-        log.error("Exiting run with " + numPending() + " pending documents; connector timed out (" + timeout + "ms)");
+        log.error("Exiting run with {} pending documents; connector timed out ({}ms)", numPending(), timeout);
         return new PublisherResult(false, "Connector timeout.");
       }
 
       // stop waiting if the connector threw an exception
       if (thread.hasException()) {
-        log.error("Exiting run with " + numPending() + " pending documents; connector threw exception", thread.getException());
+        log.error("Exiting run with {} pending documents; connector threw exception", numPending(), thread.getException());
         return new PublisherResult(false, "Connector exception.");
       }
 
@@ -409,7 +411,7 @@ public class PublisherImpl implements Publisher {
           log.info("All documents SUCCEEDED.");
         }
         if (numFailed > 0) {
-          log.error(numFailed + " documents FAILED, but run will continue.");
+          log.error("{} documents FAILED, but run will continue.", numFailed);
         }
         return new PublisherResult(!thread.hasException(), null);
       }

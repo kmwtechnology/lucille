@@ -14,7 +14,10 @@ import org.apache.commons.collections4.iterators.IteratorChain;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -96,7 +99,8 @@ public abstract class Stage {
     try {
       return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
     } catch (Exception e) {
-      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
+      throw new RuntimeException(
+          String.format("Error accessing %s Spec. Is it publicly and statically available under \"SPEC\"?", getClass()), e);
     }
   }
 

@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.video;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.fileHandler.BaseFileHandler;
 import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -65,16 +66,16 @@ public class VideoFileHandler extends BaseFileHandler {
   public VideoFileHandler(Config config) {
     super(config);
 
-    this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
-    this.frameStride = Math.max(1, config.hasPath("frameStride") ? config.getInt("frameStride") : 1);
-    this.sourceField = config.hasPath("sourceField") ? config.getString("sourceField") : "source";
-    this.fileNameField = config.hasPath("fileNameField") ? config.getString("fileNameField") : "file_name";
-    this.frameIndexField = config.hasPath("frameIndexField") ? config.getString("frameIndexField") : "frame_index";
-    this.frameTimeMsField = config.hasPath("frameTimeMsField") ? config.getString("frameTimeMsField") : "frame_time_ms";
-    this.frameTimecodeField = config.hasPath("frameTimecodeField") ? config.getString("frameTimecodeField") : "frame_timecode";
-    this.imageWidthField = config.hasPath("imageWidthField") ? config.getString("imageWidthField") : "image_width";
-    this.imageHeightField = config.hasPath("imageHeightField") ? config.getString("imageHeightField") : "image_height";
-    this.frameImageField = config.hasPath("frameImageField") ? config.getString("frameImageField") : "frame_image";
+    this.docIdFormat = ConfigUtils.getOrDefault(config, "docIdFormat", null);
+    this.frameStride = Math.max(1, ConfigUtils.getOrDefault(config, "frameStride", 1));
+    this.sourceField = ConfigUtils.getOrDefault(config, "sourceField", "source");
+    this.fileNameField = ConfigUtils.getOrDefault(config, "fileNameField", "file_name");
+    this.frameIndexField = ConfigUtils.getOrDefault(config, "frameIndexField", "frame_index");
+    this.frameTimeMsField = ConfigUtils.getOrDefault(config, "frameTimeMsField", "frame_time_ms");
+    this.frameTimecodeField = ConfigUtils.getOrDefault(config, "frameTimecodeField", "frame_timecode");
+    this.imageWidthField = ConfigUtils.getOrDefault(config, "imageWidthField", "image_width");
+    this.imageHeightField = ConfigUtils.getOrDefault(config, "imageHeightField", "image_height");
+    this.frameImageField = ConfigUtils.getOrDefault(config, "frameImageField", "frame_image");
   }
 
   @Override

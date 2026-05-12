@@ -6,6 +6,7 @@ import com.github.tjake.jlama.model.functions.Generator.PoolingType;
 import com.github.tjake.jlama.safetensors.DType;
 import com.github.tjake.jlama.safetensors.SafeTensorSupport;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -67,6 +68,8 @@ public class JlamaEmbed extends Stage {
       .optionalString("workingMemoryType", "workingQuantizationType", "dest")
       .optionalBoolean("deleteModelAfter").build();
 
+  private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
+
   private final String embeddingModel;
   private final String source;
   private final String pathToStoreModel;
@@ -76,17 +79,15 @@ public class JlamaEmbed extends Stage {
   private final boolean deleteModelAfter;
   private AbstractModel model;
 
-  private static final Logger log = LoggerFactory.getLogger(JlamaEmbed.class);
-
   public JlamaEmbed(Config config) {
     super(config);
     this.pathToStoreModel = config.getString("pathToStoreModel");
     this.embeddingModel = config.getString("model");
     this.source = config.getString("source");
-    this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
-    this.workingMemoryType = config.hasPath("workingMemoryType") ? config.getString("workingMemoryType") : "";
-    this.workingQuantizationType = config.hasPath("workingQuantizationType") ? config.getString("workingQuantizationType") : "";
-    this.deleteModelAfter = config.hasPath("deleteModelAfter") ? config.getBoolean("deleteModelAfter") : false;
+    this.dest = ConfigUtils.getOrDefault(config, "dest", "embeddings");
+    this.workingMemoryType = ConfigUtils.getOrDefault(config, "workingMemoryType", "");
+    this.workingQuantizationType = ConfigUtils.getOrDefault(config, "workingQuantizationType", "");
+    this.deleteModelAfter = ConfigUtils.getOrDefault(config, "deleteModelAfter", false);
   }
 
   @Override

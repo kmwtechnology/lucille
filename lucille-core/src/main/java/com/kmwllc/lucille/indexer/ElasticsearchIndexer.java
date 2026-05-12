@@ -81,11 +81,12 @@ public class ElasticsearchIndexer extends Indexer {
     }
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
-    this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
+    this.update = ConfigUtils.getOrDefault(config, "elasticsearch.update", false);
 
     joinData = ElasticJoinData.fromConfig(config);
     this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
-    this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
+    this.versionType = config.hasPath("indexer.versionType")
+        ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {

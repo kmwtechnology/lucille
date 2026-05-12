@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.util.FieldFilter;
 import java.sql.Timestamp;
+import java.util.LinkedHashSet;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,16 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 
 /**
@@ -592,8 +602,8 @@ public class JsonDocument implements Document {
     if (this == other) {
       return true;
     }
-    if (other instanceof JsonDocument) {
-      return data.equals(((JsonDocument) other).data);
+    if (other instanceof JsonDocument doc) {
+      return data.equals(doc.data);
     }
     return false;
   }

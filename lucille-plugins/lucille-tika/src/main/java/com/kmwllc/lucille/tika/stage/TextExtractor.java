@@ -2,6 +2,7 @@ package com.kmwllc.lucille.tika.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -63,13 +64,13 @@ public class TextExtractor extends Stage {
       .include(FileContentFetcher.SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
-  private String textField;
-  private String filePathField;
-  private String tikaConfigPath;
-  private String byteArrayField;
-  private String metadataPrefix;
-  private Integer textContentLimit;
-  private Long parseTimeout;
+  private final String textField;
+  private final String filePathField;
+  private final String tikaConfigPath;
+  private final String byteArrayField;
+  private final String metadataPrefix;
+  private final int textContentLimit;
+  private final Long parseTimeout;
   private Parser parser;
   private ParseContext parseCtx;
   private final FileContentFetcher fileFetcher;
@@ -79,16 +80,15 @@ public class TextExtractor extends Stage {
   public TextExtractor(Config config) throws StageException {
     super(config);
 
-    textField = config.hasPath("textField") ? config.getString("textField") : "text";
-    filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : null;
-    byteArrayField = config.hasPath("byteArrayField") ? config.getString("byteArrayField") : null;
-    metadataPrefix = config.hasPath("metadataPrefix") ? config.getString("metadataPrefix") : "tika";
-    tikaConfigPath = config.hasPath("tikaConfigPath") ? config.getString("tikaConfigPath") : null;
-    textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
+    textField = ConfigUtils.getOrDefault(config, "textField", "text");
+    filePathField = ConfigUtils.getOrDefault(config, "filePathField", null);
+    byteArrayField = ConfigUtils.getOrDefault(config, "byteArrayField", null);
+    metadataPrefix = ConfigUtils.getOrDefault(config, "metadataPrefix", "tika");
+    tikaConfigPath = ConfigUtils.getOrDefault(config, "tikaConfigPath", null);
+    textContentLimit = ConfigUtils.getOrDefault(config, "textContentLimit", Integer.MAX_VALUE);
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
 
     this.fieldFilter = new FieldFilter(config);
-
 
     if (filePathField != null && byteArrayField != null) {
       throw new StageException("Provided both a filePathField and byteArrayField to the TextExtractor stage");
@@ -209,7 +209,7 @@ public class TextExtractor extends Stage {
     }
 
     doc.setOrAdd(textField, bch.toString());
-    String newMetadataPrefix = metadataPrefix == "" ? "" : metadataPrefix + "_";
+    String newMetadataPrefix = metadataPrefix.isEmpty() ? "" : metadataPrefix + "_";
     for (String name : metadata.names()) {
       // clean the field name first.
       String cleanName = cleanFieldName(name);

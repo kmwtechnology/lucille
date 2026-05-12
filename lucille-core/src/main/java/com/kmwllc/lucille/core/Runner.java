@@ -6,23 +6,43 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.message.*;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.IndexerMessengerFactory;
+import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.message.PublisherMessenger;
+import com.kmwllc.lucille.message.PublisherMessengerFactory;
+import com.kmwllc.lucille.message.TestMessenger;
+import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import com.typesafe.config.ConfigValue;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
-import org.apache.commons.cli.*;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.MissingOptionException;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.UnrecognizedOptionException;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
 import org.slf4j.MDC;
 import sun.misc.Signal;
 
@@ -477,12 +497,7 @@ public class Runner {
   }
 
   /**
-   * Non managed Run with internal generated runId
-   *
-   * @param config
-   * @param type
-   * @return
-   * @throws Exception
+   * Performs an end-to-end run of the designated type, generating a random run ID.
    */
   public static RunResult run(Config config, RunType type) throws Exception {
     return run(config, type, null);
@@ -491,11 +506,11 @@ public class Runner {
   /**
    * Generates a run ID if not supplied and performs an end-to-end run of the designated type.
    *
-   * @param config
-   * @param type
-   * @param runId
-   * @return
-   * @throws Exception
+   * @param config the Lucille configuration
+   * @param type the run type controlling how workers, indexers, and messaging are set up
+   * @param runId an optional run ID; a random UUID is generated if null
+   * @return the result of the run, including status and per-connector summaries
+   * @throws Exception if a fatal error occurs during the run
    */
   public static RunResult run(Config config, RunType type, String runId) throws Exception {
     if (runId == null) {
@@ -515,7 +530,7 @@ public class Runner {
           Collections.emptyList(), Collections.emptyList(), history, runId);
     }
 
-    log.info("Starting run with id " + runId);
+    log.info("Starting run with id {}", runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
@@ -555,7 +570,7 @@ public class Runner {
       connectorResults.add(result);
 
       if (!result.getStatus()) {
-        log.error("Aborting run because " + connector.getName() + " failed.");
+        log.error("Aborting run because {} failed.", connector.getName());
         return new RunResult(false, connectors, connectorResults, history, runId);
       }
     }
@@ -609,8 +624,9 @@ public class Runner {
    * 4) call connector.postExecute()
    */
   private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher) {
-    log.info("Running connector " + connector.getName() + " feeding to pipeline " +
-        (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
+    log.info("Running connector {} feeding to pipeline {}",
+        connector.getName(),
+        connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName());
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
 
@@ -637,8 +653,7 @@ public class Runner {
       try {
         ConnectorThread connectorThread = new ConnectorThread(connector, publisher, runId, ThreadNameUtils.createName("Connector", runId));
         connectorThread.start();
-        final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
-            config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
+        final int connectorTimeout = ConfigUtils.getOrDefault(config, "runner.connectorTimeout", DEFAULT_CONNECTOR_TIMEOUT);
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);
@@ -660,7 +675,7 @@ public class Runner {
     log.info(String.format("Connector %s feeding to pipeline %s complete. Time: %.2f secs.",
         connector.getName(), connector.getPipelineName(), durationSecs));
 
-    boolean status = pubResult == null ? true : pubResult.getStatus();
+    boolean status = pubResult == null || pubResult.getStatus();
     String msg = pubResult == null ? null : pubResult.getMessage();
     return new ConnectorResult(connector, publisher, status, msg, durationSecs);
   }
@@ -699,7 +714,7 @@ public class Runner {
         try {
           workerPool.start();
         } catch (Exception e) {
-          log.error("Error starting workers for pipeline " + pipelineName, e);
+          log.error("Error starting workers for pipeline {}", pipelineName, e);
           return new ConnectorResult(connector, publisher, false, "Error starting workers for pipeline " + pipelineName);
         }
 

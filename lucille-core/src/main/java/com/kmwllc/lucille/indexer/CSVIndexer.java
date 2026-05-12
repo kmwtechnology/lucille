@@ -2,6 +2,7 @@ package com.kmwllc.lucille.indexer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -58,7 +59,7 @@ public class CSVIndexer extends Indexer {
     }
     this.writer = writer;
     this.columns = config.getStringList("csv.columns");
-    this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
+    this.includeHeader = ConfigUtils.getOrDefault(config, "csv.includeHeader", true);
   }
 
   /**
@@ -95,7 +96,7 @@ public class CSVIndexer extends Indexer {
   protected String getIndexerConfigKey() { return "csv"; }
 
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {
-    boolean append = config.hasPath("csv.append") ? config.getBoolean("csv.append") : false;
+    boolean append = ConfigUtils.getOrDefault(config, "csv.append", false);
     try {
       File file = new File(config.getString("csv.path")).getAbsoluteFile();
       if (!file.getParentFile().exists()) {
