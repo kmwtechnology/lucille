@@ -149,8 +149,7 @@ public class OpenSearchIndexer extends Indexer {
       String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
 
       // if an index override field has been specified, use its value as the index to send to opensearch,
-      String indexOverride = getIndexOverride(doc);
-      final String indexToSend = indexOverride != null ? indexOverride : index;
+      final String indexToSend = Optional.ofNullable(getIndexOverride(doc)).orElse(index);
 
       Pair<String, String> indexAndId = Pair.of(indexToSend, id);
 
