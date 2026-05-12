@@ -5,9 +5,12 @@ import com.kmwllc.lucille.config.LucilleAPIConfiguration;
 import io.dropwizard.testing.ResourceHelpers;
 import io.dropwizard.testing.junit.DropwizardAppRule;
 import jakarta.ws.rs.client.Client;
+import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Base64;
+import org.glassfish.jersey.client.ClientProperties;
 import org.junit.ClassRule;
 import org.junit.Test;
 
@@ -77,5 +80,59 @@ public class APIIntegrationTest {
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, status.getStatus());
   }
+
+  @Test
+  public void testConfigInfoConnectorList() {
+    //all endpoints at v1/config-info/* use a full ClassGraph scan which takes > 5 seconds, this increases the timeout window so
+    // test doesn't fail
+    client.property(ClientProperties.READ_TIMEOUT, 30000);
+    Response status = client.target(url + "v1/config-info/connector-list").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, status.getStatus());
+  }
+
+  @Test
+  public void testConfigInfoStageList() {
+    client.property(ClientProperties.READ_TIMEOUT, 30000);
+    Response status = client.target(url + "v1/config-info/stage-list").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, status.getStatus());
+  }
+
+  @Test
+  public void testConfigInfoIndexerList() {
+    client.property(ClientProperties.READ_TIMEOUT, 30000);
+    Response status = client.target(url + "v1/config-info/indexer-list").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, status.getStatus());
+  }
+
+  // Creates config and uses it to hit run endpoint, allowing us to test POST requests with specific IDs
+  @Test
+  public void testConfigGenerationAndRunId() {
+    Response configStatus = client.target(url + "v1/config").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
+    String configResponse = configStatus.readEntity(String.class);
+    String configId = configResponse.substring(13, configResponse.length() - 2);
+
+    Response configIdStatus = client.target(url + "v1/config/" + configId).request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, configIdStatus.getStatus());
+
+    Response runPostStatus = client.target(url + "v1/run").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity(configResponse, MediaType.APPLICATION_JSON));
+    assertEquals(200, runPostStatus.getStatus());
+    String runResponse = runPostStatus.readEntity(String.class);
+    String runId = runResponse.substring(10, 46);
+
+    Response runStatus = client.target(url + "v1/run").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, runStatus.getStatus());
+
+    Response runIdStatus = client.target(url + "v1/run/" + runId).request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
+    assertEquals(200, runIdStatus.getStatus());
+  }
+
 
 }
