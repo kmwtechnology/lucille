@@ -392,9 +392,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
 
       // Delete document 2 using the override ID mechanism
       doc2.setField("is_delete", "true");
-
       indexer.sendToIndex(List.of(doc2));
-
       cluster.getSolrClient().commit(COL);
 
       // Verify only 2 documents remain
