@@ -1,9 +1,14 @@
 package com.kmwllc.lucille.indexer;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.BulkIndexByScrollFailure;
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.VersionType;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
+import co.elastic.clients.elasticsearch.core.DeleteByQueryRequest;
+import co.elastic.clients.elasticsearch.core.DeleteByQueryResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -19,9 +24,14 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -134,11 +144,148 @@ public class ElasticsearchIndexer extends Indexer {
       return Set.of();
     }
 
+    Map<String, Document> documentsToUpload = new LinkedHashMap<>();
+    Set<String> idsToDelete = new LinkedHashSet<>();
+    Map<String, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
+
+    // populate which collection each document belongs to
+    // upload if document is not marked for deletion
+    // else if document is marked for deletion ONLY, then only add to idsToDelete
+    // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
+    for (Document doc : documents) {
+      // use doc id override if specified, otherwise delete will try to delete wrong id
+      String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
+
+      if (!isMarkedForDeletion(doc)) {
+        idsToDelete.remove(id);
+        documentsToUpload.put(id, doc);
+      } else {
+        documentsToUpload.remove(id);
+        if (!isMarkedForDeletionByField(doc)) {
+          idsToDelete.add(id);
+        } else {
+          //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
+          // deletion, so we need to do doc.getString(deleteByFieldField).
+          String deleteField = doc.getString(deleteByFieldField);
+          if (!termsToDeleteByQuery.containsKey(deleteField)) {
+            termsToDeleteByQuery.put(deleteField, new ArrayList<>());
+          }
+          termsToDeleteByQuery.get(deleteField).add(doc.getString(deleteByFieldValue));
+        }
+      }
+    }
+
+    Set<Pair<Document, String>> failedDocs = uploadDocuments(documentsToUpload.values());
+    deleteById(new ArrayList<>(idsToDelete));
+    deleteByQuery(termsToDeleteByQuery);
+
+    return failedDocs;
+  }
+
+  private void deleteById(List<String> idsToDelete) throws Exception {
+    if (idsToDelete.isEmpty()) {
+      return;
+    }
+
+    BulkRequest.Builder br = new BulkRequest.Builder();
+    for (String id : idsToDelete) {
+      br.operations(op -> op
+          .delete(d -> d
+              .index(index)
+              .id(id)
+          )
+      );
+    }
+
+    BulkResponse response = client.bulk(br.build());
+    if (response.errors()) {
+      for (BulkResponseItem item : response.items()) {
+        if (item.error() != null) {
+          log.debug("Error while deleting id: {} because: {}", item.id(), item.error().reason());
+        }
+      }
+      throw new IndexerException("encountered errors while deleting documents");
+    }
+  }
+
+  private void deleteByQuery(Map<String, List<String>> termsToDeleteByQuery) throws Exception {
+    if (termsToDeleteByQuery.isEmpty()) {
+      return;
+    }
+    /*
+      each entry from termsToDeleteByQuery would add a "terms" query to the should clause. In each entry, the key represents
+      the field to look for while querying and values represent the values to look for in that field. We set the
+      minimum should match to 1 such that any documents that passes a single terms query would end
+      up in the result set. For a document to pass a terms query, it must contain that field and in that field
+      contain any one of the field values.
+      e.g. termsToDeleteByQuery -> {
+                                      "field1" : ["value1", "value2", "value3"],
+                                      "field2" : ["valueA", "valueB"]
+                                   }
+      would create a delete query:
+      {
+        "query": {
+          "bool": {
+            "should": [
+              {
+                "terms": {
+                  "field1": ["value1", "value2", "value3"]
+                }
+              },
+              {
+                "terms": {
+                  "field2": ["valueA", "valueB"]
+                }
+              }
+            ],
+            "minimum_should_match": "1"
+          }
+        }
+      }
+     */
+
+    BoolQuery.Builder boolQuery = new BoolQuery.Builder();
+
+    for (Map.Entry<String, List<String>> entry : termsToDeleteByQuery.entrySet()) {
+      String field = entry.getKey();
+      List<String> values = entry.getValue();
+      boolQuery.should(s -> s
+          .terms(t -> t
+              .field(field)
+              .terms(tt -> tt.value(values.stream()
+                  .map(FieldValue::of)
+                  .collect(Collectors.toList()))
+              )
+          )
+      );
+    }
+
+    boolQuery.minimumShouldMatch("1");
+
+    DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest.Builder()
+        .index(index)
+        .query(q -> q.bool(boolQuery.build()))
+        .build();
+    DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+
+    if (!response.failures().isEmpty()) {
+      for (BulkIndexByScrollFailure failure : response.failures()) {
+        log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+      }
+      throw new IndexerException("encountered errors while deleting by query");
+    }
+  }
+
+  private Set<Pair<Document, String>> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
+    if (documentsToUpload.isEmpty()) {
+      return Set.of();
+    }
+
     // building a map so we can quickly retrieve documents later on, if they fail during indexing.
     Map<String, Document> documentsUploaded = new LinkedHashMap<>();
     BulkRequest.Builder br = new BulkRequest.Builder();
 
-    for (Document doc : documents) {
+    for (Document doc : documentsToUpload) {
       // populate join data to document
       joinData.populateJoinData(doc);
 
@@ -226,6 +373,20 @@ public class ElasticsearchIndexer extends Indexer {
     }
 
     return failedDocs;
+  }
+
+  private boolean isMarkedForDeletion(Document doc) {
+    return deletionMarkerField != null
+        && deletionMarkerFieldValue != null
+        && doc.hasNonNull(deletionMarkerField)
+        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
+  }
+
+  private boolean isMarkedForDeletionByField(Document doc) {
+    return deleteByFieldField != null
+        && doc.has(deleteByFieldField)
+        && deleteByFieldValue != null
+        && doc.has(deleteByFieldValue);
   }
 
   @Override
