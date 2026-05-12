@@ -60,7 +60,7 @@ public class WeaviateIndexer extends Indexer {
     super(config, messenger, false, metricsPrefix, localRunId);
 
     if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
-      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be written as regular rows.");
+      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
     }
 
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
