@@ -365,7 +365,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       assertTrue(indexer.validateConnection());
 
       // Index documents through the indexer with override IDs
-      // These will be stored in Solr with id=override1, override2, override3
+      // These will be stored in Solr with id=override1, override2, doc3
       Document doc1 = Document.create("doc1");
       doc1.setField("other_id", "override1");
       doc1.setField("content", "First document");
@@ -374,8 +374,8 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
       doc2.setField("other_id", "override2");
       doc2.setField("content", "Second document");
 
+      // This document does not have an other_id field, so the id remains doc3
       Document doc3 = Document.create("doc3");
-      doc3.setField("other_id", "override3");
       doc3.setField("content", "Third document");
 
       indexer.sendToIndex(List.of(doc1, doc2, doc3));
@@ -391,8 +391,9 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
           cluster.getSolrClient().query(COL, qr).getResults().size());
 
       // Delete document 2 using the override ID mechanism
-      doc2.setField("is_delete", "true");
-      indexer.sendToIndex(List.of(doc2));
+      Document deleteDoc = Document.create("override2");
+      deleteDoc.setField("is_delete", "true");
+      indexer.sendToIndex(List.of(deleteDoc));
       cluster.getSolrClient().commit(COL);
 
       // Verify only 2 documents remain
@@ -418,9 +419,9 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
           cluster.getSolrClient().query(COL, qr1).getResults().size());
 
       SolrQuery qr3 = new SolrQuery();
-      qr3.set("q", "id:override3");
+      qr3.set("q", "id:doc3");
       assertEquals(
-          "Document with override3 should still exist",
+          "Document with doc3 should still exist",
           1,
           cluster.getSolrClient().query(COL, qr3).getResults().size());
 
