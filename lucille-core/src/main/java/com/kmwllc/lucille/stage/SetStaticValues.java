@@ -20,7 +20,8 @@ import java.util.Map;
  * <ul>
  *   <li>staticValues (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
  *   <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
- *   <li>skip (Boolean) : Sets the document to be skipped by the rest of the pipeline.</li>
+ *   <li>skip (Boolean) : Sets the document to be skipped by the rest of the pipeline. Can be used in place of the {@link SkipDocument}
+ *   stage when we want to both skip and delete documents, and don't want to add another stage with duplicate conditions.</li>
  * </ul>
  */
 public class SetStaticValues extends Stage {
@@ -45,7 +46,9 @@ public class SetStaticValues extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, staticValue));
-    doc.setSkipped(skip);
+    if (skip) {
+      doc.setSkipped(true);
+    }
     return null;
   }
 }
