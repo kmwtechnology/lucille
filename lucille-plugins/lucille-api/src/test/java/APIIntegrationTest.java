@@ -10,7 +10,6 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Base64;
-import org.glassfish.jersey.client.ClientProperties;
 import org.junit.ClassRule;
 import org.junit.Test;
 
@@ -85,7 +84,6 @@ public class APIIntegrationTest {
   public void testConfigInfoConnectorList() {
     //all endpoints at v1/config-info/* use a full ClassGraph scan which takes > 5 seconds, this increases the timeout window so
     // test doesn't fail
-    client.property(ClientProperties.READ_TIMEOUT, 30000);
     Response status = client.target(url + "v1/config-info/connector-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, status.getStatus());
@@ -93,7 +91,6 @@ public class APIIntegrationTest {
 
   @Test
   public void testConfigInfoStageList() {
-    client.property(ClientProperties.READ_TIMEOUT, 30000);
     Response status = client.target(url + "v1/config-info/stage-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, status.getStatus());
@@ -101,7 +98,6 @@ public class APIIntegrationTest {
 
   @Test
   public void testConfigInfoIndexerList() {
-    client.property(ClientProperties.READ_TIMEOUT, 30000);
     Response status = client.target(url + "v1/config-info/indexer-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, status.getStatus());
