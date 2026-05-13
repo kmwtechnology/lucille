@@ -47,6 +47,19 @@ Dropwizard can be configured via the `conf/api.yml` file. Details about availabl
 If configuration beyond what Dropwizard supplies is required, the functionality can be extended via the LucilleAPIConfiguration class.
 Details on how can be found [here](https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration).
 
+### Scanning Custom Components
+
+The `/v1/config-info/*` endpoints discover Connector, Stage, and Indexer implementations by scanning the classpath under
+`com.kmwllc.lucille`. To expose custom implementations that live in other packages, supply a comma-separated list via the
+`scan.extra.packages` system property at startup:
+
+```bash
+java -Dscan.extra.packages=com.example.lucille.custom,org.acme.lucille \
+     -jar target/lucille-api-X.X.X-SNAPSHOT.jar server ${DROPWIZARD_CONF}
+```
+
+Whitespace around entries is trimmed. The built-in `com.kmwllc.lucille` package is always scanned and does not need to be listed.
+
 ### Auth Configuration
 
 Authentication is configured under the `auth` JSONProperty.

@@ -25,6 +25,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.*;
+import java.util.stream.Stream;
 import java.io.InputStream;
 import java.io.IOException;
 import org.jsoup.Jsoup;
@@ -39,6 +40,12 @@ import org.jsoup.select.Elements;
 @Tag(name = "Config")
 @Produces(MediaType.APPLICATION_JSON)
 public class ConfigInfo {
+
+  // System property for additional packages to scan (comma-separated) for custom
+  // Connector/Stage/Indexer subclasses that live outside com.kmwllc.lucille.
+  public static final String EXTRA_PACKAGES_PROPERTY = "scan.extra.packages";
+
+  private static final String DEFAULT_PACKAGE = "com.kmwllc.lucille";
 
   private static final ObjectMapper mapper = new ObjectMapper();
   private final AuthHandler authHandler;
@@ -171,12 +178,28 @@ public class ConfigInfo {
     }
   }
 
+  // Resolves the package list ClassGraph should scan: the built-in com.kmwllc.lucille
+  // package plus any extras supplied via the "scan.extra.packages" system property
+  // (comma-separated, whitespace-tolerant). Visible for testing.
+  public static String[] resolveScanPackages(String extraPackages) {
+    if (extraPackages == null) {
+      return new String[]{DEFAULT_PACKAGE};
+    }
+    return Stream.concat(
+        Stream.of(DEFAULT_PACKAGE),
+        Arrays.stream(extraPackages.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+    ).toArray(String[]::new);
+  }
+
   // Builds an array of specs for the subclasses of a base class
   private ArrayNode buildSpecArrayForSubclasses(String baseClassName, Map<String, ComponentDoc> docs)
       throws NoSuchFieldException, IllegalAccessException {
     ArrayNode array = mapper.createArrayNode();
+    String[] packages = resolveScanPackages(System.getProperty(EXTRA_PACKAGES_PROPERTY));
     // Use ClassGraph to scan the classpath
-    try (ScanResult scanResult = new ClassGraph().enableAllInfo().scan()) {
+    try (ScanResult scanResult = new ClassGraph().enableClassInfo().acceptPackages(packages).scan()) {
       // Find every class that is a subclass of the provided class name
       ClassInfoList classes = scanResult.getSubclasses(baseClassName);
       // Load whatever matches were found as class objects
