@@ -108,4 +108,51 @@ public class ConfigInfoTest {
     assertNotNull(percentTrue);
     assertTrue(percentTrue.has("description") && !percentTrue.get("description").asText().isEmpty());
   }
+
+  @Test
+  public void testResolveScanPackages_nullReturnsDefaultOnly() {
+    String[] result = ConfigInfo.resolveScanPackages(null);
+    assertArrayEquals(new String[]{"com.kmwllc.lucille"}, result);
+  }
+
+  @Test
+  public void testResolveScanPackages_emptyReturnsDefaultOnly() {
+    assertArrayEquals(new String[]{"com.kmwllc.lucille"}, ConfigInfo.resolveScanPackages(""));
+    assertArrayEquals(new String[]{"com.kmwllc.lucille"}, ConfigInfo.resolveScanPackages("   "));
+    assertArrayEquals(new String[]{"com.kmwllc.lucille"}, ConfigInfo.resolveScanPackages(",, ,"));
+  }
+
+  @Test
+  public void testResolveScanPackages_singleExtra() {
+    assertArrayEquals(
+        new String[]{"com.kmwllc.lucille", "com.example.custom"},
+        ConfigInfo.resolveScanPackages("com.example.custom"));
+  }
+
+  @Test
+  public void testResolveScanPackages_multipleExtrasWithWhitespace() {
+    assertArrayEquals(
+        new String[]{"com.kmwllc.lucille", "com.example.a", "com.example.b", "com.example.c"},
+        ConfigInfo.resolveScanPackages("com.example.a, com.example.b ,com.example.c"));
+  }
+
+  @Test
+  public void testResolveScanPackages_systemPropertyIsHonored() throws Exception {
+    String prior = System.getProperty(ConfigInfo.EXTRA_PACKAGES_PROPERTY);
+    System.setProperty(ConfigInfo.EXTRA_PACKAGES_PROPERTY, "com.example.never.matches");
+    try {
+      ConfigInfo isolated = new ConfigInfo(new AuthHandler(false));
+      Response resp = isolated.getStages(Optional.empty());
+      assertEquals(200, resp.getStatus());
+      ArrayNode arr = mapper.valueToTree(resp.getEntity());
+      // Adding a non-matching extra package must not break the default scan.
+      assertTrue(arr.size() > 0);
+    } finally {
+      if (prior == null) {
+        System.clearProperty(ConfigInfo.EXTRA_PACKAGES_PROPERTY);
+      } else {
+        System.setProperty(ConfigInfo.EXTRA_PACKAGES_PROPERTY, prior);
+      }
+    }
+  }
 }
