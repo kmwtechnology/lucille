@@ -371,6 +371,10 @@ public abstract class Indexer implements Runnable {
     try {
       stopWatch.reset();
       stopWatch.start();
+      // Note: the retry wraps the entire sendToIndex() call. If sendToIndex() partially succeeds
+      // (e.g. some documents indexed before a subsequent delete-by-query fails), a retry will
+      // re-execute the entire method. This is considered safe because search engine upserts are idempotent —
+      // re-indexing an already-indexed document produces the same result.
       Set<Pair<Document, String>> failedDocPairs = retry != null
           ? Retry.decorateCheckedSupplier(retry, () -> sendToIndex(batchedDocs)).get()
           : sendToIndex(batchedDocs);
