@@ -1399,6 +1399,68 @@ public class OpenSearchIndexerTest {
         new OpenSearchIndexer(config, messenger, "testing", mockClient));
   }
 
+  /**
+   * Tests that retryMaxWaitDurationMs without maxRetries is rejected.
+   */
+  @Test
+  public void testRetryMaxWaitDurationWithoutMaxRetriesRejected() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.retryMaxWaitDurationMs", ConfigValueFactory.fromAnyRef(5000));
+
+    assertThrows(IllegalArgumentException.class, () ->
+        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+  }
+
+  /**
+   * Tests that retryRandomizationFactor without maxRetries is rejected.
+   */
+  @Test
+  public void testRetryRandomizationFactorWithoutMaxRetriesRejected() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.retryRandomizationFactor", ConfigValueFactory.fromAnyRef(0.3));
+
+    assertThrows(IllegalArgumentException.class, () ->
+        new OpenSearchIndexer(config, messenger, "testing", mockClient));
+  }
+
+  /**
+   * Tests that the indexer accepts a retry configuration with all parameters set to their defaults.
+   */
+  @Test
+  public void testRetryConfigWithAllParametersAccepted() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(3))
+        .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(1000))
+        .withValue("indexer.retryMaxWaitDurationMs", ConfigValueFactory.fromAnyRef(30000))
+        .withValue("indexer.retryRandomizationFactor", ConfigValueFactory.fromAnyRef(0.5))
+        .withValue("indexer.retryableStatusCodes", ConfigValueFactory.fromIterable(List.of(429, 503)));
+
+    // Should not throw — all parameters are valid
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    assertTrue(indexer.validateConnection());
+  }
+
+  /**
+   * Tests that the indexer accepts a retry configuration with non-default custom values
+   * for max wait duration and randomization factor.
+   */
+  @Test
+  public void testRetryConfigWithCustomMaxWaitAndRandomization() {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(5))
+        .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(500))
+        .withValue("indexer.retryMaxWaitDurationMs", ConfigValueFactory.fromAnyRef(10000))
+        .withValue("indexer.retryRandomizationFactor", ConfigValueFactory.fromAnyRef(0.0));
+
+    // Should not throw — custom values are valid
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    assertTrue(indexer.validateConnection());
+  }
+
 
   public static class ErroringOpenSearchIndexer extends OpenSearchIndexer {
 

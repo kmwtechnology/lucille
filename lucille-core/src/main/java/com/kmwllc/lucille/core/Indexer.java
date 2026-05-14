@@ -85,6 +85,13 @@ import sun.misc.Signal;
  *   <li>indexer.retryWaitDurationMs (Integer, Optional) : Initial wait duration in milliseconds before the first retry.
  *   Subsequent retries use exponential backoff, doubling the wait on each attempt. Only allowed when maxRetries is also set.
  *   Defaults to {@value #DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS}.</li>
+ *   <li>indexer.retryMaxWaitDurationMs (Long, Optional) : Maximum wait duration in milliseconds between retries.
+ *   Caps the exponential backoff so it does not grow unbounded. Only allowed when maxRetries is also set.
+ *   Defaults to {@value #DEFAULT_RETRY_MAX_WAIT_DURATION_MS}.</li>
+ *   <li>indexer.retryRandomizationFactor (Double, Optional) : Randomization factor applied to the wait duration
+ *   to add jitter and prevent thundering-herd effects. A value of 0.5 means the actual wait will be between
+ *   50% and 150% of the computed backoff. Set to 0.0 to disable jitter. Only allowed when maxRetries is also set.
+ *   Defaults to {@value #DEFAULT_RETRY_RANDOMIZATION_FACTOR}.</li>
  *   <li>indexer.retryableStatusCodes (List&lt;Integer&gt;, Optional) : HTTP status codes that should trigger a retry when thrown
  *   as an {@link IndexerRetryableException}. Failures with status codes not in this list, or plain {@link IndexerException}
  *   failures, will not be retried. Include the sentinel value {@code -1} to also retry failures where no HTTP status code
@@ -97,6 +104,8 @@ public abstract class Indexer implements Runnable {
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
   public static final int DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS = 1000;
+  public static final long DEFAULT_RETRY_MAX_WAIT_DURATION_MS = 30000;
+  public static final double DEFAULT_RETRY_RANDOMIZATION_FACTOR = 0.5;
   public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503, IndexerRetryableException.UNKNOWN_STATUS_CODE);
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
@@ -209,9 +218,11 @@ public abstract class Indexer implements Runnable {
     this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
 
     if (!config.hasPath("indexer.maxRetries")) {
-      if (config.hasPath("indexer.retryWaitDurationMs") || config.hasPath("indexer.retryableStatusCodes")) {
+      if (config.hasPath("indexer.retryWaitDurationMs") || config.hasPath("indexer.retryableStatusCodes")
+          || config.hasPath("indexer.retryMaxWaitDurationMs") || config.hasPath("indexer.retryRandomizationFactor")) {
         throw new IllegalArgumentException(
-            "indexer.retryWaitDurationMs and indexer.retryableStatusCodes require indexer.maxRetries to be set.");
+            "indexer.retryWaitDurationMs, indexer.retryMaxWaitDurationMs, indexer.retryRandomizationFactor, "
+                + "and indexer.retryableStatusCodes require indexer.maxRetries to be set.");
       }
       this.retry = null;
     } else {
@@ -221,6 +232,10 @@ public abstract class Indexer implements Runnable {
             "indexer.maxRetries must be greater than 0 when specified. Remove the parameter to disable retries.");
       }
       int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
+      long retryMaxWaitDurationMs = config.hasPath("indexer.retryMaxWaitDurationMs")
+          ? config.getLong("indexer.retryMaxWaitDurationMs") : DEFAULT_RETRY_MAX_WAIT_DURATION_MS;
+      double retryRandomizationFactor = config.hasPath("indexer.retryRandomizationFactor")
+          ? config.getDouble("indexer.retryRandomizationFactor") : DEFAULT_RETRY_RANDOMIZATION_FACTOR;
       List<Integer> retryableStatusCodes;
       if (!config.hasPath("indexer.retryableStatusCodes")) {
         retryableStatusCodes = DEFAULT_RETRYABLE_STATUS_CODES;
@@ -234,7 +249,9 @@ public abstract class Indexer implements Runnable {
       }
       this.retry = Retry.of("indexer-batch-retry", RetryConfig.custom()
           .maxAttempts(maxRetries + 1) // maxAttempts includes the initial attempt
-          .intervalFunction(IntervalFunction.ofExponentialBackoff(retryInitialWaitDurationMs))
+          .intervalFunction(IntervalFunction.ofExponentialRandomBackoff(
+              retryInitialWaitDurationMs, IntervalFunction.DEFAULT_MULTIPLIER,
+              retryRandomizationFactor, retryMaxWaitDurationMs))
           .retryOnException(e -> {
             if (e instanceof IndexerRetryableException retryable) {
               return retryableStatusCodes.contains(retryable.getStatusCode());
@@ -528,7 +545,8 @@ public abstract class Indexer implements Runnable {
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
             "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
-        .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs")
+        .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
+            "retryMaxWaitDurationMs", "retryRandomizationFactor")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
         .optionalList("blacklist", new TypeReference<List<String>>(){})
