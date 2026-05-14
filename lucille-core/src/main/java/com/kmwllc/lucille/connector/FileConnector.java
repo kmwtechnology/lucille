@@ -55,7 +55,7 @@ import com.typesafe.config.Config;
  *   <li>fileOptions.handleCompressedFiles (Boolean, Optional) : Process compressed files. Defaults to false.</li>
  *   <li>fileOptions.moveToAfterProcessing (String, Optional) : URI to move files after successful processing (single input path only).</li>
  *   <li>fileOptions.moveToErrorFolder (String, Optional) : URI to move files if processing fails (single input path only).</li>
- *   <li>state.enabled (Boolean, Optional) : Set state to be enabled or disabled. Defaults to true.</li>
+ *   <li>state.enabled (Boolean, Optional) : Set state database to be enabled or disabled (null). Defaults to true.</li>
  *   <li>state.driver (String, Optional) : JDBC driver class. Defaults to "org.h2.Driver".</li>
  *   <li>state.connectionString (String, Optional) : JDBC connection string. Defaults to "jdbc:h2:./state/{CONNECTOR_NAME}".</li>
  *   <li>state.jdbcUser (String, Optional) : Database username. Defaults to "".</li>
@@ -160,9 +160,9 @@ public class FileConnector extends AbstractConnector {
     }
 
     this.stateManager =
-        config.hasPath("state") && ConfigUtils.getOrDefault(config, "state.enabled", true) ? new FileConnectorStateManager(
-            config.getConfig("state"),
-            getName()) : null;
+        config.hasPath("state") && ConfigUtils.getOrDefault(config, "state.enabled", true)
+            ? new FileConnectorStateManager(config.getConfig("state"), getName())
+            : null;
 
     this.storageClientMap = StorageClient.createClients(config);
 
