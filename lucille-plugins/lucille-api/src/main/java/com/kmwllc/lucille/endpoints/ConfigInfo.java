@@ -187,7 +187,7 @@ public class ConfigInfo {
     ).toArray(String[]::new);
 
     // Use ClassGraph to scan the classpath
-    try (ScanResult scanResult = new ClassGraph().enableAllInfo().acceptPackages(packages).scan()) {
+    try (ScanResult scanResult = new ClassGraph().enableClassInfo().acceptPackages(packages).scan()) {
       // Find every class that is a subclass of the provided class name
       ClassInfoList classes = scanResult.getSubclasses(baseClassName);
       // Load whatever matches were found as class objects
