@@ -14,7 +14,7 @@ A single process in the JVM. Intra-component (thread) communication is via an in
 
 ![An architecture diagram showing local mode.](topology-local.png)
 
-### Kakfa Local 
+### Kafka Local 
 A single process in the JVM, with the exception of an externalized instance of Kafka. Intra-component (thread) communication is via Kafka.
 
 ![An architecture diagram showing kafka local mode.](topology-local-kafka.png)
