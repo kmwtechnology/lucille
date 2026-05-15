@@ -196,7 +196,15 @@ public class OpenSearchIndexer extends Indexer {
       );
     }
 
-    BulkResponse response = client.bulk(br.build());
+    BulkResponse response;
+    try {
+      response = client.bulk(br.build());
+    } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+      throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+    }
+
     if (response.errors()) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
@@ -276,7 +284,15 @@ public class OpenSearchIndexer extends Indexer {
           .index(entry.getKey())
           .query(q -> q.bool(boolQuery.build()))
           .build();
-      DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+
+      DeleteByQueryResponse response;
+      try {
+        response = client.deleteByQuery(deleteByQueryRequest);
+      } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+        throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
+      } catch (IOException e) {
+        throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+      }
 
       if (!response.failures().isEmpty()) {
         for (BulkIndexByScrollFailure failure : response.failures()) {
