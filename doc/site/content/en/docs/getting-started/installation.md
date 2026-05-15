@@ -3,7 +3,66 @@ title: Installation
 weight: 15
 date: 2025-10-31
 description: >
-  A guide to installing Lucille locally.
+  How to get Lucille — as a Maven dependency, from a source build, or for development.
+---
+
+## Do You Need to Install Lucille?
+
+It depends on how you're using it:
+
+### Using Lucille as a Library in an Existing Java Project
+
+If you're embedding Lucille inside an existing Java project (e.g., calling `Runner.run()` programmatically, or using Lucille's Document API and Stages within your own application), you don't need to install anything. Just add Lucille as a Maven dependency:
+
+```xml
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-bom</artifactId>
+      <version>0.9.0</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+
+<dependencies>
+  <dependency>
+    <groupId>com.kmwllc</groupId>
+    <artifactId>lucille-core</artifactId>
+  </dependency>
+  <!-- Add plugins as needed -->
+  <dependency>
+    <groupId>com.kmwllc</groupId>
+    <artifactId>lucille-tika</artifactId>
+  </dependency>
+</dependencies>
+```
+
+Lucille is published to Maven Central. The BOM ensures all Lucille modules are at the same version. No source build required.
+
+### Running Lucille from the Command Line (Runner, Worker, Indexer)
+
+If you're launching Lucille components via `java -cp ... com.kmwllc.lucille.core.Runner` (or Worker, WorkerIndexer, Indexer), you need the compiled JARs and their dependencies on the classpath. The easiest way to get these is to clone the repository and build from source:
+
+```bash
+git clone https://github.com/kmwtechnology/lucille.git
+cd lucille
+git checkout v0.9.0  # check out the release tag/branch you want to use
+mvn clean install
+```
+
+After the build, the JARs and dependencies are in each module's `target/` directory. You can then run Lucille with:
+
+```bash
+java -Dconfig.file=my-config.conf -cp 'lucille-core/target/lucille-core-0.9.0.jar:lucille-core/target/lib/*' com.kmwllc.lucille.core.Runner
+```
+
+### Developing New Lucille Components (Stages, Connectors, Indexers)
+
+If you're contributing to Lucille or developing new components that will be part of the Lucille codebase, clone the repository and build from source as described below.
+
 ---
 
 ## Prerequisites
@@ -95,17 +154,35 @@ export PATH="<maven-dir>/bin:$PATH"
 * Open **System Properties**, **Environment Variables**.
 * Edit **Path** and add `<maven-dir>/bin`.
 
+
 ## Clone the Repository
 
 ```bash
 git clone https://github.com/kmwtechnology/lucille.git
+cd lucille
+```
+
+To use a specific release version, check out the corresponding tag:
+
+```bash
+git checkout 0.9.0  # replace with the version you want
+```
+
+To see available release tags:
+
+```bash
+git tag --list
 ```
 
 ## Build Lucille
 
 ```bash
-cd lucille
 mvn clean install
 ```
 
-This compiles all modules and produces build artifacts under each module’s `target/` folder.
+This compiles all modules and produces build artifacts under each module's `target/` folder. After the build:
+
+- `lucille-core/target/lucille-core-{version}.jar` — the core framework JAR
+- `lucille-core/target/lib/` — all runtime dependencies
+- `lucille-plugins/lucille-tika/target/lucille-tika-{version}.jar` — plugin JARs (one per plugin)
+- `lucille-examples/*/target/lib/` — example projects with all dependencies copied for easy classpath setup

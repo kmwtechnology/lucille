@@ -7,6 +7,16 @@ description: >
 
 Lucille separates the three concerns of ETL — reading, transforming, and writing — into distinct components that run concurrently.
 
+## Understanding the Architecture
+
+Start here for a narrative introduction to Lucille's design:
+
+| Page | What It Covers |
+|---|---|
+| [The Problem of Search ETL]({{< relref "problem" >}}) | Why a simple sequential loop falls short, and the pitfalls that motivate Lucille's design |
+| [Core Architecture]({{< relref "core-design" >}}) | How Lucille maps ETL functions to concurrent components with pluggable queues (includes pseudocode) |
+| [Document Lifecycle]({{< relref "document-lifecycle" >}}) | The complete journey of a single Document from creation to indexing |
+
 ## Core Components
 
 | Component | Description |
@@ -18,6 +28,7 @@ Lucille separates the three concerns of ETL — reading, transforming, and writi
 | **[Publisher]({{< relref "docs/architecture/components/publisher" >}})** | Tracks every Document from publication through terminal state. |
 | **[Runner]({{< relref "docs/architecture/components/run" >}})** | Orchestrates a complete Lucille run end-to-end. |
 | **[Document]({{< relref "docs/architecture/components/document" >}})** | The basic unit of data flowing through Lucille. |
+| **[Document IDs]({{< relref "docs/architecture/components/document-ids" >}})** | Deterministic IDs, duplicate handling, and the idOverrideField mechanism. |
 
 ## How Components Interact
 
@@ -28,6 +39,10 @@ Connector → [source queue] → Worker(s) → [destination queue] → Indexer
                                    ↓ events ↑
                               Publisher (run accounting)
 ```
+
+## Deep Dives
+
+For in-depth explanations of how each subsystem works internally, see the [Deep Dives]({{< relref "docs/architecture/deep-dives" >}}) section.
 
 ## Topology
 
