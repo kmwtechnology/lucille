@@ -2,52 +2,28 @@
 title: Architecture
 weight: 3
 description: >
-  Understanding Lucille's core components & topology.
+  Understanding Lucille's core components, topology, and design.
 ---
 
 Lucille separates the three concerns of ETL — reading, transforming, and writing — into distinct components that run concurrently.
 
-## Understanding the Architecture
+## Start Here
 
-Start here for a narrative introduction to Lucille's design:
-
-| Page | What It Covers |
+| Section | What It Covers |
 |---|---|
-| [The Problem of Search ETL]({{< relref "problem" >}}) | Why a simple sequential loop falls short, and the pitfalls that motivate Lucille's design |
-| [Core Architecture]({{< relref "core-design" >}}) | How Lucille maps ETL functions to concurrent components with pluggable queues (includes pseudocode) |
-| [Document Lifecycle]({{< relref "document-lifecycle" >}}) | The complete journey of a single Document from creation to indexing |
-
-## Core Components
-
-| Component | Description |
-|---|---|
-| **[Connector]({{< relref "docs/architecture/components/Connectors" >}})** | Reads from a source system and emits Documents. |
-| **[Pipeline]({{< relref "docs/architecture/components/pipeline" >}})** | An ordered sequence of Stages that transform Documents. |
-| **[Worker]({{< relref "docs/architecture/components/worker" >}})** | Pulls Documents from a queue, runs them through a Pipeline, and pushes results onward. |
-| **[Indexer]({{< relref "docs/architecture/components/Indexers" >}})** | Pulls processed Documents and writes them to the destination in batches. |
-| **[Publisher]({{< relref "docs/architecture/components/publisher" >}})** | Tracks every Document from publication through terminal state. |
-| **[Runner]({{< relref "docs/architecture/components/run" >}})** | Orchestrates a complete Lucille run end-to-end. |
-| **[Document]({{< relref "docs/architecture/components/document" >}})** | The basic unit of data flowing through Lucille. |
-| **[Document IDs]({{< relref "docs/architecture/components/document-ids" >}})** | Deterministic IDs, duplicate handling, and the idOverrideField mechanism. |
+| [Overview]({{< relref "overview" >}}) | The problem Lucille solves, the core architecture, and the document lifecycle |
+| [Topology]({{< relref "topology" >}}) | Deployment modes from single-JVM to fully distributed |
+| [Components]({{< relref "components" >}}) | Reference pages for each component (Document, Pipeline, Publisher, Connectors, Indexers, Stages, Config) |
+| [Design Rationale]({{< relref "design-rationale" >}}) | The 24 requirements that explain why the system is designed the way it is |
 
 ## How Components Interact
 
 The components communicate through queues. In local mode these are in-memory `LinkedBlockingQueue` instances. In distributed mode they are Kafka topics. The component code is identical in both cases — only the messenger implementation changes.
 
 ```
-Connector → [source queue] → Worker(s) → [destination queue] → Indexer
-                                   ↓ events ↑
-                              Publisher (run accounting)
+Connector → [processing queue] → Worker(s) → [indexing queue] → Indexer
+                                       ↓ events ↑
+                                  Publisher (run accounting)
 ```
 
-## Deep Dives
-
-For in-depth explanations of how each subsystem works internally, see the [Deep Dives]({{< relref "docs/architecture/deep-dives" >}}) section.
-
-## Topology
-
-Lucille supports four deployment topologies, from a single JVM to a fully distributed Kafka-based deployment. See [Topology]({{< relref "docs/architecture/topology" >}}) for details.
-
-## Configuration
-
-All components are configured via a single HOCON file. See [Config]({{< relref "docs/architecture/components/Config" >}}) for the full schema.
+For in-depth explanations of how each subsystem works internally, see [Internals]({{< relref "docs/internals" >}}).

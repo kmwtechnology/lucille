@@ -1,6 +1,6 @@
 ---
 title: Developing New Components
-weight: 25
+weight: 10
 date: 2024-10-28
 description: >
   The basics of how to develop Connectors, Stages, and Indexers for Lucille.

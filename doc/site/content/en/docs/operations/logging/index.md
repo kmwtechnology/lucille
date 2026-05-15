@@ -1,6 +1,7 @@
 ---
 date: 2025-05-07
 title: Logging
+weight: 3
 description: Interpreting and using Lucille logs.
 resources:
   - src: "**.{png,jpg}"

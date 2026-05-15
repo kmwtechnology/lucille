@@ -2,7 +2,7 @@
 title: Plugins
 date: 2025-06-09
 description: Optional extension modules that add connectors, stages, and indexers with heavyweight dependencies.
-weight: 6
+weight: 20
 ---
 
 Lucille's plugin system allows optional components with large or specialized dependencies to be packaged separately from `lucille-core`. This keeps the core JAR small and avoids transitive dependency conflicts for users who don't need every feature.
@@ -294,4 +294,4 @@ Or use the Lucille BOM to manage versions centrally:
 
 New connectors, stages, and indexers can be added as separate Maven modules without touching the core project. The plugin mechanism is the same one used by all built-in plugins.
 
-See [Developing New Components]({{< relref "docs/contributing/dev_new_components" >}}) for a step-by-step guide.
+See [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}) for a step-by-step guide.

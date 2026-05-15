@@ -1,4 +1,5 @@
 ---
+weight: 3
 title: Pipeline
 date: 2024-10-15
 description: The ordered sequence of Stages that transform Documents before they are indexed.

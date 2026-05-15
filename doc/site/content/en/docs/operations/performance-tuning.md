@@ -1,6 +1,6 @@
 ---
 title: "Performance Tuning"
-weight: 7
+weight: 5
 date: 2025-06-09
 description: >
   How to identify bottlenecks, interpret throughput metrics, and tune Lucille for maximum ingestion performance.

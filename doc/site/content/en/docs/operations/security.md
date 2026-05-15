@@ -1,6 +1,6 @@
 ---
 title: "Security Configuration"
-weight: 8
+weight: 6
 date: 2025-06-09
 description: >
   Configuring TLS, authentication, and credentials for search backends and Kafka in Lucille deployments.

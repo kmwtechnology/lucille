@@ -1,4 +1,5 @@
 ---
+weight: 5
 title: Publisher
 date: 2025-10-23
 description: Provides a way to publish Documents for processing by the pipeline, and tracks their lifecycle until completion.

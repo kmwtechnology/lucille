@@ -1,5 +1,6 @@
 ---
 title: File Ingestion Cookbook
+weight: 1
 date: 2025-06-09
 description: Recipes for ingesting files from the local filesystem, Amazon S3, Azure Blob Storage, and Google Cloud Storage.
 ---

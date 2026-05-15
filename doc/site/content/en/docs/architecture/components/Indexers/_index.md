@@ -1,4 +1,5 @@
 ---
+weight: 11
 title: Indexer
 date: 2025-06-09
 description: An Indexer sends processed Documents to a specific destination.

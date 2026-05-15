@@ -1,15 +1,15 @@
 ---
-title: Deep Dives
-weight: 3
+title: Internals
+weight: 5
 description: >
-  In-depth explanations of Lucille's architectural subsystems — how they work internally and why they were designed that way.
+  In-depth explanations of how each architectural subsystem works internally and why it was designed that way.
 ---
 
 These pages go beyond the component reference to explain the internal mechanics of each subsystem. They are useful for developers who need to understand *why* the system behaves the way it does, debug unexpected behavior, or evaluate whether Lucille's design fits their use case.
 
-Each deep dive is self-contained — you can read them in any order based on what you need to understand.
+Each page is self-contained — you can read them in any order based on what you need to understand.
 
-| Deep Dive | What It Explains |
+| Page | What It Explains |
 |---|---|
 | [Document Model]({{< relref "document-model" >}}) | Why the Document is backed by a Jackson ObjectNode, the API design choices, and the tradeoffs |
 | [Pipeline Internals]({{< relref "pipeline-internals" >}}) | How lazy iterator chaining works, why in-place modification, memory implications |

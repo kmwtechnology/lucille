@@ -53,7 +53,7 @@ In addition to the three required elements, you can configure other parts of a L
 | `worker` | `threads`, `maxRetries`, `exitOnTimeout`, `maxProcessingSecs`, `enableHeartbeat` | Per-thread pipeline isolation. See [Worker]({{< relref "docs/architecture/components/worker" >}}). |
 | `publisher` | `queueCapacity`, `maxPendingDocs` | Backpressure control. `queueCapacity` for local mode; `maxPendingDocs` for distributed. |
 | `runner` | `metricsLoggingLevel`, `connectorTimeout` | `connectorTimeout` defaults to 24 hours. |
-| `kafka` | `bootstrapServers`, `consumerGroupId`, `maxPollIntervalSecs`, `maxRequestSize`, `events`, `sourceTopic`, `eventTopic`, `documentDeserializer`, `documentSerializer`, `securityProtocol`, `consumerPropertyFile`, `producerPropertyFile`, `adminPropertyFile` | Required when running in distributed or Kafka-local mode. See [Deployment]({{< relref "docs/prod/deployment" >}}). |
+| `kafka` | `bootstrapServers`, `consumerGroupId`, `maxPollIntervalSecs`, `maxRequestSize`, `events`, `sourceTopic`, `eventTopic`, `documentDeserializer`, `documentSerializer`, `securityProtocol`, `consumerPropertyFile`, `producerPropertyFile`, `adminPropertyFile` | Required when running in distributed or Kafka-local mode. See [Deployment]({{< relref "docs/operations/deployment" >}}). |
 | `zookeeper` | `connectString` | Required only when `worker.maxRetries` is set. |
 | `log` | `seconds` | Controls how often Workers, Publisher, and Indexer log status updates and heartbeats. Default: 30. |
 

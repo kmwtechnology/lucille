@@ -1,5 +1,6 @@
 ---
 title: Production Deployment
+weight: 2
 date: 2025-06-09
 description: Best practices and patterns for running Lucille in production, including Kubernetes deployments.
 ---
@@ -403,7 +404,7 @@ Do not send `SIGKILL` — documents in flight may not be indexed.
 
 ## Monitoring
 
-See [Logging]({{< relref "docs/prod/logging" >}}) for setting up log monitoring.
+See [Logging]({{< relref "docs/operations/logging" >}}) for setting up log monitoring.
 
 Key metrics logged periodically during a run:
 
@@ -433,7 +434,7 @@ A connector that failed entirely is distinguished from one that completed with i
 - [ ] Configure `publisher.queueCapacity` (local mode) or `publisher.maxPendingDocs` (distributed).
 - [ ] Tune `indexer.batchSize` and `indexer.batchTimeout` for your backend's throughput.
 - [ ] Use environment variable substitution for credentials (`${?VAR_NAME}`) — never hard-code secrets in config files.
-- [ ] Route `DocLogger` output to a separate file in production (see [Logging]({{< relref "docs/prod/logging" >}})).
+- [ ] Route `DocLogger` output to a separate file in production (see [Logging]({{< relref "docs/operations/logging" >}})).
 - [ ] Enable `runner.metricsLoggingLevel: "INFO"` for stage-by-stage metrics at run completion.
 - [ ] Configure `worker.maxRetries` and ZooKeeper if poison-pill protection is needed.
 - [ ] Set `runner.connectorTimeout` if any connector might run longer than 24 hours (the default timeout).

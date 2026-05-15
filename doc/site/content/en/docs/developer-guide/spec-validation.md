@@ -1,6 +1,6 @@
 ---
 title: "SPEC Validation System"
-weight: 30
+weight: 20
 date: 2025-06-09
 description: >
   How Lucille validates configuration before a run starts, catching typos and missing fields at startup.

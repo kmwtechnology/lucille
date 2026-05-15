@@ -1,4 +1,5 @@
 ---
+weight: 4
 title: Worker
 date: 2025-10-23
 description: A thread that retrieves published documents and passes them through a pipeline, then forwards completed documents to the Indexer.
@@ -156,4 +157,4 @@ worker {
 }
 ```
 
-In a multi-node deployment, you can run multiple WorkerIndexer processes consuming from the same Kafka topic. Kafka's consumer group protocol distributes source documents across them automatically. WorkerIndexer is particularly useful in [streaming mode]({{< relref "docs/prod/deployment#streaming-mode-connectorless" >}}) where no Runner is coordinating the run.
+In a multi-node deployment, you can run multiple WorkerIndexer processes consuming from the same Kafka topic. Kafka's consumer group protocol distributes source documents across them automatically. WorkerIndexer is particularly useful in [streaming mode]({{< relref "docs/operations/deployment#streaming-mode-connectorless" >}}) where no Runner is coordinating the run.

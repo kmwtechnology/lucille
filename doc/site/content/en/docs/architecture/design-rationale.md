@@ -1,6 +1,6 @@
 ---
 title: "Design Rationale"
-weight: 10
+weight: 5
 date: 2025-06-09
 description: >
   The 24 requirements that govern Lucille's architecture, explaining why the system is designed the way it is.

@@ -1,5 +1,6 @@
 ---
 title: Vector Search Cookbook
+weight: 2
 date: 2025-06-09
 description: A guide to building vector search pipelines with Lucille — chunking text, generating embeddings, and indexing into Pinecone or Weaviate.
 ---

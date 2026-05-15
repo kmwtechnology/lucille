@@ -1,6 +1,6 @@
 ---
 title: "Document IDs"
-weight: 8
+weight: 2
 date: 2025-06-09
 description: >
   Why IDs must be deterministic, how Lucille handles duplicates, and the idOverrideField mechanism.

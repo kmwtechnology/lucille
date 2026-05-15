@@ -1,4 +1,5 @@
 ---
+weight: 1
 title: Document
 date: 2025-10-23
 description: The basic unit of data that is sent through a Pipeline and eventually indexed into a search engine.

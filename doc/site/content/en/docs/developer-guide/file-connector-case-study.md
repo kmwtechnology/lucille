@@ -1,6 +1,6 @@
 ---
 title: "FileConnector Case Study"
-weight: 10
+weight: 60
 date: 2025-06-09
 description: >
   A deep dive into the FileConnector as a case study for patterns reusable in complex connectors.

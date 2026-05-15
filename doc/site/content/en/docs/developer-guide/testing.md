@@ -1,4 +1,5 @@
 ---
+weight: 50
 title: Testing Pipelines
 date: 2025-06-09
 description: How to write integration tests for Lucille pipelines using RunType.TEST and the TestMessenger infrastructure.

@@ -1,6 +1,6 @@
 ---
 title: "Log Inspection and Analysis"
-weight: 3
+weight: 4
 date: 2025-06-09
 description: >
   How to read and interpret Lucille log output for monitoring, troubleshooting, and debugging.

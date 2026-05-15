@@ -1,6 +1,6 @@
 ---
 title: "Configuration Management"
-weight: 5
+weight: 1
 date: 2025-06-09
 description: >
   Why HOCON, how environment variable substitution works, config composition patterns, and pre-run validation.

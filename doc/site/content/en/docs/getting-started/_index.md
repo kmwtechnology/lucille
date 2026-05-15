@@ -64,7 +64,7 @@ java \
 
 **Trouble Running Lucille?**
 
-See the [troubleshooting]({{< relref "docs/prod/troubleshooting" >}}) guide for common pitfalls.
+See the [troubleshooting]({{< relref "docs/operations/troubleshooting" >}}) guide for common pitfalls.
 
 ## Quick Start Guide - Distributed Mode
 
@@ -131,7 +131,7 @@ java \
 
 **Trouble Running Lucille?**
 
-See the [troubleshooting]({{< relref "docs/prod/troubleshooting" >}}) guide for common pitfalls.
+See the [troubleshooting]({{< relref "docs/operations/troubleshooting" >}}) guide for common pitfalls.
 
 ## Verifying Your Lucille Run
 

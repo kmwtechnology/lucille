@@ -1,4 +1,5 @@
 ---
+weight: 10
 title: Connectors
 date: 2024-10-15
 description: A component that retrieves data from a source system and packages the data into Documents in preparation for transformation.
@@ -90,4 +91,4 @@ This ordering guarantee is enforced automatically by the Publisher's accounting 
 
 ## Building a Custom Connector
 
-See [Developing New Components]({{< relref "docs/contributing/dev_new_components" >}}) for a step-by-step guide and skeleton code.
+See [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}) for a step-by-step guide and skeleton code.
