@@ -207,7 +207,7 @@ This pattern appears throughout Lucille's example configs for URLs, credentials,
 
 ### Composing Configs from Multiple Files
 
-The file-to-file example demonstrates how to split a config into reusable pieces:
+The [lucille-file-to-file-example](https://github.com/kmwtechnology/lucille/tree/main/lucille-examples/lucille-file-to-file-example) demonstrates how to split a config into reusable pieces:
 
 ```hocon
 # file-to-file-example.conf (main config)
@@ -260,7 +260,7 @@ This decomposition means:
 
 ### Containerized Deployment
 
-The file-to-file example includes a Dockerfile that demonstrates the standard pattern for running Lucille in a container:
+The [lucille-file-to-file-example](https://github.com/kmwtechnology/lucille/tree/main/lucille-examples/lucille-file-to-file-example) includes a Dockerfile that demonstrates the standard pattern for running Lucille in a container:
 
 ```dockerfile
 FROM eclipse-temurin:17
@@ -356,6 +356,8 @@ zookeeper { ... }     # ZooKeeper connection (for distributed retry tracking)
 ```
 
 Each connector references a pipeline by name. Each pipeline defines its stages. The indexer block is shared across all pipelines (a single destination for the run). This structure means you can define multiple connectors feeding different pipelines, all writing to the same search backend, in a single config file.
+
+For a complete, annotated listing of every supported top-level configuration property (excluding per-stage parameters), see [`application-example.conf`](https://github.com/kmwtechnology/lucille/blob/main/application-example.conf) in the repository root. It covers all valid keys for `indexer`, `worker`, `kafka`, `publisher`, `runner`, `log`, `zookeeper`, and the other top-level blocks, with comments explaining each option.
 
 ---
 
