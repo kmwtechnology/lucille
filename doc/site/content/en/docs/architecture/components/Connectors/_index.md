@@ -26,7 +26,7 @@ and accepts an optional parameter, `startWith`. So, a `SequenceConnector` Config
 }
 ```
 
-The `lucille-core` module contains a number of commonly used connectors. Additional connectors with a large number of dependencies are provided as optional plugin modules.
+The `lucille-core` module contains a number of commonly used connectors. Additional connectors with a large number of dependencies are provided as optional plugin modules. For a catalogue of all built-in connectors, see the [Connectors Reference]({{< relref "docs/reference/connectors" >}}).
 
 ## Common Configuration Parameters
 
@@ -39,33 +39,6 @@ These parameters are available on all Connectors via `AbstractConnector`:
 | `pipeline` | No | Name of the pipeline to process this connector's documents. If omitted, no Workers or Indexer are started for this connector and `execute()` is called synchronously with a `null` publisher — useful for connectors that perform side effects without producing documents. |
 | `docIdPrefix` | No | String prefix prepended to every Document ID. |
 | `collapse` | No | Whether the Publisher should collapse consecutive documents with the same ID (for CDC scenarios). Default: `false`. |
-
-## Lucille Connectors (Core)
-
-| Connector | Description |
-|---|---|
-| [File Connector]({{< relref "docs/architecture/components/Connectors/file_connector" >}}) | Traverses local, S3, Azure, or GCS file systems and publishes documents. Supports CSV, JSON, XML file handlers, incremental mode, and tombstone deletions. |
-| [Database Connector]({{< relref "docs/architecture/components/Connectors/database_connector" >}}) | Reads rows from any JDBC-compatible database. |
-| [Kafka Connector]({{< relref "docs/architecture/components/Connectors/kafka_connector" >}}) | Reads documents from a Kafka topic as a data source. |
-| [RSS Connector]({{< relref "docs/architecture/components/Connectors/rss_connector" >}}) | Publishes documents from an RSS feed, with optional incremental refresh. |
-| [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java) *(source only)* | Generates a configurable number of empty Documents. Useful for testing. Requires `numDocs`; accepts optional `startWith`. |
-| [Solr Connector]({{< relref "docs/architecture/components/Connectors/solr_connector" >}}) | Reads documents from a Solr collection using cursor-based pagination. Supports pre/post update actions. |
-
-**The following connectors are deprecated.** Use FileConnector with a corresponding FileHandler instead.
-
-| Connector | Replacement |
-|---|---|
-| [CSV Connector *(Deprecated)*](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/CSVConnector.java) | FileConnector with `csv` FileHandler |
-| [JSON Connector *(Deprecated)*](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/JSONConnector.java) | FileConnector with `json` FileHandler |
-| [XML Connector *(Deprecated)*](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/xml/XMLConnector.java) | FileConnector with `xml` FileHandler |
-
-## Lucille Connectors (Plugins)
-
-| Connector | Plugin | Description |
-|---|---|---|
-| [Parquet Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-parquet/src/main/java/com/kmwllc/lucille/parquet/connector/ParquetConnector.java) | lucille-parquet | Reads Apache Parquet files. |
-
-See [Plugins]({{< relref "docs/architecture/components/plugins" >}}) for setup.
 
 ## Connector Lifecycle
 

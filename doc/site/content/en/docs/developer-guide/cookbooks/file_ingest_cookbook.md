@@ -259,7 +259,7 @@ pipelines: [
 ]
 ```
 
-Requires the `lucille-tika` plugin dependency. See [Plugins]({{< relref "docs/architecture/components/plugins" >}}).
+Requires the `lucille-tika` plugin dependency. See [Plugins]({{< relref "docs/reference/plugins" >}}).
 
 ## Filter Options Reference
 

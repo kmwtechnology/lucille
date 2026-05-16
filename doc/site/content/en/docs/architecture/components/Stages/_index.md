@@ -21,16 +21,7 @@ in addition to `conditions` and `conditionPolicy` (described below).
 }
 ```
 
-## Stage Reference
-
-See the [Stage Reference]({{< relref "docs/architecture/components/Stages/stages_reference" >}}) for a complete listing of all available stages organized by category, including their configuration parameters.
-
-Detailed pages are available for more complex stages:
-
-- [EmbeddedPython]({{< relref "docs/architecture/components/Stages/embedded_python" >}}) — Run Python code inside the JVM using GraalPy.
-- [ExternalPython]({{< relref "docs/architecture/components/Stages/external_python" >}}) — Delegate processing to an external Python process via Py4J.
-- [PromptOllama]({{< relref "docs/architecture/components/Stages/prompt_ollama" >}}) — Enrich documents using a locally-running LLM.
-- [QueryOpensearch]({{< relref "docs/architecture/components/Stages/query_opensearch" >}}) — Execute OpenSearch search templates per document.
+For a complete catalogue of all available stages organized by category, see the [Stages Reference]({{< relref "docs/reference/stages" >}}).
 
 ## Conditions
 
@@ -78,4 +69,4 @@ In the root of the Stage's Config, specify `conditionPolicy` — `"any"` (defaul
 
 ## Plugin Stages
 
-Additional stages are available as optional plugin modules. See [Plugins]({{< relref "docs/architecture/components/plugins" >}}).
+Additional stages are available as optional plugin modules. See [Plugins]({{< relref "docs/reference/plugins" >}}).

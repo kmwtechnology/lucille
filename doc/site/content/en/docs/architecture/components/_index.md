@@ -2,7 +2,7 @@
 title: Components
 weight: 4
 description: >
-  A reference guide for understanding and using the core components of Lucille.
+  Conceptual guide to the core components of Lucille and how they work together.
 ---
 
 Lucille is built from a small set of components that work together to move data from source systems into a search backend.
@@ -18,5 +18,5 @@ Lucille is built from a small set of components that work together to move data 
 | [Runner]({{< relref "run" >}}) | Orchestrates a complete run: validates config, starts components, waits for completion. |
 | [Document]({{< relref "document" >}}) | The basic unit of data flowing through the system. |
 | [Config]({{< relref "Config" >}}) | The HOCON configuration file that defines all components and settings for a run. |
-| [File Handlers]({{< relref "file_handlers" >}}) | Extract Documents from individual files (CSV, JSON, XML) for use with the File Connector. |
-| [Plugins]({{< relref "plugins" >}}) | Optional extension modules that add connectors, stages, and indexers. |
+
+For a catalogue of specific implementations — built-in connectors, stages, indexers, file handlers, and plugins — see the [Reference]({{< relref "docs/reference" >}}) section.

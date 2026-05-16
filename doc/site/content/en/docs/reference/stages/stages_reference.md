@@ -1,10 +1,11 @@
 ---
-title: Stage Reference
+title: All Stages
+weight: 1
 date: 2025-06-09
 description: A complete reference of all Stages available in lucille-core, organized by category.
 ---
 
-This page lists all Stages available in the `lucille-core` module. Additional stages are available as [plugins]({{< relref "docs/architecture/components/plugins" >}}).
+This page lists all Stages available in the `lucille-core` module. Additional stages are available as [plugins]({{< relref "docs/reference/plugins" >}}).
 
 All stages share common configuration parameters:
 
@@ -556,7 +557,7 @@ Performs a lookup against an Elasticsearch index and merges matching fields onto
 ### QueryOpensearch
 `com.kmwllc.lucille.stage.QueryOpensearch`
 
-Executes a search template against an OpenSearch index using document field values as parameters. See [QueryOpensearch]({{< relref "docs/architecture/components/Stages/query_opensearch" >}}) for full documentation.
+Executes a search template against an OpenSearch index using document field values as parameters. See [QueryOpensearch]({{< relref "docs/reference/stages/query_opensearch" >}}) for full documentation.
 
 ---
 
@@ -605,21 +606,21 @@ Text is truncated to 8,191 tokens before embedding (the OpenAI API limit). Lucil
 ### PromptOllama
 `com.kmwllc.lucille.stage.PromptOllama`
 
-Sends document fields to a locally-running Ollama LLM and merges the JSON response back onto the document. See [PromptOllama]({{< relref "docs/architecture/components/Stages/prompt_ollama" >}}) for full documentation.
+Sends document fields to a locally-running Ollama LLM and merges the JSON response back onto the document. See [PromptOllama]({{< relref "docs/reference/stages/prompt_ollama" >}}) for full documentation.
 
 ---
 
 ### EmbeddedPython
 `com.kmwllc.lucille.stage.EmbeddedPython`
 
-Runs per-document Python code inside the JVM using GraalPy. See [EmbeddedPython]({{< relref "docs/architecture/components/Stages/embedded_python" >}}) for full documentation.
+Runs per-document Python code inside the JVM using GraalPy. See [EmbeddedPython]({{< relref "docs/reference/stages/embedded_python" >}}) for full documentation.
 
 ---
 
 ### ExternalPython
 `com.kmwllc.lucille.stage.ExternalPython`
 
-Delegates per-document processing to an external Python process via Py4J. See [ExternalPython]({{< relref "docs/architecture/components/Stages/external_python" >}}) for full documentation.
+Delegates per-document processing to an external Python process via Py4J. See [ExternalPython]({{< relref "docs/reference/stages/external_python" >}}) for full documentation.
 
 ---
 
@@ -682,7 +683,7 @@ Detects the language of a text field and writes the ISO language code to a desti
 ### ChunkText
 `com.kmwllc.lucille.stage.ChunkText`
 
-Splits a long text field into smaller chunks suitable for embedding (RAG pipelines). Each chunk is emitted as a **child document**. See [ChunkText]({{< relref "docs/architecture/components/Stages/chunk_text" >}}) for full documentation.
+Splits a long text field into smaller chunks suitable for embedding (RAG pipelines). Each chunk is emitted as a **child document**. See [ChunkText]({{< relref "docs/reference/stages/chunk_text" >}}) for full documentation.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
@@ -858,7 +859,7 @@ Adds a nested JSON object with random values to a field. Useful for testing nest
 
 ## Plugin Stages
 
-The following stages are available as optional plugin modules. See [Plugins]({{< relref "docs/architecture/components/plugins" >}}) for setup.
+The following stages are available as optional plugin modules. See [Plugins]({{< relref "docs/reference/plugins" >}}) for setup.
 
 | Stage | Plugin | Description |
 |---|---|---|

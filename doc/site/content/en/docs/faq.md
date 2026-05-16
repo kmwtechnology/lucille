@@ -71,7 +71,7 @@ The document is marked as failed and a FAIL event is sent to the Publisher. The 
 
 **How do I skip a Stage for some documents?**
 
-Use the `conditions` block on the Stage. Conditions can check field presence, field value, or combinations using `conditionPolicy: "all"` or `conditionPolicy: "any"`. A Stage whose conditions are not met is skipped for that document without any error. See [Stages]({{< relref "docs/architecture/components/Stages" >}}) for syntax and examples.
+Use the `conditions` block on the Stage. Conditions can check field presence, field value, or combinations using `conditionPolicy: "all"` or `conditionPolicy: "any"`. A Stage whose conditions are not met is skipped for that document without any error. See [Stages]({{< relref "docs/reference/stages" >}}) for syntax and examples.
 
 **What is the difference between dropping and skipping a document?**
 
@@ -173,7 +173,7 @@ For Solr, a commit is required to make documents visible. Issue a commit with `o
 
 **How do I inspect what documents look like mid-pipeline, or replay a pipeline run without re-running enrichment?**
 
-The `Print` stage logs documents as JSON at any point in the pipeline and can write them to a JSONL file. Combined with a `NopIndexer`, this lets you capture fully-enriched documents to disk without indexing anything. You can then replay that file using `FileConnector` with the JSON handler and an empty pipeline, sending the already-processed documents directly to a live search backend. This is useful for iterating on indexer configuration or field mappings without repeating expensive enrichment steps (OCR, embeddings, database lookups). See the [Print stage]({{< relref "docs/architecture/components/Stages/stages_reference" >}}) for the full pattern.
+The `Print` stage logs documents as JSON at any point in the pipeline and can write them to a JSONL file. Combined with a `NopIndexer`, this lets you capture fully-enriched documents to disk without indexing anything. You can then replay that file using `FileConnector` with the JSON handler and an empty pipeline, sending the already-processed documents directly to a live search backend. This is useful for iterating on indexer configuration or field mappings without repeating expensive enrichment steps (OCR, embeddings, database lookups). See the Print stage entry in [All Stages]({{< relref "docs/reference/stages/stages_reference" >}}) for the full pattern.
 
 **A Stage is initializing a large model for every document instead of once per thread.**
 

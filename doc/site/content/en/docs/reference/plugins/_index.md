@@ -2,7 +2,9 @@
 title: Plugins
 date: 2025-06-09
 description: Optional extension modules that add connectors, stages, and indexers with heavyweight dependencies.
-weight: 20
+weight: 4
+aliases:
+  - /docs/architecture/components/plugins/
 ---
 
 Lucille's plugin system allows optional components with large or specialized dependencies to be packaged separately from `lucille-core`. This keeps the core JAR small and avoids transitive dependency conflicts for users who don't need every feature.
