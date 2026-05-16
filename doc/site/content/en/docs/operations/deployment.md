@@ -109,7 +109,7 @@ kafka {
   documentDeserializer: "com.kmwllc.lucille.message.KafkaDocumentDeserializer"
   documentSerializer: "com.kmwllc.lucille.message.KafkaDocumentSerializer"
 
-  # Set to false to disable event tracking (SUCCESS/FAIL/DROP events won't be published)
+  # Set to false to disable event tracking (FINISH/FAIL/DROP events won't be published)
   events: true
 
   # Override source topic name (default: auto-generated from pipeline name)

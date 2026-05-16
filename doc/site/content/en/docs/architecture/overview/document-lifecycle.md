@@ -122,7 +122,7 @@ The Publisher's central data structure is `docIdsToTrack`, a synchronized `Bag<S
 
 **Event sending.** After a batch is processed, the Indexer sends a FINISH or FAIL event for each document. The `batchComplete()` call in the `finally` block always fires regardless of outcome, so the Indexer's messenger can commit Kafka offsets even when a batch fails.
 
-**Field filtering.** Before sending a document to the backend, `getIndexerDoc()` applies the configured whitelist/blacklist to produce the map of fields to index. Reserved fields (`.dropped`, `.skipped`, `.children`) are stripped at this point and never reach the search backend.
+**Field filtering.** Before sending a document to the backend, `getIndexerDoc()` applies the configured whitelist/blacklist to produce the map of fields to index. Reserved fields (`___dropped`, `___skipped`, `___children`) are stripped at this point and never reach the search backend.
 
 ---
 

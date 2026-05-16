@@ -138,7 +138,7 @@ You just call `publisher.publish(doc)` and the framework handles everything else
 
 **Event reporting for accounting.** After each batch, the framework sends FINISH events for successful documents and FAIL events for failed ones. You return a set of failed document/reason pairs from `sendToIndex()`; the framework handles all event communication with the Publisher.
 
-**Field filtering (whitelist/blacklist).** The `getIndexerDoc()` method applies the configured field filter before you see the document. Reserved fields (`.dropped`, `.skipped`, `.children`) are stripped. You call `getIndexerDoc(doc)` and get a clean map ready for the search backend.
+**Field filtering (whitelist/blacklist).** The `getIndexerDoc()` method applies the configured field filter before you see the document. Reserved fields (`___dropped`, `___skipped`, `___children`) are stripped. You call `getIndexerDoc(doc)` and get a clean map ready for the search backend.
 
 **ID override.** `getDocIdOverride(doc)` returns the override ID if configured, or null. You check this and use it as the document ID in the search backend.
 
