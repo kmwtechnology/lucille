@@ -259,6 +259,26 @@ To scale Workers: increase source topic partitions and add more Worker processes
 
 Lucille polls one record at a time (`MAX_POLL_RECORDS_CONFIG = 1`) to ensure fine-grained offset control and prevent one slow document from blocking a batch.
 
+### Important: Source Topic Partition Count and Worker Threads
+
+Lucille does **not** automatically create the source or dest topics. It only explicitly creates the event topic (with 1 partition for ordering). The source and dest topics are either:
+- Pre-created by an administrator with the desired partition count, or
+- Auto-created by Kafka when the Publisher first writes to them (if `auto.create.topics.enable=true` on the broker)
+
+**The gotcha:** If Kafka auto-creates the source topic, the partition count is determined by the broker's `num.partitions` setting (default: **1**). This means that even if you configure `worker.threads: 8`, only 1 thread will receive documents — the other 7 will join the consumer group but sit idle because there's only 1 partition to assign.
+
+Lucille does not validate at startup that the source topic has enough partitions for the configured number of worker threads. Excess consumers are simply idle — they don't error out.
+
+**How to avoid this:**
+- **Pre-create the source topic** with the desired partition count before running Lucille:
+  ```bash
+  kafka-topics.sh --create --topic my-pipeline_source \
+    --partitions 8 --replication-factor 1 \
+    --bootstrap-server kafka:9092
+  ```
+- **Or** configure the Kafka broker's `num.partitions` to a higher default (applies to all auto-created topics).
+- **Rule of thumb:** Set the source topic partition count to at least the maximum total number of Worker threads you expect to run across all processes.
+
 ## External Property Files for Advanced Configuration
 
 For complex Kafka setups (SASL, SSL, custom partitioners), external property files can be specified:

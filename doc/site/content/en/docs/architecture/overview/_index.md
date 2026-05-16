@@ -8,5 +8,7 @@ description: >
 Read these pages in order for a complete introduction to Lucille's architectural design.
 
 1. **[The Problem of Search ETL]({{< relref "problem" >}})** — Why a simple sequential ingest loop falls short in production and what needs to change.
-2. **[Core Architecture]({{< relref "core-design" >}})** — How Lucille maps the three ETL functions to concurrent components communicating through pluggable queues.
-3. **[Document Lifecycle]({{< relref "document-lifecycle" >}})** — The complete journey of a single Document through the system, plus cross-cutting concerns like logging, metrics, and testing.
+2. **[Parallelizing Search ETL]({{< relref "parallelizing-search-etl" >}})** — How Lucille maps the three ETL functions to concurrent components communicating through queues, and how it tracks document lifecycle across an asynchronous system.
+3. **[Pluggable Queueing and the Deployment Model]({{< relref "pluggable-queueing" >}})** — How the Messenger abstraction makes the queue implementation pluggable, enabling flexible deployment and straightforward testing.
+4. **[Topology]({{< relref "topology" >}})** — Batch and streaming models, the WorkerIndexer, and deployment configurations from single-JVM to fully distributed.
+5. **[Document Lifecycle]({{< relref "document-lifecycle" >}})** — The complete journey of a single Document through the system, plus cross-cutting concerns like logging, metrics, and testing.

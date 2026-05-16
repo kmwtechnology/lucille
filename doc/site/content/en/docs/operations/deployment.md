@@ -5,7 +5,7 @@ date: 2025-06-09
 description: Best practices and patterns for running Lucille in production, including Kubernetes deployments.
 ---
 
-For a conceptual overview of each mode with architecture diagrams, see [Topology]({{< relref "docs/architecture/topology" >}}).
+For a conceptual overview of each mode with architecture diagrams, see [Topology]({{< relref "docs/architecture/overview/topology" >}}).
 
 ## Deployment Modes
 

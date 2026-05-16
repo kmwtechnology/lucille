@@ -94,6 +94,6 @@ Both can be active simultaneously: a `KafkaConnector` reads data from one topic 
 
 ## Related
 
-- [Topology: Fully Distributed]({{< relref "docs/architecture/topology" >}})
-- [Topology: Connector-less Distributed]({{< relref "docs/architecture/topology" >}})
+- [Topology: Fully Distributed]({{< relref "docs/architecture/overview/topology" >}})
+- [Topology: Connector-less Distributed]({{< relref "docs/architecture/overview/topology" >}})
 - [Getting Started: Distributed Mode]({{< relref "docs/getting-started" >}})

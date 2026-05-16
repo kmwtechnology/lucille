@@ -11,8 +11,7 @@ Lucille separates the three concerns of ETL — reading, transforming, and writi
 
 | Section | What It Covers |
 |---|---|
-| [Overview]({{< relref "overview" >}}) | The problem Lucille solves, the core architecture, and the document lifecycle |
-| [Topology]({{< relref "topology" >}}) | Deployment modes from single-JVM to fully distributed |
+| [Overview]({{< relref "overview" >}}) | The problem Lucille solves, the core architecture, topology, and the document lifecycle |
 | [Components]({{< relref "components" >}}) | Reference pages for each component (Document, Pipeline, Publisher, Connectors, Indexers, Stages, Config) |
 | [Design Rationale]({{< relref "design-rationale" >}}) | The 24 requirements that explain why the system is designed the way it is |
 
