@@ -82,6 +82,16 @@ java \
   my-pipeline-name
 ```
 
+### Long-Running Workers and Indexers
+
+Worker and Indexer processes are **long-running services** — they are not started or stopped by the Runner. A Runner invocation triggers a single batch run and exits when it completes, but the Workers and Indexers that processed its documents keep running and are ready to handle the next run immediately.
+
+**Sequential runs share the same processes.** You can invoke the Runner repeatedly — nightly, hourly, or on demand — against the same pool of Workers and Indexers without restarting them. Each invocation is an independent run with its own accounting; the processes simply continue consuming from the source topic.
+
+**Concurrent runs are supported.** Multiple Runner invocations can be active simultaneously, all handled by the same Workers and Indexers. Documents from different runs are interleaved on the Kafka source topic and processed without any per-run coordination. The constraint is that all concurrent runs must share the same pipeline name and indexer configuration.
+
+**How run isolation works.** The Publisher stamps a unique `run_id` on every document it publishes. When a Worker or Indexer sends a lifecycle event (FINISH, FAIL, DROP) for a document, it reads the `run_id` from that document to determine which Kafka event topic to write to. Each run has its own dedicated event topic named `{pipeline}_event_{runId}`. The Publisher for each Runner invocation only consumes its own event topic, so completion accounting is completely isolated — concurrent runs do not interfere with each other.
+
 ### Kafka Configuration Block
 
 All distributed-mode Kafka settings belong in a top-level `kafka {}` block shared by all components:
@@ -132,8 +142,11 @@ Lucille auto-creates Kafka topics named after the pipeline. For a pipeline named
 | Source | `my_pipeline_source` | Runner → Worker: documents to process |
 | Destination | `my_pipeline_dest` | Worker → Indexer: processed documents |
 | Event | `my_pipeline_event_{runId}` | Worker/Indexer → Publisher: lifecycle events |
+| Fail | `my_pipeline_fail` | Dead-letter queue for poison-pill documents |
 
 The per-run suffix on the event topic prevents events from one run interfering with another when multiple runs overlap. These topic names are useful to know when debugging with Kafka CLI tools.
+
+The fail topic is written to when a document exceeds `worker.maxRetries` — the Worker routes the document there instead of crashing, and the rest of the ingest continues. Documents in the fail topic can be inspected with standard Kafka tooling, corrected if needed, and replayed by pointing a `FileConnector` (or a custom producer) at the topic. Requires `worker.maxRetries` and ZooKeeper to be configured; without them, a poison-pill document will crash and restart the Worker process repeatedly.
 
 ### Start Order
 
@@ -227,6 +240,22 @@ java \
 ```
 
 External documents must be placed onto the topic named `{pipeline-name}_source` (or the topic named by `kafka.sourceTopic` if set).
+
+### Consuming from Multiple Topics with a Pattern
+
+When running a `WorkerIndexer` in streaming mode, `kafka.sourceTopic` is interpreted as a Java regex pattern rather than a literal topic name. This means a single `WorkerIndexer` process can consume from multiple Kafka topics simultaneously by setting `sourceTopic` to a pattern that matches all of them:
+
+```hocon
+kafka {
+  bootstrapServers: "kafka:9092"
+  sourceTopic: "orders_.*_source"   # matches orders_us_source, orders_eu_source, etc.
+  events: false
+}
+```
+
+Kafka's consumer group protocol assigns partitions from all matching topics to the consumer. As new matching topics are created, the consumer group rebalances and picks them up automatically.
+
+Note: this behavior applies to `WorkerIndexer` only. A standalone `Worker` subscribes to a single exact topic name and does not support pattern matching.
 
 ### Configuration for Streaming Mode
 
@@ -438,5 +467,5 @@ A connector that failed entirely is distinguished from one that completed with i
 - [ ] Use environment variable substitution for credentials (`${?VAR_NAME}`) — never hard-code secrets in config files.
 - [ ] Route `DocLogger` output to a separate file in production (see [Logging]({{< relref "docs/operations/logging" >}})).
 - [ ] Enable `runner.metricsLoggingLevel: "INFO"` for stage-by-stage metrics at run completion.
-- [ ] Configure `worker.maxRetries` and ZooKeeper if poison-pill protection is needed.
+- [ ] Configure `worker.maxRetries` and ZooKeeper if poison-pill protection is needed — without this, a document that repeatedly crashes a Worker will stall the pipeline indefinitely. Failed documents are routed to the `{pipeline}_fail` topic for inspection and replay.
 - [ ] Set `runner.connectorTimeout` if any connector might run longer than 24 hours (the default timeout).

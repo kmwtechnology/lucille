@@ -135,7 +135,13 @@ Kafka's consumer group protocol detects the failure and reassigns the crashed Wo
 
 **What is the event topic and why does its name include a run ID?**
 
-The event topic carries FINISH, FAIL, and DROP events from Workers and the Indexer back to the Publisher. Its name includes the run ID so that events from concurrent runs are always isolated — events from run A can never interfere with the Publisher for run B. See [Events]({{< relref "docs/architecture/components/events" >}}).
+The event topic carries FINISH, FAIL, and DROP events from Workers and the Indexer back to the Publisher. Its name includes the run ID so that events from concurrent runs are always isolated — events from run A can never interfere with the Publisher for run B.
+
+This isolation is what makes concurrent runs possible. Worker and Indexer processes are long-running — they stay up between runs and are not restarted by the Runner. Multiple Runner invocations can be active at the same time, all served by the same Worker and Indexer pool. Documents from different runs are interleaved on the Kafka source topic; each document carries its `run_id`, and Workers and Indexers use that `run_id` to route lifecycle events to the correct per-run event topic. Each Runner only consumes its own event topic, so completion accounting stays completely separate across concurrent runs. See [Long-Running Workers and Indexers]({{< relref "docs/operations/deployment" >}}) and [Events]({{< relref "docs/architecture/components/events" >}}).
+
+**Can a WorkerIndexer consume from multiple Kafka topics at once?**
+
+Yes, when running in streaming mode. `WorkerIndexer` interprets `kafka.sourceTopic` as a Java regex pattern, so setting it to a pattern like `"orders_.*_source"` causes the process to consume from all matching topics simultaneously. Kafka's consumer group protocol handles partition assignment across all matched topics and rebalances automatically as new matching topics appear. Note that standalone `Worker` processes subscribe to a single exact topic name and do not support pattern matching. See [Streaming Mode]({{< relref "docs/operations/deployment" >}}).
 
 **Can I use Lucille in streaming mode without a Runner?**
 

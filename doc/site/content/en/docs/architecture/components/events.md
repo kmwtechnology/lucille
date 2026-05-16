@@ -33,7 +33,7 @@ In **distributed mode**, events flow through a dedicated Kafka event topic. The 
 
 ## Event Topics (Kafka)
 
-In distributed mode, each run creates its own event topic named based on the run ID and pipeline name. This ensures that the Publisher for a given run only sees events for its own documents.
+In distributed mode, each run creates its own event topic named based on the run ID and pipeline name. This ensures that the Publisher for a given run only sees events for its own documents. Because Workers and Indexers are long-running processes that serve multiple runs over their lifetime, a document's `run_id` is the mechanism that routes its events to the correct Publisher — enabling multiple concurrent Runner invocations to share the same Worker and Indexer pool without their accounting interfering with each other. See [Long-Running Workers and Indexers]({{< relref "docs/operations/deployment" >}}) for the full operational pattern.
 
 When `kafka.events` is set to `false` in the config, event messages are not sent to Kafka. This is appropriate only in streaming mode (no Runner) where run completion tracking is not needed.
 
