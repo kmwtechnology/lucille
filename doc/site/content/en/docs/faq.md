@@ -1,6 +1,6 @@
 ---
 title: FAQ
-weight: 3
+weight: 99
 date: 2025-06-09
 description: >
   Answers to common questions about running, configuring, and extending Lucille.
@@ -166,6 +166,24 @@ Implement the `Stage` interface: override `start()` for initialization, `process
 ---
 
 ## Troubleshooting
+
+**My run is hanging — it started but never completes.**
+
+Check the periodic log messages. If "Waiting on N docs" is not decreasing, documents are stuck somewhere. Common causes:
+- The Indexer can't reach the search backend (check for connection errors in the Indexer thread's logs).
+- A Worker is stuck on a single document (check for "Worker has not polled in N seconds" warnings from the WorkerWatcherExecutorService).
+- An event was lost (extremely rare — look for "RUN WILL HANG" in the logs).
+- The connector timeout hasn't been reached yet (default: 24 hours). Set `runner.connectorTimeout` to a shorter value if appropriate.
+
+See [Log Inspection and Analysis]({{< relref "docs/operations/log-analysis" >}}) for how to diagnose from log output.
+
+**How do I trace a specific document through the system?**
+
+Enable the DocLogger at INFO level in your log4j2 configuration and route it to a file. Every significant transition a document makes is logged with the document ID in the MDC. You can then grep the log file for a specific document ID to see its complete history: publication, each stage entry/exit, indexer receipt, and final FINISH or FAIL event. See [Logging]({{< relref "docs/operations/logging" >}}).
+
+**Can I run multiple independent pipelines in parallel for faster wall-clock time?**
+
+Yes. Launch separate Runner processes with separate config files — each gets its own run_id and runs independently. Orchestrate with a simple shell script. The tradeoff: you can't correlate all documents under a single run_id, and you need to ensure document IDs don't collide if pipelines write to the same index (use `docIdPrefix`). See [Parallelizing Multiple Pipelines]({{< relref "docs/operations/performance-tuning" >}}).
 
 **My run completes but documents aren't visible in the search backend.**
 
