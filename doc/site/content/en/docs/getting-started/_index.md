@@ -94,7 +94,7 @@ java \
  -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
  com.kmwllc.lucille.core.Runner \
- -useKafka
+ -usekafka
 ```
 
 #### B) Start one or more Workers
@@ -125,7 +125,7 @@ java \
 
 * `-Dconfig.file=<PATH/TO/YOUR/CONFIG.conf>` tells Lucille where to find your configuration.
 * `-cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*'` loads Lucille and its dependencies.
-* `com.kmwllc.lucille.core.Runner -useKafka` starts the run and interacts with Kafka as described above.
+* `com.kmwllc.lucille.core.Runner -usekafka` starts the run and interacts with Kafka as described above.
 * `com.kmwllc.lucille.core.Worker <pipelineName>` processes documents through the configured pipeline as described above.
 * `com.kmwllc.lucille.core.Indexer <pipelineName>` writes processed documents to the configured backend as described above.
 

@@ -142,7 +142,7 @@ The `TestMessenger` captures all inter-component messages. It is accessible via 
 |---|---|---|
 | `result.getDocsSentForProcessing(connectorName)` | `List<Document>` | Documents the Connector published (sent to Workers). |
 | `result.getDocsSentForIndexing(connectorName)` | `List<Document>` | Documents that completed the pipeline (sent to Indexer). |
-| `result.getEvents(connectorName)` | `List<Event>` | All lifecycle events (CREATE, SUCCESS, FAIL, DROP). |
+| `result.getEvents(connectorName)` | `List<Event>` | All lifecycle events (CREATE, FINISH, FAIL, DROP). |
 | `result.isSuccess()` | `boolean` | Whether the run completed without connector-level failure. |
 | `result.getNumSucceeded(connectorName)` | `int` | Count of successfully indexed documents. |
 | `result.getNumFailed(connectorName)` | `int` | Count of failed documents. |

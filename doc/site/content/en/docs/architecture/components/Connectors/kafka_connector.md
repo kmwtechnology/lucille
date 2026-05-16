@@ -88,7 +88,7 @@ These are two distinct uses of Kafka in Lucille:
 | Role | Description | Configuration |
 |---|---|---|
 | **Source (KafkaConnector)** | Reads application data from a Kafka topic. | Use `KafkaConnector` in your connectors list. |
-| **Messaging layer** | Carries Documents between Lucille components in distributed mode. | Add `-useKafka` flag to the Runner; configure the `kafka {}` block. |
+| **Messaging layer** | Carries Documents between Lucille components in distributed mode. | Add `-usekafka` flag to the Runner; configure the `kafka {}` block. |
 
 Both can be active simultaneously: a `KafkaConnector` reads data from one topic while Lucille's distributed messaging uses separate internal topics.
 

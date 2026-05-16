@@ -5,6 +5,8 @@ date: 2025-06-09
 description: Best practices and patterns for running Lucille in production, including Kubernetes deployments.
 ---
 
+For a conceptual overview of each mode with architecture diagrams, see [Topology]({{< relref "docs/architecture/topology" >}}).
+
 ## Deployment Modes
 
 Choose a deployment mode based on your scale requirements. The same pipeline configuration runs in all modes — switching modes requires only a command-line flag change, not a code change.
@@ -12,7 +14,7 @@ Choose a deployment mode based on your scale requirements. The same pipeline con
 | Mode | When to Use | Command |
 |---|---|---|
 | **Local** | Development, small jobs (< millions of docs) | `java -cp ... com.kmwllc.lucille.core.Runner` |
-| **Kafka-Local** | Testing Kafka semantics without separate processes | `java -cp ... com.kmwllc.lucille.core.Runner -useKafkaLocal` |
+| **Kafka-Local** | Testing Kafka semantics without separate processes | `java -cp ... com.kmwllc.lucille.core.Runner -usekafka -local` |
 | **Kafka-Distributed** | Production scale-out with multiple workers | Separate Runner, Worker, and Indexer processes |
 | **Test** | Integration tests | Used via Lucille's test infrastructure only |
 
@@ -53,7 +55,7 @@ java \
   -Dconfig.file=/path/to/config.conf \
   -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
-  -useKafka
+  -usekafka
 ```
 
 ### Starting Workers
@@ -189,7 +191,7 @@ services:
       kafka:   { condition: service_healthy }
       indexer: { condition: service_healthy }  # Ensures Indexer + backend are ready
     entrypoint: java -Dconfig.file=/conf/config.conf -cp '/target/lib/*'
-                     com.kmwllc.lucille.core.Runner -useKafka
+                     com.kmwllc.lucille.core.Runner -usekafka
 ```
 
 Key design points from the example:

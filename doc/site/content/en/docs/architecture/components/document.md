@@ -31,9 +31,9 @@ Lucille reserves several field names for internal use. Do not use these for appl
 |---|---|
 | `id` | The unique document ID. Immutable once set. |
 | `run_id` | The run ID stamped by the Publisher. Immutable once set. |
-| `.children` | Internal: tracks child documents generated in the pipeline. |
-| `.dropped` | Set to `true` when a document is dropped (not sent to the Indexer). |
-| `.skipped` | Set to `true` when a document should bypass Stages but still reach the Indexer (used for deletions). |
+| `___children` | Internal: tracks child documents generated in the pipeline. |
+| `___dropped` | Set to `true` when a document is dropped (not sent to the Indexer). |
+| `___skipped` | Set to `true` when a document should bypass Stages but still reach the Indexer (used for deletions). |
 
 ## Field Types
 

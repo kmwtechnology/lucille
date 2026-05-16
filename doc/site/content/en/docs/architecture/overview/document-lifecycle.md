@@ -70,8 +70,6 @@ Lucille has a dedicated `RunType.TEST` mode. In test mode, a `TestMessenger` wra
 
 ---
 
----
-
 # Appendix: Component Deep Dives
 
 ## A. The Publisher and its Accounting System

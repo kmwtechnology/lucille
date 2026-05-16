@@ -35,14 +35,24 @@ java \
   com.kmwllc.lucille.core.Runner
 ```
 
-**Distributed mode (Kafka):**
+**Kafka-distributed mode:**
 
 ```bash
 java \
   -Dconfig.file=/path/to/config.conf \
   -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
-  -useKafka
+  -usekafka
+```
+
+**Kafka-local mode** (single JVM, Kafka messaging):
+
+```bash
+java \
+  -Dconfig.file=/path/to/config.conf \
+  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  com.kmwllc.lucille.core.Runner \
+  -usekafka -local
 ```
 
 **Config validation only (no run):**
@@ -112,9 +122,9 @@ The Runner handles `SIGINT` (Ctrl+C) and `SIGTERM`. On signal receipt:
 
 Lucille supports four run types, selected via command-line flags:
 
-| RunType | Description |
-|---|---|
-| `LOCAL` | Single JVM, in-memory queues. Default. |
-| `KAFKA_LOCAL` | Single JVM, Kafka messaging. |
-| `KAFKA_DISTRIBUTED` | Separate JVMs per component, Kafka messaging. |
-| `TEST` | Single JVM, in-memory, search backend bypassed, messages captured. |
+| RunType | Flag(s) | Description |
+|---|---|---|
+| `LOCAL` | (none) | Single JVM, in-memory queues. Default. |
+| `KAFKA_LOCAL` | `-usekafka -local` | Single JVM, Kafka messaging. |
+| `KAFKA_DISTRIBUTED` | `-usekafka` | Separate JVMs per component, Kafka messaging. |
+| `TEST` | (API only) | Single JVM, in-memory, search backend bypassed, messages captured. |

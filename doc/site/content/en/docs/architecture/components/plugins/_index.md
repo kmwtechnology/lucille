@@ -258,6 +258,18 @@ All endpoints are under the `/v1` prefix.
 
 The typical workflow is: `POST /v1/config` to register a config → `POST /v1/run` with the returned `configId` to start a run → poll `GET /v1/run/{runId}` for status.
 
+#### Starting the API Server
+
+The API uses a Dropwizard YAML configuration file (see [`lucille-plugins/lucille-api/conf/api.yml`](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-api/conf/api.yml) for the example):
+
+```bash
+java \
+  -cp 'lucille-plugins/lucille-api/target/lucille-api-{version}.jar:lucille-plugins/lucille-api/target/lib/*' \
+  com.kmwllc.lucille.APIApplication server lucille-plugins/lucille-api/conf/api.yml
+```
+
+The server listens on port `8080` by default (Dropwizard default). Swagger UI is available at `http://localhost:8080/swagger`.
+
 ---
 
 ## Adding a Plugin Dependency

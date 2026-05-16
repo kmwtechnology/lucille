@@ -8,8 +8,6 @@ description: >
 
 The following requirements govern Lucille's architecture. They evolved through production deployments and customer engagements, and are presented here to explain *why* the system is designed the way it is.
 
-The following requirements govern Lucille's architecture. They evolved through production deployments and customer engagements, and are presented here to explain *why* the system is designed the way it is.
-
 **1. Parallelism.** The three tasks of retrieving data, processing it, and sending it to the search engine should be handled by separate components that run alongside each other. In Lucille, these components are the Connector, Worker, and Indexer.
 
 **2. Scalability.** Lucille should provide a way to dedicate more system resources to accommodate heavier load. This is accomplished by allowing multiple Worker and Indexer instances to run concurrently, and by allowing the number of Workers and Indexers to be increased while ingestion is in progress.

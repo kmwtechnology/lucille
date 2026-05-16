@@ -156,9 +156,7 @@ Every getter returns `null` for both "field absent" and "field present but null.
 
 ### Reserved Fields with Triple-Underscore Prefix
 
-Internal control fields (`___dropped`, `___skipped`, `___children`) use a triple-underscore prefix that is unlikely to appear in user data and is invalid in most search engine schemas. This ensures they never collide with user data fields and are automatically stripped by the Indexer before sending to the search backend. The `validateFieldNames()` method prevents stages from accidentally writing to reserved fields.
-
-The triple-underscore prefix was chosen over the original dot prefix (`.dropped`, `.skipped`, `.children`) because the dot character is used as a path separator in nested JSON access (`getNestedJson("a.b.c")`). A reserved field named `.children` would be ambiguous — is it a top-level field named `.children` or a nested path? The `___` prefix eliminates this conflict entirely.
+Internal control fields (`___dropped`, `___skipped`, `___children`) use a triple-underscore prefix. This keeps them out of the normal field namespace — a triple-underscore prefix is highly unlikely to collide with any user-defined field name — and makes them visually distinct from user data fields. The `validateFieldNames()` method prevents stages from accidentally writing to reserved fields by checking membership in `RESERVED_FIELDS`.
 
 ### Field Name Validation on Every Write
 

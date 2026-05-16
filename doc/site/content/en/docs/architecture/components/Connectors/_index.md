@@ -36,7 +36,7 @@ These parameters are available on all Connectors via `AbstractConnector`:
 |---|---|---|
 | `class` | Yes | Fully qualified class name of the Connector implementation. |
 | `name` | Yes | Connector name for logging and run summaries. |
-| `pipeline` | No | Name of the pipeline to process this connector's documents. |
+| `pipeline` | No | Name of the pipeline to process this connector's documents. If omitted, no Workers or Indexer are started for this connector and `execute()` is called synchronously with a `null` publisher — useful for connectors that perform side effects without producing documents. |
 | `docIdPrefix` | No | String prefix prepended to every Document ID. |
 | `collapse` | No | Whether the Publisher should collapse consecutive documents with the same ID (for CDC scenarios). Default: `false`. |
 
@@ -48,7 +48,7 @@ These parameters are available on all Connectors via `AbstractConnector`:
 | [Database Connector]({{< relref "docs/architecture/components/Connectors/database_connector" >}}) | Reads rows from any JDBC-compatible database. |
 | [Kafka Connector]({{< relref "docs/architecture/components/Connectors/kafka_connector" >}}) | Reads documents from a Kafka topic as a data source. |
 | [RSS Connector]({{< relref "docs/architecture/components/Connectors/rss_connector" >}}) | Publishes documents from an RSS feed, with optional incremental refresh. |
-| [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java) | Generates a configurable number of empty Documents. Useful for testing. |
+| [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java) *(source only)* | Generates a configurable number of empty Documents. Useful for testing. Requires `numDocs`; accepts optional `startWith`. |
 | [Solr Connector]({{< relref "docs/architecture/components/Connectors/solr_connector" >}}) | Reads documents from a Solr collection using cursor-based pagination. Supports pre/post update actions. |
 
 **The following connectors are deprecated.** Use FileConnector with a corresponding FileHandler instead.

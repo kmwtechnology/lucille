@@ -4,43 +4,51 @@ weight: 2
 description: >
  Lucille can be configured to best support your use case.
 ---
-## Local Development Modes
-Alternatively referred to as standalone modes or single-node modes. 
-In local mode, all Lucille components are running in a single thread Java Process (JVM).  
-Lucille supports two types of local modes: Local or Kafka Local. 
 
-### Local 
-A single process in the JVM. Intra-component (thread) communication is via an in-memory queue. 
+For the commands to start each mode in production, see [Production Deployment]({{< relref "docs/operations/deployment" >}}).
 
-![An architecture diagram showing local mode.](topology-local.png)
+## Local Modes
 
-### Kafka Local 
-A single process in the JVM, with the exception of an externalized instance of Kafka. Intra-component (thread) communication is via Kafka.
+In local modes (also called single-node or standalone modes), all Lucille components run as threads in a single JVM process. Lucille supports two local modes.
 
-![An architecture diagram showing kafka local mode.](topology-local-kafka.png)
+### Local
+
+All components run as threads in one JVM. Inter-component communication uses in-memory queues. No external dependencies required.
+
+![Architecture diagram: local mode](topology-local.png)
+
+### Kafka Local
+
+All components still run as threads in one JVM, but inter-component communication uses an external Kafka instance instead of in-memory queues. Useful for testing Kafka integration without deploying separate processes.
+
+![Architecture diagram: Kafka-local mode](topology-local-kafka.png)
 
 ## Distributed Modes
-Distributed modes are how Lucille scales. Kafka is utilized for message persistance/fault tolerance, and Lucille components run as multiple separate Java processes.
+
+Distributed modes are how Lucille scales horizontally. Kafka provides message persistence and fault tolerance, and each Lucille component type runs as one or more separate JVM processes.
 
 ### Fully Distributed
-> *Best for batch ingest architecture.* 
 
-Connector/Publisher, Workers, and Indexers are all separate processes running in their own JVM. Intra-component communication is via externalized Kafka topics/queues. Events are being sent from the workers and indexers to a Kafka event topic. The events are being read by the Lucille Publisher.
+> *Best for batch ingest architecture.*
 
-![An architecture diagram showing fully distributed mode.](topology-fully-dist.png)
+The Connector/Publisher, Workers, and Indexers each run as separate JVM processes. All inter-component communication flows through Kafka topics. Workers and Indexers send lifecycle events to a Kafka event topic, which the Publisher polls to track completion.
+
+![Architecture diagram: fully distributed mode](topology-fully-dist.png)
 
 ### Connector-less Distributed
-> *Best for incremental ingest architecture.*
 
-Similar to Fully Distributed Mode, but as the name implies, there is no Lucille Connector or Publisher. Instead, this mode supports an arbitrary 3rd party “publisher” feeding documents onto a Kafka Source queue - where the documents are then picked up by worker threads.
+> *Best for streaming ingest architecture.*
 
-In this mode, events may be enabled and sent to a Kafka Event queue. In order to send events, the 3rd party publisher would be responsible for creating a run ID and stamping documents with this ID.
+Like Fully Distributed, but with no Lucille Connector or Publisher. An external system writes documents directly to the Kafka source topic, where Workers pick them up. Because there is no Publisher, there is no run-completion accounting — this mode is intended for unbounded streaming workloads.
 
-![An architecture diagram showing connectorless distributed mode.](topology-connectorless-dist.png)
+If events are enabled, the external publisher must stamp each document with a `run_id`.
+
+![Architecture diagram: connector-less distributed mode](topology-connectorless-dist.png)
 
 ### Hybrid
->  *Best for streaming update architecture.*
 
-Similar to Connector-less Distibuted Mode. However, in hybrid mode worker threads are reading from a source Kafka topic and publishing to an in-memory queue read by a worker-indexer (an indexer paired with a worker).
+> *Best for streaming update architecture.*
 
-![An architecture diagram showing hybrid mode.](topology-hybrid.png)
+Like Connector-less Distributed, but each Worker is paired with a co-located Indexer in the same JVM (a WorkerIndexer). Workers read from a Kafka source topic and write processed documents to an in-memory queue; the paired Indexer reads from that queue and sends to the search backend. This eliminates one Kafka round-trip per document compared to Fully Distributed.
+
+![Architecture diagram: hybrid mode](topology-hybrid.png)

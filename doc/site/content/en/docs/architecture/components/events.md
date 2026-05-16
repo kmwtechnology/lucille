@@ -14,7 +14,7 @@ As a Document passes through the Lucille pipeline, Event messages are generated 
 | Event | Who Sends It | Meaning |
 |---|---|---|
 | `CREATE` | Worker (on behalf of a Stage) | A child document was generated inside the pipeline and must be tracked. |
-| `SUCCESS` (FINISH) | Indexer | A document was successfully sent to the search backend. |
+| `FINISH` | Indexer | A document was successfully sent to the search backend. |
 | `FAIL` | Worker or Indexer | A document failed during processing or indexing. |
 | `DROP` | Worker | A document was explicitly dropped and will not be indexed. |
 
