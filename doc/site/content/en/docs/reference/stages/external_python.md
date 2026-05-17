@@ -1,5 +1,6 @@
 ---
 title: ExternalPython
+weight: 7
 date: 2025-12-16
 description: Run a document through an external Py4J Python environment.
 ---

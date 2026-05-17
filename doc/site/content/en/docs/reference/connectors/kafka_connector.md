@@ -1,5 +1,6 @@
 ---
 title: Kafka Connector
+weight: 4
 date: 2025-06-09
 description: A Connector that reads Documents from a Kafka topic and publishes them into the Lucille pipeline.
 ---

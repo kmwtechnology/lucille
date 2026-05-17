@@ -1,5 +1,6 @@
 ---
 title: Config
+weight: 13
 date: 2025-06-09
 description: The Config is a HOCON file where you define the settings for running Lucille.
 ---

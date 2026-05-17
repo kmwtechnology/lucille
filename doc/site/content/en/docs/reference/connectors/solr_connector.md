@@ -1,5 +1,6 @@
 ---
 title: Solr Connector
+weight: 3
 date: 2025-06-09
 description: A Connector that queries Solr and publishes each result document into a Lucille pipeline. Supports pre/post actions for setup and cleanup.
 ---

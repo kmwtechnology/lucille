@@ -1,5 +1,6 @@
 ---
 title: Database Connector
+weight: 2
 date: 2025-06-09
 description: A Connector that reads rows from a JDBC-compatible database and publishes each row as a Lucille Document.
 ---

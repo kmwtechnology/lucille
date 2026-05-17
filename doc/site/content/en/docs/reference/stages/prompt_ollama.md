@@ -1,5 +1,6 @@
 ---
 title: PromptOllama
+weight: 4
 date: 2025-06-06
 description: Connect to Ollama Server and send a Document to an LLM for enrichment.
 ---

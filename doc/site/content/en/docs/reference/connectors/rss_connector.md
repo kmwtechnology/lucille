@@ -1,5 +1,6 @@
 ---
 title: RSS Connector
+weight: 6
 date: 2025-06-06
 description: A Connector that publishes Documents representing items found in an RSS feed. 
 ---

@@ -1,5 +1,6 @@
 ---
 title: Parquet Connector
+weight: 5
 date: 2025-06-09
 description: A Connector that reads Apache Parquet files and publishes each row as a Lucille Document.
 ---

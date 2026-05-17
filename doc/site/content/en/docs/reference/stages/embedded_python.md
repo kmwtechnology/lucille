@@ -1,5 +1,6 @@
 ---
 title: EmbeddedPython
+weight: 6
 date: 2025-12-16
 description: Run a document through a Java embedded Graal Python environment.
 ---
