@@ -69,4 +69,4 @@ In the root of the Stage's Config, specify `conditionPolicy` — `"any"` (defaul
 
 ## Plugin Stages
 
-Additional stages are available as optional plugin modules. See [Plugins]({{< relref "docs/reference/plugins" >}}).
+Additional stages are available as optional plugin modules. See [All Stages]({{< relref "docs/reference/stages/stages_reference" >}}) for the full list including plugin stages and their Maven dependencies.

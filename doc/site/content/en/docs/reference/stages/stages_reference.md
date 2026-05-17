@@ -5,7 +5,7 @@ date: 2025-06-09
 description: A complete reference of all Stages available in lucille-core, organized by category.
 ---
 
-This page lists all Stages available in the `lucille-core` module. Additional stages are available as [plugins]({{< relref "docs/reference/plugins" >}}).
+This page lists all Stages available in `lucille-core` and as optional plugin modules.
 
 All stages share common configuration parameters:
 
@@ -514,6 +514,59 @@ Measures the byte size of a field value (e.g., a byte array or string) and store
 
 ---
 
+### TextExtractor
+
+`com.kmwllc.lucille.tika.stage.TextExtractor` *(requires `lucille-tika`)*
+
+Extracts text from over 1,000 file formats — PDF, Microsoft Office documents, HTML, images with embedded OCR, and many more — using [Apache Tika](https://tika.apache.org/). Reads raw bytes from a source field and writes extracted text to a destination field.
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-tika</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
+
+```hocon
+{
+  name: "extract-text"
+  class: "com.kmwllc.lucille.tika.stage.TextExtractor"
+  source: "file_content"
+  dest: "extracted_text"
+}
+```
+
+---
+
+### ApplyOCR
+
+`com.kmwllc.lucille.ocr.stage.ApplyOCR` *(requires `lucille-ocr`)*
+
+Performs optical character recognition on image fields using [Tesseract](https://tesseract-ocr.github.io/). Reads image bytes from a source field and writes the recognized text to a destination field. Requires Tesseract to be installed on the system running Lucille.
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-ocr</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
+
+```hocon
+{
+  name: "ocr"
+  class: "com.kmwllc.lucille.ocr.stage.ApplyOCR"
+  source: "image_bytes"
+  dest: "ocr_text"
+  language: "eng"
+}
+```
+
+---
+
 ## Enrichment & Lookup
 
 ### DictionaryLookup
@@ -603,6 +656,33 @@ Text is truncated to 8,191 tokens before embedding (the OpenAI API limit). Lucil
 
 ---
 
+### JlamaEmbed
+
+`com.kmwllc.lucille.jlama.stage.JlamaEmbed` *(requires `lucille-jlama`)*
+
+Generates vector embeddings using a quantized LLM running locally inside the JVM via [Jlama](https://github.com/tjake/Jlama). No API key or external service required — the model runs directly in the Lucille process. Useful for teams with data-residency or compliance constraints that prevent sending documents to external APIs.
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-jlama</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
+
+```hocon
+{
+  name: "embed"
+  class: "com.kmwllc.lucille.jlama.stage.JlamaEmbed"
+  source: "content"
+  dest: "content_vector"
+  modelPath: "/models/my-embedding-model"
+}
+```
+
+---
+
 ### PromptOllama
 `com.kmwllc.lucille.stage.PromptOllama`
 
@@ -665,6 +745,22 @@ Performs named entity recognition using a finite-state transducer dictionary.
 `com.kmwllc.lucille.stage.ExtractEntities`
 
 Extracts entities from text fields using configured rules.
+
+---
+
+### ApplyOpenNLPNameFinders *(requires lucille-entity-extraction)*
+`com.kmwllc.lucille.entity.stage.ApplyOpenNLPNameFinders`
+
+Performs named entity recognition (NER) using [Apache OpenNLP](https://opennlp.apache.org/) models. Identifies entities such as people, organizations, and locations in text fields.
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-entity-extraction</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
 
 ---
 
@@ -857,13 +953,3 @@ Adds a nested JSON object with random values to a field. Useful for testing nest
 
 ---
 
-## Plugin Stages
-
-The following stages are available as optional plugin modules. See [Plugins]({{< relref "docs/reference/plugins" >}}) for setup.
-
-| Stage | Plugin | Description |
-|---|---|---|
-| `TextExtractor` | lucille-tika | Extracts text from 1000+ file formats (PDF, Office, etc.) via Apache Tika. |
-| `ApplyOCR` | lucille-ocr | Performs optical character recognition via Tesseract. |
-| `ApplyOpenNLPNameFinders` | lucille-entity-extraction | Named entity recognition via Apache OpenNLP. |
-| `JlamaEmbed` | lucille-jlama | Generates embeddings locally using a quantized LLM (no API key required). |

@@ -28,12 +28,8 @@ For conceptual documentation — what a Connector is, the Connector lifecycle, c
 
 ## Lucille Connectors (Plugins)
 
-| Connector | Plugin | Description |
-|---|---|---|
-| [Parquet Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-parquet/src/main/java/com/kmwllc/lucille/parquet/connector/ParquetConnector.java) | lucille-parquet | Reads Apache Parquet files. |
+| Connector | Description |
+|---|---|
+| [Parquet Connector]({{< relref "docs/reference/connectors/parquet_connector" >}}) | Reads Apache Parquet files and publishes each row as a Document. Requires `lucille-parquet` dependency. |
 
-See [Plugins]({{< relref "docs/reference/plugins" >}}) for setup.
-
-## File Handlers
-
-File Handlers are used with the [File Connector]({{< relref "docs/reference/connectors/file_connector" >}}) to extract Documents from individual files. See [File Handlers]({{< relref "docs/reference/connectors/file_handlers" >}}) for the full reference.
+File Handler configuration (CSV, JSON, XML, custom) is documented on the [File Connector]({{< relref "docs/reference/connectors/file_connector" >}}) page.

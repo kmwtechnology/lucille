@@ -19,6 +19,4 @@ Detailed pages are available for more complex stages:
 - [PromptOllama]({{< relref "docs/reference/stages/prompt_ollama" >}}) — Enrich documents using a locally-running LLM.
 - [QueryOpensearch]({{< relref "docs/reference/stages/query_opensearch" >}}) — Execute OpenSearch search templates per document.
 
-## Plugin Stages
-
-Additional stages are available as optional plugin modules. See [Plugins]({{< relref "docs/reference/plugins" >}}).
+Plugin stages (TextExtractor, ApplyOCR, ApplyOpenNLPNameFinders, JlamaEmbed) are listed at the bottom of [All Stages]({{< relref "docs/reference/stages/stages_reference" >}}) with their Maven dependencies.

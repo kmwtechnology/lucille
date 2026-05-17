@@ -259,7 +259,7 @@ pipelines: [
 ]
 ```
 
-Requires the `lucille-tika` plugin dependency. See [Plugins]({{< relref "docs/reference/plugins" >}}).
+Requires the `lucille-tika` Maven dependency. See [TextExtractor]({{< relref "docs/reference/stages/stages_reference" >}}) in All Stages for setup.
 
 ## Filter Options Reference
 

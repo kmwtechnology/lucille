@@ -18,7 +18,7 @@ No. Local mode runs entirely in-memory inside a single JVM with no external depe
 
 **What search backends are supported?**
 
-Apache Solr, OpenSearch, and Elasticsearch are the supported search backends. The [Support Matrix]({{< relref "docs/operations/support-matrix" >}}) lists the tested versions for each. Pinecone and Weaviate are supported as vector database targets via plugins. A CSV indexer is also available for local development and testing without a running search backend.
+Apache Solr, OpenSearch, and Elasticsearch are the supported search backends. The [Support Matrix]({{< relref "docs/operations/support-matrix" >}}) lists the tested versions for each. Pinecone and Weaviate are supported as vector database targets via optional Maven dependencies — see [Indexers]({{< relref "docs/reference/indexers" >}}) for configuration. A CSV indexer is also available for local development and testing without a running search backend.
 
 Custom connectors and indexers can be added without modifying the core project — implement the relevant interface, place the JAR on the classpath, and reference the fully-qualified class name in your config file.
 
@@ -155,7 +155,7 @@ Yes. Start one or more Worker (or WorkerIndexer) processes pointed at a Kafka so
 
 **What plugins are available?**
 
-The `lucille-plugins` module contains: `lucille-tika` (text extraction from 1000+ file formats), `lucille-ocr` (Tesseract OCR), `lucille-entity-extraction` (OpenNLP NER), `lucille-jlama` (local LLM embeddings with no external API), `lucille-parquet` (Parquet file support), `lucille-pinecone` (Pinecone indexer), `lucille-weaviate` (Weaviate indexer), `lucille-video` (video frame extraction), and `lucille-api` (REST API for run triggering). Plugins are separate Maven modules that do not bloat the core JAR.
+Optional extension modules are available as separate Maven dependencies: `lucille-tika` (text extraction from 1000+ file formats), `lucille-ocr` (Tesseract OCR), `lucille-entity-extraction` (OpenNLP NER), `lucille-jlama` (local LLM embeddings with no external API), `lucille-parquet` (Parquet file support), `lucille-pinecone` (Pinecone indexer), `lucille-weaviate` (Weaviate indexer), `lucille-video` (video frame extraction), and `lucille-api` (REST API for run triggering). Each is a separate Maven module that does not bloat the core JAR. Plugin stages are documented in [All Stages]({{< relref "docs/reference/stages/stages_reference" >}}); plugin connectors and indexers are documented in the [Connectors]({{< relref "docs/reference/connectors" >}}) and [Indexers]({{< relref "docs/reference/indexers" >}}) sections.
 
 **When should a component go in `lucille-core` vs. a plugin?**
 

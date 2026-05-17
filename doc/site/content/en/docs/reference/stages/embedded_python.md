@@ -64,3 +64,12 @@ doc["title"] = doc["title"].upper()
  script: "doc['title'] = doc['title'].upper()"
 }
 ```
+
+`script_path` can begin with `classpath:` to load the script as a classpath resource rather than a filesystem path:
+
+```hocon
+script_path: "classpath:scripts/my_script.py"
+```
+
+This lets you package Python scripts inside your JAR as resources (under `src/main/resources/`). The Lucille process loads them directly from the classpath at runtime, so you don't need to place files in specific filesystem locations or ensure the process has read access to them.
+```

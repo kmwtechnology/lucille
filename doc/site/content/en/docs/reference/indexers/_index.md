@@ -146,9 +146,60 @@ Discards all documents without sending them anywhere. Useful for testing pipelin
 
 ## Lucille Indexers (Plugins)
 
-| Indexer | Plugin | Config block |
-|---|---|---|
-| `PineconeIndexer` | lucille-pinecone | `pinecone { ... }` |
-| `WeaviateIndexer` | lucille-weaviate | `weaviate { ... }` |
+The following indexers require an additional Maven dependency.
 
-See [Plugins]({{< relref "docs/reference/plugins" >}}) for setup and configuration.
+---
+
+### Pinecone Indexer
+
+`com.kmwllc.lucille.pinecone.indexer.PineconeIndexer`
+
+Indexes vector embeddings into [Pinecone](https://www.pinecone.io/). Config block: `pinecone { ... }`
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-pinecone</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `apiKey` | String | Yes | Pinecone API key. Use `${PINECONE_API_KEY}` for environment variable substitution. |
+| `index` | String | Yes | Name of the Pinecone index to write to. |
+| `vectorField` | String | Yes | Document field containing the vector embedding. |
+| `namespace` | String | No | Pinecone namespace. Default: `"default"`. |
+
+```hocon
+indexer {
+  class: "com.kmwllc.lucille.pinecone.indexer.PineconeIndexer"
+  deletionMarkerField: "is_deleted"
+  deletionMarkerFieldValue: "true"
+}
+
+pinecone {
+  apiKey: ${PINECONE_API_KEY}
+  index: "my-index"
+  vectorField: "content_vector"
+  namespace: "default"
+}
+```
+
+---
+
+### Weaviate Indexer
+
+`com.kmwllc.lucille.weaviate.indexer.WeaviateIndexer`
+
+Indexes documents into [Weaviate](https://weaviate.io/). Config block: `weaviate { ... }`
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-weaviate</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```

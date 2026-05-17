@@ -6,6 +6,12 @@ description: >
   What you are really getting when you adopt Lucille — the division of labor between framework and implementor.
 ---
 
+When you are developing components for Lucille, it is important to understand what the framework does and does not give you. That understanding lets you take full advantage of what is already built, and gives you realistic expectations about the responsibilities that will fall to you as the implementor.
+
+This page begins with a general discussion of what you get when you adopt the framework overall. The following sections then focus on each component type — Stage, Connector, and Indexer. When you implement a component you will be extending the `Stage` or `Indexer` abstract classes, or implementing the `Connector` interface. Each section explains how the framework interacts with that component, what the base class or framework infrastructure does for you automatically, and what you are responsible for writing yourself.
+
+---
+
 ## What You Are Really Getting When You Adopt Lucille
 
 When you adopt Lucille, you are not just getting a library of connectors and stages. You are getting a runtime that solves the hard problems of production search ingestion — problems that are invisible during a POC but dominate the engineering effort as a system matures.
