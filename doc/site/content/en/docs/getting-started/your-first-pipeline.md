@@ -17,7 +17,7 @@ By the end, you'll understand the structure of a Lucille config and be ready to 
 
 ## Step 1: Create a Source File
 
-Create a file called `my-source.csv` with some sample data:
+Create a file called `my-source.csv` with a small set of classic novels:
 
 ```csv
 id,title,author,year
@@ -29,6 +29,12 @@ id,title,author,year
 ```
 
 ## Step 2: Write the Config File
+
+This config reads `my-source.csv`, applies two field transformations to each row, and writes the results to a new CSV file. This config has three parts:
+
+- **Connector** — a `FileConnector` with the CSV file handler reads `my-source.csv` and emits each row as a Document.
+- **Pipeline** — two stages manipulate fields on each Document: one renames `title` to `book_title`, and one adds a static `source` tag to every Document.
+- **Indexer** — a CSV indexer writes the transformed Documents to an output file. No search backend is needed for this first example.
 
 Create a file called `my-first-pipeline.conf`:
 
@@ -51,7 +57,8 @@ connectors: [
     # Path(s) to the source file(s)
     paths: ["my-source.csv"]
 
-    # Tell the FileConnector how to handle CSV files
+    # Apply the CSV file handler (with default options) to *.csv files.
+    # Each CSV file is parsed row by row; one Document is emitted per row.
     fileHandlers: {
       csv: {}
     }
@@ -175,9 +182,21 @@ The **indexer** specifies:
 - Or `class` — for plugin or custom indexers
 - Backend-specific settings in a separate block (e.g., `csv {}`, `solr {}`, `opensearch {}`)
 
-## Next Steps
+## What Have We Accomplished?
 
-**Index to a search backend.** Replace the CSV indexer with a real search backend:
+At first glance, the config above might feel disproportionate to the task. We renamed one field and added a static value — a transformation you could express in a single line of shell:
+
+```bash
+sed '1s/title/book_title/' my-source.csv \
+  | awk -F, 'BEGIN{OFS=","} NR==1{print $0,"source"} NR>1{print $0,"my-first-pipeline"}' \
+  > my-output.csv
+```
+
+That's fair. For this specific transformation on this specific file, a shell one-liner wins. The value of Lucille comes from what you can do next — and how little you have to change to get there.
+
+### 1. Index to any search backend
+
+Replace the CSV indexer with a real search backend — OpenSearch, Elasticsearch, or Solr — and your trivial file experiment becomes a real search ingestion pipeline. For OpenSearch:
 
 ```hocon
 indexer {
@@ -185,43 +204,45 @@ indexer {
 }
 
 opensearch {
-  url: "http://localhost:9200"
   url: ${?OPENSEARCH_URL}
   index: "my-books"
 }
 ```
 
-**Add more stages.** Browse the [Stage Reference]({{< relref "docs/reference/stages/stages_reference" >}}) for available transformations — text extraction, NER, embeddings, field manipulation, and more.
+That's the only change. The connector, the pipeline, the stages — everything else stays exactly the same. If you later want to switch from OpenSearch to Solr, you change the `indexer` block and add a `solr {}` block. No code, no build cycle, no rewrite.
 
-**Add conditions.** Skip stages for documents that don't need them:
+### 2. Iterate on your pipeline
+
+Add stages, chain transformations, and introduce conditions — all in config. Want to generate an embedding for each book title and store it as a vector field? Add a stage. Want to skip that stage for documents that already have an embedding? Add a condition. Browse the [Stage Reference]({{< relref "docs/reference/stages/stages_reference" >}}) for the full library of available transformations.
+
+None of this requires a build. Edit the config file, rerun Lucille, see the results. The pipeline is the config.
+
+### 3. Scale
+
+In our example, five rows processed in milliseconds and scale was not a concern. But now imagine the CSV has a million rows, each containing an S3 URL to a large PDF. Your pipeline must fetch each PDF, extract text with Tika, run OCR on scanned pages, and generate embeddings. That pipeline takes hours or days on a single thread.
+
+**Step 1: add worker threads.** Lucille's local mode uses a thread pool for document processing. Increase the number of threads to parallelize across available CPU cores and overlap IO:
 
 ```hocon
-{
-  class: "com.kmwllc.lucille.stage.OpenAIEmbed"
-  source: "body"
-  conditions: [
-    { fields: ["body"], operator: "must" }
-  ]
+worker {
+  threads: 8
 }
 ```
 
-**Use environment variables.** Keep credentials out of your config file:
+No other changes needed. The same config, more threads.
 
-```hocon
-opensearch {
-  url: "http://localhost:9200"
-  url: ${?OPENSEARCH_URL}
-}
-```
+**Step 2: distribute across machines.** If one machine isn't enough, switch to distributed mode. Lucille's components — Runner, Workers, and Indexer — run as separate JVM processes and communicate through Kafka. Here's what changes:
 
-**Run in test mode.** Validate your pipeline without a search backend:
+- The Runner gets the `-usekafka` flag: `com.kmwllc.lucille.core.Runner -usekafka`
+- Workers and the Indexer are started as separate processes on separate machines (or in separate Kubernetes pods): `com.kmwllc.lucille.core.Worker my-pipeline` and `com.kmwllc.lucille.core.Indexer my-pipeline`
+- A `kafka {}` block with `bootstrapServers` is added to the config
 
-```bash
-java -Dconfig.file=my-first-pipeline.conf \
-  -cp 'lucille-core/target/lucille-core-*.jar:lucille-core/target/lib/*' \
-  com.kmwllc.lucille.core.Runner -validate
-```
+Your connector definition and your pipeline stages are untouched. See [Production Deployment]({{< relref "docs/operations/deployment" >}}) for the full distributed mode setup.
 
-**Scale out.** When your data grows, switch to distributed mode with no pipeline code changes. See [Production Deployment]({{< relref "docs/operations/deployment" >}}).
+---
 
-For the full configuration schema and all available options, see [Configuration Management]({{< relref "docs/operations/configuration" >}}).
+At first, with a trivial five-row example that ran in under a second, Lucille looked like overkill compared to a shell script. But as soon as we wanted to ingest into a real search backend, iterate on enrichment logic, and scale out to handle large volumes of heavy documents, we could do all of that in a config-driven way — switching backends, adding stages, and distributing across machines — without having to solve any of those problems from scratch.
+
+Consider what Lucille is doing on our behalf in the scaled-out version of this pipeline. The Runner is reading our million-row CSV and producing each row as a Document onto a Kafka topic, applying backpressure so it doesn't publish faster than Workers can consume. Multiple Worker processes — running on different machines or in different Kubernetes pods — are each pulling Documents off that topic in parallel, each running multiple threads, each thread independently fetching a PDF from S3, extracting text, running OCR, and generating embeddings. As each Document finishes processing, a lifecycle event is sent back to the Runner so it can track exactly how many Documents have succeeded, failed, or been dropped. If a Worker crashes mid-run, Kafka's consumer group protocol detects it and reassigns its unacknowledged Documents to another Worker — nothing is silently lost. If a single malformed PDF repeatedly crashes a Worker, Lucille routes it to a dead-letter topic after a configurable number of retries and keeps the rest of the run going. The Indexer is collecting processed Documents and sending them to the search backend in tunable batches, managing bulk API semantics, and handling retries on transient backend errors. Throughout the run, Lucille is logging throughput metrics, per-stage latency, and document counts at regular intervals. When the last Document reaches a terminal state, Lucille determines that the run is complete and prints a structured summary — how many succeeded, how many failed, how many were dropped, and how long it took.
+
+All of that happens without any code on our part. Our contribution is the config file we wrote in Step 2.
