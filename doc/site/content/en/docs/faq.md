@@ -107,7 +107,7 @@ String, Boolean, Integer, Double, Float, Long, `java.time.Instant`, `byte[]`, `c
 
 **Why does `getString()` return the first value on a multi-valued field instead of throwing?**
 
-By design. A Stage that only needs the primary value of a field does not need to handle the single vs. multi-valued distinction. Use `getStringList()` when you need all values. This pattern — `getString` returns the first, `getStringList` returns all — applies uniformly across all typed getters. See [Document Model]({{< relref "docs/internals/document-model" >}}) for the rationale.
+By design. A Stage that only needs the primary value of a field does not need to handle the single vs. multi-valued distinction. Use `getStringList()` when you need all values. This pattern — `getString` returns the first, `getStringList` returns all — applies uniformly across all typed getters. See [Document Model]({{< relref "docs/architecture/internals/document-model" >}}) for the rationale.
 
 **How are reserved fields named?**
 
@@ -132,6 +132,8 @@ ZooKeeper (if using `worker.maxRetries`) → Kafka → Workers → Indexer → R
 **What happens if a Worker crashes mid-run?**
 
 Kafka's consumer group protocol detects the failure and reassigns the crashed Worker's partitions to another Worker in the group. Documents that were in flight but not yet acknowledged are redelivered and reprocessed. No documents are silently dropped.
+
+If there was only one Worker and it crashed, there are no remaining Workers to take over its partitions — processing stops until a new Worker is started. The Connector can continue publishing during this window: Kafka keeps accepting messages onto the processing queue regardless of how many Workers are consuming from it. When a Worker comes back up, it picks up from where the crashed Worker left off.
 
 **What is the event topic and why does its name include a run ID?**
 

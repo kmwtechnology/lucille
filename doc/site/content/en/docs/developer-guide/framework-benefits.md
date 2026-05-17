@@ -1,6 +1,6 @@
 ---
-title: "What the Framework Handles"
-weight: 30
+title: "What the Framework Gives You"
+weight: 5
 date: 2025-06-09
 description: >
   What you are really getting when you adopt Lucille — the division of labor between framework and implementor.

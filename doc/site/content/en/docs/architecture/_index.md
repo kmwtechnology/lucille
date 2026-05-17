@@ -11,9 +11,8 @@ Lucille separates the three concerns of ETL — reading, transforming, and writi
 
 | Section | What It Covers |
 |---|---|
-| [Overview]({{< relref "overview" >}}) | The problem Lucille solves, the core architecture, topology, and the document lifecycle |
+| [Overview]({{< relref "overview" >}}) | The problem Lucille solves, the core architecture, topology, document lifecycle, and design rationale |
 | [Components]({{< relref "components" >}}) | Reference pages for each component (Document, Pipeline, Publisher, Connectors, Indexers, Stages, Config) |
-| [Design Rationale]({{< relref "design-rationale" >}}) | The 24 requirements that explain why the system is designed the way it is |
 
 ## How Components Interact
 
@@ -25,4 +24,4 @@ Connector → [processing queue] → Worker(s) → [indexing queue] → Indexer
                                   Publisher (run accounting)
 ```
 
-For in-depth explanations of how each subsystem works internally, see [Internals]({{< relref "docs/internals" >}}).
+For in-depth explanations of how each subsystem works internally, see [Internals]({{< relref "docs/architecture/internals" >}}).

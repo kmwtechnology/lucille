@@ -1,6 +1,8 @@
 ---
 title: Internals
-weight: 5
+weight: 10
+aliases:
+  - /docs/internals/
 description: >
   In-depth explanations of how each architectural subsystem works internally and why it was designed that way.
 ---

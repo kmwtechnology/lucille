@@ -45,12 +45,6 @@ The Worker passes the document through each Stage in the pipeline in sequence.
 
 Each Stage receives the document, performs its transformation — extracting text, running NLP, generating an embedding, querying a database — and returns the result.
 
-At some point in the pipeline, a Stage performs chunking: it splits the document's content into smaller passages suitable for embedding and retrieval, attaches them as child documents, and a subsequent `EmitNestedChildren` stage converts them into emitted children. **Each child document becomes an independent document** that flows through the remaining pipeline stages and is indexed as its own search record.
-
-When a child is emitted, the Worker immediately sends a **`CREATE` event** to the event queue before the parent document's pipeline execution continues. This ordering guarantee ensures the Publisher learns about the child before it could possibly learn that the parent is complete. The Publisher adds the child's ID to its accounting ledger.
-
-The child document joins the processing queue and is picked up by a Worker thread (possibly the same one, in a later iteration) for its own pipeline processing.
-
 ### Step 6 — The parent Document moves to the indexing queue
 
 Once the parent document has passed through all pipeline stages, the Worker places it on the **indexing queue**. In distributed mode, this crosses a second Kafka boundary: the document becomes a message on the `{pipeline}_dest` Kafka topic.
@@ -65,17 +59,13 @@ The search backend accepts the document. The document now exists in the index.
 
 ### Step 8 — The Indexer sends a FINISH event
 
-After a successful bulk operation, the Indexer sends a **`FINISH` event** to the event queue for each document in the batch — including our parent document. In distributed mode this event travels on the `{pipeline}_event_{runId}` Kafka topic, which is unique per run so that events from concurrent runs never interfere with each other.
+After a successful bulk operation, the Indexer sends a **`FINISH` event** to the event queue for each document in the batch — including our document. In distributed mode this event travels on the `{pipeline}_event_{runId}` Kafka topic, which is unique per run so that events from concurrent runs never interfere with each other.
 
-The Publisher's polling loop receives the FINISH event, looks up the document's ID in `docIdsToTrack`, and removes it. The parent document's lifecycle is complete.
+The Publisher's polling loop receives the FINISH event, looks up the document's ID in `docIdsToTrack`, and removes it. The document's lifecycle is complete.
 
-### Step 9 — The child Document completes its own lifecycle
+### Step 9 — The Document is searchable
 
-The child document follows the same path independently: picked up by a Worker, processed through pipeline stages (which may include generating an embedding for the chunk), placed on the indexing queue, batched and sent by the Indexer, and a **`FINISH` event** sent to the event queue. The Publisher removes the child's ID from its accounting ledger.
-
-### Step 10 — The Document is searchable
-
-A query against the search backend can now retrieve the parent document and each of its chunk children. The enrichment performed during pipeline processing — the extracted text, the entity tags, the vector embedding — is available for full-text search, faceting, and semantic retrieval.
+The document has been accepted by the search backend. Once the backend makes it visible — via a scheduled commit in Solr, or after the refresh interval in Elasticsearch and OpenSearch — a query can retrieve it. Lucille does not issue commits; visibility timing is controlled entirely by the search backend's configuration. The enrichment performed during pipeline processing — the extracted text, the entity tags, the vector embedding — is available for full-text search, faceting, and semantic retrieval.
 
 ---
 
@@ -85,7 +75,7 @@ After all documents (parents and children) have completed their individual lifec
 
 ## The Detailed Path
 
-The Happy Path above omits edge cases, error handling, logging, metrics, backpressure, and routing. This section walks through the same journey again, annotating each step with everything that actually happens. A developer debugging "why didn't my document get indexed?" can walk through these steps to identify where the document's journey diverged.
+The Happy Path above omits edge cases, error handling, logging, metrics, backpressure, routing, and child documents. This section walks through the same journey again, annotating each step with everything that actually happens. A developer debugging "why didn't my document get indexed?" can walk through these steps to identify where the document's journey diverged.
 
 ### Step 1 — Raw data in the source system
 
@@ -127,6 +117,7 @@ Everything from the Happy Path, plus:
 - **Per-stage metrics.** For each Stage that does execute, the framework records processing time in a per-stage Timer. This becomes the "Mean latency: X ms/doc" in the per-stage metrics logged at end of run. The stage's child Counter is incremented for each child emitted.
 - **Per-stage logging.** The DocLogger logs `"Stage {name} to process {id}"` before and `"Stage {name} done processing {id}"` after each stage execution.
 - **Error handling.** If a Stage throws `StageException`, the Worker catches it, sends a FAIL event, and the document's lifecycle ends here — it never reaches the Indexer. The stage's error Counter is incremented.
+- **Child document emission.** A Stage can emit child documents by returning them from `processDocument()` as an `Iterator<Document>`. The most common use case is chunking: a `ChunkText` Stage attaches text chunks to the parent, and a subsequent `EmitNestedChildren` Stage converts them into independently flowing documents. Each emitted child becomes a separate search record. When the Worker emits a child, it immediately sends a **`CREATE` event** to the event queue — before the parent document's pipeline execution continues. This ordering guarantee ensures the Publisher registers the child's ID in `docIdsToTrack` before it could possibly receive a completion event for the parent (which would otherwise make the run appear done while children are still in flight). The child joins the processing queue and is picked up by a Worker thread — possibly the same one, in a later poll iteration — for its own independent pipeline run.
 
 ### Step 6 — The parent Document moves to the indexing queue
 
@@ -158,11 +149,7 @@ Everything from the Happy Path, plus:
 - **Backpressure release.** The Publisher receives the event, removes the document's ID from `docIdsToTrack`, and decrements the pending count. If `maxPendingDocs` was blocking the Connector, this may unblock it.
 - **Run accounting.** The document contributes to the run's `numSucceeded` (FINISH), `numFailed` (FAIL), or `numDropped` (DROP) count, which appears in the final run summary.
 
-### Step 9 — The child Document completes its own lifecycle
-
-Each child goes through steps 4–8 independently, with the same detailed mechanisms applying at each step.
-
-### Step 10 — The Document is searchable
+### Step 9 — The Document is searchable
 
 Everything from the Happy Path, plus:
 
@@ -172,4 +159,4 @@ Everything from the Happy Path, plus:
 
 ---
 
-For detailed explanations of how each component works internally, see the [Internals](/docs/internals/) section — particularly [Publisher Accounting](/docs/internals/publisher-accounting/), [Pipeline Internals](/docs/internals/pipeline-internals/), [Kafka Integration](/docs/internals/kafka-integration/), and [Metrics and Observability](/docs/internals/metrics-observability/).
+For detailed explanations of how each component works internally, see the [Internals](/docs/architecture/internals/) section — particularly [Publisher Accounting](/docs/architecture/internals/publisher-accounting/), [Pipeline Internals](/docs/architecture/internals/pipeline-internals/), [Kafka Integration](/docs/architecture/internals/kafka-integration/), and [Metrics and Observability](/docs/architecture/internals/metrics-observability/).

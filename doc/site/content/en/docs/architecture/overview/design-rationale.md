@@ -1,9 +1,11 @@
 ---
 title: "Design Rationale"
-weight: 5
+weight: 7
 date: 2025-06-09
 description: >
   The 24 requirements that govern Lucille's architecture, explaining why the system is designed the way it is.
+aliases:
+  - /docs/architecture/design-rationale/
 ---
 
 The following requirements govern Lucille's architecture. They evolved through production deployments and customer engagements, and are presented here to explain *why* the system is designed the way it is.

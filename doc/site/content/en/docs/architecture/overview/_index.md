@@ -12,3 +12,4 @@ Read these pages in order for a complete introduction to Lucille's architectural
 3. **[Pluggable Queueing and the Deployment Model]({{< relref "pluggable-queueing" >}})** — How the Messenger abstraction makes the queue implementation pluggable, enabling flexible deployment and straightforward testing.
 4. **[Topology]({{< relref "topology" >}})** — Batch and streaming models, the WorkerIndexer, and deployment configurations from single-JVM to fully distributed.
 5. **[Document Lifecycle]({{< relref "document-lifecycle" >}})** — The complete journey of a single Document through the system, plus cross-cutting concerns like logging, metrics, and testing.
+6. **[Design Rationale]({{< relref "design-rationale" >}})** — The 24 requirements that govern Lucille's architecture and why the system is designed the way it is.

@@ -476,7 +476,7 @@ More partitions = more potential parallelism. The source topic's partition count
 
 **Rule of thumb**: Set partition count to at least 2× the maximum number of Workers you expect to run. This gives room to scale without repartitioning.
 
-**Warning:** Lucille does not auto-create the source or dest topics. If Kafka auto-creates them (via broker `auto.create.topics.enable`), the default partition count is typically 1 — meaning only one Worker thread will receive work regardless of how many you configure. Pre-create topics with the desired partition count, or set the broker's `num.partitions` appropriately. See the [Kafka Integration internals page]({{< relref "docs/internals/kafka-integration" >}}) for details.
+**Warning:** Lucille does not auto-create the source or dest topics. If Kafka auto-creates them (via broker `auto.create.topics.enable`), the default partition count is typically 1 — meaning only one Worker thread will receive work regardless of how many you configure. Pre-create topics with the desired partition count, or set the broker's `num.partitions` appropriately. See the [Kafka Integration internals page]({{< relref "docs/architecture/internals/kafka-integration" >}}) for details.
 
 ---
 

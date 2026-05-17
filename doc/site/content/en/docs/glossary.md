@@ -1,11 +1,12 @@
 ---
 title: "Concepts and Glossary"
-weight: 5
+weight: 98
 date: 2025-06-09
 description: >
   Definitions of key terms and concepts used throughout Lucille's documentation and codebase.
 aliases:
   - /docs/glossary/
+  - /docs/reference/glossary/
 ---
 
 ## Core Components
