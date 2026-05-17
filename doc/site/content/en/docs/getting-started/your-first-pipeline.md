@@ -1,6 +1,6 @@
 ---
 title: Your First Pipeline
-weight: 20
+weight: 3
 date: 2025-06-09
 description: >
   A step-by-step walkthrough of writing a minimal Lucille config from scratch.

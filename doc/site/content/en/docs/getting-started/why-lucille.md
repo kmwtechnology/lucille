@@ -1,9 +1,11 @@
 ---
 title: Why Lucille
-weight: 2
+weight: 1
 date: 2025-06-09
 description: >
   How Lucille compares to general-purpose ETL tools, and when it is and isn't the right choice.
+aliases:
+  - /docs/about/comparison/
 ---
 
 Lucille occupies a specific position in the ETL landscape: it is purpose-built for loading data into search engines and vector databases, with inline enrichment as a first-class concern. This page explains what that means in practice and how it compares to the tools teams typically consider alongside it.
@@ -26,6 +28,7 @@ The most common alternative to adopting Lucille is building a custom pipeline �
 
 Custom pipelines typically lack what Lucille provides by default:
 
+- **Scalability without code changes.** In local mode, set `worker.threads` to parallelize document processing across CPU cores. When that isn't enough, switch to distributed mode with `-usekafka` and add Worker JVM processes — each consuming from the same Kafka topic — to scale horizontally across machines. The pipeline configuration is identical in both modes; scaling is an operational decision, not a rewrite. Custom pipelines rarely separate these concerns cleanly, so adding scale typically means restructuring the code.
 - **Run accounting.** Lucille tracks every document from publication through indexing and reports exactly how many succeeded, failed, or were dropped. Most homegrown pipelines have approximate counts or no accounting at all.
 - **Backpressure.** Without `maxPendingDocs` or `queueCapacity` constraints, a fast Connector feeding a slow Pipeline will exhaust memory. Backpressure is non-trivial to implement correctly.
 - **Per-document exception handling.** In Lucille, a Stage exception fails that document and keeps the run going. Custom pipelines often fail the entire batch or silently swallow errors.

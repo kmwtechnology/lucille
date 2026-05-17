@@ -1,6 +1,6 @@
 ---
 title: Installation
-weight: 15
+weight: 2
 date: 2025-10-31
 description: >
   How to get Lucille — as a Maven dependency, from a source build, or for development.
