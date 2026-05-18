@@ -20,7 +20,7 @@ import java.util.Map;
  * <ul>
  *   <li>staticValues (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
  *   <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
- *   <li>skip (Boolean) : Sets the document to be skipped by the rest of the pipeline. Can be used in place of the {@link SkipDocument}
+ *   <li>skipDoc (boolean) : Sets the document to be skipped by the rest of the pipeline. Can be used in place of the {@link SkipDocument}
  *   stage when we want to both skip and delete documents, and don't want to add another stage with duplicate conditions.</li>
  * </ul>
  */
@@ -28,25 +28,25 @@ public class SetStaticValues extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("updateMode")
-      .optionalBoolean("skip")
+      .optionalBoolean("skipDoc")
       .requiredParent("staticValues", new TypeReference<Map<String, Object>>() {}).build();
 
   private final Map<String, Object> staticValues;
   private final UpdateMode updateMode;
-  private final Boolean skip;
+  private final boolean skipDoc;
 
   public SetStaticValues(Config config) {
     super(config);
 
     this.staticValues = config.getConfig("staticValues").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
-    this.skip = ConfigUtils.getOrDefault(config, "skip", false);
+    this.skipDoc = ConfigUtils.getOrDefault(config, "skipDoc", false);
   }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, staticValue));
-    if (skip) {
+    if (skipDoc) {
       doc.setSkipped(true);
     }
     return null;

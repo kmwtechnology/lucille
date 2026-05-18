@@ -57,6 +57,6 @@ public class SetStaticValuesTest {
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("SetStaticValuesTest/config.conf");
-    assertEquals(Set.of("updateMode", "name", "conditions", "class", "conditionPolicy", "staticValues", "skip"), stage.getLegalProperties());
+    assertEquals(Set.of("updateMode", "name", "conditions", "class", "conditionPolicy", "staticValues", "skipDoc"), stage.getLegalProperties());
   }
 }
