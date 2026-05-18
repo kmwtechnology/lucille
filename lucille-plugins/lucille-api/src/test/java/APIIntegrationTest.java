@@ -82,8 +82,6 @@ public class APIIntegrationTest {
 
   @Test
   public void testConfigInfoConnectorList() {
-    //all endpoints at v1/config-info/* use a full ClassGraph scan which takes > 5 seconds, this increases the timeout window so
-    // test doesn't fail
     Response status = client.target(url + "v1/config-info/connector-list").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, status.getStatus());
