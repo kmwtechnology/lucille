@@ -146,6 +146,8 @@ Lucille auto-creates Kafka topics named after the pipeline. For a pipeline named
 
 The per-run suffix on the event topic prevents events from one run interfering with another when multiple runs overlap. These topic names are useful to know when debugging with Kafka CLI tools.
 
+**Important (batch mode only):** Because each batch run creates a new event topic (with a unique run_id in the name), the Lucille process must have Kafka Admin API permissions to create topics. Lucille creates the event topic explicitly via the Admin API to guarantee it has exactly 1 partition (required for event ordering). Kafka's `auto.create.topics.enable` is NOT sufficient because auto-created topics use the broker's default partition count, which would break the Publisher's accounting logic. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertyFile`. This requirement does not apply in streaming mode — when events are disabled or when `kafka.eventTopic` is set to a fixed name, no new topics are created per run. See [Per-Run Event Topics]({{< relref "docs/architecture/internals/kafka-integration" >}}) for the architectural rationale.
+
 The fail topic is written to when a document exceeds `worker.maxRetries` — the Worker routes the document there instead of crashing, and the rest of the ingest continues. Documents in the fail topic can be inspected with standard Kafka tooling, corrected if needed, and replayed by pointing a `FileConnector` (or a custom producer) at the topic. Requires `worker.maxRetries` and ZooKeeper to be configured; without them, a poison-pill document will crash and restart the Worker process repeatedly.
 
 ### Start Order
@@ -262,12 +264,38 @@ Note: this behavior applies to `WorkerIndexer` only. A standalone `Worker` subsc
 Streaming mode uses the same pipeline and Kafka configuration as distributed batch mode, with two differences:
 
 - **No `connectors` block** — external producers push documents to the Kafka source topic.
-- **Set `kafka.events: false`** to disable event publishing (since there is no Publisher to receive them), or set a fixed `kafka.eventTopic` if you still need event tracking:
+- **No Publisher** — there is no run boundary and no completion accounting.
+
+#### Run IDs in Streaming Mode
+
+In batch mode, the Publisher stamps a `run_id` on every document at publication time. In streaming mode there is no Publisher, so documents arriving from an external system typically have no `run_id` field. This is normal and expected — the `run_id` is a batch-mode concept.
+
+Consequences of absent run_ids:
+- The Worker's MDC will have no `run_id` context in log lines (the field is null).
+- If events are enabled, the default event topic name would be `{pipeline}_event_null` (since the topic name is derived from the run_id).
+
+If your external system *wants* to stamp a `run_id` on documents (e.g., to correlate a batch of updates), it can include a `run_id` field in the JSON before placing it on the Kafka topic. The Worker will read it and use it for MDC logging. But this is entirely optional.
+
+#### Event Configuration for Streaming Mode
+
+| Scenario | Setting | Why |
+|---|---|---|
+| No event tracking needed | `kafka.events: false` | Most common for streaming. No Publisher is listening, so events would go unread. |
+| Events needed for external monitoring | `kafka.eventTopic: "lucille_events"` | Sends all events to a fixed topic name. An external system can consume this topic to track document success/failure. |
+| Events needed with per-document run_ids | `kafka.events: true` (default) | Only works if the external producer stamps `run_id` on documents. Events route to `{pipeline}_event_{runId}`. |
+
+**Recommendation:** Set `kafka.events: false` unless you have a specific consumer for the event topic. If you do need events, set `kafka.eventTopic` to a fixed name to avoid the `_event_null` topic naming issue.
 
 ```hocon
 kafka {
   bootstrapServers: "kafka:9092"
-  events: false   # No Runner/Publisher to receive events
+
+  # Option A: Disable events entirely (most common for streaming)
+  events: false
+
+  # Option B: Send events to a fixed topic for external monitoring
+  # events: true
+  # eventTopic: "lucille_events"
 }
 
 pipelines: [

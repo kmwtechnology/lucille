@@ -178,6 +178,20 @@ public static boolean createEventTopic(Config config, String pipelineName, Strin
 
 The source and dest topics are NOT explicitly created by Lucille — they're expected to exist already or be auto-created by Kafka's broker configuration.
 
+### Per-Run Event Topics in Batch Mode
+
+In batch mode, each run gets its own event topic (e.g., `my_pipeline_event_c1d9413a-8191-4f4a-92bb-0fc42b5499e3`). Lucille creates this topic via the Kafka Admin API at the start of each run. This means:
+
+- **Kafka Admin API access is required.** Lucille creates the event topic explicitly via the Admin API to guarantee it has exactly 1 partition (required for FIFO event ordering). Kafka's `auto.create.topics.enable` is NOT sufficient — auto-created topics use the broker's default partition count, which would create a multi-partition topic and break the Publisher's accounting logic. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertyFile`.
+- **Each batch ingest produces a new topic.** Over time, event topics accumulate. Consider a retention policy or periodic cleanup of old event topics.
+- **Each Publisher requires its own dedicated event topic.** There is no support for multiple Publishers sharing a single event topic and filtering events by run_id. The per-run topic IS the isolation mechanism.
+
+**Do NOT set `kafka.eventTopic` in batch mode.** Setting a fixed event topic name would cause all runs to share one topic. If two runs overlap (e.g., launched via the RunnerManager API), their events would be interleaved on the same topic. Each Publisher would see events from the other run, corrupting its accounting and potentially declaring completion prematurely.
+
+`kafka.eventTopic` is safe only in streaming mode, where there is no Publisher performing completion accounting.
+
+This topic-creation requirement does not apply in streaming mode — when events are disabled (`kafka.events: false`) no event topic is needed, and when a fixed `kafka.eventTopic` is set the topic can be pre-created once and reused indefinitely.
+
 ## The Event Topic: Lifecycle Events
 
 Events flow from Workers and Indexers back to the Publisher:
@@ -209,6 +223,29 @@ kafka.events = false
 ```
 
 When disabled, `createEventProducer()` returns null and all `sendEvent()` calls become no-ops. This is useful for Workers/Indexers that run independently without a Publisher waiting for completion.
+
+### Event Topic Naming in Streaming Mode
+
+In streaming mode (no Runner, no Publisher), documents arrive from an external system without a `run_id` field. Since the default event topic name is `{pipeline}_event_{runId}`, a null run_id produces a topic named `{pipeline}_event_null`. This is functional but awkward.
+
+To avoid this, use `kafka.eventTopic` to set a fixed topic name:
+
+```hocon
+kafka {
+  events: true
+  eventTopic: "lucille_events"  # fixed name, independent of run_id
+}
+```
+
+When `kafka.eventTopic` is set, all events go to that single topic regardless of the document's run_id. This is safe in streaming mode because there is no Publisher performing per-run completion accounting. In batch mode with a Runner, do NOT set `kafka.eventTopic` — the per-run topic isolation is essential for correct completion detection.
+
+| Mode | Recommended Setting |
+|---|---|
+| Batch (with Runner) | Omit `kafka.eventTopic` — let Lucille create per-run topics automatically |
+| Streaming, no event tracking needed | `kafka.events: false` |
+| Streaming, external event consumer | `kafka.eventTopic: "my_fixed_topic"` |
+
+See [Streaming Mode Configuration]({{< relref "docs/operations/deployment" >}}) for the full streaming setup.
 
 ## The Fail Topic (Dead Letter Queue)
 
