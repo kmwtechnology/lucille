@@ -195,7 +195,7 @@ public class FileConnectorStateManager {
    * Update the database to reflect that the given file was encountered during a FileConnector traversal.
    * @param fullPathStr The full path to the file you encountered during a FileConnector traversal.
    */
-  public void markFileEncountered(String fullPathStr) {
+  public synchronized void markFileEncountered(String fullPathStr) {
     // First, we try an update statement, see if it updates an existing file.
     try {
       updateStatement.setString(1, fullPathStr);
@@ -217,7 +217,7 @@ public class FileConnectorStateManager {
    *
    * @param prefix The prefix to match against entry names (typically archivePath + ARCHIVE_FILE_SEPARATOR).
    */
-  public void markAllEntriesEncountered(String prefix) {
+  public synchronized void markAllEntriesEncountered(String prefix) {
     // updates every entry whose name starts with the given prefix
     // this is useful for archive files, in which the paths look like:
     // file:///tmp/archive.zip!entry1.txt or file:///tmp/archive.zip!subdir/entry2.txt.
@@ -242,7 +242,7 @@ public class FileConnectorStateManager {
    * @return The instant at which this file was last known to be published by Lucille; null if there is no information
    * on this file.
    */
-  public Instant getLastPublished(String fullPathStr) {
+  public synchronized Instant getLastPublished(String fullPathStr) {
     try {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
@@ -266,7 +266,7 @@ public class FileConnectorStateManager {
    * Updates the state database to reflect that the given file was successfully published during a FileConnector traversal.
    * @param fullPathStr The full path to the file that was successfully published.
    */
-  public void successfullyPublishedFile(String fullPathStr) {
+  public synchronized void successfullyPublishedFile(String fullPathStr) {
     String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {

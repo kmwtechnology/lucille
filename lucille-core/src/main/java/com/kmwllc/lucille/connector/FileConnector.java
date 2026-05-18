@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.util.FileConnectorThread;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -191,9 +192,27 @@ public class FileConnector extends AbstractConnector {
   public void execute(Publisher publisher) throws ConnectorException {
     initialize();
 
+    // RIGHT HERE is where we have a linear for loop iterating over the storage paths (our directories)
+    // We want to have a field that if true makes us traverse these in multithreaded fashion
     // discover and publish all valid file candidates
+
+    List<FileConnectorThread> threads = new ArrayList<>();
     for (URI resource : storageURIs) {
-      traverseStoragePath(publisher, resource);
+      FileConnectorThread thread = new FileConnectorThread(resource, this, publisher);
+      thread.start();
+      threads.add(thread);
+    }
+    for (FileConnectorThread t : threads) {
+      try {
+        t.join();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new ConnectorException("Interrupted while waiting for traversal thread.", e);
+      }
+      if (t.getCaughtException() != null) {
+        throw t.getCaughtException();
+      }
+
     }
 
     if (config.hasPath("filterOptions.sendTombstones") &&
@@ -277,7 +296,7 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
-  private void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
+  public void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
     String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
     StorageClient storageClient = storageClientMap.get(clientKey);
 
