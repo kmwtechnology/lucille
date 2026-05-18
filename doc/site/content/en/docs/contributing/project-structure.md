@@ -15,26 +15,8 @@ lucille (root aggregator)
 ├── lucille-parent          # parent POM: dependency versions, plugin config, build profiles
 ├── lucille-bom             # Bill of Materials: version-aligned dependency declarations
 ├── lucille-core            # the framework itself: Runner, Worker, Indexer, Pipeline, Document, Stages, Connectors
-├── lucille-plugins/        # optional modules with heavy or specialized dependencies
-│   ├── lucille-tika        # text extraction (Apache Tika)
-│   ├── lucille-ocr         # OCR (Tesseract)
-│   ├── lucille-pinecone    # Pinecone vector database indexer
-│   ├── lucille-weaviate    # Weaviate vector database indexer
-│   ├── lucille-jlama       # local embedding via JLama
-│   ├── lucille-parquet     # Parquet file handling
-│   ├── lucille-entity-extraction  # NER via OpenNLP
-│   ├── lucille-video       # video frame extraction via FFmpeg
-│   └── lucille-api         # REST API for run triggering (Dropwizard)
-└── lucille-examples/       # runnable example projects (not published to Maven Central)
-    ├── lucille-file-to-file-example
-    ├── lucille-simple-csv-solr-example
-    ├── lucille-opensearch-ingest-example
-    ├── lucille-s3-ingest-example
-    ├── lucille-rss-example
-    ├── lucille-joining-db-connector-example
-    ├── lucille-document-generation-example
-    ├── lucille-vector-ingest-example
-    └── lucille-distributed-example
+├── lucille-plugins/        # optional modules with heavy or specialized dependencies (tika, pinecone, weaviate, jlama, parquet, ocr, video, entity-extraction, api)
+└── lucille-examples/       # runnable example projects demonstrating common ingestion patterns (not published to Maven Central)
 ```
 
 ---
@@ -184,19 +166,33 @@ mvn clean install -pl lucille-plugins/lucille-tika
 
 ### What artifacts are produced
 
-- **lucille-core:** `lucille-core-0.9.0-SNAPSHOT.jar` — the framework JAR
-- **Each plugin:** e.g., `lucille-tika-0.9.0-SNAPSHOT.jar` — the plugin JAR (does not include core)
-- **Each example:** e.g., `lucille-file-to-file-example-0.9.0-SNAPSHOT.jar` plus `target/lib/` containing all runtime dependencies
+- **lucille-core:** `target/lucille.jar` — a thin JAR containing only Lucille's own classes (named `lucille.jar` via `finalName` in the POM). Runtime dependencies are copied to `target/lib/`. To run Lucille, both must be on the classpath: `-cp 'target/lucille.jar:target/lib/*'` (or simply `-cp 'target/lib/*'` since the lucille JAR is also copied there).
+- **Each plugin:** a **shaded (fat) JAR** that bundles the plugin's own dependencies into a single artifact. This avoids classpath conflicts when multiple plugins are used together. Plugins that produce shaded JARs include: lucille-tika, lucille-pinecone, lucille-weaviate, lucille-jlama, lucille-parquet, lucille-ocr, lucille-video, and lucille-api.
+- **Each example:** a thin JAR plus `target/lib/` containing all runtime dependencies (via `maven-dependency-plugin` copy-dependencies).
+
+### Thin JAR vs. Shaded JAR
+
+| Module | JAR Type | Why |
+|---|---|---|
+| `lucille-core` | Thin JAR + `target/lib/` | Core is always on the classpath alongside its dependencies. No need to shade. |
+| Plugins (tika, pinecone, etc.) | Shaded (fat) JAR | Plugins bundle their heavyweight dependencies to avoid version conflicts with core or other plugins. A single plugin JAR can be dropped onto the classpath without worrying about transitive dependency management. |
+| Examples | Thin JAR + `target/lib/` | Examples are runnable projects, not libraries. Dependencies are copied for easy classpath setup. |
+
+**When running Lucille from the command line**, the classpath typically looks like:
+
+```bash
+java -Dconfig.file=config.conf -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*:lucille-plugins/lucille-tika/target/lucille-tika-*.jar' com.kmwllc.lucille.core.Runner
+```
+
+Or more simply from an example directory where everything is in `target/lib/`:
+
+```bash
+java -Dconfig.file=conf/my-config.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
+```
 
 ### Running an example
 
 After building, from an example's directory:
-
-```bash
-java -Dconfig.file=conf/file-to-file-example.conf -cp 'target/lib/*:target/lucille-file-to-file-example-0.9.0-SNAPSHOT.jar' com.kmwllc.lucille.core.Runner
-```
-
-Or more simply, since the example JAR is also copied to `target/lib/`:
 
 ```bash
 java -Dconfig.file=conf/file-to-file-example.conf -cp 'target/lib/*' com.kmwllc.lucille.core.Runner
