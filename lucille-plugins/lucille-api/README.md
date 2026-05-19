@@ -18,6 +18,48 @@ The API can be run locally or in a Docker container:
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
 3. Run the image: `docker run --env LUCILLE_CONF=${LUCILLE_CONF} --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
 
+### Upload Lucille Config
+1. This should be a HOCON file
+2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}`
+3. This will respond with a configId for your config
+
+### Run Lucille with the Config
+1. `curl -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
+2. You can do `curl http://localhost:8080/v1/run` to check the status of your runs
+
+## Available Endpoints
+
+All requests are served from `localhost:8080` (or `localhost:8443` if HTTPS is enabled). When auth is enabled, every endpoint except the Dropwizard admin port requires Basic Auth credentials.
+
+| Method | Path | Description | Body |
+|--------|------|-------------|------|
+| GET    | `/v1/livez`                          | Liveness probe — returns 200 if the process is running | — |
+| GET    | `/v1/readyz`                         | Readiness probe — returns 200 once the app is ready to serve | — |
+| GET    | `/v1/systemstats`                    | CPU, memory, and JVM resource usage | — |
+| GET    | `/v1/systemstats/metrics`            | Detailed metrics breakdown | — |
+| GET    | `/v1/config-info/connector-list`     | Lists the available connector classes | — |
+| GET    | `/v1/config-info/stage-list`         | Lists the available stage classes | — |
+| GET    | `/v1/config-info/indexer-list`       | Lists the available indexer classes | — |
+| POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run` | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
+| GET    | `/v1/config`                         | List all registered configs, keyed by `configId` | — |
+| GET    | `/v1/config/{configId}`              | Get a specific registered config | — |
+| POST   | `/v1/run`                            | Start a Lucille run using a previously registered config | `{"configId": "<uuid>"}` |
+| GET    | `/v1/run`                            | List all runs and their statuses | — |
+| GET    | `/v1/run/{runId}`                    | Get details of a specific run | — |
+
+If auth is enabled, add `-u <anyuser>:<password>` (the username is not validated, only the password). If HTTPS is enabled with a self-signed cert, also add `-k`:
+
+```bash
+curl -k -u user:password https://localhost:8443/v1/run
+```
+
+## Configuration
+
+### Lucille Configuration
+
+The Lucille Configuration file can be supplied via the LUCILLE_CONF environment variable. If building via Docker, this file should
+reside in the `lucille-api/conf` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
+
 ### Giving the API access to custom components
 
 By default, the `/v1/config-info/*` endpoints only know about Stage, Connector, 
@@ -40,69 +82,6 @@ java -Dscan.extra.packages=com.company.lucille,com.other.lucille \
 ```
 
 If unset, only `com.kmwllc.lucille` will be scanned.
-
-### Upload Lucille Config
-1. This should be a HOCON file
-2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}`
-3. This will respond with a configId for your config
-
-### Run Lucille with the Config
-1. `curl -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
-2. You can do `curl http://localhost:8080/v1/run` to check the status of your runs
-
-## Available Endpoints
-
-All requests are served from `localhost:8080` (or `localhost:8443` if HTTPS is enabled — see [Setting up HTTPS](#setting-up-https-with-dropwizard)). When auth is enabled, every endpoint except the Dropwizard admin port requires Basic Auth credentials.
-
-| Method | Path | Description | Body |
-|--------|------|-------------|------|
-| GET    | `/v1/livez`                          | Liveness probe — returns 200 if the process is running | — |
-| GET    | `/v1/readyz`                         | Readiness probe — returns 200 once the app is ready to serve | — |
-| GET    | `/v1/systemstats`                    | CPU, memory, and JVM resource usage | — |
-| GET    | `/v1/systemstats/metrics`            | Detailed metrics breakdown | — |
-| GET    | `/v1/config-info/connector-list`     | Lists the available connector classes | — |
-| GET    | `/v1/config-info/stage-list`         | Lists the available stage classes | — |
-| GET    | `/v1/config-info/indexer-list`       | Lists the available indexer classes | — |
-| POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run` | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
-| GET    | `/v1/config`                         | List all registered configs, keyed by `configId` | — |
-| GET    | `/v1/config/{configId}`              | Get a specific registered config | — |
-| POST   | `/v1/run`                            | Start a Lucille run using a previously registered config | `{"configId": "<uuid>"}` |
-| GET    | `/v1/run`                            | List all runs and their statuses | — |
-| GET    | `/v1/run/{runId}`                    | Get details of a specific run | — |
-
-### Examples
-
-```bash
-# Health
-curl http://localhost:8080/v1/livez
-
-# Register a config (returns {"configId": "<uuid>"})
-curl -X POST http://localhost:8080/v1/config \
-  -H "Content-Type: application/json" \
-  -d @conf/simple-config.json
-
-# Kick off a run with that configId
-curl -X POST http://localhost:8080/v1/run \
-  -H "Content-Type: application/json" \
-  -d '{"configId":"<uuid>"}'
-
-# Check run status
-curl http://localhost:8080/v1/run
-curl http://localhost:8080/v1/run/<runId>
-```
-
-If auth is enabled, add `-u <anyuser>:<password>` (the username is not validated, only the password). If HTTPS is enabled with a self-signed cert, also add `-k`:
-
-```bash
-curl -k -u user:password https://localhost:8443/v1/run
-```
-
-## Configuration
-
-### Lucille Configuration
-
-The Lucille Configuration file can be supplied via the LUCILLE_CONF environment variable. If building via Docker, this file should
-reside in the `lucille-api/conf` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
 
 ### DropWizard Configuration
 
