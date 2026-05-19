@@ -361,6 +361,24 @@ For a complete, annotated listing of every supported top-level configuration pro
 
 ---
 
+## Configuration in Distributed Mode
+
+A configuration file is necessary for running all Lucille components — the full system in local mode as well as dedicated Workers, Indexers, and WorkerIndexers in distributed and streaming modes.
+
+### One Config for All Components
+
+In distributed mode, it is a best practice to pass the same full configuration file to all components, even though each component only reads the sections relevant to it. A Worker, for example, does not need to know about indexing settings, and an Indexer does not need to know the pipeline definition. But passing the same file to all components is simpler and less error-prone than maintaining separate configs for each component type.
+
+Users are responsible for ensuring the same config is provided to all components. Lucille does not detect inconsistencies across processes. If a user mistakenly passes two different configs — with different definitions of the same named pipeline — to two Worker instances, the Workers will apply different enrichment logic to documents. The result would be inconsistent enrichment in the search index, and Lucille would not raise an error because each Worker sees only its own config and has no way to compare it with another process.
+
+### Why This Is Not a Problem in Practice
+
+In practice, config consistency does not turn out to be a significant operational challenge. When setting up a distributed ingest, you already need a way to copy the same Lucille JARs and libraries to all machines (or containers) where Lucille will run. The configuration files for the project should be copied at the same time, using the same mechanism.
+
+In a containerized deployment this is trivial: include the config file in your Docker image and then use the same image for launching all Lucille components (Runner, Worker, Indexer, WorkerIndexer). The image guarantees that every component sees identical JARs, libraries, and configuration. The only variation between containers is the entrypoint command that determines which component role to start.
+
+---
+
 ## Summary
 
 Lucille's configuration approach is built on three principles:
