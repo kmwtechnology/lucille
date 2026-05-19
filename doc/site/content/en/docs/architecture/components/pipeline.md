@@ -1,5 +1,5 @@
 ---
-weight: 3
+weight: 7
 title: Pipeline
 date: 2024-10-15
 description: The ordered sequence of Stages that transform Documents before they are indexed.
@@ -65,6 +65,31 @@ Every Stage supports a `conditions` block that controls when the Stage applies t
 ```
 
 In this example, `OpenAIEmbed` only runs on Documents where `content_type` equals `"article"`.
+
+## No Sub-Pipelines
+
+A pipeline is a linear sequence of stages — not an arbitrary graph. Documents cannot branch in different directions, and a pipeline cannot invoke another pipeline mid-execution.
+
+This is a deliberate design choice. Experience has shown that sub-pipelines and branching graphs introduce significant cognitive and testing complexity. They make pipelines harder to reason about and harder to troubleshoot — before you can diagnose a problem, you first have to determine which route a document took. In most real-world ingestion scenarios, sub-pipelines do not turn out to be necessary.
+
+Lucille provides three mechanisms that cover the cases where branching might seem attractive:
+
+**Conditions.** Every stage supports a `conditions` block in configuration that determines whether that stage should process a given document. Conditions can check field presence, field values, or combinations (with `all`/`any` policy). The framework evaluates conditions before invoking the stage — stage authors never implement conditional logic themselves. This allows a single linear pipeline to apply different processing to different document types without branching.
+
+**Custom stages for complex logic.** If you need decision logic more complex than what conditions can express, the pathway is to write a custom stage where that logic is implemented and tested in Java — or in Python using Lucille's `EmbeddedPython` or `ExternalPython` stages. A custom stage can inspect any aspect of the document and take arbitrary action, including setting fields that downstream conditions can check.
+
+**Config includes for reuse.** If the concern is reusing common sequences of stages across multiple pipelines, those sequences can be defined in a separate config file and composed into a larger pipeline definition using HOCON's array concatenation:
+
+```hocon
+include "shared-stages.conf"   # defines: shared_stages = [{...}, {...}]
+
+pipelines: [{
+  name: "my-pipeline"
+  stages = [{ name: "first_stage", class: "..." }] ${shared_stages} [{ name: "last_stage", class: "..." }]
+}]
+```
+
+HOCON concatenates adjacent arrays into a single list, so the resolved `stages` array contains `first_stage`, followed by the shared stages, followed by `last_stage`. This provides composition and reuse without runtime branching — the pipeline remains a single linear sequence at execution time.
 
 ## Per-Thread Isolation
 
