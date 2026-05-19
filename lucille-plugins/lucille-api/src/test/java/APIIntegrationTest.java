@@ -107,6 +107,8 @@ public class APIIntegrationTest {
     Response configStatus = client.target(url + "v1/config").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
     String configResponse = configStatus.readEntity(String.class);
+
+    // This is the configResponse structure, and we just need the id part: {"configId":"340a7c70-c3e0-4c0c-af96-1414caf3623f"}
     String configId = configResponse.substring(13, configResponse.length() - 2);
 
     Response configIdStatus = client.target(url + "v1/config/" + configId).request()
@@ -117,6 +119,11 @@ public class APIIntegrationTest {
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity(configResponse, MediaType.APPLICATION_JSON));
     assertEquals(200, runPostStatus.getStatus());
     String runResponse = runPostStatus.readEntity(String.class);
+
+    // This is the runResponse structure, and we just need the id part:
+    // {"runId":"3944a016-9d95-487f-b47e-0030442a0251","configId":"340a7c70-c3e0-4c0c-af96-1414caf3623f","startTime":1779139586.541141000,
+    // "endTime":null,"runResult":null,"runType":"LOCAL","done":false,"future":{"completedExceptionally":false,
+    // "numberOfDependents":0,"done":false,"cancelled":false}}
     String runId = runResponse.substring(10, 46);
 
     Response runStatus = client.target(url + "v1/run").request()
