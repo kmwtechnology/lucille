@@ -8,6 +8,8 @@ import org.junit.Test;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class SetStaticValuesTest {
 
@@ -33,12 +35,28 @@ public class SetStaticValuesTest {
     // updateMode is set to "skip" in the config
     assertEquals("Directory", doc.getString("myString"));
     assertEquals(2, doc.getInt("myInt").intValue());
-    assertEquals(false, doc.getBoolean("myBool"));
+    assertFalse(doc.getBoolean("myBool"));
+    // ensure document is not skipped because we didn't configure that
+    assertFalse(doc.isSkipped());
+  }
+
+  @Test
+  public void testSkip() throws Exception {
+    Stage stage = factory.get("SetStaticValuesTest/skipConfig.conf");
+
+    Document doc = Document.create("doc");
+    stage.processDocument(doc);
+
+    assertEquals("File", doc.getString("myString"));
+    assertEquals(1, doc.getInt("myInt").intValue());
+    assertEquals(true, doc.getBoolean("myBool"));
+
+    assertTrue(doc.isSkipped());
   }
 
   @Test
   public void testGetLegalProperties() throws StageException {
     Stage stage = factory.get("SetStaticValuesTest/config.conf");
-    assertEquals(Set.of("updateMode", "name", "conditions", "class", "conditionPolicy", "staticValues"), stage.getLegalProperties());
+    assertEquals(Set.of("updateMode", "name", "conditions", "class", "conditionPolicy", "staticValues", "skipDocument"), stage.getLegalProperties());
   }
 }

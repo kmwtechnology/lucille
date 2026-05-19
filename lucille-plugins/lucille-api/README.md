@@ -18,6 +18,29 @@ The API can be run locally or in a Docker container:
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
 3. Run the image: `docker run --env LUCILLE_CONF=${LUCILLE_CONF} --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
 
+### Giving the API access to custom components
+
+By default, the `/v1/config-info/*` endpoints only know about Stage, Connector, 
+and Indexer implementations under `com.kmwllc.lucille`. To make the API aware of
+custom implementations shipped in other packages, pass their package prefixes using
+the `scan.extra.packages` system property at startup:
+
+```
+-Dscan.extra.packages=com.company.lucille
+```
+
+The value is a comma-separated list of package prefixes without spaces. Subpackages
+are included automatically; `com.company.lucille` covers `com.company.lucille.stage`,
+`com.company.lucille.indexer`, for example. To register components from multiple
+sources:
+
+```
+java -Dscan.extra.packages=com.company.lucille,com.other.lucille \
+   -jar target/lucille-api-X.X.X-SNAPSHOT.jar server ${DROPWIZARD_CONF}
+```
+
+If unset, only `com.kmwllc.lucille` will be scanned.
+
 ### Upload Lucille Config
 1. This should be a HOCON file
 2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}`
