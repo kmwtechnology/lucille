@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.util.FileConnectorThread;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -45,6 +45,8 @@ import com.typesafe.config.Config;
  * <ul>
  *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
+ *   <li>multithreaded (Boolean, Optional) : Determines whether the paths / URIs should be traversed in a multithreaded fashion, that is,
+ *   concurrently.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.lastModifiedCutoff (String, Optional) : Duration string to include only files modified within this period (e.g., "1h").</li>
@@ -119,6 +121,7 @@ public class FileConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredList("paths", new TypeReference<List<String>>(){})
+      .optionalBoolean("multithreaded")
       .optionalParent(
           SpecBuilder.parent("filterOptions")
               .optionalList("includes", new TypeReference<List<String>>(){})
@@ -141,6 +144,8 @@ public class FileConnector extends AbstractConnector {
   private final Map<String, StorageClient> storageClientMap;
 
   private final FileConnectorStateManager stateManager;
+
+  private final boolean multithreaded;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
@@ -186,6 +191,8 @@ public class FileConnector extends AbstractConnector {
     if (config.hasPath("filterOptions.lastPublishedCutoff") && !config.hasPath("state")) {
       log.warn("filterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
     }
+
+    this.multithreaded = ConfigUtils.getOrDefault(config, "multithreaded", false);
   }
 
   @Override
@@ -195,24 +202,29 @@ public class FileConnector extends AbstractConnector {
     // RIGHT HERE is where we have a linear for loop iterating over the storage paths (our directories)
     // We want to have a field that if true makes us traverse these in multithreaded fashion
     // discover and publish all valid file candidates
-
-    List<FileConnectorThread> threads = new ArrayList<>();
-    for (URI resource : storageURIs) {
-      FileConnectorThread thread = new FileConnectorThread(resource, this, publisher);
-      thread.start();
-      threads.add(thread);
-    }
-    for (FileConnectorThread t : threads) {
-      try {
-        t.join();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new ConnectorException("Interrupted while waiting for traversal thread.", e);
+    if (multithreaded) {
+      List<FileConnectorThread> threads = new ArrayList<>();
+      for (URI resource : storageURIs) {
+        FileConnectorThread thread = new FileConnectorThread(resource, this, publisher);
+        thread.start();
+        threads.add(thread);
       }
-      if (t.getCaughtException() != null) {
-        throw t.getCaughtException();
-      }
+      for (FileConnectorThread t : threads) {
+        try {
+          t.join();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new ConnectorException("Interrupted while waiting for traversal thread.", e);
+        }
+        if (t.getCaughtException() != null) {
+          throw t.getCaughtException();
+        }
 
+      }
+    } else {
+      for (URI resource : storageURIs) {
+        traverseStoragePath(publisher, resource);
+      }
     }
 
     if (config.hasPath("filterOptions.sendTombstones") &&
@@ -296,7 +308,7 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
-  public void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
+  void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
     String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
     StorageClient storageClient = storageClientMap.get(clientKey);
 

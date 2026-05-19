@@ -5,7 +5,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -738,6 +737,85 @@ public class FileConnectorTest {
       // Needed since our db is on disk
       FileUtils.deleteDirectory(new File("state"));
     }
+  }
+
+  // Ensure we publish the correct number of files when multithreaded mode is used
+  @Test
+  public void testMultithreadedMatchesLinearMultiplePaths() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("multithreaded", ConfigValueFactory.fromAnyRef(true));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(9, docs.size());
+    long distinctFilePaths = docs.stream().map(d -> d.getString(FILE_PATH)).distinct().count();
+    assertEquals(9, distinctFilePaths);
+  }
+
+  // State + multithreaded: validates that synchronized methods on FileConnectorStateManager stop the DB from experiencing
+  // race conditions. If this is broken, this test will show duplicate/missing docs, a SQLException, or a wrong second-run count.
+  @Test
+  public void testMultithreadedTraversalWithState() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
+        .withValue("multithreaded", ConfigValueFactory.fromAnyRef(true));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher);
+    conn.close();
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
+
+    // Second run in default full mode republishes everything; this also exercises the state DB after both paths have already
+    // populated rows in the previous run
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    conn.execute(publisher);
+    conn.close();
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
+  }
+
+  // If a traversal thread fails, the caught exception stored on the FileConnectorThread should bubble up out of execute() as
+  // a ConnectorException
+  @Test
+  public void testMultithreadedExceptionPropagates() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocalAndCloud.conf")
+        .withValue("multithreaded", ConfigValueFactory.fromAnyRef(true));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      StorageClient s3Client = mock(StorageClient.class);
+      StorageClient gsClient = mock(StorageClient.class);
+      mockedStorage.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "s3", s3Client,
+              "gs", gsClient));
+
+      doThrow(new RuntimeException("traversal failed")).when(s3Client)
+          .traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
+
+      connector = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    }
+  }
+
+  // Ensures multithreading still works fine with just 1 path
+  @Test
+  public void testMultithreadedSinglePath() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
+        .withValue("multithreaded", ConfigValueFactory.fromAnyRef(true));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    assertEquals(16, messenger.getDocsSentForProcessing().size());
   }
 
 }

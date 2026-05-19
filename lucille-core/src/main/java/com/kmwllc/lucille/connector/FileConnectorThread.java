@@ -1,6 +1,5 @@
-package com.kmwllc.lucille.util;
+package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import java.net.URI;
