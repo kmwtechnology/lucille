@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import java.io.IOException;
 import java.net.URI;
@@ -31,7 +32,7 @@ import com.typesafe.config.Config;
  * all filter criteria are processed. Durations use HOCON-style strings like "1h", "2d", "3s".
  *
  * For archive/compressed files, modification/publish cutoffs apply to both the container and its entries. When state is enabled,
- * traversal may be slower. Files that are moved/renamed are always  republished regardless of lastPublishedCutoff. You can enable
+ * traversal may be slower. Files that are moved/renamed are always republished regardless of lastPublishedCutoff. You can enable
  * state without specifying lastPublishedCutoff to keep publish times updated.
  *
  * State tracks file paths and last publish timestamps to support filterOptions.lastPublishedCutoff and to avoid duplicate publications
@@ -54,6 +55,7 @@ import com.typesafe.config.Config;
  *   <li>fileOptions.handleCompressedFiles (Boolean, Optional) : Process compressed files. Defaults to false.</li>
  *   <li>fileOptions.moveToAfterProcessing (String, Optional) : URI to move files after successful processing (single input path only).</li>
  *   <li>fileOptions.moveToErrorFolder (String, Optional) : URI to move files if processing fails (single input path only).</li>
+ *   <li>state.enabled (Boolean, Optional) : Set state database to be enabled or disabled (null). Defaults to true.</li>
  *   <li>state.driver (String, Optional) : JDBC driver class. Defaults to "org.h2.Driver".</li>
  *   <li>state.connectionString (String, Optional) : JDBC connection string. Defaults to "jdbc:h2:./state/{CONNECTOR_NAME}".</li>
  *   <li>state.jdbcUser (String, Optional) : Database username. Defaults to "".</li>
@@ -130,7 +132,7 @@ public class FileConnector extends AbstractConnector {
               .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
           SpecBuilder.parent("state")
               .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
-              .optionalBoolean("performDeletions")
+              .optionalBoolean("performDeletions", "enabled")
               .optionalNumber("pathLength", "runsBeforeExpiration").build(),
           GCP_PARENT_SPEC,
           AZURE_PARENT_SPEC,
@@ -158,10 +160,12 @@ public class FileConnector extends AbstractConnector {
       }
     }
 
-    this.stateManager = config.hasPath("state") ? new FileConnectorStateManager(config.getConfig("state"), getName()) : null;
+    this.stateManager =
+        config.hasPath("state") && ConfigUtils.getOrDefault(config, "state.enabled", true)
+            ? new FileConnectorStateManager(config.getConfig("state"), getName())
+            : null;
 
     this.storageClientMap = StorageClient.createClients(config);
-
 
 
     // incremental mode requires state tracking in order to function correctly
