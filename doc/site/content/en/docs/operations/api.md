@@ -10,6 +10,8 @@ aliases:
 
 The `lucille-api` plugin adds an HTTP REST API built on [Dropwizard](https://www.dropwizard.io/) that allows managing configs and triggering runs over HTTP rather than via the CLI. It includes a Swagger UI and optional basic authentication.
 
+**Current limitation:** The REST API launches all runs in local mode (in-memory queues, Workers and Indexer as threads within the API server's JVM). It cannot currently trigger a distributed Kafka-based ingest. If you need distributed mode, use the CLI Runner with `-usekafka`.
+
 **Maven dependency:**
 ```xml
 <dependency>
