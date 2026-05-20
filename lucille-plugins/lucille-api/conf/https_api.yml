@@ -4,13 +4,13 @@
 server:
   type: default
   applicationConnectors:
-        - type: https
-          port: 8443
-          keyStorePath: conf/keystore.jks
-          keyStorePassword: password
-          keyStoreType: JKS
-          validateCerts: false
-          validatePeers: false
+    - type: https
+      port: 8443
+      keyStorePath: conf/keystore.jks
+      keyStorePassword: password
+      keyStoreType: JKS
+      validateCerts: false
+      validatePeers: false
   requestLog:
     type: external
 logging:
