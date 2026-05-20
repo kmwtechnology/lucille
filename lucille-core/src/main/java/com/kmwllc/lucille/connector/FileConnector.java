@@ -226,7 +226,6 @@ public class FileConnector extends AbstractConnector {
         thread.start();
         threads.add(thread);
       }
-      // t.join() waits for the
       for (FileConnectorThread t : threads) {
         try {
           t.join();
