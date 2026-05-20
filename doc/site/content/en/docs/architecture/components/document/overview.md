@@ -1,11 +1,9 @@
 ---
 weight: 1
-title: Document
+title: Overview
 date: 2025-10-23
-description: The basic unit of data that is sent through a Pipeline and eventually indexed into a search engine.
+description: Document structure, field types, reading and writing fields, child documents, and serialization.
 ---
-
-A Lucille *Document* is the basic unit of data that flows through a pipeline and gets indexed.
 
 A Document is an ordered, named set of fields. Each field may hold a **single value** or a **list of values** (multi-valued). All field values are ultimately represented in JSON. Every Document has a unique `id`.
 

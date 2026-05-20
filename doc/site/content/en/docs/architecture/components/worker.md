@@ -1,5 +1,5 @@
 ---
-weight: 4
+weight: 8
 title: Worker
 date: 2025-10-23
 description: A thread that retrieves published documents and passes them through a pipeline, then forwards completed documents to the Indexer.

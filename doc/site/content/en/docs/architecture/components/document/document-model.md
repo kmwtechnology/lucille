@@ -1,6 +1,6 @@
 ---
 title: Document Model
-weight: 1
+weight: 3
 date: 2025-06-09
 description: >
   Why the Document is backed by a Jackson ObjectNode, the API design choices, and the tradeoffs.

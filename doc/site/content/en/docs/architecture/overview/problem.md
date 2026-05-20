@@ -6,6 +6,8 @@ description: >
   Why a simple sequential loop falls short for production search ingestion, and how Lucille addresses the pitfalls.
 ---
 
+Organizations build search applications when their users need to find information across large, heterogeneous collections of data — product catalogs, legal documents, support tickets, research papers, internal wikis, file shares. The data lives in databases, cloud storage, APIs, and content management systems, often in different formats and with varying levels of structure. Before any of it becomes searchable, it must be extracted from these sources, cleaned, enriched (with metadata, classifications, embeddings, or extracted entities), and delivered to a search engine or vector database in the right format. This process — getting source data into a search-ready state — is search ETL.
+
 Getting data into a search engine involves three distinct functions:
 
 1. Connect to a source system to acquire data.
@@ -34,7 +36,7 @@ The dataset is no longer a few hundred documents — it's millions. The loop tha
 
 ---
 
-### 1. Error Handling
+### 1. One bad document stops everything
 
 Somewhere in that day-long run, a document fails. Maybe the enrichment logic throws an exception on an unexpected input. Maybe the search backend rejects a malformed field. The loop stops.
 
@@ -44,7 +46,7 @@ The simple loop gives you no framework for any of these decisions. And search ba
 
 ---
 
-### 2. Observability
+### 2. You can't see what's happening
 
 The run has been going for six hours. Is it on track? Is it stuck? Are there bottlenecks building up somewhere? How many documents have been indexed so far, and how many are still waiting?
 
@@ -52,7 +54,7 @@ The loop has no instrumentation. You have no visibility into throughput, no per-
 
 ---
 
-### 3. Pipeline Complexity and Reuse
+### 3. Enrichment logic becomes tangled and unreusable
 
 As the pipeline grows — adding text extraction, NLP, embedding generation, database lookups — the enrichment logic accumulates inside or alongside the loop. It becomes difficult to adjust individual steps without touching the whole thing. Testing a change requires running the full ingest or building a separate harness.
 
@@ -60,7 +62,7 @@ When a second project needs some of the same transformations, there's no clean m
 
 ---
 
-### 4. One Source Document, Many Search Records
+### 4. One source document fans out into many index records
 
 In general ETL, a record in the source maps to a record in the destination. Search ingestion breaks that assumption.
 
@@ -72,7 +74,7 @@ This 1-to-N fan-out is unique to search ingestion. It doesn't arise in database 
 
 ---
 
-### 5. Configuration and Environment Management
+### 5. Environment-specific settings are hardcoded
 
 The pipeline runs against a development search backend today. Next week it needs to run against staging, with different credentials, a different Solr URL, and a different collection name. After that, production — with its own connection details, possibly different Kafka brokers, and secrets that shouldn't be hardcoded.
 
@@ -80,7 +82,7 @@ Managing that across environments — without duplicating code, without accident
 
 ---
 
-### 6. Scalability
+### 6. The sequential loop can't go faster
 
 This is the hardest problem, and the reason all the others matter more once you solve it.
 

@@ -107,7 +107,7 @@ String, Boolean, Integer, Double, Float, Long, `java.time.Instant`, `byte[]`, `c
 
 **Why does `getString()` return the first value on a multi-valued field instead of throwing?**
 
-By design. A Stage that only needs the primary value of a field does not need to handle the single vs. multi-valued distinction. Use `getStringList()` when you need all values. This pattern — `getString` returns the first, `getStringList` returns all — applies uniformly across all typed getters. See [Document Model]({{< relref "docs/architecture/internals/document-model" >}}) for the rationale.
+By design. A Stage that only needs the primary value of a field does not need to handle the single vs. multi-valued distinction. Use `getStringList()` when you need all values. This pattern — `getString` returns the first, `getStringList` returns all — applies uniformly across all typed getters. See [Document Model]({{< relref "docs/architecture/components/document/document-model" >}}) for the rationale.
 
 **How are reserved fields named?**
 
@@ -115,7 +115,7 @@ Reserved internal fields use a triple-underscore prefix: `___dropped`, `___skipp
 
 **How do I control the document ID?**
 
-Set the `id` field when creating the document with `Document.create("my-id")`, or configure an `idField` on the Connector to designate which source field contains the ID. If no ID is provided, a UUID is generated. See [Document IDs]({{< relref "docs/architecture/components/document-ids" >}}).
+Set the `id` field when creating the document with `Document.create("my-id")`, or configure an `idField` on the Connector to designate which source field contains the ID. If no ID is provided, a UUID is generated. See [Document IDs]({{< relref "docs/architecture/components/document/document-ids" >}}).
 
 ---
 

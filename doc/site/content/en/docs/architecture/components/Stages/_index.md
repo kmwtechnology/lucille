@@ -1,6 +1,6 @@
 ---
-weight: 12
-title: Stages
+weight: 6
+title: Stage
 date: 2025-06-06
 description: A Stage performs a specific transformation on a Document.
 ---

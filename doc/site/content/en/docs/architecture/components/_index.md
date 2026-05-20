@@ -16,7 +16,7 @@ Lucille is built from a small set of components that work together to move data 
 | [Worker]({{< relref "worker" >}}) | Pulls Documents from the source queue, runs them through the Pipeline, and forwards results. |
 | [Publisher]({{< relref "publisher" >}}) | Tracks every Document from publication to terminal state; provides backpressure. |
 | [Runner]({{< relref "run" >}}) | Orchestrates a complete run: validates config, starts components, waits for completion. |
-| [Document]({{< relref "document" >}}) | The basic unit of data flowing through the system. |
+| [Document]({{< relref "document/_index.md" >}}) | The basic unit of data flowing through the system. |
 | [Config]({{< relref "Config" >}}) | The HOCON configuration file that defines all components and settings for a run. |
 
 For a catalogue of specific implementations — built-in connectors, stages, indexers, file handlers, and plugins — see the [Reference]({{< relref "docs/reference" >}}) section.

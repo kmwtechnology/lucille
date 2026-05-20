@@ -6,6 +6,10 @@ description: >
   How Lucille structures search ingestion as three concurrent components communicating through queues, and how it tracks document lifecycle across an asynchronous system.
 ---
 
+Lucille addresses all of the pain points described in [The Problem of Search ETL]({{< relref "docs/architecture/overview/problem" >}}) — error handling, observability, pipeline composition, fan-out, configuration management, and scalability. This page focuses on the last and most fundamental of those problems: the sequential loop can't go faster.
+
+Lucille's answer is a parallel architecture whose components derive directly from the structure of the problem. Each of the three functions of search ETL — acquiring data, enriching it, and indexing it — becomes its own independent concurrent component, operating at its own pace, limited only by its own resources rather than by the speed of the others.
+
 To design any concurrent system, two questions must be answered:
 
 1. What are the core components?
@@ -13,15 +17,13 @@ To design any concurrent system, two questions must be answered:
 
 ### The Core Components
 
-Lucille derives its components directly from the structure of the problem. The [Problem of Search ETL]({{< relref "docs/architecture/overview/problem" >}}) established that search ingestion involves three distinct functions: acquiring data from a source, enriching it, and sending it to the search backend. Lucille maps each function to a dedicated component that runs independently:
-
 **Connectors** connect to source systems to acquire data. A Connector reads from its source — a filesystem, a database, a Kafka topic, an RSS feed — and emits Documents into the system one at a time. It does not know how many Workers will process those documents, or how long enrichment will take.
 
 **Workers** enrich documents by passing them through a Pipeline of Stages. Each Stage performs a specific transformation: extracting text, running NLP, generating embeddings, looking up database records. A Worker handles one document at a time and writes the result onward. Multiple Workers run concurrently, each with its own Pipeline instance, so enrichment scales with available CPU.
 
 **Indexers** receive processed documents and send them in batches to the search backend. An Indexer accumulates documents until a batch is full or a timeout expires, then issues a single bulk API call. Batching is essential for search engine performance — bulk writes are significantly faster than one-at-a-time indexing.
 
-These three components run concurrently and asynchronously. Each operates at its own pace, decoupled from the others. The system achieves optimal throughput given available resources because no component waits for another unless it exhausts its backlog of work — or the downstream queue is full, which provides natural backpressure on the upstream component.
+No component waits for another unless it exhausts its backlog of work — or the downstream queue is full, which provides natural backpressure on the upstream component.
 
 ### How Should They Communicate?
 

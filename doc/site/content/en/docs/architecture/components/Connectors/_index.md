@@ -1,6 +1,6 @@
 ---
-weight: 10
-title: Connectors
+weight: 3
+title: Connector
 date: 2024-10-15
 description: A component that retrieves data from a source system and packages the data into Documents in preparation for transformation.
 ---

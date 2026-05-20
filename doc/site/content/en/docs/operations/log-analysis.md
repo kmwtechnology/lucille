@@ -1,5 +1,5 @@
 ---
-title: "Log Inspection and Analysis"
+title: "Log Interpretation"
 weight: 4
 date: 2025-06-09
 description: >

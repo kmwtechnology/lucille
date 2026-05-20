@@ -1,6 +1,6 @@
 ---
-weight: 7
-title: Events
+weight: 5
+title: Event
 date: 2025-10-23
 description: As Lucille runs, it generates Events that track document lifecycle and enable run completion accounting.
 ---

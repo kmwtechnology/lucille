@@ -1,6 +1,6 @@
 ---
 date: 2025-05-07
-title: Logging
+title: Logging Setup
 weight: 3
 description: Interpreting and using Lucille logs.
 resources:
@@ -11,6 +11,29 @@ resources:
 ---
 
 ## Lucille Logs
+
+Lucille uses Log4j2 (via SLF4J) for all logging. A default `log4j2.xml` is included in `lucille-core/src/main/resources/`.
+
+### Using a Custom Log4j2 Configuration
+
+To override the default logging configuration, pass the standard Log4j2 system property on the Java command line:
+
+```bash
+java -Dlog4j.configurationFile=/path/to/my-log4j2.xml \
+     -Dconfig.file=my-pipeline.conf \
+     -cp 'target/lib/*' \
+     com.kmwllc.lucille.core.Runner
+```
+
+This applies to all Lucille components (Runner, Worker, Indexer, WorkerIndexer). If you don't provide this property, Log4j2 uses whatever `log4j2.xml` it finds on the classpath.
+
+Common reasons to provide a custom configuration:
+- Route the DocLogger to a separate file (to avoid mixing per-document lifecycle events with operational logs)
+- Enable JSON-formatted output for log aggregation tools
+- Adjust log levels for specific packages (e.g., suppress noisy third-party library logging)
+- Configure log rotation policies for long-running Worker/Indexer processes
+
+---
 
 **There are many ways you can use the logs output by Lucille.** Lucille has, essentially, two main loggers for tracking your Lucille run: 
 the `Root` logger, and the `DocLogger`. 

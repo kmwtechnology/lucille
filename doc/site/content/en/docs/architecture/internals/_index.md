@@ -13,7 +13,7 @@ Each page is self-contained — you can read them in any order based on what you
 
 | Page | What It Explains |
 |---|---|
-| [Document Model]({{< relref "document-model" >}}) | Why the Document is backed by a Jackson ObjectNode, the API design choices, and the tradeoffs |
+| [Document Model]({{< relref "docs/architecture/components/document/document-model" >}}) | Why the Document is backed by a Jackson ObjectNode, the API design choices, and the tradeoffs |
 | [Pipeline Internals]({{< relref "pipeline-internals" >}}) | How lazy iterator chaining works, why in-place modification, memory implications |
 | [Messenger Abstraction]({{< relref "messenger-abstraction" >}}) | The interfaces that make deployment-mode independence possible |
 | [Publisher Accounting]({{< relref "publisher-accounting" >}}) | The Bag data structure, out-of-order events, completion detection |
