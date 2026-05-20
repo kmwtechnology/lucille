@@ -12,10 +12,10 @@ Lucille is built from a small set of components that work together to move data 
 | [Connectors]({{< relref "Connectors" >}}) | Read data from a source system and emit Documents into the pipeline. |
 | [Stages]({{< relref "Stages" >}}) | Process and enrich Documents. Composed into Pipelines. |
 | [Indexers]({{< relref "Indexers" >}}) | Batch processed Documents and send them to the search backend. |
-| [Pipeline]({{< relref "pipeline" >}}) | An ordered sequence of Stages applied to each Document. |
+| [Pipeline]({{< relref "pipeline/_index.md" >}}) | An ordered sequence of Stages applied to each Document. |
 | [Worker]({{< relref "worker" >}}) | Pulls Documents from the source queue, runs them through the Pipeline, and forwards results. |
-| [Publisher]({{< relref "publisher" >}}) | Tracks every Document from publication to terminal state; provides backpressure. |
-| [Runner]({{< relref "run" >}}) | Orchestrates a complete run: validates config, starts components, waits for completion. |
+| [Publisher]({{< relref "publisher/_index.md" >}}) | Tracks every Document from publication to terminal state; provides backpressure. |
+| [Runner]({{< relref "runner/_index.md" >}}) | Orchestrates a complete run: validates config, starts components, waits for completion. |
 | [Document]({{< relref "document/_index.md" >}}) | The basic unit of data flowing through the system. |
 | [Config]({{< relref "Config" >}}) | Why Lucille is configuration-driven, and how HOCON and Typesafe Config shape the system. |
 

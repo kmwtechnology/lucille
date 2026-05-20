@@ -1,6 +1,6 @@
 ---
 title: Publisher Accounting
-weight: 4
+weight: 1
 date: 2025-06-09
 description: >
   The Bag data structure, out-of-order event handling, the waitForCompletion loop, backpressure, and thread safety.

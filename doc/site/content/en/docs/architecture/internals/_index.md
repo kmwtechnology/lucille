@@ -13,12 +13,14 @@ Each page is self-contained — you can read them in any order based on what you
 
 | Page | What It Explains |
 |---|---|
-| [Document Model]({{< relref "docs/architecture/components/document/document-model" >}}) | Why the Document is backed by a Jackson ObjectNode, the API design choices, and the tradeoffs |
-| [Pipeline Internals]({{< relref "pipeline-internals" >}}) | How lazy iterator chaining works, why in-place modification, memory implications |
 | [Messenger Abstraction]({{< relref "messenger-abstraction" >}}) | The interfaces that make deployment-mode independence possible |
-| [Publisher Accounting]({{< relref "publisher-accounting" >}}) | The Bag data structure, out-of-order events, completion detection |
-| [Runner Orchestration]({{< relref "runner-orchestration" >}}) | How Runner.run() coordinates the full lifecycle |
 | [Message Ordering]({{< relref "message-ordering" >}}) | How Kafka keys preserve operation order across distributed components |
 | [Error Handling]({{< relref "error-handling" >}}) | The error philosophy, every failure scenario, and fault tolerance |
 | [Kafka Integration]({{< relref "kafka-integration" >}}) | Topics, serialization, consumer groups, offset strategies |
 | [Metrics and Observability]({{< relref "metrics-observability" >}}) | Codahale metrics, the watcher thread, heartbeats, MDC |
+
+Deep dives that have been merged into their component pages:
+- [Document Model]({{< relref "docs/architecture/components/document/document-model" >}}) — now under Components > Document
+- [Pipeline Internals]({{< relref "docs/architecture/components/pipeline/pipeline-internals" >}}) — now under Components > Pipeline
+- [Publisher Accounting]({{< relref "docs/architecture/components/publisher/publisher-accounting" >}}) — now under Components > Publisher
+- [Runner Orchestration]({{< relref "docs/architecture/components/runner/runner-orchestration.md" >}}) — now under Components > Runner

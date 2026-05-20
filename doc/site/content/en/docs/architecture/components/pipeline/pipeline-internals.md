@@ -1,6 +1,6 @@
 ---
 title: Pipeline Internals
-weight: 2
+weight: 1
 date: 2025-06-09
 description: >
   How lazy iterator chaining works, why in-place modification is the right choice, and memory implications.

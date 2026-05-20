@@ -1,6 +1,6 @@
 ---
 title: Runner Orchestration
-weight: 5
+weight: 1
 date: 2025-06-09
 description: >
   How Runner.run() coordinates the full lifecycle — validation, connector loop, signal handling, and reporting.

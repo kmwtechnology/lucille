@@ -158,3 +158,11 @@ worker {
 ```
 
 In a multi-node deployment, you can run multiple WorkerIndexer processes consuming from the same Kafka topic. Kafka's consumer group protocol distributes source documents across them automatically. WorkerIndexer is particularly useful in [streaming mode]({{< relref "docs/operations/deployment#streaming-mode-connectorless" >}}) where no Runner is coordinating the run.
+
+---
+
+## Practical Guide
+
+For deployment instructions — starting Workers and WorkerIndexers in local and distributed mode, scaling, and operational considerations — see [Deployment]({{< relref "docs/operations/deployment" >}}).
+
+For Worker-related configuration parameters, see [Writing a Config]({{< relref "docs/reference/writing-a-config" >}}).
