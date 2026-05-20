@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import java.util.concurrent.LinkedBlockingQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,8 +46,10 @@ import com.typesafe.config.Config;
  * <ul>
  *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
- *   <li>multithreaded (Boolean, Optional) : Determines whether the paths / URIs should be traversed in a multithreaded fashion, that is,
- *   concurrently.</li>
+ *   <li>multithreaded.enabled (Boolean, Optional) : Determines whether the paths / URIs should be traversed in a multithreaded fashion, that is,
+ *   concurrently. Defaults to true if multithreaded block is present.</li>
+ *   <li>multithreaded.numberOfThreads (Number, Optional) : The number of threads that should be traversing the file paths. These should pull
+ *   from a queue each time they finish processing their respective file. Defaults to 1 thread.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.lastModifiedCutoff (String, Optional) : Duration string to include only files modified within this period (e.g., "1h").</li>
@@ -122,7 +125,12 @@ public class FileConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredList("paths", new TypeReference<List<String>>(){})
-      .optionalBoolean("multithreaded")
+      .optionalParent(
+          SpecBuilder.parent("multithreaded")
+              .optionalBoolean("enabled")
+              .optionalNumber("numberOfThreads")
+              .build()
+      )
       .optionalParent(
           SpecBuilder.parent("filterOptions")
               .optionalList("includes", new TypeReference<List<String>>(){})
@@ -147,6 +155,7 @@ public class FileConnector extends AbstractConnector {
   private final FileConnectorStateManager stateManager;
 
   private final boolean multithreaded;
+  private final int numberOfThreads;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
@@ -195,23 +204,29 @@ public class FileConnector extends AbstractConnector {
       log.warn("filterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
     }
 
-    this.multithreaded = ConfigUtils.getOrDefault(config, "multithreaded", false);
+    this.multithreaded = config.hasPath("multithreaded") ? ConfigUtils.getOrDefault(config, "multithreaded.enabled", true) : false;
+    // won't matter unless multithreaded is true
+    this.numberOfThreads = ConfigUtils.getOrDefault(config, "multithreaded.numberOfThreads", 1);
   }
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     initialize();
 
-    // RIGHT HERE is where we have a linear for loop iterating over the storage paths (our directories)
-    // We want to have a field that if true makes us traverse these in multithreaded fashion
-    // discover and publish all valid file candidates
     if (multithreaded) {
-      List<FileConnectorThread> threads = new ArrayList<>();
+      LinkedBlockingQueue<URI> queue = new LinkedBlockingQueue<>();
       for (URI resource : storageURIs) {
-        FileConnectorThread thread = new FileConnectorThread(resource, this, publisher);
+        queue.add(resource);
+      }
+
+      List<FileConnectorThread> threads = new ArrayList<>();
+      // make the number of threads specified by numberOfThreads and kick each one off
+      for (int i = 0; i < numberOfThreads; i++) {
+        FileConnectorThread thread = new FileConnectorThread(this, publisher, queue);
         thread.start();
         threads.add(thread);
       }
+      // t.join() waits for the
       for (FileConnectorThread t : threads) {
         try {
           t.join();

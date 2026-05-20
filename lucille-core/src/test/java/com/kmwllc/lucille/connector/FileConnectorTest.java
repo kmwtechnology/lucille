@@ -739,29 +739,41 @@ public class FileConnectorTest {
     }
   }
 
-  // Ensure we publish the correct number of files when multithreaded mode is used
+  // Multithreading on: 3 threads for 3 paths
   @Test
-  public void testMultithreadedMatchesLinearMultiplePaths() throws Exception {
+  public void testMultithreadedWithMultipleWorkers() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("multithreaded", ConfigValueFactory.fromAnyRef(true));
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true))
+        .withValue("multithreaded.numberOfThreads", ConfigValueFactory.fromAnyRef(3));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     connector = new FileConnector(config);
 
     connector.execute(publisher);
-
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(9, docs.size());
-    long distinctFilePaths = docs.stream().map(d -> d.getString(FILE_PATH)).distinct().count();
-    assertEquals(9, distinctFilePaths);
+    assertEquals(9, docs.stream().map(d -> d.getString(FILE_PATH)).distinct().count());
+  }
+
+  // Ensures multithreading still works fine with just 1 path
+  @Test
+  public void testMultithreadedSinglePath() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    assertEquals(16, messenger.getDocsSentForProcessing().size());
   }
 
   // State + multithreaded: validates that synchronized methods on FileConnectorStateManager stop the DB from experiencing
-  // race conditions. If this is broken, this test will show duplicate/missing docs, a SQLException, or a wrong second-run count.
+  // race conditions. If this is broken, this test will show duplicate/missing docs, a SQLException, or a wrong count.
   @Test
   public void testMultithreadedTraversalWithState() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
-        .withValue("multithreaded", ConfigValueFactory.fromAnyRef(true));
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true));
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
@@ -770,8 +782,8 @@ public class FileConnectorTest {
     conn.close();
     assertEquals(21, messenger.getDocsSentForProcessing().size());
 
-    // Second run in default full mode republishes everything; this also exercises the state DB after both paths have already
-    // populated rows in the previous run
+    // Second run: every row already exists in the state DB, so every update goes through the updateStatement path rather than the
+    // insert path, different code paths under the lock.
     messenger = new TestMessenger();
     publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     conn.execute(publisher);
@@ -784,7 +796,7 @@ public class FileConnectorTest {
   @Test
   public void testMultithreadedExceptionPropagates() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocalAndCloud.conf")
-        .withValue("multithreaded", ConfigValueFactory.fromAnyRef(true));
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
@@ -805,17 +817,39 @@ public class FileConnectorTest {
     }
   }
 
-  // Ensures multithreading still works fine with just 1 path
+  // Check that having more threads than paths will not break things
   @Test
-  public void testMultithreadedSinglePath() throws Exception {
-    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
-        .withValue("multithreaded", ConfigValueFactory.fromAnyRef(true));
+  public void testMultithreadedMoreWorkersThanPaths() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true))
+        .withValue("multithreaded.numberOfThreads", ConfigValueFactory.fromAnyRef(8));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
     connector = new FileConnector(config);
 
     connector.execute(publisher);
-    assertEquals(16, messenger.getDocsSentForProcessing().size());
+    assertEquals(9, messenger.getDocsSentForProcessing().size());
+  }
+
+  // state enabled with multiple threads and paths across 2 runs
+  @Test
+  public void testMultithreadedStateUnderContention() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true))
+        .withValue("multithreaded.numberOfThreads", ConfigValueFactory.fromAnyRef(4));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher);
+    conn.close();
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
+
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    conn.execute(publisher);
+    conn.close();
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
   }
 
 }
