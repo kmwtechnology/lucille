@@ -141,6 +141,7 @@ public class FileConnectorStateManager {
 
   /**
    * Increments the runs_not_encountered counter for every file that was not seen during the current traversal.
+   * Must be called after a file has been traversed during the run.
    */
   public void incrementRunsNotEncountered() throws SQLException {
     String incrementSQL = "UPDATE \"" + tableName + "\" SET runs_not_encountered = runs_not_encountered + 1 WHERE encountered=FALSE";
