@@ -5,42 +5,13 @@ date: 2024-10-15
 description: A component that retrieves data from a source system and packages the data into Documents in preparation for transformation.
 ---
 
-## Lucille Connectors
+## What a Connector Does
 
-Lucille Connectors are components that retrieve data from a source system, package the data into "Documents", and publish them to a pipeline.
+A Connector is the component responsible for acquiring data from a source system and introducing it into Lucille as Documents. It is the entry point for all data in the system.
 
-To configure a Connector, you have to provide its class (under `class`) in its config. You also need to specify a `name` for the Connector.
-Optionally, you can specify the `pipeline`, a `docIdPrefix`, and whether the Connector requires a Publisher to `collapse`.
+A Connector reads from its source — a database, a filesystem, a Kafka topic, an RSS feed, a search engine — and emits Documents one at a time by calling `publisher.publish(doc)`. It does not know how many Workers will process those documents, how long enrichment will take, or where the documents will ultimately be indexed. Its only job is to produce Documents and hand them off.
 
-You'll also provide the parameters needed by the Connector. For example, the `SequenceConnector` requires one parameter, `numDocs`,
-and accepts an optional parameter, `startWith`. So, a `SequenceConnector` Config would look something like this:
-
-```hocon
-{
-  name: "Sequence-Connector-1"
-  class: "com.kmwllc.lucille.connector.SequenceConnector"
-  docIdPrefix: "sequence-connector-1-"
-  pipeline: "pipeline1"
-  numDocs: 500
-  startWith: 50
-}
-```
-
-The `lucille-core` module contains a number of commonly used connectors. Additional connectors with a large number of dependencies are provided as optional plugin modules. For a catalogue of all built-in connectors, see the [Connectors Reference]({{< relref "docs/reference/connectors" >}}).
-
-## Common Configuration Parameters
-
-These parameters are available on all Connectors via `AbstractConnector`:
-
-| Parameter | Required | Description |
-|---|---|---|
-| `class` | Yes | Fully qualified class name of the Connector implementation. |
-| `name` | Yes | Connector name for logging and run summaries. |
-| `pipeline` | No | Name of the pipeline to process this connector's documents. If omitted, no Workers or Indexer are started for this connector and `execute()` is called synchronously with a `null` publisher — useful for connectors that perform side effects without producing documents. |
-| `docIdPrefix` | No | String prefix prepended to every Document ID. |
-| `collapse` | No | Whether the Publisher should collapse consecutive documents with the same ID (for CDC scenarios). Default: `false`. |
-
-## Connector Lifecycle
+## Lifecycle
 
 Every Connector goes through four lifecycle phases on each run:
 
@@ -49,19 +20,28 @@ Every Connector goes through four lifecycle phases on each run:
 3. **`postExecute(runId)`** — Called only if `execute` succeeds. Use for cleanup: releasing locks, writing completion markers.
 4. **`close()`** — Always called, even on failure. Use for releasing resources.
 
-## Sequencing Multiple Connectors
+This lifecycle is enforced by the framework. The separation of `preExecute` from `execute` allows setup that should not be repeated on retry. The guarantee that `close()` is always called — regardless of whether `execute` or `postExecute` threw — ensures resources are never leaked.
 
-A single Lucille run can chain multiple Connectors in sequence. Each Connector runs to completion (all its documents processed and indexed) before the next begins:
+## Sequential Execution
 
-```hocon
-connectors: [
-  { name: "parent-docs-connector",  class: "...", pipeline: "pipeline1" },
-  { name: "child-docs-connector",   class: "...", pipeline: "pipeline1" }
-]
-```
+When multiple Connectors are defined in a single run, they execute in sequence. Each Connector runs to completion — all its documents processed and indexed — before the next begins. This ordering guarantee is enforced automatically by the Publisher's accounting system, without external orchestration.
 
-This ordering guarantee is enforced automatically by the Publisher's accounting system, without external orchestration.
+This enables patterns like indexing parent documents before child documents that reference them by ID, or running a full ingest followed by a deletion pass.
 
-## Building a Custom Connector
+## Decoupling from Downstream
 
-See [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}) for a step-by-step guide and skeleton code.
+A Connector is fully decoupled from the rest of the system. It does not know:
+- How many Worker threads or processes will consume its output
+- What pipeline will be applied to its documents
+- Which search backend the documents will reach
+- Whether the system is running in local or distributed mode
+
+This decoupling is what allows the same Connector implementation to work identically in all deployment modes. The Connector publishes to a queue; everything downstream is the framework's concern.
+
+---
+
+## Practical Guide
+
+For how to configure connectors — common parameters, config syntax, and the full catalogue of built-in connectors — see [Connectors]({{< relref "docs/reference/connectors" >}}) in the Ingest Designer Guide.
+
+For how to build a custom Connector, see [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}).

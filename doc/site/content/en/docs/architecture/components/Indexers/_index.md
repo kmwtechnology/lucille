@@ -5,88 +5,38 @@ date: 2025-06-09
 description: An Indexer sends processed Documents to a specific destination.
 ---
 
-## Indexers
+## What an Indexer Does
 
-An *Indexer* is a thread that retrieves processed Documents from the end of a Pipeline and sends them in batches to a specific destination. For users of Lucille, this destination will most commonly be a search engine.
+An Indexer is the component responsible for delivering processed Documents to their final destination — typically a search engine or vector database. It is the last component in the data flow: Connectors produce Documents, Workers enrich them, and the Indexer sends them to the search backend.
 
-Only one Indexer can be defined in a Lucille run. All pipelines feed to the same Indexer.
+## Batching
 
-## Configuration Structure
+Indexers do not send documents one at a time. They accumulate documents into batches and flush them as a single bulk API call. This is essential for search engine performance — bulk writes are significantly faster than individual indexing requests, often by an order of magnitude.
 
-Indexer configuration has two parts: the generic `indexer` block, and a backend-specific config block. For example, using the SolrIndexer:
+A batch is flushed when either of two conditions is met: the batch reaches a configured size, or a timeout expires since the last flush. The timeout ensures documents are not left waiting indefinitely in low-volume scenarios.
 
-```hocon
-# Generic indexer config
-indexer {
-  type: "Solr"
-  batchSize: 100
-  blacklist: ["internal_field"]
-}
+## Single Indexer Per Run
 
-# Solr-specific config
-solr {
-  useCloudClient: true
-  url: ["http://localhost:8983/solr"]
-  defaultCollection: "my-collection"
-}
-```
+Only one Indexer can be defined in a Lucille run. All pipelines feed to the same Indexer. This simplifies the system — there is one destination, one set of batching parameters, one connection to manage — and reflects the common reality that a search ingestion project writes to a single search backend.
 
-`indexer.type` is shorthand for a built-in indexer: `"Solr"`, `"OpenSearch"`, `"Elasticsearch"`, or `"CSV"`. For plugin indexers, use `indexer.class` with the fully qualified class name instead.
+When documents from different pipelines need to land in different indices within the same backend, Lucille supports index routing: a field on the document determines which index it is sent to, without requiring multiple Indexer definitions.
 
-## Generic `indexer` Configuration Parameters
+## Deletion Support
 
-These parameters are available on all Indexers:
+Indexers support two deletion mechanisms — delete-by-ID and delete-by-query — triggered by marker fields on the document. This enables CDC patterns and incremental ingestion: a Connector can emit a document that represents "delete this record from the index" rather than "index this record," and the Indexer translates that intent into the appropriate backend operation.
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `type` | String | — | Shorthand for built-in indexers: `Solr`, `OpenSearch`, `Elasticsearch`, `CSV`. |
-| `class` | String | — | Fully qualified class name for plugin or custom indexers. |
-| `batchSize` | Integer | 100 | Number of documents to accumulate before sending a batch. |
-| `batchTimeout` | Integer (ms) | 100 | Milliseconds since last add or flush before the batch is sent regardless of size. |
-| `idOverrideField` | String | — | Document field whose value is used as the ID sent to the destination (instead of `id`). |
-| `indexOverrideField` | String | — | Document field whose value determines the target index/collection. Triggers per-index batching. Not supported by OpenSearch or Elasticsearch indexers. |
-| `whitelist` | List\<String\> | — | Only these fields are sent to the destination. Fields on the blacklist are still excluded. |
-| `blacklist` | List\<String\> | — | These fields are never sent to the destination. |
-| `sendEnabled` | Boolean | true | Set to `false` to disable actual indexing (useful for testing or pipeline validation). |
-| `deletionMarkerField` | String | — | Field name that marks a document as a deletion request. |
-| `deletionMarkerFieldValue` | String | — | Value in `deletionMarkerField` that triggers a deletion. Both must be set together. |
-| `deleteByFieldField` | String | — | Field name containing the index field to use in a delete-by-query operation. |
-| `deleteByFieldValue` | String | — | Field name containing the value to match in a delete-by-query operation. Both must be set together. |
+## Field Filtering
 
-### Field Filtering
+The Indexer applies field filtering at the boundary — stripping internal fields, applying whitelist/blacklist rules — so that only the intended fields reach the search backend. This filtering happens at indexing time, not during pipeline processing, so Stages always see the full document.
 
-Whitelist and blacklist are applied **at indexing time**, not during pipeline processing. Stages see all fields on a document; only the Indexer strips fields before sending to the backend. Reserved internal fields (`___dropped`, `___skipped`, `___children`) are always stripped.
+## Error Handling at the Batch Level
 
-When `indexOverrideField` is set, the Indexer uses a `MultiBatch` — maintaining a separate batch per distinct field value and flushing each independently when it reaches `batchSize` or `batchTimeout`.
+Search engine bulk APIs can return mixed results: some documents accepted, others rejected. The Indexer inspects per-document responses and reports individual failures without failing the entire batch. Documents that succeed are marked complete; documents that fail are marked failed. Both are tracked in the run summary.
 
-### Deletion Mechanics
+---
 
-Two distinct deletion mechanisms are available:
+## Practical Guide
 
-**Delete by ID:** Set `deletionMarkerField` and `deletionMarkerFieldValue`. When a document has the marker field set to the marker value, the Indexer issues a delete-by-ID against the search backend for that document's ID.
+For how to configure indexers — generic parameters, field filtering, deletion mechanics, and backend-specific settings — see [Indexers]({{< relref "docs/reference/indexers" >}}) in the Ingest Designer Guide.
 
-**Delete by query:** Also set `deleteByFieldField` and `deleteByFieldValue`. When a document has all four deletion fields set, the Indexer issues a delete-by-query: it deletes all documents in the index where `deleteByFieldField`'s referenced field equals the value in `deleteByFieldValue`'s referenced field.
-
-```hocon
-indexer {
-  type: "Solr"
-  deletionMarkerField: "file_expired"
-  deletionMarkerFieldValue: "true"
-
-  # Optional: also delete all documents referencing the same source file
-  deleteByFieldField: "delete_by_field"
-  deleteByFieldValue: "delete_by_value"
-}
-```
-
-For per-indexer configuration reference — Solr, OpenSearch, Elasticsearch, CSV, NopIndexer, and plugin indexers — see the [Indexers Reference]({{< relref "docs/reference/indexers" >}}).
-
-## Indexer Batching
-
-Documents accumulate in a batch and are flushed when either condition is met:
-- The batch reaches `batchSize` documents (default: 100).
-- `batchTimeout` milliseconds have elapsed since the last document was added or the last flush (default: 100ms).
-
-The timeout flush ensures documents are not left waiting indefinitely in low-volume scenarios.
-
-**Batch-level vs. per-document failures:** A bulk-API failure that rejects the entire request fails all documents in the batch. Individual document rejections in the response (e.g., mapping errors) fail only those specific documents — the rest succeed. Both cases are tracked separately in the run summary.
+For how to build a custom Indexer, see [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}).

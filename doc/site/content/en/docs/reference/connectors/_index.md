@@ -2,10 +2,49 @@
 title: Connectors
 weight: 1
 date: 2024-10-15
-description: Catalogue of built-in connectors and file handlers shipped with Lucille.
+description: Catalogue of built-in connectors and how to configure them.
 ---
 
-For conceptual documentation — what a Connector is, the Connector lifecycle, common configuration parameters, and how to build a custom Connector — see [Architecture: Connectors]({{< relref "docs/architecture/components/Connectors" >}}).
+For conceptual documentation — what a Connector is, the lifecycle design, and how Connectors are decoupled from downstream components — see [Architecture: Connector]({{< relref "docs/architecture/components/Connectors" >}}).
+
+## Configuring a Connector
+
+To configure a Connector, provide its `class` and `name` in the config. Optionally specify the `pipeline` it feeds, a `docIdPrefix` for ID namespacing, and whether it requires document collapsing:
+
+```hocon
+{
+  name: "my-connector"
+  class: "com.kmwllc.lucille.connector.FileConnector"
+  pipeline: "my-pipeline"
+  docIdPrefix: "files-"
+  paths: ["/data/files"]
+}
+```
+
+### Common Parameters
+
+These parameters are available on all Connectors via `AbstractConnector`:
+
+| Parameter | Required | Description |
+|---|---|---|
+| `class` | Yes | Fully qualified class name of the Connector implementation. |
+| `name` | Yes | Connector name for logging and run summaries. |
+| `pipeline` | No | Name of the pipeline to process this connector's documents. If omitted, no Workers or Indexer are started for this connector. |
+| `docIdPrefix` | No | String prefix prepended to every Document ID to prevent collisions across connectors. |
+| `collapse` | No | Whether the Publisher should collapse consecutive documents with the same ID (for CDC scenarios). Default: `false`. |
+
+### Sequencing Multiple Connectors
+
+A single Lucille run can chain multiple Connectors in sequence. Each Connector runs to completion (all its documents processed and indexed) before the next begins:
+
+```hocon
+connectors: [
+  { name: "parent-docs",  class: "...", pipeline: "pipeline1" },
+  { name: "child-docs",   class: "...", pipeline: "pipeline1" }
+]
+```
+
+---
 
 ## Lucille Connectors (Core)
 
