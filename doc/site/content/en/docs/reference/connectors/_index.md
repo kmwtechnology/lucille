@@ -1,6 +1,6 @@
 ---
 title: Connectors
-weight: 1
+weight: 3
 date: 2024-10-15
 description: Catalogue of built-in connectors and how to configure them.
 ---

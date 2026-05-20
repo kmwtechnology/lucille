@@ -33,9 +33,17 @@ Lucille uses [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) (Hu
 
 **File includes.** HOCON's `include` directive enables config composition. Shared settings (connection strings, common pipeline fragments) are defined once and included everywhere. This is what makes it practical for an organization to maintain dozens of ingests against shared infrastructure without duplicating connection details that drift out of sync.
 
+**Internal variable substitution.** HOCON supports references within a config file, so a value defined once can be reused across multiple blocks. Combined with environment variable substitution, this eliminates repetition and ensures consistency — change a value in one place and it propagates everywhere it's referenced.
+
+**Relaxed syntax.** HOCON allows omitting quotes around keys, using `=` or `:` for assignment, and trailing commas. This makes configs more readable and less error-prone to edit by hand than strict JSON.
+
+**List concatenation.** HOCON supports appending to lists and concatenating adjacent arrays. This enables patterns like composing a stages list from multiple included fragments — each fragment contributes its stages, and HOCON merges them into a single list at resolution time.
+
 **Typed access with path expressions.** The Typesafe Config library provides `getString()`, `getInt()`, `getConfigList()`, and other typed accessors with dot-path navigation. This means component code reads configuration through a clean, typed API rather than parsing raw text. Type errors are caught at access time with clear messages.
 
 **Automatic resolution order.** The library merges configuration from system properties, the application config file, and reference defaults in a defined precedence. This means any config value can be overridden via a system property (`-Dproperty=value`) without modifying the file — useful for one-off test runs and CI overrides.
+
+**Config file selection at runtime.** The `-Dconfig.file` system property tells Lucille which config file to use. This keeps the application generic — the same JAR, the same classpath, the same entrypoint — with only the config file varying between runs. In containerized deployments, this means a single Docker image can serve any ingest by varying an environment variable at launch time.
 
 These properties combine to make configuration a first-class architectural concern rather than an afterthought. The config file is not just "where you put settings" — it is the primary interface through which users interact with the framework, and its expressiveness directly determines how maintainable, portable, and correct an ingest can be.
 

@@ -124,6 +124,14 @@ HOCON concatenates adjacent arrays into a single list, so the resolved `stages` 
 
 ---
 
+## Testing Your Ingest
+
+You can verify that your pipeline produces the expected output by running it in test mode. Lucille's test mode executes the full pipeline end-to-end — real connectors, real stages, real document routing — but bypasses the search backend and captures all output in memory for assertion. This requires writing a short Java test. See [Testing Pipelines]({{< relref "docs/developer-guide/testing" >}}) for a complete guide.
+
+For config-only validation (no Java required), use the `-validate` flag described in [Writing a Config]({{< relref "docs/reference/writing-a-config" >}}).
+
+---
+
 ## Building a Pipeline From Code
 
 For integration tests or programmatic usage, pipelines can be constructed from a Config object:

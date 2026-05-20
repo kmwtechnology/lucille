@@ -1,6 +1,6 @@
 ---
 title: Stages
-weight: 2
+weight: 4
 date: 2025-06-06
 description: Catalogue of built-in stages and how to configure them.
 ---

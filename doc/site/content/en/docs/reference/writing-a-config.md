@@ -109,6 +109,8 @@ java -Dconfig.file=my-config.conf -cp '...' com.kmwllc.lucille.core.Runner -vali
 
 All errors are reported together — not just the first one — so you can fix them all at once.
 
+Each built-in component declares a SPEC that enumerates its legal configuration properties. The validator checks your config against these SPECs. For details on how validation works internally and how to declare SPECs for custom components, see [SPEC Validation System]({{< relref "docs/developer-guide/spec-validation" >}}).
+
 To see the fully resolved config (with all substitutions applied), use the `-render` flag:
 
 ```bash

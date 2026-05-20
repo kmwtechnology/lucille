@@ -1,6 +1,6 @@
 ---
 title: Indexers
-weight: 3
+weight: 5
 date: 2025-06-09
 description: Configuration reference for built-in and plugin indexers shipped with Lucille.
 ---
