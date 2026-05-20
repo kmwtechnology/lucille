@@ -1,10 +1,13 @@
 package com.kmwllc.lucille.core;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.kmwllc.lucille.core.Document.InternalIdSource;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.util.CounterUtils;
 import com.kmwllc.lucille.util.RecordingLinkedBlockingQueue;
@@ -108,7 +111,8 @@ public class HybridKafkaTest {
     embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
 
     // send doc - doc1
-    sendDoc("doc1", topicName);
+    Document doc1 = sendDoc("doc1", topicName);
+    assertNull(doc1.getInternalId());
 
     WorkerIndexer workerIndexer = new WorkerIndexer();
 
@@ -155,6 +159,13 @@ public class HybridKafkaTest {
     assertEquals(1, offsets.getHistory().size());
     assertEquals(1, offsets.getHistory().get(0).entrySet().size());
     assertEquals(3, offsets.getHistory().get(0).get(topicPartition).offset());
+
+    Document processedDoc1 =
+        pipelineDest.getHistory().stream().filter(item -> "doc1".equals(item.getId())).findFirst().orElseThrow();
+    assertNotEquals(doc1, processedDoc1);
+    assertNull(doc1.getInternalId());
+    assertNotNull(processedDoc1.getInternalId());
+    assertTrue(processedDoc1.getInternalId().endsWith(InternalIdSource.WORKER.getSuffix()));
   }
 
   @Test
@@ -383,6 +394,8 @@ public class HybridKafkaTest {
     workerIndexer.stop();
 
     assertEquals(1, pipelineDest.getHistory().size());
+    assertNotNull(pipelineDest.getHistory().get(0).getInternalId());
+    pipelineDest.getHistory().get(0).clearInternalId();
     assertEquals(outputJson, pipelineDest.getHistory().get(0).toString());
   }
 
@@ -527,7 +540,10 @@ public class HybridKafkaTest {
   }
 
   private Document sendDoc(String id, String runId, String topic) {
-    Document doc = (runId == null) ? Document.create(id) : Document.create(id, runId);
+    // create the new document without initializing its internal ID to match the scenario
+    // where the WorkerIndexer is consuming externally generated documents from Kafka that have
+    // not passed through the Publisher and do not have internal IDs -- pass false as third arg in Document.create
+    Document doc = (runId == null) ? Document.create(id, null, false) : Document.create(id, runId, false);
     ProducerRecord<String, String> record = new ProducerRecord<>(topic, id, doc.toString());
     producer.send(record);
     return doc;

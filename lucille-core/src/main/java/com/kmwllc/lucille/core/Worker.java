@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.core.Document.ID_FIELD;
 import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.*;
+import com.kmwllc.lucille.core.Document.InternalIdSource;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
@@ -20,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 class Worker implements Runnable {
 
-  public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
+  public static final String METRICS_SUFFIX = ".worker.docProcessingTime";
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -70,10 +71,19 @@ class Worker implements Runnable {
       Document doc;
       try {
         pollInstant.set(Instant.now());
+
         // blocking poll with a timeout which we assume to be in the range of
         // several milliseconds to several seconds
-
         doc = messenger.pollDocToProcess();
+
+        // when Lucille runs in "streaming" mode, Documents retrieved from Kafka
+        // (that were not published via Publisher) will not have internal IDs, so
+        // we initialize the internal ID now; while the internal ID is mostly relevant for the
+        // the Publisher accounting mechanism, we still want all documents processed by Lucille
+        // to have internal IDs
+        if (doc != null && doc.getInternalId() == null) {
+          doc.initializeInternalId(InternalIdSource.WORKER);
+        }
 
         // continuously update the MDC if we haven't been given a localRunID (in Kafka modes).
         if (localRunId == null && doc != null) {

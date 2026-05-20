@@ -29,8 +29,7 @@ import java.util.function.UnaryOperator;
 public class JsonDocument implements Document {
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>() {
-  };
+  private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<>() {};
   private static final Logger log = LoggerFactory.getLogger(JsonDocument.class);
 
   @JsonValue
@@ -78,7 +77,9 @@ public class JsonDocument implements Document {
 
   public JsonDocument(String id, String runId) {
     this(id);
-    this.data.put(RUNID_FIELD, runId);
+    if (runId != null) {
+      this.data.put(RUNID_FIELD, runId);
+    }
   }
 
   public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
@@ -137,6 +138,36 @@ public class JsonDocument implements Document {
   public void clearRunId() {
     if (data.has(RUNID_FIELD)) {
       data.remove(RUNID_FIELD);
+    }
+  }
+
+  @Override
+  public String getInternalId() {
+    return getString(INTERNAL_ID_FIELD);
+  }
+
+  @Override
+  public String initializeInternalId() {
+    return initializeInternalId(null);
+  }
+
+  @Override
+  public String initializeInternalId(InternalIdSource source) {
+    if (data.has(INTERNAL_ID_FIELD)) {
+      throw new IllegalStateException();
+    }
+    String internalId = UUID.randomUUID().toString();
+    if (source != null) {
+      internalId += "_" + source.getSuffix();
+    }
+    data.put(INTERNAL_ID_FIELD, internalId);
+    return internalId;
+  }
+
+  @Override
+  public void clearInternalId() {
+    if (data.has(INTERNAL_ID_FIELD)) {
+      data.remove(INTERNAL_ID_FIELD);
     }
   }
 
