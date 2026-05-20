@@ -205,7 +205,7 @@ public class WeaviateIndexerTest {
     Document failedDoc2 = Document.create("failedDoc2", "test_run");
 
     WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
-    Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3, failedDoc1, failedDoc2));
 
     assertEquals(2, failedDocs.size());
 
@@ -271,7 +271,7 @@ public class WeaviateIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, String>> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }

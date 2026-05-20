@@ -131,7 +131,7 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (bypass) {
       return Set.of();
@@ -174,7 +174,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = uploadDocuments(documentsToUpload.values());
+    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload.values());
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
 
@@ -303,7 +303,7 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, String>> uploadDocuments(Collection<Document> documentsToUpload) throws IndexerException {
+  private Set<Pair<Document, Exception>> uploadDocuments(Collection<Document> documentsToUpload) throws IndexerException {
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }
@@ -370,7 +370,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = new HashSet<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     BulkResponse response;
     try {
@@ -390,7 +390,12 @@ public class OpenSearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (uploadedDocuments.containsKey(item.id())) {
             Document failedDoc = uploadedDocuments.get(item.id());
-            failedDocs.add(Pair.of(failedDoc, item.error().reason()));
+            // item.status() is always an HTTP status code. The OpenSearch bulk API defines the per-item
+            // status field as the HTTP status of that individual operation (e.g. 200, 201, 400, 409, 429,
+            // 503). This is consistent across all OpenSearch client libraries and confirmed by the
+            // OpenSearch REST API documentation and source — there are no documented non-HTTP values.
+            failedDocs.add(Pair.of(failedDoc, new IndexerRetryableException(item.status(),
+                "OpenSearch bulk item error (status " + item.status() + "): " + item.error().reason(), null)));
           } else {
             throw new IndexerException(item.error().reason());
           }

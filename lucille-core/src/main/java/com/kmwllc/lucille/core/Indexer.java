@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
@@ -141,6 +142,8 @@ public abstract class Indexer implements Runnable {
 
   // Non-null only when indexer.maxRetries is configured; null means retries are disabled (the default).
   private final Retry retry;
+  // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
+  private final List<Integer> retryableStatusCodes;
 
   public void terminate() {
     running = false;
@@ -225,6 +228,7 @@ public abstract class Indexer implements Runnable {
                 + "and indexer.retryableStatusCodes require indexer.maxRetries to be set.");
       }
       this.retry = null;
+      this.retryableStatusCodes = List.of();
     } else {
       int maxRetries = config.getInt("indexer.maxRetries");
       if (maxRetries <= 0) {
@@ -236,12 +240,11 @@ public abstract class Indexer implements Runnable {
           ? config.getLong("indexer.retryMaxWaitDurationMs") : DEFAULT_RETRY_MAX_WAIT_DURATION_MS;
       double retryRandomizationFactor = config.hasPath("indexer.retryRandomizationFactor")
           ? config.getDouble("indexer.retryRandomizationFactor") : DEFAULT_RETRY_RANDOMIZATION_FACTOR;
-      List<Integer> retryableStatusCodes;
       if (!config.hasPath("indexer.retryableStatusCodes")) {
-        retryableStatusCodes = DEFAULT_RETRYABLE_STATUS_CODES;
+        this.retryableStatusCodes = DEFAULT_RETRYABLE_STATUS_CODES;
       } else {
-        retryableStatusCodes = config.getIntList("indexer.retryableStatusCodes");
-        if (retryableStatusCodes.isEmpty()) {
+        this.retryableStatusCodes = config.getIntList("indexer.retryableStatusCodes");
+        if (this.retryableStatusCodes.isEmpty()) {
           throw new IllegalArgumentException(
               "indexer.retryableStatusCodes must not be empty when specified. "
                   + "Remove the parameter to use the default, or provide at least one status code.");
@@ -292,12 +295,15 @@ public abstract class Indexer implements Runnable {
    * each document individually.
    *
    * @param documents The documents to send to the destination.
-   * @return A set of Pairs, containing the Documents that were not successfully indexed, along with a String of information about why it failed.
-   * Returns an empty set if no documents fail, or if this information is not supported by the Indexer implementation. Does not return null.
-   * @throws Exception In the event of a considerable error causing indexing to fail. (Does not throw
-   * Exceptions just because some Documents were not successfully indexed.)
+   * @return A set of Pairs containing Documents that were not successfully indexed, along with an
+   *     Exception describing the failure. Use {@link IndexerRetryableException} to signal that the
+   *     failure may be transient; the base class will trigger a retry of the entire batch for any
+   *     returned exception whose status code is in the configured retryable set. Use
+   *     {@link IndexerException} for permanent per-document failures. Returns an empty set if all
+   *     documents succeeded or if per-document failure tracking is not supported. Does not return null.
+   * @throws Exception for errors that prevent the entire batch from being attempted.
    */
-  protected abstract Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception;
+  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -392,9 +398,41 @@ public abstract class Indexer implements Runnable {
       // (e.g. some documents indexed before a subsequent delete-by-query fails), a retry will
       // re-execute the entire method. This is considered safe because search engine upserts are idempotent —
       // re-indexing an already-indexed document produces the same result.
-      Set<Pair<Document, String>> failedDocPairs = retry != null
-          ? Retry.decorateCheckedSupplier(retry, () -> sendToIndex(batchedDocs)).get()
-          : sendToIndex(batchedDocs);
+      AtomicReference<Set<Pair<Document, Exception>>> lastResult = new AtomicReference<>();
+      Set<Pair<Document, Exception>> failedDocPairs;
+      try {
+        failedDocPairs = retry != null
+            ? Retry.decorateCheckedSupplier(retry, () -> {
+                Set<Pair<Document, Exception>> result = sendToIndex(batchedDocs);
+                // Capture the result before potentially throwing, so it is available if retries
+                // are exhausted — preserving per-document detail for the FAIL event path below.
+                lastResult.set(result);
+                // Throw the first retryable item-level failure so Resilience4j can apply the retry
+                // policy. Only throw if the status code is actually in the retryable set — non-retryable
+                // item failures (e.g. mapping conflicts) must stay in the return set so they reach the
+                // per-document FAIL event path below rather than collapsing into a batch-level exception.
+                for (Pair<Document, Exception> pair : result) {
+                  if (pair.getRight() instanceof IndexerRetryableException e
+                      && retryableStatusCodes.contains(e.getStatusCode())) {
+                    throw e;
+                  }
+                }
+                return result;
+              }).get()
+            : sendToIndex(batchedDocs);
+      } catch (IndexerRetryableException e) {
+        // Retries exhausted due to item-level errors. If the last sendToIndex call returned
+        // per-document detail, use it so individual FAIL events carry specific reasons rather
+        // than a generic batch-level message. If lastResult is empty the exception came from a
+        // throw inside sendToIndex itself (e.g. transport failure) — re-throw so the outer
+        // catch (Throwable) handles it as a batch-level failure as before.
+        Set<Pair<Document, Exception>> last = lastResult.get();
+        if (last != null && !last.isEmpty()) {
+          failedDocPairs = last;
+        } else {
+          throw e;
+        }
+      }
       stopWatch.stop();
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
@@ -404,10 +442,10 @@ public abstract class Indexer implements Runnable {
       }
 
       // Mark all the documents in failedDoc as failed
-      for (Pair<Document, String> pair : failedDocPairs) {
+      for (Pair<Document, Exception> pair : failedDocPairs) {
         try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, pair.getLeft().getId())) {
-          messenger.sendEvent(pair.getLeft(), "FAILED: " + pair.getRight(), Event.Type.FAIL);
-          docLogger.error("Sent failure message for doc {}. Reason: {}", pair.getLeft().getId(), pair.getRight());
+          messenger.sendEvent(pair.getLeft(), "FAILED: " + pair.getRight().getMessage(), Event.Type.FAIL);
+          docLogger.error("Sent failure message for doc {}. Reason: {}", pair.getLeft().getId(), pair.getRight().getMessage());
         } catch (Exception e) {
           log.error("Couldn't send failure event for doc {}", pair.getLeft().getId(), e);
         }

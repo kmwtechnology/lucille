@@ -233,7 +233,7 @@ public class OpenSearchIndexerTest {
     doc3.setField("other_id", "something_else");
 
     OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient2);
-    Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
     assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
     assertFalse(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc2)));
@@ -1265,6 +1265,160 @@ public class OpenSearchIndexerTest {
     assertTrue(events.stream().allMatch(e -> e.getType() == Event.Type.FAIL));
   }
 
+  /**
+   * Tests that the indexer retries when the bulk call returns without throwing but the response
+   * contains an item-level error with a retryable status code (429). On the second attempt the
+   * response is clean, so the document should receive a FINISH event and bulk() should be called
+   * twice.
+   */
+  @Test
+  public void testRetryOnRetryableItemLevelError() throws Exception {
+    OpenSearchClient retryClient = Mockito.mock(OpenSearchClient.class);
+
+    BooleanResponse mockBooleanResponse = Mockito.mock(BooleanResponse.class);
+    Mockito.when(retryClient.ping()).thenReturn(mockBooleanResponse);
+    Mockito.when(mockBooleanResponse.value()).thenReturn(true);
+
+    // First response: item carries a 429 error — should trigger a retry
+    BulkResponseItem errorItem = Mockito.mock(BulkResponseItem.class);
+    ErrorCause errorCause = new ErrorCause.Builder()
+        .reason("too many requests").type("es_rejected_execution_exception").build();
+    Mockito.when(errorItem.error()).thenReturn(errorCause);
+    Mockito.when(errorItem.status()).thenReturn(429);
+    Mockito.when(errorItem.id()).thenReturn("doc1");
+
+    BulkResponse errorResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(errorResponse.items()).thenReturn(List.of(errorItem));
+
+    // Second response: clean, no errors
+    BulkResponseItem successItem = Mockito.mock(BulkResponseItem.class);
+    Mockito.when(successItem.error()).thenReturn(null);
+    Mockito.when(successItem.id()).thenReturn("doc1");
+
+    BulkResponse successResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(successResponse.items()).thenReturn(List.of(successItem));
+
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenReturn(errorResponse)
+        .thenReturn(successResponse);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf");
+
+    Document doc1 = Document.create("doc1", "test_run");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    messenger.sendForIndexing(doc1);
+    indexer.run(1);
+
+    // bulk() should be called twice: first returns a 429 item error, second succeeds
+    verify(retryClient, times(2)).bulk(any(BulkRequest.class));
+
+    // Document should have received a FINISH event after the successful retry
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  /**
+   * Tests that no retry is attempted when the bulk call returns without throwing but the response
+   * contains an item-level error with a non-retryable status code (400). bulk() should be called
+   * exactly once and the document should receive a FAIL event carrying the item-level error reason.
+   */
+  @Test
+  public void testNoRetryForNonRetryableItemLevelError() throws Exception {
+    OpenSearchClient retryClient = Mockito.mock(OpenSearchClient.class);
+
+    BooleanResponse mockBooleanResponse = Mockito.mock(BooleanResponse.class);
+    Mockito.when(retryClient.ping()).thenReturn(mockBooleanResponse);
+    Mockito.when(mockBooleanResponse.value()).thenReturn(true);
+
+    // Response: item has a 400 error (e.g. mapping conflict) — not in the retryable list
+    BulkResponseItem errorItem = Mockito.mock(BulkResponseItem.class);
+    ErrorCause errorCause = new ErrorCause.Builder()
+        .reason("mapper parsing exception").type("mapper_parsing_exception").build();
+    Mockito.when(errorItem.error()).thenReturn(errorCause);
+    Mockito.when(errorItem.status()).thenReturn(400);
+    Mockito.when(errorItem.id()).thenReturn("doc1");
+
+    BulkResponse errorResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(errorResponse.items()).thenReturn(List.of(errorItem));
+
+    Mockito.when(retryClient.bulk(any(BulkRequest.class))).thenReturn(errorResponse);
+
+    TestMessenger messenger = new TestMessenger();
+    // maxRetries: 3, retryableStatusCodes: [429] — 400 is not in the list
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retryWith429Only.conf");
+
+    Document doc1 = Document.create("doc1", "test_run");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    messenger.sendForIndexing(doc1);
+    indexer.run(1);
+
+    // bulk() should be called exactly once — 400 is not retryable
+    verify(retryClient, times(1)).bulk(any(BulkRequest.class));
+
+    // Document should receive a FAIL event containing the item-level error reason
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FAIL, events.get(0).getType());
+    assertTrue(events.get(0).getMessage().contains("mapper parsing exception"));
+  }
+
+  /**
+   * Tests that when retries are exhausted due to persistent item-level retryable errors,
+   * each document receives a per-document FAIL event with the specific item-level reason
+   * rather than a generic batch-level message.
+   * With maxRetries=3, bulk() should be called 4 times (1 initial + 3 retries), and every
+   * document should receive a FAIL event containing the item-level error reason.
+   */
+  @Test
+  public void testRetryExhaustedItemLevelErrorsProducePerDocFail() throws Exception {
+    OpenSearchClient retryClient = Mockito.mock(OpenSearchClient.class);
+
+    BooleanResponse mockBooleanResponse = Mockito.mock(BooleanResponse.class);
+    Mockito.when(retryClient.ping()).thenReturn(mockBooleanResponse);
+    Mockito.when(mockBooleanResponse.value()).thenReturn(true);
+
+    // Every response: both items carry a 429 error — retries will be exhausted
+    BulkResponseItem errorItem1 = Mockito.mock(BulkResponseItem.class);
+    BulkResponseItem errorItem2 = Mockito.mock(BulkResponseItem.class);
+    ErrorCause errorCause = new ErrorCause.Builder()
+        .reason("too many requests").type("es_rejected_execution_exception").build();
+    Mockito.when(errorItem1.error()).thenReturn(errorCause);
+    Mockito.when(errorItem1.status()).thenReturn(429);
+    Mockito.when(errorItem1.id()).thenReturn("doc1");
+    Mockito.when(errorItem2.error()).thenReturn(errorCause);
+    Mockito.when(errorItem2.status()).thenReturn(429);
+    Mockito.when(errorItem2.id()).thenReturn("doc2");
+
+    BulkResponse errorResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(errorResponse.items()).thenReturn(List.of(errorItem1, errorItem2));
+
+    Mockito.when(retryClient.bulk(any(BulkRequest.class))).thenReturn(errorResponse);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf");
+
+    Document doc1 = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", retryClient);
+    messenger.sendForIndexing(doc1);
+    messenger.sendForIndexing(doc2);
+    indexer.run(2);
+
+    // bulk() should be called 4 times: 1 initial + 3 retries
+    verify(retryClient, times(4)).bulk(any(BulkRequest.class));
+
+    // Each document should receive a per-document FAIL event with the item-level reason
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(2, events.size());
+    assertTrue(events.stream().allMatch(e -> e.getType() == Event.Type.FAIL));
+    assertTrue(events.stream().allMatch(e -> e.getMessage().contains("too many requests")));
+  }
+
   @Test
   public void testRetryAgainstLiveServer() throws Exception {
     AtomicInteger requestCount = new AtomicInteger(0);
@@ -1472,7 +1626,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, String>> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
   }
@@ -1492,7 +1646,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, String>> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
       throw new IndexerRetryableException(
           503, "Simulated 503 Service Unavailable", new IOException("backend unavailable"));
     }

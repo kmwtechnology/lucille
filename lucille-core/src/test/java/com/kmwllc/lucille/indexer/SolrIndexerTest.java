@@ -751,7 +751,7 @@ public class SolrIndexerTest {
 
     SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
 
-    Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
     assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
 
@@ -1037,7 +1037,7 @@ public class SolrIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, String>> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to Solr are correctly handled");
     }
   }
