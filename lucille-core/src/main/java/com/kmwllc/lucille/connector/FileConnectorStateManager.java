@@ -156,7 +156,7 @@ public class FileConnectorStateManager {
    */
   public void shutdown() throws SQLException {
     if (performDeletions) {
-      deleteFilesNotEncounteredAndResetTable();
+      deleteExpiredFilesAndResetTable();
     }
 
     if (jdbcConnection != null) {
@@ -213,7 +213,7 @@ public class FileConnectorStateManager {
     return fileUris;
   }
 
-  private void deleteFilesNotEncounteredAndResetTable() throws SQLException {
+  private void deleteExpiredFilesAndResetTable() throws SQLException {
     String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE runs_not_encountered >= ?";
 
     try (PreparedStatement ps = jdbcConnection.prepareStatement(deleteSQL)) {
