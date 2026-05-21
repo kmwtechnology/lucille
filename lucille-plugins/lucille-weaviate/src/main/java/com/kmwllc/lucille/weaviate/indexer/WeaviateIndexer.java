@@ -59,6 +59,10 @@ public class WeaviateIndexer extends Indexer {
       String metricsPrefix, String localRunId) {
     super(config, messenger, false, metricsPrefix, localRunId);
 
+    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
+      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
+    }
+
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";

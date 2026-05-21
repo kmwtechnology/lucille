@@ -79,6 +79,10 @@ public class ElasticsearchIndexer extends Indexer {
       throw new IllegalArgumentException(
           "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
     }
+    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
+      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
+    }
+
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
