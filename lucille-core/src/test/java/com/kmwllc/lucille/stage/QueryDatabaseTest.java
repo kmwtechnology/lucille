@@ -326,8 +326,7 @@ public class QueryDatabaseTest {
     Document d = Document.create("id");
     d.setField("get_row", 1);
     // JDBCUtils should log warning
-    assertEquals("no Error found", getUnsupportedMsg(stage, d));;
-
+    stage.processDocument(d);
     stage.stop();
   }
 
@@ -338,18 +337,8 @@ public class QueryDatabaseTest {
     Document d = Document.create("id");
     d.setField("get_row", 1);
     // JDBCUtils should log warning
-    assertEquals("no Error found", getUnsupportedMsg(stage, d));
-
+    stage.processDocument(d);
     stage.stop();
-  }
-
-  private String getUnsupportedMsg(Stage stage, Document d) {
-    try {
-      stage.processDocument(d);
-    } catch (StageException e) {
-      return e.getMessage();
-    }
-    return "no Error found";
   }
 
   @Test
