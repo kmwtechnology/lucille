@@ -1381,15 +1381,17 @@ public class OpenSearchIndexerTest {
     Mockito.when(retryClient.ping()).thenReturn(mockBooleanResponse);
     Mockito.when(mockBooleanResponse.value()).thenReturn(true);
 
-    // Every response: both items carry a 429 error — retries will be exhausted
+    // Every response: both items carry a 429 error with distinct reasons — retries will be exhausted
     BulkResponseItem errorItem1 = Mockito.mock(BulkResponseItem.class);
     BulkResponseItem errorItem2 = Mockito.mock(BulkResponseItem.class);
-    ErrorCause errorCause = new ErrorCause.Builder()
-        .reason("too many requests").type("es_rejected_execution_exception").build();
-    Mockito.when(errorItem1.error()).thenReturn(errorCause);
+    ErrorCause errorCause1 = new ErrorCause.Builder()
+        .reason("too many requests on shard 1").type("es_rejected_execution_exception").build();
+    ErrorCause errorCause2 = new ErrorCause.Builder()
+        .reason("too many requests on shard 2").type("es_rejected_execution_exception").build();
+    Mockito.when(errorItem1.error()).thenReturn(errorCause1);
     Mockito.when(errorItem1.status()).thenReturn(429);
     Mockito.when(errorItem1.id()).thenReturn("doc1");
-    Mockito.when(errorItem2.error()).thenReturn(errorCause);
+    Mockito.when(errorItem2.error()).thenReturn(errorCause2);
     Mockito.when(errorItem2.status()).thenReturn(429);
     Mockito.when(errorItem2.id()).thenReturn("doc2");
 
@@ -1412,11 +1414,15 @@ public class OpenSearchIndexerTest {
     // bulk() should be called 4 times: 1 initial + 3 retries
     verify(retryClient, times(4)).bulk(any(BulkRequest.class));
 
-    // Each document should receive a per-document FAIL event with the item-level reason
+    // Each document should receive a per-document FAIL event with its specific item-level reason
     List<Event> events = messenger.getSentEvents();
     assertEquals(2, events.size());
     assertTrue(events.stream().allMatch(e -> e.getType() == Event.Type.FAIL));
-    assertTrue(events.stream().allMatch(e -> e.getMessage().contains("too many requests")));
+
+    Event doc1Event = events.stream().filter(e -> "doc1".equals(e.getDocumentId())).findFirst().orElseThrow();
+    Event doc2Event = events.stream().filter(e -> "doc2".equals(e.getDocumentId())).findFirst().orElseThrow();
+    assertTrue(doc1Event.getMessage().contains("too many requests on shard 1"));
+    assertTrue(doc2Event.getMessage().contains("too many requests on shard 2"));
   }
 
   @Test
