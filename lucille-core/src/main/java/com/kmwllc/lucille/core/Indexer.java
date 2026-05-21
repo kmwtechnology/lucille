@@ -420,12 +420,7 @@ public abstract class Indexer implements Runnable {
 
       // Mark all the documents in failedDoc as failed
       for (Pair<Document, Exception> pair : failedDocPairs) {
-        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, pair.getLeft().getId())) {
-          messenger.sendEvent(pair.getLeft(), "FAILED: " + pair.getRight().getMessage(), Event.Type.FAIL);
-          docLogger.error("Sent failure message for doc {}. Reason: {}", pair.getLeft().getId(), pair.getRight().getMessage());
-        } catch (Exception e) {
-          log.error("Couldn't send failure event for doc {}", pair.getLeft().getId(), e);
-        }
+        sendFailEvent(pair.getLeft(), pair.getRight().getMessage());
       }
 
       Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
@@ -461,20 +456,7 @@ public abstract class Indexer implements Runnable {
       log.error("Error sending documents to index: {}", e.getMessage(), e);
 
       for (Document d : batchedDocs) {
-        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
-          if (d.getRunId() != null) {
-            MDC.pushByKey(RUNID_FIELD, d.getRunId());
-          }
-
-          messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
-          docLogger.error("Sent failure message for doc {}. Reason: {}", d.getId(), e.getMessage());
-        } catch (Exception e2) {
-          log.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e2);
-        } finally {
-          if (d.getRunId() != null) {
-            MDC.popByKey(RUNID_FIELD);
-          }
-        }
+        sendFailEvent(d, e.getMessage());
       }
     } finally {
       // We always mark batches as completed, regardless of whether the whole batch failed, some docs failed, etc.
@@ -482,6 +464,26 @@ public abstract class Indexer implements Runnable {
         messenger.batchComplete(batchedDocs);
       } catch (Exception e) {
         log.error("Error marking batch complete.", e);
+      }
+    }
+  }
+
+  /**
+   * Sends a FAIL event for the given document with the specified reason, setting up MDC context
+   * for structured logging.
+   */
+  private void sendFailEvent(Document d, String reason) {
+    try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+      if (d.getRunId() != null) {
+        MDC.pushByKey(RUNID_FIELD, d.getRunId());
+      }
+      messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
+      docLogger.error("Sent failure message for doc {}. Reason: {}", d.getId(), reason);
+    } catch (Exception e) {
+      log.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
+    } finally {
+      if (d.getRunId() != null) {
+        MDC.popByKey(RUNID_FIELD);
       }
     }
   }
