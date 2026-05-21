@@ -1,6 +1,6 @@
 ---
-title: Distributed
-weight: 1
+title: "Distributed Streaming"
+weight: 3
 date: 2025-06-09
 description: Running Lucille without a Runner for continuous ingestion from Kafka.
 ---

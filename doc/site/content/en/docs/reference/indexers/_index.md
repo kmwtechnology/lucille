@@ -276,3 +276,27 @@ Indexes documents into [Weaviate](https://weaviate.io/). Config block: `weaviate
   <version>${lucille.version}</version>
 </dependency>
 ```
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `apiKey` | String | Yes | Weaviate API key for authentication. Use `${?WEAVIATE_API_KEY}` for environment variable substitution. |
+| `host` | String | Yes | Weaviate instance hostname (e.g., `my-cluster.weaviate.network`). Do not include the protocol — HTTPS is used automatically. |
+| `className` | String | No | The Weaviate class (object type) to create or update. Default: `"Document"`. |
+| `idDestinationName` | String | No | Field name under which the document's original Lucille ID is stored in Weaviate (since Weaviate's `id` field must be a UUID). Default: `"id_original"`. |
+| `vectorField` | String | No | Document field containing the vector embedding to index. If omitted, no vector is sent (useful if Weaviate is configured to generate its own embeddings). |
+
+```hocon
+indexer {
+  class: "com.kmwllc.lucille.weaviate.indexer.WeaviateIndexer"
+}
+
+weaviate {
+  apiKey: ${WEAVIATE_API_KEY}
+  host: "my-cluster.weaviate.network"
+  className: "Article"
+  idDestinationName: "lucille_id"
+  vectorField: "content_vector"
+}
+```
+
+**Note on IDs:** Weaviate requires UUIDs for its internal `id` field. The WeaviateIndexer generates a UUID from the document's Lucille ID and stores the original ID under `idDestinationName` so it can be retrieved later.

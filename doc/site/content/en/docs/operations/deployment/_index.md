@@ -10,10 +10,10 @@ Choose a deployment mode based on your scale requirements. The same pipeline con
 
 | Mode | When to Use | Command |
 |---|---|---|
-| **[Batch > Local]({{< relref "batch/local" >}})** | Development, small jobs (< millions of docs) | `java -cp ... com.kmwllc.lucille.core.Runner` |
-| **[Batch > Distributed]({{< relref "batch/distributed" >}})** | Production scale-out with multiple workers | Separate Runner, Worker, and Indexer processes |
-| **[Streaming > Distributed]({{< relref "streaming/distributed" >}})** | Continuous ingestion without a Runner | Separate Worker and Indexer processes |
-| **[Streaming > Hybrid]({{< relref "streaming/hybrid" >}})** | Streaming with co-located processing and indexing | WorkerIndexer processes |
+| **[Local Batch]({{< relref "local-batch" >}})** | Development, small jobs (< millions of docs) | `java -cp ... com.kmwllc.lucille.core.Runner` |
+| **[Distributed Batch]({{< relref "distributed-batch" >}})** | Production scale-out with multiple workers | Separate Runner, Worker, and Indexer processes |
+| **[Distributed Streaming]({{< relref "distributed-streaming" >}})** | Continuous ingestion without a Runner | Separate Worker and Indexer processes |
+| **[Hybrid Streaming]({{< relref "hybrid-streaming" >}})** | Streaming with co-located processing and indexing | WorkerIndexer processes |
 
 | Deployment Pattern | Details |
 |---|---|

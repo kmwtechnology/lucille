@@ -1,6 +1,6 @@
 ---
-title: Hybrid
-weight: 2
+title: "Hybrid Streaming"
+weight: 4
 date: 2025-06-09
 description: Running WorkerIndexer processes for streaming ingestion with co-located processing and indexing.
 ---
@@ -12,5 +12,5 @@ In hybrid streaming mode, Lucille runs one or more `WorkerIndexer` processes tha
 **When to use:** Streaming ingestion where you want the horizontal scalability of distributed mode but with simpler operations — fewer processes to manage, no separate Indexer deployment, and reduced network hops between processing and indexing.
 
 {{% pageinfo %}}
-This page is under construction. See [Distributed]({{< relref "distributed" >}}) for WorkerIndexer usage details in the meantime.
+This page is under construction. See [Distributed]({{< relref "distributed-streaming" >}}) for WorkerIndexer usage details in the meantime.
 {{% /pageinfo %}}

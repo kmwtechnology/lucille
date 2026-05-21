@@ -1,5 +1,5 @@
 ---
-title: Local
+title: "Local Batch"
 weight: 1
 date: 2025-06-09
 description: Running all Lucille components in a single JVM with in-memory queues.

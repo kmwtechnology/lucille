@@ -1,5 +1,5 @@
 ---
-title: Distributed
+title: "Distributed Batch"
 weight: 2
 date: 2025-06-09
 description: Running Lucille components as separate processes communicating via Kafka.

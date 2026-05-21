@@ -1,6 +1,6 @@
 ---
 title: Kubernetes
-weight: 4
+weight: 6
 date: 2025-06-09
 description: Deploying Lucille on Kubernetes as CronJobs and scalable pod deployments.
 ---

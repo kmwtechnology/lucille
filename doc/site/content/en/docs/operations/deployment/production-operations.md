@@ -1,6 +1,6 @@
 ---
 title: Production Operations
-weight: 5
+weight: 7
 date: 2025-06-09
 description: Memory sizing, backpressure, batch tuning, graceful shutdown, monitoring, and the production checklist.
 ---

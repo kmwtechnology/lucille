@@ -1,6 +1,6 @@
 ---
 title: Docker Compose
-weight: 3
+weight: 5
 date: 2025-06-09
 description: Running Lucille in distributed mode using Docker Compose.
 ---
