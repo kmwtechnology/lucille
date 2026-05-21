@@ -101,16 +101,17 @@ For search backends specifically, Airbyte's Elasticsearch and OpenSearch connect
 
 ## vs. Apache Spark
 
-Spark is the right tool when you have petabytes and a cluster with Spark already running. For the common case of enriching tens of millions of documents — which most search ingestion problems fall into — Spark's overhead is pure cost:
+Spark is the right tool when you have petabytes and a cluster with Spark already running. For the common case of enriching tens of millions of documents — which most search ingestion problems fall into — Spark adds complexity that Lucille avoids.
 
-- Cluster management and job submission infrastructure
-- Serialization costs (Kryo or Java serialization between stages)
-- Shuffle overhead for operations that require data movement
-- High per-document latency relative to in-process pipeline execution
+Spark can run in local mode (single JVM, no cluster manager), which eliminates the cluster infrastructure cost. But even in local mode, Spark brings a heavier abstraction layer:
 
-Lucille's threading model is simpler and per-document latency is lower. Scaling horizontally by adding Workers (each a JVM process consuming from a Kafka topic) is operationally straightforward and does not require a cluster manager.
+- **Runtime overhead.** SparkSession initialization, partition management, task scheduling, and the RDD/DataFrame abstraction layer add startup and per-job overhead that a simple threaded pipeline does not have.
+- **Serialization costs.** Spark serializes closures sent to executors and data during shuffle operations (joins, aggregations, repartitioning). For pure per-document map operations these costs are minimal, but any pipeline that requires cross-document logic or repartitioning pays a serialization tax (Kryo or Java serialization).
+- **Operational complexity at scale.** Moving beyond local mode requires a cluster manager (YARN, Kubernetes, or Spark Standalone), job submission infrastructure, and tuning of executor memory, partitions, and parallelism.
 
-If your enrichment involves distributed joins across billions of records, or your source data is in a distributed file system at petabyte scale, Spark is probably the right tool. If your problem is enriching a bounded dataset and loading it into a search engine, Lucille will do it with less infrastructure and less complexity.
+Lucille's threading model is simpler: a pipeline is a sequence of Stages executing in-process with no serialization between them. Scaling horizontally means adding Worker JVM processes consuming from a Kafka topic — no cluster manager, no partition tuning, no shuffle configuration.
+
+If your enrichment involves distributed joins across billions of records, or your source data lives in a distributed file system at petabyte scale, Spark is probably the right tool. If your problem is enriching a bounded dataset and loading it into a search engine, Lucille will do it with less abstraction overhead and less operational complexity.
 
 ---
 
