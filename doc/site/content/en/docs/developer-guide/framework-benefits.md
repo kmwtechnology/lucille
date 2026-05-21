@@ -85,6 +85,20 @@ These are registered with a shared `MetricRegistry` and reported at the end of t
 
 **Multi-valued field handling.** Decide whether your stage should process the first value of a field (`getString`) or all values (`getStringList`). The Document API supports both patterns, but you must choose the right one for your use case.
 
+### Memory management for expensive resources
+
+If your Stage initializes a memory-consuming resource — a large dictionary, a machine learning model, a compiled rule set — it's important to understand how many copies of that resource will exist in memory and when they are released.
+
+**The default behavior.** Lucille creates a separate instance of your Stage for each Worker thread. If a pipeline has 4 Worker threads, there are 4 instances of your Stage, each with its own copy of any resource initialized in `start()`. When the pipeline finishes (all documents for that connector are processed), the Worker threads and their Stage instances go out of scope and become eligible for garbage collection.
+
+**Multiple pipelines in the same run.** If a run has two connectors feeding two pipelines, and both pipelines use your Stage, the pipelines execute sequentially — not concurrently. The first pipeline's components are created, used, and released before the second pipeline's components are created. So the maximum number of copies of your resource in memory at any given time is equal to the number of Worker threads (e.g., 4), not the total across both pipelines (not 8). However, you pay the initialization cost once per Worker thread per pipeline — in this example, 8 initializations total across the run.
+
+**Optimizing with a singleton.** If your resource is read-only (immutable after initialization), you can avoid both the redundant memory and the redundant initialization by storing it as a singleton that is initialized once and reused across all Stage instances for the lifetime of the JVM. In this case, there is one initialization and one copy in memory, regardless of how many Worker threads or pipelines use the Stage.
+
+Stage code accesses the resource through the singleton rather than holding it as an instance field. The singleton must be thread-safe for concurrent reads (which is trivially true for immutable data structures like an unmodifiable `Map`).
+
+**Example: `DictionaryManager`.** Lucille's built-in `DictionaryManager` class demonstrates this pattern. It maintains a static cache of loaded dictionaries, keyed by file path. The first Stage instance to request a dictionary triggers the load; subsequent requests (from other Worker threads or later pipelines) receive the already-loaded instance. The `getDictionary()` method is `synchronized` to prevent duplicate loading during concurrent initialization. This pattern can be copied and adapted for other expensive read-only resources.
+
 ---
 
 ## Connectors
