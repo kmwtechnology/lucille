@@ -10,9 +10,17 @@ description: >
 
 The SPEC system is Lucille's configuration validation framework. It catches config errors — typos, missing required fields, wrong types — before any processing starts. Every Stage, Connector, and Indexer declares a `public static final Spec SPEC` that defines what configuration properties it accepts.
 
-The philosophy: fail loudly at startup, not silently at runtime.
+For example, this is how a Stage would declare that its config must contain a string property called `foo`:
+
+```java
+public static final Spec SPEC = SpecBuilder.stage().requiredString("foo").build();
+```
+
+The philosophy: fail loudly at startup, not silently at runtime. If a user's config omits a required property or includes an unrecognized one (like a typo), Lucille reports the error before any documents are processed.
 
 ## What a SPEC Is
+
+In practice, you'll create Specs using `SpecBuilder` (described below) and won't need to look into the `Spec` class itself. This section explains what's under the hood.
 
 A `Spec` is an immutable set of `Property` declarations that describes the legal configuration for a component. Each property has:
 - A **name** (the config key)
@@ -26,10 +34,27 @@ public class Spec {
 }
 ```
 
-When `validate(config, displayName)` is called, the Spec checks:
+`Spec` has a `validate` method that accepts a config and verifies that the config adheres to the spec by checking:
 1. All required properties are present
 2. All properties have the correct type
 3. No unknown/unrecognized properties exist
+
+## Why SPEC Is a `public static final` Field
+
+You might wonder why Lucille uses a `public static final Spec SPEC` field rather than an abstract method like `abstract Spec getSpec()`. The primary reason is **validation without full instantiation**. A Spec describes what configuration a class accepts — this is a property of the class itself, not of any particular instance. Making it a static field communicates this clearly and allows tooling or documentation generators to inspect a component's legal properties without constructing it.
+
+Secondary reasons:
+
+- **Immutability.** A `static final` field is initialized once at class-load time and cannot change. An instance method could theoretically return different values depending on constructor arguments, which would be confusing for a validation contract.
+- **Minimal boilerplate.** Declaring a single field is simpler than overriding an abstract method with `@Override public Spec getSpec() { return SPEC; }` in every subclass.
+
+**The tradeoff: no compile-time enforcement.** The compiler does not force you to declare a `SPEC` field. If you forget it, you won't get a compile error — you'll get a `RuntimeException` the first time the component is instantiated. This happens because the `Stage` base class constructor calls `getSpec().validate(config, ...)`, and the default `getSpec()` implementation uses reflection to look up the `SPEC` field on your class. If the field is missing, the reflective lookup fails immediately with a clear error message:
+
+```
+RuntimeException: Error accessing com.example.MyStage Spec. Is it publicly and statically available under "SPEC"?
+```
+
+In practice, this is not a significant source of errors. Any unit test that instantiates your component — even the most trivial one — will trigger this failure immediately. You will never get as far as running a pipeline with a missing SPEC; the error is loud and obvious at the earliest possible moment.
 
 ## How SpecBuilder Works
 
