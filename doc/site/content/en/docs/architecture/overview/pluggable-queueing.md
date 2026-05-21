@@ -1,9 +1,9 @@
 ---
-title: "Pluggable Queueing and the Deployment Model"
+title: "From Single Process to Distributed"
 weight: 4
 date: 2025-06-09
 description: >
-  How Lucille's Messenger abstraction makes the queue implementation pluggable, enabling a flexible deployment model and straightforward testing.
+  How the same pipeline code runs identically in a single JVM or distributed across machines — and how the Messenger abstraction makes this possible.
 ---
 
 The [previous page]({{< relref "docs/architecture/overview/parallelizing-search-etl" >}}) showed how to parallelize search ingestion using three concurrent components — Connector, Workers, and Indexers — communicating through a processing queue and an indexing queue. What we have not yet discussed is what those queues actually are.

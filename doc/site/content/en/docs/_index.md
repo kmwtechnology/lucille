@@ -5,6 +5,10 @@ menu: {main: {weight: 20}}
 weight: 20
 ---
 
+{{% pageinfo %}}
+**Work in Progress.** This documentation is being actively developed by the Lucille maintainers with AI assistance. Our goal is for every page to be fully shaped by human input, requirements, and feedback — not just reviewed but directed. We haven't reached that goal yet: some pages have had extensive human review while others remain in rough draft form and may contain inaccuracies. We're releasing early to get feedback that helps us improve. If something looks wrong, it might be — please let us know.
+{{% /pageinfo %}}
+
 Lucille is a Java-based search ETL framework that reads data from sources, enriches it through configurable pipelines, and delivers it to search engines and vector databases.
 
 ## Find Your Section
