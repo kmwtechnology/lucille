@@ -779,7 +779,7 @@ public abstract class DocumentTest {
     String beforeString = parent.toString();
     List<Document> children = parent.getChildren();
     String afterString = parent.toString();
-    // getChildren() should not create a .children field if it didn't already exist,
+    // getChildren() should not create a ___children field if it didn't already exist,
     // so the json-stringified form of the document should not change after calling getChildren()
     assertEquals(beforeString, afterString);
     assertEquals(0, children.size());
