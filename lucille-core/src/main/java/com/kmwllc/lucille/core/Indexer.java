@@ -24,17 +24,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
 import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 import sun.misc.Signal;
@@ -250,11 +246,19 @@ public abstract class Indexer implements Runnable {
                   + "Remove the parameter to use the default, or provide at least one status code.");
         }
       }
-      this.retry = Retry.of("indexer-batch-retry", RetryConfig.custom()
+      this.retry = Retry.of("indexer-batch-retry", RetryConfig.<Set<Pair<Document, Exception>>>custom()
           .maxAttempts(maxRetries + 1) // maxAttempts includes the initial attempt
           .intervalFunction(IntervalFunction.ofExponentialRandomBackoff(
               retryInitialWaitDurationMs, IntervalFunction.DEFAULT_MULTIPLIER,
               retryRandomizationFactor, retryMaxWaitDurationMs))
+          .retryOnResult(result -> {
+            // Retry the batch if any per-document failure has a retryable status code.
+            @SuppressWarnings("unchecked")
+            Set<Pair<Document, Exception>> pairs = (Set<Pair<Document, Exception>>) result;
+            return pairs.stream().anyMatch(p ->
+                p.getRight() instanceof IndexerRetryableException e
+                    && retryableStatusCodes.contains(e.getStatusCode()));
+          })
           .retryOnException(e -> {
             if (e instanceof IndexerRetryableException retryable) {
               return retryableStatusCodes.contains(retryable.getStatusCode());
@@ -263,11 +267,13 @@ public abstract class Indexer implements Runnable {
             return false;
           })
           .build());
-      this.retry.getEventPublisher().onRetry(event ->
-          log.warn("Retrying batch send (attempt {}/{}), waiting {}ms: {}",
-              event.getNumberOfRetryAttempts(), maxRetries,
-              event.getWaitInterval().toMillis(),
-              event.getLastThrowable().getMessage()));
+      this.retry.getEventPublisher().onRetry(event -> {
+        Throwable lastThrowable = event.getLastThrowable();
+        log.warn("Retrying batch send (attempt {}/{}), waiting {}ms: {}",
+            event.getNumberOfRetryAttempts(), maxRetries,
+            event.getWaitInterval().toMillis(),
+            lastThrowable != null ? lastThrowable.getMessage() : "per-document retryable failures");
+      });
     }
 
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
@@ -398,41 +404,12 @@ public abstract class Indexer implements Runnable {
       // (e.g. some documents indexed before a subsequent delete-by-query fails), a retry will
       // re-execute the entire method. This is considered safe because search engine upserts are idempotent —
       // re-indexing an already-indexed document produces the same result.
-      AtomicReference<Set<Pair<Document, Exception>>> lastResult = new AtomicReference<>();
-      Set<Pair<Document, Exception>> failedDocPairs;
-      try {
-        failedDocPairs = retry != null
-            ? Retry.decorateCheckedSupplier(retry, () -> {
-                Set<Pair<Document, Exception>> result = sendToIndex(batchedDocs);
-                // Capture the result before potentially throwing, so it is available if retries
-                // are exhausted — preserving per-document detail for the FAIL event path below.
-                lastResult.set(result);
-                // Throw the first retryable item-level failure so Resilience4j can apply the retry
-                // policy. Only throw if the status code is actually in the retryable set — non-retryable
-                // item failures (e.g. mapping conflicts) must stay in the return set so they reach the
-                // per-document FAIL event path below rather than collapsing into a batch-level exception.
-                for (Pair<Document, Exception> pair : result) {
-                  if (pair.getRight() instanceof IndexerRetryableException e
-                      && retryableStatusCodes.contains(e.getStatusCode())) {
-                    throw e;
-                  }
-                }
-                return result;
-              }).get()
-            : sendToIndex(batchedDocs);
-      } catch (IndexerRetryableException e) {
-        // Retries exhausted due to item-level errors. If the last sendToIndex call returned
-        // per-document detail, use it so individual FAIL events carry specific reasons rather
-        // than a generic batch-level message. If lastResult is empty the exception came from a
-        // throw inside sendToIndex itself (e.g. transport failure) — re-throw so the outer
-        // catch (Throwable) handles it as a batch-level failure as before.
-        Set<Pair<Document, Exception>> last = lastResult.get();
-        if (last != null && !last.isEmpty()) {
-          failedDocPairs = last;
-        } else {
-          throw e;
-        }
-      }
+      // When retries are configured, retryOnResult triggers a retry if any per-document failure has a
+      // retryable status code. When retries are exhausted, the last result is returned directly —
+      // preserving per-document detail for the FAIL event path below.
+      Set<Pair<Document, Exception>> failedDocPairs = retry != null
+          ? Retry.decorateCheckedSupplier(retry, () -> sendToIndex(batchedDocs)).get()
+          : sendToIndex(batchedDocs);
       stopWatch.stop();
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
