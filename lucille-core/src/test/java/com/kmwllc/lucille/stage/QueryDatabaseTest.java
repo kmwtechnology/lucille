@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -325,9 +326,13 @@ public class QueryDatabaseTest {
 
     Document d = Document.create("id");
     d.setField("get_row", 1);
-    // JDBCUtils should log warning
+    // JDBCUtils should log warning for the unsupported TIME column
     stage.processDocument(d);
     stage.stop();
+
+    assertFalse(d.has("time_col"));
+    assertTrue(d.has("integer_col"));
+    assertEquals(7, (int) d.getInt("integer_col"));
   }
 
   @Test
