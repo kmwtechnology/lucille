@@ -157,7 +157,7 @@ public class FieldFilterTest {
 
   @Test
   public void testGetFilteredDocumentChildrenRemovedWhenBlacklisted() throws Exception {
-    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of(".children"))));
+    FieldFilter filter = new FieldFilter(ConfigFactory.parseMap(Map.of("blacklist", List.of("___children"))));
     Document doc = Document.create("id1");
     doc.addChild(Document.create("child1"));
 
