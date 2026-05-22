@@ -2,7 +2,6 @@ package endpoints;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -32,8 +31,7 @@ public class LucilleResourceTest {
 
   @Test
   public void testCreateRun_Success() {
-    Map<String, Object> configBody = new HashMap<>();
-    configBody.put("connectors", Collections.singletonList("dummyConnector"));
+    String configBody = "connectors = [\"dummyConnector\"]";
     Response response = lucilleResource.createConfig(mockUser, configBody);
     assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
     Map<String, Object> responseBody = (Map<String, Object>) response.getEntity();
@@ -45,17 +43,15 @@ public class LucilleResourceTest {
     // Enable auth and use empty user
     AuthHandler authHandler = new AuthHandler(true);
     LucilleResource lucilleResourceWithAuth = new LucilleResource(runnerManager, authHandler);
-    Map<String, Object> configBody = new HashMap<>();
     Optional<PrincipalImpl> noUser = Optional.empty();
-    Response response = lucilleResourceWithAuth.createConfig(noUser, configBody);
+    Response response = lucilleResourceWithAuth.createConfig(noUser, "");
     assertEquals(Response.Status.UNAUTHORIZED.getStatusCode(), response.getStatus());
   }
 
   @Test
   public void testStartRun_Success() {
     // Create a config first
-    Map<String, Object> configBody = new HashMap<>();
-    configBody.put("pipeline", "testPipeline");
+    String configBody = "pipeline = \"testPipeline\"";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
     // Start run
@@ -80,8 +76,26 @@ public class LucilleResourceTest {
   @Test
   public void testGetRunById_Success() {
     // Create and start a run
-    Map<String, Object> configBody = new HashMap<>();
-    configBody.put("pipeline", "testPipeline");
+    String configBody = "pipeline = \"testPipeline\"";
+    Response configResponse = lucilleResource.createConfig(mockUser, configBody);
+    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    Map<String, String> requestBody = new HashMap<>();
+    requestBody.put("configId", configId);
+    Response runResponse = lucilleResource.startRun(mockUser, requestBody);
+    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    String runId = runDetails.getRunId();
+    // Fetch run details
+    Response fetchedRunResponse = lucilleResource.getRunById(mockUser, runId);
+    assertEquals(Response.Status.OK.getStatusCode(), fetchedRunResponse.getStatus());
+    RunDetails fetchedRunDetails = (RunDetails) fetchedRunResponse.getEntity();
+    assertEquals(runId, fetchedRunDetails.getRunId());
+    assertEquals(configId, fetchedRunDetails.getConfigId());
+  }
+
+  @Test
+  public void testGetRunById_SuccessJsonConfig() {
+    // Create and start a run
+    String configBody = "{\"pipeline\": \"testPipeline\"}";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
     Map<String, String> requestBody = new HashMap<>();
