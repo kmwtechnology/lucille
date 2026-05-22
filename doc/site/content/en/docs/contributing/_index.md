@@ -1,6 +1,6 @@
 ---
-title: Contribution Guidelines
-weight: 10
+title: Contributor Guide
+weight: 9
 description: >
-  How to develop new features and coding standards.
+  For contributors to the Lucille codebase — project structure, setup, and coding standards.
 ---
