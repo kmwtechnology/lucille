@@ -226,12 +226,12 @@ Count the `"Running connector {name} feeding to pipeline {pipeline}"` messages. 
 
 Look at the per-stage metrics at the end of each connector's execution:
 ```
-Stage build-geoparse-data metrics. Docs processed: 286106. Mean latency: 9.2441 ms/doc.
-Stage poprank-normalization-transforms metrics. Docs processed: 286106. Mean latency: 2.3383 ms/doc.
-Stage normalize-i18n-commas metrics. Docs processed: 286106. Mean latency: 0.0147 ms/doc.
+Stage extract-entities metrics. Docs processed: 286106. Mean latency: 9.2441 ms/doc.
+Stage normalize-scores metrics. Docs processed: 286106. Mean latency: 2.3383 ms/doc.
+Stage clean-whitespace metrics. Docs processed: 286106. Mean latency: 0.0147 ms/doc.
 ```
 
-Sort by mean latency to find bottlenecks. In this example, `build-geoparse-data` at 9.24 ms/doc dominates the pipeline.
+Sort by mean latency to find bottlenecks. In this example, `extract-entities` at 9.24 ms/doc dominates the pipeline.
 
 ### What errors occurred?
 
@@ -311,14 +311,14 @@ This matches the observed one-minute rate of ~345 docs/sec (the difference is qu
 In the per-stage metrics, you might see:
 ```
 Stage create-grouping-key metrics. Docs processed: 286106.
-Stage attach-search-radius metrics. Docs processed: 953.
-Stage append-grouping-context-key metrics. Docs processed: 100097.
+Stage apply-category-filter metrics. Docs processed: 953.
+Stage enrich-metadata metrics. Docs processed: 100097.
 ```
 
 This happens because of **conditional execution**. Each stage can have a `conditions` block that determines whether it processes a given document. A stage with conditions that match only a subset of documents will show a lower count. In this example:
 - `create-grouping-key` processes all 286,106 documents (no conditions, or conditions that always match)
-- `attach-search-radius` processes only 953 documents (its conditions match only a small subset)
-- `append-grouping-context-key` processes 100,097 documents (its conditions match about a third)
+- `apply-category-filter` processes only 953 documents (its conditions match only a small subset)
+- `enrich-metadata` processes 100,097 documents (its conditions match about a third)
 
 This is normal and expected. It does NOT indicate errors or skipped documents.
 

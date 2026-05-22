@@ -234,7 +234,7 @@ Example: 4 threads × (1000 / 9.82) = ~407 docs/sec. If the observed rate is sig
 If you see:
 ```
 Stage extract-text metrics. Docs processed: 286106.
-Stage attach-radius metrics. Docs processed: 953.
+Stage apply-geo-filter metrics. Docs processed: 953.
 ```
 
 This is **conditional execution** — the second stage has conditions that match only a subset of documents. This is normal and expected, not an error.
