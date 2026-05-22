@@ -212,9 +212,9 @@ INFO Indexer: 17016 docs indexed. One minute rate: 455.07 docs/sec. Mean backend
 At the end of each connector's execution, Lucille logs per-stage metrics:
 
 ```
-Stage text-extraction metrics. Docs processed: 286106. Mean latency: 45.2 ms/doc. Children: 0. Errors: 0.
-Stage entity-recognition metrics. Docs processed: 286106. Mean latency: 12.8 ms/doc. Children: 0. Errors: 0.
-Stage copy-fields metrics. Docs processed: 286106. Mean latency: 0.003 ms/doc. Children: 0. Errors: 0.
+Stage text-extraction metrics. Docs processed: 500000. Mean latency: 45.2 ms/doc. Children: 0. Errors: 0.
+Stage entity-recognition metrics. Docs processed: 500000. Mean latency: 12.8 ms/doc. Children: 0. Errors: 0.
+Stage copy-fields metrics. Docs processed: 500000. Mean latency: 0.003 ms/doc. Children: 0. Errors: 0.
 ```
 
 **Sort by mean latency** to find the dominant stage. In this example, `text-extraction` at 45.2 ms/doc accounts for ~78% of the total pipeline latency. Optimizing or parallelizing this stage would have the most impact.
@@ -233,8 +233,8 @@ Example: 4 threads × (1000 / 9.82) = ~407 docs/sec. If the observed rate is sig
 
 If you see:
 ```
-Stage extract-text metrics. Docs processed: 286106.
-Stage apply-geo-filter metrics. Docs processed: 953.
+Stage extract-text metrics. Docs processed: 500000.
+Stage apply-geo-filter metrics. Docs processed: 1247.
 ```
 
 This is **conditional execution** — the second stage has conditions that match only a subset of documents. This is normal and expected, not an error.
