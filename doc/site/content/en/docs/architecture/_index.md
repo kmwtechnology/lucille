@@ -2,6 +2,26 @@
 title: Architecture
 weight: 3
 description: >
-  Understanding Lucille's core components & topology.
+  Understanding Lucille's core components, topology, and design.
 ---
 
+Lucille separates the three concerns of ETL — reading, transforming, and writing — into distinct components that run concurrently.
+
+## Start Here
+
+| Section | What It Covers |
+|---|---|
+| [Overview]({{< relref "overview" >}}) | The problem Lucille solves, the core architecture, topology, document lifecycle, and design rationale |
+| [Components]({{< relref "components" >}}) | Reference pages for each component (Document, Pipeline, Publisher, Connectors, Indexers, Stages, Config) |
+
+## How Components Interact
+
+The components communicate through queues. In local mode these are in-memory `LinkedBlockingQueue` instances. In distributed mode they are Kafka topics. The component code is identical in both cases — only the messenger implementation changes.
+
+```
+Connector → [processing queue] → Worker(s) → [indexing queue] → Indexer
+                                       ↓ events ↑
+                                  Publisher (run accounting)
+```
+
+For in-depth explanations of how each subsystem works internally, see [Internals]({{< relref "docs/architecture/internals" >}}).
