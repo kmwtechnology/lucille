@@ -1,0 +1,33 @@
+# This is the DropWizard configuration file. We are configuring HTTPS and basicAuth.
+# Refer to lucille-api/README.md for information on using HTTPS. More configuration options can be found at:
+# https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration
+server:
+  type: default
+  applicationConnectors:
+    - type: https
+      port: 8443
+      keyStorePath: conf/keystore.jks
+      keyStorePassword: password
+      keyStoreType: JKS
+      validateCerts: false
+      validatePeers: false
+  requestLog:
+    type: external
+logging:
+  type: external
+auth:
+  type: "basicAuth"
+  enabled: true
+  password: "password"
+swagger:
+  resourcePackage: "com.kmwllc.lucille.endpoints"
+  title: Lucille API
+  description: Lucille API
+  version: 0.0.1
+  contact: info@kmwllc.com
+  license: Apache 2.0
+  securityDefinitions:
+    basicAuth:
+      type: "basic"
+  security:
+    - basicAuth: []

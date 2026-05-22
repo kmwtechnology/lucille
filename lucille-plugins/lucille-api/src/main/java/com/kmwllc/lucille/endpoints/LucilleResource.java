@@ -70,20 +70,20 @@ public class LucilleResource {
   /**
    * Creates a new Lucille config, which can be used later by its referenced UUID.
    * @param user the authenticated user (optional)
-   * @param configBody the config as a key-value map
+   * @param configBody the config as a string
    * @return HTTP 200 with config ID, or error if invalid
    */
   @POST
   @Tag(name = "Config")
   @Path("/config")
-  @Consumes(MediaType.APPLICATION_JSON)
+  @Consumes({MediaType.APPLICATION_JSON, "application/hocon"})
   @Operation(summary = "Create a new Lucille config to be run later",
       description = "Creates a new Lucille config, which can be used later by its referenced uuid.")
   public Response createConfig(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
-      @RequestBody(description = "Run configuration as a key-value map", required = true,
-          content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
+      @RequestBody(description = "Run configuration as a HOCON string", required = true,
+          content = @Content(mediaType = "application/hocon", schema = @Schema(
               type = "object",
-              example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) Map<String, Object> configBody) {
+              example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
 
     Response authResponse = authHandler.authenticate(user);
     if (authResponse != null) {
@@ -91,7 +91,7 @@ public class LucilleResource {
     }
 
     try {
-      Config config = ConfigFactory.parseMap(configBody);
+      Config config = ConfigFactory.parseString(configBody);
       String configId = runnerManager.createConfig(config);
       log.info("a lucille config has been created. Config ID: " + configId);
       Map<String, Object> ret = new HashMap<>();
