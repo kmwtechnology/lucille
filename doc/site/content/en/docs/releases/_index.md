@@ -1,6 +1,6 @@
 ---
 title: Releases
-weight: 20
+weight: 12
 ---
 
 

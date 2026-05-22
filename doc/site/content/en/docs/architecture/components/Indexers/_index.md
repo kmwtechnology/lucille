@@ -1,53 +1,42 @@
 ---
+weight: 9
 title: Indexer
 date: 2025-06-09
 description: An Indexer sends processed Documents to a specific destination.
 ---
 
-## Indexers
+## What an Indexer Does
 
-An *Indexer* is a thread that retrieves processed Documents from the end of a Pipeline and sends them in batches to a specific destination. For users of Lucille, this destination will most commonly be a search engine.
- 
-Only one Indexer can be defined in a Lucille run. 
-All pipelines will feed to the same Indexer.
+An Indexer is the component responsible for delivering processed Documents to their final destination — typically a search engine or vector database. It is the last component in the data flow: Connectors produce Documents, Workers enrich them, and the Indexer sends them to the search backend.
 
-Indexer configuration has two parts:
-* the generic `indexer` configuration
-* configuration for the implementation you are using.
+## Batching
 
-* For example, if you are using Solr, you'd provide `solr` config, or `elastic` for Elasticsearch, `csv` for CSV, etc.
+Indexers do not send documents one at a time. They accumulate documents into batches and flush them as a single bulk API call. This is essential for search engine performance — bulk writes are significantly faster than individual indexing requests, often by an order of magnitude.
 
-Here's what using the SolrIndexer might look like:
-```hocon
-# Generic indexer config
-indexer {
-  type: "solr"
-  blacklist: ["city_temp"]
-  batchSize: 100
-}
-# Specific implementation (Solr) config
-solr {
-  useCloudClient: true
-  url: "localhost:9200"
-  defaultCollection: "test_index"
-}
-```
+A batch is flushed when either of two conditions is met: the batch reaches a configured size, or a timeout expires since the last flush. The timeout ensures documents are not left waiting indefinitely in low-volume scenarios.
 
-At a minimum, `indexer` must contain either `type` or `class`. `type` is shorthand for an indexer provided by `lucille-core` -
-it can be `"Solr"`, `"OpenSearch"`, `"ElasticSearch"`, or `"CSV"`. `indexer` can contain a variety of additional properties as well. 
-Some Indexers do not support certain properties, however. For example, `OpenSearchIndexer` and `ElasticsearchIndexer` do not support
-`indexer.indexOverrideField`.
+## Single Indexer Per Run
 
-The `lucille-core` module contains a number of commonly used indexers. Additional indexers with a large number of dependencies are provided as optional plugin modules.
+Only one Indexer can be defined in a Lucille run. All pipelines feed to the same Indexer. This simplifies the system — there is one destination, one set of batching parameters, one connection to manage — and reflects the common reality that a search ingestion project writes to a single search backend.
 
-### Lucille Indexers (Core)
+When documents from different pipelines need to land in different indices within the same backend, Lucille supports index routing: a field on the document determines which index it is sent to, without requiring multiple Indexer definitions.
 
-* [Solr Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/indexer/SolrIndexer.java)
-* [OpenSearch Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/indexer/OpenSearchIndexer.java)
-* [Elasticsearch Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/indexer/ElasticsearchIndexer.java)
-* [CSV Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/indexer/CSVIndexer.java)
+## Deletion Support
 
-### Lucille Indexers (Plugins)
+Indexers support two deletion mechanisms — delete-by-ID and delete-by-query — triggered by marker fields on the document. This enables CDC patterns and incremental ingestion: a Connector can emit a document that represents "delete this record from the index" rather than "index this record," and the Indexer translates that intent into the appropriate backend operation.
 
-* [Pinecone Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-pinecone/src/main/java/com/kmwllc/lucille/pinecone/indexer/PineconeIndexer.java)
-* [Weaviate Indexer](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-weaviate/src/main/java/com/kmwllc/lucille/weaviate/indexer/WeaviateIndexer.java)
+## Field Filtering
+
+The Indexer applies field filtering at the boundary — stripping internal fields, applying whitelist/blacklist rules — so that only the intended fields reach the search backend. This filtering happens at indexing time, not during pipeline processing, so Stages always see the full document.
+
+## Error Handling at the Batch Level
+
+Search engine bulk APIs can return mixed results: some documents accepted, others rejected. The Indexer inspects per-document responses and reports individual failures without failing the entire batch. Documents that succeed are marked complete; documents that fail are marked failed. Both are tracked in the run summary.
+
+---
+
+## Practical Guide
+
+For how to configure indexers — generic parameters, field filtering, deletion mechanics, and backend-specific settings — see [Indexers]({{< relref "docs/reference/indexers" >}}) in the Ingest Designer Guide.
+
+For how to build a custom Indexer, see [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}).

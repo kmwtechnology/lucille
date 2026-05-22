@@ -39,7 +39,7 @@ public class NopIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     // no-op
     return Set.of();
   }
