@@ -132,7 +132,7 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (bypass) {
       return Set.of();
@@ -211,7 +211,7 @@ public class ElasticsearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = new HashSet<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     BulkResponse response = client.bulk(br.build());
     if (response != null) {
@@ -221,7 +221,7 @@ public class ElasticsearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (documentsUploaded.containsKey(item.id())) {
             Document failedDoc = documentsUploaded.get(item.id());
-            failedDocs.add(Pair.of(failedDoc, item.error().reason()));
+            failedDocs.add(Pair.of(failedDoc, new IndexerException(item.error().reason())));
           } else {
             throw new IndexerException(item.error().reason());
           }
