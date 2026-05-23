@@ -121,6 +121,8 @@ Stages support a `conditions` config block that controls whether `processDocumen
 
 Implement `processDocument()` as if conditions are always met.
 
+For the full reference on all control flow options available to stage and connector authors — including skipping, dropping, error handling, child documents, and connector sequencing — see [Control Flow]({{< relref "docs/reference/control-flow" >}}).
+
 ### Reading & Writing Fields
 
 Lucille's `Document` API supports **single-valued** and **multi-valued** fields with strong typing and convenience updaters.

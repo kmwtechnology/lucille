@@ -115,6 +115,8 @@ doc.setField(Document.DROP_FIELD, true);
 
 ## Child Documents
 
+For the full reference on all control flow options — conditions, skipping, dropping, error handling, child documents, connector sequencing, and pre/post-connector actions — see [Control Flow]({{< relref "docs/reference/control-flow" >}}) in the Ingest Designer Guide.
+
 Lucille has two distinct concepts of child documents: **attached** and **emitted**.
 
 **Attached children** are stored inside a parent via `doc.addChild(childDoc)`. They travel with the parent and are not independently tracked or indexed.
