@@ -3,6 +3,7 @@ package com.kmwllc.lucille.indexer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -130,7 +131,7 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (bypass) {
       return Set.of();
@@ -149,8 +150,7 @@ public class OpenSearchIndexer extends Indexer {
       String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
 
       // if an index override field has been specified, use its value as the index to send to opensearch,
-      String indexOverride = getIndexOverride(doc);
-      final String indexToSend = indexOverride != null ? indexOverride : index;
+      final String indexToSend = Optional.ofNullable(getIndexOverride(doc)).orElse(index);
 
       Pair<String, String> indexAndId = Pair.of(indexToSend, id);
 
@@ -173,7 +173,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = uploadDocuments(documentsToUpload.values());
+    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload);
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
 
@@ -195,7 +195,15 @@ public class OpenSearchIndexer extends Indexer {
       );
     }
 
-    BulkResponse response = client.bulk(br.build());
+    BulkResponse response;
+    try {
+      response = client.bulk(br.build());
+    } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+      throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+    }
+
     if (response.errors()) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
@@ -275,7 +283,15 @@ public class OpenSearchIndexer extends Indexer {
           .index(entry.getKey())
           .query(q -> q.bool(boolQuery.build()))
           .build();
-      DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+
+      DeleteByQueryResponse response;
+      try {
+        response = client.deleteByQuery(deleteByQueryRequest);
+      } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+        throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
+      } catch (IOException e) {
+        throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+      }
 
       if (!response.failures().isEmpty()) {
         for (BulkIndexByScrollFailure failure : response.failures()) {
@@ -286,7 +302,8 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, String>> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Pair<Document, Exception>> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IOException, IndexerException {
+
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }
@@ -294,11 +311,10 @@ public class OpenSearchIndexer extends Indexer {
     Map<String, Document> uploadedDocuments = new HashMap<>();
     BulkRequest.Builder br = new BulkRequest.Builder();
 
-    for (Document doc : documentsToUpload) {
-
-      // if an index override field has been specified, use its value as the index to send to opensearch,
-      String indexOverride = getIndexOverride(doc);
-      final String indexToSend = indexOverride != null ? indexOverride : index;
+    for (Map.Entry<Pair<String, String>, Document> entry : documentsToUpload.entrySet()) {
+      String indexToSend = entry.getKey().getLeft();
+      String docId = entry.getKey().getRight();
+      Document doc = entry.getValue();
 
       // removing fields in the blacklist or not in the whitelist in configurations
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
@@ -306,8 +322,6 @@ public class OpenSearchIndexer extends Indexer {
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
 
-      // if a doc id override value exists, make sure it is used instead of pre-existing doc id
-      String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
       uploadedDocuments.put(docId, doc);
 
       // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
@@ -353,9 +367,18 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = new HashSet<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
-    BulkResponse response = client.bulk(br.build());
+    BulkResponse response;
+    try {
+      response = client.bulk(br.build());
+    } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+      // HTTP-level error with a known status code — wrap so the base Indexer can apply retry policy
+      throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      // Transport-level failure (connection refused, timeout, etc.) — no status code available
+      throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+    }
 
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
@@ -364,7 +387,12 @@ public class OpenSearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (uploadedDocuments.containsKey(item.id())) {
             Document failedDoc = uploadedDocuments.get(item.id());
-            failedDocs.add(Pair.of(failedDoc, item.error().reason()));
+            // item.status() is always an HTTP status code. The OpenSearch bulk API defines the per-item
+            // status field as the HTTP status of that individual operation (e.g. 200, 201, 400, 409, 429,
+            // 503). This is consistent across all OpenSearch client libraries and confirmed by the
+            // OpenSearch REST API documentation and source — there are no documented non-HTTP values.
+            failedDocs.add(Pair.of(failedDoc, new IndexerRetryableException(item.status(),
+                "OpenSearch bulk item error (status " + item.status() + "): " + item.error().reason(), null)));
           } else {
             throw new IndexerException(item.error().reason());
           }

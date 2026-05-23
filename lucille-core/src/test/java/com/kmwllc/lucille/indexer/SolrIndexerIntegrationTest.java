@@ -339,6 +339,99 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     verify(mockCloudHttp2Client).request(Mockito.any(CollectionAdminRequest.ClusterStatus.class));
   }
 
+  @Test
+  public void testDeleteByIdWithIdOverride() throws Exception {
+    JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("solr.url", Arrays.asList(jetty.getBaseUrl().toString()));
+    map.put("solr.useCloudClient", true);
+    map.put("solr.defaultCollection", "test");
+    map.put("indexer.batchTimeout", 5000);
+    map.put("indexer.batchSize", 1);
+    map.put("indexer.type", "solr");
+    map.put("indexer.sendEnabled", true);
+    map.put("indexer.idOverrideField", "other_id");
+    map.put("indexer.deletionMarkerField", "is_delete");
+    map.put("indexer.deletionMarkerFieldValue", "true");
+
+    Config config = ConfigFactory.parseMap(map);
+
+    SolrIndexer indexer = null;
+    IndexerMessenger mockIndexerMessenger = mock(IndexerMessenger.class);
+
+    try {
+      indexer = new SolrIndexer(config, mockIndexerMessenger, false, "solr", null);
+      assertTrue(indexer.validateConnection());
+
+      // Index documents through the indexer with override IDs
+      // These will be stored in Solr with id=override1, override2, doc3
+      Document doc1 = Document.create("doc1");
+      doc1.setField("other_id", "override1");
+      doc1.setField("content", "First document");
+
+      Document doc2 = Document.create("doc2");
+      doc2.setField("other_id", "override2");
+      doc2.setField("content", "Second document");
+
+      // This document does not have an other_id field, so the id remains doc3
+      Document doc3 = Document.create("doc3");
+      doc3.setField("content", "Third document");
+
+      indexer.sendToIndex(List.of(doc1, doc2, doc3));
+
+      cluster.getSolrClient().commit(COL);
+
+      // Verify all 3 documents were indexed with override IDs
+      SolrQuery qr = new SolrQuery();
+      qr.set("q", "*:*");
+      assertEquals(
+          "Should have 3 documents after indexing",
+          3,
+          cluster.getSolrClient().query(COL, qr).getResults().size());
+
+      // Delete document 2 using the override ID mechanism
+      Document deleteDoc = Document.create("override2");
+      deleteDoc.setField("is_delete", "true");
+      indexer.sendToIndex(List.of(deleteDoc));
+      cluster.getSolrClient().commit(COL);
+
+      // Verify only 2 documents remain
+      assertEquals(
+          "One document should have been deleted using the overridden ID",
+          2,
+          cluster.getSolrClient().query(COL, qr).getResults().size());
+
+      // Verify the correct document was deleted (override2)
+      SolrQuery qr2 = new SolrQuery();
+      qr2.set("q", "id:override2");
+      assertEquals(
+          "Document with override2 should be deleted",
+          0,
+          cluster.getSolrClient().query(COL, qr2).getResults().size());
+
+      // Verify the other documents still exist
+      SolrQuery qr1 = new SolrQuery();
+      qr1.set("q", "id:override1");
+      assertEquals(
+          "Document with override1 should still exist",
+          1,
+          cluster.getSolrClient().query(COL, qr1).getResults().size());
+
+      SolrQuery qr3 = new SolrQuery();
+      qr3.set("q", "id:doc3");
+      assertEquals(
+          "Document with doc3 should still exist",
+          1,
+          cluster.getSolrClient().query(COL, qr3).getResults().size());
+
+    } finally {
+      if (indexer != null) {
+        indexer.closeConnection();
+      }
+    }
+  }
+
   @AfterClass
   public static void tearDownClass() throws Exception {
     if (cluster != null) {

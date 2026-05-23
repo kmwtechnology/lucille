@@ -79,6 +79,10 @@ public class ElasticsearchIndexer extends Indexer {
       throw new IllegalArgumentException(
           "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
     }
+    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
+      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
+    }
+
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
@@ -128,7 +132,7 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (bypass) {
       return Set.of();
@@ -207,7 +211,7 @@ public class ElasticsearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = new HashSet<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     BulkResponse response = client.bulk(br.build());
     if (response != null) {
@@ -217,7 +221,7 @@ public class ElasticsearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (documentsUploaded.containsKey(item.id())) {
             Document failedDoc = documentsUploaded.get(item.id());
-            failedDocs.add(Pair.of(failedDoc, item.error().reason()));
+            failedDocs.add(Pair.of(failedDoc, new IndexerException(item.error().reason())));
           } else {
             throw new IndexerException(item.error().reason());
           }

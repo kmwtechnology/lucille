@@ -651,6 +651,43 @@ public class SolrIndexerTest {
     assertEquals(2, delCaptor.getAllValues().size());
   }
 
+  @Test
+  public void testDeleteUsesIdOverride() throws Exception {
+    String deletionMarkerField = "is_deleted";
+    String deletionMarkerFieldValue = "true";
+
+    Config config =
+        ConfigFactory.empty()
+            .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
+            .withValue(
+                "indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+            .withValue(
+                "indexer.deletionMarkerFieldValue",
+                ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue))
+            .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
+    TestMessenger messenger = new TestMessenger();
+
+    Document deletedDoc = Document.create("doc-original", "test_run");
+    deletedDoc.setField("other_id", "doc-override");
+    deletedDoc.addToField(deletionMarkerField, deletionMarkerFieldValue);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    messenger.sendForIndexing(deletedDoc);
+    indexer.run(1);
+
+    ArgumentCaptor<List<String>> delCaptor = ArgumentCaptor.forClass(List.class);
+    InOrder inOrder = inOrder(solrClient);
+
+    inOrder.verify(solrClient).deleteById(delCaptor.capture());
+    inOrder.verify(solrClient).close();
+
+    // delete path should use id override just like index/update paths.
+    assertEquals(1, delCaptor.getAllValues().size());
+    List<String> deletedIds = delCaptor.getValue();
+    assertEquals(1, deletedIds.size());
+    assertEquals("doc-override", deletedIds.get(0));
+  }
 
   @Test
   public void testSolrIndexerAddAddDelete() throws Exception {
@@ -751,7 +788,7 @@ public class SolrIndexerTest {
 
     SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
 
-    Set<Pair<Document, String>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc, doc2, doc3));
     assertEquals(2, failedDocs.size());
     assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft().equals(doc)));
 
@@ -1037,7 +1074,7 @@ public class SolrIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, String>> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to Solr are correctly handled");
     }
   }
