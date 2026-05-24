@@ -5,7 +5,79 @@ date: 2024-10-15
 description: A guide to some common issues and their resolution.
 ---
 
-If something isn't working, **read logs first**. Lucille logs are detailed and will usually identify where the problem is coming from.
+If something isn't working, **read logs first**. Lucille logs are detailed and will usually identify where the problem is coming from. See [Log Analysis]({{< relref "docs/operations/log-analysis" >}}) for a guide to reading Lucille logs.
+
+## Debugging Failed Documents
+
+The run summary reports how many documents failed, but not which ones or why. Here's the workflow for investigating failures.
+
+### Step 1: Find the failed document IDs and reasons
+
+Search the logs for failure messages. These are logged at ERROR level by default:
+
+```bash
+# Pipeline failures (a stage threw StageException)
+grep "Error processing document:" lucille.log
+
+# Indexer failures (search backend rejected the document)
+grep "Sent failure message for doc" lucille.log
+```
+
+Each pipeline failure is followed by a stack trace identifying the stage and exception. Each indexer failure includes the backend's rejection reason. See [Which documents failed?]({{< relref "docs/operations/log-analysis#which-documents-failed" >}}) for more detail.
+
+### Step 2: Understand the failure reason
+
+Common causes:
+
+| Failure type | Typical reasons |
+|---|---|
+| Pipeline (`StageException`) | Required field missing, external service unavailable, malformed data the stage can't parse |
+| Indexer (backend rejection) | Field type mismatch with index mapping, document too large, version conflict |
+| Poison pill (distributed mode) | Document causes a Worker crash repeatedly — often an out-of-memory condition or a bug in a stage |
+
+If the reason is clear from the error message (e.g., "field X is missing"), fix the pipeline config or source data and re-run.
+
+### Step 3: Inspect the document's contents
+
+If you need to see what fields and values the document had at the point of failure:
+
+**Add a `Print` stage before the failing stage.** `Print` logs document contents to a file or stdout. Use conditions to limit output to the specific document:
+
+```hocon
+{
+  class: "com.kmwllc.lucille.stage.Print"
+  conditions: [{ fields: ["id"], values: ["the-failing-doc-id"] }]
+}
+```
+
+**Re-run with a CSV indexer.** Swap your indexer to CSV and re-run. Documents that would have been rejected by the real backend are written to the CSV file where you can inspect their fields. This helps with indexer rejections but not pipeline failures (the document never reaches the indexer if a stage throws).
+
+```hocon
+indexer { type: "CSV" }
+csv { path: "./debug-output.csv", columns: ["id", "title", "problematic_field"] }
+```
+
+**Re-run in test mode (Java).** Use `Runner.runInTestMode()` with the same config and source data. After the run, inspect documents programmatically:
+
+```java
+RunResult result = Runner.runInTestMode(config);
+List<Document> docs = result.getDocsSentForIndexing("my-connector");
+Document problem = docs.stream()
+    .filter(d -> d.getId().equals("the-failing-doc-id"))
+    .findFirst().orElse(null);
+```
+
+**Consume the Kafka fail topic (distributed mode).** Documents that exceeded `worker.maxRetries` are sent to the `{pipeline}_fail` topic with their full serialized content. Consume the topic to inspect the document.
+
+### Step 4: Fix and verify
+
+Once you understand the cause:
+
+- **Missing or malformed field** — add a stage earlier in the pipeline to clean or populate the field, or add conditions so the failing stage skips documents without the required data.
+- **Index mapping mismatch** — update the index mapping to accept the field type, or add a stage to convert the field to the expected type.
+- **Stage bug** — fix the stage code and add a test case for the problematic input.
+
+Re-run with the fix and confirm the failure count drops to zero in the run summary.
 
 ## Build & Java Environment Issues
 
