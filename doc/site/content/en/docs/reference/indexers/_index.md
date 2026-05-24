@@ -43,6 +43,11 @@ solr {
 | `deletionMarkerFieldValue` | String | — | Value in `deletionMarkerField` that triggers a deletion. Both must be set together. |
 | `deleteByFieldField` | String | — | Field name containing the index field to use in a delete-by-query operation. |
 | `deleteByFieldValue` | String | — | Field name containing the value to match in a delete-by-query operation. Both must be set together. |
+| `maxRetries` | Integer | — (disabled) | Maximum retry attempts for a failed batch. Must be > 0 when set. Omit to disable retries entirely. |
+| `retryWaitDurationMs` | Integer (ms) | 1000 | Initial wait duration before the first retry. Subsequent retries use exponential backoff. Requires `maxRetries`. |
+| `retryMaxWaitDurationMs` | Long (ms) | 30000 | Maximum wait duration between retries (caps the exponential backoff). Requires `maxRetries`. |
+| `retryRandomizationFactor` | Double | 0.5 | Jitter factor applied to wait duration. 0.5 means actual wait is 50%–150% of computed backoff. Set to 0.0 to disable jitter. Requires `maxRetries`. |
+| `retryableStatusCodes` | List\<Integer\> | [429, 503, -1] | HTTP status codes that trigger a retry. `-1` means "no status code available" (e.g., network timeout). An empty list is invalid. Requires `maxRetries`. |
 
 ### Field Filtering
 
