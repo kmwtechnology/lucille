@@ -106,6 +106,26 @@ There are legitimate exceptions. Some stages return early from `processDocument(
 
 For the full conditions reference and all other control flow options — skipping, dropping, error handling, child documents, and connector sequencing — see [Control Flow]({{< relref "docs/reference/control-flow" >}}).
 
+## Stage Scope: One Stage or Several?
+
+When designing a stage, you'll sometimes face the question of whether to build one stage that performs multiple internal steps, or several smaller stages that the user composes in config.
+
+**Prefer a single stage when:**
+- The intermediate state is only needed to connect internal operations and is not used by any other stage in the pipeline. Creating a field, using it once, and deleting it is three stages of ceremony for what should be one stage of work.
+- Splitting would require the user to configure matching field names across stages and then clean up afterward.
+- The combined operation is conceptually one thing from the user's perspective (e.g., "look up the hash of this field in a dictionary" — the hash is an implementation detail, not a user-visible artifact).
+
+**Prefer separate stages when:**
+- The intermediate result is actually used elsewhere in the pipeline — another stage reads it, it's indexed, or it's used in a condition.
+- The operations are independently reusable *and* the user is actually reusing them independently in this pipeline.
+- The operations need different conditions or different error handling.
+
+**Pipeline simplicity is a valid design goal.** A pipeline where many stages exist only to create or clean up intermediate fields is harder to read, harder to maintain, and more error-prone than one where each stage does a complete unit of work. The user shouldn't have to think about plumbing between stages when the plumbing serves no purpose beyond connecting internals.
+
+That said, if a stage becomes so large that it's doing several unrelated things and has a dozen config parameters, it's probably too big — not because of the intermediate field question, but because it's no longer a focused, testable unit.
+
+**The balance:** One stage should do one *user-visible* thing, even if that thing involves multiple internal steps. The litmus test is: would a user in this pipeline benefit from the intermediate field existing as a separate, visible document field? If not, keep it internal to a single stage.
+
 ## Reading & Writing Fields
 
 For the Document API — reading fields, writing fields, update modes, nested JSON, and supported types — see [The Document API]({{< relref "docs/developer-guide/quick-reference#the-document-api" >}}) in the Quick Reference.
