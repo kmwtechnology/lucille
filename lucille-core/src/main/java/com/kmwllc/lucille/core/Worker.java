@@ -95,16 +95,16 @@ class Worker implements Runnable {
 
         if (trackRetries && counter.add(doc)) {
           try {
-            log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
+            docLogger.error("Retry count exceeded for document {}; Sending to failure topic", doc.getId());
             messenger.sendFailed(doc);
           } catch (Exception e) {
-            log.error("Failed to send doc to failure topic: " + doc.getId(), e);
+            docLogger.error("Failed to send doc to failure topic: {}", doc.getId(), e);
           }
 
           try {
             messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
           } catch (Exception e) {
-            log.error("Failed to send completion event for: " + doc.getId(), e);
+            docLogger.error("Failed to send completion event for: {}", doc.getId(), e);
           }
 
           commitOffsetsAndRemoveCounter(doc);
@@ -139,11 +139,11 @@ class Worker implements Runnable {
 
           context.stop();
         } catch (Exception e) {
-          log.error("Error processing document: " + doc.getId(), e);
+          docLogger.error("Error processing document: {}", doc.getId(), e);
           try {
             messenger.sendEvent(doc, null, Event.Type.FAIL);
           } catch (Exception e2) {
-            log.error("Error sending failure event for document: " + doc.getId(), e2);
+            docLogger.error("Error sending failure event for document: {}", doc.getId(), e2);
           }
 
           commitOffsetsAndRemoveCounter(doc);

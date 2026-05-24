@@ -438,7 +438,7 @@ public abstract class Indexer implements Runnable {
           messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
           docLogger.info("Sent success message for doc {}.", d.getId());
         } catch (Exception e) {
-          log.error("Error sending completion event for doc {}. RUN WILL HANG.", d.getId(), e);
+          docLogger.error("Error sending completion event for doc {}. RUN WILL HANG.", d.getId(), e);
         } finally {
           if (d.getRunId() != null) {
             MDC.popByKey(RUNID_FIELD);
@@ -480,7 +480,7 @@ public abstract class Indexer implements Runnable {
       messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
       docLogger.error("Sent failure message for doc {}. Reason: {}", d.getId(), reason);
     } catch (Exception e) {
-      log.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
+      docLogger.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
     } finally {
       if (d.getRunId() != null) {
         MDC.popByKey(RUNID_FIELD);
