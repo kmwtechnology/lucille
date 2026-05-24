@@ -32,6 +32,8 @@ To create a Stage, extend the abstract `Stage` class and implement `processDocum
 
 Your constructor must call `super(config)` — this triggers SPEC validation and condition parsing. After `super()` returns, you can safely read config values into instance fields.
 
+**What's in `config`:** The `Config` passed to your Stage constructor contains only the properties defined inside your stage's config block — the `{ ... }` element from the `stages` list. It does not contain the full Lucille config. You read your parameters directly: `config.getString("myParam")`. Your SPEC should declare only the properties that belong to your stage.
+
 ---
 
 ## Stage Skeleton

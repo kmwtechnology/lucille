@@ -39,6 +39,8 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 
 Your constructor must call `super(config, messenger, bypass, metricsPrefix, localRunId)` — this triggers config validation, sets up batching, and initializes metrics. The constructor signature must be `(Config, IndexerMessenger, boolean, String, String)` because the `IndexerFactory` instantiates indexers reflectively using this signature.
 
+**What's in `config`:** Unlike Stages and Connectors, the `Config` passed to your Indexer constructor is the **full root config** for the entire Lucille run. The base class reads generic settings from `config.getString("indexer.idOverrideField")` etc. Your implementation reads its own block via `config.getConfig("mykey")` (e.g., `config.getConfig("solr")`). Your SPEC declares only the properties within your implementation-specific block — write `"url"`, not `"solr.url"`. The base class validates the generic `indexer` block separately.
+
 **Two-level config:** Unlike Stages and Connectors, Indexers have a split config. The generic `indexer {}` block (batch size, field filtering, deletion markers, retries) is validated and consumed by the base class. Your implementation-specific block (e.g., `solr {}`, `opensearch {}`) is validated against your `SPEC` and read in your constructor. Your SPEC should only declare properties within your block — write `"url"`, not `"solr.url"`.
 
 ---

@@ -46,6 +46,8 @@ The `Publisher` passed to `execute()` is your interface to the rest of the Lucil
 
 Your constructor must call `super(config)` — this triggers SPEC validation and parses the common connector properties.
 
+**What's in `config`:** The `Config` passed to your Connector constructor contains only the properties defined inside your connector's config block — the `{ ... }` element from the `connectors` list. It does not contain the full Lucille config. You read your parameters directly: `config.getString("sourceUri")`. Your SPEC should declare only the properties that belong to your connector.
+
 See [Control Flow: Pre- and Post-Connector Actions]({{< relref "docs/reference/control-flow" >}}) for the full lifecycle contract, including what happens when each method throws.
 
 ---
