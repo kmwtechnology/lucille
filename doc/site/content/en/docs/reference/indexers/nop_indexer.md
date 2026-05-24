@@ -42,4 +42,8 @@ solr { url: "http://localhost:8983/solr/my-collection" }
 
 ## Use in RunType.TEST
 
-`Runner.runInTestMode()` uses NopIndexer internally, so you don't need to configure it explicitly in test configs. Any `indexer` block in a test config is ignored when using `runInTestMode()`.
+`Runner.runInTestMode()` does not use NopIndexer. Instead, it creates the configured indexer with `bypass=true`, which causes `sendToIndex()` to skip the actual backend call while still running the full indexer loop (batching, events, metrics). This means your test config still needs a valid `indexer` block — but the backend does not need to be running. If you want to avoid configuring a backend block entirely in test configs, use NopIndexer explicitly:
+
+```hocon
+indexer { type: "Nop" }
+```
