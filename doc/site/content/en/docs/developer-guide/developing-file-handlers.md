@@ -217,3 +217,170 @@ public class YamlFileHandlerTest {
 Place test YAML files under `src/test/resources/YamlFileHandlerTest/`.
 
 For full pipeline integration tests, see [Testing Pipelines]({{< relref "docs/developer-guide/testing" >}}).
+
+---
+
+## Custom File Content Fetchers
+
+Several built-in stages (`ApplyFileHandlers`, `FetchFileContent`, `TextExtractor`, `ExtractEntities`) need to read file content from a path stored on a document. They do this through a `FileContentFetcher` — an interface that resolves a path string to an `InputStream`. The default implementation handles local files, classpath resources, and cloud storage (S3, Azure, GCS) transparently.
+
+If you need custom path resolution logic — for example, looking up a path in a database, fetching content from a proprietary CMS API, or interpreting paths relative to a document's metadata — you can provide a custom `FileContentFetcher` implementation.
+
+### How it works
+
+Any stage that uses `FileContentFetcher.create(config)` supports the `fetcherClass` config property. When present, the factory instantiates your class instead of the default:
+
+```hocon
+{
+  class: "com.kmwllc.lucille.stage.ApplyFileHandlers"
+  filePathField: "file_path"
+  fetcherClass: "com.mycompany.lucille.fetcher.CmsFetcher"
+  cmsUrl: "https://cms.example.com/api"
+  cmsToken: ${CMS_TOKEN}
+  fileHandlers: { pdf: {} }
+}
+```
+
+The entire stage config is passed to your fetcher's constructor, so you can read any additional properties you need (like `cmsUrl` and `cmsToken` above).
+
+### The interface
+
+```java
+public interface FileContentFetcher {
+
+  void startup() throws IOException;
+
+  void shutdown();
+
+  InputStream getInputStream(String path) throws IOException;
+
+  InputStream getInputStream(String path, Document doc) throws IOException;
+
+  BufferedReader getReader(String path) throws IOException;
+
+  BufferedReader getReader(String path, Document doc) throws IOException;
+
+  BufferedReader getReader(String path, String encoding) throws IOException;
+
+  BufferedReader getReader(String path, String encoding, Document doc) throws IOException;
+
+  int countLines(String path) throws IOException;
+
+  int countLines(String path, Document doc) throws IOException;
+}
+```
+
+The `Document`-accepting overloads allow your fetcher to make decisions based on document metadata — for example, using a field on the document to determine which storage system to query.
+
+### Lifecycle
+
+- `startup()` is called once when the stage's `start()` method runs (once per worker thread). Open connections here.
+- `shutdown()` is called when the stage's `stop()` method runs. Close connections here.
+- `getInputStream()` / `getReader()` are called per document during `processDocument()`.
+
+### Skeleton
+
+```java
+package com.mycompany.lucille.fetcher;
+
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.util.FileContentFetcher;
+import com.typesafe.config.Config;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+/**
+ * Fetches file content from a CMS API. The path is interpreted as a CMS asset ID.
+ */
+public class CmsFetcher implements FileContentFetcher {
+
+  private final String cmsUrl;
+  private final String cmsToken;
+
+  public CmsFetcher(Config config) {
+    this.cmsUrl = config.getString("cmsUrl");
+    this.cmsToken = config.getString("cmsToken");
+  }
+
+  @Override
+  public void startup() throws IOException {
+    // Validate connectivity if needed
+  }
+
+  @Override
+  public void shutdown() {
+    // Close any persistent connections
+  }
+
+  @Override
+  public InputStream getInputStream(String path) throws IOException {
+    URL url = new URL(cmsUrl + "/assets/" + path + "/content");
+    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    conn.setRequestProperty("Authorization", "Bearer " + cmsToken);
+    return conn.getInputStream();
+  }
+
+  @Override
+  public InputStream getInputStream(String path, Document doc) throws IOException {
+    // Could use doc metadata to determine the CMS tenant, version, etc.
+    return getInputStream(path);
+  }
+
+  @Override
+  public BufferedReader getReader(String path) throws IOException {
+    return new BufferedReader(new InputStreamReader(getInputStream(path), "utf-8"));
+  }
+
+  @Override
+  public BufferedReader getReader(String path, Document doc) throws IOException {
+    return new BufferedReader(new InputStreamReader(getInputStream(path, doc), "utf-8"));
+  }
+
+  @Override
+  public BufferedReader getReader(String path, String encoding) throws IOException {
+    return new BufferedReader(new InputStreamReader(getInputStream(path), encoding));
+  }
+
+  @Override
+  public BufferedReader getReader(String path, String encoding, Document doc) throws IOException {
+    return new BufferedReader(new InputStreamReader(getInputStream(path, doc), encoding));
+  }
+
+  @Override
+  public int countLines(String path) throws IOException {
+    try (BufferedReader reader = getReader(path)) {
+      int lines = 0;
+      while (reader.readLine() != null) lines++;
+      return lines;
+    }
+  }
+
+  @Override
+  public int countLines(String path, Document doc) throws IOException {
+    try (BufferedReader reader = getReader(path, doc)) {
+      int lines = 0;
+      while (reader.readLine() != null) lines++;
+      return lines;
+    }
+  }
+}
+```
+
+### Stages that support fetcherClass
+
+Any stage that calls `FileContentFetcher.create(config)` in its constructor supports this extension point:
+
+- `ApplyFileHandlers` — applies FileHandlers to content fetched from a path field
+- `FetchFileContent` — fetches raw file content into a document field
+- `TextExtractor` (lucille-tika plugin) — extracts text from binary files
+- `ExtractEntities` — loads entity dictionaries from file paths
+
+### What's in `config`
+
+Your fetcher's constructor receives the **full stage config** — the same Config object the stage itself received. This means you can add custom properties alongside the stage's own properties. Your fetcher reads what it needs; the stage reads what it needs; the SPEC validates both (add your fetcher's properties to the stage's SPEC, or accept that they'll be flagged as unknown unless you also declare them).
+
+In practice, stages that support `fetcherClass` include it in their SPEC via `FileContentFetcher.SPEC`, which declares `fetcherClass` as an optional string. Additional properties specific to your fetcher implementation are not validated by the stage's SPEC — they will be flagged as unknown properties unless the stage's SPEC is extended to include them. This is a known limitation; a future improvement may allow fetcher-specific SPEC declarations.

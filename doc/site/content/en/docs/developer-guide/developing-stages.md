@@ -110,6 +110,42 @@ For the full conditions reference and all other control flow options — skippin
 
 For the Document API — reading fields, writing fields, update modes, nested JSON, and supported types — see [The Document API]({{< relref "docs/developer-guide/quick-reference#the-document-api" >}}) in the Quick Reference.
 
+## Fetching File Content
+
+If your stage needs to read file content from a path stored on a document (e.g., fetching a PDF for text extraction, loading a dictionary file, reading a template), use `FileContentFetcher` rather than opening files directly. This gives your stage transparent support for local files, classpath resources, and cloud storage (S3, Azure, GCS) — and allows users to plug in a custom fetcher via the `fetcherClass` config property.
+
+```java
+private FileContentFetcher fileFetcher;
+
+@Override
+public void start() throws StageException {
+  this.fileFetcher = FileContentFetcher.create(config);
+  try {
+    fileFetcher.startup();
+  } catch (IOException e) {
+    throw new StageException("Failed to initialize file fetcher", e);
+  }
+}
+
+@Override
+public Iterator<Document> processDocument(Document doc) throws StageException {
+  String path = doc.getString("file_path");
+  try (InputStream is = fileFetcher.getInputStream(path)) {
+    // process the file content
+  } catch (IOException e) {
+    throw new StageException("Failed to fetch " + path, e);
+  }
+  return null;
+}
+
+@Override
+public void stop() throws StageException {
+  fileFetcher.shutdown();
+}
+```
+
+By using `FileContentFetcher.create(config)`, your stage automatically supports the `fetcherClass` config property — users can substitute a custom implementation that resolves paths differently (e.g., fetching from a CMS API or interpreting paths relative to document metadata). See [Custom File Content Fetchers]({{< relref "docs/developer-guide/developing-file-handlers#custom-file-content-fetchers" >}}) for details on implementing a custom fetcher.
+
 ## Unit Testing
 
 Stage unit tests follow a consistent pattern: create a stage from a config, create a document, call `processDocument()`, and assert on the document's state afterward.
