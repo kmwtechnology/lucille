@@ -95,7 +95,7 @@ class Worker implements Runnable {
 
         if (trackRetries && counter.add(doc)) {
           try {
-            docLogger.error("Retry count exceeded for document {}; Sending to failure topic", doc.getId());
+            docLogger.error("Document FAILED: retry count exceeded for {}. Sending to dead letter queue.", doc.getId());
             messenger.sendFailed(doc);
           } catch (Exception e) {
             docLogger.error("Failed to send doc to failure topic: {}", doc.getId(), e);
@@ -139,7 +139,7 @@ class Worker implements Runnable {
 
           context.stop();
         } catch (Exception e) {
-          docLogger.error("Error processing document: {}", doc.getId(), e);
+          docLogger.error("Document FAILED during pipeline processing: {}", doc.getId(), e);
           try {
             messenger.sendEvent(doc, null, Event.Type.FAIL);
           } catch (Exception e2) {

@@ -478,7 +478,7 @@ public abstract class Indexer implements Runnable {
         MDC.pushByKey(RUNID_FIELD, d.getRunId());
       }
       messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
-      docLogger.error("Sent failure message for doc {}. Reason: {}", d.getId(), reason);
+      docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
     } catch (Exception e) {
       docLogger.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
     } finally {
