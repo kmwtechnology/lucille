@@ -1090,4 +1090,41 @@ public class RunnerTest {
     }
   }
 
+  /**
+   * Verifies that when a document fails during pipeline processing, its full JSON is logged
+   * to the FailedDocuments logger, and that the JSON can be parsed back into a Document
+   * (i.e., it is valid for replay via FileConnector with the JSON handler).
+   */
+  @Test
+  public void testFailedDocumentLogging() throws Exception {
+    StoringAppender appender = null;
+    Logger logger = null;
+
+    try {
+      appender = new StoringAppender();
+      appender.start();
+      logger = (Logger) LogManager.getLogger("com.kmwllc.lucille.core.FailedDocuments");
+      logger.setLevel(org.apache.logging.log4j.Level.ERROR);
+      logger.addAppender(appender);
+
+      Runner.run(ConfigFactory.load("RunnerTest/failedDocLogging.conf"), Runner.RunType.TEST);
+
+      // Only doc1 should fail (shouldFail=true); doc2 should succeed (shouldFail=false)
+      List<String> messages = appender.getMessages();
+      assertEquals(1, messages.size());
+
+      // Verify the logged JSON is valid and round-trips back to a Document
+      String failedJson = messages.get(0);
+      Document replayed = Document.createFromJson(failedJson);
+      assertEquals("doc1", replayed.getId());
+      assertEquals("Hello World", replayed.getString("title"));
+
+    } finally {
+      if (logger != null && appender != null) {
+        logger.removeAppender(appender);
+        appender.stop();
+      }
+    }
+  }
+
 }

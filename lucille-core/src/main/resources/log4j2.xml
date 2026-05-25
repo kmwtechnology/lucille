@@ -35,6 +35,31 @@
         <!-- <Password>admin</Password>-->
         <!-- <Url>http://localhost:9200</Url>-->
         <!-- </OpensearchAppender>-->
+
+        <!-- Appender for failed document JSON. Writes one JSON object per line (JSONL format).
+             Used by the FailedDocuments logger below. -->
+        <RollingFile name="failed-docs" fileName="./log/failed-documents.jsonl"
+                     filePattern="./log/failed-documents-%i.jsonl">
+            <PatternLayout pattern="%m%n" />
+            <Policies>
+                <SizeBasedTriggeringPolicy size="50 MB" />
+            </Policies>
+            <DefaultRolloverStrategy max="5" />
+        </RollingFile>
+
+        <!-- Alternative: one file per run ID. Uncomment this Routing appender and use
+             "failed-docs-routing" instead of "failed-docs" in the FailedDocuments logger below.
+             Each run produces its own file (e.g., failed-documents-run_abc123.jsonl). -->
+        <!-- <Routing name="failed-docs-routing">
+            <Routes pattern="$${ctx:run_id}">
+                <Route>
+                    <File name="failed-docs-${ctx:run_id}"
+                          fileName="./log/failed-documents-${ctx:run_id}.jsonl">
+                        <PatternLayout pattern="%m%n" />
+                    </File>
+                </Route>
+            </Routes>
+        </Routing> -->
     </Appenders>
     <Loggers>
 <!--    NOTE: Replace the "file" AppenderRef with "file-json" if you would like to enable json logging.  -->
@@ -58,6 +83,13 @@
 
         <!-- Uncomment to have the DocLogger statements sent to OpenSearch -->
         <!-- <AppenderRef ref="OpenSearch" />-->
+        </Logger>
+
+        <!-- Logs the full JSON of failed documents, one per line (JSONL format).
+             To enable, uncomment the appender above and change level from OFF to ERROR. 
+             The resulting file can be replayed via FileConnector with the JSON handler. -->
+        <Logger name="com.kmwllc.lucille.core.FailedDocuments" level="OFF" additivity="false">
+            <AppenderRef ref="failed-docs" />
         </Logger>
 
         <!-- Higher level for logging from Ollama4j. At "INFO" it logs every time an LLM request is made and provides
