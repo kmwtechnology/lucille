@@ -98,22 +98,92 @@ kafka {
 }
 ```
 
-### Kafka Topic Naming
+### Kafka Topic Setup
 
-Lucille auto-creates Kafka topics named after the pipeline. For a pipeline named `my_pipeline`:
+Lucille uses Kafka topics to pass documents between components. The topics you need depend on whether your Kafka broker has `auto.create.topics.enable` set to `true` (the default) or `false`.
 
-| Topic | Name | Purpose |
-|---|---|---|
-| Source | `my_pipeline_source` | Runner → Worker: documents to process |
-| Destination | `my_pipeline_dest` | Worker → Indexer: processed documents |
-| Event | `my_pipeline_event_{runId}` | Worker/Indexer → Publisher: lifecycle events |
-| Fail | `my_pipeline_fail` | Dead-letter queue for poison-pill documents |
+#### If auto-create is enabled
 
-The per-run suffix on the event topic prevents events from one run interfering with another when multiple runs overlap. These topic names are useful to know when debugging with Kafka CLI tools.
+Lucille will create topics automatically on first use. No manual setup is required. However:
 
-**Important (batch mode only):** Because each batch run creates a new event topic (with a unique run_id in the name), the Lucille process must have Kafka Admin API permissions to create topics. Lucille creates the event topic explicitly via the Admin API to guarantee it has exactly 1 partition (required for event ordering). Kafka's `auto.create.topics.enable` is NOT sufficient because auto-created topics use the broker's default partition count, which would break the Publisher's accounting logic. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertyFile`. This requirement does not apply in streaming mode — when events are disabled or when `kafka.eventTopic` is set to a fixed name, no new topics are created per run. See [Per-Run Event Topics]({{< relref "docs/architecture/internals/kafka-integration" >}}) for the architectural rationale.
+- Auto-created topics use the broker's `num.partitions` default (typically 1). This limits parallelism — see the partition guidance below.
+- Lucille does not clean up topics after a run. Event topics accumulate over time (one per run). Consider a retention policy or periodic cleanup.
+- The event topic is an exception: Lucille always creates it explicitly via the Kafka Admin API with exactly 1 partition, regardless of `auto.create.topics.enable`. This requires Admin API permissions on the Kafka cluster.
 
-The fail topic is written to when a document exceeds `worker.maxRetries` — the Worker routes the document there instead of crashing, and the rest of the ingest continues. Documents in the fail topic can be inspected with standard Kafka tooling, corrected if needed, and replayed by pointing a `FileConnector` (or a custom producer) at the topic. Requires `worker.maxRetries` and ZooKeeper to be configured; without them, a poison-pill document will crash and restart the Worker process repeatedly.
+#### If auto-create is disabled
+
+Create the following topics before starting Lucille:
+
+| Topic | Default name | Override | Partitions | Created by |
+|---|---|---|---|---|
+| Source | `{pipeline}_source` | `kafka.sourceTopic` | ≥ total Worker threads across all processes | Admin |
+| Dest | `{pipeline}_dest` | — (not overridable) | ≥ number of Indexer processes (typically 1) | Admin |
+| Event | `{pipeline}_event_{runId}` | `kafka.eventTopic` | Exactly 1 (required for ordering) | Lucille creates this automatically via Admin API |
+| Fail | `{pipeline}_fail` | — (not overridable) | ≥ 1 | Admin (only needed if `worker.maxRetries` is configured) |
+
+**Example** — for a pipeline named `my-pipeline` with 8 Worker threads:
+
+```bash
+kafka-topics.sh --create --topic my-pipeline_source \
+  --partitions 8 --replication-factor 2 \
+  --bootstrap-server kafka:9092
+
+kafka-topics.sh --create --topic my-pipeline_dest \
+  --partitions 1 --replication-factor 2 \
+  --bootstrap-server kafka:9092
+
+# Only if worker.maxRetries is configured:
+kafka-topics.sh --create --topic my-pipeline_fail \
+  --partitions 1 --replication-factor 2 \
+  --bootstrap-server kafka:9092
+```
+
+You do **not** need to create the event topic — Lucille creates it automatically at the start of each run via the Admin API. This requires that the Kafka user Lucille connects with has `CreateTopics` permission. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertyFile`.
+
+#### Topic details
+
+**Source topic** (`{pipeline}_source`)
+
+The Runner publishes documents here; Workers consume from it. The partition count determines the maximum number of Worker threads that can consume in parallel — excess threads beyond the partition count will sit idle. Set the partition count to at least the total number of Worker threads you plan to run across all Worker processes.
+
+Override the name with `kafka.sourceTopic` in your config if you need a custom topic name (e.g., when consuming from a topic managed by another system in streaming mode).
+
+**Dest topic** (`{pipeline}_dest`)
+
+Workers publish processed documents here; the Indexer consumes from it. A single partition is sufficient for most deployments because the Indexer is rarely the bottleneck — it sends batched bulk requests to the search backend and is I/O-bound on the backend's write capacity, not on Kafka consumption. Multiple partitions are only needed if you run multiple Indexer processes (uncommon).
+
+The name is not overridable — it is always `{pipeline}_dest`.
+
+**Event topic** (`{pipeline}_event_{runId}`)
+
+Workers and Indexers publish lifecycle events here (CREATE, FINISH, FAIL, DROP); the Publisher on the Runner process consumes them to track run completion. This topic **must** have exactly 1 partition to guarantee FIFO ordering — if events arrive out of order, the Publisher's accounting logic can be corrupted (e.g., a child's FINISH arriving before its CREATE).
+
+Lucille creates this topic explicitly via the Kafka Admin API at the start of each batch run. In batch mode, each run gets its own event topic (the run ID is in the topic name), which prevents events from one run interfering with another when multiple runs overlap. You do not pre-create it.
+
+In streaming mode (no Runner), you can either disable events entirely (`kafka.events: false`) or set a fixed topic name (`kafka.eventTopic: "my_fixed_event_topic"`) and pre-create it with 1 partition.
+
+**Fail topic** (`{pipeline}_fail`)
+
+The Worker publishes poison-pill documents here when they exceed `worker.maxRetries`. This topic is only used when `worker.maxRetries` is configured (which also requires ZooKeeper). If you don't use retry tracking, this topic is never written to and doesn't need to exist.
+
+Documents in the fail topic can be inspected with standard Kafka tooling, corrected if needed, and replayed by pointing a connector at the topic. The topic relies on auto-creation or must be pre-created by an admin — Lucille does not create it via the Admin API.
+
+The name is not overridable — it is always `{pipeline}_fail`.
+
+#### Permissions required
+
+The Kafka user Lucille connects with needs:
+
+| Permission | Reason |
+|---|---|
+| `CreateTopics` | Lucille creates the event topic via Admin API at the start of each batch run |
+| `Produce` on source topic | The Runner publishes documents to the source topic |
+| `Produce` on dest topic | Workers publish processed documents to the dest topic |
+| `Produce` on event topic | Workers and Indexers publish lifecycle events |
+| `Produce` on fail topic | Workers publish poison-pill documents (if `maxRetries` is configured) |
+| `Consume` on source topic | Workers consume documents for processing |
+| `Consume` on dest topic | Indexer consumes documents for indexing |
+| `Consume` on event topic | The Runner's Publisher consumes lifecycle events |
 
 ### Start Order
 
