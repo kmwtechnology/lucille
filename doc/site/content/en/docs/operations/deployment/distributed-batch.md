@@ -11,53 +11,36 @@ In distributed mode, each Lucille component runs as its own JVM process. All int
 
 **Best for:** Large-scale batch ingests, multi-machine deployments, horizontal scaling.
 
-### Starting the Runner
+---
 
-The Runner publishes documents to Kafka and waits for all work to complete:
+## Prerequisites
 
-```bash
-java \
-  -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
-  com.kmwllc.lucille.core.Runner \
-  -usekafka
-```
+Before starting any Lucille component in distributed mode, ensure:
 
-### Starting Workers
+- **Kafka** is running and reachable from all machines that will run Lucille components
+- **Kafka topics** are created for each pipeline referenced by your connectors (or auto-creation is enabled on the broker) — see [Kafka Topic Setup](#kafka-topic-setup) for details
+- **Workers and Indexer** are running for each pipeline referenced by your connectors — see [Starting Each Component](#starting-each-component)
+- **Search backend** collection/index exists (Solr, OpenSearch, Elasticsearch, etc.)
+- **ZooKeeper** is running (only if using `worker.maxRetries` for poison-pill protection)
+- **Same config file** is available to all Lucille processes (Runner, Workers, Indexer)
 
-Start one or more Worker processes, each consuming from the Kafka source topic:
+---
 
-```bash
-java \
-  -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
-  com.kmwllc.lucille.core.Worker \
-  my-pipeline-name
-```
+## Start Order
 
-Adding more Worker processes increases throughput proportionally. Workers join the same Kafka consumer group — Kafka distributes partitions automatically.
+Start components in this order:
 
-### Starting the Indexer
+1. **ZooKeeper** (if using `worker.maxRetries`)
+2. **Kafka**
+3. **Workers** — start consuming before any documents arrive
+4. **Indexer** — create the search backend collection/index first, then start the Indexer process
+5. **Runner** — triggers the run once Workers and Indexer are ready
 
-```bash
-java \
-  -Dconfig.file=/path/to/config.conf \
-  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
-  com.kmwllc.lucille.core.Indexer \
-  my-pipeline-name
-```
+The Runner should be started **last**. It immediately begins publishing documents to Kafka. If Workers or the Indexer aren't ready, documents will queue on the source topic (which is fine) but the run won't complete until they start consuming.
 
-### Long-Running Workers and Indexers
+---
 
-Worker and Indexer processes are **long-running services** — they are not started or stopped by the Runner. A Runner invocation triggers a single batch run and exits when it completes, but the Workers and Indexers that processed its documents keep running and are ready to handle the next run immediately.
-
-**Sequential runs share the same processes.** You can invoke the Runner repeatedly — nightly, hourly, or on demand — against the same pool of Workers and Indexers without restarting them. Each invocation is an independent run with its own accounting; the processes simply continue consuming from the source topic.
-
-**Concurrent runs are supported.** Multiple Runner invocations can be active simultaneously, all handled by the same Workers and Indexers. Documents from different runs are interleaved on the Kafka source topic and processed without any per-run coordination. The constraint is that all concurrent runs must share the same pipeline name and indexer configuration.
-
-**How run isolation works.** The Publisher stamps a unique `run_id` on every document it publishes. When a Worker or Indexer sends a lifecycle event (FINISH, FAIL, DROP) for a document, it reads the `run_id` from that document to determine which Kafka event topic to write to. Each run has its own dedicated event topic named `{pipeline}_event_{runId}`. The Publisher for each Runner invocation only consumes its own event topic, so completion accounting is completely isolated — concurrent runs do not interfere with each other.
-
-### Kafka Configuration Block
+## Kafka Configuration
 
 All distributed-mode Kafka settings belong in a top-level `kafka {}` block shared by all components:
 
@@ -65,7 +48,7 @@ All distributed-mode Kafka settings belong in a top-level `kafka {}` block share
 kafka {
   bootstrapServers: "kafka1:9092,kafka2:9092"
 
-  # Consumer group ID for all Lucille Workers
+  # Consumer group ID for all Lucille Workers and Indexers
   consumerGroupId: "lucille_workers"
 
   # Maximum time between polls before consumer is evicted from consumer group
@@ -98,11 +81,13 @@ kafka {
 }
 ```
 
-### Kafka Topic Setup
+---
 
-Lucille uses Kafka topics to pass documents between components. The topics you need depend on whether your Kafka broker has `auto.create.topics.enable` set to `true` (the default) or `false`.
+## Kafka Topic Setup
 
-#### If auto-create is enabled
+Lucille uses Kafka topics to pass documents between components. If your Kafka broker has `auto.create.topics.enable` set to `true` (the default), you don't need to create any topics yourself. If auto-create is disabled, you must pre-create certain topics before starting Lucille.
+
+### If auto-create is enabled
 
 Lucille will create topics automatically on first use. No manual setup is required. However:
 
@@ -110,7 +95,7 @@ Lucille will create topics automatically on first use. No manual setup is requir
 - Lucille does not clean up topics after a run. Event topics accumulate over time (one per run). Consider a retention policy or periodic cleanup.
 - The event topic is an exception: Lucille always creates it explicitly via the Kafka Admin API with exactly 1 partition, regardless of `auto.create.topics.enable`. This requires Admin API permissions on the Kafka cluster.
 
-#### If auto-create is disabled
+### If auto-create is disabled
 
 Create the following topics before starting Lucille:
 
@@ -140,7 +125,7 @@ kafka-topics.sh --create --topic my-pipeline_fail \
 
 You do **not** need to create the event topic — Lucille creates it automatically at the start of each run via the Admin API. This requires that the Kafka user Lucille connects with has `CreateTopics` permission. If your Kafka cluster requires separate admin credentials, provide them via `kafka.adminPropertyFile`.
 
-#### Topic details
+### Topic details
 
 **Source topic** (`{pipeline}_source`)
 
@@ -170,7 +155,7 @@ Documents in the fail topic can be inspected with standard Kafka tooling, correc
 
 The name is not overridable — it is always `{pipeline}_fail`.
 
-#### Permissions required
+### Permissions required
 
 The Kafka user Lucille connects with needs:
 
@@ -185,19 +170,68 @@ The Kafka user Lucille connects with needs:
 | `Consume` on dest topic | Indexer consumes documents for indexing |
 | `Consume` on event topic | The Runner's Publisher consumes lifecycle events |
 
-### Start Order
+---
 
-Start components in this order:
-1. ZooKeeper (if using `worker.maxRetries`)
-2. Kafka
-3. Workers (start consuming before any documents arrive)
-4. Indexer (initialize the search backend collection/index first, then start the Indexer process)
-5. Runner (triggers the run once Workers and Indexer are ready)
+## Starting Each Component
 
-The Indexer must be ready before the Runner starts. If the search backend collection does not yet exist, create it in the Indexer's startup script before launching the Indexer process — for example:
+### Runner
+
+The Runner publishes documents to Kafka and waits for all work to complete:
+
+```bash
+java \
+  -Dconfig.file=/path/to/config.conf \
+  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  com.kmwllc.lucille.core.Runner \
+  -usekafka
+```
+
+### Workers
+
+Start one or more Worker processes, each consuming from the Kafka source topic:
+
+```bash
+java \
+  -Dconfig.file=/path/to/config.conf \
+  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  com.kmwllc.lucille.core.Worker \
+  my-pipeline-name
+```
+
+Adding more Worker processes increases throughput proportionally. Workers join the same Kafka consumer group — Kafka distributes partitions automatically.
+
+### Indexer
+
+```bash
+java \
+  -Dconfig.file=/path/to/config.conf \
+  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
+  com.kmwllc.lucille.core.Indexer \
+  my-pipeline-name
+```
+
+If the search backend collection does not yet exist, create it before launching the Indexer:
 
 ```bash
 # Create Solr collection, then start Indexer
 curl 'http://solr:8983/solr/admin/collections?action=CREATE&name=my-collection&numShards=1&collection.configName=_default'
 java -Dconfig.file=/conf/config.conf -cp '/target/lib/*' com.kmwllc.lucille.core.Indexer my-pipeline
 ```
+
+---
+
+## Long-Running Workers and Indexers
+
+Worker and Indexer processes are **long-running services** — they are not started or stopped by the Runner. A Runner invocation triggers a single batch run and exits when it completes, but the Workers and Indexers that processed its documents keep running and are ready to handle the next run immediately.
+
+**Sequential runs share the same processes.** You can invoke the Runner repeatedly — nightly, hourly, or on demand — against the same pool of Workers and Indexers without restarting them. Each invocation is an independent run with its own accounting; the processes simply continue consuming from the source topic.
+
+**Concurrent runs are supported.** Multiple Runner invocations can be active simultaneously, all handled by the same Workers and Indexers. Documents from different runs are interleaved on the Kafka source topic and processed without coordination or interaction between runs.
+
+**Multiple pipelines can coexist.** A single Lucille config can define multiple connectors feeding different pipelines. In distributed mode, each pipeline has its own set of Kafka topics (`{pipeline}_source`, `{pipeline}_dest`). You can run separate fleets of Workers and Indexers for each pipeline — start Workers with `com.kmwllc.lucille.core.Worker pipeline-a` and separately `com.kmwllc.lucille.core.Worker pipeline-b`. The Runner publishes each connector's documents to the correct pipeline's source topic based on the connector's `pipeline` config property.
+
+The constraint is: for each pipeline referenced by a connector in your config, Workers and an Indexer must be running for that pipeline before the Runner starts. If a connector references `pipeline: "enrichment"`, there must be Workers consuming from `enrichment_source` and an Indexer consuming from `enrichment_dest`.
+
+**Multi-connector runs** execute connectors sequentially within a single Runner invocation. Each connector's documents are published to its pipeline's source topic, and the Runner waits for all of that connector's documents to reach a terminal state before starting the next connector. If a connector fails, subsequent connectors are skipped.
+
+**How run isolation works.** The Publisher stamps a unique `run_id` on every document it publishes. When a Worker or Indexer sends a lifecycle event (FINISH, FAIL, DROP) for a document, it reads the `run_id` from that document to determine which Kafka event topic to write to. Each run has its own dedicated event topic named `{pipeline}_event_{runId}`. The Publisher for each Runner invocation only consumes its own event topic, so completion accounting is completely isolated — concurrent runs do not interfere with each other.
