@@ -44,4 +44,4 @@ This decoupling is what allows the same Connector implementation to work identic
 
 For how to configure connectors — common parameters, config syntax, and the full catalogue of built-in connectors — see [Connectors]({{< relref "docs/reference/connectors" >}}) in the Ingest Designer Guide.
 
-For how to build a custom Connector, see [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}).
+For how to build a custom Connector, see [Developing Connectors]({{< relref "docs/developer-guide/developing-connectors" >}}).
