@@ -14,7 +14,7 @@ All stages share common configuration parameters:
 | `class` | **Required.** The fully qualified class name of the Stage. |
 | `name` | Optional display name used in logging and metrics. |
 | `conditions` | Optional list of conditions controlling when the Stage executes. |
-| `conditionPolicy` | `"any"` or `"all"` (default: `"any"`). |
+| `conditionPolicy` | `"any"` or `"all"` (default: `"all"`). |
 
 ---
 
