@@ -13,14 +13,20 @@ The run summary reports how many documents failed, but not which ones or why. He
 
 ### Step 1: Find the failed document IDs and reasons
 
-Search the logs for failure messages. These are logged at ERROR level by default:
+Search the logs for failure messages. These are logged at ERROR level by the DocLogger. All document failures use a standardized `"Document FAILED"` prefix, so you can find every failure in one pass and then drill into specific types:
 
 ```bash
+# All document failures (any cause)
+grep "Document FAILED" lucille.log
+
 # Pipeline failures (a stage threw StageException)
-grep "Error processing document:" lucille.log
+grep "Document FAILED during pipeline processing:" lucille.log
 
 # Indexer failures (search backend rejected the document)
-grep "Sent failure message for doc" lucille.log
+grep "Document FAILED during indexing:" lucille.log
+
+# Poison pills (distributed mode — exceeded worker.maxRetries)
+grep "Document FAILED: retry count exceeded" lucille.log
 ```
 
 Each pipeline failure is followed by a stack trace identifying the stage and exception. Each indexer failure includes the backend's rejection reason. See [Which documents failed?]({{< relref "docs/operations/log-analysis#which-documents-failed" >}}) for more detail.

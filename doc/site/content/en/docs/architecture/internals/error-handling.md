@@ -68,7 +68,7 @@ The connector runs inside a `ConnectorThread`. If `execute()` throws, the except
 
 ### 6. Stage processDocument() Throws for a Given Document
 
-The Worker catches the exception, logs it (`"Error processing document: " + doc.getId()`), sends a FAIL event to the Publisher via `messenger.sendEvent(doc, null, Event.Type.FAIL)`, commits offsets, and continues processing the next document. The failed document is counted in the Publisher's `numFailed` tally. The run does NOT stop.
+The Worker catches the exception, logs it via the DocLogger (`"Document FAILED during pipeline processing: " + doc.getId()`), sends a FAIL event to the Publisher via `messenger.sendEvent(doc, null, Event.Type.FAIL)`, commits offsets, and continues processing the next document. The failed document is counted in the Publisher's `numFailed` tally. The run does NOT stop.
 
 **Severity:** Per-document failure. The run continues. Other documents are unaffected.
 
