@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.util.ThreadNameUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -11,7 +12,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,8 +54,8 @@ import com.typesafe.config.Config;
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
  *   <li>multithreaded.enabled (Boolean, Optional) : Determines whether the paths / URIs should be traversed in a multithreaded fashion, that is,
  *   concurrently. Defaults to true if multithreaded block is present.</li>
- *   <li>multithreaded.numberOfThreads (Number, Optional) : The number of threads that should be traversing the file paths. These should pull
- *   from a queue each time they finish processing their respective file. Defaults to 1 thread.</li>
+ *   <li>multithreaded.numberOfThreads (Number, Optional) : The number of threads that should be traversing the file paths. Defaults to the
+ *   number of storage paths present.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.lastModifiedCutoff (String, Optional) : Duration string to include only files modified within this period (e.g., "1h").</li>
@@ -195,7 +201,9 @@ public class FileConnector extends AbstractConnector {
       throw new IllegalArgumentException("publishMode must be set and be incremental to use the sendTombstones toggle.");
     }
 
-    // Cannot specify multiple storage paths and a moveTo of some kind
+    // Cannot specify multiple storage paths and a moveTo of some kind. Also a thread safety check:
+    // LocalStorageClient.moveFile has a Files.exists/createDirectory time of check time of use race, and restricting moveTo to
+    // single path traversals means that only one thread ever calls it.
     if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath("fileOptions.moveToErrorFolder"))) {
       throw new IllegalArgumentException("FileConnector does not support multiple paths and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
@@ -204,9 +212,14 @@ public class FileConnector extends AbstractConnector {
       log.warn("filterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
     }
 
+    if (config.hasPath("multithreaded.numberOfThreads") && config.getInt("multithreaded.numberOfThreads") < 1) {
+      throw new IllegalArgumentException("numberOfThreads must not be less than 1.");
+    }
+
     this.multithreaded = config.hasPath("multithreaded") ? ConfigUtils.getOrDefault(config, "multithreaded.enabled", true) : false;
-    // won't matter unless multithreaded is true
-    this.numberOfThreads = ConfigUtils.getOrDefault(config, "multithreaded.numberOfThreads", 1);
+    // won't matter unless multithreaded is true, default to number of threads = number of storage paths, also don't need more threads than storage paths
+    // add a warning message saying you're only using some number of threads because the number of paths is lower
+    this.numberOfThreads = Math.min(ConfigUtils.getOrDefault(config, "multithreaded.numberOfThreads", storageURIs.size()), storageURIs.size());
   }
 
   @Override
@@ -214,30 +227,7 @@ public class FileConnector extends AbstractConnector {
     initialize();
 
     if (multithreaded) {
-      LinkedBlockingQueue<URI> queue = new LinkedBlockingQueue<>();
-      for (URI resource : storageURIs) {
-        queue.add(resource);
-      }
-
-      List<FileConnectorThread> threads = new ArrayList<>();
-      // make the number of threads specified by numberOfThreads and kick each one off
-      for (int i = 0; i < numberOfThreads; i++) {
-        FileConnectorThread thread = new FileConnectorThread(this, publisher, queue);
-        thread.start();
-        threads.add(thread);
-      }
-      for (FileConnectorThread t : threads) {
-        try {
-          t.join();
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          throw new ConnectorException("Interrupted while waiting for traversal thread.", e);
-        }
-        if (t.getCaughtException() != null) {
-          throw t.getCaughtException();
-        }
-
-      }
+      traversePathsWithMultithreading(publisher);
     } else {
       for (URI resource : storageURIs) {
         traverseStoragePath(publisher, resource);
@@ -248,6 +238,51 @@ public class FileConnector extends AbstractConnector {
         config.getBoolean("filterOptions.sendTombstones")) {
       // find files no longer in datastore that need to be removed from index
       sendExpiredFileTombstones(publisher);
+    }
+  }
+
+  private void traversePathsWithMultithreading(Publisher publisher) throws ConnectorException {
+    BasicThreadFactory threadFactory = new BasicThreadFactory.Builder()
+        .namingPattern(ThreadNameUtils.createName("PathTraversal-%d"))
+        .daemon(false)
+        .build();
+    ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads, threadFactory);
+
+    List<Future<Void>> futures = new ArrayList<>();
+    for (URI resource : storageURIs) {
+      futures.add(executor.submit(() -> {
+        traverseStoragePath(publisher, resource);
+        return null;
+      }));
+    }
+
+    try {
+      for (Future<Void> f : futures) {
+        f.get();
+      }
+    } catch (ExecutionException e) {
+      throw new ConnectorException("Thread failed during traversal.", e.getCause());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new ConnectorException("Interruption happened while waiting for traversal", e);
+    } finally {
+      shutdownExecutor(executor);
+    }
+  }
+
+  // mirrors WorkerPool.stopWatcher()
+  private void shutdownExecutor(ExecutorService executor) {
+    executor.shutdown();
+    try {
+      if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+        executor.shutdownNow();
+        if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+          log.error("Traversal executor did not terminate.");
+        }
+      }
+    } catch (InterruptedException ex) {
+      executor.shutdownNow();
+      Thread.currentThread().interrupt();
     }
   }
 

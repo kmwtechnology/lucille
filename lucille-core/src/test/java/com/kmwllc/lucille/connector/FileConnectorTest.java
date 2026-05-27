@@ -791,8 +791,7 @@ public class FileConnectorTest {
     assertEquals(21, messenger.getDocsSentForProcessing().size());
   }
 
-  // If a traversal thread fails, the caught exception stored on the FileConnectorThread should bubble up out of execute() as
-  // a ConnectorException
+  // If a worker task fails, the ExecutionException should be unwrapped and surfaced as a ConnectorException from execute().
   @Test
   public void testMultithreadedExceptionPropagates() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocalAndCloud.conf")
