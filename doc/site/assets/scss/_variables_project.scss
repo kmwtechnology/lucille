@@ -19,5 +19,10 @@ $td-navbar-bg-color: #77bcfc;
     color: white;
   }
 
-
+@media (min-width: 992px) {
+  .td-content > .pageinfo {
+    max-width: 80%;
+    margin-left: 0;
+  }
+}
 

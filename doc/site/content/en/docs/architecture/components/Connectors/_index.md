@@ -1,47 +1,47 @@
 ---
-title: Connectors
+weight: 3
+title: Connector
 date: 2024-10-15
 description: A component that retrieves data from a source system and packages the data into Documents in preparation for transformation.
 ---
 
-## Lucille Connectors
+## What a Connector Does
 
-Lucille Connectors are components that retrieve data from a source system, packages the data into "Documents", and publishes them to a pipeline.
+A Connector is the component responsible for acquiring data from a source system and introducing it into Lucille as Documents. It is the entry point for all data in the system.
 
-To configure a Connector, you have to provide its class (under `class`) in its config. You also need to specify a `name` for the Connector.
-Optionally, you can specify the `pipeline`, a `docIdPrefix`, and whether the Connector requires a Publisher to `collapse`.
+A Connector reads from its source — a database, a filesystem, a Kafka topic, an RSS feed, a search engine — and emits Documents one at a time by calling `publisher.publish(doc)`. It does not know how many Workers will process those documents, how long enrichment will take, or where the documents will ultimately be indexed. Its only job is to produce Documents and hand them off.
 
-You'll also provide the parameters needed by the Connector as well. For example, the `SequenceConnector` requires one parameter, `numDocs`,
-and accepts an optional parameter, `startWith`. So, a `SequenceConnector` Config would look something like this:
+## Lifecycle
 
-```hocon
-{
-  name: "Sequence-Connector-1"
-  class: "com.kmwllc.lucille.connector.SequenceConnector"
-  docIdPrefix: "sequence-connector-1-"
-  pipeline: "pipeline1"
-  numDocs: 500
-  startWith: 50
-}
-```
+Every Connector goes through four lifecycle phases on each run:
 
-The `lucille-core` module contains a number of commonly used connectors. Additional connectors with a large number of dependencies are provided as optional plugin modules.
+1. **`preExecute(runId)`** — Called before `execute`. Use for setup: acquiring locks, creating temporary tables, validating source accessibility.
+2. **`execute(publisher)`** — The main phase. Read from the source and call `publisher.publish(doc)` for each Document.
+3. **`postExecute(runId)`** — Called only if `execute` succeeds. Use for cleanup: releasing locks, writing completion markers.
+4. **`close()`** — Always called, even on failure. Use for releasing resources.
 
-### Lucille Connectors (Core)
+This lifecycle is enforced by the framework. The separation of `preExecute` from `execute` allows setup that should not be repeated on retry. The guarantee that `close()` is always called — regardless of whether `execute` or `postExecute` threw — ensures resources are never leaked.
 
-* [Abstract Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/AbstractConnector.java) - Base implementation for a `Connector`.
-* [Database Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/jdbc/DatabaseConnector.java)
-* [File Connector](/docs/architecture/components/connectors/file_connector.md)
-* [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java) - Generates a certain number of empty Documents.
-* [Solr Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SolrConnector.java)
-* [RSS Connector](/docs/architecture/components/connectors/rss_connector.md)
+## Sequential Execution
 
-**The following connectors are deprecated.** Use FileConnector instead, along with a corresponding FileHandler.
+When multiple Connectors are defined in a single run, they execute in sequence. Each Connector runs to completion — all its documents processed and indexed — before the next begins. This ordering guarantee is enforced automatically by the Publisher's accounting system, without external orchestration.
 
-* [CSV Connector **(Deprecated)**](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/CSVConnector.java)
-* [JSON Connector **(Deprecated)**](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/JSONConnector.java)
-* [XML Connector **(Deprecated)**](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/xml/XMLConnector.java)
+This enables patterns like indexing parent documents before child documents that reference them by ID, or running a full ingest followed by a deletion pass.
 
-### Lucille Connectors (Plugins)
+## Decoupling from Downstream
 
-* [Parquet Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-parquet/src/main/java/com/kmwllc/lucille/parquet/connector/ParquetConnector.java)
+A Connector is fully decoupled from the rest of the system. It does not know:
+- How many Worker threads or processes will consume its output
+- What pipeline will be applied to its documents
+- Which search backend the documents will reach
+- Whether the system is running in local or distributed mode
+
+This decoupling is what allows the same Connector implementation to work identically in all deployment modes. The Connector publishes to a queue; everything downstream is the framework's concern.
+
+---
+
+## Practical Guide
+
+For how to configure connectors — common parameters, config syntax, and the full catalogue of built-in connectors — see [Connectors]({{< relref "docs/reference/connectors" >}}) in the Ingest Designer Guide.
+
+For how to build a custom Connector, see [Developing Connectors]({{< relref "docs/developer-guide/developing-connectors" >}}).

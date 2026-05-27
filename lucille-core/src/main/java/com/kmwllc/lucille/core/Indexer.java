@@ -17,17 +17,20 @@ import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.github.resilience4j.core.IntervalFunction;
+import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
 import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 import sun.misc.Signal;
@@ -73,12 +76,34 @@ import sun.misc.Signal;
  *   together with indexer.deleteByFieldValue.</li>
  *   <li>indexer.deleteByFieldValue (String, Optional) : Field whose value specifies which documents to delete by query. Must be set
  *   together with indexer.deleteByFieldField.</li>
+ *   <li>indexer.maxRetries (Integer, Optional) : Maximum number of times to retry a failed batch before treating all documents
+ *   in the batch as failures. Retries are disabled by default; set to a positive integer to opt in. A value of 0 or less
+ *   is rejected as invalid — remove the parameter entirely to disable retries.</li>
+ *   <li>indexer.retryWaitDurationMs (Integer, Optional) : Initial wait duration in milliseconds before the first retry.
+ *   Subsequent retries use exponential backoff, doubling the wait on each attempt. Only allowed when maxRetries is also set.
+ *   Defaults to {@value #DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS}.</li>
+ *   <li>indexer.retryMaxWaitDurationMs (Long, Optional) : Maximum wait duration in milliseconds between retries.
+ *   Caps the exponential backoff so it does not grow unbounded. Only allowed when maxRetries is also set.
+ *   Defaults to {@value #DEFAULT_RETRY_MAX_WAIT_DURATION_MS}.</li>
+ *   <li>indexer.retryRandomizationFactor (Double, Optional) : Randomization factor applied to the wait duration
+ *   to add jitter and prevent thundering-herd effects. A value of 0.5 means the actual wait will be between
+ *   50% and 150% of the computed backoff. Set to 0.0 to disable jitter. Only allowed when maxRetries is also set.
+ *   Defaults to {@value #DEFAULT_RETRY_RANDOMIZATION_FACTOR}.</li>
+ *   <li>indexer.retryableStatusCodes (List&lt;Integer&gt;, Optional) : HTTP status codes that should trigger a retry when thrown
+ *   as an {@link IndexerRetryableException}. Failures with status codes not in this list, or plain {@link IndexerException}
+ *   failures, will not be retried. Include the sentinel value {@code -1} to also retry failures where no HTTP status code
+ *   is available (e.g. network timeouts). When this parameter is omitted, the default {@code [429, 503, -1]} is used.
+ *   An empty list is rejected as invalid configuration. Only allowed when maxRetries is also set.</li>
  * </ul>
  */
 public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
+  public static final int DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS = 1000;
+  public static final long DEFAULT_RETRY_MAX_WAIT_DURATION_MS = 30000;
+  public static final double DEFAULT_RETRY_RANDOMIZATION_FACTOR = 0.5;
+  public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503, IndexerRetryableException.UNKNOWN_STATUS_CODE);
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -110,6 +135,11 @@ public abstract class Indexer implements Runnable {
   private final String localRunId;
 
   protected final boolean bypass;
+
+  // Non-null only when indexer.maxRetries is configured; null means retries are disabled (the default).
+  private final Retry retry;
+  // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
+  private final List<Integer> retryableStatusCodes;
 
   public void terminate() {
     running = false;
@@ -186,6 +216,66 @@ public abstract class Indexer implements Runnable {
 
     this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
 
+    if (!config.hasPath("indexer.maxRetries")) {
+      if (config.hasPath("indexer.retryWaitDurationMs") || config.hasPath("indexer.retryableStatusCodes")
+          || config.hasPath("indexer.retryMaxWaitDurationMs") || config.hasPath("indexer.retryRandomizationFactor")) {
+        throw new IllegalArgumentException(
+            "indexer.retryWaitDurationMs, indexer.retryMaxWaitDurationMs, indexer.retryRandomizationFactor, "
+                + "and indexer.retryableStatusCodes require indexer.maxRetries to be set.");
+      }
+      this.retry = null;
+      this.retryableStatusCodes = List.of();
+    } else {
+      int maxRetries = config.getInt("indexer.maxRetries");
+      if (maxRetries <= 0) {
+        throw new IllegalArgumentException(
+            "indexer.maxRetries must be greater than 0 when specified. Remove the parameter to disable retries.");
+      }
+      int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
+      long retryMaxWaitDurationMs = config.hasPath("indexer.retryMaxWaitDurationMs")
+          ? config.getLong("indexer.retryMaxWaitDurationMs") : DEFAULT_RETRY_MAX_WAIT_DURATION_MS;
+      double retryRandomizationFactor = config.hasPath("indexer.retryRandomizationFactor")
+          ? config.getDouble("indexer.retryRandomizationFactor") : DEFAULT_RETRY_RANDOMIZATION_FACTOR;
+      if (!config.hasPath("indexer.retryableStatusCodes")) {
+        this.retryableStatusCodes = DEFAULT_RETRYABLE_STATUS_CODES;
+      } else {
+        this.retryableStatusCodes = config.getIntList("indexer.retryableStatusCodes");
+        if (this.retryableStatusCodes.isEmpty()) {
+          throw new IllegalArgumentException(
+              "indexer.retryableStatusCodes must not be empty when specified. "
+                  + "Remove the parameter to use the default, or provide at least one status code.");
+        }
+      }
+      this.retry = Retry.of("indexer-batch-retry", RetryConfig.<Set<Pair<Document, Exception>>>custom()
+          .maxAttempts(maxRetries + 1) // maxAttempts includes the initial attempt
+          .intervalFunction(IntervalFunction.ofExponentialRandomBackoff(
+              retryInitialWaitDurationMs, IntervalFunction.DEFAULT_MULTIPLIER,
+              retryRandomizationFactor, retryMaxWaitDurationMs))
+          .retryOnResult(result -> {
+            // Retry the batch if any per-document failure has a retryable status code.
+            @SuppressWarnings("unchecked")
+            Set<Pair<Document, Exception>> pairs = (Set<Pair<Document, Exception>>) result;
+            return pairs.stream().anyMatch(p ->
+                p.getRight() instanceof IndexerRetryableException e
+                    && retryableStatusCodes.contains(e.getStatusCode()));
+          })
+          .retryOnException(e -> {
+            if (e instanceof IndexerRetryableException retryable) {
+              return retryableStatusCodes.contains(retryable.getStatusCode());
+            }
+            // Plain IndexerException (non-HTTP failure) — do not retry
+            return false;
+          })
+          .build());
+      this.retry.getEventPublisher().onRetry(event -> {
+        Throwable lastThrowable = event.getLastThrowable();
+        log.warn("Retrying batch send (attempt {}/{}), waiting {}ms: {}",
+            event.getNumberOfRetryAttempts(), maxRetries,
+            event.getWaitInterval().toMillis(),
+            lastThrowable != null ? lastThrowable.getMessage() : "per-document retryable failures");
+      });
+    }
+
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
   }
@@ -211,12 +301,15 @@ public abstract class Indexer implements Runnable {
    * each document individually.
    *
    * @param documents The documents to send to the destination.
-   * @return A set of Pairs, containing the Documents that were not successfully indexed, along with a String of information about why it failed.
-   * Returns an empty set if no documents fail, or if this information is not supported by the Indexer implementation. Does not return null.
-   * @throws Exception In the event of a considerable error causing indexing to fail. (Does not throw
-   * Exceptions just because some Documents were not successfully indexed.)
+   * @return A set of Pairs containing Documents that were not successfully indexed, along with an
+   *     Exception describing the failure. Use {@link IndexerRetryableException} to signal that the
+   *     failure may be transient; the base class will trigger a retry of the entire batch for any
+   *     returned exception whose status code is in the configured retryable set. Use
+   *     {@link IndexerException} for permanent per-document failures. Returns an empty set if all
+   *     documents succeeded or if per-document failure tracking is not supported. Does not return null.
+   * @throws Exception for errors that prevent the entire batch from being attempted.
    */
-  protected abstract Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception;
+  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
@@ -307,7 +400,16 @@ public abstract class Indexer implements Runnable {
     try {
       stopWatch.reset();
       stopWatch.start();
-      Set<Pair<Document, String>> failedDocPairs = sendToIndex(batchedDocs);
+      // Note: the retry wraps the entire sendToIndex() call. If sendToIndex() partially succeeds
+      // (e.g. some documents indexed before a subsequent delete-by-query fails), a retry will
+      // re-execute the entire method. This is considered safe because search engine upserts are idempotent —
+      // re-indexing an already-indexed document produces the same result.
+      // When retries are configured, retryOnResult triggers a retry if any per-document failure has a
+      // retryable status code. When retries are exhausted, the last result is returned directly —
+      // preserving per-document detail for the FAIL event path below.
+      Set<Pair<Document, Exception>> failedDocPairs = retry != null
+          ? Retry.decorateCheckedSupplier(retry, () -> sendToIndex(batchedDocs)).get()
+          : sendToIndex(batchedDocs);
       stopWatch.stop();
       histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
       meter.mark(batchedDocs.size());
@@ -317,13 +419,8 @@ public abstract class Indexer implements Runnable {
       }
 
       // Mark all the documents in failedDoc as failed
-      for (Pair<Document, String> pair : failedDocPairs) {
-        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, pair.getLeft().getId())) {
-          messenger.sendEvent(pair.getLeft(), "FAILED: " + pair.getRight(), Event.Type.FAIL);
-          docLogger.error("Sent failure message for doc {}. Reason: {}", pair.getLeft().getId(), pair.getRight());
-        } catch (Exception e) {
-          log.error("Couldn't send failure event for doc {}", pair.getLeft().getId(), e);
-        }
+      for (Pair<Document, Exception> pair : failedDocPairs) {
+        sendFailEvent(pair.getLeft(), pair.getRight().getMessage());
       }
 
       Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
@@ -341,37 +438,25 @@ public abstract class Indexer implements Runnable {
           messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
           docLogger.info("Sent success message for doc {}.", d.getId());
         } catch (Exception e) {
-          // TODO: The run won't be able to finish if this event isn't received; can we do something
-          // special here?
-          log.error("Error sending completion event for doc {}", d.getId(), e);
+          docLogger.error("Error sending completion event for doc {}. RUN WILL HANG.", d.getId(), e);
         } finally {
           if (d.getRunId() != null) {
             MDC.popByKey(RUNID_FIELD);
           }
         }
       }
-    } catch (Exception e) {
+    } catch (Throwable t) {
+      // Rethrow Errors (OutOfMemoryError, etc.) — they should never be swallowed
+      if (t instanceof Error) {
+        throw (Error) t;
+      }
+      Exception e = (t instanceof Exception) ? (Exception) t : new RuntimeException(t);
       // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing) to be indexed.
       // So everything is considered to have failed - we won't even look at failedDocs.
-      log.error("Error sending documents to index: " + e.getMessage(), e);
+      log.error("Error sending documents to index: {}", e.getMessage(), e);
 
       for (Document d : batchedDocs) {
-        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
-          if (d.getRunId() != null) {
-            MDC.pushByKey(RUNID_FIELD, d.getRunId());
-          }
-
-          messenger.sendEvent(d, "FAILED: " + e.getMessage(), Event.Type.FAIL);
-          docLogger.error("Sent failure message for doc {}. Reason: {}", d.getId(), e.getMessage());
-        } catch (Exception e2) {
-          // TODO: The run won't be able to finish if this event isn't received; can we do something
-          // special here?
-          log.error("Couldn't send failure event for doc {}", d.getId(), e2);
-        } finally {
-          if (d.getRunId() != null) {
-            MDC.popByKey(RUNID_FIELD);
-          }
-        }
+        sendFailEvent(d, e.getMessage());
       }
     } finally {
       // We always mark batches as completed, regardless of whether the whole batch failed, some docs failed, etc.
@@ -379,6 +464,26 @@ public abstract class Indexer implements Runnable {
         messenger.batchComplete(batchedDocs);
       } catch (Exception e) {
         log.error("Error marking batch complete.", e);
+      }
+    }
+  }
+
+  /**
+   * Sends a FAIL event for the given document with the specified reason, setting up MDC context
+   * for structured logging.
+   */
+  private void sendFailEvent(Document d, String reason) {
+    try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+      if (d.getRunId() != null) {
+        MDC.pushByKey(RUNID_FIELD, d.getRunId());
+      }
+      messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
+      docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
+    } catch (Exception e) {
+      docLogger.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
+    } finally {
+      if (d.getRunId() != null) {
+        MDC.popByKey(RUNID_FIELD);
       }
     }
   }
@@ -457,10 +562,12 @@ public abstract class Indexer implements Runnable {
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
             "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
-        .optionalNumber("batchSize", "batchTimeout", "logRate")
+        .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
+            "retryMaxWaitDurationMs", "retryRandomizationFactor")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
-        .optionalList("blacklist", new TypeReference<List<String>>(){}).build()
+        .optionalList("blacklist", new TypeReference<List<String>>(){})
+        .optionalList("retryableStatusCodes", new TypeReference<List<Integer>>(){}).build()
         .validate(indexerConfig, "Indexer");
 
     // Validate the specific implementation in the config (solr, elasticsearch, csv, ...) if it is present / needed.
