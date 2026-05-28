@@ -16,6 +16,7 @@ For conceptual explanations of how these components work and why they are design
 
 - [Writing a Config]({{< relref "docs/reference/writing-a-config" >}}) — Anatomy of a Lucille config file: required elements, available settings, validation, and HOCON basics.
 - [Defining Pipelines]({{< relref "docs/reference/defining-pipelines" >}}) — Pipeline syntax, connecting connectors to pipelines, multiple pipelines, conditions, and stage reuse patterns.
+- [Control Flow]({{< relref "docs/reference/control-flow" >}}) — How to control what happens to a document as it moves through a pipeline: conditions, skipping, dropping, errors, child documents, and connector sequencing.
 
 ## Component Reference
 

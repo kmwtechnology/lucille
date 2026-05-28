@@ -49,6 +49,8 @@ As you can imagine, this results in _many_ log statements - it is recommended th
 having them printed to the console.
 Logs from the `DocLogger` are at `ERROR` level by default. This means that without log4j2 configuration changes, only error-level document lifecycle events will appear. To capture the full document lifecycle, configure the `DocLogger` at `INFO` or `DEBUG` level in your `log4j2.xml` and route it to a file — the volume at full verbosity is high.
 
+All document failure messages use a standardized `"Document FAILED"` prefix, making it straightforward to find every failed document with a single grep. Specific failure types append additional context: `"Document FAILED during pipeline processing"`, `"Document FAILED during indexing"`, or `"Document FAILED: retry count exceeded"`.
+
 ## MDC Fields
 
 Lucille populates the SLF4J Mapped Diagnostic Context (MDC) so that every log line includes structured context you can filter on:

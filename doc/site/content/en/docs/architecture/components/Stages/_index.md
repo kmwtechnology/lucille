@@ -40,4 +40,4 @@ The iterator-based return type (`Iterator<Document>`) means children are produce
 
 For how to configure stages — syntax, conditions, conditionPolicy, and the full catalogue of built-in stages — see [Stages]({{< relref "docs/reference/stages" >}}) in the Ingest Designer Guide.
 
-For how to build a custom Stage, see [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}).
+For how to build a custom Stage, see [Developing Stages]({{< relref "docs/developer-guide/developing-stages" >}}).
