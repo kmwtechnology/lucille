@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
@@ -341,6 +342,42 @@ public class TextExtractorTest {
         "org.apache.tika.parser.csv.TextAndCSVParser"), fields.get("tika_x_tika_parsed_by"));
     assertEquals("ISO-8859-1", fields.get("tika_content_encoding"));
     assertEquals("text/plain; charset=ISO-8859-1", fields.get("tika_content_type"));
+  }
+
+  // when fieldNamesField is set, all of the metadata fields should be put into that field
+  @Test
+  public void testFieldNamesField() throws StageException {
+    Stage stage = factory.get("TextExtractorTest/fieldnames.conf");
+    Document doc = Document.create("doc1");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+
+    List<String> fieldNames = doc.getStringList("tika_property_names");
+    assertTrue(fieldNames.contains("tika_content_type"));
+    assertTrue(fieldNames.contains("tika_content_encoding"));
+    assertTrue(fieldNames.contains("tika_x_tika_parsed_by"));
+
+    // make sure every field appears exactly once and that we got everything
+    Set<String> metadataFieldsOnDoc = doc.getFieldNames().stream()
+        .filter(name -> name.startsWith("tika_"))
+        .filter(name -> !name.equals("tika_property_names"))
+        .collect(Collectors.toSet());
+    assertEquals(metadataFieldsOnDoc, Set.copyOf(fieldNames));
+    assertEquals(metadataFieldsOnDoc.size(), fieldNames.size());
+  }
+
+  // test that fieldNamesField respects whitelist / blacklist
+  @Test
+  public void testFieldNamesFieldRespectsWhitelist() throws StageException {
+    Stage stage = factory.get("TextExtractorTest/fieldnames-whitelist.conf");
+    Document doc = Document.create("doc1");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+
+    List<String> fieldNames = doc.getStringList("tika_property_names");
+    assertEquals(List.of("tika_content_type"), fieldNames);
   }
 
   public static class InterruptTrackingParser extends DefaultParser {
