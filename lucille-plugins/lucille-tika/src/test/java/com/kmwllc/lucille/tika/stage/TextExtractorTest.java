@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
@@ -361,7 +362,7 @@ public class TextExtractorTest {
     Set<String> metadataFieldsOnDoc = doc.getFieldNames().stream()
         .filter(name -> name.startsWith("tika_"))
         .filter(name -> !name.equals("tika_property_names"))
-        .collect(java.util.stream.Collectors.toSet());
+        .collect(Collectors.toSet());
     assertEquals(metadataFieldsOnDoc, Set.copyOf(fieldNames));
     assertEquals(metadataFieldsOnDoc.size(), fieldNames.size());
   }
