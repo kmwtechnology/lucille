@@ -25,37 +25,58 @@
 {{ if .Site.Params.offlineSearch -}}
 {{ .Scratch.Add "docsy-search" 1 -}}
 
-{{ $offlineSearchIndex := resources.Get "json/offline-search-index.json" | resources.ExecuteAsTemplate "offline-search-index.json" . -}}
-{{ if hugo.IsProduction -}}
-{{/* Use `md5` as finger print hash function to shorten file name to avoid `file name too long` error. */ -}}
-{{ $offlineSearchIndex = $offlineSearchIndex | fingerprint "md5" -}}
-{{ end -}}
-{{ $offlineSearchLink := $offlineSearchIndex.RelPermalink -}}
+{{- /*
+Each docs section (docs, docs-pre-release, docs-<tag>) gets its own offline
+  search index so results are scoped to the version the user is viewing. Pages
+  outside any docs section (homepage, taxonomies) fall back to the "docs"
+  (latest) index.
+  */ -}}
+  {{ $currentSection := .Section -}}
+  {{ if or (not $currentSection) (not (or (eq $currentSection "docs") (hasPrefix $currentSection "docs-"))) -}}
+  {{ $currentSection = "docs" -}}
+  {{ end -}}
 
-<div class="td-search td-search--offline">
-  <div class="td-search__icon"></div>
-  <input
-      type="search"
-      class="td-search__input form-control"
-      placeholder="{{ T "ui_search" }}"
-  aria-label="{{ T "ui_search" }}"
-  autocomplete="off"
-  {{/*
-  The data attribute name of the json file URL must end with `src` since
-  Hugo's absurlreplacer requires `src`, `href`, `action` or `srcset` suffix for the attribute name.
-  If the absurlreplacer is not applied, the URL will start with `/`.
-  It causes the json file loading error when when relativeURLs is enabled.
-  https://github.com/google/docsy/issues/181
-  */}}
-  data-offline-search-index-json-src="{{ $offlineSearchLink }}"
-  data-offline-search-base-href="/"
-  data-offline-search-max-results="{{ .Site.Params.offlineSearchMaxResults | default 10 }}"
-  >
-</div>
+  {{ $offlineSearchLink := "" -}}
+  {{ range .Site.Sections -}}
+  {{ if or (eq .Section "docs") (hasPrefix .Section "docs-") -}}
+  {{ $name := printf "offline-search-index-%s.json" .Section -}}
+  {{ $idx := resources.Get "json/offline-search-index.json" | resources.ExecuteAsTemplate $name . -}}
+  {{ if hugo.IsProduction -}}
+  {{/* Use `md5` as finger print hash function to shorten file name to avoid `file name too long` error. */ -}}
+  {{ $idx = $idx | fingerprint "md5" -}}
+  {{ end -}}
+  {{ $link := $idx.RelPermalink -}}
+  {{ if eq .Section $currentSection -}}
+  {{ $offlineSearchLink = $link -}}
+  {{ end -}}
+  {{ end -}}
+  {{ end -}}
 
-{{- end -}}
+  <div class="td-search td-search--offline">
+    <div class="td-search__icon"></div>
+    <input
+        type="search"
+        class="td-search__input form-control"
+        placeholder="{{ T "ui_search" }}"
+    aria-label="{{ T "ui_search" }}"
+    autocomplete="off"
+    {{/*
+    The data attribute name of the json file URL must end with `src` since
+    Hugo's absurlreplacer requires `src`, `href`, `action` or `srcset` suffix for the attribute name.
+    If the absurlreplacer is not applied, the URL will start with `/`.
+    It causes the json file loading error when when relativeURLs is enabled.
+    https://github.com/google/docsy/issues/181
+    */}}
+    data-offline-search-index-json-src="{{ $offlineSearchLink }}"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="{{ .Site.Params.offlineSearchMaxResults | default 10 }}"
+    >
+  </div>
 
-{{ if gt (.Scratch.Get "docsy-search") 1 -}}
-{{ warnf `You have more than one site-search option configured: choose only one.
-For details, see https://www.docsy.dev/docs/content/search.` -}}
-{{ end -}}
+  {{- end -}}
+
+  {{ if gt (.Scratch.Get "docsy-search") 1 -}}
+  {{ warnf `You have more than one site-search option configured: choose only one.
+  For details, see https://www.docsy.dev/docs/content/search.` -}}
+  {{ end -}}
+
