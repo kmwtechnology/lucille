@@ -48,8 +48,8 @@ import org.xml.sax.SAXException;
  * parseTimeout (Long, Optional) : timeout for parsing in milliseconds
  * whitelist (StringList, Optional) : list of metadata names that are to be included in document
  * blacklist (StringList, Optional) : list of metadata names that are not to be included in document
- * fieldNamesField (String, Optional) : if set, the stage writes the (cleaned, tika_ prefixed) name of every metadata field added
- * to the document into a new field.
+ * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
+ * multi-valued field.
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
