@@ -1,0 +1,84 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(0 0% 3.9%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(0 0% 3.9%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(0 0% 3.9%);
+  --primary: hsl(186 85% 42%);
+  --primary-foreground: hsl(0 0% 98%);
+  --secondary: hsl(210 100% 50%);
+  --secondary-foreground: hsl(0 0% 98%);
+  --muted: hsl(0 0% 96.1%);
+  --muted-foreground: hsl(0 0% 45.1%);
+  --accent: hsl(0 0% 96.1%);
+  --accent-foreground: hsl(0 0% 9%);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(0 0% 89.8%);
+  --input: hsl(0 0% 89.8%);
+  --ring: hsl(186 85% 42%);
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Custom brand colors */
+  --color-primary-50: #e6fcfc;
+  --color-primary-100: #c2f6f8;
+  --color-primary-200: #8eeef2;
+  --color-primary-300: #56e2ec;
+  --color-primary-400: #25d1de;
+  --color-primary-500: #0fb6c6;
+  --color-primary-600: #0a94a6;
+  --color-primary-700: #0c7585;
+  --color-primary-800: #115e6c;
+  --color-primary-900: #134e5b;
+  --color-secondary-50: #eaf7ff;
+  --color-secondary-100: #d0eaff;
+  --color-secondary-200: #a6dbff;
+  --color-secondary-300: #70c8ff;
+  --color-secondary-400: #3aafff;
+  --color-secondary-500: #0094ff;
+  --color-secondary-600: #0077d9;
+  --color-secondary-700: #005eb2;
+  --color-secondary-800: #064d8b;
+  --color-secondary-900: #0c4273;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
