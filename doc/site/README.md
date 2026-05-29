@@ -34,3 +34,15 @@ $ chmod -R 755 <lucille-directory>/doc/site/public/
 ```
 
 to update permissions.
+
+# Run the versioned site locally
+
+The production documentation site relies on a `versionworkflow.sh` script to generate all previous release versions of the site.
+The script provides a local mode, which allows you to see what the deployed site will look like on localhost. It creates a
+site-preview folder in doc/, which contains a full copy of the site along with the generated versions.
+
+To do this, run `.github/scripts/versionsworkflow.sh`. Then,
+```console
+$ cd doc/site-preview
+$ hugo server
+```
