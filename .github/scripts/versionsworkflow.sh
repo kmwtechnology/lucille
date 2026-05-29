@@ -1,4 +1,5 @@
-# This script prepares a versioned doc site in doc/site-preview, illustrating what the site will look like when deployed.
+# This script generates a versioned doc site in our deployment workflow. If run locally, it generates the versioned site in
+# a doc/site-preview folder, illustrating what it will look like when deployed.
 #
 # What it does:
 #   * Snapshots the current working tree's content/en/docs into content/en/docs-pre-release
