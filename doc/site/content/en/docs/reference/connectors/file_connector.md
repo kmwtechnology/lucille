@@ -254,6 +254,7 @@ Configure a state database alongside the connector:
 
 ```hocon
 state {
+  enabled: true                    # Set to false to disable state without removing the block
   driver: "org.h2.Driver"          # Default: embedded H2
   connectionString: "jdbc:h2:./lucille-state"
   jdbcUser: ""

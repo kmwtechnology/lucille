@@ -48,6 +48,8 @@ import org.xml.sax.SAXException;
  * parseTimeout (Long, Optional) : timeout for parsing in milliseconds
  * whitelist (StringList, Optional) : list of metadata names that are to be included in document
  * blacklist (StringList, Optional) : list of metadata names that are not to be included in document
+ * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
+ * multi-valued field.
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
@@ -55,7 +57,7 @@ import org.xml.sax.SAXException;
 public class TextExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix")
+      .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix", "fieldNamesField")
       .optionalList("whitelist", new TypeReference<List<String>>() {})
       .optionalList("blacklist", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeout")
@@ -68,6 +70,7 @@ public class TextExtractor extends Stage {
   private String tikaConfigPath;
   private String byteArrayField;
   private String metadataPrefix;
+  private String fieldNamesField;
   private Integer textContentLimit;
   private Long parseTimeout;
   private Parser parser;
@@ -86,6 +89,7 @@ public class TextExtractor extends Stage {
     tikaConfigPath = config.hasPath("tikaConfigPath") ? config.getString("tikaConfigPath") : null;
     textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
+    fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
 
     this.fieldFilter = new FieldFilter(config);
 
@@ -214,8 +218,12 @@ public class TextExtractor extends Stage {
       // clean the field name first.
       String cleanName = cleanFieldName(name);
       if (fieldFilter.shouldInclude(cleanName)) {
+        String prefixedName = newMetadataPrefix + cleanName;
         for (String value : metadata.getValues(name)) {
-          doc.setOrAdd(newMetadataPrefix + cleanName, value);
+          doc.setOrAdd(prefixedName, value);
+        }
+        if (fieldNamesField != null) {
+          doc.setOrAdd(fieldNamesField, prefixedName);
         }
       }
     }

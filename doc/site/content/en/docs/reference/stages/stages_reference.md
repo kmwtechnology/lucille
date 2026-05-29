@@ -14,7 +14,7 @@ All stages share common configuration parameters:
 | `class` | **Required.** The fully qualified class name of the Stage. |
 | `name` | Optional display name used in logging and metrics. |
 | `conditions` | Optional list of conditions controlling when the Stage executes. |
-| `conditionPolicy` | `"any"` or `"all"` (default: `"any"`). |
+| `conditionPolicy` | `"any"` or `"all"` (default: `"all"`). |
 
 ---
 
@@ -72,6 +72,7 @@ Sets one or more fields to fixed, static values.
 |---|---|---|---|
 | `fields` | Map\<String, Object\> | Yes | Map of field name → static value to set. |
 | `updateMode` | String | No | `overwrite`, `append`, or `skip`. Default: `overwrite`. |
+| `skipDocument` | Boolean | No | If `true`, marks the document as skipped after setting values. The document bypasses downstream stages but still reaches the Indexer. Useful for combining field-setting and skipping in a single stage with one set of conditions. Default: `false`. |
 
 ```hocon
 { class: "com.kmwllc.lucille.stage.SetStaticValues", fields: { source: "my-connector", version: 2 } }

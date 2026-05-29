@@ -26,49 +26,94 @@ Each Stage also accepts its own implementation-specific parameters (like `field_
 
 ## Conditions
 
-For any Stage, you can specify `conditions` in its config to control when the Stage processes a Document. Each condition has a required parameter, `fields`, and two optional parameters, `operator` and `values`.
+For any Stage, you can specify `conditions` in its config to control when the Stage processes a Document.
+
+### Condition parameters
 
 | Parameter | Required | Description |
 |---|---|---|
-| `fields` | Yes | List of field names that will determine whether the Stage applies to a Document. |
-| `values` | No | List of values to search for in those fields. If not specified, only field *existence* is checked. |
-| `operator` | No | `"must"` (default) or `"must_not"`. |
+| `fields` | Yes | One or more field names to evaluate. |
+| `values` | No | List of values to match against those fields. If omitted, only field existence is checked. |
+| `valuesPath` | No | Path to a file containing match values, one per line. Use instead of `values` when the list is large or managed externally. Supports local paths, `classpath:` resources, and cloud storage URIs (S3, GCS, HTTPS). |
+| `operator` | No | `"must"` (default) — condition passes if a match is found. `"must_not"` — condition passes if no match is found. |
 
-In the root of the Stage's config, specify `conditionPolicy` to control how multiple conditions combine:
-- `"any"` (default) — at least one condition must be met
-- `"all"` — all conditions must be met
+`values` and `valuesPath` are mutually exclusive — specifying both is an error.
 
-**Example:** Run the `Print` Stage only when `city` equals `"Boston"` or `"New York"`:
+### How matching works
+
+**With `values` or `valuesPath`:** The condition passes if any of the listed fields contains any of the listed values. Matching is type-coerced to string — a boolean field `true` matches the value `"true"`, an integer `10` matches `"10"`. `null` is a valid value entry and will match a null field value.
+
+**Without `values` or `valuesPath`:** The condition checks field existence only.
+- `operator: "must"` — passes if **all** listed fields are present on the document.
+- `operator: "must_not"` — passes if **all** listed fields are absent from the document.
+
+### conditionPolicy
+
+When a stage has multiple conditions, `conditionPolicy` in the stage's root config controls how they combine:
+- `"all"` (default) — all conditions must be met
+- `"any"` — at least one condition must be met
+
+### Examples
+
+**Run a stage only when a field exists:**
+
+```hocon
+{
+  class: "com.kmwllc.lucille.stage.MyStage"
+  conditions: [
+    { fields: ["content"] }
+  ]
+}
+```
+
+**Run a stage only when a field matches a value:**
 
 ```hocon
 {
   name: "print-1"
   class: "com.kmwllc.lucille.stage.Print"
-  conditionPolicy: "any"
   conditions: [
-    {
-      fields: ["city"]
-      values: ["Boston", "New York"]
-    }
+    { fields: ["city"], values: ["Boston", "New York"] }
   ]
 }
 ```
 
-**Example:** Only embed documents that have both `content` and `content_type = "article"`:
+**Skip a stage when a field is present (`must_not` existence check):**
 
 ```hocon
 {
   class: "com.kmwllc.lucille.stage.OpenAIEmbed"
-  fields: ["content"]
-  dest: ["content_vector"]
-  apiKey: ${OPENAI_API_KEY}
+  conditions: [
+    { fields: ["embedding"], operator: "must_not" }
+  ]
+}
+```
+
+**Require multiple conditions (all must be met):**
+
+```hocon
+{
+  class: "com.kmwllc.lucille.stage.OpenAIEmbed"
   conditionPolicy: "all"
   conditions: [
-    { fields: ["content"] },
+    { fields: ["content"] }
     { fields: ["content_type"], values: ["article"] }
   ]
 }
 ```
+
+**Load match values from a file:**
+
+```hocon
+{
+  class: "com.kmwllc.lucille.stage.DropDocument"
+  conditions: [
+    { fields: ["category"], valuesPath: "s3://my-bucket/excluded-categories.txt" }
+  ]
+}
+```
+
+For the full reference on controlling document fate and connector sequencing — conditions, skipping, dropping, error handling, child documents, and more — see [Control Flow]({{< relref "docs/reference/control-flow" >}}).
 
 ---
 

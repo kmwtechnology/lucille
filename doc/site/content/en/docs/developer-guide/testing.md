@@ -104,6 +104,32 @@ public void testRenameFields() throws Exception {
 }
 ```
 
+## Test Layout and Locations
+
+One test class per component (e.g., `MyStageTest` for `MyStage`). Group related assertions into focused test methods with descriptive names.
+
+Test classes and their resources live under `lucille-core/src/test/`:
+
+```
+src/test/java/com/kmwllc/lucille/
+  stage/          ← Stage test classes
+  connector/      ← Connector test classes
+  indexer/        ← Indexer test classes
+
+src/test/resources/
+  MyStageTest/    ← config files for MyStageTest (named after the test class)
+    basic-test.conf
+    edge-case.conf
+  MyConnectorTest/
+    test-config.conf
+```
+
+The resource subdirectory must be named after the test class. Load configs in tests with:
+
+```java
+Config config = ConfigFactory.load("MyStageTest/basic-test.conf");
+```
+
 ## Test Configuration Files
 
 Keep test configurations under `src/test/resources/`. By convention, each test class has its own subdirectory:
@@ -160,9 +186,12 @@ This summarizes test coverage across packages and classes, showing covered and m
 
 ## Testing Guidelines
 
+- **One test class per component:** `MyStageTest` for `MyStage`, `MyConnectorTest` for `MyConnector`, etc. Group related assertions into focused test methods with descriptive names.
+- **Maximize coverage:** Aim to cover as many branches, error paths, and edge cases as practical.
 - **No network or external services:** Use `NopIndexer` or `RunType.TEST` to avoid real backends. Use mock objects for external APIs (HTTP, Kafka) only when necessary.
 - **Exercise every parameter:** Each required and optional parameter should have at least one test path.
 - **Test failures:** Verify bad configs throw the expected exceptions. Verify that documents with bad data fail gracefully without stopping the run.
+- **Assert behavior:** Prefer testing state and interactions over log output.
 - **Avoid sleeps:** Time-based assertions are fragile. Test mode is synchronous — the run completes before `runInTestMode()` returns.
 - **Configuration clarity:** Use inline config strings in tests to make the configuration explicit and readable. Name each test config descriptively.
 
