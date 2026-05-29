@@ -2,6 +2,7 @@
 
 # It deletes doc/site/content/en/docs and replaces it with docs from the latest tagged release.
 # It uses git to get the docs from prior releases and places them in versioned folders under doc/site/content/en
+# It snapshots the current working tree's docs into doc/site/content/en/docs-pre-release for the "pre-release" dropdown entry
 # It updates hugo.toml with information about the versions
 
 # The purpose of this is to be used in hugo.yml for the github workflow which builds and deploys our documentation site.
@@ -52,6 +53,26 @@ tags_descending=$(echo "$tags" | sort -rV)
 latest_tag=$(echo "$tags_descending" | head -1)
 echo "Latest tag: $latest_tag"
 
+# Grab the doc site from the working branch for pre-release (up to date with main)
+# Needs to be done before the tag loop because it wipes content/en/docs
+pre_release_url="${url}-pre-release/"
+echo "Creating pre-release docs snapshot from working tree"
+rm -rf content/en/docs-pre-release
+cp -r content/en/docs content/en/docs-pre-release
+cat > content/en/docs-pre-release/_index.md << EOF
+---
+title: Documentation pre-release
+linkTitle: Docs-pre-release
+weight: 20
+cascade:
+  type: docs
+  exclude_search: true
+---
+EOF
+# Append everything after the metadata from the working branches top level docs _index.md so the pre-release landing
+# page keeps the same overview content
+awk 'found{print} /^---$/{n++; if(n==2) found=1}' content/en/docs/_index.md >> content/en/docs-pre-release/_index.md
+
 # Use "git archive" to extract docs from each tag into a temp directory, then
 # copy them into place.
 
@@ -97,10 +118,16 @@ done <<< "$tags"
   printf 'url_latest_version = "%s/"\n' "$url"
   printf '\n'
 
-  # Add the latest version first, it points to the main /docs/ path
+  # Pre-release entry at the top of the dropdown
+  printf '[[params.versions]]\n'
+  printf '  version = "pre-release"\n'
+  printf '  url = "%s"\n' "$pre_release_url"
+  printf '\n'
+
+  # Add the latest release version next, it points to the main /docs/ path
   printf '[[params.versions]]\n'
   printf '  version = "%s (latest)"\n' "$latest_tag"
-  printf '  url = "%s"\n' "$url"
+  printf '  url = "%s/"\n' "$url"
   printf '\n'
 
   while IFS= read -r tag; do
