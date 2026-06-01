@@ -38,18 +38,28 @@
 #
 # What follows is the main content of this Dockerfile:
 #
-# we use a base image with the latest OpenJDK 17
-FROM eclipse-temurin:17
+# we use a base image with the latest OpenJDK 21
+FROM eclipse-temurin:21-jre
+
+LABEL maintainer="kmwtechnology"
+LABEL description="Lucille API base image"
+
+WORKDIR /lucille-api
 
 # we copy local build artifacts and configuration into the image that we're building
-COPY conf/ conf/
-COPY target/ target/
+COPY conf/ /lucille-api/conf/
+COPY target/ /lucille-api/target/
 
 # Set the necessary environment variables
+# TODO: Double check the purpose / usage of this env var?
 ENV LUCILLE_CONF="conf/simple-config.conf"
+ENV JAVA_OPTS=""
 ENV DROPWIZARD_CONF="conf/api.yml"
 
 # Expose port 8080 so we can make requests to the API
 EXPOSE 8080
 
-ENTRYPOINT java -Dconfig.file=${LUCILLE_CONF} -jar target/lucille-api-plugin.jar server ${DROPWIZARD_CONF}
+COPY docker-entrypoint.sh /lucille-api/docker-entrypoint.sh
+RUN chmod +x /lucille-api/docker-entrypoint.sh
+
+ENTRYPOINT ["/lucille-api/docker-entrypoint.sh"]
