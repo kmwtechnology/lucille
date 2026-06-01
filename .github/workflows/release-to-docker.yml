@@ -2,9 +2,11 @@
 # images to Docker Hub.
 name: Release to Docker
 on:
+  ## TODO: Temporary ##
   push:
     branches:
       - LC-882-core-and-api-docker-images
+  ## REMOVE ##
   release:
     types: [published]
   workflow_dispatch:
@@ -14,7 +16,9 @@ on:
         required: true
 
 env:
-  release: ${{ github.event.inputs.releaseversion == null && github.event.release.tag_name || github.event.inputs.releaseversion}}
+#  release: ${{ github.event.inputs.releaseversion == null && github.event.release.tag_name || github.event.inputs.releaseversion}}
+  # TODO: Temporary
+  release: ${{ github.event.inputs.releaseversion || github.event.release.tag_name || 'test' }}
 
 jobs:
   publish:
