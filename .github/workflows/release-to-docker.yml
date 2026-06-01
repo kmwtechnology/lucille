@@ -1,0 +1,58 @@
+# After a release is published, this workflow builds Lucille and then pushes new "lucille" and "lucille-api"
+# images to Docker Hub.
+name: release-to-docker
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      releaseversion:
+        description: 'Release version'
+        required: true
+
+env:
+  release: ${{ github.event.inputs.releaseversion == null && github.event.release.tag_name || github.event.inputs.releaseversion}}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - run: echo "Release version ${{ env.release }}!"
+
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: |
+            21
+            17
+          distribution: temurin
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+
+#      - name: Login to Docker Hub
+#        uses: docker/login-action@v3
+#        with:
+#          username: ${{ secrets.DOCKERHUB_USERNAME }}
+#          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push (lucille-core)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: kmwtechnology/lucille:${{ env.release }}
+
+      - name: Build and push (lucille-api)
+        uses: docker/build-push-action@v6
+        with:
+          # needs to be run in parent dir of the API plugin to get the jars
+          context: lucille-plugins/lucille-api
+          file: lucille-plugins/lucille-api/Dockerfile
+          push: false
+          tags: kmwtechnology/lucille-api:${{ env.release }}
