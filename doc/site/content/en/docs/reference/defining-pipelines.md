@@ -49,6 +49,8 @@ connectors: [
 
 Multiple Connectors can feed the same Pipeline.
 
+The `pipeline` field is optional. A connector without a pipeline performs its work without publishing documents — useful for preparatory tasks like creating an index or running a migration before a publishing connector executes. See [Setup-Only Connectors]({{< relref "docs/reference/control-flow#setup-only-connectors-no-pipeline" >}}) for details.
+
 ---
 
 ## Multiple Pipelines in a Single Run

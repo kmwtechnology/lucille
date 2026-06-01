@@ -29,7 +29,7 @@ These parameters are available on all Connectors via `AbstractConnector`:
 |---|---|---|
 | `class` | Yes | Fully qualified class name of the Connector implementation. |
 | `name` | Yes | Connector name for logging and run summaries. |
-| `pipeline` | No | Name of the pipeline to process this connector's documents. If omitted, no Workers or Indexer are started for this connector. |
+| `pipeline` | No | Name of the pipeline to process this connector's documents. If omitted, no Workers or Indexer are started for this connector. See [Setup-Only Connectors]({{< relref "docs/reference/control-flow#setup-only-connectors-no-pipeline" >}}) for this pattern. |
 | `docIdPrefix` | No | String prefix prepended to every Document ID to prevent collisions across connectors. |
 | `collapse` | No | Whether the Publisher should collapse consecutive documents with the same ID (for CDC scenarios). Default: `false`. |
 
