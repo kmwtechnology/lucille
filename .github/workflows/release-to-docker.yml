@@ -16,9 +16,9 @@ on:
         required: true
 
 env:
-#  release: ${{ github.event.inputs.releaseversion == null && github.event.release.tag_name || github.event.inputs.releaseversion}}
+#  release: ${{ github.event.inputs.releaseversion == null && github.event.release.tag_name || github.event.inputs.releaseversion }}
   # TODO: Temporary
-  release: ${{ github.event.inputs.releaseversion || github.event.release.tag_name || 'test' }}
+  release: 'TEST'
 
 jobs:
   publish:
@@ -41,18 +41,18 @@ jobs:
       - name: Build with Maven
         run: mvn -B package --file pom.xml
 
-#      - name: Login to Docker Hub
-#        uses: docker/login-action@v3
-#        with:
-#          username: ${{ secrets.DOCKERHUB_USERNAME }}
-#          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_IMAGE_TOKEN }}
 
       - name: Build and push (lucille-core)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
-          push: false
+          push: true
           tags: kmwtechnology/lucille:${{ env.release }}
 
       - name: Build and push (lucille-api)
@@ -61,5 +61,5 @@ jobs:
           # needs to be run in parent dir of the API plugin to get the jars
           context: lucille-plugins/lucille-api
           file: lucille-plugins/lucille-api/Dockerfile
-          push: false
+          push: true
           tags: kmwtechnology/lucille-api:${{ env.release }}
