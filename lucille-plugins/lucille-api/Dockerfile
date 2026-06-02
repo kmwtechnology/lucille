@@ -51,7 +51,6 @@ COPY conf/ /lucille-api/conf/
 COPY target/ /lucille-api/target/
 
 # Set the necessary environment variables
-# TODO: Double check the purpose / usage of this env var?
 ENV LUCILLE_CONF="conf/simple-config.conf"
 ENV JAVA_OPTS=""
 ENV DROPWIZARD_CONF="conf/api.yml"
