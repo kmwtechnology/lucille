@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -25,6 +26,7 @@ import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
@@ -243,58 +245,80 @@ public class SolrIndexer extends Indexer {
   }
 
   private void sendAddUpdateBatch(String collection, List<SolrInputDocument> solrDocs)
-      throws SolrServerException, IOException {
+      throws IndexerException {
     if (solrDocs.isEmpty()) {
       return;
     }
-    if (collection == null) {
-      solrClient.add(solrDocs);
-    } else {
-      solrClient.add(collection, solrDocs);
+    try {
+      if (collection == null) {
+        solrClient.add(solrDocs);
+      } else {
+        solrClient.add(collection, solrDocs);
+      }
+    } catch (SolrException e) {
+      // Decide whether to throw based on http status code
+      throw toRetryableException(e);
+    } catch (SolrServerException | IOException e) {
+      // Communication / transport failure with no http status code available
+      throw new IndexerRetryableException("Error communicating with Solr", e);
     }
   }
 
   private void sendDeletionBatch(String collection, SolrDocRequests requests)
-      throws SolrServerException, IOException {
+      throws IndexerException {
     if (requests.getDeleteIds().isEmpty() && requests.getValuesToDeleteByField().isEmpty()) {
       return;
     }
 
-    if (requests.getValuesToDeleteByField().isEmpty()) {
-      // All of the deletes are by ID. Simply delete by ID.
-      List<String> deletionIds = requests.getDeleteIds();
-      if (collection == null) {
-        solrClient.deleteById(deletionIds);
+    try {
+      if (requests.getValuesToDeleteByField().isEmpty()) {
+        // All of the deletes are by ID. Simply delete by ID.
+        List<String> deletionIds = requests.getDeleteIds();
+        if (collection == null) {
+          solrClient.deleteById(deletionIds);
+        } else {
+          solrClient.deleteById(collection, deletionIds);
+        }
       } else {
-        solrClient.deleteById(collection, deletionIds);
-      }
-    } else {
-      // At least some of the deletes are by field. Perform the deletes with a single request using
-      // terms queries.
-      List<String> termsQueries = new ArrayList<>();
-      if (!requests.getDeleteIds().isEmpty()) {
-        termsQueries.add(
-            String.format("(+{!terms f='id' v='%s'})", String.join(",", requests.getDeleteIds())));
-      }
+        // At least some of the deletes are by field. Perform the deletes with a single request using
+        // terms queries.
+        List<String> termsQueries = new ArrayList<>();
+        if (!requests.getDeleteIds().isEmpty()) {
+          termsQueries.add(
+              String.format("(+{!terms f='id' v='%s'})", String.join(",", requests.getDeleteIds())));
+        }
 
-      requests
-          .getValuesToDeleteByField()
-          .entrySet()
-          .forEach(
-              entry ->
-                  termsQueries.add(
-                      String.format(
-                          "(+{!terms f='%s' v='%s'})",
-                          entry.getKey(), String.join(",", entry.getValue()))));
+        requests
+            .getValuesToDeleteByField()
+            .entrySet()
+            .forEach(
+                entry ->
+                    termsQueries.add(
+                        String.format(
+                            "(+{!terms f='%s' v='%s'})",
+                            entry.getKey(), String.join(",", entry.getValue()))));
 
-      String queryToDelete = String.join(" OR ", termsQueries);
+        String queryToDelete = String.join(" OR ", termsQueries);
 
-      if (collection == null) {
-        solrClient.deleteByQuery(queryToDelete);
-      } else {
-        solrClient.deleteByQuery(collection, queryToDelete);
+        if (collection == null) {
+          solrClient.deleteByQuery(queryToDelete);
+        } else {
+          solrClient.deleteByQuery(collection, queryToDelete);
+        }
       }
+    } catch (SolrException e) {
+      throw toRetryableException(e);
+    } catch (SolrServerException | IOException e) {
+      throw new IndexerRetryableException("Error communicating with Solr", e);
     }
+  }
+
+  private static IndexerRetryableException toRetryableException(SolrException e) {
+    int code = e.code();
+    if (code > 0) {
+      return new IndexerRetryableException(code, "Solr returned HTTP " + code, e);
+    }
+    return new IndexerRetryableException("Solr error with no HTTP status code", e);
   }
 
   private boolean isDeletion(Document doc) {
