@@ -50,6 +50,11 @@ WORKDIR /lucille-api
 COPY conf/ /lucille-api/conf/
 COPY target/ /lucille-api/target/
 
+# non-root user
+RUN groupadd -r lucille \
+ && useradd -r -g lucille -d /lucille-api -s /usr/sbin/nologin lucille \
+ && chown -R lucille:lucille /lucille-api
+
 # Set the necessary environment variables
 ENV LUCILLE_CONF="conf/simple-config.conf"
 ENV JAVA_OPTS=""
@@ -60,5 +65,7 @@ EXPOSE 8080
 
 COPY docker-entrypoint.sh /lucille-api/docker-entrypoint.sh
 RUN chmod +x /lucille-api/docker-entrypoint.sh
+
+USER lucille
 
 ENTRYPOINT ["/lucille-api/docker-entrypoint.sh"]

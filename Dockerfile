@@ -13,6 +13,11 @@ COPY lucille-core/target/lib/ /lucille/lib/
 # Default config directory — downstream consumers mount or COPY configs here
 RUN mkdir -p /lucille/conf
 
+# non-root user
+RUN groupadd -r lucille \
+ && useradd -r -g lucille -d /lucille -s /usr/sbin/nologin lucille \
+ && chown -R lucille:lucille /lucille
+
 # Environment variables with sensible defaults
 # LUCILLE_CONF: path to the Lucille config file (required)
 # JAVA_OPTS: JVM flags such as heap size and GC settings
@@ -24,5 +29,7 @@ ENV JAVA_OPTS="-Xms256m -Xmx1g"
 # Copy the entrypoint script
 COPY docker-entrypoint.sh /lucille/docker-entrypoint.sh
 RUN chmod +x /lucille/docker-entrypoint.sh
+
+USER lucille
 
 ENTRYPOINT ["/lucille/docker-entrypoint.sh"]
