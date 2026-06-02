@@ -7,6 +7,7 @@ LABEL description="Lucille Search ETL base image"
 WORKDIR /lucille
 
 # Copy the built Lucille artifacts
+COPY lucille-core/target/*.jar /lucille/lib/
 COPY lucille-core/target/lib/ /lucille/lib/
 
 # Default config directory — downstream consumers mount or COPY configs here
