@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.endpoints;
 
+import com.kmwllc.lucille.PresetConfigHandler;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -62,9 +63,13 @@ public class LucilleResource {
    * @param runnerManager the runner manager instance
    * @param authHandler the authentication handler
    */
-  public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler) {
+  public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler, Map<String, Config> presetConfigs) {
     this.runnerManager = runnerManager;
     this.authHandler = authHandler;
+
+    for (Map.Entry<String, Config> entry : presetConfigs.entrySet()) {
+      runnerManager.createConfigWithName(entry.getValue(), entry.getKey());
+    }
   }
 
   /**
