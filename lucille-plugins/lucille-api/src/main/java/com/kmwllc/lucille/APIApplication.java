@@ -116,6 +116,13 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
       log.info("Authentication is disabled.");
     }
 
+    if (config.getPresetConfigConfiguration() != null) {
+      log.info("Preset Config Path: {}", config.getPresetConfigConfiguration().getConfigDirectoryPath());
+    } else {
+      log.info("Preset Config Path is null");
+    }
+
+
     // Register our 3 Resources
     AuthHandler authHandler = new AuthHandler(authEnabled);
     env.jersey().register(new LucilleResource(runnerManager, authHandler));

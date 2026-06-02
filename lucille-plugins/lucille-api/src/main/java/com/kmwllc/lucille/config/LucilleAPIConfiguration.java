@@ -40,6 +40,12 @@ public class LucilleAPIConfiguration extends Configuration {
   public SwaggerBundleConfiguration swaggerBundleConfiguration;
 
   /**
+   * Defining a preset directory containing configs to be preloaded.
+   */
+  @Valid
+  private PresetConfigConfiguration presetConfigConfiguration;
+
+  /**
    * Returns the Swagger/OpenAPI configuration.
    * @return the SwaggerBundleConfiguration
    */
@@ -75,4 +81,20 @@ public class LucilleAPIConfiguration extends Configuration {
     this.authConfig = authConfig;
   }
 
+  /**
+   * Returns the PresetConfigConfiguration.
+   * @return the PresetConfigConfiguration.
+   */
+  @JsonProperty("presetConfig")
+  public PresetConfigConfiguration getPresetConfigConfiguration() {
+    return this.presetConfigConfiguration;
+  }
+
+  /**
+   * Sets the PresetConfigConfiguration.
+   */
+  @JsonProperty("presetConfig")
+  public void setPresetConfigConfiguration(PresetConfigConfiguration presetConfigConfiguration) {
+    this.presetConfigConfiguration = presetConfigConfiguration;
+  }
 }
