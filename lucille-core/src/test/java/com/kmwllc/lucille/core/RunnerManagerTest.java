@@ -113,6 +113,10 @@ public class RunnerManagerTest {
     // once complete, we should be able to start the second run with the config.
     // also, note that we are able to use runId2, which we *attempted* to earlier.
     runnerManager.runWithConfig(runId2, configId, true);
+    assertTrue(runnerManager.isRunning(runId2));
+    runnerManager.waitForRunCompletion(runId2);
+    // don't want to leave the run lingering after this test
+    assertFalse(runnerManager.isRunning(runId2));
   }
 
   @Test
