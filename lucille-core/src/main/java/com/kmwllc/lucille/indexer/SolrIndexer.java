@@ -318,6 +318,7 @@ public class SolrIndexer extends Indexer {
     if (code > 0) {
       return new IndexerRetryableException(code, "Solr returned HTTP " + code, e);
     }
+    // SolrException can carry an ErrorCode.UNKNOWN, which is a 0 and not a real http response
     return new IndexerRetryableException("Solr error with no HTTP status code", e);
   }
 
