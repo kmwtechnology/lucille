@@ -122,7 +122,7 @@ public class RunnerManager {
    *
    * @param runId the unique ID for the lucille run
    * @param configId the ID of the config you want to use for the run.
-   * @param lockConfig Whether you want to prevent runs from using this configId until this run is resolved.
+   * @param lockConfig Whether you want to prevent future runs from using this configId until this run is resolved.
    * @return RunDetails
    * @throws RunnerManagerException
    */
