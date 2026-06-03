@@ -73,3 +73,24 @@ All endpoints are under the `/v1` prefix.
 1. `POST /v1/config` with your HOCON config as JSON — receive a `configId`.
 2. `POST /v1/run` with `{"configId": "<uuid>"}` — receive a `runId`.
 3. `GET /v1/run/{runId}` — poll for run status until complete.
+
+---
+
+## Configuring the API
+
+It is important to draw a distinction between configuration for the Lucille API and configuration for Lucille (a Lucille run).
+Configuration for the Lucille API takes the form of a `.yml` file and controls an instance of the API. Within the API,
+you'll upload your Lucille Configs (as JSON) to ultimately run them.
+
+### Preset Configs
+
+You can update your Lucille API configuration to define a directory containing preset Configs you would like to be loaded
+upon initialization of the Lucille API. 
+
+```yaml
+presetConfig:
+  configDirectoryPath: /path/to/my/configs
+```
+
+The provided path **must** be a directory. Only `.json` and `.conf` files in this directory will be considered. Instead of a UUID,
+configs loaded this way are keyed by their filename, including their file extension (e.g. `config1.conf`).

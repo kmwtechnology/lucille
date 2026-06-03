@@ -157,6 +157,20 @@ curl -k -u user:password https://localhost:8443/v1/config -H "Content-Type: appl
 #### Production HTTPS
 For a real deployment you want a CA-issued cert, the strict defaults turned back on, and secrets out of the YAML file.
 
+
+### Preset (Lucille) Configuration
+In your API configuration, you can declare a path to a directory containing _Lucille_ configurations you would like to be loaded 
+during initialization of the API.
+
+```yaml
+presetConfig:
+  configDirectoryPath: /path/to/my/configs
+```
+
+The provided path **must** be a directory. Only `.json` and `.conf` files in this directory will be considered.
+
+In lieu of a UUID, preset configs will be keyed by their filename, including their file extension (e.g. `config1.conf`).
+
 ## Logging and Integration Testing with Dropwizard
 
 ### Important Notes for Logging Configuration
