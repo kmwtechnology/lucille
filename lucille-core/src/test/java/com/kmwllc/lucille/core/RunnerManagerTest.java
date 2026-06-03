@@ -101,11 +101,14 @@ public class RunnerManagerTest {
     // but the risk of this *should* be low...
     runnerManager.runWithConfig(runId1, configId, true);
 
+    assertTrue(runnerManager.isRunning(runId1));
+
     // regardless of the lock param, the run should be prevented.
     assertThrows(RunnerManagerException.class, () -> runnerManager.runWithConfig(runId2, configId, false));
     assertThrows(RunnerManagerException.class, () -> runnerManager.runWithConfig(runId2, configId, true));
 
     runnerManager.waitForRunCompletion(runId1);
+    assertFalse(runnerManager.isRunning(runId1));
 
     // once complete, we should be able to start the second run with the config.
     // also, note that we are able to use runId2, which we *attempted* to earlier.
