@@ -31,7 +31,7 @@ public class RunnerManager {
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
 
   // Mapping Config IDs currently in use to the associated Run ID. Only used when
-  // configured to prevent concurrent runs of the same config. Config IDs are only
+  // we aim to prevent concurrent runs of the same config. Config IDs are only
   // present in this map when they are in use.
   private final Map<String, String> lockedConfigMap = new ConcurrentHashMap<>();
 
@@ -106,7 +106,7 @@ public class RunnerManager {
   }
 
   /**
-   * Method to start a lucille run with a custom configuration. Will not lock the config.
+   * Method to start a lucille run with a custom configuration. Config will not be locked.
    *
    * @param runId the unique ID for the lucille run
    * @param configId the ID of the config you want to use for the run.
@@ -124,7 +124,7 @@ public class RunnerManager {
    * @param configId the ID of the config you want to use for the run.
    * @param lockConfig Whether you want to prevent future runs from using this configId until this run is resolved.
    * @return RunDetails
-   * @throws RunnerManagerException
+   * @throws RunnerManagerException For invalid arguments or if the configId is currently locked (regardless of <code>lockConfig</code>'s value).
    */
   public synchronized RunDetails runWithConfig(String runId, String configId, boolean lockConfig)
       throws RunnerManagerException {

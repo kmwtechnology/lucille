@@ -91,7 +91,7 @@ public class LucilleResourceTest {
   }
 
   @Test
-  public void testStartRunLockConfig() {
+  public void testStartRunWithLockConfig() {
     LucilleResource preventConcurrentResource = new LucilleResource(runnerManager, new AuthHandler(false), true);
     Response configResponse = preventConcurrentResource.createConfig(mockUser, SLEEP_JSON);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");

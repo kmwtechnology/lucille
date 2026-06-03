@@ -13,7 +13,7 @@ import java.util.Base64;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-public class APIIntegrationPreventConcurrentTest {
+public class APIPreventConcurrentIntegrationTest {
 
   private static final String SLEEP_JSON = """
   {

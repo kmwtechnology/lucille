@@ -64,7 +64,7 @@ public class LucilleResource {
   private final boolean preventConcurrentRuns;
 
   /**
-   * Constructs a new LucilleResource that allows for concurrentRuns.
+   * Constructs a new LucilleResource that does not prevent concurrent runs.
    * @param runnerManager the runner manager instance
    * @param authHandler the authentication handler
    */
