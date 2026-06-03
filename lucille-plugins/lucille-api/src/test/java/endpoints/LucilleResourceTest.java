@@ -2,9 +2,10 @@ package endpoints;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.objects.RunRequest;
-import java.util.HashMap;
+import jakarta.ws.rs.core.Response.Status;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.Before;
@@ -17,6 +18,29 @@ import io.dropwizard.auth.PrincipalImpl;
 import jakarta.ws.rs.core.Response;
 
 public class LucilleResourceTest {
+
+  private static final String SLEEP_JSON = """
+  {
+    "connectors": [
+      {
+        "class": "com.kmwllc.lucille.connector.SleepConnector",
+        "name": "connector1",
+        "pipeline": "pipeline1",
+        "duration": 1000
+      }
+    ],
+    "pipelines": [
+      {
+        "name": "pipeline1",
+        "stages": []
+      }
+    ],
+    "indexer": {
+      "type": "NoOpIndexer",
+      "class": "com.kmwllc.lucille.indexer.NopIndexer"
+    }
+  }
+  """;
 
   private RunnerManager runnerManager;
   private LucilleResource lucilleResource;
@@ -64,6 +88,24 @@ public class LucilleResourceTest {
     RunDetails runDetails = (RunDetails) runResponse.getEntity();
     assertNotNull(runDetails);
     assertEquals(configId, runDetails.getConfigId());
+  }
+
+  @Test
+  public void testStartRunLockConfig() {
+    Response configResponse = lucilleResource.createConfig(mockUser, SLEEP_JSON);
+    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+
+    RunRequest runRequest = new RunRequest();
+    runRequest.setConfigId(configId);
+    runRequest.setLockConfig(true);
+    Response runResponse1 = lucilleResource.startRun(mockUser, runRequest);
+    assertEquals(Response.Status.OK.getStatusCode(), runResponse1.getStatus());
+
+    Response runResponse2 = lucilleResource.startRun(mockUser, runRequest);
+    assertEquals(Status.BAD_REQUEST.getStatusCode(), runResponse2.getStatus());
+
+    String errorMessage = ((Map<String, String>) runResponse2.getEntity()).get("message");
+    assertTrue(errorMessage.contains("is locked, in use by run"));
   }
 
   @Test

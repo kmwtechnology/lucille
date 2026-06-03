@@ -171,12 +171,13 @@ public class LucilleResource {
   @Path("/run")
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(summary = "Start a new Lucille run",
-      description = "Triggers a new Lucille run with the specified configuration if none is currently running.")
+      description = "Triggers a new Lucille run with the specified configuration. The lockConfig parameter determines whether concurrent runs with the same"
+          + " config ID should be prevented.")
   public Response startRun(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
-      @RequestBody(description = "Request body containing the configuration ID.", required = true,
+      @RequestBody(description = "Request body containing the configuration ID and, optionally, the lockConfig parameter.", required = true,
           content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
               type = "object",
-              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\"}"))) RunRequest runRequest) {
+              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\", \"lockConfig\": false}"))) RunRequest runRequest) {
     Response authResponse = authHandler.authenticate(user);
     if (authResponse != null) {
       return authResponse; // Return if authentication fails
@@ -191,7 +192,7 @@ public class LucilleResource {
       }
 
       String runId = Runner.generateRunId();
-      RunDetails details = runnerManager.runWithConfig(runId, configId);
+      RunDetails details = runnerManager.runWithConfig(runId, configId, runRequest.isLockConfig());
       log.debug("Lucille run has been triggered. Run ID: " + runId);
       log.debug("details: {}", details);
       return Response.ok(details).build();
