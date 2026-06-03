@@ -372,7 +372,7 @@ public class OpenSearchIndexer extends Indexer {
     BulkResponse response;
     try {
       response = client.bulk(br.build());
-    } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+    } catch (OpenSearchException e) {
       // HTTP-level error with a known status code — wrap so the base Indexer can apply retry policy
       throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
     } catch (IOException e) {
