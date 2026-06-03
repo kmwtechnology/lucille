@@ -52,6 +52,44 @@ See [Control Flow: Pre- and Post-Connector Actions]({{< relref "docs/reference/c
 
 ---
 
+## Setup-Only Connectors
+
+If your connector's purpose is purely preparatory — it performs work but does not publish documents — omit the `pipeline` field in the config. The framework will call `execute(null)` synchronously, passing `null` for the publisher.
+
+Put your logic in `execute()` and ignore the publisher parameter:
+
+```java
+public class CreateCollectionConnector extends AbstractConnector {
+
+  private final String solrUrl;
+  private final String collection;
+
+  public CreateCollectionConnector(Config config) {
+    super(config);
+    this.solrUrl = config.getString("solrUrl");
+    this.collection = config.getString("collection");
+  }
+
+  @Override
+  public void execute(Publisher publisher) throws ConnectorException {
+    // publisher is null — this connector does not publish documents
+    try (SolrClient client = new Http2SolrClient.Builder(solrUrl).build()) {
+      CollectionAdminRequest.Create create =
+          CollectionAdminRequest.createCollection(collection, 1, 1);
+      create.process(client);
+    } catch (Exception e) {
+      throw new ConnectorException("Failed to create collection: " + collection, e);
+    }
+  }
+}
+```
+
+This connector runs before any publishing connector in the same config. If it throws, the run aborts. Use `close()` for resource cleanup and `postExecute()` for success-only teardown, just as with any other connector.
+
+See [Control Flow: Setup-Only Connectors]({{< relref "docs/reference/control-flow#setup-only-connectors-no-pipeline" >}}) for the config-level view of this pattern.
+
+---
+
 ## Connector Skeleton
 
 Every connector must follow the [Javadoc Standards]({{< relref "docs/developer-guide/javadocs" >}}).
