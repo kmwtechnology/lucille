@@ -72,9 +72,11 @@ rewrite_links() {
   slug=$(basename "$dest")
   # visit every markdown file in the version folder
   find "$dest" -name '*.md' -type f | while IFS= read -r f; do
-    # rewrite the three "docs/"-rooted link forms onto $slug via a temp file, then swap it in
+    # relref: find {{< relref "docs/ and swap docs/ for $slug/
     sed -e "s#{{< relref \"docs/#{{< relref \"$slug/#g" \
+    # absolute path: find ](/docs/ and swap in for $slug, keeping leading slash
         -e "s#](/docs/#](/$slug/#g" \
+    # relative path: find ](docs/ and swap in for $slug, no leading slash
         -e "s#](docs/#]($slug/#g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
   done
 }
