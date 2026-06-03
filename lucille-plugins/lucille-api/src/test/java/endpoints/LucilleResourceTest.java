@@ -23,7 +23,7 @@ public class LucilleResourceTest {
   {
     "connectors": [
       {
-        "class": "com.kmwllc.lucille.connector.SleepConnector",
+        "class": "connector.SleepConnector",
         "name": "connector1",
         "pipeline": "pipeline1",
         "duration": 1000
@@ -91,7 +91,7 @@ public class LucilleResourceTest {
   }
 
   @Test
-  public void testStartRunWithLockConfig() {
+  public void testStartRunWithLockConfig() throws Exception {
     LucilleResource preventConcurrentResource = new LucilleResource(runnerManager, new AuthHandler(false), true);
     Response configResponse = preventConcurrentResource.createConfig(mockUser, SLEEP_JSON);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");

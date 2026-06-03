@@ -19,7 +19,7 @@ public class APIPreventConcurrentIntegrationTest {
   {
     "connectors": [
       {
-        "class": "com.kmwllc.lucille.connector.SleepConnector",
+        "class": "connector.SleepConnector",
         "name": "connector1",
         "pipeline": "pipeline1",
         "duration": 1000
@@ -48,7 +48,7 @@ public class APIPreventConcurrentIntegrationTest {
       "Basic " + Base64.getEncoder().encodeToString("admin:password".getBytes());
 
   @Test
-  public void testPreventConcurrentRuns() {
+  public void testPreventConcurrentRuns() throws Exception {
     Response configStatus1 = client.target(url + "v1/config").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity(SLEEP_JSON, MediaType.APPLICATION_JSON));
     String configResponse1 = configStatus1.readEntity(String.class);
@@ -59,19 +59,21 @@ public class APIPreventConcurrentIntegrationTest {
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity(SLEEP_JSON, MediaType.APPLICATION_JSON));
     String configResponse2 = configStatus2.readEntity(String.class);
     // same retrieval as in APIIntegrationTest
-    String configId2 = configResponse2.substring(13, configResponse1.length() - 2);
+    String configId2 = configResponse2.substring(13, configResponse2.length() - 2);
 
     Response runPostStatus = client.target(url + "v1/run").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{\"configId\": \"" + configId1 + "\"}", MediaType.APPLICATION_JSON));
     assertEquals(200, runPostStatus.getStatus());
-
-    Response rejectedStatus = client.target(url + "v1/run").request()
-        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{\"configId\": \"" + configId1 + "\"}", MediaType.APPLICATION_JSON));
-    assertEquals(400, rejectedStatus.getStatus());
+    System.out.println("ENTITY 1: " + runPostStatus.readEntity(String.class));
 
     // identical config, but referenced by a different ID, so it can run.
     Response runPostStatus2 = client.target(url + "v1/run").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{\"configId\": \"" + configId2 + "\"}", MediaType.APPLICATION_JSON));
     assertEquals(200, runPostStatus2.getStatus());
+
+    Response rejectedStatus = client.target(url + "v1/run").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{\"configId\": \"" + configId1 + "\"}", MediaType.APPLICATION_JSON));
+    System.out.println("ENTITY 2: " + rejectedStatus.readEntity(String.class));
+    assertEquals(400, rejectedStatus.getStatus());
   }
 }
