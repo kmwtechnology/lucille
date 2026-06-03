@@ -135,6 +135,18 @@ public class RunnerManagerTest {
   }
 
   @Test
+  public void testCreateConfigWithName() {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
+    boolean success = runnerManager.createConfigWithName(config, "sleep");
+
+    assertTrue(success);
+
+    boolean sameNameSuccess = runnerManager.createConfigWithName(config, "sleep");
+    assertFalse(sameNameSuccess);
+  }
+
+  @Test
   public void testNonTrivialSimultaneousRuns() throws Exception {
     File outputFile1 = new File("output1.csv");
     File outputFile2 = new File("output2.csv");

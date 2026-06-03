@@ -122,8 +122,8 @@ public class LucilleResourceTest {
 
   @Test
   public void testPresetConfigs() {
-    Config config1 = ConfigFactory.load("presets/config1.conf");
-    Config config2 = ConfigFactory.load("presets/config2.conf");
+    Config config1 = ConfigFactory.load("test_presets/config1.conf");
+    Config config2 = ConfigFactory.load("test_presets/config2.conf");
 
     Map<String, Config> presetMap = Map.of(
         "config1", config1,

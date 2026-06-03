@@ -13,8 +13,8 @@ import org.junit.Test;
 
 public class PresetConfigHandlerTest {
 
-  Path presetsPath = Paths.get("src/test/resources/presets");
-  Path config1Path = Paths.get("src/test/resources/presets/config1.conf");
+  Path presetsPath = Paths.get("src/test/resources/test_presets");
+  Path config1Path = Paths.get("src/test/resources/test_presets/config1.conf");
 
   @Test
   public void testFetchConfigs() throws Exception {
