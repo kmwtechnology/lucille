@@ -17,7 +17,14 @@ Lucille uses SLF4J with Log4j2 as the logging backend. The log format depends on
 
 **JSON (structured logging for log aggregation):**
 ```json
-{"@timestamp":"2026-05-06T20:51:53.581Z","log.level":"INFO","message":"Pipeline Configuration is valid.","process.thread.name":"main","log.logger":"com.kmwllc.lucille.core.Runner","run_id":"c1d9413a-..."}
+{
+  "@timestamp": "2026-05-06T20:51:53.581Z",
+  "log.level": "INFO",
+  "message": "Pipeline Configuration is valid.",
+  "process.thread.name": "main",
+  "log.logger": "com.kmwllc.lucille.core.Runner",
+  "run_id": "c1d9413a-..."
+}
 ```
 
 The JSON format includes the `run_id` and `id` (document ID) fields from the MDC, making it possible to filter logs by run or by document in log aggregation tools. In plain text mode, only the `message` field is typically visible.
