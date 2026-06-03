@@ -40,7 +40,7 @@ public class LucilleAPIConfiguration extends Configuration {
   public SwaggerBundleConfiguration swaggerBundleConfiguration;
 
   /**
-   * Defining a preset directory containing configs to be preloaded.
+   * Defining a preset directory containing configs to be preloaded. Optional, so may be null.
    */
   @Valid
   private PresetConfigConfiguration presetConfigConfiguration;
@@ -82,8 +82,8 @@ public class LucilleAPIConfiguration extends Configuration {
   }
 
   /**
-   * Returns the PresetConfigConfiguration.
-   * @return the PresetConfigConfiguration.
+   * Returns the PresetConfigConfiguration. This is optional configuration, so it may be null.
+   * @return the PresetConfigConfiguration, which may be null.
    */
   @JsonProperty("presetConfig")
   public PresetConfigConfiguration getPresetConfigConfiguration() {
