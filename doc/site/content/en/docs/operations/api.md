@@ -73,3 +73,16 @@ All endpoints are under the `/v1` prefix.
 1. `POST /v1/config` with your HOCON config as JSON — receive a `configId`.
 2. `POST /v1/run` with `{"configId": "<uuid>"}` — receive a `runId`.
 3. `GET /v1/run/{runId}` — poll for run status until complete.
+
+---
+
+### Concurrent Runs
+
+You can prevent concurrent runs of the same Config with the `preventConcurrentRuns` option:
+
+```yaml
+preventConcurrentRuns: true
+```
+
+Concurrent runs are allowed by default. When this option is enabled, each configId may only be used for one run at a time.
+Requests to create concurrent runs with the same configId will fail.

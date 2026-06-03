@@ -9,6 +9,9 @@ logging:
 auth:
   type: "basicAuth"
   enabled: false
+
+preventConcurrentRuns: true
+
 swagger:
   resourcePackage: "com.kmwllc.lucille.endpoints"
   title: Lucille API

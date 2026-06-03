@@ -61,6 +61,7 @@ public class APIPreventConcurrentIntegrationTest {
     // same retrieval as in APIIntegrationTest
     String configId2 = configResponse2.substring(13, configResponse2.length() - 2);
 
+    // There should be enough room to prevent race conditions here.
     Response runPostStatus = client.target(url + "v1/run").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{\"configId\": \"" + configId1 + "\"}", MediaType.APPLICATION_JSON));
     assertEquals(200, runPostStatus.getStatus());

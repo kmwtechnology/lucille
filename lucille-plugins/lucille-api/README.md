@@ -157,6 +157,16 @@ curl -k -u user:password https://localhost:8443/v1/config -H "Content-Type: appl
 #### Production HTTPS
 For a real deployment you want a CA-issued cert, the strict defaults turned back on, and secrets out of the YAML file.
 
+### Preventing Concurrent Runs
+You can prevent concurrent runs of the same Config with the `preventConcurrentRuns` option:
+
+```yaml
+preventConcurrentRuns: true
+```
+
+Concurrent runs are allowed by default. When this option is enabled, each configId may only be used for one run at a time.
+Requests to create concurrent runs with the same configId will fail.
+
 ## Logging and Integration Testing with Dropwizard
 
 ### Important Notes for Logging Configuration

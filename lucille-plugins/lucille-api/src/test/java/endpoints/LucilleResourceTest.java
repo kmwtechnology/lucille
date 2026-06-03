@@ -91,13 +91,16 @@ public class LucilleResourceTest {
   }
 
   @Test
-  public void testStartRunWithLockConfig() throws Exception {
+  public void testStartRunWithLockConfig() {
     LucilleResource preventConcurrentResource = new LucilleResource(runnerManager, new AuthHandler(false), true);
     Response configResponse = preventConcurrentResource.createConfig(mockUser, SLEEP_JSON);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
 
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
+
+    // Similar to RunnerManager / API tests, there should be enough room
+    // to prevent race conditions causing a failure here.
     Response runResponse1 = preventConcurrentResource.startRun(mockUser, runRequest);
     assertEquals(Response.Status.OK.getStatusCode(), runResponse1.getStatus());
 
