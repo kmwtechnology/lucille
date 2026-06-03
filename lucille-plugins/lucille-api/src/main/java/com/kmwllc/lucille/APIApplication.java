@@ -118,7 +118,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
     // Register our 3 Resources
     AuthHandler authHandler = new AuthHandler(authEnabled);
-    env.jersey().register(new LucilleResource(runnerManager, authHandler));
+    env.jersey().register(new LucilleResource(runnerManager, authHandler, config.isPreventConcurrentRuns()));
     env.jersey().register(new LivenessResource());
     env.jersey().register(new ReadinessResource());
     env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));

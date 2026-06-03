@@ -40,6 +40,12 @@ public class LucilleAPIConfiguration extends Configuration {
   public SwaggerBundleConfiguration swaggerBundleConfiguration;
 
   /**
+   * Whether to prevent concurrent runs of the same <code>configId</code>.
+   */
+  @Valid
+  private boolean preventConcurrentRuns = false;
+
+  /**
    * Returns the Swagger/OpenAPI configuration.
    * @return the SwaggerBundleConfiguration
    */
@@ -75,4 +81,21 @@ public class LucilleAPIConfiguration extends Configuration {
     this.authConfig = authConfig;
   }
 
+  /**
+   * Whether to prevent concurrent runs of the same <code>configId</code>.
+   * @return whether to prevent concurrent runs of the same <code>configId</code>.
+   */
+  @JsonProperty("preventConcurrentRuns")
+  public boolean isPreventConcurrentRuns() {
+    return preventConcurrentRuns;
+  }
+
+  /**
+   * Sets whether to prevent concurrent runs of the same <code>configId</code>.
+   * @param preventConcurrentRuns whether to prevent concurrent runs of the same <code>configId</code>.
+   */
+  @JsonProperty("preventConcurrentRuns")
+  public void setPreventConcurrentRuns(boolean preventConcurrentRuns) {
+    this.preventConcurrentRuns = preventConcurrentRuns;
+  }
 }

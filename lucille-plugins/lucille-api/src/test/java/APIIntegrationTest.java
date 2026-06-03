@@ -13,8 +13,6 @@ import java.util.Base64;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-
-
 public class APIIntegrationTest {
 
   @ClassRule
@@ -134,6 +132,4 @@ public class APIIntegrationTest {
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, runIdStatus.getStatus());
   }
-
-
 }

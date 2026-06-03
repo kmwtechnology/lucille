@@ -59,13 +59,28 @@ public class LucilleResource {
   private final AuthHandler authHandler;
 
   /**
-   * Constructs a new LucilleResource.
+   * Whether concurrent runs of the same <code>configId</code> should be prevented.
+   */
+  private final boolean preventConcurrentRuns;
+
+  /**
+   * Constructs a new LucilleResource that allows for concurrentRuns.
    * @param runnerManager the runner manager instance
    * @param authHandler the authentication handler
    */
   public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler) {
+    this(runnerManager, authHandler, false);
+  }
+
+  /**
+   * Constructs a new LucilleResource.
+   * @param runnerManager the runner manager instance
+   * @param authHandler the authentication handler
+   */
+  public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler, boolean preventConcurrentRuns) {
     this.runnerManager = runnerManager;
     this.authHandler = authHandler;
+    this.preventConcurrentRuns = preventConcurrentRuns;
   }
 
   /**
@@ -171,13 +186,12 @@ public class LucilleResource {
   @Path("/run")
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(summary = "Start a new Lucille run",
-      description = "Triggers a new Lucille run with the specified configuration. The lockConfig parameter determines whether concurrent runs with the same"
-          + " config ID should be prevented.")
+      description = "Triggers a new Lucille run with the specified configuration.")
   public Response startRun(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
-      @RequestBody(description = "Request body containing the configuration ID and, optionally, the lockConfig parameter.", required = true,
+      @RequestBody(description = "Request body containing the configuration ID", required = true,
           content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
               type = "object",
-              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\", \"lockConfig\": false}"))) RunRequest runRequest) {
+              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\"}"))) RunRequest runRequest) {
     Response authResponse = authHandler.authenticate(user);
     if (authResponse != null) {
       return authResponse; // Return if authentication fails
@@ -192,7 +206,7 @@ public class LucilleResource {
       }
 
       String runId = Runner.generateRunId();
-      RunDetails details = runnerManager.runWithConfig(runId, configId, runRequest.isLockConfig());
+      RunDetails details = runnerManager.runWithConfig(runId, configId, preventConcurrentRuns);
       log.debug("Lucille run has been triggered. Run ID: " + runId);
       log.debug("details: {}", details);
       return Response.ok(details).build();

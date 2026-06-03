@@ -92,16 +92,16 @@ public class LucilleResourceTest {
 
   @Test
   public void testStartRunLockConfig() {
-    Response configResponse = lucilleResource.createConfig(mockUser, SLEEP_JSON);
+    LucilleResource preventConcurrentResource = new LucilleResource(runnerManager, new AuthHandler(false), true);
+    Response configResponse = preventConcurrentResource.createConfig(mockUser, SLEEP_JSON);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
 
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
-    runRequest.setLockConfig(true);
-    Response runResponse1 = lucilleResource.startRun(mockUser, runRequest);
+    Response runResponse1 = preventConcurrentResource.startRun(mockUser, runRequest);
     assertEquals(Response.Status.OK.getStatusCode(), runResponse1.getStatus());
 
-    Response runResponse2 = lucilleResource.startRun(mockUser, runRequest);
+    Response runResponse2 = preventConcurrentResource.startRun(mockUser, runRequest);
     assertEquals(Status.BAD_REQUEST.getStatusCode(), runResponse2.getStatus());
 
     String errorMessage = ((Map<String, String>) runResponse2.getEntity()).get("message");
