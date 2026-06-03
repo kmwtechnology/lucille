@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.endpoints;
 
+import com.kmwllc.lucille.objects.RunRequest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -162,7 +163,7 @@ public class LucilleResource {
   /**
    * Starts a new Lucille run with the specified configuration.
    * @param user the authenticated user (optional)
-   * @param requestBody request body containing the configuration ID
+   * @param runRequest request body containing the configuration ID
    * @return HTTP 200 with run details, or error if invalid or unauthorized
    */
   @POST
@@ -175,15 +176,15 @@ public class LucilleResource {
       @RequestBody(description = "Request body containing the configuration ID.", required = true,
           content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
               type = "object",
-              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\"}"))) Map<String, String> requestBody) {
+              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\"}"))) RunRequest runRequest) {
     Response authResponse = authHandler.authenticate(user);
     if (authResponse != null) {
       return authResponse; // Return if authentication fails
     }
 
     try {
+      String configId = runRequest.getConfigId();
       // Extract configId from the request body
-      String configId = requestBody.get("configId");
       if (configId == null || configId.isBlank()) {
         return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
             "configId is required in the request body.");
@@ -249,5 +250,4 @@ public class LucilleResource {
 
     return Response.ok(details).build();
   }
-
 }

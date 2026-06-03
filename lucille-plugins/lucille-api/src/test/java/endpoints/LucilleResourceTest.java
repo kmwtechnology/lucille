@@ -2,6 +2,8 @@ package endpoints;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+
+import com.kmwllc.lucille.objects.RunRequest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -55,9 +57,9 @@ public class LucilleResourceTest {
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
     // Start run
-    Map<String, String> requestBody = new HashMap<>();
-    requestBody.put("configId", configId);
-    Response runResponse = lucilleResource.startRun(mockUser, requestBody);
+    RunRequest runRequest = new RunRequest();
+    runRequest.setConfigId(configId);
+    Response runResponse = lucilleResource.startRun(mockUser, runRequest);
     assertEquals(Response.Status.OK.getStatusCode(), runResponse.getStatus());
     RunDetails runDetails = (RunDetails) runResponse.getEntity();
     assertNotNull(runDetails);
@@ -67,9 +69,9 @@ public class LucilleResourceTest {
   @Test
   public void testStartRun_InvalidConfigId() {
     // Invalid configId
-    Map<String, String> requestBody = new HashMap<>();
-    requestBody.put("configId", "invalid-config-id");
-    Response response = lucilleResource.startRun(mockUser, requestBody);
+    RunRequest runRequest = new RunRequest();
+    runRequest.setConfigId("invalid-config-id");
+    Response response = lucilleResource.startRun(mockUser, runRequest);
     assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
   }
 
@@ -79,9 +81,9 @@ public class LucilleResourceTest {
     String configBody = "pipeline = \"testPipeline\"";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
-    Map<String, String> requestBody = new HashMap<>();
-    requestBody.put("configId", configId);
-    Response runResponse = lucilleResource.startRun(mockUser, requestBody);
+    RunRequest runRequest = new RunRequest();
+    runRequest.setConfigId(configId);
+    Response runResponse = lucilleResource.startRun(mockUser, runRequest);
     RunDetails runDetails = (RunDetails) runResponse.getEntity();
     String runId = runDetails.getRunId();
     // Fetch run details
@@ -98,9 +100,9 @@ public class LucilleResourceTest {
     String configBody = "{\"pipeline\": \"testPipeline\"}";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
-    Map<String, String> requestBody = new HashMap<>();
-    requestBody.put("configId", configId);
-    Response runResponse = lucilleResource.startRun(mockUser, requestBody);
+    RunRequest runRequest = new RunRequest();
+    runRequest.setConfigId(configId);
+    Response runResponse = lucilleResource.startRun(mockUser, runRequest);
     RunDetails runDetails = (RunDetails) runResponse.getEntity();
     String runId = runDetails.getRunId();
     // Fetch run details
