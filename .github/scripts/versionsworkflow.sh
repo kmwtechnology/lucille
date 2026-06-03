@@ -78,7 +78,6 @@ linkTitle: Docs-pre-release
 weight: 20
 cascade:
   type: docs
-  exclude_search: true
 ---
 EOF
 # Append everything after the metadata from the working branches top level docs _index.md so the pre-release landing
@@ -117,7 +116,6 @@ linkTitle: Docs-$tag
 weight: 20
 cascade:
   type: docs
-  exclude_search: true
 ---
 EOF
   fi
