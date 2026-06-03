@@ -59,9 +59,19 @@ public class LucilleResource {
   private final AuthHandler authHandler;
 
   /**
+   * Constructs a new LucilleResource with no preset configs.
+   * @param runnerManager The runner manager instance.
+   * @param authHandler The authentication handler.
+   */
+  public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler) {
+    this(runnerManager, authHandler, new HashMap<>());
+  }
+
+  /**
    * Constructs a new LucilleResource.
    * @param runnerManager the runner manager instance
    * @param authHandler the authentication handler
+   * @param presetConfigs A mapping of names to configs that should be added to the runner manager.
    */
   public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler, Map<String, Config> presetConfigs) {
     this.runnerManager = runnerManager;

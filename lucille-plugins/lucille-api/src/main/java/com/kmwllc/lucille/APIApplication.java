@@ -128,6 +128,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
       log.info("Preset Config Path is null");
     }
 
+    // may throw an exception for IO errors
     Map<String, Config> presetConfigs = presetConfigHandler.fetchConfigs();
 
     // Register our 3 Resources
