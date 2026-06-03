@@ -122,10 +122,8 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     PresetConfigHandler presetConfigHandler;
     if (config.getPresetConfigConfiguration() != null) {
       presetConfigHandler = new PresetConfigHandler(config.getPresetConfigConfiguration().getConfigDirectoryPath());
-      log.info("Preset Config Path: {}", config.getPresetConfigConfiguration().getConfigDirectoryPath());
     } else {
       presetConfigHandler = new PresetConfigHandler(null);
-      log.info("Preset Config Path is null");
     }
 
     // may throw an exception for IO errors
