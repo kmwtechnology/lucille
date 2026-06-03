@@ -64,6 +64,21 @@ tags_descending=$(echo "$tags" | sort -rV)
 latest_tag=$(echo "$tags_descending" | head -1)
 echo "Latest tag: $latest_tag"
 
+# Change any broken links to match their respective versions instead of linking to the docs folder
+rewrite_links() {
+  # destination folder holding this version's docs
+  dest="$1"
+  # the folder's own name, used as the link prefix (e.g. "docs-0.8.0")
+  slug=$(basename "$dest")
+  # visit every markdown file in the version folder
+  find "$dest" -name '*.md' -type f | while IFS= read -r f; do
+    # rewrite the three "docs/"-rooted link forms onto $slug via a temp file, then swap it in
+    sed -e "s#{{< relref \"docs/#{{< relref \"$slug/#g" \
+        -e "s#](/docs/#](/$slug/#g" \
+        -e "s#](docs/#]($slug/#g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  done
+}
+
 # Grab the doc site from the working branch for pre-release (up to date with main)
 # Needs to be done before the tag loop because it wipes content/en/docs
 pre_release_url="${url}-pre-release/"
@@ -83,6 +98,9 @@ EOF
 # Append everything after the metadata from the working branches top level docs _index.md so the pre-release landing
 # page keeps the same overview content
 awk 'found{print} /^---$/{n++; if(n==2) found=1}' content/en/docs/_index.md >> content/en/docs-pre-release/_index.md
+
+# Point pre-release's internal links at the docs-pre-release folder instead of latest
+rewrite_links content/en/docs-pre-release
 
 # Use "git archive" to extract docs from each tag into a temp directory, then
 # copy them into place.
@@ -104,12 +122,14 @@ while IFS= read -r tag; do
     # Latest tag replaces the main docs/ folder
     rm -rf content/en/docs
     cp -r "$tmpdir/content/en/docs" content/en/docs
+    dest="content/en/docs"
   else
     # Older tags go into their own docs-{tag} folder
-    cp -r "$tmpdir/content/en/docs" "content/en/docs-$tag"
+    dest="content/en/docs-$tag"
+    cp -r "$tmpdir/content/en/docs" "$dest"
 
     # Update _index.md to specify title and link title
-    cat > "content/en/docs-$tag/_index.md" << EOF
+    cat > "$dest/_index.md" << EOF
 ---
 title: Documentation $tag
 linkTitle: Docs-$tag
@@ -120,6 +140,10 @@ cascade:
 ---
 EOF
   fi
+
+  # Point this version's internal links at its own folder instead of latest
+  rewrite_links "$dest"
+
   rm -rf "$tmpdir"
 done <<< "$tags"
 
