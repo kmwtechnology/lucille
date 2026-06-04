@@ -22,9 +22,6 @@ public class RunnerManager {
 
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
-  // Singleton instance
-  private static final RunnerManager instance = new RunnerManager();
-
   // RunID keyed maps, the first is for active runs, the second is for historical runs
   // Ultimately the goal is to limit the size of the historical, active will be (theoretically) unbound.
   // Importantly, we operate under the following contract:
@@ -39,11 +36,7 @@ public class RunnerManager {
   // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
 
-  private RunnerManager() {}
-
-  public static RunnerManager getInstance() {
-    return instance;
-  }
+  public RunnerManager() {}
 
   /**
    * Check whether a specific run is still in progress.

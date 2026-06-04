@@ -96,7 +96,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     log.info(String.format("starting lucille-api from %s config %s env %s",
         System.getProperty("user.dir"), config, env));
 
-    RunnerManager runnerManager = RunnerManager.getInstance();
+    RunnerManager runnerManager = new RunnerManager();
 
     boolean authEnabled = config.getAuthConfig().isEnabled();
 

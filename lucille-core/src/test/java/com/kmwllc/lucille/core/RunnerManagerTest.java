@@ -29,7 +29,7 @@ public class RunnerManagerTest {
 
   @Test
   public void testRunnerManagerFull() throws Exception {
-    RunnerManager runnerManager = RunnerManager.getInstance();
+    RunnerManager runnerManager = new RunnerManager();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     String runId = Runner.generateRunId();
 
@@ -62,7 +62,7 @@ public class RunnerManagerTest {
 
   @Test
   public void testWaitForRunCompletion() throws Exception {
-    RunnerManager runnerManager = RunnerManager.getInstance();
+    RunnerManager runnerManager = new RunnerManager();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     String configId = runnerManager.createConfig(config);
     String runId = Runner.generateRunId();
@@ -91,7 +91,7 @@ public class RunnerManagerTest {
   @Test
   public void testSimultaneousRuns() throws Exception {
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
-    RunnerManager runnerManager = RunnerManager.getInstance();
+    RunnerManager runnerManager = new RunnerManager();
     String configId = runnerManager.createConfig(config);
     List<String> runIds = new ArrayList();
     List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -145,7 +145,7 @@ public class RunnerManagerTest {
       outputFile2.delete();
       outputFile3.delete();
 
-      RunnerManager runnerManager = RunnerManager.getInstance();
+      RunnerManager runnerManager = new RunnerManager();
       List<String> runIds = new ArrayList<>();
       List<CompletableFuture<Void>> futures = new ArrayList<>();
 

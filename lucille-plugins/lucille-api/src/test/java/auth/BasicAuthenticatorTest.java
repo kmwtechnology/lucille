@@ -22,7 +22,7 @@ public class BasicAuthenticatorTest {
      * The Authentication should pass when any user is passed to the endpoints
      */
     Optional<PrincipalImpl> user = Optional.of(new PrincipalImpl("test"));
-    RunnerManager runnerManager = RunnerManager.getInstance();
+    RunnerManager runnerManager = new RunnerManager();
     LucilleResource api = new LucilleResource(runnerManager, authHandler);
     String configBody = "pipeline = \"testPipeline\"";
     Response status = api.createConfig(user, configBody);
@@ -35,7 +35,7 @@ public class BasicAuthenticatorTest {
      * If an empty Optional is passed the Authentication should fail
      */
     Optional<PrincipalImpl> noUser = Optional.empty();
-    RunnerManager runnerManager = RunnerManager.getInstance();
+    RunnerManager runnerManager = new RunnerManager();
     LucilleResource api = new LucilleResource(runnerManager, authHandler);
     String configBody = "pipeline = \"testPipeline\"";
     Response status = api.createConfig(noUser, configBody);
