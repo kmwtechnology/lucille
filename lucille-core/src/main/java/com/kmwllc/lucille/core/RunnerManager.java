@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
@@ -22,6 +24,9 @@ public class RunnerManager {
 
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
+  // null in the event of no limit
+  private final Integer MAX_HISTORY;
+
   // RunID keyed maps, the first is for active runs, the second is for historical runs
   // Ultimately the goal is to limit the size of the historical, active will be (theoretically) unbound.
   // Importantly, we operate under the following contract:
@@ -32,11 +37,27 @@ public class RunnerManager {
   // - RunDetails may (briefly) be present in both maps.
   private final Map<String, RunDetails> activeDetailsMap = new ConcurrentHashMap<>();
   private final Map<String, RunDetails> historicalDetailsMap = new ConcurrentHashMap<>();
+  private final Queue<String> historicalEntryOrder = new ConcurrentLinkedQueue<>();
+
+  private final Object historicalLock = new Object();
 
   // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
 
-  public RunnerManager() {}
+  /**
+   * Creates a RunnerManager with no limit on the number of historical <code>RunDetails</code> that are stored.
+   */
+  public RunnerManager() {
+    this.MAX_HISTORY = null;
+  }
+
+  /**
+   * Creates a RunnerManager with the provided limit on the number of historical <code>RunDetails</code> that are stored.
+   * @param maxHistory The maximum number of RunDetails for historical, completed runs that will be stored.
+   */
+  public RunnerManager(Integer maxHistory) {
+    this.MAX_HISTORY = maxHistory;
+  }
 
   /**
    * Check whether a specific run is still in progress.
@@ -130,7 +151,6 @@ public class RunnerManager {
     final RunDetails runDetails = new RunDetails(runId, configId);
     activeDetailsMap.put(runId, runDetails);
 
-
     runDetails.setFuture(CompletableFuture.runAsync(() -> {
       try {
         log.info("Starting lucille run with ID '{}' via the Runner Manager using configId {}.",
@@ -147,7 +167,16 @@ public class RunnerManager {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);
       } finally {
-        historicalDetailsMap.put(runId, runDetails);
+        synchronized (historicalLock) {
+          historicalDetailsMap.put(runId, runDetails);
+          historicalEntryOrder.add(runId);
+
+          while (MAX_HISTORY != null && historicalDetailsMap.size() > MAX_HISTORY) {
+            String oldestRunId = historicalEntryOrder.poll();
+            historicalDetailsMap.remove(oldestRunId);
+          }
+        }
+
         activeDetailsMap.remove(runId);
       }
     }));
