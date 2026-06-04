@@ -16,6 +16,10 @@
 #     mirror. doc/site itself is never modified, so you can edit it freely and commit
 #     normally without the generated versioned content polluting your diff.
 #     To preview: re-run this script, then `cd doc/site-preview && hugo server`.
+#
+# WARNING: If tags have been re-pointed on the remote, run "git fetch --tags --force" before executing this script locally
+
+set -e
 
 mode=${1:-"local"}
 if [ $mode = "local" ]; then
@@ -32,6 +36,7 @@ if [ $mode = "local" ]; then
   preview_site="$(dirname "$src_site")/site-preview"
   echo "Mirroring $src_site -> $preview_site"
   # remove anything there previously
+  [[ "$preview_site" == */site-preview ]] || { echo "ERROR: unexpected preview path"; exit 1; }
   rm -rf "$preview_site"
   # make new site-preview
   mkdir -p "$preview_site"
@@ -44,6 +49,7 @@ if [ $mode = "local" ]; then
   url="http://localhost:1313/docs"
 elif [ $mode = "production" ]; then
   cd ${GITHUB_WORKSPACE}/doc/site
+  src_site="${GITHUB_WORKSPACE}/doc/site"
   url="https://kmwtechnology.github.io/lucille/docs"
 else
   echo "Invalid mode specified: $mode"
