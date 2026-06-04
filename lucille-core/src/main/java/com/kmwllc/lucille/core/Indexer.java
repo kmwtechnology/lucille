@@ -94,6 +94,8 @@ import sun.misc.Signal;
  *   failures, will not be retried. Include the sentinel value {@code -1} to also retry failures where no HTTP status code
  *   is available (e.g. network timeouts). When this parameter is omitted, the default {@code [429, 503, -1]} is used.
  *   An empty list is rejected as invalid configuration. Only allowed when maxRetries is also set.</li>
+ *   <li>indexer.versionType (String, Optional) : The type of versioning to use for indexing documents. Specific indexer implementations may support different version types. The default version type is implementation-specific.</li>
+ *   <li>indexer.versionField (String, Optional) : The field name to use for versioning. This field must be present in the document and must be of a type that supports versioning with that specific indexer implementation (e.g., numeric, string).</li>
  * </ul>
  */
 public abstract class Indexer implements Runnable {
@@ -561,7 +563,7 @@ public abstract class Indexer implements Runnable {
     Config indexerConfig = config.getConfig("indexer");
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
-            "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
+            "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
         .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor")
         .optionalBoolean("sendEnabled")

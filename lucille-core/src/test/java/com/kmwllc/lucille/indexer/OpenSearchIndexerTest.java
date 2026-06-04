@@ -761,6 +761,86 @@ public class OpenSearchIndexerTest {
   }
 
   @Test
+  public void testDocumentVersioningWithVersionField() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
+        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("field1", "value1");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+
+    assertEquals("doc1", indexRequest.id());
+    assertEquals(Long.valueOf(12345L), indexRequest.version());
+    assertEquals(VersionType.ExternalGte, indexRequest.versionType());
+    assertEquals(Map.of("id", "doc1", "my_version_field", 12345L, "field1", "value1"), map);
+  }
+
+  @Test
+  public void testDocumentVersioningWithVersionFieldMissingInDoc() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
+        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
+
+    Document doc = Document.create("doc1");
+    doc.setField("field1", "value1");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+
+    assertEquals("doc1", indexRequest.id());
+    // Should be null because field is missing and it's not a KafkaDocument
+    assertEquals(null, indexRequest.version());
+  }
+
+  @Test
+  public void testDocumentVersioningWithoutVersionField() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
+
+    // Test with KafkaDocument to ensure it still falls back to offset
+    KafkaDocument doc = new KafkaDocument(
+        new ObjectMapper().createObjectNode()
+            .put("id", "doc1")
+            .put("field1", "value1"));
+    doc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+
+    assertEquals("doc1", indexRequest.id());
+    assertEquals(Long.valueOf(100), indexRequest.version());
+  }
+
+  @Test
   public void testDocumentVersioning() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
