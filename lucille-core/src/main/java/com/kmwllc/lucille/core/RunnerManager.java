@@ -110,6 +110,7 @@ public class RunnerManager {
    */
   public synchronized boolean createConfigWithName(Config config, String name) {
     if (configMap.containsKey(name)) {
+      log.warn("Attempted to add config with name {}, which already exists", name);
       return false;
     }
 

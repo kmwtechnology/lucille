@@ -1,6 +1,7 @@
 package com.kmwllc.lucille;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -9,12 +10,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.commons.io.FilenameUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * When configured to do so, handles the retrieval of configs from a specified preset <code>configDirectoryPath</code>.
  * Given a <code>configDirectoryPath</code>, reads Configs from any .json or .conf files it encounters in that path.
  */
 public class PresetConfigHandler {
+
+  public static final Logger log = LoggerFactory.getLogger(PresetConfigHandler.class);
 
   private final Path configDirectoryPath;
 
@@ -48,8 +53,12 @@ public class PresetConfigHandler {
             return extension.equalsIgnoreCase("conf") || extension.equalsIgnoreCase("json");
           })
           .forEach(path -> {
-            Config config = ConfigFactory.parseFile(path.toFile()).resolve();
-            filenamesToConfigs.put(path.getFileName().toString(), config);
+            try {
+              Config config = ConfigFactory.parseFile(path.toFile()).resolve();
+              filenamesToConfigs.put(path.getFileName().toString(), config);
+            } catch (ConfigException e) {
+              log.warn("Error with config at {}:", path, e);
+            }
           });
     }
 
