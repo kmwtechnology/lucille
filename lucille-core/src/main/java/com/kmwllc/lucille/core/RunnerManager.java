@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,8 +25,16 @@ public class RunnerManager {
   // Singleton instance
   private static final RunnerManager instance = new RunnerManager();
 
-  // A runID keyed map containing run details of current and historical Lucille runs
-  private final Map<String, RunDetails> runDetailsMap = new ConcurrentHashMap<>();
+  // RunID keyed maps, the first is for active runs, the second is for historical runs
+  // Ultimately the goal is to limit the size of the historical, active will be (theoretically) unbound.
+  // Importantly, we operate under the following contract:
+  // - RunDetails are only "moved" to the historical details map AFTER the run "isDone"
+  // - Therefore, all RunDetails in the historicalDetailsMap should have isDone == true
+  // - RunDetails in the activeDetailsMap may (for a short time) have isDone == true, therefore,
+  //   the presence of a runID in the activeDetailsMap alone is not enough to assert that a run is running/is not done.
+  // - RunDetails may (briefly) be present in both maps.
+  private final Map<String, RunDetails> activeDetailsMap = new ConcurrentHashMap<>();
+  private final Map<String, RunDetails> historicalDetailsMap = new ConcurrentHashMap<>();
 
   // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
@@ -43,7 +52,7 @@ public class RunnerManager {
    * @return true if the run exists and is not completed; false otherwise
    */
   public synchronized boolean isRunning(String runId) {
-    RunDetails details = runDetailsMap.get(runId);
+    RunDetails details = activeDetailsMap.get(runId);
     return details != null && !details.isDone();
   }
 
@@ -54,7 +63,8 @@ public class RunnerManager {
    * @throws Exception if the run throws an exception or is interrupted
    */
   public void waitForRunCompletion(String runId) throws Exception {
-    RunDetails details = runDetailsMap.get(runId);
+    RunDetails details = getRunDetails(runId);
+
     if (details != null) {
       details.getFuture().get();
     } else {
@@ -115,7 +125,7 @@ public class RunnerManager {
       throw new RunnerManagerException("runId cannot be null");
     }
     
-    if (runDetailsMap.containsKey(runId)) {
+    if (activeDetailsMap.containsKey(runId) || historicalDetailsMap.containsKey(runId)) {
       throw new RunnerManagerException("Run with runId " + runId + " already defined - cannot use this runId again");
     }
 
@@ -125,7 +135,7 @@ public class RunnerManager {
     }
     
     final RunDetails runDetails = new RunDetails(runId, configId);
-    runDetailsMap.put(runId, runDetails);
+    activeDetailsMap.put(runId, runDetails);
 
 
     runDetails.setFuture(CompletableFuture.runAsync(() -> {
@@ -143,6 +153,9 @@ public class RunnerManager {
       } catch (Exception e) {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);
+      } finally {
+        historicalDetailsMap.put(runId, runDetails);
+        activeDetailsMap.remove(runId);
       }
     }));
 
@@ -156,7 +169,16 @@ public class RunnerManager {
    * @return the RunDetails object, or null if no such run exists
    */
   public RunDetails getRunDetails(String runId) {
-    return runDetailsMap.get(runId);
+    // As detailed above, the runDetails may briefly be in both maps.
+    // If it exists, it goes from active to historical. So, we check
+    // the runs in that order.
+    RunDetails activeDetails = activeDetailsMap.get(runId);
+
+    if (activeDetails == null) {
+      return historicalDetailsMap.get(runId);
+    } else {
+      return activeDetails;
+    }
   }
 
   /**
@@ -165,7 +187,11 @@ public class RunnerManager {
    * @return
    */
   public List<RunDetails> getRunDetails() {
-    return new ArrayList<>(runDetailsMap.values());
+    // We have potential duplicates - runs may be in both maps briefly -
+    // but we keep the same RunDetails instance, which the set can still consolidate.
+    Set<RunDetails> results = new HashSet<>(activeDetailsMap.values());
+    results.addAll(historicalDetailsMap.values());
+    return new ArrayList<>(results);
   }
 
   /**
