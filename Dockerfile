@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:21-jre
 
 LABEL maintainer="kmwtechnology"
 LABEL description="Lucille Search ETL base image"
@@ -9,6 +9,8 @@ WORKDIR /lucille
 # Copy the built Lucille artifacts
 COPY lucille-core/target/*.jar /lucille/lib/
 COPY lucille-core/target/lib/ /lucille/lib/
+
+COPY lucille-examples/lucille-rss-example/conf/single.conf /lucille/conf/single.conf
 
 # Default config directory — downstream consumers mount or COPY configs here
 RUN mkdir -p /lucille/conf
