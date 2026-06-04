@@ -35,6 +35,9 @@ public class PresetConfigHandlerTest {
     assertEquals(3, presetMap.get("config3.json").getInt("id"));
 
     assertFalse(presetMap.containsKey("hello.txt"));
+    // a malformed conf file in the directory. a warning is just logged,
+    // this does not cause a crash & should not be added to the map
+    assertFalse(presetMap.containsKey("bad.conf"));
   }
 
   @Test

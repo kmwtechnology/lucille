@@ -142,6 +142,8 @@ public class APIIntegrationTest {
 
     Map<String, Object> configGetMap = configGetStatus.readEntity(Map.class);
     // presets folder has three configs: incremental, simple-csv-solr-example, and simple-config(.json)
+    // Similar to PresetConfigHandlerTest - bad.conf is not included and does not cause
+    // issues initializing the API.
     assertTrue(configGetMap.containsKey("incremental.conf"));
     assertTrue(configGetMap.containsKey("simple-csv-solr-example.conf"));
     assertTrue(configGetMap.containsKey("simple-config.json"));
