@@ -235,6 +235,30 @@ public class RunnerManagerTest {
     assertNull(runnerManager.getRunDetails("run-2"));
   }
 
+  @Test
+  public void testNoHistory() throws Exception {
+    RunnerManager runnerManager = new RunnerManager(0);
+    Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
+    String noopId = runnerManager.createConfig(noopConfig);
+
+    runnerManager.runWithConfig("run-1", noopId);
+    runnerManager.waitForRunCompletion("run-1");
+
+    // as currently implemented, this shouldn't be vulnerable to a race condition / transient failure
+    assertEquals(0, runnerManager.getRunDetails().size());
+
+    // noting that, since it is cleared from the history, we *are* able to reuse the id
+    runnerManager.runWithConfig("run-1", noopId);
+    runnerManager.waitForRunCompletion("run-1");
+
+    assertEquals(0, runnerManager.getRunDetails().size());
+  }
+
+  @Test
+  public void testInvalidMaxHistory() {
+    assertThrows(IllegalArgumentException.class, () -> new RunnerManager(-1));
+  }
+
   private void validateRun1Reader(CSVReader run1Reader) {
     for (String[] line : run1Reader) {
       assertEquals(4, line.length);

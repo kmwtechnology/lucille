@@ -2,14 +2,13 @@ package com.kmwllc.lucille.core;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
@@ -27,19 +26,21 @@ public class RunnerManager {
   // null in the event of no limit
   private final Integer MAX_HISTORY;
 
-  // RunID keyed maps, the first is for active runs, the second is for historical runs
-  // Ultimately the goal is to limit the size of the historical, active will be (theoretically) unbound.
-  // Importantly, we operate under the following contract:
+  // RunID keyed maps, the first is for active runs, the second is for historical runs.
+  // We do this to optionally allow for a limited number of historical runs to be stored.
+  // Regarding thread safety, the following should be noted:
   // - RunDetails are only "moved" to the historical details map AFTER the run "isDone"
   // - Therefore, all RunDetails in the historicalDetailsMap should have isDone == true
   // - RunDetails in the activeDetailsMap may (for a short time) have isDone == true, therefore,
   //   the presence of a runID in the activeDetailsMap alone is not enough to assert that a run is running/is not done.
   // - RunDetails may (briefly) be present in both maps.
   private final Map<String, RunDetails> activeDetailsMap = new ConcurrentHashMap<>();
-  private final Map<String, RunDetails> historicalDetailsMap = new ConcurrentHashMap<>();
-  private final Queue<String> historicalEntryOrder = new ConcurrentLinkedQueue<>();
 
-  private final Object historicalLock = new Object();
+  // protected modifications by historicalLock
+  private final Map<String, RunDetails> historicalDetailsMap =
+      new LinkedHashMap<>();
+
+  private final Object historicalModificationsLock = new Object();
 
   // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
@@ -54,8 +55,15 @@ public class RunnerManager {
   /**
    * Creates a RunnerManager with the provided limit on the number of historical <code>RunDetails</code> that are stored.
    * @param maxHistory The maximum number of RunDetails for historical, completed runs that will be stored.
+   *                   <code>null</code> stores all history, <code>0</code> stores no history.
+   * @throws IllegalArgumentException If maxHistory is negative.
    */
   public RunnerManager(Integer maxHistory) {
+    if (maxHistory != null && maxHistory < 0) {
+      throw new IllegalArgumentException("maxHistory, when specified, must be non-negative.");
+    }
+
+
     this.MAX_HISTORY = maxHistory;
   }
 
@@ -167,13 +175,12 @@ public class RunnerManager {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);
       } finally {
-        synchronized (historicalLock) {
+        synchronized (historicalModificationsLock) {
           historicalDetailsMap.put(runId, runDetails);
-          historicalEntryOrder.add(runId);
 
-          while (MAX_HISTORY != null && historicalDetailsMap.size() > MAX_HISTORY) {
-            String oldestRunId = historicalEntryOrder.poll();
-            historicalDetailsMap.remove(oldestRunId);
+          if (MAX_HISTORY != null && historicalDetailsMap.size() > MAX_HISTORY) {
+            String runIdToRemove = historicalDetailsMap.keySet().iterator().next();
+            historicalDetailsMap.remove(runIdToRemove);
           }
         }
 
