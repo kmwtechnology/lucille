@@ -84,5 +84,5 @@ You can prevent concurrent runs of the same Config with the `preventConcurrentRu
 preventConcurrentRuns: true
 ```
 
-Concurrent runs are allowed by default. When this option is enabled, each configId may only be used for one run at a time.
-Requests to create concurrent runs with the same configId will fail.
+Concurrent runs of the same Config are allowed by default. When this option is enabled, each configId may only be used for one run at a time.
+In other words, requests that would create concurrent runs with the same configId will fail.
