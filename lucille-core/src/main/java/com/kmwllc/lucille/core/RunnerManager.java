@@ -1,5 +1,10 @@
 package com.kmwllc.lucille.core;
 
+import com.codahale.metrics.MetricFilter;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.util.LogUtils;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -175,6 +180,9 @@ public class RunnerManager {
 
           activeDetailsMap.remove(runId);
         }
+
+        // metrics cleanup
+        SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).removeMatching(MetricFilter.startsWith(runId));
       }
     }));
 
