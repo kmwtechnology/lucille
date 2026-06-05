@@ -11,15 +11,15 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import java.net.http.HttpClient;
-import java.net.http.HttpResponse;
+import java.io.IOException;
+import java.util.Optional;
+import org.junit.Before;
 import org.junit.Test;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch.generic.Body;
+import org.opensearch.client.opensearch.generic.OpenSearchGenericClient;
+import org.opensearch.client.opensearch.generic.Response;
 
 public class QueryOpensearchTest {
 
@@ -28,130 +28,96 @@ public class QueryOpensearchTest {
   private final String neckCreekResponse = """
 {"took":4,"timed_out":false,"_shards":{"total":1,"successful":1,"skipped":0,"failed":0},"hits":{"total":{"value":1,"relation":"eq"},"max_score":6.7708125,"hits":[{"_index":"parks","_id":"park_dataset.csv-50","_score":6.7708125,"_source":{"id":"park_dataset.csv-50","source":"/Users/Downloads/park_dataset.csv","filename":"park_dataset.csv","park_name":"Neck Creek Preserve","sanctuary_name":"","borough":"Staten Island","acres":"20","directions":"Public Transit: From the Staten Island Ferry, take the 46 or 96 buses, which eventually run along South Ave to West Shore Plaza (last stop).  From the plaza, walk along South Ave to Meredith Ave.  Make a left on Meredith and the preserve is half way down the block on the right.By Car: From the Staten Island Expressway (278) exit onto 440 south toward the outer bridge crossing.  Take the first exit at South Ave.  Make a left onto Chelsea Road and then the first right onto South Ave.  Make a left on Meredith Ave.  The preserve is half way down the block on the right.","description":"Site Description Coming Soon","habitat_type":"Salt Marsh","last_modified":"2020-03-15","csvLineNumber":50,"run_id":"9b367227-e9b9-4ae2-bccd-3f13664f7db4"}}]}}""";
 
+  private OpenSearchClient mockClient;
+
+  @Before
+  public void setup() throws IOException {
+    Body mockBody = mock(Body.class);
+    when(mockBody.bodyAsString()).thenReturn(neckCreekResponse);
+
+    Response mockResponse = mock(Response.class);
+    when(mockResponse.getBody()).thenReturn(Optional.of(mockBody));
+
+    OpenSearchGenericClient mockGeneric = mock(OpenSearchGenericClient.class);
+    when(mockGeneric.execute(any())).thenReturn(mockResponse);
+
+    mockClient = mock(OpenSearchClient.class);
+    when(mockClient.generic()).thenReturn(mockGeneric);
+  }
+
   @Test
   public void testSearchTemplate() throws Exception {
-    HttpResponse mockQueryResponse = mock(HttpResponse.class);
-    when(mockQueryResponse.body()).thenReturn(neckCreekResponse);
+    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/searchTemplate.conf");
+    stage.setClient(mockClient);
 
-    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
-      HttpClient mockClient = mock(HttpClient.class);
-      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
-      // First request is registering the template
-      // Second request/response is executing the query on the document
-      when(mockClient.send(any(), any())).thenReturn(mockQueryResponse);
+    Document testDoc = Document.create("neck_creek");
+    testDoc.setField("park_name", "Neck Creek Preserve");
+    stage.processDocument(testDoc);
 
-      Stage stage = factory.get("QueryOpensearchTest/searchTemplate.conf");
-
-      Document testDoc = Document.create("neck_creek");
-      testDoc.setField("park_name", "Neck Creek Preserve");
-      stage.processDocument(testDoc);
-
-      assertEquals(Double.valueOf(6.7708125), testDoc.getDouble("response"));
-    }
+    assertEquals(Double.valueOf(6.7708125), testDoc.getDouble("response"));
   }
 
   @Test
   public void testDestinationField() throws Exception {
-    HttpResponse mockQueryResponse = mock(HttpResponse.class);
-    when(mockQueryResponse.body()).thenReturn(neckCreekResponse);
+    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/specialDestination.conf");
+    stage.setClient(mockClient);
 
-    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
-      HttpClient mockClient = mock(HttpClient.class);
-      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
-      when(mockClient.send(any(), any())).thenReturn(mockQueryResponse);
+    Document testDoc = Document.create("neck_creek");
+    testDoc.setField("park_name", "Neck Creek Preserve");
+    stage.processDocument(testDoc);
 
-      Stage stage = factory.get("QueryOpensearchTest/specialDestination.conf");
-
-      Document testDoc = Document.create("neck_creek");
-      testDoc.setField("park_name", "Neck Creek Preserve");
-      stage.processDocument(testDoc);
-
-      assertEquals(Double.valueOf(6.7708125), testDoc.getDouble("special_destination"));
-    }
+    assertEquals(Double.valueOf(6.7708125), testDoc.getDouble("special_destination"));
   }
 
   @Test
   public void testDefaultResponseField() throws Exception {
-    HttpResponse mockQueryResponse = mock(HttpResponse.class);
-    when(mockQueryResponse.body()).thenReturn(neckCreekResponse);
+    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/defaultResponseField.conf");
+    stage.setClient(mockClient);
 
-    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
-      HttpClient mockClient = mock(HttpClient.class);
-      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
-      when(mockClient.send(any(), any())).thenReturn(mockQueryResponse);
+    Document testDoc = Document.create("neck_creek");
+    testDoc.setField("park_name", "Neck Creek Preserve");
+    stage.processDocument(testDoc);
 
-      Stage stage = factory.get("QueryOpensearchTest/defaultResponseField.conf");
-
-      Document testDoc = Document.create("neck_creek");
-      testDoc.setField("park_name", "Neck Creek Preserve");
-      stage.processDocument(testDoc);
-
-      assertEquals(neckCreekResponse, testDoc.getJson("response").toString());
-    }
+    assertEquals(neckCreekResponse, testDoc.getJson("response").toString());
   }
 
   @Test
   public void testArrayExtraction() throws Exception {
-    HttpResponse mockQueryResponse = mock(HttpResponse.class);
-    when(mockQueryResponse.body()).thenReturn(neckCreekResponse);
+    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/arrayExtraction.conf");
+    stage.setClient(mockClient);
 
-    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
-      HttpClient mockClient = mock(HttpClient.class);
-      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
-      when(mockClient.send(any(), any())).thenReturn(mockQueryResponse);
+    Document testDoc = Document.create("neck_creek");
+    testDoc.setField("park_name", "Neck Creek Preserve");
+    stage.processDocument(testDoc);
 
-      Stage stage = factory.get("QueryOpensearchTest/arrayExtraction.conf");
-
-      Document testDoc = Document.create("neck_creek");
-      testDoc.setField("park_name", "Neck Creek Preserve");
-      stage.processDocument(testDoc);
-
-      String firstHit = """
+    String firstHit = """
 {"_index":"parks","_id":"park_dataset.csv-50","_score":6.7708125,"_source":{"id":"park_dataset.csv-50","source":"/Users/Downloads/park_dataset.csv","filename":"park_dataset.csv","park_name":"Neck Creek Preserve","sanctuary_name":"","borough":"Staten Island","acres":"20","directions":"Public Transit: From the Staten Island Ferry, take the 46 or 96 buses, which eventually run along South Ave to West Shore Plaza (last stop).  From the plaza, walk along South Ave to Meredith Ave.  Make a left on Meredith and the preserve is half way down the block on the right.By Car: From the Staten Island Expressway (278) exit onto 440 south toward the outer bridge crossing.  Take the first exit at South Ave.  Make a left onto Chelsea Road and then the first right onto South Ave.  Make a left on Meredith Ave.  The preserve is half way down the block on the right.","description":"Site Description Coming Soon","habitat_type":"Salt Marsh","last_modified":"2020-03-15","csvLineNumber":50,"run_id":"9b367227-e9b9-4ae2-bccd-3f13664f7db4"}}""";
 
-      assertEquals(firstHit, testDoc.getJson("response").toString());
-    }
+    assertEquals(firstHit, testDoc.getJson("response").toString());
   }
 
   @Test
   public void testTemplateName() throws Exception {
-    HttpResponse mockQueryResponse = mock(HttpResponse.class);
-    when(mockQueryResponse.body()).thenReturn(neckCreekResponse);
+    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/templateName.conf");
+    stage.setClient(mockClient);
 
-    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
-      HttpClient mockClient = mock(HttpClient.class);
-      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
-      when(mockClient.send(any(), any())).thenReturn(mockQueryResponse);
+    Document testDoc = Document.create("neck_creek");
+    testDoc.setField("park_name", "Neck Creek Preserve");
+    stage.processDocument(testDoc);
 
-      Stage stage = factory.get("QueryOpensearchTest/templateName.conf");
-
-      Document testDoc = Document.create("neck_creek");
-      testDoc.setField("park_name", "Neck Creek Preserve");
-      stage.processDocument(testDoc);
-
-      assertEquals(Double.valueOf(6.7708125), testDoc.getDouble("response"));
-    }
+    assertEquals(Double.valueOf(6.7708125), testDoc.getDouble("response"));
   }
-
 
   @Test
   public void testMissingRequiredField() throws Exception {
-    HttpResponse mockQueryResponse = mock(HttpResponse.class);
-    when(mockQueryResponse.body()).thenReturn(neckCreekResponse);
+    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/searchTemplate.conf");
+    stage.setClient(mockClient);
 
-    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
-      HttpClient mockClient = mock(HttpClient.class);
-      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
-      when(mockClient.send(any(), any())).thenReturn(mockQueryResponse);
+    Document testDoc = Document.create("neck_creek");
+    stage.processDocument(testDoc);
 
-      Stage stage = factory.get("QueryOpensearchTest/searchTemplate.conf");
-
-      Document testDoc = Document.create("neck_creek");
-      stage.processDocument(testDoc);
-
-      assertFalse(testDoc.has("response"));
-      assertTrue(testDoc.has("queryOpensearchError"));
-    }
+    assertFalse(testDoc.has("response"));
+    assertTrue(testDoc.has("queryOpensearchError"));
   }
 
   @Test
@@ -212,31 +178,15 @@ public class QueryOpensearchTest {
   }
 
   @Test
-  public void testGetTemplateURI() throws StageException {
-    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/arrayExtraction.conf");
-    Config goodConfig = ConfigFactory.load("QueryOpensearchTest/searchTemplate.conf");
-
-    assertEquals("http://localhost:9200/parks/_search/template", stage.getTemplateSearchURI(goodConfig).toString());
-  }
-
-  @Test
   public void testBadResponsePath() throws Exception {
-    HttpResponse mockQueryResponse = mock(HttpResponse.class);
-    when(mockQueryResponse.body()).thenReturn(neckCreekResponse);
+    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/badResponsePath.conf");
+    stage.setClient(mockClient);
 
-    try (MockedStatic<HttpClient> client = Mockito.mockStatic(HttpClient.class)) {
-      HttpClient mockClient = mock(HttpClient.class);
-      client.when(() -> HttpClient.newHttpClient()).thenReturn(mockClient);
-      when(mockClient.send(any(), any())).thenReturn(mockQueryResponse);
+    Document testDoc = Document.create("neck_creek");
+    testDoc.setField("park_name", "Neck Creek Preserve");
+    stage.processDocument(testDoc);
 
-      Stage stage = factory.get("QueryOpensearchTest/badResponsePath.conf");
-
-      Document testDoc = Document.create("neck_creek");
-      testDoc.setField("park_name", "Neck Creek Preserve");
-      stage.processDocument(testDoc);
-
-      // Should have an empty response, since the pointer is an invalid path, but there is no Exception here.
-      assertEquals("", testDoc.getJson("response").toString());
-    }
+    // Should have an empty response, since the pointer is an invalid path, but there is no Exception here.
+    assertEquals("", testDoc.getJson("response").toString());
   }
 }
