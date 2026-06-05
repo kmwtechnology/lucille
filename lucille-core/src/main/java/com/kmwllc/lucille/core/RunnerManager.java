@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-
 
 /**
  * Public API for starting lucille runs and viewing their status. Will be used by external
@@ -34,19 +34,20 @@ public class RunnerManager {
 
   // RunID keyed maps, the first is for active runs, the second is for historical runs.
   // We do this to optionally allow for a limited number of historical runs to be stored.
-  // Regarding thread safety, the following should be noted:
-  // - RunDetails are only "moved" to the historical details map AFTER the run "isDone"
-  // - Therefore, all RunDetails in the historicalDetailsMap should have isDone == true
-  // - RunDetails in the activeDetailsMap may (for a short time) have isDone == true, therefore,
-  //   the presence of a runID in the activeDetailsMap alone is not enough to assert that a run is running/is not done.
+  // Some invariants regarding these maps and their effects:
+  // - RunDetails are only added to the historical details map AFTER the run "isDone".
+  //   - Therefore, all RunDetails in the historicalDetailsMap should have isDone == true
+  //   - To retrieve RunDetails, check the active map *and then* the historical map - the order matters!
+  // - RunDetails in the activeDetailsMap will (very briefly) have isDone == true
+  //   - The presence of a runID in the activeDetailsMap alone is *not* enough to completely assert that
+  //     a run is actually in progress
   // - RunDetails may (briefly) be present in both maps.
-  private final Map<String, RunDetails> activeDetailsMap = new ConcurrentHashMap<>();
+  // - Reads/Writes to either of these maps must be protected by synchronizing with the singleton instance.
+  private final Map<String, RunDetails> activeDetailsMap = new HashMap<>();
 
   // protected modifications by historicalLock
   private final Map<String, RunDetails> historicalDetailsMap =
       new LinkedHashMap<>();
-
-  private final Object historicalModificationsLock = new Object();
 
   // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
@@ -165,16 +166,16 @@ public class RunnerManager {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);
       } finally {
-        synchronized (historicalModificationsLock) {
+        synchronized (instance) {
           historicalDetailsMap.put(runId, runDetails);
 
           if (historicalDetailsMap.size() > maxHistory) {
             String runIdToRemove = historicalDetailsMap.keySet().iterator().next();
             historicalDetailsMap.remove(runIdToRemove);
           }
-        }
 
-        activeDetailsMap.remove(runId);
+          activeDetailsMap.remove(runId);
+        }
       }
     }));
 
@@ -187,7 +188,7 @@ public class RunnerManager {
    * @param runId the ID of the run
    * @return the RunDetails object, or null if no such run exists
    */
-  public RunDetails getRunDetails(String runId) {
+  public synchronized RunDetails getRunDetails(String runId) {
     // As detailed above, the runDetails may briefly be in both maps.
     // If it exists, it goes from active to historical. So, we check
     // the runs in that order.
@@ -205,7 +206,7 @@ public class RunnerManager {
    * 
    * @return
    */
-  public List<RunDetails> getRunDetails() {
+  public synchronized List<RunDetails> getRunDetails() {
     // We have potential duplicates - runs may be in both maps briefly -
     // but we keep the same RunDetails instance, which the set can still consolidate.
     Set<RunDetails> results = new HashSet<>(activeDetailsMap.values());
@@ -234,9 +235,7 @@ public class RunnerManager {
   // Very synchronized to reduce risk of transient test failures.
   static synchronized void setMaxHistoryForTesting(int maxHistory) {
     // clearing the entire map, because finally block above assumes one at a time
-    synchronized (instance.historicalModificationsLock) {
-      instance.historicalDetailsMap.clear();
-    }
+    instance.historicalDetailsMap.clear();
     instance.maxHistory = maxHistory;
   }
 
