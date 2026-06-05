@@ -88,8 +88,6 @@ public class QueryOpensearch extends Stage {
   private final JsonPointer opensearchResponsePath;
   private final String destinationField;
 
-  // The OpenSearch client used to execute search template requests. Built from the Config in start() (via
-  // OpenSearchUtils, so cluster auth / TLS settings are honored) unless one is injected for testing.
   private OpenSearchClient client;
 
   private JsonNode searchTemplateJson;
@@ -120,15 +118,12 @@ public class QueryOpensearch extends Stage {
     this.destinationField = ConfigUtils.getOrDefault(config, "destinationField", "response");
   }
 
-  // Method exists for testing with mockito mocks
   void setClient(OpenSearchClient client) {
     this.client = client;
   }
 
   @Override
   public void start() throws StageException {
-    // Build an OpenSearch client from the Config (unless one was injected for testing). OpenSearchUtils handles
-    // cluster authentication (credentials embedded in the url) and TLS configuration (acceptInvalidCert).
     if (client == null) {
       try {
         client = OpenSearchUtils.getOpenSearchRestClient(config);
