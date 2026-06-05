@@ -45,7 +45,6 @@ public class RunnerManager {
   // - Reads/Writes to either of these maps must be protected by synchronizing with the singleton instance.
   private final Map<String, RunDetails> activeDetailsMap = new HashMap<>();
 
-  // protected modifications by historicalLock
   private final Map<String, RunDetails> historicalDetailsMap =
       new LinkedHashMap<>();
 
@@ -189,9 +188,7 @@ public class RunnerManager {
    * @return the RunDetails object, or null if no such run exists
    */
   public synchronized RunDetails getRunDetails(String runId) {
-    // As detailed above, the runDetails may briefly be in both maps.
-    // If it exists, it goes from active to historical. So, we check
-    // the runs in that order.
+    // Checking in the order as specified above.
     RunDetails activeDetails = activeDetailsMap.get(runId);
 
     if (activeDetails == null) {
