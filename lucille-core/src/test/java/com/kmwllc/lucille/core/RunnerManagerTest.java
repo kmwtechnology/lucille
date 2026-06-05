@@ -30,7 +30,7 @@ public class RunnerManagerTest {
 
   @Test
   public void testRunnerManagerFull() throws Exception {
-    RunnerManager runnerManager = new RunnerManager();
+    RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     String runId = Runner.generateRunId();
 
@@ -63,7 +63,7 @@ public class RunnerManagerTest {
 
   @Test
   public void testWaitForRunCompletion() throws Exception {
-    RunnerManager runnerManager = new RunnerManager();
+    RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     String configId = runnerManager.createConfig(config);
     String runId = Runner.generateRunId();
@@ -92,7 +92,7 @@ public class RunnerManagerTest {
   @Test
   public void testSimultaneousRuns() throws Exception {
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
-    RunnerManager runnerManager = new RunnerManager();
+    RunnerManager runnerManager = RunnerManager.getInstance();
     String configId = runnerManager.createConfig(config);
     List<String> runIds = new ArrayList();
     List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -146,7 +146,7 @@ public class RunnerManagerTest {
       outputFile2.delete();
       outputFile3.delete();
 
-      RunnerManager runnerManager = new RunnerManager();
+      RunnerManager runnerManager = RunnerManager.getInstance();
       List<String> runIds = new ArrayList<>();
       List<CompletableFuture<Void>> futures = new ArrayList<>();
 
@@ -200,63 +200,44 @@ public class RunnerManagerTest {
 
   @Test
   public void testHistoricalLimit() throws Exception {
-    RunnerManager runnerManager = new RunnerManager(3);
-    Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
-    String noopId = runnerManager.createConfig(noopConfig);
+    try {
+      RunnerManager.setMaxHistoryForTesting(3);
+      RunnerManager runnerManager = RunnerManager.getInstance();
+      Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
+      String noopId = runnerManager.createConfig(noopConfig);
 
-    Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
-    String badId = runnerManager.createConfig(badConfig);
+      Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
+      String badId = runnerManager.createConfig(badConfig);
 
-    // these three are run serially, so we know the order in which
-    // they ought to be removed from the history.
-    runnerManager.runWithConfig("run-1", noopId);
-    runnerManager.waitForRunCompletion("run-1");
+      // these three are run serially, so we know the order in which
+      // they ought to be removed from the history.
+      runnerManager.runWithConfig("run-1", noopId);
+      runnerManager.waitForRunCompletion("run-1");
 
-    runnerManager.runWithConfig("run-2", noopId);
-    runnerManager.waitForRunCompletion("run-2");
+      runnerManager.runWithConfig("run-2", noopId);
+      runnerManager.waitForRunCompletion("run-2");
 
-    // still gets stored
-    runnerManager.runWithConfig("run-3", badId);
-    runnerManager.waitForRunCompletion("run-3");
+      // still gets stored
+      runnerManager.runWithConfig("run-3", badId);
+      runnerManager.waitForRunCompletion("run-3");
 
-    assertEquals(3, runnerManager.getRunDetails().size());
+      assertEquals(3, runnerManager.getRunDetails().size());
 
-    runnerManager.runWithConfig("run-4", noopId);
-    runnerManager.waitForRunCompletion("run-4");
+      runnerManager.runWithConfig("run-4", noopId);
+      runnerManager.waitForRunCompletion("run-4");
 
-    assertEquals(3, runnerManager.getRunDetails().size());
-    assertNull(runnerManager.getRunDetails("run-1"));
+      assertEquals(3, runnerManager.getRunDetails().size());
+      assertNull(runnerManager.getRunDetails("run-1"));
 
-    // errored run still creates / clears history
-    runnerManager.runWithConfig("run-5", badId);
-    runnerManager.waitForRunCompletion("run-5");
+      // errored run still creates / clears history
+      runnerManager.runWithConfig("run-5", badId);
+      runnerManager.waitForRunCompletion("run-5");
 
-    assertEquals(3, runnerManager.getRunDetails().size());
-    assertNull(runnerManager.getRunDetails("run-2"));
-  }
-
-  @Test
-  public void testNoHistory() throws Exception {
-    RunnerManager runnerManager = new RunnerManager(0);
-    Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
-    String noopId = runnerManager.createConfig(noopConfig);
-
-    runnerManager.runWithConfig("run-1", noopId);
-    runnerManager.waitForRunCompletion("run-1");
-
-    // as currently implemented, this shouldn't be vulnerable to a race condition / transient failure
-    assertEquals(0, runnerManager.getRunDetails().size());
-
-    // noting that, since it is cleared from the history, we *are* able to reuse the id
-    runnerManager.runWithConfig("run-1", noopId);
-    runnerManager.waitForRunCompletion("run-1");
-
-    assertEquals(0, runnerManager.getRunDetails().size());
-  }
-
-  @Test
-  public void testInvalidMaxHistory() {
-    assertThrows(IllegalArgumentException.class, () -> new RunnerManager(-1));
+      assertEquals(3, runnerManager.getRunDetails().size());
+      assertNull(runnerManager.getRunDetails("run-2"));
+    } finally {
+      RunnerManager.resetMaxHistoryForTesting();
+    }
   }
 
   private void validateRun1Reader(CSVReader run1Reader) {

@@ -21,10 +21,16 @@ import com.typesafe.config.ConfigFactory;
  */
 public class RunnerManager {
 
+  // value will get reset to this post unit testing.
+  private static final int DEFAULT_MAX_HISTORY = 10000;
+
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
-  // null in the event of no limit
-  private final Integer MAX_HISTORY;
+  private static final RunnerManager instance = new RunnerManager();
+
+  // may be changed for unit testing. default should be DEFAULT_MAX_HISTORY,
+  // which is used elsewhere.
+  private int maxHistory = DEFAULT_MAX_HISTORY;
 
   // RunID keyed maps, the first is for active runs, the second is for historical runs.
   // We do this to optionally allow for a limited number of historical runs to be stored.
@@ -45,26 +51,10 @@ public class RunnerManager {
   // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
 
-  /**
-   * Creates a RunnerManager with no limit on the number of historical <code>RunDetails</code> that are stored.
-   */
-  public RunnerManager() {
-    this.MAX_HISTORY = null;
-  }
+  private RunnerManager() {}
 
-  /**
-   * Creates a RunnerManager with the provided limit on the number of historical <code>RunDetails</code> that are stored.
-   * @param maxHistory The maximum number of RunDetails for historical, completed runs that will be stored.
-   *                   <code>null</code> stores all history, <code>0</code> stores no history.
-   * @throws IllegalArgumentException If maxHistory is negative.
-   */
-  public RunnerManager(Integer maxHistory) {
-    if (maxHistory != null && maxHistory < 0) {
-      throw new IllegalArgumentException("maxHistory, when specified, must be non-negative.");
-    }
-
-
-    this.MAX_HISTORY = maxHistory;
+  public static RunnerManager getInstance() {
+    return instance;
   }
 
   /**
@@ -178,7 +168,7 @@ public class RunnerManager {
         synchronized (historicalModificationsLock) {
           historicalDetailsMap.put(runId, runDetails);
 
-          if (MAX_HISTORY != null && historicalDetailsMap.size() > MAX_HISTORY) {
+          if (historicalDetailsMap.size() > maxHistory) {
             String runIdToRemove = historicalDetailsMap.keySet().iterator().next();
             historicalDetailsMap.remove(runIdToRemove);
           }
@@ -234,5 +224,27 @@ public class RunnerManager {
 
   public Config getConfig(String configId) {
     return configMap.get(configId);
+  }
+
+  /**
+   * Modify the maximum number of historical runs that will be stored for testing purposes.
+   * Resets the run history.
+   * Package access for unit testing.
+   */
+  // Very synchronized to reduce risk of transient test failures.
+  static synchronized void setMaxHistoryForTesting(int maxHistory) {
+    // clearing the entire map, because finally block above assumes one at a time
+    synchronized (instance.historicalModificationsLock) {
+      instance.historicalDetailsMap.clear();
+    }
+    instance.maxHistory = maxHistory;
+  }
+
+  /**
+   * Resets the maximum number of historical runs that will be stored to the default.
+   * Package access for unit testing.
+   */
+  static synchronized void resetMaxHistoryForTesting() {
+    instance.maxHistory = DEFAULT_MAX_HISTORY;
   }
 }

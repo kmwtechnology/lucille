@@ -22,7 +22,7 @@ public class LucilleResourceTest {
 
   @Before
   public void setUp() {
-    runnerManager = new RunnerManager();
+    runnerManager = RunnerManager.getInstance();
     // Use real AuthHandler, disable auth for most tests (can enable as needed)
     AuthHandler authHandler = new AuthHandler(false);
     lucilleResource = new LucilleResource(runnerManager, authHandler);
