@@ -183,6 +183,9 @@ If you see logger context or SLF4J errors during integration tests:
 
 This setup ensures reliable Dropwizard integration testing and avoids logger conflicts.
 
+**Note**: The API will only store details for the last 10,000 runs. If you need this information,
+you will need to persist it yourself.
+
 ## Development
 
 Any functionality exposed by the Admin API should be mirrored by an internal API in lucille-core which handles all of the logic.
