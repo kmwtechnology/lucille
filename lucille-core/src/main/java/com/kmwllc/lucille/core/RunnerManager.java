@@ -26,6 +26,7 @@ public class RunnerManager {
 
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
+  // Singleton instance
   private static final RunnerManager instance = new RunnerManager();
 
   // may be changed for unit testing. default should be DEFAULT_MAX_HISTORY,
@@ -229,7 +230,6 @@ public class RunnerManager {
    * Resets the run history.
    * Package access for unit testing.
    */
-  // Very synchronized to reduce risk of transient test failures.
   static synchronized void setMaxHistoryForTesting(int maxHistory) {
     // clearing the entire map, because finally block above assumes one at a time
     instance.historicalDetailsMap.clear();
