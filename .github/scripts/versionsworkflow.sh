@@ -1,4 +1,5 @@
-# This script prepares a versioned doc site in doc/site-preview, illustrating what the site will look like when deployed.
+# This script generates a versioned doc site in our deployment workflow. If run locally, it generates the versioned site in
+# a doc/site-preview folder, illustrating what it will look like when deployed.
 #
 # What it does:
 #   * Snapshots the current working tree's content/en/docs into content/en/docs-pre-release
@@ -15,6 +16,10 @@
 #     mirror. doc/site itself is never modified, so you can edit it freely and commit
 #     normally without the generated versioned content polluting your diff.
 #     To preview: re-run this script, then `cd doc/site-preview && hugo server`.
+#
+# WARNING: If tags have been re-pointed on the remote, run "git fetch --tags --force" before executing this script locally
+
+set -e
 
 mode=${1:-"local"}
 if [ $mode = "local" ]; then
@@ -31,6 +36,7 @@ if [ $mode = "local" ]; then
   preview_site="$(dirname "$src_site")/site-preview"
   echo "Mirroring $src_site -> $preview_site"
   # remove anything there previously
+  [[ "$preview_site" == */site-preview ]] || { echo "ERROR: unexpected preview path"; exit 1; }
   rm -rf "$preview_site"
   # make new site-preview
   mkdir -p "$preview_site"
@@ -43,6 +49,7 @@ if [ $mode = "local" ]; then
   url="http://localhost:1313/docs"
 elif [ $mode = "production" ]; then
   cd ${GITHUB_WORKSPACE}/doc/site
+  src_site="${GITHUB_WORKSPACE}/doc/site"
   url="https://kmwtechnology.github.io/lucille/docs"
 else
   echo "Invalid mode specified: $mode"
@@ -94,7 +101,6 @@ linkTitle: Docs-pre-release
 weight: 20
 cascade:
   type: docs
-  exclude_search: true
 ---
 EOF
 # Append everything after the metadata from the working branches top level docs _index.md so the pre-release landing
@@ -138,7 +144,6 @@ linkTitle: Docs-$tag
 weight: 20
 cascade:
   type: docs
-  exclude_search: true
 ---
 EOF
   fi
