@@ -199,9 +199,9 @@ public class RunnerManagerTest {
   }
 
   @Test
-  public void testHistoricalLimit() throws Exception {
+  public void testRunDetailsLimit() throws Exception {
     try {
-      RunnerManager.setMaxHistoryForTesting(3);
+      RunnerManager.limitHistoriesForTesting(3);
       RunnerManager runnerManager = RunnerManager.getInstance();
       Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
       String noopId = runnerManager.createConfig(noopConfig);
@@ -236,7 +236,32 @@ public class RunnerManagerTest {
       assertEquals(3, runnerManager.getRunDetails().size());
       assertNull(runnerManager.getRunDetails("run-2"));
     } finally {
-      RunnerManager.resetMaxHistoryForTesting();
+      RunnerManager.resetMaxHistoriesForTesting();
+    }
+  }
+
+  @Test
+  public void testConfigLimit() {
+    try {
+      RunnerManager.limitHistoriesForTesting(3);
+      RunnerManager runnerManager = RunnerManager.getInstance();
+
+      String id1 = runnerManager.createConfig(ConfigFactory.empty());
+      String id2 = runnerManager.createConfig(ConfigFactory.empty());
+      String id3 = runnerManager.createConfig(ConfigFactory.empty());
+
+      assertEquals(3, runnerManager.getConfigKeys().size());
+
+      String id4 = runnerManager.createConfig(ConfigFactory.empty());
+
+      assertEquals(3, runnerManager.getConfigKeys().size());
+
+      assertFalse(runnerManager.getConfigKeys().contains(id1));
+      assertTrue(runnerManager.getConfigKeys().contains(id2));
+      assertTrue(runnerManager.getConfigKeys().contains(id3));
+      assertTrue(runnerManager.getConfigKeys().contains(id4));
+    } finally {
+      RunnerManager.resetMaxHistoriesForTesting();
     }
   }
 

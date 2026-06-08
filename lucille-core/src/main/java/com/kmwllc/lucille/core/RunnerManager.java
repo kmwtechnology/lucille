@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
@@ -23,6 +22,7 @@ public class RunnerManager {
 
   // value will get reset to this post unit testing.
   private static final int DEFAULT_MAX_HISTORY = 10000;
+  private static final int DEFAULT_MAX_CONFIGS = 10000;
 
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
@@ -32,6 +32,7 @@ public class RunnerManager {
   // may be changed for unit testing. default should be DEFAULT_MAX_HISTORY,
   // which is used elsewhere.
   private int maxHistory = DEFAULT_MAX_HISTORY;
+  private int maxConfigs = DEFAULT_MAX_CONFIGS;
 
   // RunID keyed maps, the first is for active runs, the second is for historical runs.
   // We do this to optionally allow for a limited number of historical runs to be stored.
@@ -50,7 +51,7 @@ public class RunnerManager {
       new LinkedHashMap<>();
 
   // An in memory map of configs which can be used to create new Lucille runs
-  private final Map<String, Config> configMap = new ConcurrentHashMap<>();
+  private final Map<String, Config> configMap = new LinkedHashMap<>();
 
   private RunnerManager() {}
 
@@ -120,6 +121,13 @@ public class RunnerManager {
   public synchronized String createConfig(Config config) {
     String configId = UUID.randomUUID().toString();
     configMap.put(configId, config);
+
+    if (configMap.size() > maxConfigs) {
+      String configIdToRemove = configMap.keySet().iterator().next();
+      configMap.remove(configIdToRemove);
+      log.warn("Config {} has been removed.", configIdToRemove);
+    }
+
     return configId;
   }
 
@@ -217,30 +225,34 @@ public class RunnerManager {
    * 
    * @return
    */
-  public Set<String> getConfigKeys() {
+  public synchronized Set<String> getConfigKeys() {
     return configMap.keySet();
   }
 
-  public Config getConfig(String configId) {
+  public synchronized Config getConfig(String configId) {
     return configMap.get(configId);
   }
 
   /**
-   * Modify the maximum number of historical runs that will be stored for testing purposes.
-   * Resets the run history.
+   * Modify the maximum number of historical runs and configs that will be stored, in memory, for testing purposes.
+   * Resets the run history / stored configs.
    * Package access for unit testing.
    */
-  static synchronized void setMaxHistoryForTesting(int maxHistory) {
+  static synchronized void limitHistoriesForTesting(int maxHistory) {
     // clearing the entire map, because finally block above assumes one at a time
     instance.historicalDetailsMap.clear();
     instance.maxHistory = maxHistory;
+
+    instance.configMap.clear();
+    instance.maxConfigs = maxHistory;
   }
 
   /**
-   * Resets the maximum number of historical runs that will be stored to the default.
+   * Resets the maximum number of historical runs and configs that will be stored back to the default.
    * Package access for unit testing.
    */
-  static synchronized void resetMaxHistoryForTesting() {
+  static synchronized void resetMaxHistoriesForTesting() {
     instance.maxHistory = DEFAULT_MAX_HISTORY;
+    instance.maxConfigs = DEFAULT_MAX_CONFIGS;
   }
 }
