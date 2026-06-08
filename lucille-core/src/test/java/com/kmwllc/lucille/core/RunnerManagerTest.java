@@ -37,7 +37,7 @@ public class RunnerManagerTest {
     // Ensure no lucille run is running at the start of the test
     assertFalse(runnerManager.isRunning(runId));
 
-    String configId = runnerManager.createConfig(config);
+    String configId = runnerManager.createConfig(config).getConfigId();
 
     // Kick off a lucille run and ensure it is not skipped
     RunDetails details = runnerManager.runWithConfig(runId, configId);
@@ -65,7 +65,7 @@ public class RunnerManagerTest {
   public void testWaitForRunCompletion() throws Exception {
     RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
-    String configId = runnerManager.createConfig(config);
+    String configId = runnerManager.createConfig(config).getConfigId();
     String runId = Runner.generateRunId();
 
     // Ensure lucille is not running first
@@ -93,7 +93,7 @@ public class RunnerManagerTest {
   public void testSimultaneousRuns() throws Exception {
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     RunnerManager runnerManager = RunnerManager.getInstance();
-    String configId = runnerManager.createConfig(config);
+    String configId = runnerManager.createConfig(config).getConfigId();
     List<String> runIds = new ArrayList();
     List<CompletableFuture<Void>> futures = new ArrayList<>();
 
@@ -152,7 +152,7 @@ public class RunnerManagerTest {
 
       for (int i = 1; i <= 3; i++) {
         Config currentConfig = ConfigFactory.load("RunnerManagerTest/imdb-" + i + ".conf");
-        String configId = runnerManager.createConfig(currentConfig);
+        String configId = runnerManager.createConfig(currentConfig).getConfigId();
         String runId = "imdb-run-" + i;
 
         CompletableFuture<Void> futureImdb = CompletableFuture.runAsync(() -> {
@@ -204,10 +204,10 @@ public class RunnerManagerTest {
       RunnerManager.limitHistoriesForTesting(3);
       RunnerManager runnerManager = RunnerManager.getInstance();
       Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
-      String noopId = runnerManager.createConfig(noopConfig);
+      String noopId = runnerManager.createConfig(noopConfig).getConfigId();
 
       Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
-      String badId = runnerManager.createConfig(badConfig);
+      String badId = runnerManager.createConfig(badConfig).getConfigId();
 
       // these three are run serially, so we know the order in which
       // they ought to be removed from the history.
@@ -246,13 +246,13 @@ public class RunnerManagerTest {
       RunnerManager.limitHistoriesForTesting(3);
       RunnerManager runnerManager = RunnerManager.getInstance();
 
-      String id1 = runnerManager.createConfig(ConfigFactory.empty());
-      String id2 = runnerManager.createConfig(ConfigFactory.empty());
-      String id3 = runnerManager.createConfig(ConfigFactory.empty());
+      String id1 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+      String id2 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+      String id3 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
 
       assertEquals(3, runnerManager.getConfigKeys().size());
 
-      String id4 = runnerManager.createConfig(ConfigFactory.empty());
+      String id4 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
 
       assertEquals(3, runnerManager.getConfigKeys().size());
 

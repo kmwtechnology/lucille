@@ -2,6 +2,9 @@ package endpoints;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+
+import com.kmwllc.lucille.core.CreateConfigResult;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -34,8 +37,10 @@ public class LucilleResourceTest {
     String configBody = "connectors = [\"dummyConnector\"]";
     Response response = lucilleResource.createConfig(mockUser, configBody);
     assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-    Map<String, Object> responseBody = (Map<String, Object>) response.getEntity();
-    assertNotNull(responseBody.get("configId"));
+    CreateConfigResult result = (CreateConfigResult) response.getEntity();
+
+    assertNotNull(result.getConfigId());
+    assertNull(result.getRemovedConfigId());
   }
 
   @Test
@@ -53,7 +58,7 @@ public class LucilleResourceTest {
     // Create a config first
     String configBody = "pipeline = \"testPipeline\"";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
-    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
     // Start run
     Map<String, String> requestBody = new HashMap<>();
     requestBody.put("configId", configId);
@@ -78,7 +83,7 @@ public class LucilleResourceTest {
     // Create and start a run
     String configBody = "pipeline = \"testPipeline\"";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
-    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
     Map<String, String> requestBody = new HashMap<>();
     requestBody.put("configId", configId);
     Response runResponse = lucilleResource.startRun(mockUser, requestBody);
@@ -97,7 +102,7 @@ public class LucilleResourceTest {
     // Create and start a run
     String configBody = "{\"pipeline\": \"testPipeline\"}";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
-    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
     Map<String, String> requestBody = new HashMap<>();
     requestBody.put("configId", configId);
     Response runResponse = lucilleResource.startRun(mockUser, requestBody);

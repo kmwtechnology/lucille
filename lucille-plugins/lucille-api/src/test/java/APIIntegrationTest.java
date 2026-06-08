@@ -1,7 +1,9 @@
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import com.kmwllc.lucille.APIApplication;
 import com.kmwllc.lucille.config.LucilleAPIConfiguration;
+import com.kmwllc.lucille.core.CreateConfigResult;
 import io.dropwizard.testing.ResourceHelpers;
 import io.dropwizard.testing.junit.DropwizardAppRule;
 import jakarta.ws.rs.client.Client;
@@ -12,8 +14,6 @@ import jakarta.ws.rs.core.Response;
 import java.util.Base64;
 import org.junit.ClassRule;
 import org.junit.Test;
-
-
 
 public class APIIntegrationTest {
 
@@ -106,10 +106,10 @@ public class APIIntegrationTest {
   public void testConfigGenerationAndRunId() {
     Response configStatus = client.target(url + "v1/config").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
-    String configResponse = configStatus.readEntity(String.class);
+    CreateConfigResult configResponse = configStatus.readEntity(CreateConfigResult.class);
+    String configId = configResponse.getConfigId();
 
-    // This is the configResponse structure, and we just need the id part: {"configId":"340a7c70-c3e0-4c0c-af96-1414caf3623f"}
-    String configId = configResponse.substring(13, configResponse.length() - 2);
+    assertNull(configResponse.getRemovedConfigId());
 
     Response configIdStatus = client.target(url + "v1/config/" + configId).request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
@@ -134,6 +134,4 @@ public class APIIntegrationTest {
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
     assertEquals(200, runIdStatus.getStatus());
   }
-
-
 }

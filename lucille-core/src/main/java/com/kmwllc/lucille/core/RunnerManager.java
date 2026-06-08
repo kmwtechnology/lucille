@@ -96,7 +96,7 @@ public class RunnerManager {
    */
   public synchronized RunDetails run(String runId) throws RunnerManagerException {
     Config config = ConfigFactory.load();
-    String configId = createConfig(config);
+    String configId = createConfig(config).getConfigId();
     return runWithConfig(runId, configId);
   }
 
@@ -108,7 +108,7 @@ public class RunnerManager {
    * @throws RunnerManagerException
    */
   protected synchronized RunDetails runWithConfig(Config config) throws RunnerManagerException {
-    String configId = createConfig(config);
+    String configId = createConfig(config).getConfigId();
     return runWithConfig(Runner.generateRunId(), configId);
   }
 
@@ -118,17 +118,17 @@ public class RunnerManager {
    * @param config the configuration to use for the run
    * @return The UUID String associated with the supplied config in the config map.
    */
-  public synchronized String createConfig(Config config) {
+  public synchronized CreateConfigResult createConfig(Config config) {
     String configId = UUID.randomUUID().toString();
     configMap.put(configId, config);
 
     if (configMap.size() > maxConfigs) {
       String configIdToRemove = configMap.keySet().iterator().next();
       configMap.remove(configIdToRemove);
-      log.warn("Config {} has been removed.", configIdToRemove);
+      return new CreateConfigResult(configId, configIdToRemove);
     }
 
-    return configId;
+    return new CreateConfigResult(configId);
   }
 
   /**

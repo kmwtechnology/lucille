@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.endpoints;
 
+import com.kmwllc.lucille.core.CreateConfigResult;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -92,11 +93,9 @@ public class LucilleResource {
 
     try {
       Config config = ConfigFactory.parseString(configBody);
-      String configId = runnerManager.createConfig(config);
-      log.info("a lucille config has been created. Config ID: " + configId);
-      Map<String, Object> ret = new HashMap<>();
-      ret.put("configId", configId);
-      return Response.ok(ret).build();
+      CreateConfigResult result = runnerManager.createConfig(config);
+      log.info("a lucille config has been created. Config ID: " + result.getConfigId());
+      return Response.ok(result).build();
     } catch (Exception e) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("Invalid configuration provided: " + e.getMessage()).build();
