@@ -125,7 +125,7 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     for (Document doc : documents) {
       writer.writeNext(getLine(doc), true);
     }
