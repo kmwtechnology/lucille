@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.util.LogUtils;
 import com.opencsv.CSVReader;
 import java.io.File;
 import java.io.FileReader;
@@ -195,6 +198,36 @@ public class RunnerManagerTest {
       outputFile2.delete();
       outputFile3.delete();
     }
+  }
+
+  @Test
+  public void testMetricsCleanup() throws Exception {
+    SharedMetricRegistries.clear();
+    assertEquals(0, SharedMetricRegistries.names().size());
+
+    // adding a dummy metric to flex that all metrics starting
+    // with the run id get removed.
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("run-1.dummy.metric");
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("run-2.dummy.metric");
+
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
+    String noopConfigId = runnerManager.createConfig(noopConfig);
+
+    runnerManager.runWithConfig("run-1", noopConfigId);
+    runnerManager.runWithConfig("run-2", noopConfigId);
+
+    runnerManager.waitForRunCompletion("run-1");
+    runnerManager.waitForRunCompletion("run-2");
+
+    // default registry gets recreated, but should be empty
+    MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+
+    // Two indexer metrics get "left behind" but are not related to a specific run.
+    // I wonder if this means there is a bug with indexer metrics in API?
+    assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-1")));
+    assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-2")));
+    assertEquals(2, metricRegistry.getNames().size());
   }
 
   private void validateRun1Reader(CSVReader run1Reader) {
