@@ -34,7 +34,7 @@ public class LockRegistryTest {
     CountDownLatch started = new CountDownLatch(1);
     CountDownLatch acquired = new CountDownLatch(1);
 
-    new Thread(() -> {
+    Thread t = new Thread(() -> {
       started.countDown();
 
       registry.acquire("key-1");
@@ -42,13 +42,18 @@ public class LockRegistryTest {
       acquired.countDown();
 
       registry.release("key-1");
-    }).start();
+    });
+
+    t.start();
 
     started.await();
     assertEquals(1, acquired.getCount());
 
     registry.release("key-1");
     assertTrue(acquired.await(1, TimeUnit.SECONDS));
+
+    // prevent small race
+    t.join();
 
     assertEquals(0, registry.getKeys().size());
   }

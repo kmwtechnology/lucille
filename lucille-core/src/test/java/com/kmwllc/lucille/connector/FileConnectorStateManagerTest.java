@@ -503,9 +503,8 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
-  public void testPreventConcurrentConnections() throws Exception {
+  public void testBlockConcurrentConnections() throws Exception {
     final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
-    final Config altConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/alt_conn_str.conf");
 
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
     manager.init();
@@ -525,12 +524,6 @@ public class FileConnectorStateManagerTest {
       }
     });
 
-    // these calls should be non-blocking because
-    // they are using an alternate connection string!
-    FileConnectorStateManager manager3 = new FileConnectorStateManager(altConfig, null);
-    manager3.init();
-    manager3.shutdown();
-
     t.start();
 
     assertEquals(1, initCompleted.getCount());
@@ -540,4 +533,40 @@ public class FileConnectorStateManagerTest {
     t.join();
   }
 
+  // for the two below tests, they are allowed to run concurrently
+  @Test
+  public void testAllowConcurrentConnectionsDifferentTables() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    final Config altConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/diff_table.conf");
+
+    FileConnectorStateManager manager1 = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(altConfig, null);
+
+    manager1.init();
+    manager2.init();
+
+    manager1.markFileEncountered(helloFile);
+    manager2.markFileEncountered(infoFile);
+
+    manager1.shutdown();
+    manager2.shutdown();
+  }
+
+  @Test
+  public void testAllowConcurrentConnectionsDifferentConnectionString() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    final Config altConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/alt_conn_str.conf");
+
+    FileConnectorStateManager manager1 = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(altConfig, null);
+
+    manager1.init();
+    manager2.init();
+
+    manager1.markFileEncountered(helloFile);
+    manager2.markFileEncountered(infoFile);
+
+    manager1.shutdown();
+    manager2.shutdown();
+  }
 }

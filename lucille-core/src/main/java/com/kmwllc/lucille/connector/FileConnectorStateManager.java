@@ -51,8 +51,8 @@ import com.typesafe.config.Config;
  *   <li>The FileConnector is not multithreaded.</li>
  * </ol>
  * <p> Regardless, the FileConnectorStateManager will lock access by <code>connectionString</code>. Only one
- * FileConnectorStateManager within the same JVM will be allowed to connect to the same <code>connectionString</code>
- * at a time.
+ * FileConnectorStateManager within the same JVM will be allowed to connect to the same <code>connectionString</code> and
+ * <code>tableName</code> at a time.
  */
 public class FileConnectorStateManager {
 
@@ -76,6 +76,8 @@ public class FileConnectorStateManager {
   private PreparedStatement updateStatement;
   private PreparedStatement insertNewFileStatement;
 
+  private final String registryKey;
+
   /**
    * Creates a FileConnectorStateManager from the given config.
    * @param config Configuration for the FileConnectorStateManager.
@@ -90,6 +92,8 @@ public class FileConnectorStateManager {
     this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", 200);
+
+    this.registryKey = connectionString + ":" + tableName;
   }
 
   /**
@@ -104,7 +108,7 @@ public class FileConnectorStateManager {
       throw e;
     }
 
-    LOCK_REGISTRY.acquire(connectionString);
+    LOCK_REGISTRY.acquire(registryKey);
 
     try {
       traversalInstant = Instant.now();
@@ -142,7 +146,7 @@ public class FileConnectorStateManager {
       insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
     } catch (SQLException e) {
       // release the lock in the event of an exception
-      LOCK_REGISTRY.release(connectionString);
+      LOCK_REGISTRY.release(registryKey);
       throw e;
     }
   }
@@ -189,7 +193,7 @@ public class FileConnectorStateManager {
         }
       }
     } finally {
-      LOCK_REGISTRY.release(connectionString);
+      LOCK_REGISTRY.release(registryKey);
     }
   }
   
