@@ -43,7 +43,7 @@ All requests are served from `localhost:8080` (or `localhost:8443` if HTTPS is e
 | POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run`. You may store up to 10,000 Configs. | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
 | GET    | `/v1/config`                         | List all registered configs, keyed by `configId` | — |
 | GET    | `/v1/config/{configId}`              | Get a specific registered config | — |
-| POST   | `/v1/run`                            | Start a Lucille run using a previously registered config | `{"configId": "<uuid>"}` |
+| POST   | `/v1/run`                            | Start a Lucille run using a previously registered config | `{"configId": "<uuid>", "removedConfigId": "<uuid>"}` |
 | GET    | `/v1/run`                            | List all runs and their statuses | — |
 | GET    | `/v1/run/{runId}`                    | Get details of a specific run. Results for the last 10,000 runs are available. | — |
 
