@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.util.LockRegistry;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -13,6 +14,10 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,8 +50,13 @@ import com.typesafe.config.Config;
  *   <li>Connectors run sequentially.</li>
  *   <li>The FileConnector is not multithreaded.</li>
  * </ol>
+ * <p> Regardless, the FileConnectorStateManager will lock access by <code>connectionString</code>. Only one
+ * FileConnectorStateManager within the same JVM will be allowed to connect to the same <code>connectionString</code>
+ * at a time.
  */
 public class FileConnectorStateManager {
+
+  private static final LockRegistry LOCK_REGISTRY = new LockRegistry();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnectorStateManager.class);
 
@@ -94,39 +104,47 @@ public class FileConnectorStateManager {
       throw e;
     }
 
-    traversalInstant = Instant.now();
-    jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
+    LOCK_REGISTRY.acquire(connectionString);
 
-    // After getting connection setup, make sure the table exists, create it if it doesn't.
-    DatabaseMetaData metadata = jdbcConnection.getMetaData();
+    try {
+      traversalInstant = Instant.now();
+      jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
 
-    // checking if we have a table under the given name.
-    try (ResultSet rs = metadata.getTables(null, null, tableName, null)) {
-      if (!rs.next()) {
-        try (Statement statement = jdbcConnection.createStatement()) {
-          statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
-              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
+      // After getting connection setup, make sure the table exists, create it if it doesn't.
+      DatabaseMetaData metadata = jdbcConnection.getMetaData();
+
+      // checking if we have a table under the given name.
+      try (ResultSet rs = metadata.getTables(null, null, tableName, null)) {
+        if (!rs.next()) {
+          try (Statement statement = jdbcConnection.createStatement()) {
+            statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
+                + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
+          }
         }
       }
+
+      // making sure encountered = false for all rows
+      String allNotEncounteredSQL = "UPDATE \"" + tableName + "\" SET encountered=false";
+
+      try (Statement statement = jdbcConnection.createStatement()) {
+        int rowsAffected = statement.executeUpdate(allNotEncounteredSQL);
+        log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
+      }
+
+      // create PreparedStatements to be used for sql queries that take input
+      String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
+      queryStatement = jdbcConnection.prepareStatement(querySQL);
+
+      String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
+      updateStatement = jdbcConnection.prepareStatement(updateSQL);
+
+      String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE)";
+      insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
+    } catch (SQLException e) {
+      // release the lock in the event of an exception
+      LOCK_REGISTRY.release(connectionString);
+      throw e;
     }
-
-    // making sure encountered = false for all rows
-    String allNotEncounteredSQL = "UPDATE \"" + tableName + "\" SET encountered=false";
-
-    try (Statement statement = jdbcConnection.createStatement()) {
-      int rowsAffected = statement.executeUpdate(allNotEncounteredSQL);
-      log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
-    }
-
-    // create PreparedStatements to be used for sql queries that take input
-    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
-    queryStatement = jdbcConnection.prepareStatement(querySQL);
-
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
-    updateStatement = jdbcConnection.prepareStatement(updateSQL);
-
-    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE)";
-    insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
   }
 
   /**
@@ -134,40 +152,44 @@ public class FileConnectorStateManager {
    * Throws an exception if an error occurs.
    */
   public void shutdown() throws SQLException {
-    if (performDeletions) {
-      deleteFilesNotEncounteredAndResetTable();
-    }
-
-    if (jdbcConnection != null) {
-      try {
-        jdbcConnection.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close connection to database.", e);
+    try {
+      if (performDeletions) {
+        deleteFilesNotEncounteredAndResetTable();
       }
-    }
 
-    if (queryStatement != null) {
-      try {
-        queryStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close query statement (PreparedStatement).", e);
+      if (jdbcConnection != null) {
+        try {
+          jdbcConnection.close();
+        } catch (SQLException e) {
+          log.warn("Couldn't close connection to database.", e);
+        }
       }
-    }
 
-    if (updateStatement != null) {
-      try {
-        updateStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close update statement (PreparedStatement).", e);
+      if (queryStatement != null) {
+        try {
+          queryStatement.close();
+        } catch (SQLException e) {
+          log.warn("Couldn't close query statement (PreparedStatement).", e);
+        }
       }
-    }
 
-    if (insertNewFileStatement != null) {
-      try {
-        insertNewFileStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close insert statement (PreparedStatement).", e);
+      if (updateStatement != null) {
+        try {
+          updateStatement.close();
+        } catch (SQLException e) {
+          log.warn("Couldn't close update statement (PreparedStatement).", e);
+        }
       }
+
+      if (insertNewFileStatement != null) {
+        try {
+          insertNewFileStatement.close();
+        } catch (SQLException e) {
+          log.warn("Couldn't close insert statement (PreparedStatement).", e);
+        }
+      }
+    } finally {
+      LOCK_REGISTRY.release(connectionString);
     }
   }
   

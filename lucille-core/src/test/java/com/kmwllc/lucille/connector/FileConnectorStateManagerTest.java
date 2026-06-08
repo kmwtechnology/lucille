@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.net.URI;
 
@@ -20,6 +21,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.FileUtils;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
@@ -49,6 +52,9 @@ public class FileConnectorStateManagerTest {
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
+
+  // Note that there is no manipulation of the LockRegistry even though each FCSM
+  // is using the same (static) one - because calls to init / shutdown should be made appropriately...
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {
@@ -494,6 +500,44 @@ public class FileConnectorStateManagerTest {
     assertTrue(expired.contains(URI.create(secretsFile)));
 
     manager.shutdown();
+  }
+
+  @Test
+  public void testPreventConcurrentConnections() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    final Config altConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/alt_conn_str.conf");
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    CountDownLatch initCompleted = new CountDownLatch(1);
+
+    Thread t = new Thread(() -> {
+      try {
+        FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+
+        // blocking as long as first manager is up
+        manager2.init();
+        initCompleted.countDown();
+        manager2.shutdown();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+
+    // these calls should be non-blocking because
+    // they are using an alternate connection string!
+    FileConnectorStateManager manager3 = new FileConnectorStateManager(altConfig, null);
+    manager3.init();
+    manager3.shutdown();
+
+    t.start();
+
+    assertEquals(1, initCompleted.getCount());
+
+    manager.shutdown();
+    assertTrue(initCompleted.await(1, TimeUnit.SECONDS));
+    t.join();
   }
 
 }
