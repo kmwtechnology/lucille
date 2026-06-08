@@ -19,6 +19,7 @@ import org.apache.logging.log4j.core.Logger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -839,6 +840,47 @@ public class RunnerTest {
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteInvalid1.conf"), Runner.RunType.LOCAL).getStatus());
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteInvalid2.conf"), Runner.RunType.LOCAL).getStatus());
     assertTrue(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteValid.conf"), Runner.RunType.LOCAL).getStatus());
+  }
+
+  @Test
+  public void testRunTypeCliFlags() throws Exception {
+    assertEquals(Runner.RunType.LOCAL, runTypeForArgs());
+
+    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-usekafka"));
+    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-useKafka"));
+    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-USEKAFKA"));
+
+    assertEquals(Runner.RunType.KAFKA_LOCAL, runTypeForArgs("-usekafka", "-local"));
+    assertEquals(Runner.RunType.KAFKA_LOCAL, runTypeForArgs("-useKafka", "-LOCAL"));
+  }
+
+  /**
+   * Intercepts the run so no actual Lucille run takes place, and returns the RunType that main() resolved the args to.
+   */
+  private Runner.RunType runTypeForArgs(String... args) throws Exception {
+    RunResult mockResult = mock(RunResult.class);
+    when(mockResult.getStatus()).thenReturn(true);
+    ArgumentCaptor<Runner.RunType> runTypeCaptor = ArgumentCaptor.forClass(Runner.RunType.class);
+
+    // stub System.exit() so it doesn't terminate the test JVM, and stub the run itself so main()'s
+    // logic executes but no run or Kafka connection actually starts
+    try (MockedStatic<Runner.SystemHelper> mockedHelper = mockStatic(Runner.SystemHelper.class);
+        MockedStatic<Runner> mockedRunner = mockStatic(Runner.class, invocation -> {
+          if (invocation.getMethod().getName().equals("runWithResultLog")) {
+            return mockResult;
+          }
+          return invocation.callRealMethod();
+        })) {
+      assertNull(System.getProperty("config.file"));
+      System.setProperty("config.file", "src/test/resources/RunnerTest/singleDocSendEnabledFalse.conf");
+      try {
+        Runner.main(args);
+      } finally {
+        System.clearProperty("config.file");
+      }
+      mockedRunner.verify(() -> Runner.runWithResultLog(any(), runTypeCaptor.capture()));
+    }
+    return runTypeCaptor.getValue();
   }
 
   @Test
