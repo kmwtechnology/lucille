@@ -39,4 +39,4 @@ Search engine bulk APIs can return mixed results: some documents accepted, other
 
 For how to configure indexers — generic parameters, field filtering, deletion mechanics, and backend-specific settings — see [Indexers]({{< relref "docs/reference/indexers" >}}) in the Ingest Designer Guide.
 
-For how to build a custom Indexer, see [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}).
+For how to build a custom Indexer, see [Developing Indexers]({{< relref "docs/developer-guide/developing-indexers" >}}).

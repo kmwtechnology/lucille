@@ -294,6 +294,8 @@ public static Map<String, List<Exception>> runInValidationMode(Config config) th
 
 This instantiates every Stage, Connector, and Indexer (triggering their SPEC validation) without actually running any connectors. It also validates top-level config blocks (publisher, runner, kafka, etc.) using a `validConfigProperties.conf` resource file.
 
+---
+
 ## Default Legal Properties Per Component Type
 
 Each component type gets automatic defaults via its `SpecBuilder` factory:
@@ -341,3 +343,40 @@ If someone configures this stage with `feildMapping` (typo), they get:
 ```
 Error with CopyFields Config: [Config contains unknown parent feildMapping, Required property fieldMapping is missing]
 ```
+
+---
+
+## Validating without a SPEC
+
+Connectors, Stages, and Indexers all declare a `SPEC` in code. When the `-validate` pass instantiates each component, the constructor triggers SPEC validation automatically — the code is the source of truth for what those components accept.
+
+However, a Lucille config contains more than just component definitions. Top-level blocks like `publisher`, `runner`, `worker`, `kafka`, and `zookeeper` are infrastructure settings read directly by the framework at runtime. They don't correspond to any Connector, Stage, or Indexer, so there is nowhere in code to put a SPEC that would cover them. Without some mechanism to validate these blocks, typos and unrecognized properties in them would pass through the `-validate` pass silently.
+
+For this purpose, Lucille has a `resources/validConfigProperties.conf` file. It declares the legal properties for each of these framework-level config blocks, giving the `-validate` pass the same typo-catching coverage for infrastructure settings that SPECs provide for components.
+
+### Structure
+
+Each top-level key in the file corresponds to a config block name. Under each key, declare `requiredProperties` and/or `optionalProperties` as lists of property names:
+
+```hocon
+kafka {
+  requiredProperties: ["bootstrapServers", "consumerGroupId", "maxPollIntervalSecs", "maxRequestSize"]
+  optionalProperties: ["documentSerializer", "documentDeserializer", "sourceTopic", "eventTopic"]
+}
+
+worker {
+  optionalProperties: ["pipeline", "threads", "exitOnTimeout", "maxProcessingSecs", "maxRetries"]
+}
+```
+
+During the `-validate` pass, the Runner loads this file and iterates its top-level keys. For each key that is present in the user's config, it builds a `Spec` from the declared properties and validates that config block — catching unknown properties and missing required ones, the same way component SPECs do.
+
+Blocks listed in `validConfigProperties.conf` are all optional at the top level: if a block (e.g., `zookeeper`) is absent from the user's config, it is simply skipped. Validation only runs for blocks that are actually present.
+
+### Limitation
+
+The file only supports flat property lists. It cannot describe nested config objects within a block — for example, it cannot validate the structure of `kafka.ssl` or `worker.someNestedBlock`. If a top-level block requires nested validation, that logic must be implemented in the relevant constructor or startup code.
+
+### When to update this file
+
+If you add a new top-level config block to Lucille core that is read directly by the framework (not by a component constructor), add an entry here so the `-validate` pass can catch configuration errors in it. If the block belongs to a component that has a SPEC, no entry is needed — the SPEC handles it.

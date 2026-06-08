@@ -17,7 +17,14 @@ Lucille uses SLF4J with Log4j2 as the logging backend. The log format depends on
 
 **JSON (structured logging for log aggregation):**
 ```json
-{"@timestamp":"2026-05-06T20:51:53.581Z","log.level":"INFO","message":"Pipeline Configuration is valid.","process.thread.name":"main","log.logger":"com.kmwllc.lucille.core.Runner","run_id":"c1d9413a-..."}
+{
+  "@timestamp": "2026-05-06T20:51:53.581Z",
+  "log.level": "INFO",
+  "message": "Pipeline Configuration is valid.",
+  "process.thread.name": "main",
+  "log.logger": "com.kmwllc.lucille.core.Runner",
+  "run_id": "c1d9413a-..."
+}
 ```
 
 The JSON format includes the `run_id` and `id` (document ID) fields from the MDC, making it possible to filter logs by run or by document in log aggregation tools. In plain text mode, only the `message` field is typically visible.
@@ -236,10 +243,64 @@ Sort by mean latency to find bottlenecks. In this example, `extract-entities` at
 ### What errors occurred?
 
 Search for `log.level":"ERROR"` or `log.level":"WARN"`. Common patterns:
-- `"Error processing document: {id}"` — a stage threw an exception for a specific document
+- `"Document FAILED"` — common prefix for all document failures (pipeline processing, indexing, poison pills)
+- `"Document FAILED during pipeline processing: {id}"` — a stage threw an exception for a specific document
+- `"Document FAILED during indexing: {id}"` — the indexer failed to index a specific document
+- `"Document FAILED: retry count exceeded for {id}"` — poison pill, document exceeded max retries
 - `"Error sending documents to index"` — a batch failed at the indexer
 - `"Worker has not polled in {N} seconds"` — a worker appears stuck
 - `"Connector failed to perform pre execution actions"` — preExecute threw
+
+### Which documents failed?
+
+The run summary reports how many documents failed but does not list their IDs. To identify specific failed documents, search the logs for failure messages. These are logged at ERROR level by the DocLogger and are visible in the default logging configuration without any changes.
+
+All document failures use a standardized `"Document FAILED"` prefix. To find every failed document in one pass:
+```
+grep "Document FAILED" lucille.log
+```
+
+To narrow down by failure type:
+
+**Pipeline failures** (a stage threw `StageException`):
+```
+grep "Document FAILED during pipeline processing:" lucille.log
+```
+Each match includes the document ID and is followed by a stack trace showing which stage failed and why.
+
+**Indexer failures** (the search backend rejected the document):
+```
+grep "Document FAILED during indexing:" lucille.log
+```
+Each match includes the document ID and the reason (e.g., mapping error, version conflict).
+
+**Poison pills** (distributed mode only — document exceeded `worker.maxRetries`):
+```
+grep "Document FAILED: retry count exceeded" lucille.log
+```
+These documents were sent to the `{pipeline}_fail` Kafka topic. Consume that topic to retrieve the full document content for inspection or replay.
+
+**In structured/JSON logging**, filter by the `id` MDC field and ERROR level:
+```
+jq 'select(.level == "ERROR" and .id != null)' lucille-json.log
+```
+
+**In test mode** (Java), use the `RunResult` API to get failed document IDs programmatically:
+```java
+RunResult result = Runner.runInTestMode(config);
+List<Event> events = result.getEvents("my-connector");
+List<String> failedIds = events.stream()
+    .filter(e -> e.getType() == Event.Type.FAIL)
+    .map(Event::getDocumentId)
+    .collect(Collectors.toList());
+```
+
+**Tip:** To trace a specific document's full journey through the pipeline (every stage entry and exit), lower the DocLogger to INFO level in your `log4j2.xml`. This is extremely verbose and should be routed to a separate file in production:
+```xml
+<Logger name="com.kmwllc.lucille.core.DocLogger" level="INFO" additivity="false">
+    <AppenderRef ref="doclogger-file" />
+</Logger>
+```
 
 ### Where is latency introduced?
 
@@ -399,7 +460,7 @@ Documents that were intentionally dropped by the pipeline (via the drop flag). D
 
 Warnings emitted during stage initialization (e.g., dictionary conflicts, missing optional resources). These appear on the `main` thread because `start()` is called during WorkerPool startup. They appear once per worker thread (so 4 workers = 4 identical warnings).
 
-### "Error processing document: {id}"
+### "Document FAILED during pipeline processing: {id}"
 
 A stage threw a `StageException` for this document. The document is failed and processing continues. Look for the stack trace immediately following this message.
 

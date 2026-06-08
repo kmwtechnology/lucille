@@ -111,9 +111,30 @@ doc.setField(Document.DROP_FIELD, true);
 // Document.SKIP_FIELD = "___skipped"
 ```
 
+**Supported types:** `String`, `Boolean`, `Integer`, `Double`, `Float`, `Long`, `Instant`, `byte[]`, `JsonNode`, `Timestamp`, `Date`.
+
+**Nested JSON:** Documents support reading and writing into nested JSON structures using dot-and-bracket path syntax:
+
+```java
+// Get a nested value
+JsonNode node = doc.getNestedJson("a.b[2].c");
+
+// Set a nested value
+doc.setNestedJson("a.b[2].c", jsonNode);
+
+// Remove a nested value
+doc.removeNestedJson("a.b[2].c");
+
+// Parse and stringify segment paths
+List<Document.Segment> segments = Document.Segment.parse("a.b[2].c");
+String path = Document.Segment.stringify(segments);
+```
+
 ---
 
 ## Child Documents
+
+For the full reference on all control flow options — conditions, skipping, dropping, error handling, child documents, connector sequencing, and pre/post-connector actions — see [Control Flow]({{< relref "docs/reference/control-flow" >}}) in the Ingest Designer Guide.
 
 Lucille has two distinct concepts of child documents: **attached** and **emitted**.
 
