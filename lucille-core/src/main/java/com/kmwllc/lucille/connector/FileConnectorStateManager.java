@@ -202,7 +202,7 @@ public class FileConnectorStateManager {
   }
   
   public List<URI> listExpiredFiles() throws SQLException {
-    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE runs_not_encountered >= ?";
+    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
     List<URI> fileUris = new ArrayList<>();
     try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL)) {
       ps.setInt(1, runsBeforeExpiration);
@@ -215,7 +215,7 @@ public class FileConnectorStateManager {
   }
 
   private void deleteExpiredFilesAndResetTable() throws SQLException {
-    String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE runs_not_encountered >= ?";
+    String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
 
     try (PreparedStatement ps = jdbcConnection.prepareStatement(deleteSQL)) {
       ps.setInt(1, runsBeforeExpiration);
