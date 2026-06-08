@@ -45,7 +45,7 @@ All endpoints are under the `/v1` prefix.
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/v1/config` | Submit a config as a JSON object. Returns a `configId` UUID. |
+| `POST` | `/v1/config` | Submit a config as a JSON object. Returns a `configId` UUID. Up to 10,000 configs can be stored. |
 | `GET` | `/v1/config` | List all stored configs. |
 | `GET` | `/v1/config/{configId}` | Retrieve a specific config by ID. |
 

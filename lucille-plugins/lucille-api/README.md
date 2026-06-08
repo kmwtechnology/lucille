@@ -40,12 +40,12 @@ All requests are served from `localhost:8080` (or `localhost:8443` if HTTPS is e
 | GET    | `/v1/config-info/connector-list`     | Lists the available connector classes | — |
 | GET    | `/v1/config-info/stage-list`         | Lists the available stage classes | — |
 | GET    | `/v1/config-info/indexer-list`       | Lists the available indexer classes | — |
-| POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run` | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
+| POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run`. You may store up to 10,000 Configs. | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
 | GET    | `/v1/config`                         | List all registered configs, keyed by `configId` | — |
 | GET    | `/v1/config/{configId}`              | Get a specific registered config | — |
 | POST   | `/v1/run`                            | Start a Lucille run using a previously registered config | `{"configId": "<uuid>"}` |
 | GET    | `/v1/run`                            | List all runs and their statuses | — |
-| GET    | `/v1/run/{runId}`                    | Get details of a specific run | — |
+| GET    | `/v1/run/{runId}`                    | Get details of a specific run. Results for the last 10,000 runs are available. | — |
 
 If auth is enabled, add `-u <anyuser>:<password>` (the username is not validated, only the password). If HTTPS is enabled with a self-signed cert, also add `-k`:
 
@@ -184,7 +184,7 @@ If you see logger context or SLF4J errors during integration tests:
 This setup ensures reliable Dropwizard integration testing and avoids logger conflicts.
 
 **Note**: The API will only store details for the last 10,000 runs. If you need this information,
-you will need to persist it yourself.
+you will need to persist it yourself. Similarly, only 10,000 configs can be stored by the API.
 
 ## Development
 
