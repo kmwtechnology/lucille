@@ -23,6 +23,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.FileUtils;
 import java.nio.file.attribute.FileTime;
 import org.junit.After;
@@ -422,6 +424,65 @@ public class FileConnectorTest {
 
       // default full mode republishes all docs on subsequent runs
       assertEquals(18, messenger.getDocsSentForProcessing().size());
+    } finally {
+      FileUtils.deleteDirectory(stateDirectory);
+    }
+  }
+
+  @Test
+  @Execution(ExecutionMode.SAME_THREAD)
+  public void testConcurrentTraversalsWithState() throws Exception {
+    File stateDirectory = new File("state");
+    File dbFile = new File("state/file-connector.mv.db");
+
+    assertFalse(stateDirectory.exists());
+    assertFalse(dbFile.exists());
+
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
+
+    CountDownLatch tStarted = new CountDownLatch(1);
+    CountDownLatch mainFinished = new CountDownLatch(1);
+
+    Thread t = new Thread(() -> {
+      try {
+        TestMessenger messenger = new TestMessenger();
+        Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+        Connector conn = new FileConnector(config);
+
+        tStarted.countDown();
+
+        conn.execute(publisher);
+
+        if (mainFinished.getCount() == 1) {
+          fail("Connector in Thread T finished executing before mainFinished was decreased...");
+        }
+
+        conn.close();
+        assertEquals(18, messenger.getDocsSentForProcessing().size());
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+
+    try {
+      TestMessenger messenger = new TestMessenger();
+      Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+      Connector conn = new FileConnector(config);
+
+      // the stateManager doesn't get initialized until execution begins.
+      conn.execute(publisher);
+
+      // second connector tries to start,
+      // should be blocked until we close this connector
+      t.start();
+      tStarted.await(1, TimeUnit.SECONDS);
+
+      mainFinished.countDown();
+      conn.close();
+
+      assertEquals(18, messenger.getDocsSentForProcessing().size());
+
+      t.join();
     } finally {
       FileUtils.deleteDirectory(stateDirectory);
     }
