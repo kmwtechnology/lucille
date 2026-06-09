@@ -220,7 +220,6 @@ public class RunnerManagerTest {
     runnerManager.waitForRunCompletion("run-1");
     runnerManager.waitForRunCompletion("run-2");
 
-    // default registry gets recreated, but should be empty
     MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
 
     // Two indexer related metric names remain - these are created while validating the config.
