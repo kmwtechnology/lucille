@@ -223,8 +223,7 @@ public class RunnerManagerTest {
     // default registry gets recreated, but should be empty
     MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
 
-    // Two indexer metrics get "left behind" but are not related to a specific run.
-    // I wonder if this means there is a bug with indexer metrics in API?
+    // Two indexer related metric names remain - these are created while validating the config.
     assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-1")));
     assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-2")));
     assertEquals(2, metricRegistry.getNames().size());
