@@ -50,7 +50,7 @@ import com.typesafe.config.Config;
  *   <li>Connectors run sequentially.</li>
  *   <li>The FileConnector is not multithreaded.</li>
  * </ol>
- * <p> Regardless, the FileConnectorStateManager will lock access by <code>connectionString</code>. Only one
+ * <p> Regardless, the FileConnectorStateManager will lock access by <code>connectionString</code> and <code>tableName</code>. Only one
  * FileConnectorStateManager within the same JVM will be allowed to connect to the same <code>connectionString</code> and
  * <code>tableName</code> at a time.
  */
@@ -110,45 +110,43 @@ public class FileConnectorStateManager {
 
     LOCK_REGISTRY.acquire(registryKey);
 
-    try {
-      traversalInstant = Instant.now();
-      jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
+    // An important note: we do *not* release the lock in a "finally" block
+    // in the event of an exception here. This is because we expect
+    // shutdown() to still be called in the event of an error -
+    // so we release the lock there instead.
+    traversalInstant = Instant.now();
+    jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
 
-      // After getting connection setup, make sure the table exists, create it if it doesn't.
-      DatabaseMetaData metadata = jdbcConnection.getMetaData();
+    // After getting connection setup, make sure the table exists, create it if it doesn't.
+    DatabaseMetaData metadata = jdbcConnection.getMetaData();
 
-      // checking if we have a table under the given name.
-      try (ResultSet rs = metadata.getTables(null, null, tableName, null)) {
-        if (!rs.next()) {
-          try (Statement statement = jdbcConnection.createStatement()) {
-            statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
-                + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
-          }
+    // checking if we have a table under the given name.
+    try (ResultSet rs = metadata.getTables(null, null, tableName, null)) {
+      if (!rs.next()) {
+        try (Statement statement = jdbcConnection.createStatement()) {
+          statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
+              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
         }
       }
-
-      // making sure encountered = false for all rows
-      String allNotEncounteredSQL = "UPDATE \"" + tableName + "\" SET encountered=false";
-
-      try (Statement statement = jdbcConnection.createStatement()) {
-        int rowsAffected = statement.executeUpdate(allNotEncounteredSQL);
-        log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
-      }
-
-      // create PreparedStatements to be used for sql queries that take input
-      String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
-      queryStatement = jdbcConnection.prepareStatement(querySQL);
-
-      String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
-      updateStatement = jdbcConnection.prepareStatement(updateSQL);
-
-      String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE)";
-      insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
-    } catch (SQLException e) {
-      // release the lock in the event of an exception
-      LOCK_REGISTRY.release(registryKey);
-      throw e;
     }
+
+    // making sure encountered = false for all rows
+    String allNotEncounteredSQL = "UPDATE \"" + tableName + "\" SET encountered=false";
+
+    try (Statement statement = jdbcConnection.createStatement()) {
+      int rowsAffected = statement.executeUpdate(allNotEncounteredSQL);
+      log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
+    }
+
+    // create PreparedStatements to be used for sql queries that take input
+    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
+    queryStatement = jdbcConnection.prepareStatement(querySQL);
+
+    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
+    updateStatement = jdbcConnection.prepareStatement(updateSQL);
+
+    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE)";
+    insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
   }
 
   /**

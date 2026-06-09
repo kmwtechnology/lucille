@@ -4,8 +4,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 import java.net.URI;
 
@@ -37,6 +42,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import org.mockito.MockedStatic;
 
 public class FileConnectorStateManagerTest {
 
@@ -568,5 +574,70 @@ public class FileConnectorStateManagerTest {
 
     manager1.shutdown();
     manager2.shutdown();
+  }
+
+  @Test
+  public void testReconnectionAfterError() throws Exception {
+    Config config = ConfigFactory
+        .parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        // disable so we don't have to go as deep with mocking
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager3 = new FileConnectorStateManager(config, null);
+
+    CountDownLatch threadsStarted = new CountDownLatch(2);
+
+    Thread m2Thread = new Thread(() -> {
+      try {
+        threadsStarted.countDown();
+        manager2.init();
+        manager2.markFileEncountered(helloFile);
+        manager2.shutdown();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+
+    Thread m3Thread = new Thread(() -> {
+      try {
+        threadsStarted.countDown();
+        manager3.init();
+        manager3.markFileEncountered(helloFile);
+        manager3.shutdown();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+
+    Connection connection = mock(Connection.class);
+
+    when(connection.getMetaData())
+        .thenThrow(new SQLException("fake"));
+
+    try (MockedStatic<DriverManager> mocked = mockStatic(DriverManager.class)) {
+      mocked.when(() ->
+              DriverManager.getConnection(anyString(), anyString(), anyString()))
+          .thenReturn(connection);
+
+      // a failure in init should result in a call to shutdown (part of Connector lifecycle)
+      assertThrows(SQLException.class, manager::init);
+    }
+
+    // start other threads, they are blocked for a bit
+    m2Thread.start();
+    m3Thread.start();
+
+    threadsStarted.await(1, TimeUnit.SECONDS);
+    // we call shutdown outside the mocked static
+    // 1. the shutdown doesn't need the mocked static
+    // 2. we want the other threads to have no risk
+    // of using the mocked static since they are acting as "normal" runs
+    manager.shutdown();
+
+    // now, they should be able to run normally.
+    m2Thread.join();
+    m3Thread.join();
   }
 }
