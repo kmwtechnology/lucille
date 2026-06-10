@@ -89,6 +89,8 @@ spec:
                 cpu: "4"
 ```
 
+> **Exit code behavior:** The Runner exits 0 on success (including runs with individual document failures) and exits 1 only for infrastructure-level failures such as connector exceptions, indexer connection failures, or timeouts. This exit code drives the Kubernetes container restart policy (`restartPolicy`) and Job retry behavior (`backoffLimit`). See [Exit Codes]({{< relref "production-operations#exit-codes" >}}) for the full list of conditions.
+
 ### Distributed Deployment as Kubernetes Pods
 
 In distributed mode, each Lucille component runs as its own pod:
