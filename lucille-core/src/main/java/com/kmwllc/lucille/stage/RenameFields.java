@@ -24,8 +24,10 @@ import java.util.Map.Entry;
  *   <li>fieldMapping (Map&lt;String, String&gt;) : A 1-1 mapping of original field names to new field names.</li>
  *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
- *   <li>applyToChildren (Boolean, Optional) : Determines whether renaming of fields will be applied to attached child docs (the stage
- *   is automatically applied to emitted children). Applies to all attached children, irrespective of stage conditions.</li>
+ *   <li>applyToChildren (Boolean, Optional) : Determines whether renaming of fields will be applied to attached children.
+ *   If this stage has conditions, they will control the stage's own execution as normal, but will not be re-evaluated per child:
+ *   when this stage runs, renaming is applied to all attached children. This stage has no special handling for emitted children;
+ *   it sees them as first-class documents flowing through the pipeline.</li>
  * </ul>
  */
 public class RenameFields extends Stage {
