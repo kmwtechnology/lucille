@@ -122,23 +122,23 @@ public class LucilleResourceTest {
 
   @Test
   public void testPresetConfigs() {
-    Config config1 = ConfigFactory.load("test_presets/config1.conf");
     Config config2 = ConfigFactory.load("test_presets/config2.conf");
+    Config config3 = ConfigFactory.load("test_presets/config3.json");
 
     Map<String, Config> presetMap = Map.of(
-        "config1", config1,
-        "config2", config2
+        "config2", config2,
+        "config3", config3
     );
 
     AuthHandler authHandler = new AuthHandler(false);
     LucilleResource presetResource = new LucilleResource(runnerManager, authHandler, presetMap);
 
-    Response resp1 = presetResource.getConfig(mockUser, "config1");
-    Map<String, Object> respConf1 = (Map<String, Object>) resp1.getEntity();
-    assertEquals(1, respConf1.get("id"));
-
     Response resp2 = presetResource.getConfig(mockUser, "config2");
     Map<String, Object> respConf2 = (Map<String, Object>) resp2.getEntity();
     assertEquals(2, respConf2.get("id"));
+
+    Response resp3 = presetResource.getConfig(mockUser, "config3");
+    Map<String, Object> respConf3 = (Map<String, Object>) resp3.getEntity();
+    assertEquals(3, respConf3.get("id"));
   }
 }
