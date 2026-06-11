@@ -26,7 +26,7 @@ public class LucilleResourceTest {
         "class": "com.kmwllc.lucille.connector.SleepConnector",
         "name": "sleep-connector",
         "pipeline": "pipeline1",
-        "duration": 1000
+        "duration": 100
       }
     ],
     "pipelines": [
