@@ -26,6 +26,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +51,9 @@ import java.util.Optional;
  *   <li>elasticsearch.join.childName (String, Optional) : Child relation name when isChild is true.</li>
  *   <li>elasticsearch.join.parentDocumentIdSource (String, Optional) : Source field for the parent document id when isChild is true.</li>
  *   <li>elasticsearch.join.parentName (String, Optional) : Parent relation name when isChild is false.</li>
+ *   <li>elasticsearch.childDocumentsField (String, Optional) : Field name to place attached child documents in the
+ *   indexed document. If not set, child documents are dropped. For child queries to work correctly, this field should be mapped
+ *   as type "nested" in the index mapping.</li>
  * </ul>
  */
 public class ElasticsearchIndexer extends Indexer {
@@ -57,7 +61,7 @@ public class ElasticsearchIndexer extends Indexer {
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert")
-      .optionalString("parentName")
+      .optionalString("parentName", "childDocumentsField")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
@@ -70,6 +74,7 @@ public class ElasticsearchIndexer extends Indexer {
   private final ElasticJoinData joinData;
   private final String routingField;
   private final VersionType versionType;
+  private final String childDocumentsField;
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
       String metricsPrefix, String localRunId, ElasticsearchClient client) {
@@ -90,6 +95,7 @@ public class ElasticsearchIndexer extends Indexer {
     joinData = ElasticJoinData.fromConfig(config);
     this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
     this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
+    this.childDocumentsField = ConfigUtils.getOrDefault(config, "elasticsearch.childDocumentsField", null);
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
@@ -245,22 +251,24 @@ public class ElasticsearchIndexer extends Indexer {
 
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
     List<Document> children = doc.getChildren();
+
     if (children == null || children.isEmpty()) {
       return;
     }
-    for (Document child : children) {
-      Map<String, Object> map = child.asMap();
-      Map<String, Object> indexerChildDoc = new HashMap<>();
-      for (String key : map.keySet()) {
-        // we don't support children that contain nested children
-        if (Document.CHILDREN_FIELD.equals(key)) {
-          continue;
-        }
-        Object value = map.get(key);
-        indexerChildDoc.put(key, value);
-      }
-      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future (_childDocuments_)
+
+    if (childDocumentsField == null) {
+      log.warn("Document {} has children but elasticsearch.childDocumentsField is not configured. Children will be dropped.", doc.getId());
+      return;
     }
+
+    List<Map<String, Object>> childDocs = new ArrayList<>();
+    for (Document child : children) {
+      Map<String, Object> childDocMap = getIndexerDoc(child);
+      // we don't support children that contain nested children
+      childDocMap.remove(Document.CHILDREN_FIELD);
+      childDocs.add(childDocMap);
+    }
+    indexerDoc.put(childDocumentsField, childDocs);
   }
 
   public static class ElasticJoinData {
