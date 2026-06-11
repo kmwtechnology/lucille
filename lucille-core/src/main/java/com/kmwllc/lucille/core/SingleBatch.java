@@ -13,6 +13,8 @@ public class SingleBatch implements Batch {
   private final int timeout;
   private Instant lastAddOrFlushInstant;
   private final int capacity;
+  private final long byteCapacity;
+  private long byteAccumulator = 0;
 
   /**
    * Creates a new batch.
@@ -21,8 +23,9 @@ public class SingleBatch implements Batch {
    * @param timeout the number of milliseconds (since the previous add or flush) beyond which the batch
    *                will be considered as expired
    */
-  public SingleBatch(int capacity, int timeout) {
+  public SingleBatch(int capacity, long byteCapacity, int timeout) {
     this.capacity = capacity;
+    this.byteCapacity = byteCapacity;
     this.queue = new LinkedBlockingQueue<>(capacity);
     this.timeout = timeout;
     this.lastAddOrFlushInstant = Instant.now();
@@ -32,14 +35,17 @@ public class SingleBatch implements Batch {
   @Override
   public List<Document> add(Document doc) {
     List<Document> docs = new ArrayList<>();
+    byteAccumulator = byteAccumulator + doc.getByteSize();
 
     if (isExpired()) {
       queue.drainTo(docs);
+      byteAccumulator = doc.getByteSize();
     }
 
-    if (!queue.offer(doc)) {
+    if (byteAccumulator > byteCapacity || !queue.offer(doc)) {
       queue.drainTo(docs);
       queue.offer(doc);
+      byteAccumulator = doc.getByteSize();
     }
 
     lastAddOrFlushInstant = Instant.now();

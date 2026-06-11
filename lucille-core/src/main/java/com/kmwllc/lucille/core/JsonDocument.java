@@ -846,6 +846,12 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public long getByteSize() {
+    byte[] bytes = this.toString().getBytes();
+    return bytes.length;
+  }
+
+  @Override
   public void addChild(Document document) {
     ArrayNode node = data.withArray(CHILDREN_FIELD);
     node.add(getData(document));

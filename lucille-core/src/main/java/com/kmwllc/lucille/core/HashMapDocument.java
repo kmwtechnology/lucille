@@ -613,6 +613,12 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public long getByteSize() {
+    byte[] bytes = this.toString().getBytes();
+    return bytes.length;
+  }
+
+  @Override
   public void addChild(Document document) {
     if (document == null) {
       throw new IllegalArgumentException("The document is null");
