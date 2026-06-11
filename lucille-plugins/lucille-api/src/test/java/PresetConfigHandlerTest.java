@@ -23,7 +23,6 @@ public class PresetConfigHandlerTest {
 
     try {
       System.setProperty("DUMMY_VALUE", "my_property");
-      System.out.println(ConfigFactory.systemProperties().getString("DUMMY_VALUE"));
       PresetConfigHandler handler = new PresetConfigHandler(presetsPath);
       Map<String, Config> presetMap = handler.fetchConfigs();
 
