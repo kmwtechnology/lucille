@@ -176,6 +176,9 @@ In lieu of a UUID, preset configs will be keyed by their filename, including the
 Preset configs, but **not uploaded configs**, can use environment variables / `include` other configs as normal. It may be good practice 
 to place these "included" configs in another directory so they are not loaded by the Lucille API as their own preset configs.
 
+**Note:** Environment variables for preset configs are resolved _once_ during the initialization of the API. They are not reevaluated 
+while the API is in use.
+
 ## Logging and Integration Testing with Dropwizard
 
 ### Important Notes for Logging Configuration
