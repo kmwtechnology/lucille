@@ -23,6 +23,8 @@ The API can be run locally or in a Docker container:
 2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}`
 3. This will respond with a configId for your config
 
+**Note:** Uploaded configs cannot resolve / use environment variables. 
+
 ### Run Lucille with the Config
 1. `curl -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
 2. You can do `curl http://localhost:8080/v1/run` to check the status of your runs
@@ -171,8 +173,8 @@ The provided path **must** be a directory. Only `.conf`, `.json`, and `.hocon` f
 
 In lieu of a UUID, preset configs will be keyed by their filename, including their file extension (e.g. `config1.conf`).
 
-Preset configs can use environment variables / `include` other configs as normal. It may be good practice to place these "included"
-configs in another directory so they are not loaded by the Lucille API as their own preset configs.
+Preset configs, but **not uploaded configs**, can use environment variables / `include` other configs as normal. It may be good practice 
+to place these "included" configs in another directory so they are not loaded by the Lucille API as their own preset configs.
 
 ## Logging and Integration Testing with Dropwizard
 

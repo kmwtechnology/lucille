@@ -49,6 +49,8 @@ All endpoints are under the `/v1` prefix.
 | `GET` | `/v1/config` | List all stored configs. |
 | `GET` | `/v1/config/{configId}` | Retrieve a specific config by ID. |
 
+**Note:** Uploaded configs cannot resolve / use environment variables.
+
 ### Run Management
 
 | Method | Path | Description |
