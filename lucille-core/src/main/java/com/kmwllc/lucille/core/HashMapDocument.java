@@ -27,7 +27,7 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 
-@JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children", "skipped"})
+@JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children", "skipped", "byteSize"})
 public class HashMapDocument implements Document, Serializable {
 
   static final long serialVersionUID = 1L;
