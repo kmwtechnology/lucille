@@ -167,9 +167,12 @@ presetConfig:
   configDirectoryPath: /path/to/my/configs
 ```
 
-The provided path **must** be a directory. Only `.json` and `.conf` files in this directory will be considered.
+The provided path **must** be a directory. Only `.conf`, `.json`, and `.hocon` files in this directory will be considered.
 
 In lieu of a UUID, preset configs will be keyed by their filename, including their file extension (e.g. `config1.conf`).
+
+Preset configs can use environment variables / `include` other configs as normal. It may be good practice to place these "included"
+configs in another directory so they are not loaded by the Lucille API as their own preset configs.
 
 ## Logging and Integration Testing with Dropwizard
 

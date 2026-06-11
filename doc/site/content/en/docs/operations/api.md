@@ -80,7 +80,7 @@ All endpoints are under the `/v1` prefix.
 
 It is important to draw a distinction between configuration for the Lucille API and configuration for Lucille (a Lucille run).
 Configuration for the Lucille API takes the form of a `.yml` file and controls an instance of the API. Within the API,
-you'll upload your Lucille Configs (as JSON) to ultimately run them.
+you'll upload your Lucille Configs (as HOCON or JSON) to ultimately run them.
 
 ### Preset Configs
 
@@ -92,5 +92,8 @@ presetConfig:
   configDirectoryPath: /path/to/my/configs
 ```
 
-The provided path **must** be a directory. Only `.json` and `.conf` files in this directory will be considered. Instead of a UUID,
+The provided path **must** be a directory. Only `.conf`, `.json`, and `.hocon` files in this directory will be considered. Instead of a UUID,
 configs loaded this way are keyed by their filename, including their file extension (e.g. `config1.conf`).
+
+Preset configs can use environment variables / `include` other configs as normal. It may be good practice to place these "included"
+configs in another directory so they are not loaded by the Lucille API as their own preset configs.

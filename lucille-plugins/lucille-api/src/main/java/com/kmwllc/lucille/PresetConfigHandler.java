@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -20,6 +21,8 @@ import org.slf4j.LoggerFactory;
 public class PresetConfigHandler {
 
   public static final Logger log = LoggerFactory.getLogger(PresetConfigHandler.class);
+
+  private static final Set<String> ACCEPTED_EXTENSIONS = Set.of("conf", "json", "hocon");
 
   private final Path configDirectoryPath;
 
@@ -50,14 +53,17 @@ public class PresetConfigHandler {
           .filter(Files::isRegularFile)
           .filter(path -> {
             String extension = FilenameUtils.getExtension(path.getFileName().toString());
-            return extension.equalsIgnoreCase("conf") || extension.equalsIgnoreCase("json");
+            return ACCEPTED_EXTENSIONS.contains(extension);
           })
           .forEach(path -> {
             try {
-              Config config = ConfigFactory.parseFile(path.toFile()).resolve();
+              // more explicit resolve call needed
+              Config config = ConfigFactory.parseFile(path.toFile())
+                  .withFallback(ConfigFactory.systemProperties())
+                  .resolve();
               filenamesToConfigs.put(path.getFileName().toString(), config);
             } catch (ConfigException e) {
-              log.warn("Error with config at {}:", path, e);
+              log.warn("Error loading preset config at {}:", path, e);
             }
           });
     }
