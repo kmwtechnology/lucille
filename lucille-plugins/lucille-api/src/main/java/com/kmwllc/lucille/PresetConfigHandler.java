@@ -62,9 +62,7 @@ public class PresetConfigHandler {
               // with unit tests. This more explicit call works with both, appears
               // to have the same effect, and does not create disgustingly large configs.
               Config parsed = ConfigFactory.parseFile(path.toFile());
-              Config resolved = parsed.resolveWith(
-                  ConfigFactory.defaultOverrides().withFallback(parsed)
-              );
+              Config resolved = ConfigFactory.defaultOverrides().withFallback(parsed).resolve();
               filenamesToConfigs.put(path.getFileName().toString(), resolved);
             } catch (ConfigException e) {
               log.warn("Error loading preset config at {}:", path, e);
