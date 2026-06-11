@@ -57,11 +57,15 @@ public class PresetConfigHandler {
           })
           .forEach(path -> {
             try {
-              // more explicit resolve call needed
-              Config config = ConfigFactory.parseFile(path.toFile())
-                  .withFallback(ConfigFactory.systemProperties())
-                  .resolve();
-              filenamesToConfigs.put(path.getFileName().toString(), config);
+              // for the purposes of actually RUNNING the API, a simple call to
+              // .resolve() would suffice here. However, it does not work
+              // with unit tests. This more explicit call works with both, appears
+              // to have the same effect, and does not create disgustingly large configs.
+              Config parsed = ConfigFactory.parseFile(path.toFile());
+              Config resolved = parsed.resolveWith(
+                  ConfigFactory.defaultOverrides().withFallback(parsed)
+              );
+              filenamesToConfigs.put(path.getFileName().toString(), resolved);
             } catch (ConfigException e) {
               log.warn("Error loading preset config at {}:", path, e);
             }

@@ -23,6 +23,8 @@ public class PresetConfigHandlerTest {
 
     try {
       System.setProperty("DUMMY_VALUE", "my_property");
+      // ensures updated system props are seen
+      ConfigFactory.invalidateCaches();
       PresetConfigHandler handler = new PresetConfigHandler(presetsPath);
       Map<String, Config> presetMap = handler.fetchConfigs();
 
@@ -31,7 +33,7 @@ public class PresetConfigHandlerTest {
       assertEquals(1, presetMap.get("config1.conf").getInt("id"));
       // flexing that environment variables are resolved properly
       assertEquals("my_property", presetMap.get("config1.conf").getString("environmentValue"));
-      // and that including other configs is as well
+      // and that including other configs is resolved as well
       assertTrue(presetMap.get("config1.conf").getObject("object").containsKey("key"));
 
       // Flexing identical filenames (but one conf, one json)
