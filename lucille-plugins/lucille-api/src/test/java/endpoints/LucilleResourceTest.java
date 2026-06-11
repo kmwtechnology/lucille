@@ -19,88 +19,25 @@ import jakarta.ws.rs.core.Response;
 
 public class LucilleResourceTest {
 
-  private static final String IMDB_JSON = """
+  private static final String SLEEP_JSON = """
   {
     "connectors": [
       {
-        "class": "com.kmwllc.lucille.connector.CSVConnector",
-        "name": "imdb-connector",
-        "pipeline": "imdb-pipeline",
-        "path": "classpath:LucilleResourceTest/imdb.csv"
+        "class": "com.kmwllc.lucille.connector.SleepConnector",
+        "name": "sleep-connector",
+        "pipeline": "pipeline1",
+        "duration": 1000
       }
     ],
     "pipelines": [
       {
-        "name": "imdb-pipeline",
-        "stages": [
-          {
-            "name": "deleteFields",
-            "class": "com.kmwllc.lucille.stage.DeleteFields",
-            "fields": [
-              "production_countries",
-              "spoken_languages",
-              "original_language",
-              "original_title",
-              "imdb_id",
-              "status"
-            ]
-          },
-          {
-            "name": "renameFields",
-            "class": "com.kmwllc.lucille.stage.RenameFields",
-            "fieldMapping": {
-              "title": "movie_title",
-              "vote_average": "average_vote",
-              "vote_count": "num_votes",
-              "runtime": "runtime_in_min",
-              "adult": "is_adult"
-            }
-          },
-          {
-            "name": "replacePatterns",
-            "class": "com.kmwllc.lucille.stage.ReplacePatterns",
-            "source": [
-              "overview",
-              "genres",
-              "keywords",
-              "tagline"
-            ],
-            "dest": [
-              "replaced_overview",
-              "replaced_genres",
-              "replaced_keywords",
-              "replaced_tagline"
-            ],
-            "regex": [
-              "and",
-              "villain",
-              "then",
-              "where",
-              "who",
-              "of",
-              "a"
-            ],
-            "replacement": "REPLACEMENT"
-          }
-        ]
+        "name": "pipeline1",
+        "stages": []
       }
     ],
     "indexer": {
-      "type": "CSV",
-      "batchSize": 1,
-      "batchTimeout": 1000,
-      "logRate": 1000
-    },
-    "csv": {
-      "columns": [
-        "replaced_overview",
-        "replaced_genres",
-        "replaced_keywords",
-        "replaced_tagline"
-      ],
-      "path": "output1.csv",
-      "append": false,
-      "includeHeader": false
+      "type": "NoOpIndexer",
+      "class": "com.kmwllc.lucille.indexer.NopIndexer",
     }
   }
   """;
@@ -156,7 +93,7 @@ public class LucilleResourceTest {
   @Test
   public void testStartRunWithLockConfig() {
     LucilleResource preventConcurrentResource = new LucilleResource(runnerManager, new AuthHandler(false), true);
-    Response configResponse = preventConcurrentResource.createConfig(mockUser, IMDB_JSON);
+    Response configResponse = preventConcurrentResource.createConfig(mockUser, SLEEP_JSON);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
 
     RunRequest runRequest = new RunRequest();
