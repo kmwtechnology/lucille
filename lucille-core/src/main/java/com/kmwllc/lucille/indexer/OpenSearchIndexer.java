@@ -80,6 +80,10 @@ public class OpenSearchIndexer extends Indexer {
     this.versionType =
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
     this.versionField = config.hasPath("indexer.versionField") ? config.getString("indexer.versionField") : null;
+    // validate config indexer.versionType that must be set if config indexer.versionField is set
+    if (this.versionField != null && this.versionType == null) {
+      throw new IllegalArgumentException("indexer.versionType must be set if indexer.versionField is set");
+    }
   }
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {

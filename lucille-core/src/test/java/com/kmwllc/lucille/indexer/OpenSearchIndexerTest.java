@@ -814,6 +814,14 @@ public class OpenSearchIndexerTest {
   }
 
   @Test
+  public void testConstructorWithVersionFieldAndNoVersionType() {
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
+    TestMessenger messenger = new TestMessenger();
+    assertThrows(IllegalArgumentException.class, () -> new OpenSearchIndexer(config, messenger, "testing", mockClient));
+  }
+
+  @Test
   public void testDocumentVersioningWithoutVersionField() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
