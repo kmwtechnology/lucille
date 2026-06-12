@@ -4,7 +4,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 import java.net.URI;
 
@@ -20,6 +26,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.FileUtils;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
@@ -34,6 +42,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
+import org.mockito.MockedStatic;
 
 public class FileConnectorStateManagerTest {
 
@@ -49,6 +58,9 @@ public class FileConnectorStateManagerTest {
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
+
+  // Note that there is no manipulation of the LockRegistry even though each FCSM
+  // is using the same (static) one - because calls to init / shutdown should be made appropriately...
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {
@@ -496,4 +508,136 @@ public class FileConnectorStateManagerTest {
     manager.shutdown();
   }
 
+  @Test
+  public void testBlockConcurrentConnections() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    CountDownLatch initCompleted = new CountDownLatch(1);
+
+    Thread t = new Thread(() -> {
+      try {
+        FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+
+        // blocking as long as first manager is up
+        manager2.init();
+        initCompleted.countDown();
+        manager2.shutdown();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+
+    t.start();
+
+    assertEquals(1, initCompleted.getCount());
+
+    manager.shutdown();
+    assertTrue(initCompleted.await(1, TimeUnit.SECONDS));
+    t.join();
+  }
+
+  // for the two below tests, they are allowed to run concurrently
+  @Test
+  public void testAllowConcurrentConnectionsDifferentTables() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    final Config altConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/diff_table.conf");
+
+    FileConnectorStateManager manager1 = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(altConfig, null);
+
+    manager1.init();
+    manager2.init();
+
+    manager1.markFileEncountered(helloFile);
+    manager2.markFileEncountered(infoFile);
+
+    manager1.shutdown();
+    manager2.shutdown();
+  }
+
+  @Test
+  public void testAllowConcurrentConnectionsDifferentConnectionString() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    final Config altConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/alt_conn_str.conf");
+
+    FileConnectorStateManager manager1 = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(altConfig, null);
+
+    manager1.init();
+    manager2.init();
+
+    manager1.markFileEncountered(helloFile);
+    manager2.markFileEncountered(infoFile);
+
+    manager1.shutdown();
+    manager2.shutdown();
+  }
+
+  @Test
+  public void testReconnectionAfterError() throws Exception {
+    Config config = ConfigFactory
+        .parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        // disable so we don't have to go as deep with mocking
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    FileConnectorStateManager manager3 = new FileConnectorStateManager(config, null);
+
+    CountDownLatch threadsStarted = new CountDownLatch(2);
+
+    Thread m2Thread = new Thread(() -> {
+      try {
+        threadsStarted.countDown();
+        manager2.init();
+        manager2.markFileEncountered(helloFile);
+        manager2.shutdown();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+
+    Thread m3Thread = new Thread(() -> {
+      try {
+        threadsStarted.countDown();
+        manager3.init();
+        manager3.markFileEncountered(helloFile);
+        manager3.shutdown();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+
+    Connection connection = mock(Connection.class);
+
+    when(connection.getMetaData())
+        .thenThrow(new SQLException("fake"));
+
+    try (MockedStatic<DriverManager> mocked = mockStatic(DriverManager.class)) {
+      mocked.when(() ->
+              DriverManager.getConnection(anyString(), anyString(), anyString()))
+          .thenReturn(connection);
+
+      // a failure in init should result in a call to shutdown (part of Connector lifecycle)
+      assertThrows(SQLException.class, manager::init);
+    }
+
+    // start other threads, they are blocked for a bit
+    m2Thread.start();
+    m3Thread.start();
+
+    threadsStarted.await(1, TimeUnit.SECONDS);
+    // we call shutdown outside the mocked static
+    // 1. the shutdown doesn't need the mocked static
+    // 2. we want the other threads to have no risk
+    // of using the mocked static since they are acting as "normal" runs
+    manager.shutdown();
+
+    // now, they should be able to run normally.
+    m2Thread.join();
+    m3Thread.join();
+  }
 }

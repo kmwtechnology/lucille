@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.util.LockRegistry;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -45,8 +46,13 @@ import com.typesafe.config.Config;
  *   <li>Connectors run sequentially.</li>
  *   <li>The FileConnector is not multithreaded.</li>
  * </ol>
+ * <p> Regardless, the FileConnectorStateManager will lock access by <code>connectionString</code> and <code>tableName</code>. Only one
+ * FileConnectorStateManager within the same JVM will be allowed to connect to the same <code>connectionString</code> and
+ * <code>tableName</code> at a time.
  */
 public class FileConnectorStateManager {
+
+  private static final LockRegistry LOCK_REGISTRY = new LockRegistry();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnectorStateManager.class);
 
@@ -66,6 +72,8 @@ public class FileConnectorStateManager {
   private PreparedStatement updateStatement;
   private PreparedStatement insertNewFileStatement;
 
+  private final String registryKey;
+
   /**
    * Creates a FileConnectorStateManager from the given config.
    * @param config Configuration for the FileConnectorStateManager.
@@ -80,6 +88,8 @@ public class FileConnectorStateManager {
     this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", 200);
+
+    this.registryKey = connectionString + ":" + tableName;
   }
 
   /**
@@ -94,6 +104,12 @@ public class FileConnectorStateManager {
       throw e;
     }
 
+    LOCK_REGISTRY.acquire(registryKey);
+
+    // An important note: we do *not* release the lock in a "finally" block
+    // in the event of an exception here. This is because we expect
+    // shutdown() to still be called in the event of an error -
+    // so we release the lock there instead.
     traversalInstant = Instant.now();
     jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
 
@@ -134,40 +150,44 @@ public class FileConnectorStateManager {
    * Throws an exception if an error occurs.
    */
   public void shutdown() throws SQLException {
-    if (performDeletions) {
-      deleteFilesNotEncounteredAndResetTable();
-    }
-
-    if (jdbcConnection != null) {
-      try {
-        jdbcConnection.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close connection to database.", e);
+    try {
+      if (performDeletions) {
+        deleteFilesNotEncounteredAndResetTable();
       }
-    }
 
-    if (queryStatement != null) {
-      try {
-        queryStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close query statement (PreparedStatement).", e);
+      if (jdbcConnection != null) {
+        try {
+          jdbcConnection.close();
+        } catch (SQLException e) {
+          log.warn("Couldn't close connection to database.", e);
+        }
       }
-    }
 
-    if (updateStatement != null) {
-      try {
-        updateStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close update statement (PreparedStatement).", e);
+      if (queryStatement != null) {
+        try {
+          queryStatement.close();
+        } catch (SQLException e) {
+          log.warn("Couldn't close query statement (PreparedStatement).", e);
+        }
       }
-    }
 
-    if (insertNewFileStatement != null) {
-      try {
-        insertNewFileStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close insert statement (PreparedStatement).", e);
+      if (updateStatement != null) {
+        try {
+          updateStatement.close();
+        } catch (SQLException e) {
+          log.warn("Couldn't close update statement (PreparedStatement).", e);
+        }
       }
+
+      if (insertNewFileStatement != null) {
+        try {
+          insertNewFileStatement.close();
+        } catch (SQLException e) {
+          log.warn("Couldn't close insert statement (PreparedStatement).", e);
+        }
+      }
+    } finally {
+      LOCK_REGISTRY.release(registryKey);
     }
   }
   
