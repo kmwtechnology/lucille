@@ -1,6 +1,8 @@
 package com.kmwllc.lucille;
 
+import com.typesafe.config.Config;
 import java.util.Arrays;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.kmwllc.lucille.auth.BasicAuthenticator;
@@ -116,9 +118,19 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
       log.info("Authentication is disabled.");
     }
 
+    PresetConfigHandler presetConfigHandler;
+    if (config.getPresetConfigConfiguration() != null) {
+      presetConfigHandler = new PresetConfigHandler(config.getPresetConfigConfiguration().getConfigDirectoryPath());
+    } else {
+      presetConfigHandler = new PresetConfigHandler(null);
+    }
+
+    // may throw an exception for IO errors
+    Map<String, Config> presetConfigs = presetConfigHandler.fetchConfigs();
+
     // Register our 3 Resources
     AuthHandler authHandler = new AuthHandler(authEnabled);
-    env.jersey().register(new LucilleResource(runnerManager, authHandler));
+    env.jersey().register(new LucilleResource(runnerManager, authHandler, presetConfigs));
     env.jersey().register(new LivenessResource());
     env.jersey().register(new ReadinessResource());
     env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));

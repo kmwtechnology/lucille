@@ -2,6 +2,9 @@ package endpoints;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -115,5 +118,27 @@ public class LucilleResourceTest {
   public void testGetRunById_NotFound() {
     Response response = lucilleResource.getRunById(mockUser, "non-existent-run-id");
     assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+  }
+
+  @Test
+  public void testPresetConfigs() {
+    Config config2 = ConfigFactory.load("test_presets/config2.conf");
+    Config config3 = ConfigFactory.load("test_presets/config3.json");
+
+    Map<String, Config> presetMap = Map.of(
+        "config2", config2,
+        "config3", config3
+    );
+
+    AuthHandler authHandler = new AuthHandler(false);
+    LucilleResource presetResource = new LucilleResource(runnerManager, authHandler, presetMap);
+
+    Response resp2 = presetResource.getConfig(mockUser, "config2");
+    Map<String, Object> respConf2 = (Map<String, Object>) resp2.getEntity();
+    assertEquals(2, respConf2.get("id"));
+
+    Response resp3 = presetResource.getConfig(mockUser, "config3");
+    Map<String, Object> respConf3 = (Map<String, Object>) resp3.getEntity();
+    assertEquals(3, respConf3.get("id"));
   }
 }

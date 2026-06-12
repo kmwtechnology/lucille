@@ -101,6 +101,24 @@ public class RunnerManager {
   }
 
   /**
+   * Adds the provided Config keyed under the provided name. Returns whether the config
+   * was stored successfully. This method will <i>not</i> overwrite an existing config
+   * with the same name.
+   * @param config The configuration to store.
+   * @param name The name under which the configuration should be keyed / referenced.
+   * @return Whether the config was successfully stored and associated with the provided name.
+   */
+  public synchronized boolean createConfigWithName(Config config, String name) {
+    if (configMap.containsKey(name)) {
+      log.warn("Attempted to add config with name {}, which already exists", name);
+      return false;
+    }
+
+    configMap.put(name, config);
+    return true;
+  }
+
+  /**
    * Method to start a lucille run with a custom configuration.
    *
    * @param runId the unique ID for the lucille run

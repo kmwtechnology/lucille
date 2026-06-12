@@ -13,6 +13,7 @@ import java.io.FileReader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.time.StopWatch;
@@ -132,6 +133,19 @@ public class RunnerManagerTest {
       assertTrue(Duration.between(details.getStartTime(), details.getEndTime()).getSeconds() >= 1,
           "Each run expected to take 1 second or more.");
     }
+  }
+
+  @Test
+  public void testCreateConfigWithName() {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
+    String configUUID = UUID.randomUUID().toString();
+    boolean success = runnerManager.createConfigWithName(config, configUUID);
+
+    assertTrue(success);
+
+    boolean sameNameSuccess = runnerManager.createConfigWithName(config, configUUID);
+    assertFalse(sameNameSuccess);
   }
 
   @Test

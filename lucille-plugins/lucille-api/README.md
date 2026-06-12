@@ -23,6 +23,8 @@ The API can be run locally or in a Docker container:
 2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}`
 3. This will respond with a configId for your config
 
+**Note:** Uploaded configs cannot resolve / use environment variables. 
+
 ### Run Lucille with the Config
 1. `curl -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
 2. You can do `curl http://localhost:8080/v1/run` to check the status of your runs
@@ -156,6 +158,26 @@ curl -k -u user:password https://localhost:8443/v1/config -H "Content-Type: appl
 
 #### Production HTTPS
 For a real deployment you want a CA-issued cert, the strict defaults turned back on, and secrets out of the YAML file.
+
+
+### Preset (Lucille) Configuration
+In your API configuration, you can declare a path to a directory containing _Lucille_ configurations you would like to be loaded 
+during initialization of the API.
+
+```yaml
+presetConfig:
+  configDirectoryPath: /path/to/my/configs
+```
+
+The provided path **must** be a directory. Only `.conf`, `.json`, and `.hocon` files in this directory will be considered.
+
+In lieu of a UUID, preset configs will be keyed by their filename, including their file extension (e.g. `config1.conf`).
+
+Preset configs, but **not uploaded configs**, can use environment variables / `include` other configs as normal. It may be good practice 
+to place these "included" configs in another directory so they are not loaded by the Lucille API as their own preset configs.
+
+**Note:** Environment variables for preset configs are resolved _once_ during the initialization of the API. They are not reevaluated 
+while the API is in use.
 
 ## Logging and Integration Testing with Dropwizard
 

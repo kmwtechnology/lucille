@@ -1,4 +1,5 @@
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.APIApplication;
 import com.kmwllc.lucille.config.LucilleAPIConfiguration;
@@ -10,10 +11,9 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Base64;
+import java.util.Map;
 import org.junit.ClassRule;
 import org.junit.Test;
-
-
 
 public class APIIntegrationTest {
 
@@ -135,5 +135,17 @@ public class APIIntegrationTest {
     assertEquals(200, runIdStatus.getStatus());
   }
 
+  @Test
+  public void testPresetConfigPresence() {
+    Response configGetStatus = client.target(url + "v1/config").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
 
+    Map<String, Object> configGetMap = configGetStatus.readEntity(Map.class);
+    // presets folder has three configs: incremental(.conf), simple-csv-solr-example(.hocon), and simple-config(.json)
+    // Similar to PresetConfigHandlerTest - bad.conf is not included and does not cause
+    // issues initializing the API.
+    assertTrue(configGetMap.containsKey("incremental.conf"));
+    assertTrue(configGetMap.containsKey("simple-csv-solr-example.hocon"));
+    assertTrue(configGetMap.containsKey("simple-config.json"));
+  }
 }
