@@ -47,7 +47,12 @@ public class RunnerManager {
   private final Map<String, RunDetails> activeDetailsMap = new HashMap<>();
 
   private final Map<String, RunDetails> historicalDetailsMap =
-      new LinkedHashMap<>();
+      new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry eldest) {
+          return size() > maxHistory;
+        }
+      };
 
   // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
@@ -189,7 +194,6 @@ public class RunnerManager {
 
     final RunDetails runDetails = new RunDetails(runId, configId);
     activeDetailsMap.put(runId, runDetails);
-    runDetailsMap.put(runId, runDetails);
 
     if (lockConfig) {
       lockedConfigMap.put(configId, runId);
@@ -215,13 +219,9 @@ public class RunnerManager {
         }
         
         synchronized (instance) {
+          // overriding removeEldestEntry() above means run details
+          // beyond the limit are removed automatically
           historicalDetailsMap.put(runId, runDetails);
-
-          if (historicalDetailsMap.size() > maxHistory) {
-            String runIdToRemove = historicalDetailsMap.keySet().iterator().next();
-            historicalDetailsMap.remove(runIdToRemove);
-          }
-
           activeDetailsMap.remove(runId);
         }
       }
@@ -276,9 +276,9 @@ public class RunnerManager {
   /**
    * Modify the maximum number of historical runs that will be stored for testing purposes.
    * Resets the run history.
-   * Package access for unit testing.
+   * Package access for unit testing. This method is not thread-safe.
    */
-  static synchronized void setMaxHistoryForTesting(int maxHistory) {
+  static void setMaxHistoryForTesting(int maxHistory) {
     // clearing the entire map, because finally block above assumes one at a time
     instance.historicalDetailsMap.clear();
     instance.maxHistory = maxHistory;
@@ -286,9 +286,9 @@ public class RunnerManager {
 
   /**
    * Resets the maximum number of historical runs that will be stored to the default.
-   * Package access for unit testing.
+   * Package access for unit testing. This method is not thread-safe.
    */
-  static synchronized void resetMaxHistoryForTesting() {
+  static void resetMaxHistoryForTesting() {
     instance.maxHistory = DEFAULT_MAX_HISTORY;
   }
 }
