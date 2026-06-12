@@ -1,6 +1,9 @@
 package com.kmwllc.lucille.core;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,20 +15,44 @@ import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
-
 /**
  * Public API for starting lucille runs and viewing their status. Will be used by external
  * resources, namely the Admin API to kick off lucille runs.
  */
 public class RunnerManager {
 
+  // value will get reset to this post unit testing.
+  private static final int DEFAULT_MAX_HISTORY = 10000;
+
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
   // Singleton instance
   private static final RunnerManager instance = new RunnerManager();
 
-  // A runID keyed map containing run details of current and historical Lucille runs
-  private final Map<String, RunDetails> runDetailsMap = new ConcurrentHashMap<>();
+  // may be changed for unit testing. default should be DEFAULT_MAX_HISTORY,
+  // which is used elsewhere.
+  private int maxHistory = DEFAULT_MAX_HISTORY;
+
+  // RunID keyed maps, the first is for active runs, the second is for historical runs.
+  // We do this to optionally allow for a limited number of historical runs to be stored.
+  // Some invariants regarding these maps and their effects:
+  // - RunDetails are only added to the historical details map AFTER the run "isDone".
+  //   - Therefore, all RunDetails in the historicalDetailsMap should have isDone == true
+  //   - To retrieve RunDetails, check the active map *and then* the historical map - the order matters!
+  // - RunDetails in the activeDetailsMap will (very briefly) have isDone == true
+  //   - The presence of a runID in the activeDetailsMap alone is *not* enough to completely assert that
+  //     a run is actually in progress
+  // - RunDetails may (briefly) be present in both maps.
+  // - Reads/Writes to either of these maps must be protected by synchronizing with the singleton instance.
+  private final Map<String, RunDetails> activeDetailsMap = new HashMap<>();
+
+  private final Map<String, RunDetails> historicalDetailsMap =
+      new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry eldest) {
+          return size() > maxHistory;
+        }
+      };
 
   // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
@@ -48,7 +75,7 @@ public class RunnerManager {
    * @return true if the run exists and is not completed; false otherwise
    */
   public synchronized boolean isRunning(String runId) {
-    RunDetails details = runDetailsMap.get(runId);
+    RunDetails details = activeDetailsMap.get(runId);
     return details != null && !details.isDone();
   }
 
@@ -59,7 +86,8 @@ public class RunnerManager {
    * @throws Exception if the run throws an exception or is interrupted
    */
   public void waitForRunCompletion(String runId) throws Exception {
-    RunDetails details = runDetailsMap.get(runId);
+    RunDetails details = getRunDetails(runId);
+
     if (details != null) {
       details.getFuture().get();
     } else {
@@ -151,7 +179,7 @@ public class RunnerManager {
       throw new RunnerManagerException("runId cannot be null");
     }
     
-    if (runDetailsMap.containsKey(runId)) {
+    if (activeDetailsMap.containsKey(runId) || historicalDetailsMap.containsKey(runId)) {
       throw new RunnerManagerException("Run with runId " + runId + " already defined - cannot use this runId again");
     }
 
@@ -165,7 +193,7 @@ public class RunnerManager {
     }
 
     final RunDetails runDetails = new RunDetails(runId, configId);
-    runDetailsMap.put(runId, runDetails);
+    activeDetailsMap.put(runId, runDetails);
 
     if (lockConfig) {
       lockedConfigMap.put(configId, runId);
@@ -189,6 +217,13 @@ public class RunnerManager {
         if (lockConfig) {
           lockedConfigMap.remove(configId, runId);
         }
+        
+        synchronized (instance) {
+          // overriding removeEldestEntry() above means run details
+          // beyond the limit are removed automatically
+          historicalDetailsMap.put(runId, runDetails);
+          activeDetailsMap.remove(runId);
+        }
       }
     }));
 
@@ -201,8 +236,15 @@ public class RunnerManager {
    * @param runId the ID of the run
    * @return the RunDetails object, or null if no such run exists
    */
-  public RunDetails getRunDetails(String runId) {
-    return runDetailsMap.get(runId);
+  public synchronized RunDetails getRunDetails(String runId) {
+    // Checking in the order as specified above.
+    RunDetails activeDetails = activeDetailsMap.get(runId);
+
+    if (activeDetails == null) {
+      return historicalDetailsMap.get(runId);
+    } else {
+      return activeDetails;
+    }
   }
 
   /**
@@ -210,8 +252,12 @@ public class RunnerManager {
    * 
    * @return
    */
-  public List<RunDetails> getRunDetails() {
-    return new ArrayList<>(runDetailsMap.values());
+  public synchronized List<RunDetails> getRunDetails() {
+    // We have potential duplicates - runs may be in both maps briefly -
+    // but we keep the same RunDetails instance, which the set can still consolidate.
+    Set<RunDetails> results = new HashSet<>(activeDetailsMap.values());
+    results.addAll(historicalDetailsMap.values());
+    return new ArrayList<>(results);
   }
 
   /**
@@ -225,5 +271,24 @@ public class RunnerManager {
 
   public Config getConfig(String configId) {
     return configMap.get(configId);
+  }
+
+  /**
+   * Modify the maximum number of historical runs that will be stored for testing purposes.
+   * Resets the run history.
+   * Package access for unit testing. This method is not thread-safe.
+   */
+  static void setMaxHistoryForTesting(int maxHistory) {
+    // clearing the entire map, because finally block above assumes one at a time
+    instance.historicalDetailsMap.clear();
+    instance.maxHistory = maxHistory;
+  }
+
+  /**
+   * Resets the maximum number of historical runs that will be stored to the default.
+   * Package access for unit testing. This method is not thread-safe.
+   */
+  static void resetMaxHistoryForTesting() {
+    instance.maxHistory = DEFAULT_MAX_HISTORY;
   }
 }

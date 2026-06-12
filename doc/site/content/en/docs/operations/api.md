@@ -57,7 +57,7 @@ All endpoints are under the `/v1` prefix.
 |---|---|---|
 | `POST` | `/v1/run` | Start a run. Request body: `{"configId": "<uuid>"}`. Returns `RunDetails`. |
 | `GET` | `/v1/run` | List all runs and their status. |
-| `GET` | `/v1/run/{runId}` | Get details for a specific run. |
+| `GET` | `/v1/run/{runId}` | Get details for a specific run. Details for the last 10,000 runs are stored. |
 
 ### Health and Observability
 

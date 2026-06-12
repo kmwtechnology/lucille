@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -239,6 +240,48 @@ public class RunnerManagerTest {
       outputFile1.delete();
       outputFile2.delete();
       outputFile3.delete();
+    }
+  }
+
+  @Test
+  public void testHistoricalLimit() throws Exception {
+    try {
+      RunnerManager.setMaxHistoryForTesting(3);
+      RunnerManager runnerManager = RunnerManager.getInstance();
+      Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
+      String noopId = runnerManager.createConfig(noopConfig);
+
+      Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
+      String badId = runnerManager.createConfig(badConfig);
+
+      // these three are run serially, so we know the order in which
+      // they ought to be removed from the history.
+      runnerManager.runWithConfig("run-1", noopId);
+      runnerManager.waitForRunCompletion("run-1");
+
+      runnerManager.runWithConfig("run-2", noopId);
+      runnerManager.waitForRunCompletion("run-2");
+
+      // still gets stored
+      runnerManager.runWithConfig("run-3", badId);
+      runnerManager.waitForRunCompletion("run-3");
+
+      assertEquals(3, runnerManager.getRunDetails().size());
+
+      runnerManager.runWithConfig("run-4", noopId);
+      runnerManager.waitForRunCompletion("run-4");
+
+      assertEquals(3, runnerManager.getRunDetails().size());
+      assertNull(runnerManager.getRunDetails("run-1"));
+
+      // errored run still creates / clears history
+      runnerManager.runWithConfig("run-5", badId);
+      runnerManager.waitForRunCompletion("run-5");
+
+      assertEquals(3, runnerManager.getRunDetails().size());
+      assertNull(runnerManager.getRunDetails("run-2"));
+    } finally {
+      RunnerManager.resetMaxHistoryForTesting();
     }
   }
 
