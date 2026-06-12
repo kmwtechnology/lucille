@@ -44,6 +44,9 @@ import java.util.Optional;
  *   <li>url (String, Required) : Elasticsearch HTTP endpoint (e.g., https://localhost:9200).</li>
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
+ *   <li>childDocumentsField (String, Optional) : Field name to place attached child documents in the
+ *   indexed document. If not set, child documents are dropped. For child queries to work correctly, this field should be mapped
+ *   as type "nested" in the index mapping.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
  *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
  *   <li>elasticsearch.join.joinFieldName (String, Optional) : Name of the join field mapped in the index.</li>
@@ -51,9 +54,6 @@ import java.util.Optional;
  *   <li>elasticsearch.join.childName (String, Optional) : Child relation name when isChild is true.</li>
  *   <li>elasticsearch.join.parentDocumentIdSource (String, Optional) : Source field for the parent document id when isChild is true.</li>
  *   <li>elasticsearch.join.parentName (String, Optional) : Parent relation name when isChild is false.</li>
- *   <li>elasticsearch.childDocumentsField (String, Optional) : Field name to place attached child documents in the
- *   indexed document. If not set, child documents are dropped. For child queries to work correctly, this field should be mapped
- *   as type "nested" in the index mapping.</li>
  * </ul>
  */
 public class ElasticsearchIndexer extends Indexer {
@@ -172,8 +172,9 @@ public class ElasticsearchIndexer extends Indexer {
         indexerDoc.put(Document.ID_FIELD, docId);
       }
 
-      // handle special operations required to add children documents
-      addChildren(doc, indexerDoc);
+      if (doc.hasChildren()) {
+        addChildren(doc, indexerDoc);
+      }
 
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
           ? ((KafkaDocument) doc).getOffset()
@@ -249,15 +250,12 @@ public class ElasticsearchIndexer extends Indexer {
     }
   }
 
+  /** Only call on documents that have children. */
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
     List<Document> children = doc.getChildren();
 
-    if (children == null || children.isEmpty()) {
-      return;
-    }
-
     if (childDocumentsField == null) {
-      log.warn("Document {} has children but elasticsearch.childDocumentsField is not configured. Children will be dropped.", doc.getId());
+      log.warn("Document {} has children but elasticsearch.childDocumentsField is not configured. They will not be indexed.", doc.getId());
       return;
     }
 

@@ -47,11 +47,11 @@ import org.slf4j.LoggerFactory;
  *   <li>url (String, Required) : OpenSearch HTTP endpoint (e.g., https://localhost:9200).</li>
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
- *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
- *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
- *   <li>opensearch.childDocumentsField (String, Optional) : Field name under which attached child documents are nested in the
+ *   <li>childDocumentsField (String, Optional) : Field name under which attached child documents are nested in the
  *   indexed document. If not set, child documents are dropped. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
+ *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
+ *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
  * </ul>
  */
 public class OpenSearchIndexer extends Indexer {
@@ -342,8 +342,10 @@ public class OpenSearchIndexer extends Indexer {
         indexerDoc.put(Document.ID_FIELD, docId);
       }
 
-      // handle special operations required to add children documents
-      addChildren(doc, indexerDoc);
+      if (doc.hasChildren()) {
+        addChildren(doc, indexerDoc);
+      }
+
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
           ? ((KafkaDocument) doc).getOffset()
           : null;
@@ -411,15 +413,12 @@ public class OpenSearchIndexer extends Indexer {
     return failedDocs;
   }
 
+  /** Only call on documents that have children. */
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
     List<Document> children = doc.getChildren();
 
-    if (children == null || children.isEmpty()) {
-      return;
-    }
-
     if (childDocumentsField == null) {
-      log.warn("Document {} has children but opensearch.childDocumentsField is not configured. Children will be dropped.", doc.getId());
+      log.warn("Document {} has children but opensearch.childDocumentsField is not configured. They will not be indexed.", doc.getId());
       return;
     }
 
