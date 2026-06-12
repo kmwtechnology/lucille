@@ -5,7 +5,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -738,6 +737,118 @@ public class FileConnectorTest {
       // Needed since our db is on disk
       FileUtils.deleteDirectory(new File("state"));
     }
+  }
+
+  // Multithreading on: 3 threads for 3 paths
+  @Test
+  public void testMultithreadedWithMultipleWorkers() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true))
+        .withValue("multithreaded.numberOfThreads", ConfigValueFactory.fromAnyRef(3));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(9, docs.size());
+    assertEquals(9, docs.stream().map(d -> d.getString(FILE_PATH)).distinct().count());
+  }
+
+  // Ensures multithreading still works fine with just 1 path
+  @Test
+  public void testMultithreadedSinglePath() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    assertEquals(16, messenger.getDocsSentForProcessing().size());
+  }
+
+  // State + multithreaded: validates that synchronized methods on FileConnectorStateManager stop the DB from experiencing
+  // race conditions. If this is broken, this test will show duplicate/missing docs, a SQLException, or a wrong count.
+  @Test
+  public void testMultithreadedTraversalWithState() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher);
+    conn.close();
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
+
+    // Second run: every row already exists in the state DB, so every update goes through the updateStatement path rather than the
+    // insert path, different code paths under the lock.
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    conn.execute(publisher);
+    conn.close();
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
+  }
+
+  // If a worker task fails, the ExecutionException should be unwrapped and surfaced as a ConnectorException from execute().
+  @Test
+  public void testMultithreadedExceptionPropagates() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocalAndCloud.conf")
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      StorageClient s3Client = mock(StorageClient.class);
+      StorageClient gsClient = mock(StorageClient.class);
+      mockedStorage.when(() -> StorageClient.createClients(any()))
+          .thenReturn(Map.of(
+              "file", new LocalStorageClient(),
+              "s3", s3Client,
+              "gs", gsClient));
+
+      doThrow(new RuntimeException("traversal failed")).when(s3Client)
+          .traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
+
+      connector = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    }
+  }
+
+  // Check that having more threads than paths will not break things
+  @Test
+  public void testMultithreadedMoreWorkersThanPaths() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true))
+        .withValue("multithreaded.numberOfThreads", ConfigValueFactory.fromAnyRef(8));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    assertEquals(9, messenger.getDocsSentForProcessing().size());
+  }
+
+  // state enabled with multiple threads and paths across 2 runs
+  @Test
+  public void testMultithreadedStateUnderContention() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
+        .withValue("multithreaded.enabled", ConfigValueFactory.fromAnyRef(true))
+        .withValue("multithreaded.numberOfThreads", ConfigValueFactory.fromAnyRef(4));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher);
+    conn.close();
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
+
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    conn.execute(publisher);
+    conn.close();
+    assertEquals(21, messenger.getDocsSentForProcessing().size());
   }
 
 }
