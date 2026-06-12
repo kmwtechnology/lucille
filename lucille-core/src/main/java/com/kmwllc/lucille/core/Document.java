@@ -559,6 +559,7 @@ public interface Document {
 
   Map<String, Object> asMap();
 
+  long getByteSize();
 
   /* --- CHILD HANDLING UTILITIES --- */
 
