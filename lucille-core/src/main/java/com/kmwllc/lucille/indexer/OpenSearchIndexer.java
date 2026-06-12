@@ -12,7 +12,6 @@ import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -26,6 +25,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
 import org.opensearch.client.opensearch._types.FieldValue;
+import org.opensearch.client.opensearch._types.OpenSearchException;
 import org.opensearch.client.opensearch._types.VersionType;
 import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
 import org.opensearch.client.opensearch.core.BulkRequest;
@@ -198,7 +198,7 @@ public class OpenSearchIndexer extends Indexer {
     BulkResponse response;
     try {
       response = client.bulk(br.build());
-    } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+    } catch (OpenSearchException e) {
       throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
     } catch (IOException e) {
       throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
@@ -287,7 +287,7 @@ public class OpenSearchIndexer extends Indexer {
       DeleteByQueryResponse response;
       try {
         response = client.deleteByQuery(deleteByQueryRequest);
-      } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+      } catch (OpenSearchException e) {
         throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
       } catch (IOException e) {
         throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
@@ -372,7 +372,7 @@ public class OpenSearchIndexer extends Indexer {
     BulkResponse response;
     try {
       response = client.bulk(br.build());
-    } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+    } catch (OpenSearchException e) {
       // HTTP-level error with a known status code — wrap so the base Indexer can apply retry policy
       throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
     } catch (IOException e) {
