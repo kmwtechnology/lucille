@@ -57,7 +57,7 @@ public class RunnerManager {
       };
 
   // An in memory map of configs which can be used to create new Lucille runs
-  private final Map<String, Config> configMap = new LinkedHashMap<>();
+  private final Map<String, Config> configMap = new ConcurrentHashMap<>();
 
   // Mapping Config IDs currently in use to the associated Run ID. Only used when
   // we aim to prevent concurrent runs of the same config. Config IDs are only
@@ -98,65 +98,41 @@ public class RunnerManager {
   }
 
   /**
-   * Starts a new lucille run with the given runId and default configuration. Will not start if a
-   * run with the given runId is already in progress.
-   *
-   * @param runId the unique ID for the lucille run
-   * @return RunDetails
-   * @throws RunnerManagerException
-   */
-  public synchronized RunDetails run(String runId) throws RunnerManagerException {
-    Config config = ConfigFactory.load();
-    String configId = createConfig(config).getConfigId();
-    return runWithConfig(runId, configId);
-  }
-
-  /**
-   * Run with config and an internal runId will be generated
-   * 
-   * @param config
-   * @return RunDetails
-   * @throws RunnerManagerException
-   */
-  protected synchronized RunDetails runWithConfig(Config config) throws RunnerManagerException {
-    String configId = createConfig(config).getConfigId();
-    return runWithConfig(Runner.generateRunId(), configId);
-  }
-
-  /**
-   * Method to create a lucille run with a custom configuration.
+   * Create and store the provided Config in this RunnerManager
    *
    * @param config the configuration to use for the run
    * @return The UUID String associated with the supplied config in the config map.
    */
-  public synchronized CreateConfigResult createConfig(Config config) {
+  public synchronized CreateConfigResult createConfig(Config config) throws RunnerManagerException {
     String configId = UUID.randomUUID().toString();
-    configMap.put(configId, config);
 
-    if (configMap.size() > maxConfigs) {
-      String configIdToRemove = configMap.keySet().iterator().next();
-      configMap.remove(configIdToRemove);
-      return new CreateConfigResult(configId, configIdToRemove);
-    }
+    // throws exception in the event of reaching capacity
+    // returns false in the event of a collision
+    // we are using UUIDs here, so a collision won't happen.
+    createConfigWithKey(config, configId);
 
     return new CreateConfigResult(configId);
   }
 
   /**
-   * Adds the provided Config keyed under the provided name. Returns whether the config
+   * Adds the provided Config keyed under the provided key. Returns whether the config
    * was stored successfully. This method will <i>not</i> overwrite an existing config
-   * with the same name.
+   * with the same key.
    * @param config The configuration to store.
-   * @param name The name under which the configuration should be keyed / referenced.
-   * @return Whether the config was successfully stored and associated with the provided name.
+   * @param desiredKey The key under which the configuration should be stored.
+   * @return Whether the config was successfully stored and associated with the provided desiredKey.
    */
-  public synchronized boolean createConfigWithName(Config config, String name) {
-    if (configMap.containsKey(name)) {
-      log.warn("Attempted to add config with name {}, which already exists", name);
+  public synchronized boolean createConfigWithKey(Config config, String desiredKey) throws RunnerManagerException {
+    if (configMap.containsKey(desiredKey)) {
+      log.warn("Attempted to add config with key {}, which already exists", desiredKey);
       return false;
     }
 
-    configMap.put(name, config);
+    if (configMap.size() >= maxConfigs) {
+      throw new RunnerManagerException("RunnerManager has reached capacity of " + maxConfigs + " configs.");
+    }
+
+    configMap.put(desiredKey, config);
     return true;
   }
 

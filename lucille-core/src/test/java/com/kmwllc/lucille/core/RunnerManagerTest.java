@@ -168,15 +168,15 @@ public class RunnerManagerTest {
   }
 
   @Test
-  public void testCreateConfigWithName() {
+  public void testCreateConfigWithKey() throws Exception {
     RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     String configUUID = UUID.randomUUID().toString();
-    boolean success = runnerManager.createConfigWithName(config, configUUID);
+    boolean success = runnerManager.createConfigWithKey(config, configUUID);
 
     assertTrue(success);
 
-    boolean sameNameSuccess = runnerManager.createConfigWithName(config, configUUID);
+    boolean sameNameSuccess = runnerManager.createConfigWithKey(config, configUUID);
     assertFalse(sameNameSuccess);
   }
 
@@ -286,7 +286,7 @@ public class RunnerManagerTest {
   }
 
   @Test
-  public void testConfigLimit() {
+  public void testConfigLimit() throws Exception {
     try {
       RunnerManager.limitHistoriesForTesting(3);
       RunnerManager runnerManager = RunnerManager.getInstance();
@@ -297,28 +297,28 @@ public class RunnerManagerTest {
 
       assertEquals(3, runnerManager.getConfigKeys().size());
 
-      String id4 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+      // we should be prevented from making a config bringing us beyond the limit
+      assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(ConfigFactory.empty()).getConfigId());
 
       assertEquals(3, runnerManager.getConfigKeys().size());
 
-      assertFalse(runnerManager.getConfigKeys().contains(id1));
+      assertTrue(runnerManager.getConfigKeys().contains(id1));
       assertTrue(runnerManager.getConfigKeys().contains(id2));
       assertTrue(runnerManager.getConfigKeys().contains(id3));
-      assertTrue(runnerManager.getConfigKeys().contains(id4));
     } finally {
       RunnerManager.resetMaxHistoriesForTesting();
     }
   }
 
   @Test
-  public void testDeleteConfig() {
+  public void testDeleteConfig() throws Exception {
     RunnerManager runnerManager = RunnerManager.getInstance();
-    runnerManager.createConfigWithName(ConfigFactory.empty(), "test-config");
+    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config");
 
     assertTrue(runnerManager.deleteConfig("test-config"));
     assertFalse(runnerManager.deleteConfig("test-config"));
 
-    runnerManager.createConfigWithName(ConfigFactory.empty(), "test-config-2");
+    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config-2");
     assertFalse(runnerManager.deleteConfig("test-config"));
     assertTrue(runnerManager.deleteConfig("test-config-2"));
   }

@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.endpoints;
 
 import com.kmwllc.lucille.core.CreateConfigResult;
+import com.kmwllc.lucille.core.RunnerManagerException;
 import com.kmwllc.lucille.objects.RunRequest;
 import jakarta.ws.rs.DELETE;
 import java.util.HashMap;
@@ -86,8 +87,13 @@ public class LucilleResource {
     this.authHandler = authHandler;
     this.preventConcurrentRuns = preventConcurrentRuns;
 
-    for (Map.Entry<String, Config> entry : presetConfigs.entrySet()) {
-      runnerManager.createConfigWithName(entry.getValue(), entry.getKey());
+    try {
+      for (Map.Entry<String, Config> entry : presetConfigs.entrySet()) {
+        runnerManager.createConfigWithKey(entry.getValue(), entry.getKey());
+      }
+    } catch (RunnerManagerException e) {
+      // if we breach the config limit just from presets, warn the user
+      throw new IllegalStateException("Config limit has been reached while loading presets.", e);
     }
   }
 
