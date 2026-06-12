@@ -95,7 +95,7 @@ public class ElasticsearchIndexerTest {
     }
   }
 
-  // When childDocumentsField is not configured, children are dropped with a warning and indexing still succeeds.
+  // When childDocumentsField is not configured, children are not indexed with a warning and indexing still succeeds.
   @Test
   public void testIndexerWithChildDocsNoChildField() throws Exception {
     TestMessenger messenger = new TestMessenger();

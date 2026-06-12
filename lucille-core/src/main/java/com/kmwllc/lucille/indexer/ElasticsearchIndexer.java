@@ -45,7 +45,7 @@ import java.util.Optional;
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  *   <li>childDocumentsField (String, Optional) : Field name to place attached child documents in the
- *   indexed document. If not set, child documents are dropped. For child queries to work correctly, this field should be mapped
+ *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
  *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
