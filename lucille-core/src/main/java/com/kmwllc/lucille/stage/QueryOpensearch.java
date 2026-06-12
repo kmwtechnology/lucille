@@ -14,12 +14,14 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch.generic.Body;
+import org.opensearch.client.opensearch.generic.Request;
+import org.opensearch.client.opensearch.generic.Requests;
+import org.opensearch.client.opensearch.generic.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +33,10 @@ import org.slf4j.LoggerFactory;
  * <ul>
  *   <li>opensearch (Map) : Configuration for your Opensearch instance. Should contain the url to your Opensearch instance, the index
  *   name you want to query on, and whether invalid certificates can be accepted. See the opensearch ingest example for an
- *   example of the configuration needed. (Be sure to include it as part of the Stage's Config.)</li>
+ *   example of the configuration needed. (Be sure to include it as part of the Stage's Config.) The connection is created via
+ *   {@link com.kmwllc.lucille.util.OpenSearchUtils}, so clusters requiring authentication or TLS are supported: embed credentials
+ *   in the url (e.g. {@code https://username:password@host:9200}) and set {@code acceptInvalidCert: true} to skip certificate
+ *   validation when needed.</li>
  *   <li>templateName (String, Optional) : The name / id of a saved search template in your Opensearch cluster that you want to use. If not specified,
  *   you must specify a searchTemplate to use for the Stage instead.</li>
  *   <li>searchTemplate (String, Optional): The query template you want to use. The parameter names you define should match field names
@@ -73,9 +78,8 @@ public class QueryOpensearch extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(QueryOpensearch.class);
   private static final ObjectMapper mapper = new ObjectMapper();
-  private static final HttpClient httpClient = HttpClient.newHttpClient();
 
-  private final URI searchURI;
+  private final String searchEndpoint;
 
   private final String templateName;
   private final String searchTemplateStr;
@@ -84,12 +88,15 @@ public class QueryOpensearch extends Stage {
   private final JsonPointer opensearchResponsePath;
   private final String destinationField;
 
+  private OpenSearchClient client;
+
   private JsonNode searchTemplateJson;
 
   public QueryOpensearch(Config config) {
     super(config);
 
-    this.searchURI = getTemplateSearchURI(config);
+    String index = OpenSearchUtils.getOpenSearchIndex(config);
+    this.searchEndpoint = "/" + index + "/_search/template";
 
     this.templateName = ConfigUtils.getOrDefault(config, "templateName", null);
     this.searchTemplateStr = ConfigUtils.getOrDefault(config, "searchTemplate", null);
@@ -111,8 +118,20 @@ public class QueryOpensearch extends Stage {
     this.destinationField = ConfigUtils.getOrDefault(config, "destinationField", "response");
   }
 
+  void setClient(OpenSearchClient client) {
+    this.client = client;
+  }
+
   @Override
   public void start() throws StageException {
+    if (client == null) {
+      try {
+        client = OpenSearchUtils.getOpenSearchRestClient(config);
+      } catch (Exception e) {
+        throw new StageException("Couldn't create OpenSearch client.", e);
+      }
+    }
+
     // Get JSON for the search template, if it was specified.
     if (searchTemplateStr == null) {
       return;
@@ -125,7 +144,16 @@ public class QueryOpensearch extends Stage {
     }
   }
 
-  // TODO: If we require Java 21 we could add a call to httpClient.close().
+  @Override
+  public void stop() throws StageException {
+    if (client != null && client._transport() != null) {
+      try {
+        client._transport().close();
+      } catch (IOException e) {
+        throw new StageException("Error closing OpenSearch client.", e);
+      }
+    }
+  }
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
@@ -148,18 +176,19 @@ public class QueryOpensearch extends Stage {
       return null;
     }
 
-    // Building the actual request and then executing it
-    HttpRequest httpRequest = HttpRequest.newBuilder()
-        .uri(searchURI)
-        .header("Content-Type", "application/json")
-        .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString()))
+    // Building the actual request and then executing it. The generic client sends the request through the
+    // transport built by OpenSearchUtils, so cluster auth / TLS settings are applied.
+    Request request = Requests.builder()
+        .endpoint(searchEndpoint)
+        .method("POST")
+        .json(requestJson.toString())
         .build();
 
     JsonNode responseNode;
 
-    try {
-      HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
-      responseNode = mapper.readTree(response.body());
+    try (Response response = client.generic().execute(request)) {
+      String responseBody = response.getBody().map(Body::bodyAsString).orElse("");
+      responseNode = mapper.readTree(responseBody);
     } catch (Exception e) {
       throw new StageException("Error occurred sending the Opensearch query / getting JSON.", e);
     }
@@ -192,13 +221,5 @@ public class QueryOpensearch extends Stage {
     }
 
     json.set("params", paramsNode);
-  }
-
-  /**
-   * A URI to the search endpoint on Opensearch based on the given config.
-   */
-  URI getTemplateSearchURI(Config config) {
-    String uriString = config.getString("opensearch.url") + "/" + config.getString("opensearch.index") + "/_search/template";
-    return URI.create(uriString);
   }
 }
