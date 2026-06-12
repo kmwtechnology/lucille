@@ -253,15 +253,6 @@ public class RunnerManagerTest {
 
       Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
       String badId = runnerManager.createConfig(badConfig).getConfigId();
-  public void testHistoricalLimit() throws Exception {
-    try {
-      RunnerManager.setMaxHistoryForTesting(3);
-      RunnerManager runnerManager = RunnerManager.getInstance();
-      Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
-      String noopId = runnerManager.createConfig(noopConfig);
-
-      Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
-      String badId = runnerManager.createConfig(badConfig);
 
       // these three are run serially, so we know the order in which
       // they ought to be removed from the history.
@@ -330,10 +321,6 @@ public class RunnerManagerTest {
     runnerManager.createConfigWithName(ConfigFactory.empty(), "test-config-2");
     assertFalse(runnerManager.deleteConfig("test-config"));
     assertTrue(runnerManager.deleteConfig("test-config-2"));
-  }
-
-      RunnerManager.resetMaxHistoryForTesting();
-    }
   }
 
   private void validateRun1Reader(CSVReader run1Reader) {

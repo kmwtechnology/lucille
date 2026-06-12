@@ -301,17 +301,20 @@ public class RunnerManager {
    * Resets the run history.
    * Package access for unit testing. This method is not thread-safe.
    */
-  static void setMaxHistoryForTesting(int maxHistory) {
-    // clearing the entire map, because finally block above assumes one at a time
+  static void limitHistoriesForTesting(int maxHistory) {
     instance.historicalDetailsMap.clear();
     instance.maxHistory = maxHistory;
+
+    instance.configMap.clear();
+    instance.maxConfigs = maxHistory;
   }
 
   /**
    * Resets the maximum number of historical runs that will be stored to the default.
    * Package access for unit testing. This method is not thread-safe.
    */
-  static void resetMaxHistoryForTesting() {
+  static void resetMaxHistoriesForTesting() {
     instance.maxHistory = DEFAULT_MAX_HISTORY;
+    instance.maxConfigs = DEFAULT_MAX_CONFIGS;
   }
 }
