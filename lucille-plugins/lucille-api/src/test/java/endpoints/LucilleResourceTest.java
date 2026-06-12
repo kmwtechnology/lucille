@@ -9,7 +9,6 @@ import jakarta.ws.rs.core.Response.Status;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.Before;
@@ -96,7 +95,7 @@ public class LucilleResourceTest {
 
   @Test
   public void testStartRunWithLockConfig() {
-    LucilleResource preventConcurrentResource = new LucilleResource(runnerManager, new AuthHandler(false), true);
+    LucilleResource preventConcurrentResource = new LucilleResource(runnerManager, new AuthHandler(false), true, Map.of());
     Response configResponse = preventConcurrentResource.createConfig(mockUser, SLEEP_JSON);
     String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
 
@@ -179,7 +178,7 @@ public class LucilleResourceTest {
     );
 
     AuthHandler authHandler = new AuthHandler(false);
-    LucilleResource presetResource = new LucilleResource(runnerManager, authHandler, presetMap);
+    LucilleResource presetResource = new LucilleResource(runnerManager, authHandler, false, presetMap);
 
     Response resp2 = presetResource.getConfig(mockUser, "config2");
     Map<String, Object> respConf2 = (Map<String, Object>) resp2.getEntity();
