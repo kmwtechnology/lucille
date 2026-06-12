@@ -30,6 +30,11 @@ public class RunnerManager {
   // An in memory map of configs which can be used to create new Lucille runs
   private final Map<String, Config> configMap = new ConcurrentHashMap<>();
 
+  // Mapping Config IDs currently in use to the associated Run ID. Only used when
+  // we aim to prevent concurrent runs of the same config. Config IDs are only
+  // present in this map when they are in use.
+  private final Map<String, String> lockedConfigMap = new ConcurrentHashMap<>();
+
   private RunnerManager() {}
 
   public static RunnerManager getInstance() {
@@ -119,14 +124,27 @@ public class RunnerManager {
   }
 
   /**
-   * Method to start a lucille run with a custom configuration.
+   * Method to start a lucille run with a custom configuration. Config will not be locked.
    *
    * @param runId the unique ID for the lucille run
    * @param configId the ID of the config you want to use for the run.
    * @return RunDetails
    * @throws RunnerManagerException
    */
-  public synchronized RunDetails runWithConfig(String runId, String configId)
+  public synchronized RunDetails runWithConfig(String runId, String configId) throws RunnerManagerException {
+    return runWithConfig(runId, configId, false);
+  }
+
+  /**
+   * Method to start a lucille run with a custom configuration.
+   *
+   * @param runId the unique ID for the lucille run
+   * @param configId the ID of the config you want to use for the run.
+   * @param lockConfig Whether you want to prevent future runs from using this configId until this run is resolved.
+   * @return RunDetails
+   * @throws RunnerManagerException For invalid arguments or if the configId is currently locked (regardless of <code>lockConfig</code>'s value).
+   */
+  public synchronized RunDetails runWithConfig(String runId, String configId, boolean lockConfig)
       throws RunnerManagerException {
 
     if (runId == null) {
@@ -141,10 +159,17 @@ public class RunnerManager {
     if (config == null) {
       throw new RunnerManagerException("Config with id " + configId + " not found");
     }
-    
+
+    if (lockedConfigMap.containsKey(configId)) {
+      throw new RunnerManagerException("configId " + configId + " is locked, in use by run " + lockedConfigMap.get(configId));
+    }
+
     final RunDetails runDetails = new RunDetails(runId, configId);
     runDetailsMap.put(runId, runDetails);
 
+    if (lockConfig) {
+      lockedConfigMap.put(configId, runId);
+    }
 
     runDetails.setFuture(CompletableFuture.runAsync(() -> {
       try {
@@ -154,13 +179,16 @@ public class RunnerManager {
         // For now, we will always use local mode without Kafka
         runDetails.setRunType(Runner.getRunType(false, true));
 
-
         log.debug(config.entrySet().toString());
 
         runDetails.setRunResult(Runner.runWithResultLog(config, runDetails.getRunType(), runId));
       } catch (Exception e) {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);
+      } finally {
+        if (lockConfig) {
+          lockedConfigMap.remove(configId, runId);
+        }
       }
     }));
 

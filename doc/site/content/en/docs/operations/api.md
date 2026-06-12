@@ -99,3 +99,16 @@ configs loaded this way are keyed by their filename, including their file extens
 
 Preset configs can use environment variables / `include` other configs as normal. It may be good practice to place these "included"
 configs in another directory so they are not loaded by the Lucille API as their own preset configs.
+
+---
+
+### Concurrent Runs
+
+You can prevent concurrent runs of the same Config with the `preventConcurrentRuns` option:
+
+```yaml
+preventConcurrentRuns: true
+```
+
+Concurrent runs of the same Config are allowed by default. When this option is enabled, each configId may only be used for one run at a time.
+In other words, requests that would create concurrent runs with the same configId will fail.

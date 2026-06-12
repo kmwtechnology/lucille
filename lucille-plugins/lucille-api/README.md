@@ -159,6 +159,16 @@ curl -k -u user:password https://localhost:8443/v1/config -H "Content-Type: appl
 #### Production HTTPS
 For a real deployment you want a CA-issued cert, the strict defaults turned back on, and secrets out of the YAML file.
 
+### Preventing Concurrent Runs
+You can prevent concurrent runs of the same Config with the `preventConcurrentRuns` option:
+
+```yaml
+preventConcurrentRuns: true
+```
+
+
+Concurrent runs of the same Config are allowed by default. When this option is enabled, each configId may only be used for one run at a time.
+In other words, requests that would create concurrent runs with the same configId will fail.
 
 ### Preset (Lucille) Configuration
 In your API configuration, you can declare a path to a directory containing _Lucille_ configurations you would like to be loaded 
