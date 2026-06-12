@@ -4,14 +4,12 @@ server:
     type: external
 logging:
   type: external
-
-presetConfig:
-  configDirectoryPath: "src/test/resources/presets"
-
 auth:
   type: "basicAuth"
   enabled: true
   password: "password"
+
+preventConcurrentRuns: true
 
 swagger:
   resourcePackage: "com.kmwllc.lucille.endpoints"
@@ -24,4 +22,4 @@ swagger:
     basicAuth:
       type: "basic"
   security:
-    - basicAuth: []      
+    - basicAuth: []
