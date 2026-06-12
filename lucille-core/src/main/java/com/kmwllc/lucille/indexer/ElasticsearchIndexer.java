@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.indexer;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
@@ -13,12 +14,14 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.util.ElasticsearchUtils;
 import com.typesafe.config.Config;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Set;
@@ -213,7 +216,17 @@ public class ElasticsearchIndexer extends Indexer {
 
     Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
-    BulkResponse response = client.bulk(br.build());
+    BulkResponse response;
+    try {
+      response = client.bulk(br.build());
+    } catch (ElasticsearchException e) {
+      // HTTP-level error with a known status code — wrap so the base Indexer can apply retry policy
+      throw new IndexerRetryableException(e.status(), "ElasticSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      // Transport-level failure (connection refused, timeout, etc.) — no status code available
+      throw new IndexerRetryableException("Transport failure communicating with ElasticSearch", e);
+    }
+
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
@@ -221,7 +234,12 @@ public class ElasticsearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (documentsUploaded.containsKey(item.id())) {
             Document failedDoc = documentsUploaded.get(item.id());
-            failedDocs.add(Pair.of(failedDoc, new IndexerException(item.error().reason())));
+            // item.status() is always an HTTP status code. The Elasticsearch bulk API defines the per-item
+            // status field as the HTTP status of that individual operation (e.g. 200, 201, 400, 409, 429,
+            // 503). Wrapping it as an IndexerRetryableException lets the base Indexer apply the retry policy
+            // per-document, retrying only those whose status code is in the configured retryable set.
+            failedDocs.add(Pair.of(failedDoc, new IndexerRetryableException(item.status(),
+                "Elasticsearch bulk item error (status " + item.status() + "): " + item.error().reason(), null)));
           } else {
             throw new IndexerException(item.error().reason());
           }
