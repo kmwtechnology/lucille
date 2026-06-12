@@ -1,5 +1,4 @@
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.APIApplication;
@@ -111,8 +110,6 @@ public class APIIntegrationTest {
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
     CreateConfigResult configResponse = configStatus.readEntity(CreateConfigResult.class);
     String configId = configResponse.getConfigId();
-
-    assertNull(configResponse.getRemovedConfigId());
 
     Response configIdStatus = client.target(url + "v1/config/" + configId).request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();

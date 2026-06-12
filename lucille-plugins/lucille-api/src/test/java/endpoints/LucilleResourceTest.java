@@ -2,7 +2,6 @@ package endpoints;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.objects.RunRequest;
@@ -68,7 +67,6 @@ public class LucilleResourceTest {
     CreateConfigResult result = (CreateConfigResult) response.getEntity();
 
     assertNotNull(result.getConfigId());
-    assertNull(result.getRemovedConfigId());
   }
 
   @Test

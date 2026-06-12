@@ -286,6 +286,19 @@ public class RunnerManagerTest {
   }
 
   @Test
+  public void testDeleteConfig() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config");
+
+    assertTrue(runnerManager.deleteConfig("test-config"));
+    assertFalse(runnerManager.deleteConfig("test-config"));
+
+    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config-2");
+    assertFalse(runnerManager.deleteConfig("test-config"));
+    assertTrue(runnerManager.deleteConfig("test-config-2"));
+  }
+
+  @Test
   public void testConfigLimit() throws Exception {
     try {
       RunnerManager.limitHistoriesForTesting(3);
@@ -305,22 +318,18 @@ public class RunnerManagerTest {
       assertTrue(runnerManager.getConfigKeys().contains(id1));
       assertTrue(runnerManager.getConfigKeys().contains(id2));
       assertTrue(runnerManager.getConfigKeys().contains(id3));
+
+      // we shoudl be able to delete a config and then add another.
+      runnerManager.deleteConfig(id1);
+      String id4 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+
+      assertFalse(runnerManager.getConfigKeys().contains(id1));
+      assertTrue(runnerManager.getConfigKeys().contains(id2));
+      assertTrue(runnerManager.getConfigKeys().contains(id3));
+      assertTrue(runnerManager.getConfigKeys().contains(id4));
     } finally {
       RunnerManager.resetMaxHistoriesForTesting();
     }
-  }
-
-  @Test
-  public void testDeleteConfig() throws Exception {
-    RunnerManager runnerManager = RunnerManager.getInstance();
-    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config");
-
-    assertTrue(runnerManager.deleteConfig("test-config"));
-    assertFalse(runnerManager.deleteConfig("test-config"));
-
-    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config-2");
-    assertFalse(runnerManager.deleteConfig("test-config"));
-    assertTrue(runnerManager.deleteConfig("test-config-2"));
   }
 
   private void validateRun1Reader(CSVReader run1Reader) {

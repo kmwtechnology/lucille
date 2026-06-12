@@ -9,7 +9,6 @@ public class CreateConfigResultTest {
   @Test
   public void testInvalidConfigId() {
     assertThrows(IllegalArgumentException.class, () -> new CreateConfigResult(null));
-    assertThrows(IllegalArgumentException.class, () -> new CreateConfigResult(null, "removed-config-id"));
   }
 
 }
