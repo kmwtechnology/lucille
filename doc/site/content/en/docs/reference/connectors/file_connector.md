@@ -272,7 +272,7 @@ A few constraints to be aware of when using state:
 - Files that are moved or renamed will not have `lastPublishedCutoff` applied — their new path is not recognised as previously published.
 - Capitalise directory names in `paths` consistently across runs. State lookups are case-sensitive.
 - Each database table should be used by only one connector configuration. Sharing a table across connectors will corrupt state. This can happen in several ways: reusing the same explicit `tableName` across multiple connectors in the same config file; running two separate configs concurrently where both reference the same `tableName`; or omitting `tableName` in two different configs that happen to use the same connector name (since `tableName` defaults to the connector name). In all cases, two connectors writing to the same state table will overwrite each other's records, leading to incorrect incremental behavior — files may be skipped or reprocessed unexpectedly.
-- To that end, each JVM prevents more than one FileConnector from running in incremental mode with the same `connectionString` **and** `tableName`.
+- We prevent the same `connectionString` **and** `tableName` from being used for state at the same time (within a JVM).
 
 ---
 
