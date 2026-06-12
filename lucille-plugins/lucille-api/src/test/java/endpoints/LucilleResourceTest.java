@@ -3,16 +3,14 @@ package endpoints;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-
-import com.kmwllc.lucille.core.CreateConfigResult;
-import java.util.HashMap;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.objects.RunRequest;
+import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
-
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.kmwllc.lucille.core.CreateConfigResult;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.Before;
@@ -22,7 +20,6 @@ import com.kmwllc.lucille.core.RunDetails;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import io.dropwizard.auth.PrincipalImpl;
-import jakarta.ws.rs.core.Response;
 
 public class LucilleResourceTest {
 
@@ -103,7 +100,7 @@ public class LucilleResourceTest {
   public void testStartRunWithLockConfig() {
     LucilleResource preventConcurrentResource = new LucilleResource(runnerManager, new AuthHandler(false), true, Map.of());
     Response configResponse = preventConcurrentResource.createConfig(mockUser, SLEEP_JSON);
-    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
 
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);

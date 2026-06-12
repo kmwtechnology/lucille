@@ -93,7 +93,7 @@ public class RunnerManagerTest {
   public void testConfigLocking() throws Exception {
     RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
-    String configId = runnerManager.createConfig(config);
+    String configId = runnerManager.createConfig(config).getConfigId();
 
     String runId1 = Runner.generateRunId();
     String runId2 = Runner.generateRunId();
