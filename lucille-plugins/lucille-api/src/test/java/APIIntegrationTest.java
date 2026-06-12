@@ -12,6 +12,7 @@ import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
 import java.util.Base64;
 import java.util.Map;
 import org.junit.ClassRule;
@@ -149,5 +150,26 @@ public class APIIntegrationTest {
     assertTrue(configGetMap.containsKey("incremental.conf"));
     assertTrue(configGetMap.containsKey("simple-csv-solr-example.hocon"));
     assertTrue(configGetMap.containsKey("simple-config.json"));
+  }
+
+  @Test
+  public void testDeleteConfig() {
+    Response configStatus = client.target(url + "v1/config").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
+    CreateConfigResult configResponse = configStatus.readEntity(CreateConfigResult.class);
+    String configId = configResponse.getConfigId();
+
+    Response deleteStatus = client.target(url + "v1/config/" + configId).request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).delete();
+    assertEquals(200, deleteStatus.getStatus());
+
+    // can't delete again!
+    Response secondDeleteStatus = client.target(url + "v1/config/" + configId).request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).delete();
+    assertEquals(Status.NOT_FOUND.getStatusCode(), secondDeleteStatus.getStatus());
+
+    Response badDeleteStatus = client.target(url + "v1/config/some-bad-config-id-idk").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).delete();
+    assertEquals(Status.NOT_FOUND.getStatusCode(), badDeleteStatus.getStatus());
   }
 }

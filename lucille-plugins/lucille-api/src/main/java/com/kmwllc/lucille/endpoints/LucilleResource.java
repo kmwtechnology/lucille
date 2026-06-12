@@ -2,6 +2,7 @@ package com.kmwllc.lucille.endpoints;
 
 import com.kmwllc.lucille.core.CreateConfigResult;
 import com.kmwllc.lucille.objects.RunRequest;
+import jakarta.ws.rs.DELETE;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -177,6 +178,41 @@ public class LucilleResource {
     } catch (Exception e) {
       return ResponseUtils.buildErrorResponse(Response.Status.INTERNAL_SERVER_ERROR,
           "Error retrieving configuration: " + e.getMessage());
+    }
+  }
+
+  @DELETE
+  @Tag(name = "Config", description = "Delete a Lucille configuration.")
+  @Path("/config/{configId}")
+  @Operation(
+      summary = "Delete a Lucille config.",
+      description = "Delete a specific Lucille configuration by its ID.",
+      security = @SecurityRequirement(name = "basicAuth")
+  )
+  public Response deleteConfig(
+      @Parameter(hidden = true)
+      @Auth
+      Optional<PrincipalImpl> user,
+      @Parameter(
+          description = "The UUID of the configuration to delete.",
+          required = true,
+          example = "fca83cb6-c2c2-4cbf-93ef-41c08d5d4b58"
+      )
+      @PathParam("configId")
+      String configId
+  ) {
+    Response authResponse = authHandler.authenticate(user);
+    if (authResponse != null) {
+      return authResponse;
+    }
+
+    boolean success = runnerManager.deleteConfig(configId);
+
+    if (success) {
+      return Response.ok().build();
+    } else {
+      return ResponseUtils.buildErrorResponse(Response.Status.NOT_FOUND,
+          "Configuration with ID " + configId + " not found.");
     }
   }
 

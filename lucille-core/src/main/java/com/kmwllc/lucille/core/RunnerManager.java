@@ -156,6 +156,20 @@ public class RunnerManager {
   }
 
   /**
+   * Removes a Config by ID and returns whether it was present and removed successfully.
+   * @param configId The ID of the Config to delete.
+   * @return Whether a config with the provided ID was present in the map and removed successfully.
+   */
+  public synchronized boolean deleteConfig(String configId) {
+    if (!configMap.containsKey(configId)) {
+      return false;
+    }
+
+    configMap.remove(configId);
+    return true;
+  }
+
+  /**
    * Method to start a lucille run with a custom configuration. Config will not be locked.
    *
    * @param runId the unique ID for the lucille run

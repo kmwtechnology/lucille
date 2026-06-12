@@ -13,6 +13,7 @@ import com.typesafe.config.ConfigFactory;
 import com.kmwllc.lucille.core.CreateConfigResult;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
 import com.kmwllc.lucille.AuthHandler;
@@ -190,5 +191,18 @@ public class LucilleResourceTest {
     Response resp3 = presetResource.getConfig(mockUser, "config3");
     Map<String, Object> respConf3 = (Map<String, Object>) resp3.getEntity();
     assertEquals(3, respConf3.get("id"));
+  }
+
+  @Test
+  public void testDeleteConfigs() {
+    String configBody = "pipeline = \"testPipeline\"";
+    Response configResponse = lucilleResource.createConfig(mockUser, configBody);
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
+
+    Response deleteResponse = lucilleResource.deleteConfig(mockUser, configId);
+    assertEquals(Response.Status.OK.getStatusCode(), deleteResponse.getStatus());
+
+    Response badDeleteResponse = lucilleResource.getConfig(mockUser, UUID.randomUUID().toString());
+    assertEquals(Status.NOT_FOUND.getStatusCode(), badDeleteResponse.getStatus());
   }
 }

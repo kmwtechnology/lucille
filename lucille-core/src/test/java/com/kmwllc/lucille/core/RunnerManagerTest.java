@@ -310,6 +310,19 @@ public class RunnerManagerTest {
     }
   }
 
+  @Test
+  public void testDeleteConfig() {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    runnerManager.createConfigWithName(ConfigFactory.empty(), "test-config");
+
+    assertTrue(runnerManager.deleteConfig("test-config"));
+    assertFalse(runnerManager.deleteConfig("test-config"));
+
+    runnerManager.createConfigWithName(ConfigFactory.empty(), "test-config-2");
+    assertFalse(runnerManager.deleteConfig("test-config"));
+    assertTrue(runnerManager.deleteConfig("test-config-2"));
+  }
+
   private void validateRun1Reader(CSVReader run1Reader) {
     for (String[] line : run1Reader) {
       assertEquals(4, line.length);
