@@ -740,4 +740,106 @@ public class FileConnectorTest {
     }
   }
 
+  @Test
+  public void testRunsBeforeExpiration() throws Exception {
+
+    File tempDir = new File("temp-tombstone");
+    assertFalse(tempDir.exists());
+    tempDir.mkdir();
+
+    File file1 = new File(tempDir, "file1.txt");
+    File file2 = new File(tempDir, "file2.txt");
+    File file3 = new File(tempDir, "file3.txt");
+
+    Files.writeString(file1.toPath(), "Content 1");
+    Files.writeString(file2.toPath(), "Content 2");
+    Files.writeString(file3.toPath(), "Content 3");
+
+    try {
+      // Config with state and incremental mode with tombstones enabled
+      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+          .withValue("paths", ConfigValueFactory.fromIterable(List.of(tempDir.toURI().toString())))
+          .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+          .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"))
+          .withValue("state.runsBeforeExpiration", ConfigValueFactory.fromAnyRef(2));
+
+      TestMessenger messenger1 = new TestMessenger();
+      Publisher publisher1 = new PublisherImpl(config, messenger1, "run1", "pipeline1");
+      Connector conn = new FileConnector(config);
+      conn.execute(publisher1);
+      conn.close();
+
+      // First run, publish all 3 files
+      List<Document> firstRunDocs = messenger1.getDocsSentForProcessing();
+      assertEquals(3, firstRunDocs.size());
+
+      // Verify no tombstones on first run
+      long firstRunTombstones = firstRunDocs.stream()
+          .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+          .count();
+      assertEquals(0, firstRunTombstones);
+
+      // Delete file1
+      Files.delete(file1.toPath());
+
+      // Second run
+      TestMessenger messenger2 = new TestMessenger();
+      Publisher publisher2 = new PublisherImpl(config, messenger2, "run2", "pipeline1");
+      conn = new FileConnector(config);
+      conn.execute(publisher2);
+      conn.close();
+
+      List<Document> secondRunDocs = messenger2.getDocsSentForProcessing();
+
+      // Haven't hit our runsBeforeExpiration yet (this is the first run that we don't encounter a file)
+      long secondRunTombstones = secondRunDocs.stream()
+          .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+          .count();
+      assertEquals(0, secondRunTombstones);
+
+      // Delete file2
+      Files.delete(file2.toPath());
+
+      // Third run
+      TestMessenger messenger3 = new TestMessenger();
+      Publisher publisher3 = new PublisherImpl(config, messenger3, "run3", "pipeline1");
+      conn = new FileConnector(config);
+      conn.execute(publisher3);
+      conn.close();
+
+      List<Document> thirdRunDocs = messenger3.getDocsSentForProcessing();
+
+      // Verify tombstone for file1 (since we hit 2 runs without seeing it)
+      Document tombstone1 = thirdRunDocs.stream()
+          .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+          .findFirst()
+          .orElseThrow();
+      assertTrue(tombstone1.getString(FileConnector.FILE_PATH).contains("file1.txt"));
+      assertTrue(tombstone1.isSkipped());
+
+      // Fourth run
+      TestMessenger messenger4 = new TestMessenger();
+      Publisher publisher4 = new PublisherImpl(config, messenger4, "run3", "pipeline1");
+      conn = new FileConnector(config);
+      conn.execute(publisher4);
+      conn.close();
+
+      List<Document> fourthRunDocs = messenger4.getDocsSentForProcessing();
+
+      // Verify tombstone for file2
+      Document tombstone2 = fourthRunDocs.stream()
+          .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+          .findFirst()
+          .orElseThrow();
+      assertTrue(tombstone2.getString(FileConnector.FILE_PATH).contains("file2.txt"));
+      assertTrue(tombstone2.isSkipped());
+
+    } finally {
+      FileUtils.deleteDirectory(tempDir);
+
+      // Needed since our db is on disk
+      FileUtils.deleteDirectory(new File("state"));
+    }
+  }
+
 }
