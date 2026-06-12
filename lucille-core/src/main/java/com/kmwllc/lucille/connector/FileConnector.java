@@ -47,6 +47,7 @@ import com.typesafe.config.Config;
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
+ *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
  *   <li>filterOptions.lastModifiedCutoff (String, Optional) : Duration string to include only files modified within this period (e.g., "1h").</li>
  *   <li>filterOptions.lastPublishedCutoff (String, Optional) : Duration string to include only files not published within this period.</li>
  *   <li>filterOptions.publishMode (String, Optional) : Set as 'incremental' or 'full' to choose mode of publishing.</li>
@@ -124,6 +125,7 @@ public class FileConnector extends AbstractConnector {
           SpecBuilder.parent("filterOptions")
               .optionalList("includes", new TypeReference<List<String>>(){})
               .optionalList("excludes", new TypeReference<List<String>>(){})
+              .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
               // durations are strings.
               .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode", "sendTombstones").build(),
           SpecBuilder.parent("fileOptions")

@@ -85,7 +85,12 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-      // We don't care about preVisiting a directory
+      URI absDirUri = dir.toAbsolutePath().normalize().toUri();
+      for (URI skipUri : params.getPathsToSkip()) {
+        if (absDirUri.equals(skipUri)) {
+          return FileVisitResult.SKIP_SUBTREE;
+        }
+      }
       return FileVisitResult.CONTINUE;
     }
 

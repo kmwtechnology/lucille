@@ -44,6 +44,7 @@ public class TraversalParams {
   // FilterOptions
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
+  private final List<URI> pathsToSkip;
   private final Duration lastModifiedCutoff;
   private final Duration lastPublishedCutoff;
   private final PublishMode publishMode;
@@ -90,6 +91,12 @@ public class TraversalParams {
     List<String> excludeRegex = filterOptions.hasPath("excludes") ?
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
+
+    List<String> pathsToSkipStrings = filterOptions.hasPath("pathsToSkip") ?
+        filterOptions.getStringList("pathsToSkip") : Collections.emptyList();
+    this.pathsToSkip = pathsToSkipStrings.stream()
+        .map(TraversalParams::makePathToSkipURI)
+        .collect(Collectors.toList());
 
     this.publishMode = filterOptions.hasPath("publishMode") ? PublishMode.fromString(filterOptions.getString("publishMode")) : PublishMode.FULL;
 
@@ -204,6 +211,29 @@ public class TraversalParams {
 
   public URI getMoveToErrorFolder() {
     return moveToErrorFolder;
+  }
+
+  public List<URI> getPathsToSkip() {
+    return pathsToSkip;
+  }
+
+  /**
+   * Creates a URI for a path to skip, ensuring it is normalized and absolute.
+   * Throws an IllegalArgumentException in the event of an invalid or non absolute URI.
+   */
+  private static URI makePathToSkipURI(String s) {
+    URI uri;
+    try {
+      uri = new URI(s);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Invalid URI in pathsToSkip: '" + s + "'.", e);
+    }
+
+    if (!uri.isAbsolute()) {
+      throw new IllegalArgumentException("pathsToSkip URIs must be absolute (e.g. file:///path/to/dir), got: '" + s + "'.");
+    }
+
+    return uri.normalize();
   }
 
   public enum PublishMode {

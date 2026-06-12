@@ -227,6 +227,7 @@ Filter options control which files are processed and published. All filter optio
 |---|---|---|
 | `includes` | List\<String\> | Regex patterns — only file names matching at least one pattern are processed. |
 | `excludes` | List\<String\> | Regex patterns — file names matching any pattern are skipped. |
+| `pathsToSkip` | List\<String\> | Paths of directories to skip. While traversing, this directory and its contents will not be processed or published. See important note below. |
 | `lastModifiedCutoff` | String | Duration string (e.g., `"24h"`, `"7d"`) — only files modified within this window are processed. |
 | `lastPublishedCutoff` | String | Duration string — files published by Lucille within this window are skipped. Requires state. |
 | `publishMode` | String | `FULL` (default) or `INCREMENTAL`. In incremental mode, only new or modified files are published. Requires state. |
@@ -243,6 +244,10 @@ filterOptions: {
   publishMode: "incremental"
 }
 ```
+
+**Note** on `pathsToSkip`: while you could create an `excludes` regex detailing the paths you want to skip, there is a performance
+benefit to using `pathsToSkip` instead. With this parameter, the `FileConnector` will actually not traverse the path and its contents.
+If you use `excludes`, the path _will_ be traversed, but the individual documents are not processed & published.
 
 ---
 
