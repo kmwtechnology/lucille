@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core;
 
 import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
+import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -220,7 +221,7 @@ public class Runner {
     RunType runType = getRunType(cli.hasOption("usekafka"), cli.hasOption("local"));
 
     // Kick off the run with a log of the result
-    RunResult result = runWithResultLog(config, runType);
+    RunResult result = runAndLogResult(config, runType, true);
 
     if (result.getStatus()) {
       SystemHelper.exit(0);
@@ -447,37 +448,9 @@ public class Runner {
     }
   }
 
-  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
-    return runWithResultLog(config, runType, null);
-  }
-
   /**
-   * Kicks off a new Lucille run and logs information about the run to the console after completion.
-   */
-  public static RunResult runWithResultLog(Config config, RunType runType, String runId)
-      throws Exception {
-    StopWatch stopWatch = new StopWatch();
-    stopWatch.start();
-    RunResult result;
-
-    try {
-      result = run(config, runType, runId);
-
-      // log detailed metrics
-      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
-          .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
-      // log run summary
-      log.info(result.toString());
-      return result;
-    } finally {
-      stopWatch.stop();
-      log.info(String.format("Run took %.2f secs.",
-          (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
-    }
-  }
-
-  /**
-   * Non managed Run with internal generated runId
+   * Non managed Run with internal generated runId.
+   * <b>Note</b> that this method will not cleanup metrics.
    *
    * @param config
    * @param type
@@ -489,7 +462,50 @@ public class Runner {
   }
 
   /**
+   * Creates a run with a randomly generated Run ID and log the RunResult upon completion + the time taken for the run.
+   * Optionally, logs additional metrics about the run (based on <code>logMetrics</code>).
+   * <br> This method <b>will</b> clean up the run's metrics.
+   */
+  public static RunResult runAndLogResult(Config config, RunType runType, boolean logMetrics) throws Exception {
+    return runAndLogResult(config, runType, generateRunId(), logMetrics);
+  }
+
+  /**
+   * Kicks off a new Lucille run with the provided <code>runId</code> and logs the RunResult upon completion +
+   * the time taken for the run. Optionally logs additional metrics about the run (based on <code>logMetrics</code>).
+   * <br> The provided <code>runId</code> must not be <code>null</code>.
+   * <br> This method <b>will</b> clean up the run's metrics.
+   */
+  public static RunResult runAndLogResult(Config config, RunType runType, String runId, boolean logMetrics)
+      throws Exception {
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+    RunResult result;
+
+    try {
+      result = run(config, runType, runId);
+
+      if (logMetrics) {
+        Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
+            .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
+      }
+
+      // log run summary
+      log.info(result.toString());
+      return result;
+    } finally {
+      stopWatch.stop();
+      log.info(String.format("Run took %.2f secs.",
+          (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
+
+      SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG)
+          .removeMatching(MetricFilter.startsWith(runId));
+    }
+  }
+
+  /**
    * Generates a run ID if not supplied and performs an end-to-end run of the designated type.
+   * <b>Note</b> that this method will not cleanup metrics.
    *
    * @param config
    * @param type

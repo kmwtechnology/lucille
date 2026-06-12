@@ -243,6 +243,9 @@ public class RunnerManagerTest {
     }
   }
 
+  // This is the responsibility of the Runner, but it is
+  // important we ensure the RunnerManager (used by the API) does result in
+  // metrics being cleaned up, preventing unbounded heap usage.
   @Test
   public void testMetricsCleanup() throws Exception {
     SharedMetricRegistries.clear();

@@ -160,10 +160,9 @@ public class RunnerManager {
         // For now, we will always use local mode without Kafka
         runDetails.setRunType(Runner.getRunType(false, true));
 
-
         log.debug(config.entrySet().toString());
 
-        runDetails.setRunResult(Runner.runWithResultLog(config, runDetails.getRunType(), runId));
+        runDetails.setRunResult(Runner.runAndLogResult(config, runDetails.getRunType(), runId, false));
       } catch (Exception e) {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);
@@ -178,9 +177,6 @@ public class RunnerManager {
 
           activeDetailsMap.remove(runId);
         }
-
-        // metrics cleanup
-        SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).removeMatching(MetricFilter.startsWith(runId));
       }
     }));
 
