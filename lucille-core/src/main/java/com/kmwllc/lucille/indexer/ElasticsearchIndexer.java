@@ -259,14 +259,15 @@ public class ElasticsearchIndexer extends Indexer {
       return;
     }
 
-    List<Map<String, Object>> childDocs = new ArrayList<>();
+    List<Map<String, Object>> childDocMaps = new ArrayList<>();
     for (Document child : children) {
+      // calling getIndexerDoc allows us to apply black/whitelist
       Map<String, Object> childDocMap = getIndexerDoc(child);
       // we don't support children that contain nested children
       childDocMap.remove(Document.CHILDREN_FIELD);
-      childDocs.add(childDocMap);
+      childDocMaps.add(childDocMap);
     }
-    indexerDoc.put(childDocumentsField, childDocs);
+    indexerDoc.put(childDocumentsField, childDocMaps);
   }
 
   public static class ElasticJoinData {
