@@ -47,7 +47,9 @@ connectors: [
 ]
 ```
 
-Multiple Connectors can feed the same Pipeline.
+Multiple Connectors can feed the same Pipeline. When two connectors reference the same pipeline name, they share the pipeline *definition* but not the pipeline *instance*. Each connector's execution creates a fresh WorkerPool with new Stage instances, runs to completion, and tears down before the next connector begins. State accumulated in Stage instance fields (database connections, counters, caches) does not carry over between connectors — each connector starts with a clean pipeline.
+
+The `pipeline` field is optional. A connector without a pipeline performs its work without publishing documents — useful for preparatory tasks like creating an index or running a migration before a publishing connector executes. See [Setup-Only Connectors]({{< relref "docs/reference/control-flow#setup-only-connectors-no-pipeline" >}}) for details.
 
 ---
 

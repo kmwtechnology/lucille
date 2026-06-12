@@ -255,6 +255,42 @@ Keep resource cleanup (closing connections, releasing file handles) in `close()`
 
 ---
 
+## Setup-Only Connectors (No Pipeline)
+
+**Config + Code** | **When to use:** You need to perform preparatory work — creating a collection, running a database migration, clearing an index, calling an external API — before a publishing connector runs. You want this work to be part of the run so that failures prevent downstream connectors from executing.
+
+**How it works:** Omit the `pipeline` field from the connector config. When a connector has no pipeline, the framework skips creating a Publisher, WorkerPool, and Indexer. It calls `execute()` synchronously with a `null` publisher. The connector's `execute()` method performs its work and returns. If it throws, the run is aborted and subsequent connectors do not execute.
+
+```hocon
+connectors: [
+  {
+    name: "prepare-index"
+    class: "com.example.CreateCollectionConnector"
+    # no pipeline field — this connector does not publish documents
+    solrUrl: "http://localhost:8983/solr"
+    collection: "my-collection"
+  },
+  {
+    name: "ingest-data"
+    class: "com.kmwllc.lucille.connector.FileConnector"
+    pipeline: "enrichment-pipeline"
+    paths: ["/data/source"]
+  }
+]
+```
+
+In this example, `prepare-index` runs first. If it succeeds, `ingest-data` runs and publishes documents into the pipeline. If `prepare-index` throws, the run aborts and `ingest-data` never starts.
+
+**Lifecycle behavior for a no-pipeline connector:**
+- `preExecute(runId)` — called normally
+- `execute(null)` — called synchronously; the publisher argument is `null`
+- `postExecute(runId)` — called if `execute` succeeds
+- `close()` — always called
+
+**When to use this vs. `preActions`:** Use a setup-only connector when the preparatory logic is complex, reusable across runs, or not tied to a specific connector's source system. Use `preActions`/`postActions` (on connectors that support them, like `SolrConnector`) when the setup is a simple command tightly coupled to that connector's execution.
+
+---
+
 ## Stage Initialization and Teardown
 
 **Code** | **When to use:** You are writing a stage that needs to acquire resources before processing begins — opening a database connection, building an HTTP client, loading a model file, compiling a regex or expression, or validating configuration values that can only be checked at runtime. Override `start()` and/or `stop()` to manage that lifecycle cleanly.

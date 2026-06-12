@@ -1,36 +1,55 @@
-# This script updates the working tree with all the content needed for "hugo build" to generate versioned docs. To do this:
+# This script generates a versioned doc site in our deployment workflow. If run locally, it generates the versioned site in
+# a doc/site-preview folder, illustrating what it will look like when deployed.
+#
+# What it does:
+#   * Snapshots the current working tree's content/en/docs into content/en/docs-pre-release
+#     for the "pre-release" dropdown entry (kept up to date with main).
+#   * Uses git to pull content/en/docs from each tagged release at or above $min_version:
+#     the newest tag replaces content/en/docs (the site's "latest" entry), each earlier
+#     tag goes into its own content/en/docs-<tag> folder.
+#   * Rewrites hugo.toml's [[params.versions]] block to match.
+#
+# Two modes:
+#   * "production" (used by .github/workflows/hugo.yml): operates directly on
+#     ${GITHUB_WORKSPACE}/doc/site in the CI checkout.
+#   * "local" (default): mirrors doc/site -> doc/site-preview/ and does everything in the
+#     mirror. doc/site itself is never modified, so you can edit it freely and commit
+#     normally without the generated versioned content polluting your diff.
+#     To preview: re-run this script, then `cd doc/site-preview && hugo server`.
+#
+# WARNING: If tags have been re-pointed on the remote, run "git fetch --tags --force" before executing this script locally
 
-# It deletes doc/site/content/en/docs and replaces it with docs from the latest tagged release.
-# It uses git to get the docs from prior releases and places them in versioned folders under doc/site/content/en
-# It updates hugo.toml with information about the versions
+set -e
 
-# The purpose of this is to be used in hugo.yml for the github workflow which builds and deploys our documentation site.
-
-# NOTE: This script will delete any changes made inside doc/site/content/en/docs.
-# It should ONLY be run by a developer when working in a fresh checkout that does not have any local changes to that folder
-# which they want to keep.
-
-# The script will run in production mode if a production flag is added to it, like this: versionsworkflow.sh production
-# It runs in local mode by default, which you can see in the first few lines of the script. Further information can be found
-# on local mode in the following comments:
-
-# Local mode will generate the user-facing versioned documentation site locally. When you build
-# the site locally without running this script, you will only get the most updated docs from the
-# working directory. This script allows you to see what the doc site will look like in production.
-
-# Keep in mind that the latest version of the docs here will not reflect your changes to the doc site content
-# folder in the working directory, because it pulls from the latest release. Your changes will not appear until
-# the next release.
-
-# MAKE SURE TO REVERT THE hugo.toml AND THE doc/site/content folder BEFORE COMMITTING IF YOU RUN THIS SCRIPT.
-
-# Pre-run cleanup if running in local mode, not necessary for production
 mode=${1:-"local"}
 if [ $mode = "local" ]; then
-  cd ../../doc/site
+  # Build a doc/site-preview/ mirror as a sibling to doc/site and run everything there.
+  # rsync excludes node_modules and public/ from the copy: node_modules is then
+  # symlinked back (hugo only reads from it), and public/ would just be regenerated
+  # by hugo anyway.
+
+  # cd into directory where this script is and store the pwd in script_dir
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+  # cd into doc site and save pwd
+  src_site="$(cd "$script_dir/../../doc/site" && pwd)"
+  # mark location for site-preview
+  preview_site="$(dirname "$src_site")/site-preview"
+  echo "Mirroring $src_site -> $preview_site"
+  # remove anything there previously
+  [[ "$preview_site" == */site-preview ]] || { echo "ERROR: unexpected preview path"; exit 1; }
+  rm -rf "$preview_site"
+  # make new site-preview
+  mkdir -p "$preview_site"
+  # exclude node_modules and public folder from copy based on src (hugo doesn't write public to disk)
+  rsync -a --exclude='/node_modules' --exclude='/public' "$src_site/" "$preview_site/"
+  if [ -d "$src_site/node_modules" ]; then
+    ln -s "$src_site/node_modules" "$preview_site/node_modules"
+  fi
+  cd "$preview_site"
   url="http://localhost:1313/docs"
 elif [ $mode = "production" ]; then
   cd ${GITHUB_WORKSPACE}/doc/site
+  src_site="${GITHUB_WORKSPACE}/doc/site"
   url="https://kmwtechnology.github.io/lucille/docs"
 else
   echo "Invalid mode specified: $mode"
@@ -52,6 +71,25 @@ tags_descending=$(echo "$tags" | sort -rV)
 latest_tag=$(echo "$tags_descending" | head -1)
 echo "Latest tag: $latest_tag"
 
+# Grab the doc site from the working branch for pre-release (up to date with main)
+# Needs to be done before the tag loop because it wipes content/en/docs
+pre_release_url="${url}-pre-release/"
+echo "Creating pre-release docs snapshot from working tree"
+rm -rf content/en/docs-pre-release
+cp -r content/en/docs content/en/docs-pre-release
+cat > content/en/docs-pre-release/_index.md << EOF
+---
+title: Documentation pre-release
+linkTitle: Docs-pre-release
+weight: 20
+cascade:
+  type: docs
+---
+EOF
+# Append everything after the metadata from the working branches top level docs _index.md so the pre-release landing
+# page keeps the same overview content
+awk 'found{print} /^---$/{n++; if(n==2) found=1}' content/en/docs/_index.md >> content/en/docs-pre-release/_index.md
+
 # Use "git archive" to extract docs from each tag into a temp directory, then
 # copy them into place.
 
@@ -59,12 +97,14 @@ echo "Latest tag: $latest_tag"
 while IFS= read -r tag; do
   echo "Processing tag: $tag"
 
-  # Check if docs exist in this tag
-  git ls-tree "$tag" content/en/docs >/dev/null 2>&1 || { echo "Skipping $tag - docs not found"; continue; }
+  # Check if docs exist in this tag. Use -C "$src_site" so git resolves
+  # pathspecs from the real doc/site location; in local mode CWD is the
+  # preview mirror, which isn't part of the tracked tree.
+  git -C "$src_site" ls-tree "$tag" content/en/docs >/dev/null 2>&1 || { echo "Skipping $tag - docs not found"; continue; }
 
   # Make temporary directory for git archive to use, then archive the tag into it
   tmpdir=$(mktemp -d)
-  git archive "$tag" content/en/docs | tar -x -C "$tmpdir"
+  git -C "$src_site" archive "$tag" content/en/docs | tar -x -C "$tmpdir"
 
   if [ "$tag" = "$latest_tag" ]; then
     # Latest tag replaces the main docs/ folder
@@ -82,7 +122,6 @@ linkTitle: Docs-$tag
 weight: 20
 cascade:
   type: docs
-  exclude_search: true
 ---
 EOF
   fi
@@ -97,10 +136,16 @@ done <<< "$tags"
   printf 'url_latest_version = "%s/"\n' "$url"
   printf '\n'
 
-  # Add the latest version first, it points to the main /docs/ path
+  # Pre-release entry at the top of the dropdown
+  printf '[[params.versions]]\n'
+  printf '  version = "pre-release"\n'
+  printf '  url = "%s"\n' "$pre_release_url"
+  printf '\n'
+
+  # Add the latest release version next, it points to the main /docs/ path
   printf '[[params.versions]]\n'
   printf '  version = "%s (latest)"\n' "$latest_tag"
-  printf '  url = "%s"\n' "$url"
+  printf '  url = "%s/"\n' "$url"
   printf '\n'
 
   while IFS= read -r tag; do

@@ -64,23 +64,29 @@ public class LucilleResource {
   private final boolean preventConcurrentRuns;
 
   /**
-   * Constructs a new LucilleResource that does not prevent concurrent runs.
+   * Constructs a new LucilleResource that does not prevent concurrent runs and has no preset configs.
    * @param runnerManager the runner manager instance
    * @param authHandler the authentication handler
    */
   public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler) {
-    this(runnerManager, authHandler, false);
+    this(runnerManager, authHandler, false, Map.of());
   }
 
   /**
    * Constructs a new LucilleResource.
    * @param runnerManager the runner manager instance
    * @param authHandler the authentication handler
+   * @param preventConcurrentRuns whether to prevent runs of the same config.
+   * @param presetConfigs A non-null mapping of names to configs that should be added to the runner manager.
    */
-  public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler, boolean preventConcurrentRuns) {
+  public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler, boolean preventConcurrentRuns, Map<String, Config> presetConfigs) {
     this.runnerManager = runnerManager;
     this.authHandler = authHandler;
     this.preventConcurrentRuns = preventConcurrentRuns;
+
+    for (Map.Entry<String, Config> entry : presetConfigs.entrySet()) {
+      runnerManager.createConfigWithName(entry.getValue(), entry.getKey());
+    }
   }
 
   /**

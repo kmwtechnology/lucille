@@ -46,7 +46,11 @@ Your Stage would be configured like so:
   class: "com.kmwllc.lucille.stage.PromptOllama"
   hostURL: "http://localhost:9200"
   modelName: "gemma3"
-  systemPrompt: "You are to read the text inside \"email_text\" and output a JSON object containing only one field, fraud, a boolean, representing whether the text contains evidence of fraud or not."
+  systemPrompt: """
+    You are to read the text inside "email_text" and output a JSON object
+    containing only one field, fraud, a boolean, representing whether the
+    text contains evidence of fraud or not.
+  """
   fields: "email_text"
 }
 ```
