@@ -4,9 +4,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -249,5 +251,18 @@ public class TraversalParamsTest {
 
     TraversalParams moveToError = paramsWithFileOptions(Map.of("moveToErrorFolder", "s3://target/"));
     assertEquals(URI.create("s3://target/"), moveToError.getMoveToErrorFolder());
+  }
+
+  @Test
+  public void testInvalidPathsToSkip() {
+    // bad uri syntax
+    assertThrows(IllegalArgumentException.class, () -> new TraversalParams(ConfigFactory.parseMap(Map.of(
+        "filterOptions.pathsToSkip", List.of("fi le:///Users/[jakesquatrito/Desktop")
+    )), DEFAULT_URI, DEFAULT_PREFIX));
+
+    // non absolute
+    assertThrows(IllegalArgumentException.class, () -> new TraversalParams(ConfigFactory.parseMap(Map.of(
+        "filterOptions.pathsToSkip", List.of("jakesquatrito/Desktop")
+    )), DEFAULT_URI, DEFAULT_PREFIX));
   }
 }

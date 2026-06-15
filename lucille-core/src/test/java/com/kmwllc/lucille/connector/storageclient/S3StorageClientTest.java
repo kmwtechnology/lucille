@@ -610,10 +610,14 @@ public class S3StorageClientTest {
     assertEquals(3, publisher.numPublished());
   }
 
-  // Verifies that a directory in pathsToSkip is never actually traversed/visited
-  // w/ this config, listObjectsV2Paginator is called once for the root level only
   @Test
   public void testPathsToSkip() throws Exception {
+    /*
+      s3://bucket/
+      ├── file1.txt              (published)
+      └── subdir/
+          └── ...                (skipped)
+    */
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "filterOptions", Map.of("pathsToSkip", List.of("s3://bucket/subdir/"))
     ));
@@ -623,6 +627,12 @@ public class S3StorageClientTest {
 
   @Test
   public void testPathsToSkipNoTrailingSlash() throws Exception {
+    /*
+      s3://bucket/
+      ├── file1.txt              (published)
+      └── subdir/
+          └── ...                (skipped)
+    */
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "filterOptions", Map.of("pathsToSkip", List.of("s3://bucket/subdir"))
     ));

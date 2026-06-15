@@ -461,8 +461,6 @@ public class LocalStorageClientTest {
     assertEquals(1, publisher.numPublished());
   }
 
-  // pathsToSkip entries must be absolute URIs. A file:// URI for subdir1 skips it entirely,
-  // leaving only the 4 root-level json files.
   @Test
   public void testPathsToSkip() throws Exception {
     String subdir1Uri = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/")
@@ -501,7 +499,9 @@ public class LocalStorageClientTest {
     pathsToSkipTesting(connectorConfig);
   }
 
-  public void pathsToSkipTesting(Config connectorConfig) throws Exception {
+  // pathsToSkip entries must be absolute URIs. A file:// URI for subdir1 skips it entirely,
+  // leaving only the 4 root-level json files.
+  private void pathsToSkipTesting(Config connectorConfig) throws Exception {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
@@ -516,16 +516,5 @@ public class LocalStorageClientTest {
     assertTrue(docs.stream().noneMatch(d -> d.getString(FileConnector.FILE_PATH).contains("subdir1")));
 
     localStorageClient.shutdown();
-  }
-
-  // A plain path string (no scheme) must be rejected at TraversalParams construction time.
-  @Test
-  public void testPathsToSkipNoSchemeThrows() {
-    Config connectorConfig = ConfigFactory.parseMap(Map.of(
-        "filterOptions", Map.of("pathsToSkip", List.of("subdir1"))
-    ));
-
-    assertThrows(IllegalArgumentException.class, () -> new TraversalParams(connectorConfig,
-        URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault"), ""));
   }
 }

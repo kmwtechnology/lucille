@@ -761,6 +761,12 @@ public class AzureStorageClientTest {
 
   @Test
   public void testPathsToSkip() throws Exception {
+    /*
+      https://storagename.blob.core.windows.net/folder/
+      ├── blob1                  (published)
+      └── subdir/
+          └── ...                (skipped)
+    */
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "filterOptions",
         Map.of("pathsToSkip", List.of("https://storagename.blob.core.windows.net/folder/subdir/"))
@@ -771,6 +777,12 @@ public class AzureStorageClientTest {
 
   @Test
   public void testPathsToSkipNoTrailingSlash() throws Exception {
+    /*
+      https://storagename.blob.core.windows.net/folder/
+      ├── blob1                  (published)
+      └── subdir/
+          └── ...                (skipped)
+    */
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "filterOptions", Map.of("pathsToSkip",
             List.of("https://storagename.blob.core.windows.net/folder/subdir"))

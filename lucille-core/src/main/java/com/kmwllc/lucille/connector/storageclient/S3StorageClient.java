@@ -19,13 +19,11 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
-import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
 /**
  * A storage client for S3. Create using a configuration (commonly mapped to <b>s3</b>) which can contain
@@ -102,7 +100,7 @@ public class S3StorageClient extends BaseStorageClient {
       });
 
       resp.commonPrefixes().forEach(cp -> {
-        URI prefixUri = buildS3PrefixUri(cp.prefix(), params);
+        URI prefixUri = uriForDirectory(cp.prefix(), params);
         if (!isSkippedPrefix(prefixUri, params)) {
           traversePrefix(publisher, params, stateMgr, cp.prefix());
         }
@@ -110,7 +108,7 @@ public class S3StorageClient extends BaseStorageClient {
     });
   }
 
-  private URI buildS3PrefixUri(String prefix, TraversalParams params) {
+  private URI uriForDirectory(String prefix, TraversalParams params) {
     URI paramsUri = params.getURI();
     try {
       return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null);
