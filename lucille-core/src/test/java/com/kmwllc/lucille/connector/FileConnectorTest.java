@@ -18,6 +18,7 @@ import static org.mockito.Mockito.verify;
 import com.kmwllc.lucille.connector.jdbc.DBTestHelper;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.util.List;
@@ -740,4 +741,20 @@ public class FileConnectorTest {
     }
   }
 
+  @Test
+  public void testTraversalWithSkipPaths() throws Exception {
+    // uri.toString() has no trailing slash
+    URI subdirURI = getClass().getClassLoader().getResource("FileConnectorTest/example/subdir").toURI();
+
+    // traverses example, but skips subdir
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
+        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromAnyRef(List.of(subdirURI.toString())));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+  }
 }

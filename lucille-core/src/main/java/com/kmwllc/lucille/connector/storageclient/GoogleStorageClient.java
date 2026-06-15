@@ -93,15 +93,15 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   // GCS directory blobs always have a trailing "/", but the user may or may not include one in
-  // their pathsToSkip URI. Strip trailing slashes from both sides before comparing.
+  // their pathsToSkip URI. Normalize to trailing slash on both sides before comparing.
   private boolean isSkippedPrefix(URI prefixUri, TraversalParams params) {
-    String normalized = stripTrailingSlash(prefixUri.toString());
+    String normalized = ensureTrailingSlash(prefixUri.toString());
     return params.getPathsToSkip().stream()
-        .anyMatch(skip -> stripTrailingSlash(skip.toString()).equals(normalized));
+        .anyMatch(skip -> ensureTrailingSlash(skip.toString()).equals(normalized));
   }
 
-  private static String stripTrailingSlash(String s) {
-    return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
+  private static String ensureTrailingSlash(String s) {
+    return s.endsWith("/") ? s : s + "/";
   }
 
   @Override

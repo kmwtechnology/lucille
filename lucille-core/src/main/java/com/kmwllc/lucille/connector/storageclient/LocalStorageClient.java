@@ -85,13 +85,19 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-      URI absDirUri = dir.toAbsolutePath().normalize().toUri();
+      // Path.toUri() never appends a trailing slash for directories; normalize both sides so
+      // that user-provided URIs with or without a trailing slash both match correctly.
+      String absDirUri = ensureTrailingSlash(dir.toAbsolutePath().normalize().toUri().toString());
       for (URI skipUri : params.getPathsToSkip()) {
-        if (absDirUri.equals(skipUri)) {
+        if (absDirUri.equals(ensureTrailingSlash(skipUri.toString()))) {
           return FileVisitResult.SKIP_SUBTREE;
         }
       }
       return FileVisitResult.CONTINUE;
+    }
+
+    private static String ensureTrailingSlash(String s) {
+      return s.endsWith("/") ? s : s + "/";
     }
 
     @Override

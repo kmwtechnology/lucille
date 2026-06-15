@@ -227,7 +227,7 @@ Filter options control which files are processed and published. All filter optio
 |---|---|---|
 | `includes` | List\<String\> | Regex patterns — only file names matching at least one pattern are processed. |
 | `excludes` | List\<String\> | Regex patterns — file names matching any pattern are skipped. |
-| `pathsToSkip` | List\<String\> | Paths of directories to skip. While traversing, this directory and its contents will not be processed or published. See important note below. |
+| `pathsToSkip` | List\<String\> | Paths of directories to skip. While traversing, this directory and its contents will not be read, processed, or published. See note below for more. |
 | `lastModifiedCutoff` | String | Duration string (e.g., `"24h"`, `"7d"`) — only files modified within this window are processed. |
 | `lastPublishedCutoff` | String | Duration string — files published by Lucille within this window are skipped. Requires state. |
 | `publishMode` | String | `FULL` (default) or `INCREMENTAL`. In incremental mode, only new or modified files are published. Requires state. |
@@ -245,8 +245,8 @@ filterOptions: {
 }
 ```
 
-**Note** on `pathsToSkip`: while you could create an `excludes` regex detailing the paths you want to skip, there is a performance
-benefit to using `pathsToSkip` instead. With this parameter, the `FileConnector` will actually not traverse the path and its contents.
+**Note** on `pathsToSkip`: while you could create an `excludes` regex detailing directories you do not want to publish files for, there 
+are performance benefits to using `pathsToSkip` instead. With this parameter, the `FileConnector` will _not actually_ traverse the path and its contents.
 If you use `excludes`, the path _will_ be traversed, but the individual documents are not processed & published.
 
 ---
@@ -275,6 +275,7 @@ If `connectionString` is omitted, an embedded H2 database is created at `./state
 A few constraints to be aware of when using state:
 
 - Files that are moved or renamed will not have `lastPublishedCutoff` applied — their new path is not recognised as previously published.
+- Similarly, remember that the files in a directory that is skipped (by `pathsToSkip`) are also not tracked during a stateful run.
 - Capitalise directory names in `paths` consistently across runs. State lookups are case-sensitive.
 - Each database table should be used by only one connector configuration. Sharing a table across connectors will corrupt state. This can happen in several ways: reusing the same explicit `tableName` across multiple connectors in the same config file; running two separate configs concurrently where both reference the same `tableName`; or omitting `tableName` in two different configs that happen to use the same connector name (since `tableName` defaults to the connector name). In all cases, two connectors writing to the same state table will overwrite each other's records, leading to incorrect incremental behavior — files may be skipped or reprocessed unexpectedly.
 

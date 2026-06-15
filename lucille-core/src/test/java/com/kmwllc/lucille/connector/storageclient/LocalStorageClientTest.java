@@ -465,11 +465,16 @@ public class LocalStorageClientTest {
   // leaving only the 4 root-level json files.
   @Test
   public void testPathsToSkip() throws Exception {
-    URI subdir1Uri = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/")
-        .toAbsolutePath().normalize().toUri();
+    String subdir1Uri = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/")
+        .toAbsolutePath().normalize().toUri().toString();
+
+    if (!subdir1Uri.endsWith("/")) {
+      subdir1Uri += "/";
+    }
+
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "filterOptions", Map.of(
-            "pathsToSkip", List.of(subdir1Uri.toString()),
+            "pathsToSkip", List.of(subdir1Uri),
             "excludes", List.of(".*\\.DS_Store$")
         )
     ));
@@ -479,8 +484,13 @@ public class LocalStorageClientTest {
 
   @Test
   public void testPathsToSkipNoTrailingSlash() throws Exception {
-    URI subdir1Uri = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1")
-        .toAbsolutePath().normalize().toUri();
+    String subdir1Uri = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1")
+        .toAbsolutePath().normalize().toUri().toString();
+
+    if (subdir1Uri.endsWith("/")) {
+      subdir1Uri = subdir1Uri.substring(0, subdir1Uri.length() - 1);
+    }
+
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "filterOptions", Map.of(
             "pathsToSkip", List.of(subdir1Uri.toString()),
