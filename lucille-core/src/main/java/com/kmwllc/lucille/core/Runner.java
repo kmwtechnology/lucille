@@ -478,6 +478,10 @@ public class Runner {
    */
   public static RunResult runAndLogResult(Config config, RunType runType, String runId, boolean logMetrics)
       throws Exception {
+    if (runId == null) {
+      throw new IllegalArgumentException("Cannot specify null runId.");
+    }
+
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
     RunResult result;

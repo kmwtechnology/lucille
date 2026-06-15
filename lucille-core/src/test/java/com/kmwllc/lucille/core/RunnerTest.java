@@ -1112,4 +1112,10 @@ public class RunnerTest {
     // should no longer be present as well
     assertEquals(2, SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).getNames().size());
   }
+
+  @Test
+  public void testBadIdRunAndLogResult() throws Exception {
+    Config config = ConfigFactory.load("RunnerTest/noop.conf");
+    assertThrows(IllegalArgumentException.class, () -> Runner.runAndLogResult(config, RunType.LOCAL, null, false));
+  }
 }
