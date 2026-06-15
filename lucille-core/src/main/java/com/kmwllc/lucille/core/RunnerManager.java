@@ -1,8 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.codahale.metrics.MetricFilter;
-import com.codahale.metrics.SharedMetricRegistries;
-import com.kmwllc.lucille.util.LogUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -184,7 +181,7 @@ public class RunnerManager {
 
         log.debug(config.entrySet().toString());
 
-        runDetails.setRunResult(Runner.runWithResultLog(config, runDetails.getRunType(), runId));
+        runDetails.setRunResult(Runner.runAndLogResult(config, runDetails.getRunType(), runId, false));
       } catch (Exception e) {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);

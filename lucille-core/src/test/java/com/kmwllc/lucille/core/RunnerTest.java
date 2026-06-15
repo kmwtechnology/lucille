@@ -7,6 +7,7 @@ import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
+import com.kmwllc.lucille.core.Runner.RunType;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
@@ -1090,4 +1091,25 @@ public class RunnerTest {
     }
   }
 
+  @Test
+  public void testMetricsCleanup() throws Exception {
+    SharedMetricRegistries.clear();
+    assertEquals(0, SharedMetricRegistries.names().size());
+
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("my-run-id.dummy.metric");
+    Config config = ConfigFactory.load("RunnerTest/noop.conf");
+    // run w/ UUID generated
+    RunResult res1 = Runner.runAndLogResult(config, RunType.LOCAL, false);
+    assertTrue(res1.getStatus());
+
+    // two metrics created by validation, and then the one i just added
+    assertEquals(3, SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).getNames().size());
+
+    RunResult res2 = Runner.runAndLogResult(config, RunType.LOCAL, "my-run-id", false);
+    assertTrue(res2.getStatus());
+
+    // no metrics (other than indexer validation) should be lingering & the metrics created by the run
+    // should no longer be present as well
+    assertEquals(2, SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).getNames().size());
+  }
 }
