@@ -222,7 +222,7 @@ public class AzureStorageClientTest {
 
     List<Document> documents = messenger.getDocsSentForProcessing();
 
-    // only blob1 processed: blob2 is a virtual directory (no file doc), blob3 and blob4 excluded via regex
+    // only blob1 processed due to blob2 being a directory and blob3 and blob4 being excluded via regex
     assertEquals(1, documents.size());
     Document doc1 = documents.get(0);
     assertTrue(doc1.getId().startsWith("prefix-"));
