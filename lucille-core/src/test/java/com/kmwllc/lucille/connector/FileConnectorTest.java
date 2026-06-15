@@ -5,7 +5,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -20,6 +19,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -744,7 +744,7 @@ public class FileConnectorTest {
   @Test
   public void testTraversalWithSkipPaths() throws Exception {
     // uri.toString() has no trailing slash
-    URI subdirURI = getClass().getClassLoader().getResource("FileConnectorTest/example/subdir").toURI();
+    URI subdirURI = Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath().normalize().toUri().normalize();
 
     // traverses example, but skips subdir
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
@@ -756,5 +756,27 @@ public class FileConnectorTest {
 
     connector.execute(publisher);
     List<Document> documentList = messenger.getDocsSentForProcessing();
+
+    // only 9 documents when we don't go into subdir (as in earlier test)
+    assertEquals(9, documentList.size());
+  }
+
+  @Test
+  public void testTraversalMultiplePathsAndSkipPath() throws Exception {
+    // uri.toString() has no trailing slash
+    URI subdirURI = Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath().normalize().toUri().normalize();
+
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsExampleAndDirectory1.conf")
+        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromAnyRef(List.of(subdirURI.toString())));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+    List<Document> documentList = messenger.getDocsSentForProcessing();
+
+    // 5 docs from example (no file handlers!), 3 from directory 1
+    assertEquals(8, documentList.size());
   }
 }
