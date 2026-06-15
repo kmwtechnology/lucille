@@ -2,7 +2,6 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 
-import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
@@ -65,16 +64,44 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
-    Page<Blob> page = storage.list(getBucketOrContainerName(params), BlobListOption.prefix(getStartingDirectory(params)),
-        BlobListOption.pageSize(maxNumOfPages));
-    do {
-      page.streamAll()
-          .forEachOrdered(blob -> {
+    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  }
+
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
+    storage.list(getBucketOrContainerName(params),
+            BlobListOption.prefix(prefix),
+            BlobListOption.currentDirectory(),
+            BlobListOption.pageSize(maxNumOfPages))
+        .streamAll()
+        .forEachOrdered(blob -> {
+          if (blob.isDirectory()) {
+            URI dirUri = uriForDirectory(blob.getName(), params);
+
+            if (!isSkippedPrefix(dirUri, params)) {
+              traversePrefix(publisher, params, stateMgr, blob.getName());
+            }
+          } else {
             GoogleFileReference fileRef = new GoogleFileReference(blob, params);
             processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-          });
-      page = page.hasNextPage() ? page.getNextPage() : null;
-    } while (page != null);
+          }
+        });
+  }
+
+  private URI uriForDirectory(String prefix, TraversalParams params) {
+    URI paramsUri = params.getURI();
+    return URI.create(paramsUri.getScheme() + "://" + paramsUri.getAuthority() + "/" + prefix);
+  }
+
+  // GCS directory blobs always have a trailing "/", but the user may or may not include one in
+  // their pathsToSkip URI. Strip trailing slashes from both sides before comparing.
+  private boolean isSkippedPrefix(URI prefixUri, TraversalParams params) {
+    String normalized = stripTrailingSlash(prefixUri.toString());
+    return params.getPathsToSkip().stream()
+        .anyMatch(skip -> stripTrailingSlash(skip.toString()).equals(normalized));
+  }
+
+  private static String stripTrailingSlash(String s) {
+    return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
   }
 
   @Override

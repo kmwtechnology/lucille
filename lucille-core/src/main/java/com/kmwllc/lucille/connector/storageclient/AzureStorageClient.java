@@ -77,13 +77,42 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  }
+
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
-        .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
-            Duration.ofSeconds(10)).stream()
+        .listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10))
+        .stream()
         .forEachOrdered(blob -> {
-          AzureFileReference fileRef = new AzureFileReference(blob, params);
-          processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+          if (Boolean.TRUE.equals(blob.isPrefix())) {
+            URI dirUri = buildAzurePrefixUri(blob.getName(), params);
+            if (!isSkippedPrefix(dirUri, params)) {
+              traversePrefix(publisher, params, stateMgr, blob.getName());
+            }
+          } else {
+            AzureFileReference fileRef = new AzureFileReference(blob, params);
+            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+          }
         });
+  }
+
+  private URI buildAzurePrefixUri(String prefix, TraversalParams params) {
+    URI pathURI = params.getURI();
+    String containerName = pathURI.getPath().split("/")[1];
+    return URI.create(String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(), containerName, prefix));
+  }
+
+  // Azure virtual directory blobs always have a trailing "/", but the user may or may not include
+  // one in their pathsToSkip URI. Strip trailing slashes from both sides before comparing.
+  private boolean isSkippedPrefix(URI prefixUri, TraversalParams params) {
+    String normalized = stripTrailingSlash(prefixUri.toString());
+    return params.getPathsToSkip().stream()
+        .anyMatch(skip -> stripTrailingSlash(skip.toString()).equals(normalized));
+  }
+
+  private static String stripTrailingSlash(String s) {
+    return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
   }
 
   @Override

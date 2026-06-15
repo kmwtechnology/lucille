@@ -10,6 +10,7 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -82,18 +84,51 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  }
+
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
     ListObjectsV2Request request = ListObjectsV2Request.builder()
         .bucket(getBucketOrContainerName(params))
-        .prefix(getStartingDirectory(params))
-        .maxKeys(maxNumOfPages).build();
-    ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
-    response.stream()
-        .forEachOrdered(resp -> {
-          resp.contents().forEach(obj -> {
-            S3FileReference fileRef = new S3FileReference(obj, params);
-            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-          });
-        });
+        .prefix(prefix)
+        .delimiter("/")
+        .maxKeys(maxNumOfPages)
+        .build();
+
+    s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> {
+      resp.contents().forEach(obj -> {
+        S3FileReference fileRef = new S3FileReference(obj, params);
+        processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+      });
+
+      resp.commonPrefixes().forEach(cp -> {
+        URI prefixUri = buildS3PrefixUri(cp.prefix(), params);
+        if (!isSkippedPrefix(prefixUri, params)) {
+          traversePrefix(publisher, params, stateMgr, cp.prefix());
+        }
+      });
+    });
+  }
+
+  private URI buildS3PrefixUri(String prefix, TraversalParams params) {
+    URI paramsUri = params.getURI();
+    try {
+      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Unable to build S3 URI for prefix: " + prefix, e);
+    }
+  }
+
+  // S3 common prefixes always have a trailing "/", but the user may or may not include one in
+  // their pathsToSkip URI. Strip trailing slashes from both sides before comparing.
+  private boolean isSkippedPrefix(URI prefixUri, TraversalParams params) {
+    String normalized = stripTrailingSlash(prefixUri.toString());
+    return params.getPathsToSkip().stream()
+        .anyMatch(skip -> stripTrailingSlash(skip.toString()).equals(normalized));
+  }
+
+  private static String stripTrailingSlash(String s) {
+    return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
   }
 
   @Override

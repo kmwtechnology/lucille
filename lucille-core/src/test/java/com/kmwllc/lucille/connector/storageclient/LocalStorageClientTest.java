@@ -465,6 +465,20 @@ public class LocalStorageClientTest {
   // leaving only the 4 root-level json files.
   @Test
   public void testPathsToSkip() throws Exception {
+    URI subdir1Uri = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/")
+        .toAbsolutePath().normalize().toUri();
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Uri.toString()),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipNoTrailingSlash() throws Exception {
     URI subdir1Uri = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1")
         .toAbsolutePath().normalize().toUri();
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
@@ -474,6 +488,10 @@ public class LocalStorageClientTest {
         )
     ));
 
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  public void pathsToSkipTesting(Config connectorConfig) throws Exception {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
