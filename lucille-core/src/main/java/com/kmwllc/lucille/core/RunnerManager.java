@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 
 /**
  * Public API for starting lucille runs and viewing their status. Will be used by external
@@ -106,26 +105,23 @@ public class RunnerManager {
   public synchronized CreateConfigResult createConfig(Config config) throws RunnerManagerException {
     String configId = UUID.randomUUID().toString();
 
-    // throws exception in the event of reaching capacity
-    // returns false in the event of a collision
-    // we are using UUIDs here, so a collision won't happen.
+    // throws exception in the event of reaching capacity or a collision.
+    // we are using UUIDs here, so a collision shouldn't happen.
     createConfigWithKey(config, configId);
 
     return new CreateConfigResult(configId);
   }
 
   /**
-   * Adds the provided Config keyed under the provided key. Returns whether the config
-   * was stored successfully. This method will <i>not</i> overwrite an existing config
-   * with the same key.
+   * Adds the provided Config keyed under the provided key. Throws an exception if a config with <code>desiredKey</code> already exists.
+   * This method does not overwrite existing configs.
    * @param config The configuration to store.
    * @param desiredKey The key under which the configuration should be stored.
-   * @return Whether the config was successfully stored and associated with the provided desiredKey.
+   * @throws RunnerManagerException If a config under <code>desiredKey</code> already exists.
    */
-  public synchronized boolean createConfigWithKey(Config config, String desiredKey) throws RunnerManagerException {
+  public synchronized void createConfigWithKey(Config config, String desiredKey) throws RunnerManagerException {
     if (configMap.containsKey(desiredKey)) {
-      log.warn("Attempted to add config with key {}, which already exists", desiredKey);
-      return false;
+      throw new RunnerManagerException("Attempted to add config with key " + desiredKey + ", which already exists");
     }
 
     if (configMap.size() >= maxConfigs) {
@@ -133,7 +129,6 @@ public class RunnerManager {
     }
 
     configMap.put(desiredKey, config);
-    return true;
   }
 
   /**

@@ -175,12 +175,11 @@ public class RunnerManagerTest {
     RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     String configUUID = UUID.randomUUID().toString();
-    boolean success = runnerManager.createConfigWithKey(config, configUUID);
 
-    assertTrue(success);
+    runnerManager.createConfigWithKey(config, configUUID);
 
-    boolean sameNameSuccess = runnerManager.createConfigWithKey(config, configUUID);
-    assertFalse(sameNameSuccess);
+    // collisions cause exceptions to be thrown
+    assertThrows(RunnerManagerException.class, () -> runnerManager.createConfigWithKey(config, configUUID));
   }
 
   @Test
