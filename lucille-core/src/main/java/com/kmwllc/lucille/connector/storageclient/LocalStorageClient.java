@@ -31,10 +31,6 @@ public class LocalStorageClient extends BaseStorageClient {
     super(ConfigFactory.empty());
   }
 
-  // Config options do not matter for LocalStorageClient
-  @Override
-  protected void validateOptions(Config config) { }
-
   @Override
   protected void initializeStorageClient() throws IOException { }
 

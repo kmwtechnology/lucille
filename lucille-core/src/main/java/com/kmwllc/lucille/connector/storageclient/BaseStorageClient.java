@@ -62,7 +62,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * Validate that the given config is sufficient to construct an instance of this StorageClient.
    * @throws IllegalArgumentException If the configuration is not sufficient for this StorageClient.
    */
-  protected abstract void validateOptions(Config config);
+  protected void validateOptions(Config config) { }
 
   // Wrapping around init, shutdown, and traverse to manage "initialized" before / after doing the actual operations in a
   // StorageClient-specific way.
