@@ -107,6 +107,7 @@ public abstract class Indexer implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
+  private static final Logger failedDocLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.FailedDocuments");
 
   private final IndexerMessenger messenger;
   private final Batch batch;
@@ -479,6 +480,7 @@ public abstract class Indexer implements Runnable {
       }
       messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
       docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
+      failedDocLogger.atError().setMessage(() -> d.toString()).log();
     } catch (Exception e) {
       docLogger.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
     } finally {
