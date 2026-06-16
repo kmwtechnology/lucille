@@ -172,18 +172,18 @@ String path = Document.Segment.stringify(segments); // "a.b[2].c"
 
 **Dropping** removes the document from the pipeline entirely. It will not reach the Indexer.
 
-Use the `DropDocument` Stage in config, or set the field directly:
+Use the `DropDocument` Stage in config, or call `setDropped()` in stage code:
 
 ```java
-doc.setField(Document.DROPPED_FIELD, true);
+doc.setDropped(true);
 ```
 
 **Skipping** causes the document to bypass all downstream Stages but still reach the Indexer. This is used for deletion markers, so the Indexer can issue a delete against the search backend.
 
-Use the `SkipDocument` Stage in config, or set the field directly:
+Use the `SkipDocument` Stage in config, or call `setSkipped()` in stage code:
 
 ```java
-doc.setField(Document.SKIPPED_FIELD, true);
+doc.setSkipped(true);
 ```
 
 ## Child Documents
