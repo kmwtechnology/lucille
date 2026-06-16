@@ -22,6 +22,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+  private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
@@ -42,6 +43,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.idSet = idSet;
+    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.pipelineName = pipelineName;
     this.config = config;
@@ -78,9 +80,20 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
   @Override
   public void close() throws Exception {
+    if (kafkaDocumentProducer != null) {
+      kafkaDocumentProducer.close();
+    }
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();
     }
+  }
+
+  @Override
+  public void sendFailed(Document document) throws Exception {
+    ProducerRecord<String, Document> producerRecord =
+        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
+    kafkaDocumentProducer.send(producerRecord).get();
+    kafkaDocumentProducer.flush();
   }
 
   // TODO document assumptions about ordering of documents in batch

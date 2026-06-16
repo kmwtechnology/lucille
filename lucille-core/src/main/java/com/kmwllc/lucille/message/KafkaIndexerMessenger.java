@@ -20,6 +20,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessenger.class);
   private final Consumer<String, KafkaDocument> destConsumer;
+  private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
@@ -29,6 +30,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     String kafkaClientId = "com.kmwllc.lucille-indexer-" + pipelineName;
     this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
+    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
   }
@@ -80,6 +82,17 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   @Override
   public void close() throws Exception {
     destConsumer.close();
+    if (kafkaDocumentProducer != null) {
+      kafkaDocumentProducer.close();
+    }
+  }
+
+  @Override
+  public void sendFailed(Document document) throws Exception {
+    ProducerRecord<String, Document> producerRecord =
+        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
+    kafkaDocumentProducer.send(producerRecord).get();
+    kafkaDocumentProducer.flush();
   }
 
   @Override

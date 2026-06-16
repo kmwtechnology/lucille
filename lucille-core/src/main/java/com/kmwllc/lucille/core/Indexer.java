@@ -141,6 +141,9 @@ public abstract class Indexer implements Runnable {
   // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
   private final List<Integer> retryableStatusCodes;
 
+  private final boolean sendFailedDocsToTopic;
+  private final String pipelineName;
+
   public void terminate() {
     running = false;
     log.debug("terminate");
@@ -215,6 +218,10 @@ public abstract class Indexer implements Runnable {
     this.localRunId = localRunId;
 
     this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
+
+    this.sendFailedDocsToTopic = config.hasPath("indexer.sendFailedDocsToTopic")
+        && config.getBoolean("indexer.sendFailedDocsToTopic");
+    this.pipelineName = metricsPrefix;
 
     if (!config.hasPath("indexer.maxRetries")) {
       if (config.hasPath("indexer.retryWaitDurationMs") || config.hasPath("indexer.retryableStatusCodes")
@@ -470,7 +477,8 @@ public abstract class Indexer implements Runnable {
 
   /**
    * Sends a FAIL event for the given document with the specified reason, setting up MDC context
-   * for structured logging.
+   * for structured logging. When sendFailedDocsToTopic is enabled, also stamps failure metadata
+   * on the document and sends it to the fail topic.
    */
   private void sendFailEvent(Document d, String reason) {
     try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
@@ -479,6 +487,18 @@ public abstract class Indexer implements Runnable {
       }
       messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
       docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
+
+      if (sendFailedDocsToTopic) {
+        try {
+          d.setField(Document.FAILURE_REASON_FIELD, reason);
+          d.setField(Document.FAILURE_COMPONENT_FIELD, "indexer");
+          d.setField(Document.FAILURE_TIME_FIELD, Instant.now());
+          d.setField(Document.FAILURE_PIPELINE_FIELD, pipelineName);
+          messenger.sendFailed(d);
+        } catch (Exception failEx) {
+          docLogger.error("Failed to send doc to failure topic: {}", d.getId(), failEx);
+        }
+      }
     } catch (Exception e) {
       docLogger.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
     } finally {
@@ -564,7 +584,7 @@ public abstract class Indexer implements Runnable {
             "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
         .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor")
-        .optionalBoolean("sendEnabled")
+        .optionalBoolean("sendEnabled", "sendFailedDocsToTopic")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
         .optionalList("blacklist", new TypeReference<List<String>>(){})
         .optionalList("retryableStatusCodes", new TypeReference<List<Integer>>(){}).build()

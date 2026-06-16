@@ -55,6 +55,19 @@ public interface Document {
   String SKIP_FIELD = "___skipped";
   Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD));
 
+  /* --- SOURCE PROVENANCE FIELDS (stamped at consumption from source topic) --- */
+
+  String SOURCE_TOPIC_FIELD = "___source_topic";
+  String SOURCE_PARTITION_FIELD = "___source_partition";
+  String SOURCE_OFFSET_FIELD = "___source_offset";
+
+  /* --- FAILURE METADATA FIELDS (stamped when sending to the fail topic) --- */
+
+  String FAILURE_REASON_FIELD = "___failure_reason";
+  String FAILURE_COMPONENT_FIELD = "___failure_component";
+  String FAILURE_TIME_FIELD = "___failure_time";
+  String FAILURE_PIPELINE_FIELD = "___failure_pipeline";
+
 
   /* --- SINGLE-VALUE GETTERS --- */
 

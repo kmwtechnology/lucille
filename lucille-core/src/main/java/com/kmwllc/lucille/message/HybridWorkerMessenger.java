@@ -21,6 +21,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
+  private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
@@ -37,6 +38,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
+    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
   }
 
@@ -70,6 +72,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
+      doc.setField(Document.SOURCE_TOPIC_FIELD, record.topic());
+      doc.setField(Document.SOURCE_PARTITION_FIELD, record.partition());
+      doc.setField(Document.SOURCE_OFFSET_FIELD, record.offset());
       return doc;
     }
     return null;
@@ -96,6 +101,10 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
   @Override
   public void sendFailed(Document document) throws Exception {
+    ProducerRecord<String, Document> producerRecord =
+        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
+    kafkaDocumentProducer.send(producerRecord).get();
+    kafkaDocumentProducer.flush();
   }
 
   @Override
@@ -122,6 +131,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   public void close() throws Exception {
     if (sourceConsumer != null) {
       sourceConsumer.close();
+    }
+    if (kafkaDocumentProducer != null) {
+      kafkaDocumentProducer.close();
     }
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();

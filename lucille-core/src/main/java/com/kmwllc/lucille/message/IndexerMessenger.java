@@ -45,4 +45,9 @@ public interface IndexerMessenger {
    * Provides a way to communicate to other components that a batch of documents has been completed.
    */
   void batchComplete(List<Document> batch) throws Exception;
+
+  /**
+   * Submit a given Document to the "Dead Letter Queue" (fail topic) for Documents that could not be indexed.
+   */
+  void sendFailed(Document document) throws Exception;
 }

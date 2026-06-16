@@ -49,6 +49,9 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
+      doc.setField(Document.SOURCE_TOPIC_FIELD, record.topic());
+      doc.setField(Document.SOURCE_PARTITION_FIELD, record.partition());
+      doc.setField(Document.SOURCE_OFFSET_FIELD, record.offset());
       return doc;
     }
     return null;
