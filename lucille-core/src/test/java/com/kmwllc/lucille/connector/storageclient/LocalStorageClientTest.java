@@ -499,6 +499,78 @@ public class LocalStorageClientTest {
     pathsToSkipTesting(connectorConfig);
   }
 
+  @Test
+  public void testPathsToSkipRelative() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toString();
+
+    if (!subdir1Path.endsWith("/")) {
+      subdir1Path += "/";
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipRelativeNoTrailingSlash() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toString();
+
+    if (subdir1Path.endsWith("/")) {
+      subdir1Path = subdir1Path.substring(0, subdir1Path.length() - 1);
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipAbsolute() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toAbsolutePath().toString();
+
+    if (!subdir1Path.endsWith("/")) {
+      subdir1Path += "/";
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipAbsoluteNoTrailingSlash() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toAbsolutePath().toString();
+
+    if (subdir1Path.endsWith("/")) {
+      subdir1Path = subdir1Path.substring(0, subdir1Path.length() - 1);
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
   // pathsToSkip entries must be absolute URIs. A file:// URI for subdir1 skips it entirely,
   // leaving only the 4 root-level json files.
   private void pathsToSkipTesting(Config connectorConfig) throws Exception {

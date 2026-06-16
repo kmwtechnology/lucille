@@ -10,6 +10,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -218,22 +219,31 @@ public class TraversalParams {
   }
 
   /**
-   * Creates a URI for a path to skip, ensuring it is normalized and absolute.
-   * Throws an IllegalArgumentException in the event of an invalid or non absolute URI.
+   * Creates a normalized URI for a path to skip.
+   * <p>
+   * Valid, absolute URIs are used as-is. As a convenience and a fallback, local
+   * file system paths may be provided without a scheme - either absolute or relative - and are
+   * converted to an absolute {@code file://} URI.
+   * <p>
+   * Throws an IllegalArgumentException in the event of an invalid URI / path.
    */
   private static URI makePathToSkipURI(String s) {
-    URI uri;
     try {
-      uri = new URI(s);
+      URI uri = new URI(s);
+
+      if (uri.isAbsolute()) {
+        return uri.normalize();
+      }
     } catch (URISyntaxException e) {
-      throw new IllegalArgumentException("Invalid URI in pathsToSkip: '" + s + "'.", e);
+      // Fall back, seeing if we can treat the entry as a local file system path.
     }
 
-    if (!uri.isAbsolute()) {
-      throw new IllegalArgumentException("pathsToSkip URIs must be absolute (e.g. file:///path/to/dir), got: '" + s + "'.");
+    // non-absolute URI, or invalid syntax: fall back to local file path.
+    try {
+      return Paths.get(s).toAbsolutePath().normalize().toUri();
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Error with path in pathsToSkip: '" + s + "'.", e);
     }
-
-    return uri.normalize();
   }
 
   public enum PublishMode {

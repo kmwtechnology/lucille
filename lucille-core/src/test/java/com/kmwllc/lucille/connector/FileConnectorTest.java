@@ -764,10 +764,10 @@ public class FileConnectorTest {
   @Test
   public void testTraversalMultiplePathsAndSkipPath() throws Exception {
     // uri.toString() has no trailing slash
-    URI subdirURI = Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath().normalize().toUri().normalize();
+    String subdirPath = Paths.get("src/test/resources/FileConnectorTest/example/subdir").toString();
 
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsExampleAndDirectory1.conf")
-        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromAnyRef(List.of(subdirURI.toString())));
+        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromAnyRef(List.of(subdirPath)));
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");

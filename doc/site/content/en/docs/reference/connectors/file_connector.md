@@ -249,6 +249,10 @@ filterOptions: {
 are performance benefits to using `pathsToSkip` instead. With this parameter, the `FileConnector` will _not actually_ traverse the path and its contents.
 If you use `excludes`, the path _will_ be traversed, but the individual documents are not processed & published.
 
+Each entry may be a URI with a scheme (for example `s3://bucket/path`, `gs://bucket/path`, or `file:///path/to/dir`). As a convenience,
+local file system paths may also be provided without a scheme - either absolute (e.g. `/path/to/dir`) or relative to the working directory
+(e.g. `path/to/dir`) - and will be resolved to an absolute `file://` path.
+
 ---
 
 ## Incremental Mode and State
