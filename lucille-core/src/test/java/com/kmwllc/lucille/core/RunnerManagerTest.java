@@ -7,12 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.util.LogUtils;
 import com.opencsv.CSVReader;
 import java.io.File;
 import java.io.FileReader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.time.StopWatch;
@@ -87,6 +91,37 @@ public class RunnerManagerTest {
     log.info("Test execution time: {} ms", durationMillis);
   }
 
+  @Test
+  public void testConfigLocking() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
+    String configId = runnerManager.createConfig(config);
+
+    String runId1 = Runner.generateRunId();
+    String runId2 = Runner.generateRunId();
+
+    // starts a run with this config. it is locked from concurrent runs.
+    // this test has some vulnerability to a potential race condition / transient failure,
+    // but the risk of this *should* be low...
+    runnerManager.runWithConfig(runId1, configId, true);
+
+    assertTrue(runnerManager.isRunning(runId1));
+
+    // regardless of the lock param, the run should be prevented.
+    assertThrows(RunnerManagerException.class, () -> runnerManager.runWithConfig(runId2, configId, false));
+    assertThrows(RunnerManagerException.class, () -> runnerManager.runWithConfig(runId2, configId, true));
+
+    runnerManager.waitForRunCompletion(runId1);
+    assertFalse(runnerManager.isRunning(runId1));
+
+    // once complete, we should be able to start the second run with the config.
+    // also, note that we are able to use runId2, which we *attempted* to earlier.
+    runnerManager.runWithConfig(runId2, configId, true);
+    assertTrue(runnerManager.isRunning(runId2));
+    runnerManager.waitForRunCompletion(runId2);
+    // don't want to leave the run lingering after this test
+    assertFalse(runnerManager.isRunning(runId2));
+  }
 
   @Test
   public void testSimultaneousRuns() throws Exception {
@@ -132,6 +167,19 @@ public class RunnerManagerTest {
       assertTrue(Duration.between(details.getStartTime(), details.getEndTime()).getSeconds() >= 1,
           "Each run expected to take 1 second or more.");
     }
+  }
+
+  @Test
+  public void testCreateConfigWithName() {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
+    String configUUID = UUID.randomUUID().toString();
+    boolean success = runnerManager.createConfigWithName(config, configUUID);
+
+    assertTrue(success);
+
+    boolean sameNameSuccess = runnerManager.createConfigWithName(config, configUUID);
+    assertFalse(sameNameSuccess);
   }
 
   @Test
@@ -195,6 +243,37 @@ public class RunnerManagerTest {
       outputFile2.delete();
       outputFile3.delete();
     }
+  }
+
+  // This is the responsibility of the Runner, but it is
+  // important we ensure the RunnerManager (used by the API) does result in
+  // metrics being cleaned up, preventing unbounded heap usage.
+  @Test
+  public void testMetricsCleanup() throws Exception {
+    SharedMetricRegistries.clear();
+    assertEquals(0, SharedMetricRegistries.names().size());
+
+    // adding a dummy metric to flex that all metrics starting
+    // with the run id get removed.
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("run-1.dummy.metric");
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("run-2.dummy.metric");
+
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
+    String noopConfigId = runnerManager.createConfig(noopConfig);
+
+    runnerManager.runWithConfig("run-1", noopConfigId);
+    runnerManager.runWithConfig("run-2", noopConfigId);
+
+    runnerManager.waitForRunCompletion("run-1");
+    runnerManager.waitForRunCompletion("run-2");
+
+    MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+
+    // Two indexer related metric names remain - these are created while validating the config.
+    assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-1")));
+    assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-2")));
+    assertEquals(2, metricRegistry.getNames().size());
   }
 
   private void validateRun1Reader(CSVReader run1Reader) {
