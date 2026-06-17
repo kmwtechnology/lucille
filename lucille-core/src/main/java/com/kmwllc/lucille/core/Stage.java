@@ -139,6 +139,9 @@ public abstract class Stage {
    * @return boolean representing - should we process this doc according to its conditionals?
    */
   public boolean shouldProcess(Document doc) {
+    if (doc.isDropped() || doc.isSkipped()) {
+      return false;
+    }
     return condition.test(doc);
   }
 
