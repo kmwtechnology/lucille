@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 
 /**
  * Public API for starting lucille runs and viewing their status. Will be used by external
@@ -23,6 +22,7 @@ public class RunnerManager {
 
   // value will get reset to this post unit testing.
   private static final int DEFAULT_MAX_HISTORY = 10000;
+  private static final int DEFAULT_MAX_CONFIGS = 10000;
 
   private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
 
@@ -32,6 +32,7 @@ public class RunnerManager {
   // may be changed for unit testing. default should be DEFAULT_MAX_HISTORY,
   // which is used elsewhere.
   private int maxHistory = DEFAULT_MAX_HISTORY;
+  private int maxConfigs = DEFAULT_MAX_CONFIGS;
 
   // RunID keyed maps, the first is for active runs, the second is for historical runs.
   // We do this to optionally allow for a limited number of historical runs to be stored.
@@ -96,58 +97,51 @@ public class RunnerManager {
   }
 
   /**
-   * Starts a new lucille run with the given runId and default configuration. Will not start if a
-   * run with the given runId is already in progress.
-   *
-   * @param runId the unique ID for the lucille run
-   * @return RunDetails
-   * @throws RunnerManagerException
-   */
-  public synchronized RunDetails run(String runId) throws RunnerManagerException {
-    Config config = ConfigFactory.load();
-    String configId = createConfig(config);
-    return runWithConfig(runId, configId);
-  }
-
-  /**
-   * Run with config and an internal runId will be generated
-   * 
-   * @param config
-   * @return RunDetails
-   * @throws RunnerManagerException
-   */
-  protected synchronized RunDetails runWithConfig(Config config) throws RunnerManagerException {
-    String configId = createConfig(config);
-    return runWithConfig(Runner.generateRunId(), configId);
-  }
-
-  /**
-   * Method to create a lucille run with a custom configuration.
+   * Create and store the provided Config in this RunnerManager
    *
    * @param config the configuration to use for the run
    * @return The UUID String associated with the supplied config in the config map.
    */
-  public synchronized String createConfig(Config config) {
+  public synchronized CreateConfigResult createConfig(Config config) throws RunnerManagerException {
     String configId = UUID.randomUUID().toString();
-    configMap.put(configId, config);
-    return configId;
+
+    // throws exception in the event of reaching capacity or a collision.
+    // we are using UUIDs here, so a collision shouldn't happen.
+    createConfigWithKey(config, configId);
+
+    return new CreateConfigResult(configId);
   }
 
   /**
-   * Adds the provided Config keyed under the provided name. Returns whether the config
-   * was stored successfully. This method will <i>not</i> overwrite an existing config
-   * with the same name.
+   * Adds the provided Config keyed under the provided key. Throws an exception if a config with <code>desiredKey</code> already exists.
+   * This method does not overwrite existing configs.
    * @param config The configuration to store.
-   * @param name The name under which the configuration should be keyed / referenced.
-   * @return Whether the config was successfully stored and associated with the provided name.
+   * @param desiredKey The key under which the configuration should be stored.
+   * @throws RunnerManagerException If a config under <code>desiredKey</code> already exists.
    */
-  public synchronized boolean createConfigWithName(Config config, String name) {
-    if (configMap.containsKey(name)) {
-      log.warn("Attempted to add config with name {}, which already exists", name);
+  public synchronized void createConfigWithKey(Config config, String desiredKey) throws RunnerManagerException {
+    if (configMap.containsKey(desiredKey)) {
+      throw new RunnerManagerException("Attempted to add config with key " + desiredKey + ", which already exists");
+    }
+
+    if (configMap.size() >= maxConfigs) {
+      throw new RunnerManagerException("RunnerManager has reached capacity of " + maxConfigs + " configs.");
+    }
+
+    configMap.put(desiredKey, config);
+  }
+
+  /**
+   * Removes a Config by ID and returns whether it was present and removed successfully.
+   * @param configId The ID of the Config to delete.
+   * @return Whether a config with the provided ID was present in the map and removed successfully.
+   */
+  public synchronized boolean deleteConfig(String configId) {
+    if (!configMap.containsKey(configId)) {
       return false;
     }
 
-    configMap.put(name, config);
+    configMap.remove(configId);
     return true;
   }
 
@@ -265,11 +259,11 @@ public class RunnerManager {
    * 
    * @return
    */
-  public Set<String> getConfigKeys() {
+  public synchronized Set<String> getConfigKeys() {
     return configMap.keySet();
   }
 
-  public Config getConfig(String configId) {
+  public synchronized Config getConfig(String configId) {
     return configMap.get(configId);
   }
 
@@ -278,17 +272,20 @@ public class RunnerManager {
    * Resets the run history.
    * Package access for unit testing. This method is not thread-safe.
    */
-  static void setMaxHistoryForTesting(int maxHistory) {
-    // clearing the entire map, because finally block above assumes one at a time
+  static void limitHistoriesForTesting(int maxHistory) {
     instance.historicalDetailsMap.clear();
     instance.maxHistory = maxHistory;
+
+    instance.configMap.clear();
+    instance.maxConfigs = maxHistory;
   }
 
   /**
    * Resets the maximum number of historical runs that will be stored to the default.
    * Package access for unit testing. This method is not thread-safe.
    */
-  static void resetMaxHistoryForTesting() {
+  static void resetMaxHistoriesForTesting() {
     instance.maxHistory = DEFAULT_MAX_HISTORY;
+    instance.maxConfigs = DEFAULT_MAX_CONFIGS;
   }
 }
