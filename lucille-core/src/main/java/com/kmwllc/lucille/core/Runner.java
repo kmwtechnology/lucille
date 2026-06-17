@@ -16,9 +16,9 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import com.typesafe.config.ConfigValue;
 import java.util.Map.Entry;
-import kotlin.Pair;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,12 +66,12 @@ public class Runner {
       .optionalNumber("connectorTimeout").build();
 
   private static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
-      new Pair<>("publisher", PublisherImpl.SPEC),
-      new Pair<>("log", LogUtils.SPEC),
-      new Pair<>("runner", Runner.SPEC),
-      new Pair<>("kafka", KafkaUtils.SPEC),
-      new Pair<>("zookeeper", ZKRetryCounter.SPEC),
-      new Pair<>("worker", Worker.SPEC)
+      Pair.of("publisher", PublisherImpl.SPEC),
+      Pair.of("log", LogUtils.SPEC),
+      Pair.of("runner", Runner.SPEC),
+      Pair.of("kafka", KafkaUtils.SPEC),
+      Pair.of("zookeeper", ZKRetryCounter.SPEC),
+      Pair.of("worker", Worker.SPEC)
   );
 
   public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
@@ -405,14 +405,14 @@ public class Runner {
     List<Exception> exceptions = new ArrayList<>();
 
     for (Pair<String, Spec> parentAndSpec : PARENTS_AND_SPECS) {
-      String parentName = parentAndSpec.component1();
+      String parentName = parentAndSpec.getLeft();
 
-      if (!rootConfig.hasPath(parentAndSpec.component1())) {
+      if (!rootConfig.hasPath(parentName)) {
         continue;
       }
 
       try {
-        Spec spec = parentAndSpec.component2();
+        Spec spec = parentAndSpec.getRight();
         Config parentConfig = rootConfig.getConfig(parentName);
         spec.validate(parentConfig, parentName);
       } catch (IllegalArgumentException e) {
