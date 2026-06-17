@@ -906,7 +906,7 @@ public class RunnerTest {
    * Runs Runner.main() with the given args inside a mocked context, then hands the MockedStatic for
    * Runner to the given verifier so it can assert how the args were routed.
    *
-   * <p>System.exit() is stubbed so it doesn't terminate the test JVM, and the side-effecting actions
+   * System.exit() is stubbed so it doesn't terminate the test JVM, and the methods
    * main() can reach (runWithResultLog, renderConfig, runInValidationMode) are stubbed so main()'s
    * real arg-parsing logic executes but no run, render, or validation actually takes place. All other
    * static Runner methods, notably getRunType(), call through to the real implementation.
