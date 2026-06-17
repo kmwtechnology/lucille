@@ -18,6 +18,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class KafkaUtilsTest {
@@ -132,6 +133,14 @@ public class KafkaUtilsTest {
 
     // less testing (types/values etc.) given the previous test.
     assertEquals("string", directProps.get("myString"));
+    // see the .conf file for an important comment on object notation, if desired...
     assertEquals("none", externalProps.get("security.protocol"));
+  }
+
+  @Test
+  public void testInvalidArbitraryProps() {
+    // only lists are invalid
+    Config listPropConfig = ConfigFactory.load("KafkaUtilsTest/list-arbitrary.conf");
+    assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createProducerProps(listPropConfig));
   }
 }

@@ -6,6 +6,7 @@ import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
+import com.typesafe.config.ConfigValueType;
 import java.util.Map.Entry;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
@@ -58,11 +59,12 @@ public class KafkaUtils {
 
   /**
    * Merges, into the provided <code>Properties</code>, the key-value pairs that are found in the given <code>config</code>
-   * under the provided <code>keyPath</code>. If <code>config</code> has the <code>keyPath</code>, it should be an object,
-   * and the values it contains should be only Strings, Numbers, or Booleans.
+   * under the provided <code>keyPath</code>. If <code>config</code> has the <code>keyPath</code>, it should map to an object
+   * with the arbitrary property mappings.
    * @param props Kafka properties.
    * @param config Kafka config.
    * @param keyPath A path in the kafka config ("kafka.consumer", for example) that contains additional, arbitrary properties.
+   * @throws IllegalArgumentException In the event the config at <code>keyPath</code> contains a value list
    */
   private static void mergeConfigProps(Properties props, Config config, String keyPath) {
     if (!config.hasPath(keyPath)) {
@@ -75,13 +77,17 @@ public class KafkaUtils {
       String propKey = entry.getKey();
       ConfigValue value = entry.getValue();
 
-      switch (value.valueType()) {
-        case STRING, NUMBER, BOOLEAN:
-          props.put(propKey, value.unwrapped());
-          break;
-        default:
-          throw new IllegalArgumentException(String.format("Cannot use property of type %s in Kafka properties (key %s)", value.valueType(), propKey));
+      // NOTE: we don't prevent ConfigValueType.OBJECT here, for two reasons:
+      // 1. many Kafka properties include ".", like "security.protocol". With HOCON, writing 'security.protocol: "ssl"'
+      //    is equivalent to writing security: { protocol: "ssl" }
+      // 2. the library does not distinguish between using dot notation / an object - even if we were to use "getParent"
+      //    like we do in Spec.validate(), we would struggle to achieve our desired outcome here.
+      // We also do not include ConfigValueType.NULL here, as entrySet excludes them.
+      if (value.valueType() == ConfigValueType.LIST) {
+        throw new IllegalArgumentException(String.format("Cannot use list for Kafka property (key %s)", propKey));
       }
+
+      props.put(propKey, value.unwrapped());
     }
   }
 
