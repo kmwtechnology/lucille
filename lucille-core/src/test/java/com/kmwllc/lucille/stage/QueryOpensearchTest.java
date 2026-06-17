@@ -36,6 +36,7 @@ public class QueryOpensearchTest {
     when(mockBody.bodyAsString()).thenReturn(neckCreekResponse);
 
     Response mockResponse = mock(Response.class);
+    when(mockResponse.getStatus()).thenReturn(200);
     when(mockResponse.getBody()).thenReturn(Optional.of(mockBody));
 
     OpenSearchGenericClient mockGeneric = mock(OpenSearchGenericClient.class);
@@ -67,6 +68,55 @@ public class QueryOpensearchTest {
     stage.processDocument(testDoc);
 
     assertEquals(Double.valueOf(6.7708125), testDoc.getDouble("special_destination"));
+  }
+
+  // A successful search template query always returns a body. An empty / missing body indicates the query did not run
+  // as expected, so the Stage should surface it as an error rather than silently writing a null response.
+  @Test
+  public void testMissingResponseBody() throws Exception {
+    Response mockResponse = mock(Response.class);
+    when(mockResponse.getStatus()).thenReturn(200);
+    when(mockResponse.getBody()).thenReturn(Optional.empty());
+
+    OpenSearchGenericClient mockGeneric = mock(OpenSearchGenericClient.class);
+    when(mockGeneric.execute(any())).thenReturn(mockResponse);
+
+    OpenSearchClient emptyBodyClient = mock(OpenSearchClient.class);
+    when(emptyBodyClient.generic()).thenReturn(mockGeneric);
+
+    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/searchTemplate.conf");
+    stage.setClient(emptyBodyClient);
+
+    Document testDoc = Document.create("neck_creek");
+    testDoc.setField("park_name", "Neck Creek Preserve");
+
+    assertThrows(StageException.class, () -> stage.processDocument(testDoc));
+    assertFalse(testDoc.has("response"));
+  }
+
+  @Test
+  public void testErrorStatusCode() throws Exception {
+    Body mockBody = mock(Body.class);
+    when(mockBody.bodyAsString()).thenReturn("{\"error\":\"Unauthorized\"}");
+
+    Response mockResponse = mock(Response.class);
+    when(mockResponse.getStatus()).thenReturn(401);
+    when(mockResponse.getBody()).thenReturn(Optional.of(mockBody));
+
+    OpenSearchGenericClient mockGeneric = mock(OpenSearchGenericClient.class);
+    when(mockGeneric.execute(any())).thenReturn(mockResponse);
+
+    OpenSearchClient unauthorizedClient = mock(OpenSearchClient.class);
+    when(unauthorizedClient.generic()).thenReturn(mockGeneric);
+
+    QueryOpensearch stage = (QueryOpensearch) factory.get("QueryOpensearchTest/searchTemplate.conf");
+    stage.setClient(unauthorizedClient);
+
+    Document testDoc = Document.create("neck_creek");
+    testDoc.setField("park_name", "Neck Creek Preserve");
+
+    assertThrows(StageException.class, () -> stage.processDocument(testDoc));
+    assertFalse(testDoc.has("response"));
   }
 
   @Test
