@@ -139,9 +139,6 @@ public abstract class Stage {
    * @return boolean representing - should we process this doc according to its conditionals?
    */
   public boolean shouldProcess(Document doc) {
-    if (doc.isDropped() || doc.isSkipped()) {
-      return false;
-    }
     return condition.test(doc);
   }
 
@@ -261,6 +258,10 @@ public abstract class Stage {
         Document d = docs.next();
         if (d == null) {
           return null;
+        }
+
+        if (d.isDropped() || d.isSkipped()) {
+          return d;
         }
 
         try {
