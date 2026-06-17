@@ -13,7 +13,6 @@ import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -69,6 +68,7 @@ public class OpenSearchIndexer extends Indexer {
   private final String routingField;
 
   private final VersionType versionType;
+  private final String versionField;
 
   //flag for using partial update API when sending documents to opensearch
   private final boolean update;
@@ -86,6 +86,11 @@ public class OpenSearchIndexer extends Indexer {
     this.versionType =
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
     this.childDocumentsField = ConfigUtils.getOrDefault(config, "opensearch.childDocumentsField", null);
+    this.versionField = config.hasPath("indexer.versionField") ? config.getString("indexer.versionField") : null;
+    // validate config indexer.versionType that must be set if config indexer.versionField is set
+    if (this.versionField != null && this.versionType == null) {
+      throw new IllegalArgumentException("indexer.versionType must be set if indexer.versionField is set");
+    }
   }
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
@@ -347,7 +352,7 @@ public class OpenSearchIndexer extends Indexer {
       }
 
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
-          ? ((KafkaDocument) doc).getOffset()
+          ? getVersionNum(doc)
           : null;
 
       if (update) {
@@ -445,5 +450,15 @@ public class OpenSearchIndexer extends Indexer {
         && doc.has(deleteByFieldField)
         && deleteByFieldValue != null
         && doc.has(deleteByFieldValue);
+  }
+
+  private Long getVersionNum(Document doc) {
+    if (versionField != null && doc.has(versionField)) {
+      return doc.getLong(versionField);
+    }
+    if (doc instanceof KafkaDocument) {
+      return ((KafkaDocument) doc).getOffset();
+    }
+    return null;
   }
 }
