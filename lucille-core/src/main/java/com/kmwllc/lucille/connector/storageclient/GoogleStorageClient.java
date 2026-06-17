@@ -77,7 +77,7 @@ public class GoogleStorageClient extends BaseStorageClient {
           if (blob.isDirectory()) {
             URI dirUri = uriForDirectory(blob.getName(), params);
 
-            if (!isSkippedPrefix(dirUri, params)) {
+            if (!isSkippedDirectory(dirUri, params)) {
               traversePrefix(publisher, params, stateMgr, blob.getName());
             }
           } else {
@@ -90,18 +90,6 @@ public class GoogleStorageClient extends BaseStorageClient {
   private URI uriForDirectory(String prefix, TraversalParams params) {
     URI paramsUri = params.getURI();
     return URI.create(paramsUri.getScheme() + "://" + paramsUri.getAuthority() + "/" + prefix);
-  }
-
-  // GCS directory blobs always have a trailing "/", but the user may or may not include one in
-  // their pathsToSkip URI. Normalize to trailing slash on both sides before comparing.
-  private boolean isSkippedPrefix(URI prefixUri, TraversalParams params) {
-    String normalized = ensureTrailingSlash(prefixUri.toString());
-    return params.getPathsToSkip().stream()
-        .anyMatch(skip -> ensureTrailingSlash(skip.toString()).equals(normalized));
-  }
-
-  private static String ensureTrailingSlash(String s) {
-    return s.endsWith("/") ? s : s + "/";
   }
 
   @Override

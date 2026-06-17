@@ -101,7 +101,7 @@ public class S3StorageClient extends BaseStorageClient {
 
       resp.commonPrefixes().forEach(cp -> {
         URI prefixUri = uriForDirectory(cp.prefix(), params);
-        if (!isSkippedPrefix(prefixUri, params)) {
+        if (!isSkippedDirectory(prefixUri, params)) {
           traversePrefix(publisher, params, stateMgr, cp.prefix());
         }
       });
@@ -115,18 +115,6 @@ public class S3StorageClient extends BaseStorageClient {
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Unable to build S3 URI for prefix: " + prefix, e);
     }
-  }
-
-  // S3 common prefixes always have a trailing "/", but the user may or may not include one in
-  // their pathsToSkip URI. Normalize to trailing slash on both sides before comparing.
-  private boolean isSkippedPrefix(URI prefixUri, TraversalParams params) {
-    String normalized = ensureTrailingSlash(prefixUri.toString());
-    return params.getPathsToSkip().stream()
-        .anyMatch(skip -> ensureTrailingSlash(skip.toString()).equals(normalized));
-  }
-
-  private static String ensureTrailingSlash(String s) {
-    return s.endsWith("/") ? s : s + "/";
   }
 
   @Override

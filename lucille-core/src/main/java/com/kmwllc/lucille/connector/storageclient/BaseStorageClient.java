@@ -110,6 +110,23 @@ public abstract class BaseStorageClient implements StorageClient {
 
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
 
+  /**
+   * Returns whether the provided URI, which represents a directory in some storage provider, is a directory
+   * that should be skipped and not traversed at all, based on the <code>pathsToSkip</code> in <code>params</code>.
+   * @param directoryURI A URI representing a directory (or the notion of a directory) in a storage provider.
+   * @param params Parameters for a traversal.
+   * @return Whether the directory at the provided URI ought to be skipped.
+   */
+  protected boolean isSkippedDirectory(URI directoryURI, TraversalParams params) {
+    String normalized = ensureTrailingSlash(directoryURI.toString());
+    return params.getPathsToSkip().stream()
+        .anyMatch(skipDir -> ensureTrailingSlash(skipDir.toString()).equals(normalized));
+  }
+
+  private static String ensureTrailingSlash(String s) {
+    return s.endsWith("/") ? s : s + "/";
+  }
+
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
     if (!isInitialized()) {

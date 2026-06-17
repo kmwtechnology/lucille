@@ -88,7 +88,7 @@ public class AzureStorageClient extends BaseStorageClient {
           if (blob.isPrefix()) {
             URI dirUri = uriForDirectory(blob.getName(), params);
 
-            if (!isSkippedPrefix(dirUri, params)) {
+            if (!isSkippedDirectory(dirUri, params)) {
               traversePrefix(publisher, params, stateMgr, blob.getName());
             }
           } else {
@@ -102,18 +102,6 @@ public class AzureStorageClient extends BaseStorageClient {
     URI pathURI = params.getURI();
     String containerName = pathURI.getPath().split("/")[1];
     return URI.create(String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(), containerName, prefix));
-  }
-
-  // Azure virtual directory blobs always have a trailing "/", but the user may or may not include
-  // one in their pathsToSkip URI. we normalize to trailing slash on both sides before comparing.
-  private boolean isSkippedPrefix(URI prefixUri, TraversalParams params) {
-    String normalized = ensureTrailingSlash(prefixUri.toString());
-    return params.getPathsToSkip().stream()
-        .anyMatch(skip -> ensureTrailingSlash(skip.toString()).equals(normalized));
-  }
-
-  private static String ensureTrailingSlash(String s) {
-    return s.endsWith("/") ? s : s + "/";
   }
 
   @Override
