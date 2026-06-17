@@ -744,11 +744,13 @@ public class FileConnectorTest {
   @Test
   public void testTraversalWithSkipPaths() throws Exception {
     // uri.toString() has no trailing slash
-    URI subdirURI = Paths.get("src/test/resources/FileConnectorTest/example/subdir").toAbsolutePath().normalize().toUri().normalize();
+    URI subdirURI = URI.create("src/test/resources/FileConnectorTest/example/subdir");
+    // not part of traversal but should have no effect
+    URI dir3URI = URI.create("src/test/resources/FileConnectorTest/example/directory3");
 
     // traverses example, but skips subdir
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
-        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromAnyRef(List.of(subdirURI.toString())));
+        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromAnyRef(List.of(subdirURI.toString(), dir3URI.toString())));
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
@@ -765,9 +767,11 @@ public class FileConnectorTest {
   public void testTraversalMultiplePathsAndSkipPath() throws Exception {
     // uri.toString() has no trailing slash
     String subdirPath = Paths.get("src/test/resources/FileConnectorTest/example/subdir").toString();
+    // putting paths that aren't in the traversal shouldn't break anything.
+    String directory3Path = Paths.get("src/test/resources/FileConnectorTest/example/directory3").toString();
 
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsExampleAndDirectory1.conf")
-        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromAnyRef(List.of(subdirPath)));
+        .withValue("filterOptions.pathsToSkip", ConfigValueFactory.fromAnyRef(List.of(subdirPath, directory3Path)));
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");

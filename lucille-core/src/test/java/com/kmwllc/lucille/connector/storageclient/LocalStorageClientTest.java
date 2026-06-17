@@ -463,8 +463,7 @@ public class LocalStorageClientTest {
 
   @Test
   public void testPathsToSkip() throws Exception {
-    String subdir1Uri = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/")
-        .toAbsolutePath().normalize().toUri().toString();
+    String subdir1Uri = URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/").toString();
 
     if (!subdir1Uri.endsWith("/")) {
       subdir1Uri += "/";
@@ -482,8 +481,7 @@ public class LocalStorageClientTest {
 
   @Test
   public void testPathsToSkipNoTrailingSlash() throws Exception {
-    String subdir1Uri = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1")
-        .toAbsolutePath().normalize().toUri().toString();
+    String subdir1Uri = URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toString();
 
     if (subdir1Uri.endsWith("/")) {
       subdir1Uri = subdir1Uri.substring(0, subdir1Uri.length() - 1);
