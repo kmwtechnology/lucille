@@ -5,12 +5,14 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.objects.RunRequest;
+import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
-
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.kmwllc.lucille.core.CreateConfigResult;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
 import com.kmwllc.lucille.AuthHandler;
@@ -18,7 +20,6 @@ import com.kmwllc.lucille.core.RunDetails;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import io.dropwizard.auth.PrincipalImpl;
-import jakarta.ws.rs.core.Response;
 
 public class LucilleResourceTest {
 
@@ -63,8 +64,9 @@ public class LucilleResourceTest {
     String configBody = "connectors = [\"dummyConnector\"]";
     Response response = lucilleResource.createConfig(mockUser, configBody);
     assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
-    Map<String, Object> responseBody = (Map<String, Object>) response.getEntity();
-    assertNotNull(responseBody.get("configId"));
+    CreateConfigResult result = (CreateConfigResult) response.getEntity();
+
+    assertNotNull(result.getConfigId());
   }
 
   @Test
@@ -82,7 +84,7 @@ public class LucilleResourceTest {
     // Create a config first
     String configBody = "pipeline = \"testPipeline\"";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
-    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
     // Start run
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
@@ -97,7 +99,7 @@ public class LucilleResourceTest {
   public void testStartRunWithLockConfig() {
     LucilleResource preventConcurrentResource = new LucilleResource(runnerManager, new AuthHandler(false), true, Map.of());
     Response configResponse = preventConcurrentResource.createConfig(mockUser, SLEEP_JSON);
-    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
 
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
@@ -128,7 +130,7 @@ public class LucilleResourceTest {
     // Create and start a run
     String configBody = "pipeline = \"testPipeline\"";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
-    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
     Response runResponse = lucilleResource.startRun(mockUser, runRequest);
@@ -147,7 +149,7 @@ public class LucilleResourceTest {
     // Create and start a run
     String configBody = "{\"pipeline\": \"testPipeline\"}";
     Response configResponse = lucilleResource.createConfig(mockUser, configBody);
-    String configId = (String) ((Map<?, ?>) configResponse.getEntity()).get("configId");
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
     Response runResponse = lucilleResource.startRun(mockUser, runRequest);
@@ -187,5 +189,18 @@ public class LucilleResourceTest {
     Response resp3 = presetResource.getConfig(mockUser, "config3");
     Map<String, Object> respConf3 = (Map<String, Object>) resp3.getEntity();
     assertEquals(3, respConf3.get("id"));
+  }
+
+  @Test
+  public void testDeleteConfigs() {
+    String configBody = "pipeline = \"testPipeline\"";
+    Response configResponse = lucilleResource.createConfig(mockUser, configBody);
+    String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
+
+    Response deleteResponse = lucilleResource.deleteConfig(mockUser, configId);
+    assertEquals(Response.Status.OK.getStatusCode(), deleteResponse.getStatus());
+
+    Response badDeleteResponse = lucilleResource.getConfig(mockUser, UUID.randomUUID().toString());
+    assertEquals(Status.NOT_FOUND.getStatusCode(), badDeleteResponse.getStatus());
   }
 }
