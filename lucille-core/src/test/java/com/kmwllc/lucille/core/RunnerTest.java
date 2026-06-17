@@ -869,21 +869,21 @@ public class RunnerTest {
     runMainWithMockedRunner(new String[] {"-validate"}, mockedRunner -> {
       mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
       mockedRunner.verify(() -> Runner.renderConfig(any()), never());
-      mockedRunner.verify(() -> Runner.runWithResultLog(any(), any()), never());
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
     });
 
     // -render prints the rendered config, but doesn't validate it or kick off a run
     runMainWithMockedRunner(new String[] {"-render"}, mockedRunner -> {
       mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
       mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
-      mockedRunner.verify(() -> Runner.runWithResultLog(any(), any()), never());
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
     });
 
     // the two flags can be combined; both actions run and still no actual run is kicked off
     runMainWithMockedRunner(new String[] {"-validate", "-render"}, mockedRunner -> {
       mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
       mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
-      mockedRunner.verify(() -> Runner.runWithResultLog(any(), any()), never());
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
     });
 
     // case insensitivity
@@ -899,7 +899,7 @@ public class RunnerTest {
   private Runner.RunType runTypeForArgs(String... args) throws Exception {
     ArgumentCaptor<Runner.RunType> runTypeCaptor = ArgumentCaptor.forClass(Runner.RunType.class);
     runMainWithMockedRunner(args, mockedRunner ->
-        mockedRunner.verify(() -> Runner.runWithResultLog(any(), runTypeCaptor.capture())));
+        mockedRunner.verify(() -> Runner.runAndLogResult(any(), runTypeCaptor.capture(), anyBoolean())));
     return runTypeCaptor.getValue();
   }
 
@@ -908,7 +908,7 @@ public class RunnerTest {
    * Runner to the given verifier so it can assert how the args were routed.
    *
    * System.exit() is stubbed so it doesn't terminate the test JVM, and the methods
-   * main() can reach (runWithResultLog, renderConfig, runInValidationMode) are stubbed so main()'s
+   * main() can reach (runAndLogResult, renderConfig, runInValidationMode) are stubbed so main()'s
    * real arg-parsing logic executes but no run, render, or validation actually takes place. All other
    * static Runner methods, notably getRunType(), call through to the real implementation.
    */
@@ -919,7 +919,7 @@ public class RunnerTest {
     try (MockedStatic<Runner.SystemHelper> mockedHelper = mockStatic(Runner.SystemHelper.class);
         MockedStatic<Runner> mockedRunner = mockStatic(Runner.class, invocation -> {
           switch (invocation.getMethod().getName()) {
-            case "runWithResultLog":
+            case "runAndLogResult":
               return mockResult;
             case "runInValidationMode":
               return Collections.emptyMap();
