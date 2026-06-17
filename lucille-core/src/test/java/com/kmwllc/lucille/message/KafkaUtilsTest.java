@@ -11,6 +11,7 @@ import org.apache.kafka.common.errors.TopicExistsException;
 import org.junit.Test;
 
 import java.util.Properties;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
@@ -69,6 +70,31 @@ public class KafkaUtilsTest {
 
       Config directConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/direct.conf");
       assertFalse(KafkaUtils.createEventTopic(directConfig, "pipeline1", "run1"));
+    }
+  }
+
+  @Test
+  public void testArbitraryAdminProps() throws Exception {
+    try (MockedStatic<Admin> admin = Mockito.mockStatic(Admin.class)) {
+      KafkaFuture future = Mockito.mock(KafkaFuture.class);
+      TopicExistsException topicExistsException = new TopicExistsException("test");
+      ExecutionException executionException = new ExecutionException(topicExistsException);
+      Mockito.doThrow(executionException).when(future).get();
+
+      CreateTopicsResult result = Mockito.mock(CreateTopicsResult.class);
+      Mockito.doReturn(future).when(result).all();
+
+      AdminClient adminClient = Mockito.mock(AdminClient.class);
+      Mockito.doReturn(result).when(adminClient).createTopics(Mockito.any(), Mockito.any());
+
+      ArgumentCaptor<Properties> captor = ArgumentCaptor.forClass(Properties.class);
+      admin.when(() -> Admin.create(captor.capture())).thenReturn(adminClient);
+
+      Config directConfig = ConfigFactory.load("KafkaUtilsTest/admin-conf/direct.conf");
+      KafkaUtils.createEventTopic(directConfig, "pipeline1", "run1");
+
+      Properties captured = captor.getValue();
+      assertEquals("localhost:1234", captured.getProperty("bootstrap.servers"));
     }
   }
 
