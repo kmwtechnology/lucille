@@ -7,6 +7,7 @@ import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
+import com.kmwllc.lucille.core.Runner.RunType;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
@@ -1186,6 +1187,72 @@ public class RunnerTest {
         }
       }
     }
+  }
+
+
+  /**
+   * Verifies that when a document fails during pipeline processing, its full JSON is logged
+   * to the FailedDocuments logger, and that the JSON can be parsed back into a Document
+   * (i.e., it is valid for replay via FileConnector with the JSON handler).
+   */
+  @Test
+  public void testFailedDocumentLogging() throws Exception {
+    StoringAppender appender = null;
+    Logger logger = null;
+
+    try {
+      appender = new StoringAppender();
+      appender.start();
+      logger = (Logger) LogManager.getLogger("com.kmwllc.lucille.core.FailedDocuments");
+      logger.setLevel(org.apache.logging.log4j.Level.ERROR);
+      logger.addAppender(appender);
+
+      Runner.run(ConfigFactory.load("RunnerTest/failedDocLogging.conf"), Runner.RunType.TEST);
+
+      // Only doc1 should fail (shouldFail=true); doc2 should succeed (shouldFail=false)
+      List<String> messages = appender.getMessages();
+      assertEquals(1, messages.size());
+
+      // Verify the logged JSON is valid and round-trips back to a Document
+      String failedJson = messages.get(0);
+      Document replayed = Document.createFromJson(failedJson);
+      assertEquals("doc1", replayed.getId());
+      assertEquals("Hello World", replayed.getString("title"));
+
+    } finally {
+      if (logger != null && appender != null) {
+        logger.removeAppender(appender);
+        appender.stop();
+      }
+    }
+  }
+
+  @Test
+  public void testMetricsCleanup() throws Exception {
+    SharedMetricRegistries.clear();
+    assertEquals(0, SharedMetricRegistries.names().size());
+
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("my-run-id.dummy.metric");
+    Config config = ConfigFactory.load("RunnerTest/noop.conf");
+    // run w/ UUID generated
+    RunResult res1 = Runner.runAndLogResult(config, RunType.LOCAL, false);
+    assertTrue(res1.getStatus());
+
+    // two metrics created by validation, and then the one i just added
+    assertEquals(3, SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).getNames().size());
+
+    RunResult res2 = Runner.runAndLogResult(config, RunType.LOCAL, "my-run-id", false);
+    assertTrue(res2.getStatus());
+
+    // no metrics (other than indexer validation) should be lingering & the metrics created by the run
+    // should no longer be present as well
+    assertEquals(2, SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).getNames().size());
+  }
+
+  @Test
+  public void testBadIdRunAndLogResult() throws Exception {
+    Config config = ConfigFactory.load("RunnerTest/noop.conf");
+    assertThrows(IllegalArgumentException.class, () -> Runner.runAndLogResult(config, RunType.LOCAL, null, false));
   }
 
 }
