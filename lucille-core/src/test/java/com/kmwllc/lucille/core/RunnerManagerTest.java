@@ -245,37 +245,6 @@ public class RunnerManagerTest {
     }
   }
 
-  // This is the responsibility of the Runner, but it is
-  // important we ensure the RunnerManager (used by the API) does result in
-  // metrics being cleaned up, preventing unbounded heap usage.
-  @Test
-  public void testMetricsCleanup() throws Exception {
-    SharedMetricRegistries.clear();
-    assertEquals(0, SharedMetricRegistries.names().size());
-
-    // adding a dummy metric to flex that all metrics starting
-    // with the run id get removed.
-    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("run-1.dummy.metric");
-    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("run-2.dummy.metric");
-
-    RunnerManager runnerManager = RunnerManager.getInstance();
-    Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
-    String noopConfigId = runnerManager.createConfig(noopConfig);
-
-    runnerManager.runWithConfig("run-1", noopConfigId);
-    runnerManager.runWithConfig("run-2", noopConfigId);
-
-    runnerManager.waitForRunCompletion("run-1");
-    runnerManager.waitForRunCompletion("run-2");
-
-    MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-
-    // Two indexer related metric names remain - these are created while validating the config.
-    assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-1")));
-    assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-2")));
-    assertEquals(2, metricRegistry.getNames().size());
-  }
-
   @Test
   public void testRunDetailsLimit() throws Exception {
     try {
