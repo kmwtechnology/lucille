@@ -256,7 +256,7 @@ public class SolrIndexer extends Indexer {
         solrClient.add(collection, solrDocs);
       }
     } catch (SolrException e) {
-      // Decide whether to throw based on http status code
+      // Decide error message based on http status code from SolrException
       throw toRetryableException(e);
     } catch (SolrServerException | IOException e) {
       // Communication / transport failure with no http status code available
