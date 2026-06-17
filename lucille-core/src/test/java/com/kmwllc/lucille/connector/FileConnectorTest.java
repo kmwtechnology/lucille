@@ -116,6 +116,14 @@ public class FileConnectorTest {
   }
 
   @Test
+  public void testMissingServiceKeyRejectedBySpec() {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "paths", List.of("gs://bucket/"),
+        "gcp", Map.of()));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+  }
+
+  @Test
   public void testInitFailed() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/gcloudtraversal.conf");
     TestMessenger messenger = new TestMessenger();
