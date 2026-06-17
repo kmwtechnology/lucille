@@ -2,6 +2,8 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
@@ -40,6 +42,13 @@ import org.slf4j.LoggerFactory;
  *  gcp (Map, Optional) : If your property files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class KafkaUtils {
+
+  public static Spec SPEC = SpecBuilder.withoutDefaults()
+      .requiredString("bootstrapServers", "consumerGroupId")
+      .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
+      .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
+          "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic")
+      .optionalNumber("metadataMaxAgeMs").build();
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);

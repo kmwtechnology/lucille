@@ -5,6 +5,7 @@ import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
@@ -15,6 +16,7 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import com.typesafe.config.ConfigValue;
 import java.util.Map.Entry;
+import kotlin.Pair;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -58,6 +60,19 @@ import sun.misc.Signal;
  * and wait for completion of the run
  */
 public class Runner {
+
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
+      .optionalString("metricsLoggingLevel")
+      .optionalNumber("connectorTimeout").build();
+
+  private static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
+      new Pair<>("publisher", PublisherImpl.SPEC),
+      new Pair<>("log", LogUtils.SPEC),
+      new Pair<>("runner", Runner.SPEC),
+      new Pair<>("kafka", KafkaUtils.SPEC),
+      new Pair<>("zookeeper", ZKRetryCounter.SPEC),
+      new Pair<>("worker", Worker.SPEC)
+  );
 
   public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
 
@@ -389,34 +404,17 @@ public class Runner {
   private static List<Exception> validateOtherParents(Config rootConfig) {
     List<Exception> exceptions = new ArrayList<>();
 
-    Config configPropertyConfig = ConfigFactory.parseResourcesAnySyntax("validConfigProperties.conf");
+    for (Pair<String, Spec> parentAndSpec : PARENTS_AND_SPECS) {
+      String parentName = parentAndSpec.component1();
 
-    // calling entrySet on the root() means it returns the keys - publisher, log, etc... and not entries
-    // for paths to each of the individual values.
-    for (Entry<String, ConfigValue> entry : configPropertyConfig.root().entrySet()) {
-      String optionalParentName = entry.getKey();
-
-      // from this config, we can get required / optional properties
-      if (!rootConfig.hasPath(optionalParentName)) {
+      if (!rootConfig.hasPath(parentAndSpec.component1())) {
         continue;
       }
 
-      Config parentPropertyConfig = configPropertyConfig.getConfig(optionalParentName);
-
-      SpecBuilder specBuilder = SpecBuilder.withoutDefaults();
-
-      if (parentPropertyConfig.hasPath("optionalProperties")) {
-        List<String> optionalProperties = parentPropertyConfig.getStringList("optionalProperties");
-        specBuilder.withOptionalProperties(optionalProperties.toArray(new String[0]));
-      }
-
-      if (parentPropertyConfig.hasPath("requiredProperties")) {
-        List<String> requiredProperties = parentPropertyConfig.getStringList("requiredProperties");
-        specBuilder.withRequiredProperties(requiredProperties.toArray(new String[0]));
-      }
-
       try {
-        specBuilder.build().validate(rootConfig.getConfig(optionalParentName), optionalParentName);
+        Spec spec = parentAndSpec.component2();
+        Config parentConfig = rootConfig.getConfig(parentName);
+        spec.validate(parentConfig, parentName);
       } catch (IllegalArgumentException e) {
         exceptions.add(e);
       }
