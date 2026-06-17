@@ -98,29 +98,6 @@ public class SpecBuilder {
 
     return new SpecBuilder(parentName);
   }
-
-  // ************* Basic Properties **************
-
-  /**
-   * Returns this Spec with the given properties added as required properties.
-   * @param requiredProperties The required properties you want to add to this Spec.
-   * @return This Spec with the given required properties added.
-   */
-  public SpecBuilder withRequiredProperties(String... requiredProperties) {
-    Arrays.stream(requiredProperties).forEach(requiredPropertyName -> properties.add(new AnyProperty(requiredPropertyName, true)));
-    return this;
-  }
-
-  /**
-   * Returns this Spec with the given properties added as optional properties.
-   * @param optionalProperties The optional properties you want to add to this Spec.
-   * @return This Spec with the given optional properties added.
-   */
-  public SpecBuilder withOptionalProperties(String... optionalProperties) {
-    Arrays.stream(optionalProperties).forEach(optionalPropertyName -> properties.add(new AnyProperty(optionalPropertyName, false)));
-    return this;
-  }
-
   // ************ Adding Basic Types ****************
 
   public SpecBuilder requiredString(String... requiredStringFieldNames) {
