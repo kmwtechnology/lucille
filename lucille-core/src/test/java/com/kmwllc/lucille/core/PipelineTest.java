@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.stage.CreateChildrenStage;
+import com.kmwllc.lucille.stage.DropDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
@@ -233,6 +234,25 @@ public class PipelineTest {
     Config config = ConfigFactory.empty().withValue("name", ConfigValueFactory.fromAnyRef("stage1"));
     pipeline.addStage(new Stage1(config));
     pipeline.addStage(new Stage2(config));
+  }
+  
+  @Test
+  public void testDroppedDocumentSkipsDownstreamStages() throws Exception {
+    Pipeline pipeline = new Pipeline();
+    Config config = ConfigFactory.empty();
+    pipeline.addStage(new DropDocument(config));
+    pipeline.addStage(new Stage1(config));
+
+    Document doc = Document.create("d1");
+
+    pipeline.startStages();
+    List<Document> results = IteratorUtils.toList(pipeline.processDocument(doc));
+    pipeline.stopStages();
+
+    assertEquals(1, results.size());
+    Document result = results.get(0);
+    assertTrue(result.isDropped());
+    assertFalse(result.has("s1"));
   }
 
   private static class Stage1 extends Stage {
