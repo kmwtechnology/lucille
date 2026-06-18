@@ -300,7 +300,12 @@ public class OpenSearchIndexer extends Indexer {
 
       if (!response.failures().isEmpty()) {
         for (BulkByScrollFailure failure : response.failures()) {
-          log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+          if (failure.cause() == null) {
+            log.debug("Error while deleting by query, cause was null");
+          } else {
+            log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+          }
+
         }
         throw new IndexerException("encountered errors while deleting by query");
       }
