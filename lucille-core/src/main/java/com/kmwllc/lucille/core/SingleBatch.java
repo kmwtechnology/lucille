@@ -64,6 +64,7 @@ public class SingleBatch implements Batch {
     List<Document> docs = new ArrayList<>();
     queue.drainTo(docs);
     lastAddOrFlushInstant = Instant.now();
+    byteAccumulator = 0;
     return docs;
   }
 

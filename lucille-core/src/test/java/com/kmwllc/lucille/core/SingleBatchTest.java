@@ -161,6 +161,32 @@ public class SingleBatchTest {
     assertEquals("doc3", docs.get(0).getId());
   }
 
+  @Test
+  public void testByteAccumulatorResetOnFlush() {
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
+    Document doc4 = Document.create("doc4");
+
+    long byteCap = doc1.getByteSize() + doc2.getByteSize() + doc3.getByteSize();
+    SingleBatch batch = new SingleBatch(Indexer.NO_BATCH_SIZE, byteCap, 100000);
+
+    assertTrue(batch.add(doc1).isEmpty());
+    assertTrue(batch.add(doc2).isEmpty());
+
+    List<Document> flushed = batch.flush();
+    assertEquals(2, flushed.size());
+
+    // two fresh docs fit under the cap and must not flush now that the accumulator is reset
+    assertTrue(batch.add(doc3).isEmpty());
+    assertTrue(batch.add(doc4).isEmpty());
+
+    List<Document> docs = batch.flush();
+    assertEquals(2, docs.size());
+    assertEquals("doc3", docs.get(0).getId());
+    assertEquals("doc4", docs.get(1).getId());
+  }
+
   /**
    * Test that when a single document is larger than the byte cap, each document is emitted on its own.
    * The over-sized doc is retained and flushed by itself on the following add.
