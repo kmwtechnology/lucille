@@ -1,0 +1,100 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_english": {
+          "tokenizer": "uax_url_email",
+          "filter": [
+            "english_stop",
+            "lowercase",
+            "english_possessive_stemmer",
+            "english_stemmer"
+          ]
+        }
+      },
+      "filter": {
+        "english_stop": {
+          "type": "stop",
+          "stopwords": "_english_"
+        },
+        "english_stemmer": {
+          "type": "stemmer",
+          "language": "english"
+        },
+        "english_possessive_stemmer": {
+          "type": "stemmer",
+          "language": "possessive_english"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "id": {
+        "type": "keyword"
+      },
+      "message_id": {
+        "type": "keyword"
+      },
+      "folder": {
+        "type": "keyword"
+      },
+      "subject": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 1024
+          }
+        }
+      },
+      "body": {
+        "type": "text",
+        "analyzer": "my_english"
+      },
+      "from": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 1024
+          }
+        }
+      },
+      "to": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 1024
+          }
+        }
+      },
+      "cc": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 1024
+          }
+        }
+      },
+      "reply_to": {
+        "type": "keyword"
+      },
+      "sent_date": {
+        "type": "date"
+      },
+      "received_date": {
+        "type": "date"
+      },
+      "size": {
+        "type": "long"
+      }
+    }
+  }
+}

@@ -26,6 +26,7 @@
     <module>lucille-jlama</module>
     <module>lucille-entity-extraction</module>
     <module>lucille-video</module>
+    <module>lucille-imap</module>
   </modules>
 
   <dependencies>
