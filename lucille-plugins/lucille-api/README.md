@@ -16,7 +16,7 @@ The API can be run locally or in a Docker container:
 
 1. Create the docker image: `docker build -t lucille-api .`
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
-3. Run the image: `docker run --env LUCILLE_CONF=${LUCILLE_CONF} --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
+3. Run the image: `docker run --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
 
 ### Upload Lucille Config
 1. This should be a HOCON file
@@ -55,10 +55,10 @@ curl -k -u user:password https://localhost:8443/v1/run
 
 ## Configuration
 
-### Lucille Configuration
+### API Configuration
 
-The Lucille Configuration file can be supplied via the LUCILLE_CONF environment variable. If building via Docker, this file should
-reside in the `lucille-api/conf` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
+The API Configuration file can be supplied via the `DROPWIZARD_CONF` environment variable. If building via Docker, this file should
+reside in the `conf/` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
 
 ### Giving the API access to custom components
 
