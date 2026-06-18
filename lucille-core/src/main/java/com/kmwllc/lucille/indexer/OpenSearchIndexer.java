@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
+import org.opensearch.client.opensearch._types.BulkByScrollFailure;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.VersionType;
 import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
@@ -299,7 +299,7 @@ public class OpenSearchIndexer extends Indexer {
       }
 
       if (!response.failures().isEmpty()) {
-        for (BulkIndexByScrollFailure failure : response.failures()) {
+        for (BulkByScrollFailure failure : response.failures()) {
           log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
         }
         throw new IndexerException("encountered errors while deleting by query");
