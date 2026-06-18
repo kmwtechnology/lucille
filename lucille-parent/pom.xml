@@ -49,9 +49,9 @@
     <solr.version>9.9.0</solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch.version>0.1.0</opensearch.version>
-    <opensearch-java.version>2.11.1</opensearch-java.version>
-    <httpcore5.version>5.2.4</httpcore5.version>
-    <httpclient5.version>5.3.1</httpclient5.version>
+    <opensearch-java.version>3.6.0</opensearch-java.version>
+    <httpcore5.version>5.3.1</httpcore5.version>
+    <httpclient5.version>5.6.1</httpclient5.version>
     <elasticsearch.version>8.18.4</elasticsearch.version>
     <aws-java-sdk.version>1.12.769</aws-java-sdk.version>
     <log4j.version>2.26.0</log4j.version>
