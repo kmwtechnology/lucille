@@ -20,7 +20,6 @@ import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
