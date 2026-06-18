@@ -23,6 +23,8 @@ The API can be run locally or in a Docker container:
 2. `curl -X POST http://localhost:8080/v1/config -H "Content-Type: application/hocon" -d @${LUCILLE_CONF}`
 3. This will respond with a configId for your config
 
+**Note:** Uploaded configs cannot resolve / use environment variables. 
+
 ### Run Lucille with the Config
 1. `curl -X POST http://localhost:8080/v1/run -H "Content-Type: application/json" -d '{"configId":"CONFIG_ID"}'`
 2. You can do `curl http://localhost:8080/v1/run` to check the status of your runs
@@ -40,12 +42,13 @@ All requests are served from `localhost:8080` (or `localhost:8443` if HTTPS is e
 | GET    | `/v1/config-info/connector-list`     | Lists the available connector classes | — |
 | GET    | `/v1/config-info/stage-list`         | Lists the available stage classes | — |
 | GET    | `/v1/config-info/indexer-list`       | Lists the available indexer classes | — |
-| POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run` | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
+| POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run`. You may store up to 10,000 Configs. | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
 | GET    | `/v1/config`                         | List all registered configs, keyed by `configId` | — |
 | GET    | `/v1/config/{configId}`              | Get a specific registered config | — |
-| POST   | `/v1/run`                            | Start a Lucille run using a previously registered config | `{"configId": "<uuid>"}` |
+| DELETE    | `/v1/config/{configId}`              | Delete a specific config | — |
+| POST   | `/v1/run`                            | Start a Lucille run using a previously registered config | `{"configId": "<uuid>", "removedConfigId": "<uuid>"}` |
 | GET    | `/v1/run`                            | List all runs and their statuses | — |
-| GET    | `/v1/run/{runId}`                    | Get details of a specific run | — |
+| GET    | `/v1/run/{runId}`                    | Get details of a specific run. Results for the last 10,000 runs are available. | — |
 
 If auth is enabled, add `-u <anyuser>:<password>` (the username is not validated, only the password). If HTTPS is enabled with a self-signed cert, also add `-k`:
 
@@ -157,6 +160,36 @@ curl -k -u user:password https://localhost:8443/v1/config -H "Content-Type: appl
 #### Production HTTPS
 For a real deployment you want a CA-issued cert, the strict defaults turned back on, and secrets out of the YAML file.
 
+### Preventing Concurrent Runs
+You can prevent concurrent runs of the same Config with the `preventConcurrentRuns` option:
+
+```yaml
+preventConcurrentRuns: true
+```
+
+
+Concurrent runs of the same Config are allowed by default. When this option is enabled, each configId may only be used for one run at a time.
+In other words, requests that would create concurrent runs with the same configId will fail.
+
+### Preset (Lucille) Configuration
+In your API configuration, you can declare a path to a directory containing _Lucille_ configurations you would like to be loaded 
+during initialization of the API.
+
+```yaml
+presetConfig:
+  configDirectoryPath: /path/to/my/configs
+```
+
+The provided path **must** be a directory. Only `.conf`, `.json`, and `.hocon` files in this directory will be considered.
+
+In lieu of a UUID, preset configs will be keyed by their filename, including their file extension (e.g. `config1.conf`).
+
+Preset configs, but **not uploaded configs**, can use environment variables / `include` other configs as normal. It may be good practice 
+to place these "included" configs in another directory so they are not loaded by the Lucille API as their own preset configs.
+
+**Note:** Environment variables for preset configs are resolved _once_ during the initialization of the API. They are not reevaluated 
+while the API is in use.
+
 ## Logging and Integration Testing with Dropwizard
 
 ### Important Notes for Logging Configuration
@@ -182,6 +215,9 @@ If you see logger context or SLF4J errors during integration tests:
 - Free up any ports (e.g., 8080) required by integration tests before running them.
 
 This setup ensures reliable Dropwizard integration testing and avoids logger conflicts.
+
+**Note**: The API will only store details for the last 10,000 runs. If you need this information,
+you will need to persist it yourself. Similarly, only 10,000 configs can be stored by the API.
 
 ## Development
 

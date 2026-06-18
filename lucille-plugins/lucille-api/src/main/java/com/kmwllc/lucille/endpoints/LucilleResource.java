@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.endpoints;
 
+import com.kmwllc.lucille.core.CreateConfigResult;
+import com.kmwllc.lucille.core.RunnerManagerException;
+import com.kmwllc.lucille.objects.RunRequest;
+import jakarta.ws.rs.DELETE;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -58,13 +62,39 @@ public class LucilleResource {
   private final AuthHandler authHandler;
 
   /**
-   * Constructs a new LucilleResource.
+   * Whether concurrent runs of the same <code>configId</code> should be prevented.
+   */
+  private final boolean preventConcurrentRuns;
+
+  /**
+   * Constructs a new LucilleResource that does not prevent concurrent runs and has no preset configs.
    * @param runnerManager the runner manager instance
    * @param authHandler the authentication handler
    */
   public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler) {
+    this(runnerManager, authHandler, false, Map.of());
+  }
+
+  /**
+   * Constructs a new LucilleResource.
+   * @param runnerManager the runner manager instance
+   * @param authHandler the authentication handler
+   * @param preventConcurrentRuns whether to prevent runs of the same config.
+   * @param presetConfigs A non-null mapping of names to configs that should be added to the runner manager.
+   */
+  public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler, boolean preventConcurrentRuns, Map<String, Config> presetConfigs) {
     this.runnerManager = runnerManager;
     this.authHandler = authHandler;
+    this.preventConcurrentRuns = preventConcurrentRuns;
+
+    try {
+      for (Map.Entry<String, Config> entry : presetConfigs.entrySet()) {
+        runnerManager.createConfigWithKey(entry.getValue(), entry.getKey());
+      }
+    } catch (RunnerManagerException e) {
+      // if we breach the config limit just from presets, warn the user
+      throw new IllegalStateException("Config limit has been reached while loading presets.", e);
+    }
   }
 
   /**
@@ -92,11 +122,9 @@ public class LucilleResource {
 
     try {
       Config config = ConfigFactory.parseString(configBody);
-      String configId = runnerManager.createConfig(config);
-      log.info("a lucille config has been created. Config ID: " + configId);
-      Map<String, Object> ret = new HashMap<>();
-      ret.put("configId", configId);
-      return Response.ok(ret).build();
+      CreateConfigResult result = runnerManager.createConfig(config);
+      log.info("a lucille config has been created. Config ID: " + result.getConfigId());
+      return Response.ok(result).build();
     } catch (Exception e) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("Invalid configuration provided: " + e.getMessage()).build();
@@ -159,10 +187,45 @@ public class LucilleResource {
     }
   }
 
+  @DELETE
+  @Tag(name = "Config", description = "Delete a Lucille configuration.")
+  @Path("/config/{configId}")
+  @Operation(
+      summary = "Delete a Lucille config.",
+      description = "Delete a specific Lucille configuration by its ID.",
+      security = @SecurityRequirement(name = "basicAuth")
+  )
+  public Response deleteConfig(
+      @Parameter(hidden = true)
+      @Auth
+      Optional<PrincipalImpl> user,
+      @Parameter(
+          description = "The UUID of the configuration to delete.",
+          required = true,
+          example = "fca83cb6-c2c2-4cbf-93ef-41c08d5d4b58"
+      )
+      @PathParam("configId")
+      String configId
+  ) {
+    Response authResponse = authHandler.authenticate(user);
+    if (authResponse != null) {
+      return authResponse;
+    }
+
+    boolean success = runnerManager.deleteConfig(configId);
+
+    if (success) {
+      return Response.ok().build();
+    } else {
+      return ResponseUtils.buildErrorResponse(Response.Status.NOT_FOUND,
+          "Configuration with ID " + configId + " not found.");
+    }
+  }
+
   /**
    * Starts a new Lucille run with the specified configuration.
    * @param user the authenticated user (optional)
-   * @param requestBody request body containing the configuration ID
+   * @param runRequest request body containing the configuration ID
    * @return HTTP 200 with run details, or error if invalid or unauthorized
    */
   @POST
@@ -170,27 +233,27 @@ public class LucilleResource {
   @Path("/run")
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(summary = "Start a new Lucille run",
-      description = "Triggers a new Lucille run with the specified configuration if none is currently running.")
+      description = "Triggers a new Lucille run with the specified configuration.")
   public Response startRun(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
-      @RequestBody(description = "Request body containing the configuration ID.", required = true,
+      @RequestBody(description = "Request body containing the configuration ID", required = true,
           content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
               type = "object",
-              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\"}"))) Map<String, String> requestBody) {
+              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\"}"))) RunRequest runRequest) {
     Response authResponse = authHandler.authenticate(user);
     if (authResponse != null) {
       return authResponse; // Return if authentication fails
     }
 
     try {
+      String configId = runRequest.getConfigId();
       // Extract configId from the request body
-      String configId = requestBody.get("configId");
       if (configId == null || configId.isBlank()) {
         return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
             "configId is required in the request body.");
       }
 
       String runId = Runner.generateRunId();
-      RunDetails details = runnerManager.runWithConfig(runId, configId);
+      RunDetails details = runnerManager.runWithConfig(runId, configId, preventConcurrentRuns);
       log.debug("Lucille run has been triggered. Run ID: " + runId);
       log.debug("details: {}", details);
       return Response.ok(details).build();
@@ -249,5 +312,4 @@ public class LucilleResource {
 
     return Response.ok(details).build();
   }
-
 }
