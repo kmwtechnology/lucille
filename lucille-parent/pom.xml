@@ -45,8 +45,8 @@
     <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
     <jackson.version>2.19.1</jackson.version>
     <!-- todo if updated to version 9 will need to add solr-solrj-zookeeper dependency -->
-    <lucene.version>9.11.1</lucene.version>
-    <solr.version>9.8.0</solr.version>
+    <lucene.version>9.12.2</lucene.version>
+    <solr.version>9.9.0</solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch.version>0.1.0</opensearch.version>
     <opensearch-java.version>2.11.1</opensearch-java.version>
@@ -61,12 +61,13 @@
     <protobuf.version>3.25.5</protobuf.version>
     <netty.version>4.1.125.Final</netty.version>
     <grpc.version>1.66.0</grpc.version>
-    <dropwizard-core.version>4.0.12</dropwizard-core.version>
+    <!--  TODO: dropwizard-testing-junit4 is currently at 5.0.0 since 5.0.1 did not exist at time of upgrade. Bring back to use ${dropwizard-core.version} -->
+    <dropwizard-core.version>5.0.1</dropwizard-core.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit4.version>4.13.2</junit4.version>
     <aws-sdk.version>2.44.14</aws-sdk.version>
     <hadoop.version>3.5.0</hadoop.version>
-    <http2.version>10.0.26</http2.version>
+    <http2.version>11.0.26</http2.version>
 
   </properties>
 

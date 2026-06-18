@@ -230,6 +230,17 @@
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-solrj</artifactId>
       <version>${solr.version}</version>
+      <!--  Includes old version of jetty interfering with the API   -->
+      <exclusions>
+          <exclusion>
+              <groupId>org.eclipse.jetty</groupId>
+              <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+              <groupId>org.eclipse.jetty.http2</groupId>
+              <artifactId>*</artifactId>
+          </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
