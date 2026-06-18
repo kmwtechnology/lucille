@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import jakarta.mail.Address;
@@ -60,6 +61,10 @@ import org.slf4j.LoggerFactory;
  *   <li>prefetchBody (Boolean, Optional): Whether to bulk-prefetch full message bodies along with metadata. Keeping this
  *   <code>true</code> is dramatically faster for body-heavy crawls but uses more memory per batch; set to <code>false</code>
  *   to prefetch only metadata and fetch bodies lazily. Defaults to <code>true</code>. Only applies to IMAP folders.</li>
+ *   <li>excludeHeaderPrefixes (List&lt;String&gt;, Optional): Email headers whose (cleaned, lower-cased, underscore-separated)
+ *   name starts with any of these prefixes are NOT copied onto the Document. This prevents the unbounded, noisy header
+ *   families (especially the <code>X-*</code> headers added by mail infrastructure / ESPs) from causing a field-mapping
+ *   explosion in the downstream index. Defaults to <code>["x_"]</code>. Set to <code>[]</code> to copy every header.</li>
  * </ul>
  */
 public class IMAPConnector extends AbstractConnector {
@@ -69,6 +74,7 @@ public class IMAPConnector extends AbstractConnector {
       .optionalString("folder")
       .optionalNumber("port", "fetchBatchSize")
       .optionalBoolean("useSSL", "recurse", "prefetchBody")
+      .optionalList("excludeHeaderPrefixes", new TypeReference<List<String>>(){})
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(IMAPConnector.class);
@@ -77,6 +83,10 @@ public class IMAPConnector extends AbstractConnector {
 
   // Number of messages to bulk-prefetch per server round-trip when crawling.
   private static final int DEFAULT_FETCH_BATCH_SIZE = 100;
+
+  // By default, skip the noisy "X-*" header family (added by mail infra / ESPs) to avoid an unbounded number of
+  // unique fields exploding the downstream index mapping. Matched against the cleaned (lower-cased, underscore) name.
+  private static final List<String> DEFAULT_EXCLUDE_HEADER_PREFIXES = List.of("x_");
 
   private final String host;
   private final String username;
@@ -88,6 +98,7 @@ public class IMAPConnector extends AbstractConnector {
   private final String protocol;
   private final int fetchBatchSize;
   private final boolean prefetchBody;
+  private final List<String> excludeHeaderPrefixes;
 
   private Store store;
   // True when the Store was supplied externally (e.g. for testing); in that case we don't open/close it ourselves.
@@ -106,6 +117,12 @@ public class IMAPConnector extends AbstractConnector {
     int configuredBatchSize = config.hasPath("fetchBatchSize") ? config.getInt("fetchBatchSize") : DEFAULT_FETCH_BATCH_SIZE;
     this.fetchBatchSize = Math.max(1, configuredBatchSize);
     this.prefetchBody = config.hasPath("prefetchBody") ? config.getBoolean("prefetchBody") : true;
+    this.excludeHeaderPrefixes = config.hasPath("excludeHeaderPrefixes")
+        ? config.getStringList("excludeHeaderPrefixes").stream()
+            .map(IMAPConnector::cleanFieldName)
+            .filter(prefix -> !prefix.isEmpty())
+            .toList()
+        : DEFAULT_EXCLUDE_HEADER_PREFIXES;
     this.externalStore = false;
   }
 
@@ -285,6 +302,11 @@ public class IMAPConnector extends AbstractConnector {
         continue;
       }
 
+      // Skip noisy header families (e.g. X-*) to avoid an unbounded number of unique fields downstream.
+      if (isExcludedHeader(fieldName)) {
+        continue;
+      }
+
       doc.addToField(fieldName, header.getValue());
     }
 
@@ -368,6 +390,15 @@ public class IMAPConnector extends AbstractConnector {
     } else {
       log.debug("Skipping unhandled content type {}", part.getContentType());
     }
+  }
+
+  private boolean isExcludedHeader(String cleanedName) {
+    for (String prefix : excludeHeaderPrefixes) {
+      if (cleanedName.startsWith(prefix)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static String cleanFieldName(String name) {

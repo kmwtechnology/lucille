@@ -145,4 +145,70 @@ public class IMAPConnectorTest {
 
     assertEquals("<reserved@example.com>", doc.getId());
   }
+
+  @Test
+  public void testNoisyXHeadersExcludedByDefault() throws Exception {
+    Message message = parse("Message-ID: <noisy@example.com>\r\n"
+        + "From: alice@example.com\r\n"
+        + "Subject: Noisy\r\n"
+        + "X-Google-Smtp-Source: abcdef\r\n"
+        + "X-Received: from somewhere\r\n"
+        + "X-Mailer: SomeMailer 1.0\r\n"
+        + "Content-Type: text/plain\r\n"
+        + "\r\n"
+        + "body");
+
+    Document doc = connector().processMessage(message);
+
+    // Standard headers are still copied...
+    assertEquals("Noisy", doc.getString("subject"));
+    assertTrue(doc.has("message_id"));
+    // ...but the X-* family is excluded by default.
+    assertFalse(doc.has("x_google_smtp_source"));
+    assertFalse(doc.has("x_received"));
+    assertFalse(doc.has("x_mailer"));
+  }
+
+  @Test
+  public void testEmptyExcludePrefixesKeepsAllHeaders() throws Exception {
+    Config config = baseConfig().withFallback(
+        ConfigFactory.parseString("excludeHeaderPrefixes = []"));
+    IMAPConnector connector = new IMAPConnector(config);
+
+    Message message = parse("Message-ID: <keepall@example.com>\r\n"
+        + "From: alice@example.com\r\n"
+        + "Subject: KeepAll\r\n"
+        + "X-Mailer: SomeMailer 1.0\r\n"
+        + "Content-Type: text/plain\r\n"
+        + "\r\n"
+        + "body");
+
+    Document doc = connector.processMessage(message);
+
+    // With no exclusions configured, the X-* headers are retained.
+    assertTrue(doc.has("x_mailer"));
+  }
+
+  @Test
+  public void testCustomExcludePrefixes() throws Exception {
+    // Prefixes are matched against the cleaned (lower-cased, underscore) header name; "dkim-" -> "dkim_".
+    Config config = baseConfig().withFallback(
+        ConfigFactory.parseString("excludeHeaderPrefixes = [\"dkim-\"]"));
+    IMAPConnector connector = new IMAPConnector(config);
+
+    Message message = parse("Message-ID: <custom@example.com>\r\n"
+        + "From: alice@example.com\r\n"
+        + "Subject: Custom\r\n"
+        + "DKIM-Signature: v=1; a=rsa-sha256\r\n"
+        + "X-Mailer: SomeMailer 1.0\r\n"
+        + "Content-Type: text/plain\r\n"
+        + "\r\n"
+        + "body");
+
+    Document doc = connector.processMessage(message);
+
+    // Only the configured prefix is excluded; the default x_ exclusion no longer applies.
+    assertFalse(doc.has("dkim_signature"));
+    assertTrue(doc.has("x_mailer"));
+  }
 }
