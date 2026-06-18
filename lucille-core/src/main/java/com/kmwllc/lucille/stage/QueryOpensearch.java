@@ -184,28 +184,19 @@ public class QueryOpensearch extends Stage {
         .json(requestJson.toString())
         .build();
 
-    int status;
-    String responseBody;
-
-    try (Response response = client.generic().execute(request)) {
-      status = response.getStatus();
-      responseBody = response.getBody().map(Body::bodyAsString).orElse("");
-    } catch (Exception e) {
-      throw new StageException("Error occurred sending the Opensearch query.", e);
-    }
-
-    // The client will return errored status codes instead of throwing if there was an issue, so we need to catch these ourselves
-    if (status < 200 || status >= 300 || responseBody.isBlank()) {
-      throw new StageException("OpenSearch returned an unexpected response to a search template query (HTTP " + status
-          + "). Response body: " + responseBody);
-    }
-
     JsonNode responseNode;
 
-    try {
+    try (Response response = client.generic().execute(request)) {
+      int status = response.getStatus();
+      String responseBody = response.getBody().map(Body::bodyAsString).orElse("");
+      // The client will return errored status codes instead of throwing if there was an issue, so we need to catch these ourselves
+      if (status < 200 || status >= 300 || responseBody.isBlank()) {
+        throw new StageException("OpenSearch returned an unexpected response to a search template query (HTTP " + status
+            + "). Response body: " + responseBody);
+      }
       responseNode = mapper.readTree(responseBody);
-    } catch (JsonProcessingException e) {
-      throw new StageException("Error parsing JSON from the OpenSearch response.", e);
+    } catch (IOException e) {
+      throw new StageException("Error communicating with OpenSearch or parsing its response.", e);
     }
 
     JsonNode responseFieldNode = responseNode.at(opensearchResponsePath);
