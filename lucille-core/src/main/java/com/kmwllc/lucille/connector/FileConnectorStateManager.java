@@ -140,8 +140,10 @@ public class FileConnectorStateManager {
   }
 
   /**
-   * Increments the runs_not_encountered counter for every file that was not seen during the current traversal.
-   * Must be called after a file has been traversed during the run.
+   * Increments the runs_not_encountered counter for every file that was not seen during the current traversal. This method must
+   * be called exactly once per run, after all markFileEncountered calls are complete.
+   * Must be called before shutdown() and before listExpiredFiles(), since both rely on the updated counters.
+   * Calling it before marking is finished will prematurely increment counters for files still being traversed.
    */
   public void incrementRunsNotEncountered() throws SQLException {
     String incrementSQL = "UPDATE \"" + tableName + "\" SET runs_not_encountered = runs_not_encountered + 1 WHERE encountered=FALSE";
