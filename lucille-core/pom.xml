@@ -69,19 +69,14 @@
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-clients</artifactId>
       <version>4.1.2</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.lz4</groupId>
-          <artifactId>lz4-java</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
-    <!-- override org.lz4:lz4-java version in kafka-clients because of vulnerability with transitive version 1.8.0 -->
+
     <dependency>
-        <groupId>org.lz4</groupId>
+        <groupId>at.yawk.lz4</groupId>
         <artifactId>lz4-java</artifactId>
-        <version>1.8.1</version>
+        <version>1.10.1</version>
     </dependency>
+
     <dependency>
       <groupId>org.apache.curator</groupId>
       <artifactId>curator-recipes</artifactId>
