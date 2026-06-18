@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -847,8 +848,51 @@ public class JsonDocument implements Document {
 
   @Override
   public long getByteSize() {
-    byte[] bytes = this.toString().getBytes();
-    return bytes.length;
+    return estimateJsonSize(data);
+  }
+
+  private static long estimateJsonSize(JsonNode node) {
+    switch (node.getNodeType()) {
+      case OBJECT: {
+        long size = 2; // braces
+        boolean first = true;
+        for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
+          Map.Entry<String, JsonNode> entry = it.next();
+          if (!first) {
+            size += 1; // comma between entries
+          }
+          first = false;
+          // quoted key plus the colon separator
+          size += entry.getKey().getBytes(StandardCharsets.UTF_8).length + 3;
+          size += estimateJsonSize(entry.getValue());
+        }
+        return size;
+      }
+      case ARRAY: {
+        long size = 2; // brackets
+        boolean first = true;
+        for (JsonNode element : node) {
+          if (!first) {
+            size += 1; // comma between elements
+          }
+          first = false;
+          size += estimateJsonSize(element);
+        }
+        return size;
+      }
+      case STRING:
+        return node.textValue().getBytes(StandardCharsets.UTF_8).length + 2; // content plus quotes
+      case NUMBER:
+        return node.asText().length();
+      case BOOLEAN:
+        return node.booleanValue() ? 4 : 5; // true / false
+      case NULL:
+      case MISSING:
+        return 4; // null
+      default:
+        // any other type, just fall back to serialization
+        return node.toString().getBytes(StandardCharsets.UTF_8).length;
+    }
   }
 
   @Override

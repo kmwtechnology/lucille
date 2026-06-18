@@ -559,6 +559,14 @@ public interface Document {
 
   Map<String, Object> asMap();
 
+  /**
+   * Returns an estimate, in bytes, of this Document's JSON serialization. The value is intended for
+   * relative comparisons (for example, accumulating payload size while batching) and is not guaranteed
+   * to match the exact byte count produced by serializing the Document, nor the size the destination
+   * search engine uses.
+   *
+   * @return an estimated size of the Document in bytes.
+   */
   long getByteSize();
 
   /* --- CHILD HANDLING UTILITIES --- */

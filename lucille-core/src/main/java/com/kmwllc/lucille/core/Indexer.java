@@ -65,7 +65,8 @@ import sun.misc.Signal;
  *   <li>indexer.whitelist (List&lt;String&gt;, Optional) : Only include these fields from the document when sending to the
  *   destination.</li>
  *   <li>indexer.batchSize (Integer, Optional) : Number of documents to accumulate before sending to the destination. Defaults to
- *   {@value #DEFAULT_BATCH_SIZE} or {@value #NO_BATCH_SIZE} if batchByteSize is set.</li>
+ *   {@value #DEFAULT_BATCH_SIZE} or {@value #NO_BATCH_SIZE} if batchByteSize is set. If both are set, batches are flushed when
+ *   either limit is reached.</li>
  *   <li>indexer.batchByteSize (Long, Optional) : Total size of documents accumulated before sending to the destination. Defaults to
  *   {@value #NO_BATCH_SIZE_BYTES}.</li>
  *   <li>indexer.batchTimeout (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
@@ -192,8 +193,9 @@ public abstract class Indexer implements Runnable {
     long batchByteSize;
 
     if (config.hasPath("indexer.batchSize") || config.hasPath("indexer.batchByteSize")) {
-      batchSize = ConfigUtils.getOrDefault(config, "indexer.batchSize", NO_BATCH_SIZE);
-      batchByteSize = ConfigUtils.getOrDefault(config, "indexer.batchSizeBytes", NO_BATCH_SIZE_BYTES);
+      // when only one is set, the other is disabled so the configured one governs
+      batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : NO_BATCH_SIZE;
+      batchByteSize = config.hasPath("indexer.batchByteSize") ? config.getLong("indexer.batchByteSize") : NO_BATCH_SIZE_BYTES;
     } else {
       batchSize = DEFAULT_BATCH_SIZE;
       batchByteSize = NO_BATCH_SIZE_BYTES;
@@ -574,7 +576,7 @@ public abstract class Indexer implements Runnable {
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
             "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
-        .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
+        .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
