@@ -60,7 +60,7 @@
     <protobuf.version>3.25.5</protobuf.version>
     <netty.version>4.1.125.Final</netty.version>
     <grpc.version>1.66.0</grpc.version>
-    <!--  TODO: dropwizard-testing-junit4 is currently at 5.0.0 since 5.0.1 did not exist at time of upgrade. Bring back to use ${dropwizard-core.version} -->
+    <!--  TODO: dropwizard-testing-junit4 is currently at 5.0.0 since 5.0.2 did not exist at time of upgrade. Bring back to use ${dropwizard-core.version} -->
     <dropwizard-core.version>5.0.2</dropwizard-core.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit4.version>4.13.2</junit4.version>
