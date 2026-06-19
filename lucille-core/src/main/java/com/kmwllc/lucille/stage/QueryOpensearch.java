@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.opensearch.generic.Body;
 import org.opensearch.client.opensearch.generic.Request;
 import org.opensearch.client.opensearch.generic.Requests;
 import org.opensearch.client.opensearch.generic.Response;
