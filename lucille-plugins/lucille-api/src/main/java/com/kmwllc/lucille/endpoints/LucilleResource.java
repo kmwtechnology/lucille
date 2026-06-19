@@ -1,6 +1,9 @@
 package com.kmwllc.lucille.endpoints;
 
+import com.kmwllc.lucille.core.CreateConfigResult;
+import com.kmwllc.lucille.core.RunnerManagerException;
 import com.kmwllc.lucille.objects.RunRequest;
+import jakarta.ws.rs.DELETE;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -84,8 +87,13 @@ public class LucilleResource {
     this.authHandler = authHandler;
     this.preventConcurrentRuns = preventConcurrentRuns;
 
-    for (Map.Entry<String, Config> entry : presetConfigs.entrySet()) {
-      runnerManager.createConfigWithName(entry.getValue(), entry.getKey());
+    try {
+      for (Map.Entry<String, Config> entry : presetConfigs.entrySet()) {
+        runnerManager.createConfigWithKey(entry.getValue(), entry.getKey());
+      }
+    } catch (RunnerManagerException e) {
+      // if we breach the config limit just from presets, warn the user
+      throw new IllegalStateException("Config limit has been reached while loading presets.", e);
     }
   }
 
@@ -114,11 +122,9 @@ public class LucilleResource {
 
     try {
       Config config = ConfigFactory.parseString(configBody);
-      String configId = runnerManager.createConfig(config);
-      log.info("a lucille config has been created. Config ID: " + configId);
-      Map<String, Object> ret = new HashMap<>();
-      ret.put("configId", configId);
-      return Response.ok(ret).build();
+      CreateConfigResult result = runnerManager.createConfig(config);
+      log.info("a lucille config has been created. Config ID: " + result.getConfigId());
+      return Response.ok(result).build();
     } catch (Exception e) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("Invalid configuration provided: " + e.getMessage()).build();
@@ -178,6 +184,41 @@ public class LucilleResource {
     } catch (Exception e) {
       return ResponseUtils.buildErrorResponse(Response.Status.INTERNAL_SERVER_ERROR,
           "Error retrieving configuration: " + e.getMessage());
+    }
+  }
+
+  @DELETE
+  @Tag(name = "Config", description = "Delete a Lucille configuration.")
+  @Path("/config/{configId}")
+  @Operation(
+      summary = "Delete a Lucille config.",
+      description = "Delete a specific Lucille configuration by its ID.",
+      security = @SecurityRequirement(name = "basicAuth")
+  )
+  public Response deleteConfig(
+      @Parameter(hidden = true)
+      @Auth
+      Optional<PrincipalImpl> user,
+      @Parameter(
+          description = "The UUID of the configuration to delete.",
+          required = true,
+          example = "fca83cb6-c2c2-4cbf-93ef-41c08d5d4b58"
+      )
+      @PathParam("configId")
+      String configId
+  ) {
+    Response authResponse = authHandler.authenticate(user);
+    if (authResponse != null) {
+      return authResponse;
+    }
+
+    boolean success = runnerManager.deleteConfig(configId);
+
+    if (success) {
+      return Response.ok().build();
+    } else {
+      return ResponseUtils.buildErrorResponse(Response.Status.NOT_FOUND,
+          "Configuration with ID " + configId + " not found.");
     }
   }
 
