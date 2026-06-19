@@ -11,6 +11,11 @@ import org.apache.commons.collections4.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -235,13 +240,14 @@ public class PipelineTest {
     pipeline.addStage(new Stage1(config));
     pipeline.addStage(new Stage2(config));
   }
-  
+
   @Test
   public void testDroppedDocumentSkipsDownstreamStages() throws Exception {
     Pipeline pipeline = new Pipeline();
     Config config = ConfigFactory.empty();
     pipeline.addStage(new DropDocument(config));
-    pipeline.addStage(new Stage1(config));
+    Stage downstream = Mockito.spy(new Stage1(config));
+    pipeline.addStage(downstream);
 
     Document doc = Document.create("d1");
 
@@ -250,9 +256,9 @@ public class PipelineTest {
     pipeline.stopStages();
 
     assertEquals(1, results.size());
-    Document result = results.get(0);
-    assertTrue(result.isDropped());
-    assertFalse(result.has("s1"));
+    assertTrue(results.get(0).isDropped());
+
+    verify(downstream, never()).processConditional(any());
   }
 
   private static class Stage1 extends Stage {
