@@ -6,6 +6,8 @@ LABEL description="Lucille Search ETL base image"
 # Create a standard working directory
 WORKDIR /lucille
 
+RUN apt-get update && apt-get upgrade -y
+
 # Copy the built Lucille artifacts
 COPY lucille-core/target/lucille.jar /lucille/lib/
 COPY lucille-core/target/lib/ /lucille/lib/

@@ -46,6 +46,8 @@ LABEL description="Lucille API base image"
 
 WORKDIR /lucille-api
 
+RUN apt-get update && apt-get upgrade -y
+
 # we copy local build artifacts and configuration into the image that we're building
 COPY conf/ /lucille-api/conf/
 COPY target/ /lucille-api/target/
