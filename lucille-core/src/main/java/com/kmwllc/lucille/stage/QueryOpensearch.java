@@ -188,12 +188,13 @@ public class QueryOpensearch extends Stage {
 
     try (Response response = client.generic().execute(request)) {
       int status = response.getStatus();
-      String responseBody = response.getBody().map(Body::bodyAsString).orElse("");
-      // The client will return errored status codes instead of throwing if there was an issue, so we need to catch these ourselves
-      if (status < 200 || status >= 300 || responseBody.isBlank()) {
+
+      if (status < 200 || status >= 300 || response.getBody().isEmpty()) {
         throw new StageException("OpenSearch returned an unexpected response to a search template query (HTTP " + status
-            + "). Response body: " + responseBody);
+            + "). Response body: " + response.getBody());
       }
+
+      String responseBody = response.getBody().get().bodyAsString();
       responseNode = mapper.readTree(responseBody);
     } catch (IOException e) {
       throw new StageException("Error communicating with OpenSearch or parsing its response.", e);
