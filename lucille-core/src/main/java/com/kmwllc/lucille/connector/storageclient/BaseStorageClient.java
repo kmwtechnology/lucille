@@ -60,6 +60,8 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * Validate that the given config is sufficient to construct an instance of this StorageClient.
+   * Catches cases in which a config option being set requires another option to be set or not set, which is not covered by
+   * the Spec.
    * @throws IllegalArgumentException If the configuration is not sufficient for this StorageClient.
    */
   protected void validateOptions(Config config) { }
