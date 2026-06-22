@@ -179,7 +179,7 @@ public class ElasticsearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = uploadDocuments(documentsToUpload.values());
+    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload.values());
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
 
@@ -280,7 +280,7 @@ public class ElasticsearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, String>> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Pair<Document, Exception>> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }
