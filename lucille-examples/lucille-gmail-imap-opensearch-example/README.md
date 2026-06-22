@@ -35,8 +35,11 @@ indexing.
    # Optional overrides (defaults shown):
    # export OPENSEARCH_URL="http://localhost:9200"
    # export OPENSEARCH_INDEX="emailindex"
-   # export GMAIL_FOLDER="INBOX"
    ```
+
+   To crawl folders other than the inbox, edit the `folders` list in
+   [`conf/gmail-opensearch.conf`](conf/gmail-opensearch.conf), e.g. `folders: ["INBOX", "[Gmail]/Sent Mail"]`.
+   The connector logs all available folder names at startup.
 
    If your OpenSearch requires authentication, embed the credentials in the URL, e.g.
    `export OPENSEARCH_URL="https://admin:admin@localhost:9200"`.
@@ -65,8 +68,8 @@ indexing.
 
 The full configuration lives in [`conf/gmail-opensearch.conf`](conf/gmail-opensearch.conf):
 
-- **connector** — `IMAPConnector` pointed at `imap.gmail.com:993` over SSL, reading the `INBOX` folder. Set
-  `recurse: true` to also crawl sub-folders / labels.
+- **connector** — `IMAPConnector` pointed at `imap.gmail.com:993` over SSL, reading the folders in the `folders`
+  list (defaults to `["INBOX"]`). Set `recurse: true` to also crawl sub-folders / labels under each folder.
 - **pipeline** — renames `text` → `body` and deletes `html`.
 - **indexer** — `OpenSearch`, batching 100 docs at a time.
 - **opensearch** — `url` and `index` (defaults to `emailindex`).

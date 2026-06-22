@@ -34,8 +34,10 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.slf4j.Logger;
@@ -61,9 +63,11 @@ import org.slf4j.LoggerFactory;
  *   <li>username (String): The username / email address used to authenticate.</li>
  *   <li>password (String): The password (or app password) used to authenticate.</li>
  *   <li>port (Integer, Optional): The port to connect to. Defaults to the protocol default (993 for IMAPS, 143 for IMAP).</li>
- *   <li>folder (String, Optional): The name of the folder to crawl. Defaults to <code>INBOX</code>.</li>
+ *   <li>folders (List&lt;String&gt;, Optional): The names of the folders to crawl, each crawled in turn. For example,
+ *   <code>["INBOX", "[Gmail]/Sent Mail"]</code>. Defaults to <code>["INBOX"]</code>. Duplicate / overlapping folders
+ *   are crawled only once.</li>
  *   <li>useSSL (Boolean, Optional): Whether to connect using IMAPS (SSL/TLS). Defaults to <code>true</code>.</li>
- *   <li>recurse (Boolean, Optional): Whether to also crawl sub-folders of the configured folder. Defaults to <code>false</code>.</li>
+ *   <li>recurse (Boolean, Optional): Whether to also crawl sub-folders of each configured folder. Defaults to <code>false</code>.</li>
  *   <li>fetchBatchSize (Integer, Optional): How many messages to bulk-prefetch per server round-trip while crawling.
  *   Larger values reduce network round-trips (faster) at the cost of more memory per batch. Defaults to <code>100</code>.</li>
  *   <li>prefetchBody (Boolean, Optional): Whether to bulk-prefetch full message bodies along with metadata. Keeping this
@@ -86,10 +90,11 @@ public class IMAPConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("host", "username", "password")
-      .optionalString("folder", "uidStateFile")
+      .optionalString("uidStateFile")
       .optionalNumber("port", "fetchBatchSize")
       .optionalBoolean("useSSL", "recurse", "prefetchBody")
       .optionalList("excludeHeaderPrefixes", new TypeReference<List<String>>(){})
+      .optionalList("folders", new TypeReference<List<String>>(){})
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(IMAPConnector.class);
@@ -119,7 +124,7 @@ public class IMAPConnector extends AbstractConnector {
   private final String username;
   private final String password;
   private final int port;
-  private final String folderName;
+  private final List<String> folderNames;
   private final boolean useSSL;
   private final boolean recurse;
   private final String protocol;
@@ -143,7 +148,9 @@ public class IMAPConnector extends AbstractConnector {
     this.username = config.getString("username");
     this.password = config.getString("password");
     this.port = config.hasPath("port") ? config.getInt("port") : -1;
-    this.folderName = config.hasPath("folder") ? config.getString("folder") : "INBOX";
+    this.folderNames = (config.hasPath("folders") && !config.getStringList("folders").isEmpty())
+        ? config.getStringList("folders")
+        : List.of("INBOX");
     this.useSSL = config.hasPath("useSSL") ? config.getBoolean("useSSL") : true;
     this.recurse = config.hasPath("recurse") ? config.getBoolean("recurse") : false;
     this.protocol = useSSL ? "imaps" : "imap";
@@ -176,6 +183,11 @@ public class IMAPConnector extends AbstractConnector {
     this.externalStore = true;
   }
 
+  // Package-private accessor so tests can verify how the "folders" config is parsed.
+  List<String> getFolderNames() {
+    return folderNames;
+  }
+
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     boolean opened = false;
@@ -185,21 +197,26 @@ public class IMAPConnector extends AbstractConnector {
         opened = true;
       }
 
-      // Resolve the set of folder names up front. We crawl by name (rather than holding onto Folder objects)
-      // so that if the server closes the connection mid-crawl we can reconnect and re-resolve the folder.
-      Folder rootFolder = store.getFolder(folderName);
-      openFolder(rootFolder);
+      logAvailableFolders();
 
-      List<String> folderNames = new ArrayList<>();
-      folderNames.add(rootFolder.getFullName());
-      if (recurse) {
-        for (Folder subFolder : rootFolder.list()) {
-          folderNames.add(subFolder.getFullName());
+      // Resolve the full set of folder names to crawl up front. We crawl by name (rather than holding onto Folder
+      // objects) so that if the server closes the connection mid-crawl we can reconnect and re-resolve the folder.
+      // A LinkedHashSet preserves configuration order while removing any duplicates (e.g. when configured folders
+      // overlap, or a sub-folder is also listed explicitly), so no folder is crawled twice.
+      Set<String> foldersToProcess = new LinkedHashSet<>();
+      for (String configuredFolder : folderNames) {
+        Folder rootFolder = store.getFolder(configuredFolder);
+        openFolder(rootFolder);
+        foldersToProcess.add(rootFolder.getFullName());
+        if (recurse) {
+          for (Folder subFolder : rootFolder.list()) {
+            foldersToProcess.add(subFolder.getFullName());
+          }
         }
       }
 
       int count = 0;
-      for (String name : folderNames) {
+      for (String name : foldersToProcess) {
         count += processFolder(name, publisher);
       }
 
@@ -240,6 +257,29 @@ public class IMAPConnector extends AbstractConnector {
       throw new ConnectorException(guidance, e);
     } catch (MessagingException e) {
       throw new ConnectorException("Failed to connect to IMAP server " + host, e);
+    }
+  }
+
+  /**
+   * Lists every folder available in the mailbox and logs their full names. This is informational only (it never
+   * fails the crawl) and is handy for discovering the exact folder names to put in the <code>folder</code> config -
+   * for Gmail, labels surface here as folders (e.g. <code>[Gmail]/All Mail</code>, <code>[Gmail]/Sent Mail</code>).
+   */
+  private void logAvailableFolders() {
+    try {
+      // "*" lists all folders recursively under the default (root) folder.
+      Folder[] folders = store.getDefaultFolder().list("*");
+      if (folders.length == 0) {
+        log.info("No folders found in mailbox on host {}.", host);
+        return;
+      }
+      StringBuilder sb = new StringBuilder();
+      for (Folder folder : folders) {
+        sb.append("\n  ").append(folder.getFullName());
+      }
+      log.info("Found {} folder(s) in mailbox on host {}:{}", folders.length, host, sb);
+    } catch (MessagingException e) {
+      log.warn("Unable to list available folders on host {}.", host, e);
     }
   }
 

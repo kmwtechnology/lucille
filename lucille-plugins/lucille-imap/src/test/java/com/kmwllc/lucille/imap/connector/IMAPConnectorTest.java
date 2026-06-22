@@ -190,6 +190,29 @@ public class IMAPConnectorTest {
   }
 
   @Test
+  public void testFoldersDefaultsToInbox() {
+    // With no "folders" configured, the connector crawls INBOX.
+    assertEquals(java.util.List.of("INBOX"), connector().getFolderNames());
+  }
+
+  @Test
+  public void testFoldersListIsParsed() {
+    Config config = baseConfig().withFallback(
+        ConfigFactory.parseString("folders = [\"INBOX\", \"[Gmail]/Sent Mail\"]"));
+    IMAPConnector connector = new IMAPConnector(config);
+
+    assertEquals(java.util.List.of("INBOX", "[Gmail]/Sent Mail"), connector.getFolderNames());
+  }
+
+  @Test
+  public void testEmptyFoldersListFallsBackToInbox() {
+    Config config = baseConfig().withFallback(ConfigFactory.parseString("folders = []"));
+    IMAPConnector connector = new IMAPConnector(config);
+
+    assertEquals(java.util.List.of("INBOX"), connector.getFolderNames());
+  }
+
+  @Test
   public void testCustomExcludePrefixes() throws Exception {
     // Prefixes are matched against the cleaned (lower-cased, underscore) header name; "dkim-" -> "dkim_".
     Config config = baseConfig().withFallback(
