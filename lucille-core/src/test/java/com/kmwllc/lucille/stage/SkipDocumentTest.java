@@ -18,8 +18,8 @@ public class SkipDocumentTest {
     Stage stage = factory.get("SkipDocumentTest/config.conf");
 
     Document doc = Document.create("doc");
-    // setting a field called .skipped should throw an exception as a reserved field
-    assertThrows(IllegalArgumentException.class, () -> doc.setField(".skipped", "test"));
+    // setting a field called ___skipped should throw an exception as a reserved field
+    assertThrows(IllegalArgumentException.class, () -> doc.setField("___skipped", "test"));
 
     assertFalse(doc.isSkipped());
     stage.processDocument(doc);

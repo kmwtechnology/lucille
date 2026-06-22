@@ -24,6 +24,7 @@ class Worker implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
+  private static final Logger failedDocLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.FailedDocuments");
 
   private final WorkerMessenger messenger;
   private final String localRunId;
@@ -95,16 +96,17 @@ class Worker implements Runnable {
 
         if (trackRetries && counter.add(doc)) {
           try {
-            log.info("Retry count exceeded for document " + doc.getId() + "; Sending to failure topic");
+            docLogger.error("Document FAILED: retry count exceeded for {}. Sending to dead letter queue.", doc.getId());
+            failedDocLogger.atError().setMessage(() -> doc.toString()).log();
             messenger.sendFailed(doc);
           } catch (Exception e) {
-            log.error("Failed to send doc to failure topic: " + doc.getId(), e);
+            docLogger.error("Failed to send doc to failure topic: {}", doc.getId(), e);
           }
 
           try {
             messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
           } catch (Exception e) {
-            log.error("Failed to send completion event for: " + doc.getId(), e);
+            docLogger.error("Failed to send completion event for: {}", doc.getId(), e);
           }
 
           commitOffsetsAndRemoveCounter(doc);
@@ -139,11 +141,12 @@ class Worker implements Runnable {
 
           context.stop();
         } catch (Exception e) {
-          log.error("Error processing document: " + doc.getId(), e);
+          docLogger.error("Document FAILED during pipeline processing: {}", doc.getId(), e);
+          failedDocLogger.atError().setMessage(() -> doc.toString()).log();
           try {
             messenger.sendEvent(doc, null, Event.Type.FAIL);
           } catch (Exception e2) {
-            log.error("Error sending failure event for document: " + doc.getId(), e2);
+            docLogger.error("Error sending failure event for document: {}", doc.getId(), e2);
           }
 
           commitOffsetsAndRemoveCounter(doc);

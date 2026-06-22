@@ -50,9 +50,9 @@ public interface Document {
 
   String ID_FIELD = "id";
   String RUNID_FIELD = "run_id";
-  String CHILDREN_FIELD = ".children";
-  String DROP_FIELD = ".dropped";
-  String SKIP_FIELD = ".skipped";
+  String CHILDREN_FIELD = "___children";
+  String DROP_FIELD = "___dropped";
+  String SKIP_FIELD = "___skipped";
   Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD));
 
 

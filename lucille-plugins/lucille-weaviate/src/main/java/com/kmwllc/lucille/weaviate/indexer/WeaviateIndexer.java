@@ -59,6 +59,10 @@ public class WeaviateIndexer extends Indexer {
       String metricsPrefix, String localRunId) {
     super(config, messenger, false, metricsPrefix, localRunId);
 
+    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
+      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
+    }
+
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
@@ -119,8 +123,8 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
-    Set<Pair<Document, String>> failedDocs = new HashSet<>();
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
       Map<String, Document> docGeneratedUUIDMap = new HashMap<>();
@@ -167,7 +171,7 @@ public class WeaviateIndexer extends Indexer {
 
         if (errorResponse != null) {
           Document docWithResponseUUID = docGeneratedUUIDMap.get(response.getId());
-          failedDocs.add(Pair.of(docWithResponseUUID, errorResponse.toString()));
+          failedDocs.add(Pair.of(docWithResponseUUID, new IndexerException(errorResponse.toString())));
         }
       }
     } catch (Exception e) {

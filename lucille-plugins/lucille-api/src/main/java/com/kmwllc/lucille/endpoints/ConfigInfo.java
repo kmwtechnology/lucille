@@ -27,6 +27,7 @@ import jakarta.ws.rs.core.Response;
 import java.util.*;
 import java.io.InputStream;
 import java.io.IOException;
+import java.util.stream.Stream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -175,8 +176,18 @@ public class ConfigInfo {
   private ArrayNode buildSpecArrayForSubclasses(String baseClassName, Map<String, ComponentDoc> docs)
       throws NoSuchFieldException, IllegalAccessException {
     ArrayNode array = mapper.createArrayNode();
+
+    String extraPackages = System.getProperty("scan.extra.packages", "");
+
+    String[] packages = Stream.concat(
+        Stream.of("com.kmwllc.lucille"),
+        Arrays.stream(extraPackages.split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+    ).toArray(String[]::new);
+
     // Use ClassGraph to scan the classpath
-    try (ScanResult scanResult = new ClassGraph().enableAllInfo().scan()) {
+    try (ScanResult scanResult = new ClassGraph().enableClassInfo().acceptPackages(packages).scan()) {
       // Find every class that is a subclass of the provided class name
       ClassInfoList classes = scanResult.getSubclasses(baseClassName);
       // Load whatever matches were found as class objects

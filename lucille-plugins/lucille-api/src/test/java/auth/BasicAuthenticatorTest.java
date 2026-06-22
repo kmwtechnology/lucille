@@ -1,8 +1,6 @@
 package auth;
 
 import static org.junit.Assert.assertEquals;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 
 import org.junit.Test;
@@ -26,8 +24,7 @@ public class BasicAuthenticatorTest {
     Optional<PrincipalImpl> user = Optional.of(new PrincipalImpl("test"));
     RunnerManager runnerManager = RunnerManager.getInstance();
     LucilleResource api = new LucilleResource(runnerManager, authHandler);
-    Map<String, Object> configBody = new HashMap<>();
-    configBody.put("pipeline", "testPipeline");
+    String configBody = "pipeline = \"testPipeline\"";
     Response status = api.createConfig(user, configBody);
     assertEquals(200, status.getStatus());
   } 
@@ -40,8 +37,7 @@ public class BasicAuthenticatorTest {
     Optional<PrincipalImpl> noUser = Optional.empty();
     RunnerManager runnerManager = RunnerManager.getInstance();
     LucilleResource api = new LucilleResource(runnerManager, authHandler);
-    Map<String, Object> configBody = new HashMap<>();
-    configBody.put("pipeline", "testPipeline");
+    String configBody = "pipeline = \"testPipeline\"";
     Response status = api.createConfig(noUser, configBody);
     assertEquals(401, status.getStatus());
   }

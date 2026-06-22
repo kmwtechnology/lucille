@@ -114,13 +114,14 @@ INSERT INTO test_data_types (
 
 CREATE TABLE test_time_type (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    time_col TIME
+    time_col TIME,
+    integer_col INTEGER
 );
 
 INSERT INTO test_time_type (
-    time_col
+    time_col, integer_col
 ) VALUES (
-    '00:00:00.0000000'
+    '00:00:00.0000000', 7
 );
 
 CREATE TABLE time_with_timezone_type (

@@ -10,11 +10,11 @@ import java.net.URI;
 
 import java.io.File;
 import java.io.StringReader;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -22,7 +22,6 @@ import java.util.List;
 
 import org.apache.commons.io.FileUtils;
 import org.h2.tools.RunScript;
-import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -230,6 +229,45 @@ public class FileConnectorStateManagerTest {
       assertTrue(secretInstant.isBefore(Instant.now()) && secretInstant.isAfter(start));     }
 
     manager.shutdown();
+  }
+
+  @Test
+  public void testStateEnabledTrue() throws Exception {
+    // we would like to make sure state gets enabled when we have state.enabled: true in the config
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("state.enabled", ConfigValueFactory.fromAnyRef(true));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher);
+    conn.close();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement()) {
+      ResultSet rs = stmt.executeQuery("SELECT * FROM \"FILE-CONNECTOR-1\"");
+      assertNotNull(rs);
+      System.out.println(rs);
+    }
+  }
+
+  @Test(expected = SQLException.class)
+  public void testStateDisabled() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("state.enabled", ConfigValueFactory.fromAnyRef(false));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector conn = new FileConnector(config);
+    conn.execute(publisher);
+    conn.close();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement()) {
+        stmt.executeQuery("SELECT * FROM \"FILE-CONNECTOR-1\"");
+    }
   }
 
   // Full mode republishes everything on every run regardless of last_published; state DB is still updated.

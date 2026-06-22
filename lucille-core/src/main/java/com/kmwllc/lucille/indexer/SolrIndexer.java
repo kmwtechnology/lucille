@@ -146,7 +146,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     if (bypass) {
       log.debug("sendToSolr bypassed for documents: " + documents);
       return Set.of();
@@ -216,7 +216,7 @@ public class SolrIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = new HashSet<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     for (String collection : solrDocRequestsByCollection.keySet()) {
       List<SolrInputDocument> collectionDocs = solrDocRequestsByCollection.get(collection).getAddUpdateDocs();
@@ -229,7 +229,7 @@ public class SolrIndexer extends Indexer {
           String docId = d.getFieldValue(Document.ID_FIELD).toString();
 
           if (docsUploaded.containsKey(docId)) {
-            failedDocs.add(Pair.of(docsUploaded.get(docId), e.getMessage()));
+            failedDocs.add(Pair.of(docsUploaded.get(docId), e));
           } else {
             throw e;
           }

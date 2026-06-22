@@ -230,4 +230,25 @@ public class ApplyJSONataTest {
     assertEquals("doc1", doc.getId());
     assertNull(doc.getJson("destination"));
   }
+
+  @Test
+  public void testApplyReservedFields() throws StageException {
+    // We have updated the reserved fields to use underscores instead (ex. ___chlidren vs .children), because if not handled correctly,
+    //  it would break this use case where we want to use the ___children field with nested funtionality.
+
+    Stage stage = factory.get("ApplyJSONataTest/reservedFields.conf");
+    // Expression: $[0].enabled ? $[0].enabled : false
+    Document child0 = Document.create("child0");
+    child0.setField("enabled", true);
+    Document child1 = Document.create("child1");
+    child1.setField("enabled", false);
+    Document doc = Document.create("doc1");
+    doc.addChild(child0);
+    doc.addChild(child1);
+
+    stage.processDocument(doc);
+
+    assertEquals(true, child0.getBoolean("enabled"));
+    assertEquals(true, doc.getBoolean("isEnabled"));
+  }
 }

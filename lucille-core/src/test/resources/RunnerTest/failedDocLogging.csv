@@ -1,0 +1,3 @@
+id,title,shouldFail
+doc1,Hello World,true
+doc2,Goodbye World,false

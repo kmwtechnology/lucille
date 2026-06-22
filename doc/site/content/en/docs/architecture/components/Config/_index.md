@@ -1,134 +1,56 @@
 ---
 title: Config
+weight: 11
 date: 2025-06-09
-description: The Config is a HOCON file where you define the settings for running Lucille.
+description: Why Lucille is configuration-driven, and how the choice of HOCON and Typesafe Config shapes the system.
 ---
 
-## Lucille Configuration
+## Configuration as an Architectural Principle
 
-When you run Lucille, you provide a path to a file which provides configuration for your run. Configuration (Config) files use HOCON, 
-a superset of JSON. This file defines all the components in your Lucille run. 
+Lucille is a configuration-driven system. Every aspect of an ingest — which sources to read, which enrichment stages to apply, which search backend to write to, how many worker threads to run, what retry policy to use — is declared in a configuration file rather than hardcoded in application logic.
 
-**Quick references**
+This is not merely a convenience. It is a fundamental architectural decision with consequences that ripple through the entire system:
 
-* Example (local single-process): [application-example.conf](https://github.com/kmwtechnology/lucille/blob/main/application-example.conf)
-* Example (S3 OpenSearch): [s3-opensearch.conf](https://github.com/kmwtechnology/lucille/blob/main/lucille-examples/lucille-s3-ingest-example/conf/s3-opensearch.conf)
-* HOCON / Typesafe Config docs: [lightbend/config](https://github.com/lightbend/config)
+**Separation of concerns.** The framework provides the execution engine; the configuration provides the instructions. A developer can change what an ingest does — add a stage, switch a connector, adjust batch sizes — without modifying or rebuilding any code. The same compiled JAR serves every ingest; only the config file changes.
 
-A complete config file must contain three elements (Connector(s), Pipeline(s), Indexer):
+**Composability.** Because ingests are defined declaratively, they can be composed from reusable pieces. A connector definition, a pipeline fragment, or a set of connection parameters can be defined once and included in multiple configs. This prevents drift and duplication across an organization's ingests.
 
-### Connectors
+**Validatability.** Because every component declares what configuration it expects (via the SPEC system), the entire config can be validated before any work begins. Errors are caught at startup — all at once, not one at a time — rather than surfacing mid-run after hours of processing.
 
-Connectors read data from a source and emit it as a sequence of individual Documents, which will then be sent to a Pipeline for enrichment.
+**Environment portability.** The same config file works across development, staging, and production by substituting environment-specific values (URLs, credentials, index names) from environment variables at load time. No code changes, no separate config files per environment, no rebuild.
 
-`connectors` should be populated with a list of Connector configurations. 
+---
 
-See [Connectors]({{< relref "docs/architecture/components/connectors" >}}) for more information about configuring Connectors.
+## Why HOCON and Typesafe Config
 
-### Pipeline and Stages
+The choice of configuration format and library is not a peripheral implementation detail. In a system where every component — every Stage, Connector, and Indexer — receives its instructions through configuration, the config library is effectively the API between the user and the framework. Its capabilities and limitations shape what users can express and how the system behaves.
 
-A pipeline is a list of Stages that will be applied to incoming Documents, preparing them for indexing.
-As each Connector executes, the Documents it publishes can be processed by a Pipeline, made up of Stages. 
+Lucille uses [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) (Human-Optimized Config Object Notation) parsed by the [Typesafe Config](https://github.com/lightbend/config) library. This choice provides several properties that matter architecturally:
 
-`pipelines` should be populated with a list of Pipeline configurations. Each Pipeline needs two values: `name`, 
-the name of the Pipeline, and `stages`, a list of the Stages to use. Multiple connectors may feed to the same Pipeline. 
+**Comments.** A config file that defines an entire ingestion pipeline — potentially dozens of stages, multiple connectors, connection details, tuning parameters — requires annotation. JSON does not support comments. HOCON does. This is not a minor ergonomic preference; it is the difference between a config that is self-documenting and one that requires external documentation to understand.
 
-See [Stages]({{< relref "docs/architecture/components/stages" >}}) for more information about configuring Stages.
+**Environment variable substitution.** The `${?ENV_VAR}` syntax allows credentials and environment-specific values to be injected at load time without any application code involvement. This means the framework never needs to implement its own env-var resolution logic, and the precedence rules (file value vs. env var) are defined in one place — the config file itself — rather than scattered across component implementations.
 
-### Indexer
+**File includes.** HOCON's `include` directive enables config composition. Shared settings (connection strings, common pipeline fragments) are defined once and included everywhere. This is what makes it practical for an organization to maintain dozens of ingests against shared infrastructure without duplicating connection details that drift out of sync.
 
-An indexer sends processed Documents to a specific destination. Only one Indexer can be defined; all pipelines will feed to the same Indexer.
+**Internal variable substitution.** HOCON supports references within a config file, so a value defined once can be reused across multiple blocks. Combined with environment variable substitution, this eliminates repetition and ensures consistency — change a value in one place and it propagates everywhere it's referenced.
 
-A full indexer configuration has two separate config blocks: first, the generic `indexer` configuration, and second, configuration for the specific indexer
-used in your run. For example, to use the `SolrIndexer`, you provide separate `indexer` and `solr` config blocks.
+**Relaxed syntax.** HOCON allows omitting quotes around keys, using `=` or `:` for assignment, and trailing commas. This makes configs more readable and less error-prone to edit by hand than strict JSON.
 
-See [Indexers]({{< relref "docs/architecture/components/indexers" >}}) for more information about configuring your Indexer.
+**List concatenation.** HOCON supports appending to lists and concatenating adjacent arrays. This enables patterns like composing a stages list from multiple included fragments — each fragment contributes its stages, and HOCON merges them into a single list at resolution time.
 
-### Other Run Configuration
+**Typed access with path expressions.** The Typesafe Config library provides `getString()`, `getInt()`, `getConfigList()`, and other typed accessors with dot-path navigation. This means component code reads configuration through a clean, typed API rather than parsing raw text. Type errors are caught at access time with clear messages.
 
-In addition to those three elements, you can also configure other parts of a Lucille run.
-* `publisher` - Define the `queueCapacity`.
-* `log`
-* `runner`
-* `zookeeper`
-* `kafka` - Provide a `consumerPropertyFile`, `producerPropertyFile`, `adminPropertyFile`, and other configuration.
-* `worker` - Control how many `threads` you want, the `maxRetries` in Zookeeper, and more.
+**Automatic resolution order.** The library merges configuration from system properties, the application config file, and reference defaults in a defined precedence. This means any config value can be overridden via a system property (`-Dproperty=value`) without modifying the file — useful for one-off test runs and CI overrides.
 
-## Validation
+**Config file selection at runtime.** The `-Dconfig.file` system property tells Lucille which config file to use. This keeps the application generic — the same JAR, the same classpath, the same entrypoint — with only the config file varying between runs. In containerized deployments, this means a single Docker image can serve any ingest by varying an environment variable at launch time.
 
-Lucille validates the Config you provide for Connectors, Stages, and Indexers. For example, in a Stage, if you provide a property 
-the Stage does not use, an Exception will be thrown. An Exception will also be thrown if you do not provide a property required by
-the Stage. 
+These properties combine to make configuration a first-class architectural concern rather than an afterthought. The config file is not just "where you put settings" — it is the primary interface through which users interact with the framework, and its expressiveness directly determines how maintainable, portable, and correct an ingest can be.
 
-If you want to validate your config file without starting an actual run, you can use our command-line validation tool. Just add 
-`-validate` to the end of your command executing Lucille. The errors with your config will be printed out to the console, and
-no actual run will take place.
+---
 
-### Config Validation
-Lucille components (like Stages, Indexers, and Connectors) each take in a set of specific arguments to configure the component correctly.
-Sometimes, certain properties are required - like the `paths` for your `FileConnector` traversal, or the `path` for your
-`CSVIndexer`. Other properties are optional / do not always have to be specified.
+## Practical Guides
 
-For these components, developers must declare a `Spec` which defines the properties that are required or optional. They must
-also declare what type each property is (number, boolean, string, etc.). For example, the `SequenceConnector` requires you
-to specify the `numDocs` you want to create, and optionally, the number you want IDs to `startWith`. So, the `Spec` looks like this:
+For how to write a config file, see [Writing a Config]({{< relref "docs/reference/writing-a-config" >}}) in the Ingest Designer Guide.
 
-```java
-public static final Spec SPEC = SpecBuilder.connector()
-      .requiredNumber("numDocs")
-      .optionalNumber("startWith")
-      .build();
-```
-
-### Declaring a Spec
-
-Lucille is designed to access Specs reflectively. If you build a Stage/Indexer/Connector/File Handler, you need to declare a `public static Spec` 
-named `SPEC` (exactly). Failure to do so will not result in a _compile-time_ error. However, you will not be able
-to instantiate your component - even in unit tests - as the reflective access (which takes place in the super / abstract class) will always fail.
-
-When you declare the `public static Spec SPEC`, you'll want to call the appropriate `SpecBuilder` method which provides appropriate
-default arguments for your component. For example, if you are building a Stage, you should call `SpecBuilder.stage()`, which allows
-the config to include `name`, `class`, `conditions`, and `conditionPolicy`. 
-
-### Lists and Objects
-
-Validating a list / object is a bit tricky. When you declare a required / optional list or object in a Config, you can either
-provide:
-
-1. A `TypeReference` describing what the unwrapped List/Object should deserialize/cast to.
-2. A `Spec`, for a list, or a named Spec (created via SpecBuilder.parent()), for an object, describing the valid properties. (Use a `Spec` for a list when you need a `List<Config>` with specific structure. For example, `Stage` conditions.)
-
-### Parent / Child Validation
-
-Some configs include properties which are objects, containing _even more_ properties. For example, in the `FileConnector`, you
-can specify `fileOptions` - which includes a variety of additional arguments, like `getFileContent`, `handleArchivedFiles`, and more. 
-This is defined in a parent Spec, created via SpecBuilder.parent(), which has a name (the key the config is held under) and has its own required/optional properties.
-The `fileOptions` parent `Spec` is:
-
-```java
-SpecBuilder.parent("fileOptions")
-  .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
-  .optionalString("moveToAfterProcessing", "moveToErrorFolder").build();
-```
-
-A parent `Spec` can be either required or optional. When the parent is present, its properties will be validated against this parent `Spec`.
-
-There will be times that you can't know what the field names would be in advance. For example, a field mapping of some kind.
-In this case, you should pass in a `TypeReference` describing what type the unwrapped `ConfigObject` should deserialize/cast to.
-For example, if you want a field mapping of Strings to Strings, you'd pass in `new TypeReference<Map<String, String>>(){}`.
-In general, you should use a `Spec` when you know field names, and a `TypeReference` when you don't.
-
-### Why Validate?
-
-Obviously, you will get an error if you call `config.getString("field")` when `"field"` is not specified. However, additional validation
-on Configs is still useful/necessary for two primary reasons:
-
-1. **Command-line utility**
-
-We want to allow the command-line validation utility to provide a comprehensive list of a Config's errors. As such, Lucille has to
-validate the config before a Stage/Connector/Indexer begins accessing properties and potentially throwing a `ConfigException`.
-
-2. **Prevent typos from ruining your pipeline**
-
-A mistyped field name could have massive ripple effects throughout your pipeline. As such, each Stage/Connector/Indexer needs to
-have a specific set of legal Config properties, so Exceptions can be raised for unknown or unrecognized properties.
+For operational patterns — environment variable substitution, containerized deployment, config composition, and distributed mode configuration — see [Configuration Management]({{< relref "docs/operations/configuration" >}}) in the Operations Guide.
