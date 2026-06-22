@@ -357,7 +357,7 @@ public class ElasticsearchIndexerTest {
     assertEquals(2, deleteByQueryRequestValue.size());
     // checking each request
     for (DeleteByQueryRequest deleteByQueryRequest : deleteByQueryRequestValue) {
-      assert deleteByQueryRequest.query() != null;
+      assertNotNull(deleteByQueryRequest.query());
       BoolQuery query = deleteByQueryRequest.query().bool();
       // check that we did not set filter, must or mustnot
       assertEquals(0, query.filter().size());
@@ -409,7 +409,7 @@ public class ElasticsearchIndexerTest {
 
     assertEquals(1, deleteByQueryRequestArgumentCaptor.getAllValues().size());
     DeleteByQueryRequest deleteByQueryRequestValue = deleteByQueryRequestArgumentCaptor.getAllValues().get(0);
-    assert deleteByQueryRequestValue.query() != null;
+    assertNotNull(deleteByQueryRequestValue.query());
     BoolQuery query = deleteByQueryRequestValue.query().bool();
     assertEquals("1", query.minimumShouldMatch());
 
