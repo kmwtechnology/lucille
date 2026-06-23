@@ -863,7 +863,7 @@ public class JsonDocument implements Document {
           }
           first = false;
           // quoted key plus the colon separator
-          size += entry.getKey().getBytes(StandardCharsets.UTF_8).length + 3;
+          size += utf8Length(entry.getKey()) + 3;
           size += estimateJsonSize(entry.getValue());
         }
         return size;
@@ -881,7 +881,7 @@ public class JsonDocument implements Document {
         return size;
       }
       case STRING:
-        return node.textValue().getBytes(StandardCharsets.UTF_8).length + 2; // content plus quotes
+        return utf8Length(node.textValue()) + 2; // content plus quotes
       case NUMBER:
         return node.asText().length();
       case BOOLEAN:
@@ -893,6 +893,31 @@ public class JsonDocument implements Document {
         // any other type, just fall back to serialization
         return node.toString().getBytes(StandardCharsets.UTF_8).length;
     }
+  }
+
+  /**
+   * Returns the number of bytes the given String requires when encoded as UTF-8. This iterates the
+   * String directly and sums the per-character byte count.
+   *
+   * @param s the String to measure.
+   * @return the UTF-8 encoded length of the String in bytes.
+   */
+  private static int utf8Length(String s) {
+    int bytes = 0;
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c <= 0x7F) {
+        bytes += 1;
+      } else if (c <= 0x7FF) {
+        bytes += 2;
+      } else if (Character.isHighSurrogate(c) && i + 1 < s.length() && Character.isLowSurrogate(s.charAt(i + 1))) {
+        bytes += 4; // a surrogate pair encodes a single 4-byte code point
+        i++; // skip the low surrogate we just consumed
+      } else {
+        bytes += 3;
+      }
+    }
+    return bytes;
   }
 
   @Override
