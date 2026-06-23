@@ -7,6 +7,7 @@ import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
+import com.kmwllc.lucille.core.Runner.RunType;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
@@ -19,6 +20,7 @@ import org.apache.logging.log4j.core.Logger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -26,6 +28,7 @@ import org.mockito.Mockito;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
@@ -841,6 +844,102 @@ public class RunnerTest {
     assertTrue(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteValid.conf"), Runner.RunType.LOCAL).getStatus());
   }
 
+  /**
+   * Verifies that the -usekafka and -local command line flags assign to the proper RunType during a run
+   */
+  @Test
+  public void testRunTypeCliFlags() throws Exception {
+    assertEquals(Runner.RunType.LOCAL, runTypeForArgs());
+
+    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-usekafka"));
+    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-useKafka"));
+    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-USEKAFKA"));
+
+    assertEquals(Runner.RunType.KAFKA_LOCAL, runTypeForArgs("-usekafka", "-local"));
+    assertEquals(Runner.RunType.KAFKA_LOCAL, runTypeForArgs("-useKafka", "-LOCAL"));
+  }
+
+  /**
+   * Verifies that the -validate and -render command line flags route to the correct actions and exit
+   * without kicking off an actual run.
+   */
+  @Test
+  public void testValidateAndRenderCliFlags() throws Exception {
+    // -validate runs validation, but doesn't render the config or kick off a run
+    runMainWithMockedRunner(new String[] {"-validate"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
+      mockedRunner.verify(() -> Runner.renderConfig(any()), never());
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+    });
+
+    // -render prints the rendered config, but doesn't validate it or kick off a run
+    runMainWithMockedRunner(new String[] {"-render"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+    });
+
+    // the two flags can be combined; both actions run and still no actual run is kicked off
+    runMainWithMockedRunner(new String[] {"-validate", "-render"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+    });
+
+    // case insensitivity
+    runMainWithMockedRunner(new String[] {"-VALIDATE", "-Render"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
+      mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
+    });
+  }
+
+  /**
+   * Intercepts the run so no actual Lucille run takes place, and returns the RunType that main() resolved the args to.
+   */
+  private Runner.RunType runTypeForArgs(String... args) throws Exception {
+    ArgumentCaptor<Runner.RunType> runTypeCaptor = ArgumentCaptor.forClass(Runner.RunType.class);
+    runMainWithMockedRunner(args, mockedRunner ->
+        mockedRunner.verify(() -> Runner.runAndLogResult(any(), runTypeCaptor.capture(), anyBoolean())));
+    return runTypeCaptor.getValue();
+  }
+
+  /**
+   * Runs Runner.main() with the given args inside a mocked context, then hands the MockedStatic for
+   * Runner to the given verifier so it can assert how the args were routed.
+   *
+   * System.exit() is stubbed so it doesn't terminate the test JVM, and the methods
+   * main() can reach (runAndLogResult, renderConfig, runInValidationMode) are stubbed so main()'s
+   * real arg-parsing logic executes but no run, render, or validation actually takes place. All other
+   * static Runner methods, notably getRunType(), call through to the real implementation.
+   */
+  private void runMainWithMockedRunner(String[] args, Consumer<MockedStatic<Runner>> verifier) throws Exception {
+    RunResult mockResult = mock(RunResult.class);
+    when(mockResult.getStatus()).thenReturn(true);
+
+    try (MockedStatic<Runner.SystemHelper> mockedHelper = mockStatic(Runner.SystemHelper.class);
+        MockedStatic<Runner> mockedRunner = mockStatic(Runner.class, invocation -> {
+          switch (invocation.getMethod().getName()) {
+            case "runAndLogResult":
+              return mockResult;
+            case "runInValidationMode":
+              return Collections.emptyMap();
+            case "renderConfig":
+              return null;
+            default:
+              return invocation.callRealMethod();
+          }
+        })) {
+      assertNull(System.getProperty("config.file"));
+      System.setProperty("config.file", "src/test/resources/RunnerTest/singleDocSendEnabledFalse.conf");
+      try {
+        Runner.main(args);
+      } finally {
+        System.clearProperty("config.file");
+      }
+      verifier.accept(mockedRunner);
+    }
+  }
+
   @Test
   public void testMetrics() throws Exception {
     SharedMetricRegistries.clear();
@@ -1088,6 +1187,72 @@ public class RunnerTest {
         }
       }
     }
+  }
+
+
+  /**
+   * Verifies that when a document fails during pipeline processing, its full JSON is logged
+   * to the FailedDocuments logger, and that the JSON can be parsed back into a Document
+   * (i.e., it is valid for replay via FileConnector with the JSON handler).
+   */
+  @Test
+  public void testFailedDocumentLogging() throws Exception {
+    StoringAppender appender = null;
+    Logger logger = null;
+
+    try {
+      appender = new StoringAppender();
+      appender.start();
+      logger = (Logger) LogManager.getLogger("com.kmwllc.lucille.core.FailedDocuments");
+      logger.setLevel(org.apache.logging.log4j.Level.ERROR);
+      logger.addAppender(appender);
+
+      Runner.run(ConfigFactory.load("RunnerTest/failedDocLogging.conf"), Runner.RunType.TEST);
+
+      // Only doc1 should fail (shouldFail=true); doc2 should succeed (shouldFail=false)
+      List<String> messages = appender.getMessages();
+      assertEquals(1, messages.size());
+
+      // Verify the logged JSON is valid and round-trips back to a Document
+      String failedJson = messages.get(0);
+      Document replayed = Document.createFromJson(failedJson);
+      assertEquals("doc1", replayed.getId());
+      assertEquals("Hello World", replayed.getString("title"));
+
+    } finally {
+      if (logger != null && appender != null) {
+        logger.removeAppender(appender);
+        appender.stop();
+      }
+    }
+  }
+
+  @Test
+  public void testMetricsCleanup() throws Exception {
+    SharedMetricRegistries.clear();
+    assertEquals(0, SharedMetricRegistries.names().size());
+
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("my-run-id.dummy.metric");
+    Config config = ConfigFactory.load("RunnerTest/noop.conf");
+    // run w/ UUID generated
+    RunResult res1 = Runner.runAndLogResult(config, RunType.LOCAL, false);
+    assertTrue(res1.getStatus());
+
+    // two metrics created by validation, and then the one i just added
+    assertEquals(3, SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).getNames().size());
+
+    RunResult res2 = Runner.runAndLogResult(config, RunType.LOCAL, "my-run-id", false);
+    assertTrue(res2.getStatus());
+
+    // no metrics (other than indexer validation) should be lingering & the metrics created by the run
+    // should no longer be present as well
+    assertEquals(2, SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).getNames().size());
+  }
+
+  @Test
+  public void testBadIdRunAndLogResult() throws Exception {
+    Config config = ConfigFactory.load("RunnerTest/noop.conf");
+    assertThrows(IllegalArgumentException.class, () -> Runner.runAndLogResult(config, RunType.LOCAL, null, false));
   }
 
 }

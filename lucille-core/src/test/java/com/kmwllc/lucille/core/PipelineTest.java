@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.stage.CreateChildrenStage;
+import com.kmwllc.lucille.stage.DropDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
@@ -10,6 +11,11 @@ import org.apache.commons.collections4.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -233,6 +239,26 @@ public class PipelineTest {
     Config config = ConfigFactory.empty().withValue("name", ConfigValueFactory.fromAnyRef("stage1"));
     pipeline.addStage(new Stage1(config));
     pipeline.addStage(new Stage2(config));
+  }
+
+  @Test
+  public void testDroppedDocumentSkipsDownstreamStages() throws Exception {
+    Pipeline pipeline = new Pipeline();
+    Config config = ConfigFactory.empty();
+    pipeline.addStage(new DropDocument(config));
+    Stage downstream = Mockito.spy(new Stage1(config));
+    pipeline.addStage(downstream);
+
+    Document doc = Document.create("d1");
+
+    pipeline.startStages();
+    List<Document> results = IteratorUtils.toList(pipeline.processDocument(doc));
+    pipeline.stopStages();
+
+    assertEquals(1, results.size());
+    assertTrue(results.get(0).isDropped());
+
+    verify(downstream, never()).processConditional(any());
   }
 
   private static class Stage1 extends Stage {

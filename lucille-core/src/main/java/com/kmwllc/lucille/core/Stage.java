@@ -263,6 +263,10 @@ public abstract class Stage {
           return null;
         }
 
+        if (d.isDropped() || d.isSkipped()) {
+          return d;
+        }
+
         try {
           current = apply(d);
         } catch (StageException e) {
