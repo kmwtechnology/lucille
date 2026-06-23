@@ -66,7 +66,6 @@ public class FileConnectorStateManager {
   private Connection jdbcConnection;
   private PreparedStatement queryStatement;
   private PreparedStatement updateStatement;
-  private PreparedStatement resetStatement;
   private PreparedStatement insertNewFileStatement;
 
   /**
@@ -129,11 +128,8 @@ public class FileConnectorStateManager {
     String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
     queryStatement = jdbcConnection.prepareStatement(querySQL);
 
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
+    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true, runs_not_encountered = 0 WHERE name=?";
     updateStatement = jdbcConnection.prepareStatement(updateSQL);
-
-    String resetSQL = "UPDATE \"" + tableName + "\" SET runs_not_encountered = 0 WHERE name=?";
-    resetStatement = jdbcConnection.prepareStatement(resetSQL);
 
     String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE, 0)";
     insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
@@ -186,14 +182,6 @@ public class FileConnectorStateManager {
       }
     }
 
-    if (resetStatement != null) {
-      try {
-        resetStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close reset statement (PreparedStatement).", e);
-      }
-    }
-
     if (insertNewFileStatement != null) {
       try {
         insertNewFileStatement.close();
@@ -235,8 +223,6 @@ public class FileConnectorStateManager {
     try {
       updateStatement.setString(1, fullPathStr);
       int rowsChanged = updateStatement.executeUpdate();
-      resetStatement.setString(1, fullPathStr);
-      resetStatement.executeUpdate();
 
       // if it doesn't change any rows, then we need to insert this file - it is "new".
       if (rowsChanged == 0) {
