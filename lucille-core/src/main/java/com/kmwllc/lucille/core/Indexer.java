@@ -20,7 +20,6 @@ import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,7 +64,10 @@ import sun.misc.Signal;
  *   <li>indexer.whitelist (List&lt;String&gt;, Optional) : Only include these fields from the document when sending to the
  *   destination.</li>
  *   <li>indexer.batchSize (Integer, Optional) : Number of documents to accumulate before sending to the destination. Defaults to
- *   {@value #DEFAULT_BATCH_SIZE}.</li>
+ *   {@value #DEFAULT_BATCH_SIZE} or {@value #NO_BATCH_SIZE} if batchByteSize is set. If both are set, batches are flushed when
+ *   either limit is reached.</li>
+ *   <li>indexer.batchByteSize (Long, Optional) : Total size of documents accumulated before sending to the destination. Defaults to
+ *   {@value #NO_BATCH_SIZE_BYTES}.</li>
  *   <li>indexer.batchTimeout (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
  *   will be considered as expired. Defaults to {@value #DEFAULT_BATCH_TIMEOUT}.</li>
  *   <li>indexer.deletionMarkerField (String, Optional) : Field that, when set to indexer.deletionMarkerFieldValue, marks a document
@@ -101,6 +103,8 @@ import sun.misc.Signal;
 public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
+  public static final int NO_BATCH_SIZE = Integer.MAX_VALUE;
+  public static final long NO_BATCH_SIZE_BYTES = Long.MAX_VALUE;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
   public static final int DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS = 1000;
   public static final long DEFAULT_RETRY_MAX_WAIT_DURATION_MS = 30000;
@@ -186,18 +190,27 @@ public abstract class Indexer implements Runnable {
         config.hasPath("indexer.deleteByFieldValue")
             ? config.getString("indexer.deleteByFieldValue")
             : null;
-    int batchSize =
-        config.hasPath("indexer.batchSize")
-            ? config.getInt("indexer.batchSize")
-            : DEFAULT_BATCH_SIZE;
+
+    int batchSize;
+    long batchByteSize;
+
+    if (config.hasPath("indexer.batchSize") || config.hasPath("indexer.batchByteSize")) {
+      // when only one is set, the other is disabled so the configured one governs
+      batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : NO_BATCH_SIZE;
+      batchByteSize = config.hasPath("indexer.batchByteSize") ? config.getLong("indexer.batchByteSize") : NO_BATCH_SIZE_BYTES;
+    } else {
+      batchSize = DEFAULT_BATCH_SIZE;
+      batchByteSize = NO_BATCH_SIZE_BYTES;
+    }
+
     int batchTimeout =
         config.hasPath("indexer.batchTimeout")
             ? config.getInt("indexer.batchTimeout")
             : DEFAULT_BATCH_TIMEOUT;
     this.batch =
         (indexOverrideField == null)
-            ? new SingleBatch(batchSize, batchTimeout)
-            : new MultiBatch(batchSize, batchTimeout, indexOverrideField);
+            ? new SingleBatch(batchSize, batchByteSize, batchTimeout)
+            : new MultiBatch(batchSize, batchByteSize, batchTimeout, indexOverrideField);
     // validate config deletionFields that must be present together
     if ((deleteByFieldField != null && deleteByFieldValue == null)
         || (deleteByFieldField == null && deleteByFieldValue != null)) {
@@ -566,7 +579,7 @@ public abstract class Indexer implements Runnable {
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
             "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
-        .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
+        .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
