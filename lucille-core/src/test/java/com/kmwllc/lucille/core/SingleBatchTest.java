@@ -292,8 +292,10 @@ public class SingleBatchTest {
     Document small2 = Document.create("s2");
     Document small3 = Document.create("s3");
     Document small4 = Document.create("s4");
-    Document big1 = bigDoc("b1");
-    Document big2 = bigDoc("b2");
+    Document big1 = Document.create("b1");
+    big1.setField("payload", "x".repeat(500));
+    Document big2 = Document.create("b2");
+    big2.setField("payload", "x".repeat(500));
 
     long smallSize = small1.getByteSize();
     long bigSize = big1.getByteSize();
@@ -328,12 +330,6 @@ public class SingleBatchTest {
     List<Document> finalFlush = batch.flush();
     assertEquals(1, finalFlush.size());
     assertEquals("b2", finalFlush.get(0).getId());
-  }
-
-  private static Document bigDoc(String id) {
-    Document doc = Document.create(id);
-    doc.setField("payload", "x".repeat(500));
-    return doc;
   }
 
 }
