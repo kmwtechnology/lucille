@@ -1140,6 +1140,56 @@ public class ElasticsearchIndexerTest {
     assertEquals(429, ((IndexerRetryableException) failure).getStatusCode());
   }
 
+  @Test
+  public void testDeleteByIdExceptionRethrownAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(throwingClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    // marked for deletion by id only (no deleteByField field/value present) -> routed to deleteById
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("deleted", "true");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(503, exc.getStatusCode());
+  }
+
+  @Test
+  public void testDeleteByQueryExceptionRethrownAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(throwingClient.deleteByQuery(any(DeleteByQueryRequest.class)))
+        .thenThrow(new ElasticsearchException("es/delete_by_query", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/testDeleteByQuery.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    // marked for deletion with deleteByField field/value present -> routed to deleteByQuery
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("deleted", "true");
+    doc.setField("field", "doc1field");
+    doc.setField("value", "doc1value");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(503, exc.getStatusCode());
+  }
+
   /**
    * End-to-end check that a retryable bulk-level failure is actually retried: the client throws a
    * 503 (retryable under the default status codes) on the first attempt and succeeds on the second,
