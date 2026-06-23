@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 
-public class NumberProperty extends Property {
+public class NumberProperty extends KeyValueProperty {
 
   public NumberProperty(String name, boolean required) {
     this(name, required, null);

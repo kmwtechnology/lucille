@@ -1,22 +1,22 @@
 package com.kmwllc.lucille.core.spec;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
+import java.util.Set;
+
 
 /**
- * A property in a Config. Properties have a certain type, a name, and are either required or optional.
+ * A property operating on key-value pairs in a Config. KeyValueProperties enforce a certain type,
+ * a name, and are either required or optional.
  */
-public abstract class Property {
-
-  protected static final ObjectMapper MAPPER = new ObjectMapper();
+public abstract class KeyValueProperty extends Property {
 
   protected final String name;
   protected final boolean required;
   protected final String description;
 
-  public Property(String name, boolean required, String description) {
+  public KeyValueProperty(String name, boolean required, String description) {
     this.name = name;
     this.required = required;
     this.description = description;
@@ -24,22 +24,25 @@ public abstract class Property {
 
   public String getName() { return name; }
 
-  /**
-   * Validates the given Config against this property. Returns an IllegalArgumentException if the given Config does not
-   * satisfy this property. Returns null if there are no errors with the Config.
-   *
-   * @param config The configuration you want to ensure is compliant with this property.
-   * @throws IllegalArgumentException For any errors the provided Config has with respect to this Property.
-   */
+  @Override
   public final void validate(Config config) throws IllegalArgumentException {
     if (required && !config.hasPath(name)) {
       throw new IllegalArgumentException("Config is missing required property " + name);
     }
 
-    // do subclass specific checks on the type
     if (config.hasPath(name)) {
       validatePresentProperty(config);
     }
+  }
+
+  @Override
+  public boolean requiredPresent(Config config) {
+    return !required || config.hasPath(name);
+  }
+
+  @Override
+  public Set<String> getLegalPropertyNames() {
+    return Set.of(name);
   }
 
   /**
@@ -53,6 +56,7 @@ public abstract class Property {
    * Return a JsonNode describing this property. Includes <code>name</code>, the name of the field, <code>required</code>, whether it
    * is required, <code>description</code>, if it has one, and <code>type</code>, the type of the field.
    */
+  @Override
   public JsonNode json() {
     ObjectNode node = MAPPER.createObjectNode();
 

@@ -10,7 +10,7 @@ public class NumberPropertyTest {
 
   @Test
   public void testNumberValidation() {
-    Property property = new NumberProperty("field", true);
+    KeyValueProperty property = new NumberProperty("field", true);
 
     Config config = ConfigFactory.parseResourcesAnySyntax("PropertyTest/int.conf");
     property.validate(config);

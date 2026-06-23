@@ -10,7 +10,7 @@ public class StringPropertyTest {
 
   @Test
   public void testStringValidation() {
-    Property property = new StringProperty("field", true);
+    KeyValueProperty property = new StringProperty("field", true);
 
     Config config = ConfigFactory.parseResourcesAnySyntax("PropertyTest/string.conf");
     property.validate(config);

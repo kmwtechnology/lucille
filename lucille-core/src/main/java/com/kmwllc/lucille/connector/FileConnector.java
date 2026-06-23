@@ -113,7 +113,13 @@ public class FileConnector extends AbstractConnector {
       .optionalString("accessKeyId", "secretAccessKey", "region")
       .optionalNumber("maxNumOfPages").build();
   public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
-      .optionalString("connectionString", "accountName", "accountKey")
+      // either connectionString or (accountName AND accountKey) must be specified
+      .oneOf(
+          SpecBuilder.withoutDefaults()
+              .requiredString("connectionString").build(),
+          SpecBuilder.withoutDefaults()
+              .requiredString("accountName", "accountKey").build()
+      )
       .optionalNumber("maxNumOfPages").build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);

@@ -14,7 +14,7 @@ public class ListPropertyTest {
   @Test
   public void testSpecList() {
     Config config = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/books.conf");
-    Property property = new ListProperty("books", true, SpecBuilder.withoutDefaults().requiredString("author", "title").build());
+    KeyValueProperty property = new ListProperty("books", true, SpecBuilder.withoutDefaults().requiredString("author", "title").build());
     property.validate(config);
 
     Config boolListConfig = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/boolList.conf");
@@ -24,7 +24,7 @@ public class ListPropertyTest {
   @Test
   public void testTypeReferences() {
     Config config = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/numList.conf");
-    Property property = new ListProperty("list", true, new TypeReference<List<Integer>>(){});
+    KeyValueProperty property = new ListProperty("list", true, new TypeReference<List<Integer>>(){});
     property.validate(config);
 
     // both Integer and Double should work
@@ -60,7 +60,7 @@ public class ListPropertyTest {
   @Test
   public void testEmptyList() {
     Config config = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/emptyList.conf");
-    Property property = new ListProperty("list", true, new TypeReference<List<Number>>(){});
+    KeyValueProperty property = new ListProperty("list", true, new TypeReference<List<Number>>(){});
     property.validate(config);
 
     property = new ListProperty("list", true, new TypeReference<List<Boolean>>(){});
@@ -83,14 +83,14 @@ public class ListPropertyTest {
   @Test
   public void testTypeReferenceHOCONConversions() {
     Config stringsThatAreNumbersConfig = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/listOfStringsThatAreNumbers.conf");
-    Property property = new ListProperty("list", true, new TypeReference<List<Number>>(){});
+    KeyValueProperty property = new ListProperty("list", true, new TypeReference<List<Number>>(){});
     property.validate(stringsThatAreNumbersConfig);
 
     property = new ListProperty("list", true, new TypeReference<List<Double>>(){});
     property.validate(stringsThatAreNumbersConfig);
 
     // the numbers are doubles and won't serialize to Integers.
-    Property integerProperty = new ListProperty("list", true, new TypeReference<List<Integer>>(){});
+    KeyValueProperty integerProperty = new ListProperty("list", true, new TypeReference<List<Integer>>(){});
     assertThrows(IllegalArgumentException.class, () -> integerProperty.validate(stringsThatAreNumbersConfig));
 
     // should be able to read the list of numbers as a list of strings
@@ -102,7 +102,7 @@ public class ListPropertyTest {
   @Test
   public void testBadTypes() {
     Config config = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/boolList.conf");
-    Property property = new ListProperty("list", true, new TypeReference<List<Number>>(){});
+    KeyValueProperty property = new ListProperty("list", true, new TypeReference<List<Number>>(){});
     assertThrows(IllegalArgumentException.class, () -> property.validate(config));
 
     Config justStringConfig = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ListProperty/listIsJustAString.conf");

@@ -42,14 +42,6 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void validateOptions(Config config) {
-    if (!config.hasPath(AZURE_CONNECTION_STRING)
-        && (!config.hasPath(AZURE_ACCOUNT_NAME) || !config.hasPath(AZURE_ACCOUNT_KEY))) {
-      throw new IllegalArgumentException("Either '" + AZURE_CONNECTION_STRING + "' or '" + AZURE_ACCOUNT_NAME + "' & '" + AZURE_ACCOUNT_KEY + "' has to be in Config for AzureStorageClient.");
-    }
-  }
-
-  @Override
   protected void initializeStorageClient() throws IOException {
     try {
       if (config.hasPath(AZURE_CONNECTION_STRING)) {

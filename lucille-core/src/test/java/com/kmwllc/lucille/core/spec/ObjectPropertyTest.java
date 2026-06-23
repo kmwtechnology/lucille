@@ -20,7 +20,7 @@ public class ObjectPropertyTest {
         .optionalList("excludes", new TypeReference<List<String>>(){})
         .optionalString("lastModifiedCutoff").build();
 
-    Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
+    KeyValueProperty parentProperty = new ObjectProperty(filterOptionsSpec, true);
 
     Config filterOptions = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ObjectProperty/filterOptions.conf");
     parentProperty.validate(filterOptions);
@@ -28,7 +28,7 @@ public class ObjectPropertyTest {
     Config badFilterOptions = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ObjectProperty/badFilterOptions.conf");
     assertThrows(IllegalArgumentException.class, () -> parentProperty.validate(badFilterOptions));
 
-    Property fieldParentProperty = new ObjectProperty(filterOptionsSpec, true);
+    KeyValueProperty fieldParentProperty = new ObjectProperty(filterOptionsSpec, true);
     Config badType = ConfigFactory.parseResourcesAnySyntax("PropertyTest/boolean.conf");
     assertThrows(IllegalArgumentException.class, () -> fieldParentProperty.validate(badType));
   }
@@ -63,7 +63,7 @@ public class ObjectPropertyTest {
         .optionalList("excludes", new TypeReference<List<String>>(){})
         .optionalString("lastModifiedCutoff").build();
 
-    Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
+    KeyValueProperty parentProperty = new ObjectProperty(filterOptionsSpec, true);
 
     JsonNode typeNode = parentProperty.typeJson();
     assertEquals("OBJECT", typeNode.get("type").asText());

@@ -13,10 +13,10 @@ public class SpecBuilder {
 
   SpecBuilder(String name) {
     this.name = name;
-    this.properties = new HashSet();
+    this.properties = new HashSet<>();
   }
 
-  SpecBuilder(Set<Property> defaultLegalProperties) {
+  SpecBuilder(Set<? extends Property> defaultLegalProperties) {
     this.name = null;
     this.properties = new HashSet<>(defaultLegalProperties);
   }
@@ -273,7 +273,14 @@ public class SpecBuilder {
     return this;
   }
 
- // ******** Adding a Spec ********
+  // ******** Enhanced Techniques ********
+
+  public SpecBuilder oneOf(Spec... specs) {
+    properties.add(new OneOfProperty(specs));
+    return this;
+  }
+
+  // ******** Adding a Spec ********
 
   /**
    * Returns this SpecBuilder with all the properties of the provided Spec added

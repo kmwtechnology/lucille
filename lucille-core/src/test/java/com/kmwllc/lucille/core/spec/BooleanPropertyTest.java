@@ -10,7 +10,7 @@ public class BooleanPropertyTest {
 
   @Test
   public void testBooleanValidation() {
-    Property property = new BooleanProperty("field", true);
+    KeyValueProperty property = new BooleanProperty("field", true);
 
     Config config = ConfigFactory.parseResourcesAnySyntax("PropertyTest/boolean.conf");
     property.validate(config);

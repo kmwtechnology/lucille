@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 
-public class ObjectProperty extends Property {
+public class ObjectProperty extends KeyValueProperty {
 
   private final TypeReference<?> typeReference;
   private final Spec parentSpec;

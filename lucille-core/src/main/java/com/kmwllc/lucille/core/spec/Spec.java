@@ -37,12 +37,12 @@ public class Spec {
 
   private final Set<Property> properties;
 
-  Spec(String name, Set<Property> defaultLegalProperties) {
+  Spec(String name, Set<? extends Property> defaultLegalProperties) {
     this.name = name;
     this.properties = new HashSet<>(defaultLegalProperties);
   }
 
-  Spec(Set<Property> defaultLegalProperties) {
+  Spec(Set<? extends Property> defaultLegalProperties) {
     this.name = null;
     this.properties = new HashSet<>(defaultLegalProperties);
   }
@@ -110,13 +110,28 @@ public class Spec {
   }
 
   /**
+   * <p> Returns whether <i>some key</i> is present for all of the required properties in this Spec.
+   * Note that, for object properties, this method only verifies that <i>something</i> is keyed by the
+   * parent's name - no operations are done on the parent's child properties.
+   * <p> This method is namely used in the {@link OneOfProperty} to gauge if the user is attempting
+   * to specify exactly one of the valid options.
+   * @param config Lucille Config to validate against / with.
+   */
+  public boolean requiredPropertiesPresent(Config config) {
+    return properties.stream().allMatch(p -> p.requiredPresent(config));
+  }
+
+  /**
    * Returns a Set of the legal properties associated with this Spec, include required/optional properties/parents
    * and any default properties associated with the Spec as well. Note that, if this Spec has an {@link ObjectProperty}, this
-   * will only return that property's name - <b>not</b> its child's legal properties as well.
+   * will only return that property's name - <b>not</b> its child's legal properties as well. For a
+   * {@link OneOfProperty}, all names from all options are included.
    * @return a Set of the legal properties associated with this Spec.
    */
   public Set<String> getLegalProperties() {
-    return properties.stream().map(Property::getName).collect(Collectors.toSet());
+    return properties.stream()
+        .flatMap(p -> p.getLegalPropertyNames().stream())
+        .collect(Collectors.toSet());
   }
 
   /**
@@ -134,7 +149,7 @@ public class Spec {
 
   /**
    * Returns this Spec as a JsonNode describing the properties it declares. The returned node will contain one entry, <code>fields</code>,
-   * which will be a list of JsonNode(s) describing the associated properties. See {@link Property#json()} for information on what these
+   * which will be a list of JsonNode(s) describing the associated properties. See {@link KeyValueProperty#json()} for information on what these
    * objects will contain.
    * @return A JsonNode describing this Spec and the properties it declares.
    */

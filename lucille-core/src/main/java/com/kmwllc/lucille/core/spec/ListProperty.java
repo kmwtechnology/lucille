@@ -7,7 +7,7 @@ import com.typesafe.config.ConfigException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ListProperty extends Property {
+public class ListProperty extends KeyValueProperty {
 
   private final Spec objectSpec;
   private final TypeReference<?> typeReference;

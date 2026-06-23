@@ -37,9 +37,9 @@ public class PropertyTest {
   public void testValidate() {
     Config config = ConfigFactory.parseResourcesAnySyntax("PropertyTest/string.conf");
 
-    Property reqStringProperty = new StringProperty("field", true);
-    Property reqMissingStringProperty = new StringProperty("NOT_HERE", true);
-    Property optMissingStringProperty = new StringProperty("NOT_HERE", false);
+    KeyValueProperty reqStringProperty = new StringProperty("field", true);
+    KeyValueProperty reqMissingStringProperty = new StringProperty("NOT_HERE", true);
+    KeyValueProperty optMissingStringProperty = new StringProperty("NOT_HERE", false);
 
     reqStringProperty.validate(config);
     optMissingStringProperty.validate(config);
