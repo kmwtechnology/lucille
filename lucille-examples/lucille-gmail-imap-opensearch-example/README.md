@@ -3,10 +3,9 @@
 This example uses Lucille's `IMAPConnector` to crawl a Gmail mailbox over IMAP and index each email message
 into an OpenSearch index named **`emailindex`** running on `localhost:9200`.
 
-Each email becomes a Lucille `Document`. The connector populates fields such as `subject`, `from`, `to`, `cc`,
-`reply_to`, `sent_date`, `received_date`, `folder`, `size`, the plain text body (`text`) and the HTML body (`html`),
-along with every raw email header. The pipeline in this example renames `text` to `body` and drops `html` before
-indexing.
+Each email becomes a Lucille `Document`. The connector assigns an id from the `Message-ID` header and publishes
+the raw RFC822 bytes; the `ParseMailMessage` stage parses headers, recipients, dates, and bodies (`text` / `html`).
+The pipeline renames `text` to `body` and drops `html` before indexing.
 
 ## Requirements
 
@@ -70,7 +69,7 @@ The full configuration lives in [`conf/gmail-opensearch.conf`](conf/gmail-opense
 
 - **connector** — `IMAPConnector` pointed at `imap.gmail.com:993` over SSL, reading the folders in the `folders`
   list (defaults to `["INBOX"]`). Set `recurse: true` to also crawl sub-folders / labels under each folder.
-- **pipeline** — renames `text` → `body` and deletes `html`.
+- **pipeline** — `ParseMailMessage` parses the raw email bytes, then renames `text` → `body` and deletes `html`.
 - **indexer** — `OpenSearch`, batching 100 docs at a time.
 - **opensearch** — `url` and `index` (defaults to `emailindex`).
 

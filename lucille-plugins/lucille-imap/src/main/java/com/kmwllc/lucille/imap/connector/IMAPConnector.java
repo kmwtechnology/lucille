@@ -7,38 +7,29 @@ import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.imap.EmailMessageParser;
 import com.typesafe.config.Config;
-import jakarta.mail.Address;
 import jakarta.mail.AuthenticationFailedException;
-import jakarta.mail.BodyPart;
 import jakarta.mail.FetchProfile;
 import jakarta.mail.Folder;
 import jakarta.mail.FolderClosedException;
-import jakarta.mail.Header;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
-import jakarta.mail.Part;
 import jakarta.mail.Session;
 import jakarta.mail.Store;
 import jakarta.mail.StoreClosedException;
 import jakarta.mail.UIDFolder;
-import jakarta.mail.internet.MailDateFormat;
-import jakarta.mail.internet.MimeMultipart;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
-import java.util.UUID;
 import org.eclipse.angus.mail.imap.IMAPFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,12 +39,11 @@ import org.slf4j.LoggerFactory;
  * encountered so it can be indexed downstream.
  *
  * <p>Each Document is given an ID derived from the email's <code>Message-ID</code> header (falling back to a
- * random UUID if the header is absent), prefixed with the connector's <code>docIdPrefix</code>. Every email
- * header is copied onto the Document using a cleaned (lower-cased, underscore-separated) field name. In addition,
- * the following fields are populated where available: <code>folder</code>, <code>subject</code>, <code>from</code>,
- * <code>to</code>, <code>cc</code>, <code>bcc</code> (multivalued), <code>reply_to</code> (multivalued),
- * <code>sent_date</code>, <code>received_date</code>, <code>size</code>, <code>text</code> (plain text body),
- * and <code>html</code> (HTML body).
+ * random UUID if the header is absent), prefixed with the connector's <code>docIdPrefix</code>. The full RFC822
+ * message is serialized to the <code>imap_raw_message</code> byte-array field so a downstream
+ * {@link com.kmwllc.lucille.imap.stage.ParseMailMessage} stage can parse headers, bodies, and metadata concurrently
+ * in the worker pool while this connector continues fetching over IMAP. The connector also sets <code>folder</code>
+ * and, when available, <code>imap_uid</code>.
  *
  * <p>The mailbox is always opened read-only so messages are never modified or deleted.
  *
@@ -73,10 +63,6 @@ import org.slf4j.LoggerFactory;
  *   <li>prefetchBody (Boolean, Optional): Whether to bulk-prefetch full message bodies along with metadata. Keeping this
  *   <code>true</code> is dramatically faster for body-heavy crawls but uses more memory per batch; set to <code>false</code>
  *   to prefetch only metadata and fetch bodies lazily. Defaults to <code>true</code>. Only applies to IMAP folders.</li>
- *   <li>excludeHeaderPrefixes (List&lt;String&gt;, Optional): Email headers whose (cleaned, lower-cased, underscore-separated)
- *   name starts with any of these prefixes are NOT copied onto the Document. This prevents the unbounded, noisy header
- *   families (especially the <code>X-*</code> headers added by mail infrastructure / ESPs) from causing a field-mapping
- *   explosion in the downstream index. Defaults to <code>["x_"]</code>. Set to <code>[]</code> to copy every header.</li>
  *   <li>uidStateFile (String, Optional): Path to a file (a Java <code>.properties</code> file, resolved relative to the
  *   process working directory) where the connector records the highest IMAP UID it has processed per folder. On a
  *   subsequent run the crawl resumes from the next UID instead of re-downloading the whole mailbox - important for
@@ -93,13 +79,10 @@ public class IMAPConnector extends AbstractConnector {
       .optionalString("uidStateFile")
       .optionalNumber("port", "fetchBatchSize")
       .optionalBoolean("useSSL", "recurse", "prefetchBody")
-      .optionalList("excludeHeaderPrefixes", new TypeReference<List<String>>(){})
       .optionalList("folders", new TypeReference<List<String>>(){})
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(IMAPConnector.class);
-
-  private static final String MESSAGE_ID_HEADER = "message_id";
 
   // Number of messages to bulk-prefetch per server round-trip when crawling.
   private static final int DEFAULT_FETCH_BATCH_SIZE = 100;
@@ -116,10 +99,6 @@ public class IMAPConnector extends AbstractConnector {
   private static final String READ_TIMEOUT_MS = "60000";
   private static final String WRITE_TIMEOUT_MS = "30000";
 
-  // By default, skip the noisy "X-*" header family (added by mail infra / ESPs) to avoid an unbounded number of
-  // unique fields exploding the downstream index mapping. Matched against the cleaned (lower-cased, underscore) name.
-  private static final List<String> DEFAULT_EXCLUDE_HEADER_PREFIXES = List.of("x_");
-
   private final String host;
   private final String username;
   private final String password;
@@ -130,7 +109,6 @@ public class IMAPConnector extends AbstractConnector {
   private final String protocol;
   private final int fetchBatchSize;
   private final boolean prefetchBody;
-  private final List<String> excludeHeaderPrefixes;
 
   // Path to the resume-state file (null = resumption disabled). Holds the highest processed UID per folder so a
   // restart can pick up where it left off instead of re-downloading the whole mailbox. The in-memory copy is
@@ -157,12 +135,6 @@ public class IMAPConnector extends AbstractConnector {
     int configuredBatchSize = config.hasPath("fetchBatchSize") ? config.getInt("fetchBatchSize") : DEFAULT_FETCH_BATCH_SIZE;
     this.fetchBatchSize = Math.max(1, configuredBatchSize);
     this.prefetchBody = config.hasPath("prefetchBody") ? config.getBoolean("prefetchBody") : true;
-    this.excludeHeaderPrefixes = config.hasPath("excludeHeaderPrefixes")
-        ? config.getStringList("excludeHeaderPrefixes").stream()
-            .map(IMAPConnector::cleanFieldName)
-            .filter(prefix -> !prefix.isEmpty())
-            .toList()
-        : DEFAULT_EXCLUDE_HEADER_PREFIXES;
     this.externalStore = false;
 
     String configuredStateFile = config.hasPath("uidStateFile") ? config.getString("uidStateFile").trim() : "";
@@ -358,7 +330,7 @@ public class IMAPConnector extends AbstractConnector {
             for (Message message : batch) {
               long uid = uidFolder.getUID(message);
               try {
-                Document doc = processMessage(message);
+                Document doc = createDocumentFromMessage(message);
                 doc.setField("folder", folderName);
                 doc.setField("imap_uid", uid);
                 publisher.publish(doc);
@@ -414,7 +386,7 @@ public class IMAPConnector extends AbstractConnector {
 
           for (Message message : batch) {
             try {
-              Document doc = processMessage(message);
+              Document doc = createDocumentFromMessage(message);
               doc.setField("folder", folderName);
               publisher.publish(doc);
               numDocs++;
@@ -575,7 +547,7 @@ public class IMAPConnector extends AbstractConnector {
 
   /**
    * Bulk-prefetches the data for a batch of messages in a single (or few) IMAP FETCH command(s), so that the
-   * subsequent per-message accessors in {@link #processMessage(Message)} are served from a local cache instead
+   * subsequent per-message accessors in {@link #createDocumentFromMessage(Message)} are served from a local cache instead
    * of each triggering its own server round-trip. This is the primary performance optimization for crawling.
    */
   private void prefetch(Folder folder, Message[] batch) {
@@ -614,132 +586,15 @@ public class IMAPConnector extends AbstractConnector {
     }
   }
 
-  // Package-private to allow direct unit testing with real Message instances (no live server / mocks needed).
-  Document processMessage(Message message) throws Exception {
-    // Buffer the headers so we can derive the Document id (from the Message-ID) before creating the Document.
-    List<Header> headerList = new ArrayList<>();
-    Enumeration<Header> headers = message.getAllHeaders();
-    String messageId = null;
-    while (headers.hasMoreElements()) {
-      Header header = headers.nextElement();
-      headerList.add(header);
-      if (MESSAGE_ID_HEADER.equals(cleanFieldName(header.getName()))) {
-        messageId = header.getValue();
-      }
-    }
-
-    String rawId = (messageId != null && !messageId.isBlank()) ? messageId : UUID.randomUUID().toString();
+  /**
+   * Creates a Lucille document with an id derived from the Message-ID header and the full RFC822 bytes attached for
+   * downstream parsing. Exposed for unit tests and advanced integrations.
+   */
+  public Document createDocumentFromMessage(Message message) throws Exception {
+    String rawId = EmailMessageParser.deriveRawDocumentId(message);
     Document doc = Document.create(createDocId(rawId));
-
-    for (Header header : headerList) {
-      String fieldName = cleanFieldName(header.getName());
-
-      // Don't let header names collide with Lucille's reserved fields.
-      if (Document.RESERVED_FIELDS.contains(fieldName)) {
-        continue;
-      }
-
-      // Skip noisy header families (e.g. X-*) to avoid an unbounded number of unique fields downstream.
-      if (isExcludedHeader(fieldName)) {
-        continue;
-      }
-
-      doc.addToField(fieldName, header.getValue());
-    }
-
-    addRecipients(doc, message, "from", message.getFrom());
-    addRecipients(doc, message, "to", message.getRecipients(Message.RecipientType.TO));
-    addRecipients(doc, message, "cc", message.getRecipients(Message.RecipientType.CC));
-    addRecipients(doc, message, "bcc", message.getRecipients(Message.RecipientType.BCC));
-    addRecipients(doc, message, "reply_to", message.getReplyTo());
-
-    String subject = message.getSubject();
-    if (subject != null) {
-      doc.setField("subject", subject);
-    }
-
-    setSentDate(doc, message);
-
-    Date receivedDate = message.getReceivedDate();
-    if (receivedDate != null) {
-      doc.setField("received_date", receivedDate.toInstant());
-    }
-
-    parseContent(message, doc);
-
-    doc.setField("size", message.getSize());
-
+    doc.setField(EmailMessageParser.DEFAULT_RAW_MESSAGE_FIELD, EmailMessageParser.toRawBytes(message));
     return doc;
-  }
-
-  private void setSentDate(Document doc, Message message) throws MessagingException {
-    Date sentDate = message.getSentDate();
-    if (sentDate != null) {
-      doc.setField("sent_date", sentDate.toInstant());
-      return;
-    }
-
-    // Fall back to parsing the raw Date header if the parsed sent date is unavailable.
-    if (doc.has("date")) {
-      try {
-        Date parsed = new MailDateFormat().parse(doc.getStringList("date").get(0));
-        if (parsed != null) {
-          doc.setField("sent_date", parsed.toInstant());
-        }
-      } catch (ParseException e) {
-        log.warn("Unable to parse Date header into a sent_date.", e);
-      }
-    }
-  }
-
-  private void addRecipients(Document doc, Message message, String fieldName, Address[] addresses) {
-    if (addresses == null) {
-      return;
-    }
-    for (Address address : addresses) {
-      if (address != null) {
-        doc.addToField(fieldName, address.toString());
-      }
-    }
-  }
-
-  private void parseContent(Part part, Document doc) throws Exception {
-    Object content;
-    try {
-      content = part.getContent();
-    } catch (Exception e) {
-      log.warn("Unable to read content for a message part, skipping it.", e);
-      return;
-    }
-
-    if (part.isMimeType("text/plain")) {
-      doc.addToField("text", String.valueOf(content));
-    } else if (part.isMimeType("text/html")) {
-      doc.addToField("html", String.valueOf(content));
-    } else if (content instanceof MimeMultipart) {
-      MimeMultipart multipart = (MimeMultipart) content;
-      for (int i = 0; i < multipart.getCount(); i++) {
-        BodyPart bodyPart = multipart.getBodyPart(i);
-        parseContent(bodyPart, doc);
-      }
-    } else if (content instanceof String) {
-      doc.addToField("text", (String) content);
-    } else {
-      log.debug("Skipping unhandled content type {}", part.getContentType());
-    }
-  }
-
-  private boolean isExcludedHeader(String cleanedName) {
-    for (String prefix : excludeHeaderPrefixes) {
-      if (cleanedName.startsWith(prefix)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private static String cleanFieldName(String name) {
-    return name.trim().toLowerCase().replaceAll("[ -]", "_");
   }
 
   private static String safeFolderName(Folder folder) {
