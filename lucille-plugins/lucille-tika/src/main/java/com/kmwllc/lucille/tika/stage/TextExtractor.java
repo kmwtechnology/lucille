@@ -2,6 +2,7 @@ package com.kmwllc.lucille.tika.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -47,16 +48,17 @@ import org.xml.sax.SAXException;
  * tikaConfigPath (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
- * parseTimeout (Long, Optional) : timeout for parsing in milliseconds (thread-level interrupt)
- * whitelist (StringList, Optional) : list of metadata names that are to be included in document
- * blacklist (StringList, Optional) : list of metadata names that are not to be included in document
+ * parseTimeout (Long, Optional) : timeout in milliseconds before a parse is abandoned. When fork.enabled is false,
+ * this interrupts the parsing thread. When fork.enabled is true, this kills the child process.
+ * whitelist (List&lt;String&gt;, Optional) : list of metadata names that are to be included in document
+ * blacklist (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
  * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
  * multi-valued field.
- * fork.enabled (Boolean, Optional) : set to true to run parsing in a child JVM via ForkParser, isolating OOM crashes from the parent (default: false)
- * fork.poolSize (Integer, Optional) : number of child JVM processes kept alive in the pool (default: 5)
- * fork.jvmArgs (StringList, Optional) : JVM command and arguments for each child process (default: ["java", "-Xmx512m", "-Djava.awt.headless=true"])
- * fork.serverParseTimeoutMillis (Long, Optional) : max time in ms a child process may spend on a single parse before being killed (default: 60000)
- * fork.serverPulseMillis (Long, Optional) : heartbeat interval in ms between parent and child processes (default: 1000)
+ * fork.enabled (Boolean, Optional) : Whether parsing should be run in a child JVM via the <code>ForkParser</code>.
+ * This adds overhead to each document but isolates OOM crashes from the parent. Defaults to false.
+ * fork.poolSize (Integer, Optional) : number of child JVM processes kept alive in the pool. Defaults to 5.
+ * fork.jvmArgs (List&lt;String&gt;, Optional) : JVM command and arguments for each child process. Defaults to ["java", "-Xmx512m", "-Djava.awt.headless=true"]
+ * fork.serverPulseMillis (Long, Optional) : Heartbeat interval (in ms) between parent and child processes. Defaults to 1000.
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
@@ -66,7 +68,7 @@ public class TextExtractor extends Stage {
   public static final Spec FORK_SPEC = SpecBuilder.parent("fork")
       .optionalBoolean("enabled")
       .optionalList("jvmArgs", new TypeReference<List<String>>() {})
-      .optionalNumber("poolSize", "serverParseTimeoutMillis", "serverPulseMillis")
+      .optionalNumber("poolSize", "serverPulseMillis")
       .build();
 
   public static final Spec SPEC = SpecBuilder.stage()
@@ -92,7 +94,6 @@ public class TextExtractor extends Stage {
   private boolean forkEnabled;
   private int forkPoolSize;
   private List<String> forkJvmArgs;
-  private long forkServerParseTimeoutMillis;
   private long forkServerPulseMillis;
   private Parser parser;
   private ForkParser forkParser;
@@ -113,11 +114,10 @@ public class TextExtractor extends Stage {
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
     fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
 
-    forkEnabled = config.hasPath("fork.enabled") && config.getBoolean("fork.enabled");
-    forkPoolSize = config.hasPath("fork.poolSize") ? config.getInt("fork.poolSize") : 5;
+    forkEnabled = ConfigUtils.getOrDefault(config, "fork.enabled", false);
+    forkPoolSize = ConfigUtils.getOrDefault(config, "fork.poolSize", 5);
     forkJvmArgs = config.hasPath("fork.jvmArgs") ? config.getStringList("fork.jvmArgs") : DEFAULT_FORK_JVM_ARGS;
-    forkServerParseTimeoutMillis = config.hasPath("fork.serverParseTimeoutMillis") ? config.getLong("fork.serverParseTimeoutMillis") : 60000L;
-    forkServerPulseMillis = config.hasPath("fork.serverPulseMillis") ? config.getLong("fork.serverPulseMillis") : 1000L;
+    forkServerPulseMillis = ConfigUtils.getOrDefault(config, "fork.serverPulseMillis", 1000L);
 
     this.fieldFilter = new FieldFilter(config);
 
@@ -157,23 +157,22 @@ public class TextExtractor extends Stage {
     }
 
     if (forkEnabled) {
-      // When forking, autoParser is used as the underlying parser
       forkParser = new ForkParser(TextExtractor.class.getClassLoader(), autoParser);
       forkParser.setPoolSize(forkPoolSize);
       forkParser.setJavaCommand(forkJvmArgs);
-      forkParser.setServerParseTimeoutMillis(forkServerParseTimeoutMillis);
       forkParser.setServerPulseMillis(forkServerPulseMillis);
+      if (parseTimeout != null) {
+        forkParser.setServerParseTimeoutMillis(parseTimeout);
+      }
       parser = forkParser;
     } else {
-      // no forking, autoParser is our parser
       parser = autoParser;
       parseCtx.set(Parser.class, parser);
-    }
-
-    if (parseTimeout != null) {
-      // each worker is running in a single thread so we only need to run the extraction with a
-      // single thread executor rather than using a thread pool.
-      executorService = Executors.newSingleThreadExecutor();
+      if (parseTimeout != null) {
+        // each worker is running in a single thread so we only need to run the extraction with a
+        // single thread executor rather than using a thread pool.
+        executorService = Executors.newSingleThreadExecutor();
+      }
     }
   }
 
@@ -215,8 +214,8 @@ public class TextExtractor extends Stage {
 
       try (InputStream contentStream = fileFetcher.getInputStream(filePath)) {
         parseInputStream(doc, contentStream);
-      } catch (Exception e) {
-        log.warn("Error with InputStream for file path.", e);
+      } catch (IOException e) {
+        log.warn("Error processing file {}", filePath, e);
       }
     }
     return null;
@@ -236,14 +235,20 @@ public class TextExtractor extends Stage {
   /**
    * Parses given input stream, close it, and adds the text data and metadata to given document
    */
-  public void parseInputStream(Document doc, InputStream inputStream) {
+  public void parseInputStream(Document doc, InputStream inputStream) throws StageException {
     Metadata metadata = new Metadata();
     ContentHandler bch = new BodyContentHandler(textContentLimit);
-    if (parseTimeout == null) {
+    if (forkEnabled || parseTimeout == null) {
+      // fork path: StageException propagates on child failure; ForkParser's serverParseTimeoutMillis handles hangs.
+      // non-fork path with no timeout: parse inline.
       parse(doc, inputStream, metadata, bch);
     } else {
       Future<?> future = executorService.submit(() -> {
-        parse(doc, inputStream, metadata, bch);
+        try {
+          parse(doc, inputStream, metadata, bch);
+        } catch (StageException e) {
+          log.warn("Tika Exception: {}", e.getMessage());
+        }
       });
 
       try {
@@ -273,10 +278,13 @@ public class TextExtractor extends Stage {
     }
   }
 
-  private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch) {
+  private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch) throws StageException {
     try {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
+      if (forkEnabled) {
+        throw new StageException("Forked Tika process failed for document: " + doc.getId(), e);
+      }
       log.warn("Tika Exception: {}", e.getMessage());
     }
   }
