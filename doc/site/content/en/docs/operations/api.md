@@ -60,6 +60,15 @@ All endpoints are under the `/v1` prefix.
 | `GET` | `/v1/run` | List all runs and their status. |
 | `GET` | `/v1/run/{runId}` | Get details for a specific run. Details for the last 10,000 runs are stored. |
 
+The `POST /v1/run` request body accepts:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `configId` | String | Yes | The ID of a previously uploaded config (UUID or preset filename). |
+| `lockConfig` | Boolean | No | When `true`, locks this `configId` so no other run can use it until the current run completes. Any subsequent request referencing a locked `configId` will fail regardless of whether *it* sets `lockConfig`. Default: `false`. |
+
+`lockConfig` is a per-request decision made by the caller. It differs from the server-wide `preventConcurrentRuns` option (see below), which applies the same restriction to all configs without the caller needing to opt in.
+
 ### Health and Observability
 
 | Method | Path | Description |

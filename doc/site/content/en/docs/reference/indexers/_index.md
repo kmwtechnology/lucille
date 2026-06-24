@@ -33,6 +33,7 @@ solr {
 | `type` | String | — | Shorthand for built-in indexers: `Solr`, `OpenSearch`, `Elasticsearch`, `CSV`. |
 | `class` | String | — | Fully qualified class name for plugin or custom indexers. |
 | `batchSize` | Integer | 100 | Number of documents to accumulate before sending a batch. |
+| `batchByteSize` | Long | — (disabled) | Maximum cumulative byte size of documents in a batch before flushing. When set alone, document-count batching is disabled. When set alongside `batchSize`, whichever limit is reached first triggers a flush. |
 | `batchTimeout` | Integer (ms) | 100 | Milliseconds since last add or flush before the batch is sent regardless of size. |
 | `idOverrideField` | String | — | Document field whose value is used as the ID sent to the destination (instead of `id`). |
 | `indexOverrideField` | String | — | Document field whose value determines the target index/collection. Triggers per-index batching. Not supported by OpenSearch or Elasticsearch indexers. |
@@ -48,6 +49,9 @@ solr {
 | `retryMaxWaitDurationMs` | Long (ms) | 30000 | Maximum wait duration between retries (caps the exponential backoff). Requires `maxRetries`. |
 | `retryRandomizationFactor` | Double | 0.5 | Jitter factor applied to wait duration. 0.5 means actual wait is 50%–150% of computed backoff. Set to 0.0 to disable jitter. Requires `maxRetries`. |
 | `retryableStatusCodes` | List\<Integer\> | [429, 503, -1] | HTTP status codes that trigger a retry. `-1` means "no status code available" (e.g., network timeout). An empty list is invalid. Requires `maxRetries`. |
+| `versionType` | String | — | Versioning strategy for indexed documents. Enables optimistic concurrency control. Backend-specific support varies (for example, OpenSearch accepts `external` or `external_gte`). |
+| `versionField` | String | — | Document field containing a numeric version value. Used instead of the Kafka offset when set. Requires `versionType`. |
+| `routingField` | String | — | Document field whose value is used as the `_routing` parameter in index requests. |
 
 ### Field Filtering
 
@@ -75,9 +79,12 @@ indexer {
 
 ### Batching Behavior
 
-Documents accumulate in a batch and are flushed when either condition is met:
+Documents accumulate in a batch and are flushed when any of these conditions is met:
 - The batch reaches `batchSize` documents (default: 100).
+- The batch reaches `batchByteSize` bytes of accumulated document payload (disabled by default).
 - `batchTimeout` milliseconds have elapsed since the last document was added or the last flush (default: 100ms).
+
+When only `batchByteSize` is set (without `batchSize`), document-count batching is effectively disabled — batches flush purely on payload size. When both are set, whichever limit is reached first triggers the flush. This is useful for backends with request-size limits (e.g., a 10 MB bulk API limit) where a fixed document count may produce unpredictably sized payloads.
 
 The timeout flush ensures documents are not left waiting indefinitely in low-volume scenarios.
 
