@@ -819,7 +819,7 @@ public class FileConnectorTest {
 
       // Fourth run
       TestMessenger messenger4 = new TestMessenger();
-      Publisher publisher4 = new PublisherImpl(config, messenger4, "run3", "pipeline1");
+      Publisher publisher4 = new PublisherImpl(config, messenger4, "run4", "pipeline1");
       conn = new FileConnector(config);
       conn.execute(publisher4);
       conn.close();
