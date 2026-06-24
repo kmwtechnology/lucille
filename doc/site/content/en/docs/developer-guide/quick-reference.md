@@ -134,7 +134,7 @@ String path = Document.Segment.stringify(segments);
 
 ## Child Documents
 
-For the full reference on all control flow options — conditions, skipping, dropping, error handling, child documents, connector sequencing, and pre/post-connector actions — see [Control Flow]({{< relref "docs/reference/control-flow" >}}) in the Ingest Designer Guide.
+For the full reference on all control flow options — conditions, skipping, dropping, error handling, child documents, connector sequencing, and pre/post-connector actions — see [Control Flow]({{< relref "docs/ingest-design/control-flow" >}}) in the Ingest Designer Guide.
 
 Lucille has two distinct concepts of child documents: **attached** and **emitted**.
 

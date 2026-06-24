@@ -613,7 +613,7 @@ Performs a lookup against an Elasticsearch index and merges matching fields onto
 ### QueryOpensearch
 `com.kmwllc.lucille.stage.QueryOpensearch`
 
-Executes a search template against an OpenSearch index using document field values as parameters. See [QueryOpensearch]({{< relref "docs/reference/stages/query_opensearch" >}}) for full documentation.
+Executes a search template against an OpenSearch index using document field values as parameters. See [QueryOpensearch]({{< relref "docs/ingest-design/stages/query_opensearch" >}}) for full documentation.
 
 ---
 
@@ -689,21 +689,21 @@ Generates vector embeddings using a quantized LLM running locally inside the JVM
 ### PromptOllama
 `com.kmwllc.lucille.stage.PromptOllama`
 
-Sends document fields to a locally-running Ollama LLM and merges the JSON response back onto the document. See [PromptOllama]({{< relref "docs/reference/stages/prompt_ollama" >}}) for full documentation.
+Sends document fields to a locally-running Ollama LLM and merges the JSON response back onto the document. See [PromptOllama]({{< relref "docs/ingest-design/stages/prompt_ollama" >}}) for full documentation.
 
 ---
 
 ### EmbeddedPython
 `com.kmwllc.lucille.stage.EmbeddedPython`
 
-Runs per-document Python code inside the JVM using GraalPy. See [EmbeddedPython]({{< relref "docs/reference/stages/embedded_python" >}}) for full documentation.
+Runs per-document Python code inside the JVM using GraalPy. See [EmbeddedPython]({{< relref "docs/ingest-design/stages/embedded_python" >}}) for full documentation.
 
 ---
 
 ### ExternalPython
 `com.kmwllc.lucille.stage.ExternalPython`
 
-Delegates per-document processing to an external Python process via Py4J. See [ExternalPython]({{< relref "docs/reference/stages/external_python" >}}) for full documentation.
+Delegates per-document processing to an external Python process via Py4J. See [ExternalPython]({{< relref "docs/ingest-design/stages/external_python" >}}) for full documentation.
 
 ---
 
@@ -782,7 +782,7 @@ Detects the language of a text field and writes the ISO language code to a desti
 ### ChunkText
 `com.kmwllc.lucille.stage.ChunkText`
 
-Splits a long text field into smaller chunks suitable for embedding (RAG pipelines). Each chunk is emitted as a **child document**. See [ChunkText]({{< relref "docs/reference/stages/chunk_text" >}}) for full documentation.
+Splits a long text field into smaller chunks suitable for embedding (RAG pipelines). Each chunk is emitted as a **child document**. See [ChunkText]({{< relref "docs/ingest-design/stages/chunk_text" >}}) for full documentation.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

@@ -5,7 +5,7 @@ date: 2025-06-09
 description: Configuration reference for built-in and plugin indexers shipped with Lucille.
 ---
 
-For conceptual documentation — what an Indexer is, why batching matters, deletion as a design pattern, and error handling at the batch level — see [Architecture: Indexer]({{< relref "docs/architecture/components/Indexers" >}}).
+For conceptual documentation — what an Indexer is, why batching matters, deletion as a design pattern, and error handling at the batch level — see [Architecture: Indexer]({{< relref "docs/architecture/components/indexer" >}}).
 
 ## Generic `indexer` Configuration
 
@@ -96,13 +96,13 @@ The timeout flush ensures documents are not left waiting indefinitely in low-vol
 
 ### Core Indexers
 
-- [Solr Indexer]({{< relref "docs/reference/indexers/solr_indexer" >}}) — Single-node and SolrCloud.
-- [OpenSearch Indexer]({{< relref "docs/reference/indexers/opensearch_indexer" >}}) — OpenSearch with optional partial updates.
-- [Elasticsearch Indexer]({{< relref "docs/reference/indexers/elasticsearch_indexer" >}}) — Elasticsearch with join field support.
-- [CSV Indexer]({{< relref "docs/reference/indexers/csv_indexer" >}}) — Write pipeline output to a CSV file.
-- [NopIndexer]({{< relref "docs/reference/indexers/nop_indexer" >}}) — No-op indexer for testing.
+- [Solr Indexer]({{< relref "docs/ingest-design/indexers/solr_indexer" >}}) — Single-node and SolrCloud.
+- [OpenSearch Indexer]({{< relref "docs/ingest-design/indexers/opensearch_indexer" >}}) — OpenSearch with optional partial updates.
+- [Elasticsearch Indexer]({{< relref "docs/ingest-design/indexers/elasticsearch_indexer" >}}) — Elasticsearch with join field support.
+- [CSV Indexer]({{< relref "docs/ingest-design/indexers/csv_indexer" >}}) — Write pipeline output to a CSV file.
+- [NopIndexer]({{< relref "docs/ingest-design/indexers/nop_indexer" >}}) — No-op indexer for testing.
 
 ### Plugin Indexers
 
-- [Pinecone Indexer]({{< relref "docs/reference/indexers/pinecone_indexer" >}}) — Index vector embeddings into Pinecone.
-- [Weaviate Indexer]({{< relref "docs/reference/indexers/weaviate_indexer" >}}) — Index documents and vectors into Weaviate.
+- [Pinecone Indexer]({{< relref "docs/ingest-design/indexers/pinecone_indexer" >}}) — Index vector embeddings into Pinecone.
+- [Weaviate Indexer]({{< relref "docs/ingest-design/indexers/weaviate_indexer" >}}) — Index documents and vectors into Weaviate.

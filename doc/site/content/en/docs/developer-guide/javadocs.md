@@ -5,7 +5,6 @@ description: >
   The published API reference for Lucille, plus the authoring standards for writing Javadoc on new components.
 aliases:
   - /docs/architecture/javadocs/
-  - /docs/reference/javadocs/
 ---
 
 This page covers two things: where to find the published Javadoc for the Lucille API, and how to write Javadoc on new Connectors, Stages, and Indexers so that the documentation tooling can parse and render their config parameters correctly.

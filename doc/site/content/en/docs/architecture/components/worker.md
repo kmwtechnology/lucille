@@ -167,4 +167,4 @@ In a multi-node deployment, you can run multiple WorkerIndexer processes consumi
 
 For deployment instructions — starting Workers and WorkerIndexers in local and distributed mode, scaling, and operational considerations — see [Deployment]({{< relref "docs/operations/deployment" >}}).
 
-For Worker-related configuration parameters, see [Writing a Config]({{< relref "docs/reference/writing-a-config" >}}).
+For Worker-related configuration parameters, see [Writing a Config]({{< relref "docs/ingest-design/writing-a-config" >}}).

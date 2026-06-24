@@ -51,6 +51,6 @@ These properties combine to make configuration a first-class architectural conce
 
 ## Practical Guides
 
-For how to write a config file, see [Writing a Config]({{< relref "docs/reference/writing-a-config" >}}) in the Ingest Designer Guide.
+For how to write a config file, see [Writing a Config]({{< relref "docs/ingest-design/writing-a-config" >}}) in the Ingest Designer Guide.
 
 For operational patterns — environment variable substitution, containerized deployment, config composition, and distributed mode configuration — see [Configuration Management]({{< relref "docs/operations/configuration" >}}) in the Operations Guide.

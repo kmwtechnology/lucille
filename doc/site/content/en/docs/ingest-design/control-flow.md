@@ -30,7 +30,7 @@ Add a `conditions` block to the stage in your config. The base `Stage` class eva
 }
 ```
 
-See [Stages]({{< relref "docs/reference/stages" >}}) for the full conditions reference including `operator` and `conditionPolicy`.
+See [Stages]({{< relref "docs/ingest-design/stages" >}}) for the full conditions reference including `operator` and `conditionPolicy`.
 
 ---
 
@@ -161,7 +161,7 @@ Attached children are stored inside the parent under the reserved `___children` 
 }
 ```
 
-`EmitNestedChildren` is a no-op if the document has no attached children, so it is safe to place in a pipeline where only some documents will have children. See [ChunkText]({{< relref "docs/reference/stages/chunk_text" >}}) for the common chunking pattern that uses this stage.
+`EmitNestedChildren` is a no-op if the document has no attached children, so it is safe to place in a pipeline where only some documents will have children. See [ChunkText]({{< relref "docs/ingest-design/stages/chunk_text" >}}) for the common chunking pattern that uses this stage.
 
 **Code approach:** Return an `Iterator<Document>` directly from `processDocument()`. Children returned this way become independent pipeline documents immediately — they are tracked by the Publisher, processed by all downstream stages, and indexed separately. No `EmitNestedChildren` stage is needed.
 
