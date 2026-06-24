@@ -67,6 +67,7 @@
     <aws-sdk.version>2.46.13</aws-sdk.version>
     <hadoop.version>3.5.0</hadoop.version>
     <http2.version>11.0.26</http2.version>
+    <zookeeper.version>3.9.5</zookeeper.version>
 
   </properties>
 
@@ -136,6 +137,12 @@
         <version>${aws-java-sdk.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.zookeeper</groupId>
+        <artifactId>zookeeper</artifactId>
+        <version>${zookeeper.version}</version>
       </dependency>
 
       <dependency>
