@@ -3,8 +3,6 @@ title: File Connector
 weight: 1
 date: 2025-02-28
 description: A Connector that traverses local filesystems and cloud storage (S3, Azure, GCS), applies pluggable file handlers, and publishes Lucille documents. Supports incremental mode, tombstone deletions, and archive unpacking.
-aliases:
-  - /docs/ingest-design/connectors/file_handlers/
 ---
 
 [Source Code](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/FileConnector.java)
