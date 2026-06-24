@@ -52,24 +52,29 @@ import org.xml.sax.SAXException;
  * blacklist (StringList, Optional) : list of metadata names that are not to be included in document
  * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
  * multi-valued field.
- * forkParserPoolSize (Integer, Optional) : number of child JVM processes kept in the ForkParser pool (default: 5)
- * forkJvmArgs (StringList, Optional) : JVM command and arguments for each child process (default: ["java", "-Xmx512m", "-Djava.awt.headless=true"])
- * forkServerParseTimeoutMillis (Long, Optional) : max time in ms a child process may spend on a single parse before being killed (default: 60000)
- * forkServerPulseMillis (Long, Optional) : heartbeat interval in ms between parent and child processes (default: 1000)
+ * fork.enabled (Boolean, Optional) : set to true to run parsing in a child JVM via ForkParser, isolating OOM crashes from the parent (default: false)
+ * fork.poolSize (Integer, Optional) : number of child JVM processes kept alive in the pool (default: 5)
+ * fork.jvmArgs (StringList, Optional) : JVM command and arguments for each child process (default: ["java", "-Xmx512m", "-Djava.awt.headless=true"])
+ * fork.serverParseTimeoutMillis (Long, Optional) : max time in ms a child process may spend on a single parse before being killed (default: 60000)
+ * fork.serverPulseMillis (Long, Optional) : heartbeat interval in ms between parent and child processes (default: 1000)
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  */
 public class TextExtractor extends Stage {
 
+  public static final Spec FORK_SPEC = SpecBuilder.parent("fork")
+      .optionalBoolean("enabled")
+      .optionalList("jvmArgs", new TypeReference<List<String>>() {})
+      .optionalNumber("poolSize", "serverParseTimeoutMillis", "serverPulseMillis")
+      .build();
+
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix", "fieldNamesField")
       .optionalList("whitelist", new TypeReference<List<String>>() {})
       .optionalList("blacklist", new TypeReference<List<String>>() {})
-      .optionalList("forkJvmArgs", new TypeReference<List<String>>() {})
-      .optionalNumber("textContentLimit", "parseTimeout",
-          "forkParserPoolSize", "forkServerParseTimeoutMillis", "forkServerPulseMillis")
-      .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .optionalNumber("textContentLimit", "parseTimeout")
+      .optionalParent(FORK_SPEC, FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .include(FileContentFetcher.SPEC).build();
 
   private static final List<String> DEFAULT_FORK_JVM_ARGS =
@@ -84,7 +89,8 @@ public class TextExtractor extends Stage {
   private String fieldNamesField;
   private Integer textContentLimit;
   private Long parseTimeout;
-  private int forkParserPoolSize;
+  private boolean forkEnabled;
+  private int forkPoolSize;
   private List<String> forkJvmArgs;
   private long forkServerParseTimeoutMillis;
   private long forkServerPulseMillis;
@@ -106,13 +112,14 @@ public class TextExtractor extends Stage {
     textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
     fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
-    forkParserPoolSize = config.hasPath("forkParserPoolSize") ? config.getInt("forkParserPoolSize") : 5;
-    forkJvmArgs = config.hasPath("forkJvmArgs") ? config.getStringList("forkJvmArgs") : DEFAULT_FORK_JVM_ARGS;
-    forkServerParseTimeoutMillis = config.hasPath("forkServerParseTimeoutMillis") ? config.getLong("forkServerParseTimeoutMillis") : 60000L;
-    forkServerPulseMillis = config.hasPath("forkServerPulseMillis") ? config.getLong("forkServerPulseMillis") : 1000L;
+
+    forkEnabled = config.hasPath("fork.enabled") && config.getBoolean("fork.enabled");
+    forkPoolSize = config.hasPath("fork.poolSize") ? config.getInt("fork.poolSize") : 5;
+    forkJvmArgs = config.hasPath("fork.jvmArgs") ? config.getStringList("fork.jvmArgs") : DEFAULT_FORK_JVM_ARGS;
+    forkServerParseTimeoutMillis = config.hasPath("fork.serverParseTimeoutMillis") ? config.getLong("fork.serverParseTimeoutMillis") : 60000L;
+    forkServerPulseMillis = config.hasPath("fork.serverPulseMillis") ? config.getLong("fork.serverPulseMillis") : 1000L;
 
     this.fieldFilter = new FieldFilter(config);
-
 
     if (filePathField != null && byteArrayField != null) {
       throw new StageException("Provided both a filePathField and byteArrayField to the TextExtractor stage");
@@ -135,25 +142,33 @@ public class TextExtractor extends Stage {
         throw new StageException("Error occurred initializing FileContentFetcher.", e);
       }
     }
-    AutoDetectParser innerParser;
+
+    AutoDetectParser autoParser;
     if (this.tikaConfigPath == null) {
-      innerParser = new AutoDetectParser();
+      autoParser = new AutoDetectParser();
     } else {
       try {
         File f = new File(this.tikaConfigPath);
         TikaConfig tc = new TikaConfig(f);
-        innerParser = new AutoDetectParser(tc);
+        autoParser = new AutoDetectParser(tc);
       } catch (Exception e) {
         throw new StageException("Error starting TextExtractor stage.", e);
       }
     }
 
-    forkParser = new ForkParser(TextExtractor.class.getClassLoader(), innerParser);
-    forkParser.setPoolSize(forkParserPoolSize);
-    forkParser.setJavaCommand(forkJvmArgs);
-    forkParser.setServerParseTimeoutMillis(forkServerParseTimeoutMillis);
-    forkParser.setServerPulseMillis(forkServerPulseMillis);
-    parser = forkParser;
+    if (forkEnabled) {
+      // When forking, autoParser is used as the underlying parser
+      forkParser = new ForkParser(TextExtractor.class.getClassLoader(), autoParser);
+      forkParser.setPoolSize(forkPoolSize);
+      forkParser.setJavaCommand(forkJvmArgs);
+      forkParser.setServerParseTimeoutMillis(forkServerParseTimeoutMillis);
+      forkParser.setServerPulseMillis(forkServerPulseMillis);
+      parser = forkParser;
+    } else {
+      // no forking, autoParser is our parser
+      parser = autoParser;
+      parseCtx.set(Parser.class, parser);
+    }
 
     if (parseTimeout != null) {
       // each worker is running in a single thread so we only need to run the extraction with a

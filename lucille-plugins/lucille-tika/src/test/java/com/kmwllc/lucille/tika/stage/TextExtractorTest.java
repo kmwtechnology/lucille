@@ -403,6 +403,8 @@ public class TextExtractorTest {
 
   @Test
   public void testTimeout() throws Exception {
+    InterruptTrackingParser.interrupted.set(false);
+
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/timeout.conf");
 
     Document doc = Document.create("doc1");
@@ -410,11 +412,18 @@ public class TextExtractorTest {
 
     stage.processDocument(doc);
 
-    // ForkParser runs parsing in a child JVM; thread-level parseTimeout interrupts the IPC wait,
-    // so the parse does not complete and the text field should be empty.
+    // Give it a bit of time for the async task to be interrupted and set the flag
+    Thread.sleep(400);
+
+    // If timeout works, it should have returned within much less than 1000ms
+    // and interrupted should be true (if we interrupt the thread)
+    assertTrue("Parser should have been interrupted", InterruptTrackingParser.interrupted.get());
+    // Document should not have text (or at least not from the parser)
     assertEquals("Document should have empty text.", "", doc.getString("text"));
 
     stage.stop();
+
+    InterruptTrackingParser.interrupted.set(false);
 
     TextExtractor stage2 = (TextExtractor) factory.get("TextExtractorTest/notimeout.conf");
 
@@ -423,7 +432,20 @@ public class TextExtractorTest {
 
     stage2.processDocument(doc2);
 
+    assertFalse("Parser should not have been interrupted", InterruptTrackingParser.interrupted.get());
     // Document should have text after processing without interruption.
     assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
+  }
+
+  @Test
+  public void testForkingParser() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/forking.conf");
+    Document doc = Document.create("doc1");
+
+    // set path as absolute Path
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+    assertEquals("Hi There!\n", doc.getString("text"));
   }
 }
