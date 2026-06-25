@@ -1,0 +1,94 @@
+{
+  "settings": {
+    "index.knn": true,
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "analyzer": {
+        "my_english": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "stop", "snowball"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "full_path": {
+        "type": "keyword"
+      },
+      "filename": {
+        "type": "keyword"
+      },
+      "file_extension": {
+        "type": "keyword"
+      },
+      "chunk_text": {
+        "type": "text",
+        "analyzer": "my_english"
+      },
+      "chunk_id": {
+        "type": "keyword"
+      },
+      "parent_id": {
+        "type": "keyword"
+      },
+      "embedding": {
+        "type": "knn_vector",
+        "dimension": 768,
+        "method": {
+          "name": "hnsw",
+          "space_type": "cosinesimil",
+          "engine": "faiss",
+          "parameters": {
+            "ef_construction": 512,
+            "m": 16
+          }
+        }
+      },
+      "errors": {
+        "type": "boolean"
+      },
+      "file_last_modified": {
+        "type": "date"
+      },
+      "file_size_bytes": {
+        "type": "long"
+      },
+      "content_type": {
+        "type": "keyword"
+      },
+      "person": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "organization": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "location": {
+        "type": "text",
+        "analyzer": "my_english",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      }
+    }
+  }
+}
