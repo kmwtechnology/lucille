@@ -5,6 +5,9 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValue;
+import com.typesafe.config.ConfigValueType;
+import java.util.Map.Entry;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -54,29 +57,69 @@ public class KafkaUtils {
     }
   }
 
+  /**
+   * Merges, into the provided <code>Properties</code>, the key-value pairs that are found in the given <code>config</code>
+   * under the provided <code>keyPath</code>. If <code>config</code> has the <code>keyPath</code>, it should map to an object
+   * with the arbitrary property mappings.
+   * @param props Kafka properties.
+   * @param config Kafka config.
+   * @param keyPath A path in the kafka config ("kafka.consumer", for example) that contains additional, arbitrary properties.
+   * @throws IllegalArgumentException In the event the config at <code>keyPath</code> contains a value list
+   */
+  private static void mergeConfigProps(Properties props, Config config, String keyPath) {
+    if (!config.hasPath(keyPath)) {
+      return;
+    }
+
+    Config propsConfig = config.getConfig(keyPath);
+
+    for (Entry<String, ConfigValue> entry : propsConfig.entrySet()) {
+      String propKey = entry.getKey();
+      ConfigValue value = entry.getValue();
+
+      // NOTE: we don't prevent ConfigValueType.OBJECT here, for two reasons:
+      // 1. many Kafka properties include ".", like "security.protocol". With HOCON, writing 'security.protocol: "ssl"'
+      //    is equivalent to writing security: { protocol: "ssl" }
+      // 2. the library does not distinguish between using dot notation / an object - even if we were to use "getParent"
+      //    like we do in Spec.validate(), we would struggle to achieve our desired outcome here.
+      // We also do not include ConfigValueType.NULL here, as entrySet excludes them.
+      if (value.valueType() == ConfigValueType.LIST) {
+        throw new IllegalArgumentException(String.format("Cannot use list for Kafka property (key %s)", propKey));
+      }
+
+      props.put(propKey, value.unwrapped());
+    }
+  }
+
   //access set to public so KafkaConnector can create consumer props from config.
   // unit tests can also validate created properties without initializing a Consumer
   public static Properties createConsumerProps(Config config, String clientId) {
+    Properties props;
+
     if (config.hasPath("kafka.consumerPropertyFile")) {
-      Properties loadedProps = loadExternalProps(config.getString("kafka.consumerPropertyFile"), config);
-      loadedProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
-      return loadedProps;
+      props = loadExternalProps(config.getString("kafka.consumerPropertyFile"), config);
+      props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
+    } else {
+      props = new Properties();
+
+      props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+
+      if (config.hasPath("kafka.securityProtocol")) {
+        props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, config.getString("kafka.securityProtocol"));
+      }
+
+      props.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
+      props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+      props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 1000 * config.getInt("kafka.maxPollIntervalSecs"));
+      props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
+      props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+      props.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
+      props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+      props.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, ConfigUtils.getOrDefault(config, "kafka.metadataMaxAgeMs", 30000));
     }
 
-    Properties consumerProps = new Properties();
-    consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
-    if (config.hasPath("kafka.securityProtocol")) {
-      consumerProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, config.getString("kafka.securityProtocol"));
-    }
-    consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
-    consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-    consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 1000 * config.getInt("kafka.maxPollIntervalSecs"));
-    consumerProps.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
-    consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-    consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
-    consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    consumerProps.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, ConfigUtils.getOrDefault(config, "kafka.metadataMaxAgeMs", 30000));
-    return consumerProps;
+    mergeConfigProps(props, config, "kafka.consumer");
+    return props;
   }
 
   /**
@@ -126,17 +169,25 @@ public class KafkaUtils {
 
   //access set to package so unit tests can validate created properties without initializing a Producer
   static Properties createProducerProps(Config config) {
+    Properties producerProps;
+
     if (config.hasPath("kafka.producerPropertyFile")) {
-      return loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+      producerProps = loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+    } else {
+      producerProps = new Properties();
+
+      producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+
+      if (config.hasPath("kafka.securityProtocol")) {
+        producerProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, config.getString("kafka.securityProtocol"));
+      }
+
+      producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getInt("kafka.maxRequestSize"));
+      producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getInt("kafka.maxRequestSize"));
+      producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     }
-    Properties producerProps = new Properties();
-    producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
-    if (config.hasPath("kafka.securityProtocol")) {
-      producerProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, config.getString("kafka.securityProtocol"));
-    }
-    producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getInt("kafka.maxRequestSize"));
-    producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getInt("kafka.maxRequestSize"));
-    producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+
+    mergeConfigProps(producerProps, config, "kafka.producer");
     return producerProps;
   }
 
@@ -221,15 +272,17 @@ public class KafkaUtils {
     // could mean that child creation events arrive after parent completion events, which could
     // interfere with the publisher's logic for determining when the run is complete
 
-    Properties props;
+    Properties adminProps;
     if (config.hasPath("kafka.adminPropertyFile")) {
-      props = loadExternalProps(config.getString("kafka.adminPropertyFile"), config);
+      adminProps = loadExternalProps(config.getString("kafka.adminPropertyFile"), config);
     } else {
-      props = new Properties();
-      props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+      adminProps = new Properties();
+      adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     }
 
-    try (Admin kafkaAdminClient = Admin.create(props)) {
+    mergeConfigProps(adminProps, config, "kafka.admin");
+
+    try (Admin kafkaAdminClient = Admin.create(adminProps)) {
       NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
       CreateTopicsResult result = kafkaAdminClient.createTopics(List.of(eventTopic), new CreateTopicsOptions());
       KafkaFuture<Void> future = result.all();
