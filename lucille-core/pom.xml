@@ -235,21 +235,29 @@
           <groupId>org.apache.zookeeper</groupId>
           <artifactId>zookeeper</artifactId>
         </exclusion>
-        <exclusion>
-          <groupId>org.eclipse.jetty.http2</groupId>
-          <artifactId>http2-server</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.eclipse.jetty.http2</groupId>
-          <artifactId>http2-common</artifactId>
-        </exclusion>
       </exclusions>
     </dependency>
-    <!-- Force zookeeper to a newer version for CVE -->
+
+    <!-- Force upgrade of zookeeper (and zookeeper-jute, to avoid NoSuchMethodError) to patch a vulnerability -->
     <dependency>
       <groupId>org.apache.zookeeper</groupId>
       <artifactId>zookeeper</artifactId>
       <version>3.9.5</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.zookeeper</groupId>
+      <artifactId>zookeeper-jute</artifactId>
+      <version>3.9.5</version>
+    </dependency>
+
+    <!-- And for tests too -->
+    <dependency>
+      <groupId>org.apache.zookeeper</groupId>
+      <artifactId>zookeeper</artifactId>
+      <version>3.9.5</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -260,10 +268,6 @@
       <exclusions>
         <exclusion>
           <groupId>org.eclipse.jetty</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.eclipse.jetty.http2</groupId>
           <artifactId>*</artifactId>
         </exclusion>
       </exclusions>
@@ -299,27 +303,6 @@
         </exclusions>
     </dependency>
 
-    <!-- override org.eclipse.jetty.http2 versions in solr-solrj because of vulnerability with transitive version http2-common moved to http3-common -->
-    <dependency>
-      <groupId>org.eclipse.jetty.http3</groupId>
-      <artifactId>http3-common</artifactId>
-      <version>${http3.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.jetty.http3</groupId>
-      <artifactId>http3-client</artifactId>
-      <version>${http3.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.jetty.http3</groupId>
-      <artifactId>http3-http-client-transport</artifactId>
-      <version>${http3.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.jetty.http3</groupId>
-      <artifactId>http3-server</artifactId>
-      <version>${http3.version}</version>
-    </dependency>
     <!-- FileConnector -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
