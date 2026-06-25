@@ -2,6 +2,8 @@ package com.kmwllc.lucille.core;
 
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.PublisherMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
@@ -35,6 +37,10 @@ import org.slf4j.MDC;
  * and the history could be accessed from the messenger.
  */
 public class PublisherImpl implements Publisher {
+
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
+      .optionalNumber("queueCapacity", "maxPendingDocs").build();
+
 
   private static final Logger log = LoggerFactory.getLogger(PublisherImpl.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");

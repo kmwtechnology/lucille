@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
@@ -10,6 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ZKRetryCounter implements RetryCounter {
+
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
+      .requiredString("connectString").build();
 
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
   private final CuratorFramework curatorFramework;
