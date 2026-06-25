@@ -230,6 +230,26 @@
       <artifactId>solr-test-framework</artifactId>
       <version>${solr.version}</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.zookeeper</groupId>
+          <artifactId>zookeeper</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty.http2</groupId>
+          <artifactId>http2-server</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty.http2</groupId>
+          <artifactId>http2-common</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- Force zookeeper to a newer version for CVE -->
+    <dependency>
+      <groupId>org.apache.zookeeper</groupId>
+      <artifactId>zookeeper</artifactId>
+      <version>3.9.5</version>
     </dependency>
 
     <dependency>
@@ -238,14 +258,14 @@
       <version>${solr.version}</version>
       <!--  Exclude old version of jetty interfering with the API   -->
       <exclusions>
-          <exclusion>
-              <groupId>org.eclipse.jetty</groupId>
-              <artifactId>*</artifactId>
-          </exclusion>
-          <exclusion>
-              <groupId>org.eclipse.jetty.http2</groupId>
-              <artifactId>*</artifactId>
-          </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jetty.http2</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
 
@@ -253,6 +273,12 @@
         <groupId>org.apache.solr</groupId>
         <artifactId>solr-solrj-zookeeper</artifactId>
         <version>${solr.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+          </exclusion>
+        </exclusions>
     </dependency>
 
     <dependency>
@@ -265,28 +291,34 @@
         <artifactId>solr-core</artifactId>
         <version>${solr.version}</version>
         <scope>test</scope>
+        <exclusions>
+          <exclusion>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+          </exclusion>
+        </exclusions>
     </dependency>
 
-    <!-- override org.eclipse.jetty.http2 versions in solr-solrj because of vulnerability with transitive version 10.0.22 -->
+    <!-- override org.eclipse.jetty.http2 versions in solr-solrj because of vulnerability with transitive version http2-common moved to http3-common -->
     <dependency>
-      <groupId>org.eclipse.jetty.http2</groupId>
-      <artifactId>http2-common</artifactId>
-      <version>${http2.version}</version>
+      <groupId>org.eclipse.jetty.http3</groupId>
+      <artifactId>http3-common</artifactId>
+      <version>${http3.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.jetty.http2</groupId>
-      <artifactId>http2-client</artifactId>
-      <version>${http2.version}</version>
+      <groupId>org.eclipse.jetty.http3</groupId>
+      <artifactId>http3-client</artifactId>
+      <version>${http3.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.jetty.http2</groupId>
-      <artifactId>http2-http-client-transport</artifactId>
-      <version>${http2.version}</version>
+      <groupId>org.eclipse.jetty.http3</groupId>
+      <artifactId>http3-http-client-transport</artifactId>
+      <version>${http3.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.jetty.http2</groupId>
-      <artifactId>http2-server</artifactId>
-      <version>${http2.version}</version>
+      <groupId>org.eclipse.jetty.http3</groupId>
+      <artifactId>http3-server</artifactId>
+      <version>${http3.version}</version>
     </dependency>
     <!-- FileConnector -->
     <dependency>
