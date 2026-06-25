@@ -6,7 +6,8 @@ LABEL description="Lucille Search ETL base image"
 # Create a standard working directory
 WORKDIR /lucille
 
-RUN apt-get update && apt-get upgrade -y
+# remove pebble due to CVE with go. unused.
+RUN apt-get update && apt-get upgrade -y && rm -f /usr/bin/pebble /bin/pebble
 
 # Copy the built Lucille artifacts
 COPY lucille-core/target/lucille.jar /lucille/lib/

@@ -46,7 +46,8 @@ LABEL description="Lucille API base image"
 
 WORKDIR /lucille-api
 
-RUN apt-get update && apt-get upgrade -y
+# remove pebble due to CVE with go. unused.
+RUN apt-get update && apt-get upgrade -y && rm -f /usr/bin/pebble /bin/pebble
 
 # we copy local build artifacts and configuration into the image that we're building
 COPY conf/ /lucille-api/conf/
