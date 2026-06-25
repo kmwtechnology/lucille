@@ -14,3 +14,10 @@
 Note: running ```docker-compose up --abort-on-container-exit```would run the internal test in runner, but it will not verify the test results.
 
 **Local runs:** After each run, remove containers to avoid a stale state, otherwise the test will error.
+
+### A Note on Dockerfiles
+As you may have noted, there is a Dockerfile in the root of the project which is not
+used as part of the distributed example. That Dockerfile is only able to invoke the `Runner`
+and is intended for more simple workflows. The Dockerfiles as part of this project invoke
+three different processes, since they are running Lucille in distributed mode. They also make
+contact with Solr and run tests. As such, they do not use the provided Dockerfile.

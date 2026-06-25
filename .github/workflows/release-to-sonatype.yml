@@ -47,3 +47,15 @@ jobs:
           curl --location --request POST 'https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/com.kmwllc?publishing_type=automatic' --header "Authorization: Basic $OSSRH_AUTH"
         env:
           OSSRH_AUTH: ${{ secrets.OSSRH_AUTH }}
+
+  docker:
+    # cannot run unless publish succeeds
+    needs: publish
+
+    uses: ./.github/workflows/release-to-docker.yml
+
+    with:
+      release_version: ${{ env.release }}
+      docker_revision: "0"
+
+    secrets: inherit
