@@ -92,6 +92,9 @@
       "received_date": {
         "type": "date"
       },
+      "imap_uid": {
+        "type": "long"
+      },
       "size": {
         "type": "long"
       }

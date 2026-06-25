@@ -14,6 +14,8 @@ import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Date;
 import org.junit.Test;
 
 /**
@@ -45,6 +47,15 @@ public class IMAPConnectorTest {
     return new MimeMessage(SESSION, new ByteArrayInputStream(raw.getBytes(StandardCharsets.UTF_8)));
   }
 
+  private Message messageWithReceivedDate(String raw, Date receivedDate) throws Exception {
+    return new MimeMessage(SESSION, new ByteArrayInputStream(raw.getBytes(StandardCharsets.UTF_8))) {
+      @Override
+      public Date getReceivedDate() {
+        return receivedDate;
+      }
+    };
+  }
+
   @Test
   public void testCreateDocumentSetsIdAndRawBytesOnly() throws Exception {
     Message message = parse("Message-ID: <abc@example.com>\r\n"
@@ -63,6 +74,21 @@ public class IMAPConnectorTest {
     // Parsed fields are populated downstream by ParseMailMessage.
     assertFalse(doc.has("subject"));
     assertFalse(doc.has("text"));
+  }
+
+  @Test
+  public void testCreateDocumentSetsReceivedDateFromImapInternalDate() throws Exception {
+    Date internalDate = Date.from(Instant.parse("2020-01-02T15:04:05Z"));
+    Message message = messageWithReceivedDate("Message-ID: <received@example.com>\r\n"
+        + "From: alice@example.com\r\n"
+        + "Subject: Received Date\r\n"
+        + "Content-Type: text/plain\r\n"
+        + "\r\n"
+        + "body", internalDate);
+
+    Document doc = connector().createDocumentFromMessage(message);
+
+    assertEquals(internalDate.toInstant(), doc.getInstant("received_date"));
   }
 
   @Test

@@ -18,6 +18,8 @@ import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import org.junit.Test;
 
@@ -57,6 +59,15 @@ public class ParseMailMessageTest {
     return new MimeMessage(SESSION, new ByteArrayInputStream(raw.getBytes(StandardCharsets.UTF_8)));
   }
 
+  private Message messageWithReceivedDate(String raw, Date receivedDate) throws Exception {
+    return new MimeMessage(SESSION, new ByteArrayInputStream(raw.getBytes(StandardCharsets.UTF_8))) {
+      @Override
+      public Date getReceivedDate() {
+        return receivedDate;
+      }
+    };
+  }
+
   private Document parseEndToEnd(Message message) throws Exception {
     return parseEndToEnd(message, connector());
   }
@@ -94,6 +105,23 @@ public class ParseMailMessageTest {
     assertTrue(doc.has("sent_date"));
     assertTrue(doc.has("message_id"));
     assertFalse(doc.has(EmailMessageParser.DEFAULT_RAW_MESSAGE_FIELD));
+  }
+
+  @Test
+  public void testReceivedDateFromImapIsPreservedAfterParsing() throws Exception {
+    Date internalDate = Date.from(Instant.parse("2020-01-02T15:04:05Z"));
+    Message message = messageWithReceivedDate("Message-ID: <received@example.com>\r\n"
+        + "From: alice@example.com\r\n"
+        + "Subject: Received Date\r\n"
+        + "Date: Wed, 1 Jan 2020 10:00:00 +0000\r\n"
+        + "Content-Type: text/plain\r\n"
+        + "\r\n"
+        + "body", internalDate);
+
+    Document doc = parseEndToEnd(message);
+
+    assertEquals(internalDate.toInstant(), doc.getInstant("received_date"));
+    assertEquals(Instant.parse("2020-01-01T10:00:00Z"), doc.getInstant("sent_date"));
   }
 
   @Test

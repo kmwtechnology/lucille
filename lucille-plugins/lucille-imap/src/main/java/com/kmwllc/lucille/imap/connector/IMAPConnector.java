@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Properties;
@@ -42,8 +43,9 @@ import org.slf4j.LoggerFactory;
  * random UUID if the header is absent), prefixed with the connector's <code>docIdPrefix</code>. The full RFC822
  * message is serialized to the <code>imap_raw_message</code> byte-array field so a downstream
  * {@link com.kmwllc.lucille.imap.stage.ParseMailMessage} stage can parse headers, bodies, and metadata concurrently
- * in the worker pool while this connector continues fetching over IMAP. The connector also sets <code>folder</code>
- * and, when available, <code>imap_uid</code>.
+ * in the worker pool while this connector continues fetching over IMAP. The connector also sets <code>folder</code>,
+ * <code>received_date</code> (from the server's IMAP INTERNALDATE when available), and, when available,
+ * <code>imap_uid</code>.
  *
  * <p>The mailbox is always opened read-only so messages are never modified or deleted.
  *
@@ -594,6 +596,10 @@ public class IMAPConnector extends AbstractConnector {
     String rawId = EmailMessageParser.deriveRawDocumentId(message);
     Document doc = Document.create(createDocId(rawId));
     doc.setField(EmailMessageParser.DEFAULT_RAW_MESSAGE_FIELD, EmailMessageParser.toRawBytes(message));
+    Date receivedDate = message.getReceivedDate();
+    if (receivedDate != null) {
+      doc.setField("received_date", receivedDate.toInstant());
+    }
     return doc;
   }
 

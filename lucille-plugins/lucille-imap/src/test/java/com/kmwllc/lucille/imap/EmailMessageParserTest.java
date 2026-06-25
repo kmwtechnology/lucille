@@ -11,6 +11,7 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import org.junit.Test;
 
@@ -137,5 +138,94 @@ public class EmailMessageParserTest {
   public void testExtractEmailAddressFromInternetAddress() throws Exception {
     InternetAddress address = new InternetAddress("alice@example.com", "Alice");
     assertEquals("alice@example.com", EmailMessageParser.extractEmailAddress(address));
+  }
+
+  @Test
+  public void testMislabeledBase64TextPartIsStillParsed() throws Exception {
+    Message message = parse("Message-ID: <mislabeled@example.com>\r\n"
+        + "From: alice@example.com\r\n"
+        + "To: bob@example.com\r\n"
+        + "Subject: Mislabeled\r\n"
+        + "MIME-Version: 1.0\r\n"
+        + "Content-Type: multipart/alternative; boundary=\"b\"\r\n"
+        + "\r\n"
+        + "--b\r\n"
+        + "Content-Type: text/plain; charset=UTF-8\r\n"
+        + "Content-Transfer-Encoding: base64\r\n"
+        + "\r\n"
+        + "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html\"></head>"
+        + "<body>plain text body</body></html>\r\n"
+        + "--b\r\n"
+        + "Content-Type: text/html; charset=UTF-8\r\n"
+        + "Content-Transfer-Encoding: 7bit\r\n"
+        + "\r\n"
+        + "<html><body>html body</body></html>\r\n"
+        + "--b--\r\n");
+
+    Document doc = Document.create("<mislabeled@example.com>");
+    EmailMessageParser.populateDocument(message, doc);
+
+    assertTrue(doc.has("text"));
+    assertTrue(doc.getStringList("text").get(0).contains("plain text body"));
+    assertTrue(doc.has("html"));
+    assertTrue(doc.getStringList("html").get(0).contains("html body"));
+  }
+
+  @Test
+  public void testBase64TextPartWithTrailingMetadataIsParsed() throws Exception {
+    String body = java.util.Base64.getEncoder().encodeToString("Hello world.".getBytes(StandardCharsets.UTF_8));
+    Message message = parse("Message-ID: <trailing@example.com>\r\n"
+        + "From: alice@example.com\r\n"
+        + "To: bob@example.com\r\n"
+        + "Subject: Trailing metadata\r\n"
+        + "Content-Type: text/plain; charset=UTF-8\r\n"
+        + "Content-Transfer-Encoding: base64\r\n"
+        + "\r\n"
+        + body + "\r\n"
+        + "<XHTML-STRIPONREPLY></XHTML-STRIPONREPLY>\r\n");
+
+    Document doc = Document.create("<trailing@example.com>");
+    EmailMessageParser.populateDocument(message, doc);
+
+    assertEquals(List.of("Hello world."), doc.getStringList("text"));
+  }
+
+  @Test
+  public void testMalformedContentTypeWithUnquotedNameParameterIsParsed() throws Exception {
+    Message message = parse("Message-ID: <attached@example.com>\r\n"
+        + "From: alice@example.com\r\n"
+        + "To: bob@example.com\r\n"
+        + "Subject: Attached\r\n"
+        + "MIME-Version: 1.0\r\n"
+        + "Content-Type: multipart/mixed; boundary=\"b\"\r\n"
+        + "\r\n"
+        + "--b\r\n"
+        + "Content-Type: text/plain; charset=US-ASCII; name=Attached Message Part\r\n"
+        + "Content-Transfer-Encoding: 7bit\r\n"
+        + "\r\n"
+        + "attached message body\r\n"
+        + "--b--\r\n");
+
+    Document doc = Document.create("<attached@example.com>");
+    EmailMessageParser.populateDocument(message, doc);
+
+    assertEquals(List.of("attached message body"), doc.getStringList("text"));
+  }
+
+  @Test
+  public void testReceivedDateFromReceivedHeaderWhenImapDateAbsent() throws Exception {
+    Message message = parse("Message-ID: <received-header@example.com>\r\n"
+        + "From: alice@example.com\r\n"
+        + "To: bob@example.com\r\n"
+        + "Subject: Received Header\r\n"
+        + "Received: from mail.example.com by mx.google.com; Wed, 2 Jan 2020 15:04:05 +0000\r\n"
+        + "Content-Type: text/plain\r\n"
+        + "\r\n"
+        + "body");
+
+    Document doc = Document.create("<received-header@example.com>");
+    EmailMessageParser.populateDocument(message, doc);
+
+    assertEquals(Instant.parse("2020-01-02T15:04:05Z"), doc.getInstant("received_date"));
   }
 }
