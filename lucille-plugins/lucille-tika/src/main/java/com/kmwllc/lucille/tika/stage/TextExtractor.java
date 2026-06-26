@@ -56,7 +56,8 @@ import org.xml.sax.SAXException;
  * fork.enabled (Boolean, Optional) : Whether parsing should be run in a child JVM via the <code>ForkParser</code>.
  * This adds overhead to each document but isolates OOM crashes from the parent. Defaults to false.
  * fork.poolSize (Integer, Optional) : number of child JVM processes kept alive in the pool. Defaults to 5.
- * fork.jvmArgs (List&lt;String&gt;, Optional) : JVM command and arguments for each child process. Defaults to ["java", "-Xmx512m", "-Djava.awt.headless=true"]
+ * fork.jvmArgs (List&lt;String&gt;, Optional) : JVM command and arguments for each child process. Defaults to ["java", "-Djava.awt.headless=true"].
+ * "java" will be prepended to the jvmArgs, whenever you specify them.
  * fork.serverPulseMillis (Long, Optional) : Heartbeat interval (in ms) between parent and child processes. Defaults to 1000.
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
@@ -79,7 +80,7 @@ public class TextExtractor extends Stage {
       .include(FileContentFetcher.SPEC).build();
 
   private static final List<String> DEFAULT_FORK_JVM_ARGS =
-      Arrays.asList("java", "-Xmx512m", "-Djava.awt.headless=true");
+      Arrays.asList("java", "-Djava.awt.headless=true");
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
   private String textField;
@@ -115,7 +116,15 @@ public class TextExtractor extends Stage {
 
     forkEnabled = ConfigUtils.getOrDefault(config, "fork.enabled", false);
     forkPoolSize = ConfigUtils.getOrDefault(config, "fork.poolSize", 5);
-    forkJvmArgs = config.hasPath("fork.jvmArgs") ? config.getStringList("fork.jvmArgs") : DEFAULT_FORK_JVM_ARGS;
+
+    if (config.hasPath("fork.jvmArgs")) {
+      forkJvmArgs = config.getStringList("fork.jvmArgs");
+      // always prepend java so users don't need to specify it
+      forkJvmArgs.add(0, "java");
+    } else {
+      forkJvmArgs = DEFAULT_FORK_JVM_ARGS;
+    }
+
     forkServerPulseMillis = ConfigUtils.getOrDefault(config, "fork.serverPulseMillis", 1000L);
 
     this.fieldFilter = new FieldFilter(config);
