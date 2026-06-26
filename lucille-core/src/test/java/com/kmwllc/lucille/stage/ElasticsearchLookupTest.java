@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.Function;
+import org.eclipse.jetty.util.component.Graceful.ThrowingRunnable;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -29,11 +30,6 @@ import co.elastic.clients.transport.endpoints.BooleanResponse;
 import co.elastic.clients.util.ObjectBuilder;
 
 public class ElasticsearchLookupTest {
-
-  @FunctionalInterface
-  interface ThrowingRunnable {
-    void run() throws Exception;
-  }
 
   private void assertMessage(String message, ThrowingRunnable run) throws Exception {
     try {
