@@ -436,4 +436,16 @@ public class TextExtractorTest {
     // Document should have text after processing without interruption.
     assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
   }
+
+  @Test
+  public void testForkingParser() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/forking.conf");
+    Document doc = Document.create("doc1");
+
+    // set path as absolute Path
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+    assertEquals("Hi There!\n", doc.getString("text"));
+  }
 }
