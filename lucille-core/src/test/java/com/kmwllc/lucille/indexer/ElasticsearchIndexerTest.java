@@ -1,9 +1,17 @@
 package com.kmwllc.lucille.indexer;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorCause;
+import co.elastic.clients.elasticsearch._types.ErrorResponse;
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermsQuery;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
+import co.elastic.clients.elasticsearch.core.DeleteByQueryRequest;
+import co.elastic.clients.elasticsearch.core.DeleteByQueryResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
@@ -17,12 +25,15 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Set;
 import org.apache.commons.lang3.tuple.Pair;
@@ -65,6 +76,10 @@ public class ElasticsearchIndexerTest {
 
     BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
     Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
+
+    DeleteByQueryResponse mockDeleteByQueryResponse = Mockito.mock(DeleteByQueryResponse.class);
+    when(mockClient.deleteByQuery(any(DeleteByQueryRequest.class))).thenReturn(mockDeleteByQueryResponse);
+    when(mockDeleteByQueryResponse.failures()).thenReturn(new ArrayList<>());
   }
 
   /**
@@ -371,6 +386,207 @@ public class ElasticsearchIndexerTest {
     List<Event> events = messenger.getSentEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testDeletion() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+
+    Document doc = Document.create("doc1", "test_run");
+    Document doc2 = Document.create("doc2", "test_run");
+
+    Document doc3MarkedDeleted = Document.create("doc3", "test_run");
+    doc3MarkedDeleted.setField("deleted", "true");
+    Document doc4 = Document.create("doc4", "test_run");
+
+    Document doc5 = Document.create("doc5", "test_run");
+    Document doc6MarkedDeleted = Document.create("doc6", "test_run");
+    doc6MarkedDeleted.setField("deleted", "true");
+
+    Document doc7 = Document.create("doc7", "test_run");
+    Document doc8DelByQuery = Document.create("doc8", "test_run");
+    doc8DelByQuery.setField("deleted", "true");
+    doc8DelByQuery.setField("field", "field");
+    doc8DelByQuery.setField("value", "value");
+
+    Document doc9MarkedDeleted = Document.create("doc9", "test_run");
+    doc9MarkedDeleted.setField("deleted", "true");
+    Document doc10DelByQuery = Document.create("doc10", "test_run");
+    doc10DelByQuery.setField("deleted", "true");
+    doc10DelByQuery.setField("field", "field");
+    doc10DelByQuery.setField("value", "value");
+
+    // batch 1
+    messenger.sendForIndexing(doc);
+    messenger.sendForIndexing(doc2);
+    // batch 2
+    messenger.sendForIndexing(doc3MarkedDeleted);
+    messenger.sendForIndexing(doc4);
+    // batch 3
+    messenger.sendForIndexing(doc5);
+    messenger.sendForIndexing(doc6MarkedDeleted);
+    // batch 4
+    messenger.sendForIndexing(doc7);
+    messenger.sendForIndexing(doc8DelByQuery);
+    // batch 5
+    messenger.sendForIndexing(doc9MarkedDeleted);
+    messenger.sendForIndexing(doc10DelByQuery);
+
+    indexer.run(10);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    ArgumentCaptor<DeleteByQueryRequest> deleteByQueryRequestArgumentCaptor = ArgumentCaptor.forClass(DeleteByQueryRequest.class);
+
+    // batch 1 -> one bulk req to upload both
+    // batch 2 -> one bulk req to delete, one bulk req to upload
+    // batch 3 -> one bulk req to upload, one bulk req to delete
+    // batch 4 -> one bulk req to upload, one delByQuery req
+    // batch 5 -> one bulk req to delete, one delByQuery req
+    verify(mockClient, times(7)).bulk(bulkRequestArgumentCaptor.capture());
+    verify(mockClient, times(2)).deleteByQuery(deleteByQueryRequestArgumentCaptor.capture());
+
+    // checking bulk request types and id
+    List<BulkRequest> bulkRequestValue = bulkRequestArgumentCaptor.getAllValues();
+    assertEquals("doc1", bulkRequestValue.get(0).operations().get(0).index().id());
+    assertEquals("doc2", bulkRequestValue.get(0).operations().get(1).index().id());
+    assertEquals("doc4", bulkRequestValue.get(1).operations().get(0).index().id());
+    assertEquals("doc3", bulkRequestValue.get(2).operations().get(0).delete().id());
+    assertEquals("doc5", bulkRequestValue.get(3).operations().get(0).index().id());
+    assertEquals("doc6", bulkRequestValue.get(4).operations().get(0).delete().id());
+    assertEquals("doc7", bulkRequestValue.get(5).operations().get(0).index().id());
+    assertEquals("doc9", bulkRequestValue.get(6).operations().get(0).delete().id());
+
+    // checking delByQuery has the remainder of the documents 8 and 10
+    List<DeleteByQueryRequest> deleteByQueryRequestValue = deleteByQueryRequestArgumentCaptor.getAllValues();
+    assertEquals(2, deleteByQueryRequestValue.size());
+    // checking each request
+    for (DeleteByQueryRequest deleteByQueryRequest : deleteByQueryRequestValue) {
+      assertNotNull(deleteByQueryRequest.query());
+      BoolQuery query = deleteByQueryRequest.query().bool();
+      // check that we did not set filter, must or mustnot
+      assertEquals(0, query.filter().size());
+      assertEquals(0, query.must().size());
+      assertEquals(0, query.mustNot().size());
+
+      // we expect 1 termsQuery for each deleteByQueryRequest
+      List<Query> queries = query.should();
+      assertEquals(1, queries.size());
+      TermsQuery termsQuery = queries.get(0).terms();
+
+      // check that the terms and fieldValue is what we expect from doc8 and doc10
+      assertEquals("field", termsQuery.field());
+      List<FieldValue> fieldValues = termsQuery.terms().value();
+      assertEquals(1, fieldValues.size());
+      assertEquals("value", fieldValues.get(0).stringValue());
+    }
+  }
+
+  @Test
+  public void testDeleteByQuery() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/testDeleteByQuery.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+
+    Document doc1DelByQuery = Document.create("doc1", "test_run");
+    doc1DelByQuery.setField("deleted", "true");
+    doc1DelByQuery.setField("field", "doc1field");
+    doc1DelByQuery.setField("value", "doc1value");
+
+    Document doc1v2DelByQuery = Document.create("doc1v2", "test_run");
+    doc1v2DelByQuery.setField("deleted", "true");
+    doc1v2DelByQuery.setField("field", "doc1field");
+    doc1v2DelByQuery.setField("value", "doc1v2value");
+
+    Document doc2DelByQuery = Document.create("doc2", "test_run");
+    doc2DelByQuery.setField("deleted", "true");
+    doc2DelByQuery.setField("field", "doc2field");
+    doc2DelByQuery.setField("value", "doc2value");
+
+    messenger.sendForIndexing(doc1DelByQuery);
+    messenger.sendForIndexing(doc1v2DelByQuery);
+    messenger.sendForIndexing(doc2DelByQuery);
+
+    indexer.run(3);
+
+    ArgumentCaptor<DeleteByQueryRequest> deleteByQueryRequestArgumentCaptor = ArgumentCaptor.forClass(DeleteByQueryRequest.class);
+    verify(mockClient, times(1)).deleteByQuery(deleteByQueryRequestArgumentCaptor.capture());
+
+    assertEquals(1, deleteByQueryRequestArgumentCaptor.getAllValues().size());
+    DeleteByQueryRequest deleteByQueryRequestValue = deleteByQueryRequestArgumentCaptor.getAllValues().get(0);
+    assertNotNull(deleteByQueryRequestValue.query());
+    BoolQuery query = deleteByQueryRequestValue.query().bool();
+    assertEquals("1", query.minimumShouldMatch());
+
+    // check that bool query does not contain any filter/must/mustnots
+    assertEquals(0, query.filter().size());
+    assertEquals(0, query.must().size());
+    assertEquals(0, query.mustNot().size());
+
+    // we expect 2 termQueries doc1field and doc2field
+    List<Query> queries = query.should();
+    assertEquals(2, queries.size());
+    TermsQuery query1 = queries.get(0).terms();
+    TermsQuery query2 = queries.get(1).terms();
+
+    assertEquals("doc1field", query1.field());
+    assertEquals("doc2field", query2.field());
+
+    List<FieldValue> fieldValues1 = query1.terms().value();
+    List<FieldValue> fieldValues2 = query2.terms().value();
+    assertEquals(2, fieldValues1.size());
+    assertEquals(1, fieldValues2.size());
+
+    assertEquals("doc1value", fieldValues1.get(0).stringValue());
+    assertEquals("doc1v2value", fieldValues1.get(1).stringValue());
+    assertEquals("doc2value", fieldValues2.get(0).stringValue());
+  }
+
+  @Test
+  public void testDeleteUsesIdOverride() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
+        .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+
+    Document deletedDoc = Document.create("doc-original", "test_run");
+    deletedDoc.setField("other_id", "doc-override");
+    deletedDoc.setField("deleted", "true");
+
+    messenger.sendForIndexing(deletedDoc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    assertEquals(1, br.operations().size());
+    // delete path should use id override just like index/update paths.
+    assertNotNull(br.operations().get(0).delete());
+    assertEquals("doc-override", br.operations().get(0).delete().id());
+  }
+
+  @Test
+  public void testDeletionMarkerFieldAndValue() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
+        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("file_expired"))
+        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+
+    Document expiredDoc = Document.create("doc-expired", "test_run");
+    // deletion marker check uses getString(), so boolean true matches "true".
+    expiredDoc.setField("file_expired", true);
+
+    messenger.sendForIndexing(expiredDoc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    assertEquals(1, br.operations().size());
+    assertNotNull(br.operations().get(0).delete());
+    assertEquals("doc-expired", br.operations().get(0).delete().id());
   }
 
   @Test
@@ -942,6 +1158,206 @@ public class ElasticsearchIndexerTest {
     // No error if the close goes wrong
     Mockito.doThrow(new RuntimeException("Mock Exception")).when(mockTransport).close();
     indexer.closeConnection();
+  }
+
+  /**
+   * A bulk-API-level failure carrying an HTTP status (ElasticsearchException) should be rethrown as
+   * an IndexerRetryableException carrying that same status code, so the base Indexer can apply its
+   * retry policy.
+   */
+  @Test
+  public void testBulkExceptionRethrownAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(throwingClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    Document doc = Document.create("doc1", "test_run");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(503, exc.getStatusCode());
+  }
+
+  /**
+   * A transport-level failure (IOException) carries no HTTP status, so it should be rethrown as an
+   * IndexerRetryableException with the UNKNOWN_STATUS_CODE sentinel.
+   */
+  @Test
+  public void testTransportFailureRethrownAsRetryableWithUnknownStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+    Mockito.when(throwingClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new IOException("connection refused"));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    Document doc = Document.create("doc1", "test_run");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, exc.getStatusCode());
+  }
+
+  /**
+   * A per-document (item-level) error whose id matches an uploaded document should be returned in the
+   * failedDocs set as an IndexerRetryableException carrying the item's HTTP status code, rather than
+   * thrown. This lets the base Indexer retry only the documents whose status code is retryable.
+   */
+  @Test
+  public void testItemLevelErrorReturnedAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient itemErrorClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(itemErrorClient.ping()).thenReturn(new BooleanResponse(true));
+
+    BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(itemErrorClient.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
+
+    BulkResponseItem errorItem = Mockito.mock(BulkResponseItem.class);
+    ErrorCause errorCause = new ErrorCause.Builder()
+        .reason("too many requests").type("es_rejected_execution_exception").build();
+    Mockito.when(errorItem.error()).thenReturn(errorCause);
+    Mockito.when(errorItem.status()).thenReturn(429);
+    Mockito.when(errorItem.id()).thenReturn("doc1");
+    Mockito.when(mockResponse.items()).thenReturn(List.of(errorItem));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", itemErrorClient);
+
+    Document doc = Document.create("doc1", "test_run");
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+
+    assertEquals(1, failedDocs.size());
+    Exception failure = failedDocs.iterator().next().getRight();
+    assertTrue(failure instanceof IndexerRetryableException);
+    assertEquals(429, ((IndexerRetryableException) failure).getStatusCode());
+  }
+
+  @Test
+  public void testDeleteByIdExceptionRethrownAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(throwingClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    // marked for deletion by id only (no deleteByField field/value present) -> routed to deleteById
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("deleted", "true");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(503, exc.getStatusCode());
+  }
+
+  @Test
+  public void testDeleteByQueryExceptionRethrownAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(throwingClient.deleteByQuery(any(DeleteByQueryRequest.class)))
+        .thenThrow(new ElasticsearchException("es/delete_by_query", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/testDeleteByQuery.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    // marked for deletion with deleteByField field/value present -> routed to deleteByQuery
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("deleted", "true");
+    doc.setField("field", "doc1field");
+    doc.setField("value", "doc1value");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(503, exc.getStatusCode());
+  }
+
+  /**
+   * End-to-end check that a retryable bulk-level failure is actually retried: the client throws a
+   * 503 (retryable under the default status codes) on the first attempt and succeeds on the second,
+   * so the document should ultimately receive a FINISH event. Mirrors
+   * OpenSearchIndexerTest#testRetrySucceedsOnSecondAttempt.
+   */
+  @Test
+  public void testRetrySucceedsOnSecondAttempt() throws Exception {
+    ElasticsearchClient retryClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(retryClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    BulkResponse successResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(successResponse.items()).thenReturn(List.of());
+
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse))
+        .thenReturn(successResponse);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/retry.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", retryClient);
+
+    Document doc = Document.create("doc1", "test_run");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    verify(retryClient, times(2)).bulk(any(BulkRequest.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  /**
+   * When the failure carries a status code that is not in the configured retryableStatusCodes list,
+   * no retry should be attempted. Here the client throws a 503 but only 429 is configured as
+   * retryable, so bulk() is called exactly once and the document fails.
+   */
+  @Test
+  public void testNoRetryForNonRetryableStatusCode() throws Exception {
+    ElasticsearchClient retryClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(retryClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/retryWith429Only.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", retryClient);
+
+    Document doc = Document.create("doc1", "test_run");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    verify(retryClient, times(1)).bulk(any(BulkRequest.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FAIL, events.get(0).getType());
   }
 
   public static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {
