@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -843,6 +844,80 @@ public class JsonDocument implements Document {
   @Override
   public Map<String, Object> asMap() {
     return MAPPER.convertValue(data, TYPE);
+  }
+
+  @Override
+  public long getByteSize() {
+    return estimateJsonSize(data);
+  }
+
+  private static long estimateJsonSize(JsonNode node) {
+    switch (node.getNodeType()) {
+      case OBJECT: {
+        long size = 2; // braces
+        boolean first = true;
+        for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
+          Map.Entry<String, JsonNode> entry = it.next();
+          if (!first) {
+            size += 1; // comma between entries
+          }
+          first = false;
+          // quoted key plus the colon separator
+          size += utf8Length(entry.getKey()) + 3;
+          size += estimateJsonSize(entry.getValue());
+        }
+        return size;
+      }
+      case ARRAY: {
+        long size = 2; // brackets
+        boolean first = true;
+        for (JsonNode element : node) {
+          if (!first) {
+            size += 1; // comma between elements
+          }
+          first = false;
+          size += estimateJsonSize(element);
+        }
+        return size;
+      }
+      case STRING:
+        return utf8Length(node.textValue()) + 2; // content plus quotes
+      case NUMBER:
+        return node.asText().length();
+      case BOOLEAN:
+        return node.booleanValue() ? 4 : 5; // true / false
+      case NULL:
+      case MISSING:
+        return 4; // null
+      default:
+        // any other type, just fall back to serialization
+        return node.toString().getBytes(StandardCharsets.UTF_8).length;
+    }
+  }
+
+  /**
+   * Returns the number of bytes the given String requires when encoded as UTF-8. This iterates the
+   * String directly and sums the per-character byte count.
+   *
+   * @param s the String to measure.
+   * @return the UTF-8 encoded length of the String in bytes.
+   */
+  private static int utf8Length(String s) {
+    int bytes = 0;
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c <= 0x7F) {
+        bytes += 1;
+      } else if (c <= 0x7FF) {
+        bytes += 2;
+      } else if (Character.isHighSurrogate(c) && i + 1 < s.length() && Character.isLowSurrogate(s.charAt(i + 1))) {
+        bytes += 4; // a surrogate pair encodes a single 4-byte code point
+        i++; // skip the low surrogate we just consumed
+      } else {
+        bytes += 3;
+      }
+    }
+    return bytes;
   }
 
   @Override

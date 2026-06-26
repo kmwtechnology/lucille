@@ -59,10 +59,23 @@
 -}}
 {{ if .Site.Params.versions -}}
 {{ $activeVersion := .Site.Params.version -}}
+{{- /* Base URL path of the version the current page belongs to, e.g. "/docs-0.6.0/". */ -}}
+{{ $activeBase := "" -}}
 {{ range .Site.Params.versions -}}
-{{ if hasPrefix $.RelPermalink (urls.Parse .url).Path -}}
+{{ $vPath := (urls.Parse .url).Path -}}
+{{ if hasPrefix $.RelPermalink $vPath -}}
 {{ $activeVersion = .version -}}
+{{ $activeBase = $vPath -}}
 {{ end -}}
+{{ end -}}
+{{- /* The current page's path within its version, e.g. "getting-started/installation/".
+       Every version is built together (content/en/docs, docs-<tag>, docs-pre-release), so
+       site.GetPage below can resolve the same page in any other version. When it exists we
+       link straight to it so switching versions keeps the reader on the same page; otherwise
+       we fall back to that version's landing page (.url). */ -}}
+{{ $subpath := "" -}}
+{{ if $activeBase -}}
+{{ $subpath = strings.TrimSuffix "/" (strings.TrimPrefix $activeBase $.RelPermalink) -}}
 {{ end -}}
 <div class="px-3 pt-3 pb-2">
   <div class="dropdown td-version-selector">
@@ -74,7 +87,14 @@
     </button>
     <ul class="dropdown-menu w-100">
       {{ range .Site.Params.versions -}}
-      <li><a class="dropdown-item" href="{{ .url }}">{{ .version }}</a></li>
+      {{ $href := .url -}}
+      {{ if and $activeBase (ne $subpath "") -}}
+      {{ $folder := path.Base (strings.TrimSuffix "/" (urls.Parse .url).Path) -}}
+      {{ with site.GetPage (printf "/%s/%s" $folder $subpath) -}}
+      {{ $href = .RelPermalink -}}
+      {{ end -}}
+      {{ end -}}
+      <li><a class="dropdown-item" href="{{ $href }}">{{ .version }}</a></li>
       {{ end -}}
     </ul>
   </div>

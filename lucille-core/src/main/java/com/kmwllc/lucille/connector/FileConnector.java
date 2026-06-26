@@ -63,6 +63,8 @@ import com.typesafe.config.Config;
  *   <li>state.jdbcPassword (String, Optional) : Database password. Defaults to "".</li>
  *   <li>state.tableName (String, Optional) : Table name for state. Defaults to the connector name.</li>
  *   <li>state.performDeletions (Boolean, Optional) : Delete rows for files removed from storage. Defaults to true.</li>
+ *   <li>state.runsBeforeExpiration (Int, Optional) : After a file is not encountered for this number of runs, it will be marked
+ *   as expired. Must be at least 1. Defaults to 1.</li>
  *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 200.</li>
  *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
  *   <li>gcp.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
@@ -134,7 +136,7 @@ public class FileConnector extends AbstractConnector {
           SpecBuilder.parent("state")
               .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
               .optionalBoolean("performDeletions", "enabled")
-              .optionalNumber("pathLength").build(),
+              .optionalNumber("pathLength", "runsBeforeExpiration").build(),
           GCP_PARENT_SPEC,
           AZURE_PARENT_SPEC,
           S3_PARENT_SPEC)
@@ -202,6 +204,15 @@ public class FileConnector extends AbstractConnector {
       traverseStoragePath(publisher, resource);
     }
 
+    // bump runs_not_encountered so listExpiredFiles and shutdown's deletion see up-to-date counters
+    if (stateManager != null) {
+      try {
+        stateManager.incrementRunsNotEncountered();
+      } catch (SQLException e) {
+        throw new ConnectorException("Error finalizing state after traversal.", e);
+      }
+    }
+
     if (config.hasPath("filterOptions.sendTombstones") &&
         config.getBoolean("filterOptions.sendTombstones")) {
       // find files no longer in datastore that need to be removed from index
@@ -210,11 +221,6 @@ public class FileConnector extends AbstractConnector {
   }
 
   // stateful only: publish tombstones for files seen during prior ingests but not the current
-  // todo: add 'missing' count column to track how many times we've not seen document
-  // so there is an option to not instantly delete it the first time but only if it
-  // has been missing from multiple runs. Or attach a TTL timestamp or LAST_SEEN 
-  // timestamp so a delete policy can be set like "send tombstone if document has been
-  // gone for more than 16 hours", etc. Just a tunable safety measure.
   private void sendExpiredFileTombstones(Publisher publisher) throws ConnectorException {
     // skip if state not being managed
     if (stateManager == null) {
