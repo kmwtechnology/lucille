@@ -48,8 +48,7 @@ import org.xml.sax.SAXException;
  * tikaConfigPath (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
- * parseTimeout (Long, Optional) : timeout in milliseconds before a parse is abandoned. When fork.enabled is false,
- * this interrupts the parsing thread. When fork.enabled is true, this kills the child process.
+ * parseTimeout (Long, Optional) : timeout for parsing in milliseconds.
  * whitelist (List&lt;String&gt;, Optional) : list of metadata names that are to be included in document
  * blacklist (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
  * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
