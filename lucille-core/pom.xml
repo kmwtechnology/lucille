@@ -224,21 +224,51 @@
       <version>5.11.2</version>
     </dependency>
 
-    <!--
-      solr-core-10.0.0.pom is a malformed published POM (Jackson deps lack versions, no dependencyManagement).
-      Maven marks it invalid and skips all transitive resolution. We enumerate solr-core's full runtime dep
-      list here as test scope so MiniSolrCloudCluster can start in SolrIndexerIntegrationTest
-    -->
+    <!-- Solr modules -->
     <dependency>
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-api</artifactId>
       <version>${solr.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- Extra Lucene modules required by solr-core at runtime -->
+    <dependency>
+      <groupId>org.apache.solr</groupId>
+      <artifactId>solr-solrj-jetty</artifactId>
+      <version>${solr.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Pin jetty-http to 12.0.33 — solr-solrj-jetty drags in 12.0.27 which has a CVE; 12.1.x (used by
+         lucille-api via Dropwizard) is unaffected so the pin lives here rather than in the parent -->
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-http</artifactId>
+      <version>12.0.33</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+          ===========================================================================================
+          TEMPORARY WORKAROUND — DELETE THIS ENTIRE BLOCK when solr-core POM is fixed
+          ===========================================================================================
+          solr-core-10.0.0.pom is malformed: Jackson dependencies have no versions and there is no
+          dependencyManagement section. Maven treats the POM as invalid and skips all transitive
+          resolution, so MiniSolrCloudCluster cannot start in SolrIndexerIntegrationTest.
+          Until Apache Solr publishes a corrected POM (10.x+), we enumerate solr-core's full
+          runtime dependency list here, all at test scope.
+          Track: https://issues.apache.org/jira/browse/SOLR (search "malformed POM 10.0.0")
+          ===========================================================================================
+    -->
+
+    <!-- Lucene modules required by solr-core at runtime -->
     <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-classification</artifactId>
+      <version>${lucene.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-expressions</artifactId>
       <version>${lucene.version}</version>
       <scope>test</scope>
     </dependency>
@@ -250,13 +280,37 @@
     </dependency>
     <dependency>
       <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-highlighter</artifactId>
+      <version>${lucene.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-join</artifactId>
       <version>${lucene.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-misc</artifactId>
+      <version>${lucene.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-sandbox</artifactId>
+      <version>${lucene.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-spatial-extras</artifactId>
+      <version>${lucene.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-suggest</artifactId>
       <version>${lucene.version}</version>
       <scope>test</scope>
     </dependency>
@@ -278,102 +332,64 @@
       <version>${lucene.version}</version>
       <scope>test</scope>
     </dependency>
+
+    <!-- Jackson formats — SolrCore.<clinit> instantiates CborResponseWriter and SmileResponseWriter -->
     <dependency>
-      <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-expressions</artifactId>
-      <version>${lucene.version}</version>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-cbor</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-highlighter</artifactId>
-      <version>${lucene.version}</version>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-smile</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Jersey + HK2 — Solr's embedded HTTP layer -->
+    <dependency>
+      <groupId>org.glassfish.jersey.containers</groupId>
+      <artifactId>jersey-container-jetty-http</artifactId>
+      <version>2.39.1</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish.jersey.core</groupId>
+      <artifactId>jersey-common</artifactId>
+      <version>3.1.11</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-misc</artifactId>
-      <version>${lucene.version}</version>
+      <groupId>org.glassfish.jersey.core</groupId>
+      <artifactId>jersey-server</artifactId>
+      <version>3.1.11</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-sandbox</artifactId>
-      <version>${lucene.version}</version>
+      <groupId>org.glassfish.jersey.inject</groupId>
+      <artifactId>jersey-hk2</artifactId>
+      <version>3.1.11</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.lucene</groupId>
-      <artifactId>lucene-suggest</artifactId>
-      <version>${lucene.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- Other solr-core runtime deps not reachable via transitive resolution -->
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-exec</artifactId>
-      <version>1.5.0</version>
+      <groupId>org.glassfish.jersey.media</groupId>
+      <artifactId>jersey-media-json-jackson</artifactId>
+      <version>3.1.11</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.carrotsearch</groupId>
-      <artifactId>hppc</artifactId>
-      <version>0.10.0</version>
+      <groupId>org.glassfish.hk2</groupId>
+      <artifactId>hk2-api</artifactId>
+      <version>3.1.1</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>com.fasterxml.woodstox</groupId>
-      <artifactId>woodstox-core</artifactId>
-      <version>7.0.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.codehaus.woodstox</groupId>
-      <artifactId>stax2-api</artifactId>
-      <version>4.2.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.github.ben-manes.caffeine</groupId>
-      <artifactId>caffeine</artifactId>
-      <version>3.2.3</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.j256.simplemagic</groupId>
-      <artifactId>simplemagic</artifactId>
-      <version>1.17</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.tdunning</groupId>
-      <artifactId>t-digest</artifactId>
-      <version>3.3</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.dropwizard.metrics</groupId>
-      <artifactId>metrics-core</artifactId>
-      <version>4.2.26</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.prometheus</groupId>
-      <artifactId>prometheus-metrics-exposition-formats</artifactId>
-      <version>1.3.10</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.prometheus</groupId>
-      <artifactId>prometheus-metrics-model</artifactId>
-      <version>1.3.10</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.swagger.core.v3</groupId>
-      <artifactId>swagger-annotations-jakarta</artifactId>
-      <version>2.2.22</version>
-    </dependency>
+
+    <!-- Jakarta APIs -->
     <dependency>
       <groupId>jakarta.inject</groupId>
       <artifactId>jakarta.inject-api</artifactId>
@@ -393,82 +409,12 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-math3</artifactId>
-      <version>3.6.1</version>
-      <scope>test</scope>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-annotations-jakarta</artifactId>
+      <version>2.2.22</version>
     </dependency>
-    <dependency>
-      <groupId>org.glassfish.hk2</groupId>
-      <artifactId>hk2-api</artifactId>
-      <version>3.1.1</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.locationtech.spatial4j</groupId>
-      <artifactId>spatial4j</artifactId>
-      <version>0.8</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.xerial.snappy</groupId>
-      <artifactId>snappy-java</artifactId>
-      <version>1.1.10.8</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.jersey.containers</groupId>
-      <artifactId>jersey-container-jetty-http</artifactId>
-      <version>2.39.1</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.eclipse.jetty</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.solr</groupId>
-      <artifactId>solr-solrj-jetty</artifactId>
-      <version>${solr.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.jersey.core</groupId>
-      <artifactId>jersey-server</artifactId>
-      <version>3.1.11</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.jersey.core</groupId>
-      <artifactId>jersey-common</artifactId>
-      <version>3.1.11</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.jersey.inject</groupId>
-      <artifactId>jersey-hk2</artifactId>
-      <version>3.1.11</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.jersey.media</groupId>
-      <artifactId>jersey-media-json-jackson</artifactId>
-      <version>3.1.11</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- SolrCore.<clinit> instantiates CborResponseWriter and SmileResponseWriter -->
-    <dependency>
-      <groupId>com.fasterxml.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-cbor</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.fasterxml.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-smile</artifactId>
-      <scope>test</scope>
-    </dependency>
+
+    <!-- OpenTelemetry — Solr 10 metrics stack -->
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk</artifactId>
@@ -493,6 +439,91 @@
       <version>2.22.0-alpha</version>
       <scope>test</scope>
     </dependency>
+
+    <!-- Prometheus -->
+    <dependency>
+      <groupId>io.prometheus</groupId>
+      <artifactId>prometheus-metrics-exposition-formats</artifactId>
+      <version>1.3.10</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.prometheus</groupId>
+      <artifactId>prometheus-metrics-model</artifactId>
+      <version>1.3.10</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Dropwizard Metrics -->
+    <dependency>
+      <groupId>io.dropwizard.metrics</groupId>
+      <artifactId>metrics-core</artifactId>
+      <version>4.2.26</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Misc utilities pulled in by solr-core -->
+    <dependency>
+      <groupId>com.carrotsearch</groupId>
+      <artifactId>hppc</artifactId>
+      <version>0.10.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.woodstox</groupId>
+      <artifactId>woodstox-core</artifactId>
+      <version>7.0.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+      <version>3.2.3</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.j256.simplemagic</groupId>
+      <artifactId>simplemagic</artifactId>
+      <version>1.17</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.tdunning</groupId>
+      <artifactId>t-digest</artifactId>
+      <version>3.3</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-exec</artifactId>
+      <version>1.5.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-math3</artifactId>
+      <version>3.6.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.woodstox</groupId>
+      <artifactId>stax2-api</artifactId>
+      <version>4.2.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.locationtech.spatial4j</groupId>
+      <artifactId>spatial4j</artifactId>
+      <version>0.8</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.xerial.snappy</groupId>
+      <artifactId>snappy-java</artifactId>
+      <version>1.1.10.8</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- END TEMPORARY WORKAROUND (solr-core-10.0.0 malformed POM) -->
 
      <!-- test dependency for solr integration tests -->
     <dependency>
