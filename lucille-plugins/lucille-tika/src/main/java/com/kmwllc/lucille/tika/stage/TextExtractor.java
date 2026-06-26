@@ -151,6 +151,7 @@ public class TextExtractor extends Stage {
       }
     }
 
+    // we use an auto detect parser whether we are forking or not
     AutoDetectParser autoParser;
     if (this.tikaConfigPath == null) {
       autoParser = new AutoDetectParser();
@@ -188,6 +189,7 @@ public class TextExtractor extends Stage {
   public void stop() throws StageException {
     // Shutdown each storage client
     fileFetcher.shutdown();
+
     if (executorService != null) {
       executorService.shutdownNow();
       try {
@@ -198,6 +200,7 @@ public class TextExtractor extends Stage {
         Thread.currentThread().interrupt();
       }
     }
+
     if (forkParser != null) {
       forkParser.close();
     }
