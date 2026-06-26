@@ -808,11 +808,10 @@
             </goals>
           </execution>
         </executions>
+
+        <!--   Configuration that alleviates the test after upgrade to Solr 10.0    -->
         <configuration>
           <includes>
-            <include>**/IT*.java</include>
-            <include>**/*IT.java</include>
-            <include>**/*ITCase.java</include>
             <include>**/SolrIndexerIntegrationTest.java</include>
           </includes>
           <classesDirectory>target/fake</classesDirectory>
@@ -820,8 +819,6 @@
             <additionalClasspathElement>${basedir}/target/lucille.jar</additionalClasspathElement>
           </additionalClasspathElements>
           <systemPropertyVariables>
-            <!--    After upgrading to Solr 10.0.0, tests.src.home lets ExternalPaths find the build.gradle stub     -->
-            <!--    in target/test-classes/solr/test-framework/ instead of NPE-ing on a null SOURCE_HOME             -->
             <tests.src.home>${project.build.testOutputDirectory}</tests.src.home>
           </systemPropertyVariables>
         </configuration>
