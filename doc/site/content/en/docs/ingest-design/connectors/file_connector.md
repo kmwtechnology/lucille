@@ -129,7 +129,6 @@ Extracts one Document per JSON object. Supports both standard JSON files (a sing
 | `docIdFormat` | String | — | Java `String.format` pattern for constructing the Document ID. |
 | `blacklist` | List\<String\> | — | JSON fields to exclude from the Document. |
 | `whitelist` | List\<String\> | — | Only include these JSON fields on the Document. |
-| `ignoreFields` | List\<String\> | — | JSON fields to skip entirely during parsing (not added to the Document). |
 | `docIdPrefix` | String | — | Prefix prepended to every Document ID. |
 
 ```hocon
