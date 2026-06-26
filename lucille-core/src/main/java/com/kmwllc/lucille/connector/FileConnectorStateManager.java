@@ -36,6 +36,7 @@ import com.typesafe.config.Config;
  *     </li>
  *     <li>last_published (TIMESTAMP): The last time the file was known to be published by Lucille. Is NULL for directories.</li>
  *     <li>encountered (BOOLEAN): Used internally to track files which have been encountered in a traversal, enabling deletions.</li>
+ *     <li>runs_not_encountered (INTEGER): The consecutive number of runs the state manager has seen where the file was not encountered.</li>
  *   </ul>
  *
  * <p> Lucille includes H2 as a dependency. You are welcome to configure the FileConnectorStateManager to use an embedded
@@ -63,6 +64,7 @@ public class FileConnectorStateManager {
 
   private final String tableName;
   private final boolean performDeletions;
+  private final int runsBeforeExpiration;
   private final int pathLength;
 
   private Instant traversalInstant;
@@ -79,7 +81,7 @@ public class FileConnectorStateManager {
    * @param config Configuration for the FileConnectorStateManager.
    * @param connectorName The name of the connector using this connection. Uses the name for tableName, if it is not specified.
    */
-  FileConnectorStateManager(Config config, String connectorName) {
+  FileConnectorStateManager(Config config, String connectorName) throws IllegalArgumentException {
     this.driver = ConfigUtils.getOrDefault(config, "driver", "org.h2.Driver");
     this.connectionString = ConfigUtils.getOrDefault(config, "connectionString", "jdbc:h2:./state/" + connectorName);
     this.jdbcUser = ConfigUtils.getOrDefault(config, "jdbcUser", "");
@@ -87,6 +89,10 @@ public class FileConnectorStateManager {
 
     this.tableName = ConfigUtils.getOrDefault(config, "tableName", connectorName).toUpperCase();
     this.performDeletions = ConfigUtils.getOrDefault(config, "performDeletions", true);
+    this.runsBeforeExpiration = ConfigUtils.getOrDefault(config, "runsBeforeExpiration", 1);
+    if (this.runsBeforeExpiration < 1) {
+      throw new IllegalArgumentException("state.runsBeforeExpiration must be >= 1");
+    }
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", 200);
 
     this.registryKey = connectionString + ":" + tableName;
@@ -121,7 +127,7 @@ public class FileConnectorStateManager {
       if (!rs.next()) {
         try (Statement statement = jdbcConnection.createStatement()) {
           statement.executeUpdate("CREATE TABLE \"" + tableName + "\" (name VARCHAR(" + pathLength
-              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN)");
+              + ") PRIMARY KEY, last_published TIMESTAMP WITH TIME ZONE, encountered BOOLEAN, runs_not_encountered INTEGER)");
         }
       }
     }
@@ -138,11 +144,25 @@ public class FileConnectorStateManager {
     String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
     queryStatement = jdbcConnection.prepareStatement(querySQL);
 
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name=?";
+    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true, runs_not_encountered = 0 WHERE name=?";
     updateStatement = jdbcConnection.prepareStatement(updateSQL);
 
-    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE)";
+    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE, 0)";
     insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
+  }
+
+  /**
+   * Increments the runs_not_encountered counter for every file that was not seen during the current traversal. This method must
+   * be called exactly once per run, after all markFileEncountered calls are complete.
+   * Must be called before shutdown() and before listExpiredFiles(), since both rely on the updated counters.
+   * Calling it before marking is finished will prematurely increment counters for files still being traversed.
+   */
+  public void incrementRunsNotEncountered() throws SQLException {
+    String incrementSQL = "UPDATE \"" + tableName + "\" SET runs_not_encountered = runs_not_encountered + 1 WHERE encountered=FALSE";
+
+    try (Statement statement = jdbcConnection.createStatement()) {
+      statement.executeUpdate(incrementSQL);
+    }
   }
 
   /**
@@ -152,7 +172,7 @@ public class FileConnectorStateManager {
   public void shutdown() throws SQLException {
     try {
       if (performDeletions) {
-        deleteFilesNotEncounteredAndResetTable();
+        deleteExpiredFilesAndResetTable();
       }
 
       if (jdbcConnection != null) {
@@ -192,9 +212,11 @@ public class FileConnectorStateManager {
   }
   
   public List<URI> listExpiredFiles() throws SQLException {
-    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered = FALSE";
+    String selectSQL = "SELECT name FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
     List<URI> fileUris = new ArrayList<>();
-    try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL); ResultSet rs = ps.executeQuery()) {
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(selectSQL)) {
+      ps.setInt(1, runsBeforeExpiration);
+      ResultSet rs = ps.executeQuery();
       while (rs.next()) {
         fileUris.add(URI.create(rs.getString("name")));
       }
@@ -202,11 +224,12 @@ public class FileConnectorStateManager {
     return fileUris;
   }
 
-  private void deleteFilesNotEncounteredAndResetTable() throws SQLException {
-    String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE";
+  private void deleteExpiredFilesAndResetTable() throws SQLException {
+    String deleteSQL = "DELETE FROM \"" + tableName + "\" WHERE encountered=FALSE AND runs_not_encountered >= ?";
 
-    try (Statement statement = jdbcConnection.createStatement()) {
-      int rowsAffected = statement.executeUpdate(deleteSQL);
+    try (PreparedStatement ps = jdbcConnection.prepareStatement(deleteSQL)) {
+      ps.setInt(1, runsBeforeExpiration);
+      int rowsAffected = ps.executeUpdate();
       log.info("{} rows from the state database were deleted.", rowsAffected);
     }
   }

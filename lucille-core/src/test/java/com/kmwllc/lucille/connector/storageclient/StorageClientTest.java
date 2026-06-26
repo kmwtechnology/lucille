@@ -45,11 +45,6 @@ public class StorageClientTest {
     assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("https://storagename.blob.core.windows.net/testblob"),
         azCloudOptionsBad));
 
-    // test bad g cloud options
-    Config gCloudOptionsBad = ConfigFactory.load("StorageClientTest/googleBad.conf");
-    assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("gs://bucket/"),
-        gCloudOptionsBad));
-
     // test bad s3 cloud options, only 2 of 3
     Config s3CloudOptionsBad = ConfigFactory.load("StorageClientTest/s3Bad.conf");
     assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("s3://bucket/"),

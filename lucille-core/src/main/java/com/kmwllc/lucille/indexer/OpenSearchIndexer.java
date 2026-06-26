@@ -12,7 +12,6 @@ import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -26,6 +25,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
 import org.opensearch.client.opensearch._types.FieldValue;
+import org.opensearch.client.opensearch._types.OpenSearchException;
 import org.opensearch.client.opensearch._types.VersionType;
 import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
 import org.opensearch.client.opensearch.core.BulkRequest;
@@ -64,6 +64,7 @@ public class OpenSearchIndexer extends Indexer {
   private final String routingField;
 
   private final VersionType versionType;
+  private final String versionField;
 
   //flag for using partial update API when sending documents to opensearch
   private final boolean update;
@@ -78,6 +79,11 @@ public class OpenSearchIndexer extends Indexer {
     this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
     this.versionType =
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
+    this.versionField = config.hasPath("indexer.versionField") ? config.getString("indexer.versionField") : null;
+    // validate config indexer.versionType that must be set if config indexer.versionField is set
+    if (this.versionField != null && this.versionType == null) {
+      throw new IllegalArgumentException("indexer.versionType must be set if indexer.versionField is set");
+    }
   }
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
@@ -198,7 +204,7 @@ public class OpenSearchIndexer extends Indexer {
     BulkResponse response;
     try {
       response = client.bulk(br.build());
-    } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+    } catch (OpenSearchException e) {
       throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
     } catch (IOException e) {
       throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
@@ -287,7 +293,7 @@ public class OpenSearchIndexer extends Indexer {
       DeleteByQueryResponse response;
       try {
         response = client.deleteByQuery(deleteByQueryRequest);
-      } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+      } catch (OpenSearchException e) {
         throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
       } catch (IOException e) {
         throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
@@ -337,7 +343,7 @@ public class OpenSearchIndexer extends Indexer {
       // handle special operations required to add children documents
       addChildren(doc, indexerDoc);
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
-          ? ((KafkaDocument) doc).getOffset()
+          ? getVersionNum(doc)
           : null;
 
       if (update) {
@@ -372,7 +378,7 @@ public class OpenSearchIndexer extends Indexer {
     BulkResponse response;
     try {
       response = client.bulk(br.build());
-    } catch (org.opensearch.client.opensearch._types.OpenSearchException e) {
+    } catch (OpenSearchException e) {
       // HTTP-level error with a known status code — wrap so the base Indexer can apply retry policy
       throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
     } catch (IOException e) {
@@ -435,5 +441,15 @@ public class OpenSearchIndexer extends Indexer {
         && doc.has(deleteByFieldField)
         && deleteByFieldValue != null
         && doc.has(deleteByFieldValue);
+  }
+
+  private Long getVersionNum(Document doc) {
+    if (versionField != null && doc.has(versionField)) {
+      return doc.getLong(versionField);
+    }
+    if (doc instanceof KafkaDocument) {
+      return ((KafkaDocument) doc).getOffset();
+    }
+    return null;
   }
 }

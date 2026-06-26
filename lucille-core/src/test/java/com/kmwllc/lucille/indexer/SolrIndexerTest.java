@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -13,6 +15,8 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.impl.BaseHttpSolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
@@ -1059,6 +1063,208 @@ public class SolrIndexerTest {
     }
   }
 
+  /**
+   * Non-configured status code should not retry.
+   */
+  @Test
+  public void testNoRetryForNonRetryableStatusCode() throws Exception {
+    Config config = ConfigFactory.load("SolrIndexerTest/retryWith429Only.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    when(solrClient.add(any(Collection.class)))
+        .thenThrow(new BaseHttpSolrClient.RemoteSolrException("localhost", 503, "Service Unavailable", null));
+
+    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    // 503 is not in retryableStatusCodes, so add() should be called exactly once
+    verify(solrClient, times(1)).add(any(Collection.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FAIL, events.get(0).getType());
+  }
+
+  /**
+   * An IOException from the client (transport failure) should surface as an IndexerRetryableException
+   * with no HTTP status code (UNKNOWN_STATUS_CODE).
+   */
+  @Test
+  public void testIOExceptionRethrownAsRetryable() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    when(solrClient.add(any(Collection.class))).thenThrow(new IOException("connection refused"));
+
+    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+
+    assertEquals(1, failedDocs.size());
+    Exception e = failedDocs.iterator().next().getRight();
+    assertTrue("IOException should be wrapped as IndexerRetryableException", e instanceof IndexerRetryableException);
+    assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, ((IndexerRetryableException) e).getStatusCode());
+  }
+
+  /**
+   * A SolrServerException (communication failure with the server, no live servers, etc.) should
+   * surface as an IndexerRetryableException with no HTTP status code (UNKNOWN_STATUS_CODE).
+   */
+  @Test
+  public void testSolrServerExceptionRethrownAsRetryable() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    when(solrClient.add(any(Collection.class))).thenThrow(new SolrServerException("no live SolrServers available"));
+
+    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+
+    assertEquals(1, failedDocs.size());
+    Exception e = failedDocs.iterator().next().getRight();
+    assertTrue("SolrServerException should be wrapped as IndexerRetryableException", e instanceof IndexerRetryableException);
+    assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, ((IndexerRetryableException) e).getStatusCode());
+  }
+
+  /**
+   * A RemoteSolrException carrying an HTTP status code (503) should surface as an
+   * IndexerRetryableException that preserves that status code.
+   */
+  @Test
+  public void testRemoteSolrExceptionRethrownWithStatusCode() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    when(solrClient.add(any(Collection.class)))
+        .thenThrow(new BaseHttpSolrClient.RemoteSolrException("localhost", 503, "Service Unavailable", null));
+
+    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+
+    assertEquals(1, failedDocs.size());
+    Exception e = failedDocs.iterator().next().getRight();
+    assertTrue("RemoteSolrException should be wrapped as IndexerRetryableException", e instanceof IndexerRetryableException);
+    assertEquals(503, ((IndexerRetryableException) e).getStatusCode());
+  }
+
+  /**
+   * Even an HTTP status code that is not retryable by default (400 Bad Request) is still wrapped as
+   * an IndexerRetryableException carrying that status code. It is the configured
+   * retryableStatusCodes list — not SolrIndexer — that decides whether such a failure is actually
+   * retried.
+   */
+  @Test
+  public void testRemoteSolrException4xxRethrownWithStatusCode() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    when(solrClient.add(any(Collection.class)))
+        .thenThrow(new BaseHttpSolrClient.RemoteSolrException("localhost", 400, "Bad Request", null));
+
+    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+
+    assertEquals(1, failedDocs.size());
+    Exception e = failedDocs.iterator().next().getRight();
+    assertTrue(e instanceof IndexerRetryableException);
+    assertEquals(400, ((IndexerRetryableException) e).getStatusCode());
+  }
+
+  /**
+   * A failure from the delete path should also be wrapped as an IndexerRetryableException. Deletes
+   * are not tracked per-document, so the exception propagates out of sendToIndex rather than being
+   * returned in the failed-docs set.
+   */
+  @Test
+  public void testDeletionExceptionRethrownAsRetryable() throws Exception {
+    String deletionMarkerField = "is_deleted";
+    String deletionMarkerFieldValue = "true";
+
+    Config config =
+        ConfigFactory.empty()
+            .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1))
+            .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef(deletionMarkerField))
+            .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef(deletionMarkerFieldValue));
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.addToField(deletionMarkerField, deletionMarkerFieldValue);
+
+    SolrClient solrClient = mock(SolrClient.class);
+    when(solrClient.deleteById(anyList())).thenThrow(new IOException("connection refused"));
+
+    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    IndexerRetryableException e =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, e.getStatusCode());
+  }
+
+  /**
+   * A data/mapping error (an unsupported nested-object field) is not retryable: it must remain a
+   * plain IndexerException and must NOT be wrapped as an IndexerRetryableException.
+   */
+  @Test
+  public void testMappingErrorIsNonRetryable() throws Exception {
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1));
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+    ObjectMapper mapper = new ObjectMapper();
+    // a nested object field is not supported by the SolrIndexer and is rejected before any client call
+    doc.setField("myJsonField", mapper.readTree("{\"a\": {\"aa\":1} }"));
+
+    SolrClient solrClient = mock(SolrClient.class);
+    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+
+    IndexerException e = assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertFalse("Mapping errors must not be treated as retryable", e instanceof IndexerRetryableException);
+    // the client should never have been called for an invalid document
+    verify(solrClient, times(0)).add(any(Collection.class));
+  }
+
+  /**
+   * End-to-end check that SolrIndexer is wired into the retry framework: a retryable failure on the
+   * first attempt followed by a success leads to the batch being retried and the document finishing
+   * successfully. (Comprehensive retry-framework behavior is covered in OpenSearchIndexerTest.)
+   */
+  @Test
+  public void testRetrySucceedsOnSecondAttempt() throws Exception {
+    Config config = ConfigFactory.load("SolrIndexerTest/retry.conf");
+    TestMessenger messenger = new TestMessenger();
+
+    Document doc = Document.create("doc1", "test_run");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    when(solrClient.add(any(Collection.class)))
+        .thenThrow(new IOException("simulated transient failure"))
+        .thenReturn(mock(UpdateResponse.class));
+
+    SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    // add() should have been called twice: once failing, once succeeding
+    verify(solrClient, times(2)).add(any(Collection.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
 
   private static String getCapturedID(ArgumentCaptor<Collection<SolrInputDocument>> captor, int index, int arrIndex) {
     SolrInputDocument document = (SolrInputDocument) captor.getAllValues().get(index).toArray()[arrIndex];
