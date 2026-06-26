@@ -39,6 +39,8 @@ import com.typesafe.config.Config;
  *
  * <p> Lucille includes H2 as a dependency. You are welcome to configure the FileConnectorStateManager to use an embedded
  * H2 instance - use the <code>org.h2.Driver</code>, and something like <code>jdbc:h2:{LOCAL_FILE_PATH}</code> as your connectionString.
+ *
+ * This class is operating under the assumption that connectors run sequentially.
  */
 public class FileConnectorStateManager {
 
