@@ -421,14 +421,14 @@ public class OpenSearchIndexer extends Indexer {
 
   /** Only call on documents that have children. */
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
-    List<Document> children = doc.getChildren();
-
     if (childDocumentsField == null) {
       log.warn("Document {} has children but opensearch.childDocumentsField is not configured. They will not be indexed.", doc.getId());
       return;
     }
 
     List<Map<String, Object>> childDocMaps = new ArrayList<>();
+    List<Document> children = doc.getChildren();
+
     for (Document child : children) {
       // calling getIndexerDoc allows us to apply black/whitelist
       Map<String, Object> childDocMap = getIndexerDoc(child);
