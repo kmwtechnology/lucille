@@ -360,7 +360,7 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
-  void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
+  private void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
     String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
     StorageClient storageClient = storageClientMap.get(clientKey);
 
