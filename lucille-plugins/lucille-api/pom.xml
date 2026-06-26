@@ -72,7 +72,8 @@
      <dependency>
         <groupId>io.dropwizard.modules</groupId>
         <artifactId>dropwizard-testing-junit4</artifactId>
-        <version>${dropwizard-core.version}</version>
+        <!--    TODO: See comment in parent pom    -->
+        <version>5.0.0</version>
         <scope>test</scope>
         <exclusions>
             <exclusion>
