@@ -10,7 +10,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.io.Tuple;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
@@ -71,23 +71,24 @@ public class SolrUtils {
       cloudBuilder.withDefaultCollection(config.getString("solr.defaultCollection"));
     }
 
-    if (requiresAuth(config)) {
-      Http2SolrClient httpClient = getHttpClientAndSetCheckPeerName(config);
-      cloudBuilder.withHttpClient(httpClient);
+    // Always back CloudHttp2SolrClient with HttpJdkSolrClient (Java's built-in HTTP client).
+    // Jetty's default HTTP/2 client throws ClosedChannelException when the server sends GOAWAY
+    // while a request is in flight; HttpJdkSolrClient handles that case transparently.
+    HttpJdkSolrClient httpClient = getHttpClientAndSetCheckPeerName(config);
+    cloudBuilder.withHttpClient(httpClient);
 
-      // When you give a cloud client an HTTPClient, and the cloudClient is then closed, it *will not* close the
-      // httpClient automatically - since it may (should) be a shared resource. Creating an anonymous subclass
-      // for this case allows us to gracefully make sure the httpClient does get closed, preventing a resource leak.
-      return new CloudHttp2SolrClient(cloudBuilder) {
-        @Override
-        public void close() throws IOException {
-          super.close();
+    // CloudHttp2SolrClient does not close a caller-supplied httpClient, so wrap it to prevent leaks.
+    return new CloudHttp2SolrClient(cloudBuilder) {
+      @Override
+      public void close() {
+        super.close();
+        try {
           httpClient.close();
+        } catch (IOException e) {
+          log.warn("Error closing HttpJdkSolrClient", e);
         }
-      };
-    } else {
-      return cloudBuilder.build();
-    }
+      }
+    };
   }
 
   /**
@@ -98,8 +99,8 @@ public class SolrUtils {
    * @param config The configuration file to generate the HttpClient from.
    * @return the HttpClient
    */
-  static Http2SolrClient getHttpClientAndSetCheckPeerName(Config config) {
-    Http2SolrClient.Builder clientBuilder = new Http2SolrClient.Builder();
+  static HttpJdkSolrClient getHttpClientAndSetCheckPeerName(Config config) {
+    HttpJdkSolrClient.Builder clientBuilder = new HttpJdkSolrClient.Builder();
 
     if (getAllowInvalidCert(config)) {
     	// disable the solr ssl host checking if configured to do so.
