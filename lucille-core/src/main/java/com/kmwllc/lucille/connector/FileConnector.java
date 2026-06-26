@@ -201,9 +201,7 @@ public class FileConnector extends AbstractConnector {
       throw new IllegalArgumentException("publishMode must be set and be incremental to use the sendTombstones toggle.");
     }
 
-    // Cannot specify multiple storage paths and a moveTo of some kind. Also a thread safety check:
-    // LocalStorageClient.moveFile has a Files.exists/createDirectory time of check time of use race, and restricting moveTo to
-    // single path traversals means that only one thread ever calls it.
+    // Cannot specify multiple storage paths and a moveTo of some kind
     if (storageURIs.size() > 1 && (config.hasPath("fileOptions.moveToAfterProcessing") || config.hasPath("fileOptions.moveToErrorFolder"))) {
       throw new IllegalArgumentException("FileConnector does not support multiple paths and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
