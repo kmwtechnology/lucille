@@ -4,8 +4,6 @@ weight: 1
 date: 2025-06-09
 description: >
   What Lucille does, what it excels at, and how to know if it's right for your problem.
-aliases:
-  - /docs/about/comparison/
 ---
 
 ## What Lucille Does

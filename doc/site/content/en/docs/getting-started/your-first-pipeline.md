@@ -213,7 +213,7 @@ That's the only change. The connector, the pipeline, the stages — everything e
 
 ### 2. Iterate on your pipeline
 
-Add stages, chain transformations, and introduce conditions — all in config. Want to generate an embedding for each book title and store it as a vector field? Add a stage. Want to skip that stage for documents that already have an embedding? Add a condition. Browse the [Stage Reference]({{< relref "docs/reference/stages/stages_reference" >}}) for the full library of available transformations.
+Add stages, chain transformations, and introduce conditions — all in config. Want to generate an embedding for each book title and store it as a vector field? Add a stage. Want to skip that stage for documents that already have an embedding? Add a condition. Browse the [Stage Reference]({{< relref "docs/ingest-design/stages/all-stages" >}}) for the full library of available transformations.
 
 None of this requires a build. Edit the config file, rerun Lucille, see the results. The pipeline is the config.
 

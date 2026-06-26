@@ -3,8 +3,6 @@ title: File Connector
 weight: 1
 date: 2025-02-28
 description: A Connector that traverses local filesystems and cloud storage (S3, Azure, GCS), applies pluggable file handlers, and publishes Lucille documents. Supports incremental mode, tombstone deletions, and archive unpacking.
-aliases:
-  - /docs/reference/connectors/file_handlers/
 ---
 
 [Source Code](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/FileConnector.java)
@@ -262,6 +260,7 @@ state {
   tableName: "file_state"          # Defaults to the connector name
   performDeletions: true
   pathLength: 200                  # Max length of the file path column
+  runsBeforeExpiration: 1          # Consecutive absent runs before tombstone (default: 1)
 }
 ```
 
@@ -286,6 +285,16 @@ indexer {
   deletionMarkerFieldValue: "true"
 }
 ```
+
+By default, a file is considered expired after being absent from a single run. You can increase this threshold with `state.runsBeforeExpiration` to provide a safety margin against transient storage issues (e.g., a temporary listing failure):
+
+```hocon
+state {
+  runsBeforeExpiration: 3   # File must be absent for 3 consecutive runs before tombstone
+}
+```
+
+The value must be at least 1. When set to 1 (default), a file missing from one run immediately triggers a tombstone — the original behavior.
 
 This parameter only applies in incremental mode.
 

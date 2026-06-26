@@ -5,6 +5,8 @@ date: 2025-06-06
 description: Execute an OpenSearch Template using information from a Document, and add the response to it.
 ---
 
+`com.kmwllc.lucille.stage.QueryOpensearch`
+
 ### OpenSearch Templates
 
 You can use templates in OpenSearch to repeatedly run a certain query using different parameters. For example,
@@ -41,3 +43,43 @@ is missing they (naturally) won't be part of the template execution, so the defa
 
 If a parameter without a default value is missing, OpenSearch doesn't throw an Exception - it just returns an empty response with zero hits.
 So, it is very important that `requiredParamNames` and `optionalParamNames` are defined very carefully!
+
+### Connection and Authentication
+
+The stage connects to OpenSearch via the same `opensearch` config block used by the OpenSearch Indexer. Authentication and TLS are handled by `OpenSearchUtils`:
+
+- **Basic auth:** Embed credentials in the URL: `https://username:password@host:9200`
+- **Self-signed certs:** Set `acceptInvalidCert: true` to skip certificate validation (development only).
+
+```hocon
+{
+  name: "QueryOpensearch-Example"
+  class: "com.kmwllc.lucille.stage.QueryOpensearch"
+
+  opensearch {
+    url: "https://admin:admin@localhost:9200"
+    index: "my-index"
+    acceptInvalidCert: true
+  }
+
+  templateName: "my-saved-template"
+  requiredParamNames: ["park_to_search"]
+  optionalParamNames: ["city"]
+  destinationField: "search_results"
+  opensearchResponsePath: "/hits/hits"
+}
+```
+
+### Configuration Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `opensearch.url` | String | Yes | OpenSearch endpoint URL, optionally including credentials. |
+| `opensearch.index` | String | Yes | Index to query against. |
+| `opensearch.acceptInvalidCert` | Boolean | No | Accept invalid TLS certificates. Default: `false`. |
+| `templateName` | String | One of these | Name of a saved search template in the cluster. |
+| `searchTemplate` | String | is required | Inline template body (not saved to the cluster). |
+| `requiredParamNames` | List\<String\> | No | Document fields required for the template. Missing fields cause a warning and an error field on the document. |
+| `optionalParamNames` | List\<String\> | No | Document fields used if present; omitted from the query otherwise. |
+| `opensearchResponsePath` | String | No | JsonPointer path into the response (e.g., `/hits/hits`). Defaults to the entire response. |
+| `destinationField` | String | No | Field name to write the response value to. Default: `"response"`. |

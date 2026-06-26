@@ -45,7 +45,7 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 
 | Method | Required | Purpose |
 |---|---|---|
-| `validateOptions(Config config)` | Yes | Validate that the config has the required credentials/settings for your storage backend. Throw `IllegalArgumentException` if invalid. |
+| `validateOptions(Config config)` | No | Validate that the config has the required credentials/settings for your storage backend. Throw `IllegalArgumentException` if invalid. Has an empty default implementation — override only if your backend has required config. |
 | `initializeStorageClient()` | Yes | Create the client connection (e.g., open an SFTP session). Called once before traversal begins. |
 | `shutdownStorageClient()` | Yes | Close the client connection. Called after traversal completes. |
 | `traverseStorageClient(Publisher, TraversalParams, FileConnectorStateManager)` | Yes | List files in the storage system and call `processAndPublishFileIfValid()` for each one. |

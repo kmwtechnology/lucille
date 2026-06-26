@@ -51,6 +51,85 @@ Logs from the `DocLogger` are at `ERROR` level by default. This means that witho
 
 All document failure messages use a standardized `"Document FAILED"` prefix, making it straightforward to find every failed document with a single grep. Specific failure types append additional context: `"Document FAILED during pipeline processing"`, `"Document FAILED during indexing"`, or `"Document FAILED: retry count exceeded"`.
 
+## Failed Document Logging
+
+Lucille can write the full JSON of every failed document to a dedicated JSONL file. This gives you a machine-readable record of exactly which documents failed and what they contained at the time of failure — useful for debugging, auditing, and replay.
+
+### How It Works
+
+Both the Worker and the Indexer use a dedicated logger (`com.kmwllc.lucille.core.FailedDocuments`) that writes the document's `toString()` representation (a JSON object) whenever a document fails. Failures captured include:
+
+- **Pipeline failures** — a Stage threw an exception while processing the document.
+- **Indexer failures** — the search backend rejected the document (mapping error, version conflict, etc.).
+- **Poison pills** (distributed mode) — a document exceeded `worker.maxRetries` and was routed to the dead-letter queue.
+
+Each line in the output file is a standalone JSON object representing one failed document. The file uses JSONL format (one object per line), making it easy to parse with tools like `jq` or to replay via a `FileConnector` with the JSON file handler.
+
+Each Lucille process (Runner, Worker, Indexer, WorkerIndexer) writes its own `failed-documents.jsonl` file in its local `./log/` directory. In **local mode** this is simplest — all components run in one JVM, so you get a single file with every failed document. In **distributed mode**, where multiple Worker and Indexer processes run on separate hosts, each process produces its own file. You would need to consolidate these files across hosts using an external solution (e.g., a shared filesystem mount, log shipping, or a post-run collection script) — Lucille does not aggregate them for you.
+
+### Enabling Failed Document Logging
+
+The feature is **disabled by default** (logger level `OFF`). To enable it, change the level to `ERROR` in your `log4j2.xml`:
+
+```xml
+<Logger name="com.kmwllc.lucille.core.FailedDocuments" level="ERROR" additivity="false">
+    <AppenderRef ref="failed-docs" />
+</Logger>
+```
+
+The `failed-docs` appender is already defined in the default `log4j2.xml` and writes to `./log/failed-documents.jsonl` with a 50 MB rolling policy (up to 5 archived files):
+
+```xml
+<RollingFile name="failed-docs" fileName="./log/failed-documents.jsonl"
+             filePattern="./log/failed-documents-%i.jsonl">
+    <PatternLayout pattern="%m%n" />
+    <Policies>
+        <SizeBasedTriggeringPolicy size="50 MB" />
+    </Policies>
+    <DefaultRolloverStrategy max="5" />
+</RollingFile>
+```
+
+The `%m%n` pattern outputs only the message (the document JSON) followed by a newline — no timestamps or log levels — so each line is valid JSON.
+
+### Per-Run Output Files
+
+If you'd prefer a separate file per run (e.g., `failed-documents-run_abc123.jsonl`), use the routing appender that's commented out in the default config:
+
+```xml
+<Routing name="failed-docs-routing">
+    <Routes pattern="$${ctx:run_id}">
+        <Route>
+            <File name="failed-docs-${ctx:run_id}"
+                  fileName="./log/failed-documents-${ctx:run_id}.jsonl">
+                <PatternLayout pattern="%m%n" />
+            </File>
+        </Route>
+    </Routes>
+</Routing>
+```
+
+Then reference `failed-docs-routing` instead of `failed-docs` in the logger's `AppenderRef`.
+
+### Replaying Failed Documents
+
+Because the output is JSONL, you can re-ingest failed documents by pointing a `FileConnector` with the JSON file handler at the output file:
+
+```hocon
+connectors: [{
+  name: "replay-failed"
+  class: "com.kmwllc.lucille.connector.FileConnector"
+  paths: ["file:///path/to/log/failed-documents.jsonl"]
+  fileHandlers: {
+    jsonl {
+      idField: "id"
+    }
+  }
+}]
+```
+
+This lets you fix the root cause (a bad stage config, a mapping issue) and then replay only the documents that failed, without re-running the entire ingest.
+
 ## MDC Fields
 
 Lucille populates the SLF4J Mapped Diagnostic Context (MDC) so that every log line includes structured context you can filter on:

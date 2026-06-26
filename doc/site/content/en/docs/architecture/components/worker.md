@@ -48,6 +48,8 @@ worker {
 
   # Maximum time (seconds) between Kafka polls before the worker shuts down
   # (only relevant in Kafka mode; requires exitOnTimeout: true)
+  # Must be greater than Lucille's internal poll timeout (50ms local, 2s distributed),
+  # otherwise an idle worker can be incorrectly flagged as stuck.
   maxProcessingSecs: 600
 
   # Shut down if no message is polled within maxProcessingSecs
@@ -165,4 +167,4 @@ In a multi-node deployment, you can run multiple WorkerIndexer processes consumi
 
 For deployment instructions — starting Workers and WorkerIndexers in local and distributed mode, scaling, and operational considerations — see [Deployment]({{< relref "docs/operations/deployment" >}}).
 
-For Worker-related configuration parameters, see [Writing a Config]({{< relref "docs/reference/writing-a-config" >}}).
+For Worker-related configuration parameters, see [Writing a Config]({{< relref "docs/ingest-design/writing-a-config" >}}).

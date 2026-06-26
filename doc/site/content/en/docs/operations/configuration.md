@@ -6,7 +6,7 @@ description: >
   Environment variable substitution, config composition patterns, containerized deployment, distributed mode config, and pre-run validation.
 ---
 
-This page covers the operational patterns for working with Lucille's configuration system — how to use environment variable substitution, how to compose configs from reusable files, how to deploy configs in containers, and how to validate configs before running. For the architectural rationale behind Lucille's choice of HOCON and the Typesafe Config library, see [Architecture: Config]({{< relref "docs/architecture/components/Config" >}}).
+This page covers the operational patterns for working with Lucille's configuration system — how to use environment variable substitution, how to compose configs from reusable files, how to deploy configs in containers, and how to validate configs before running. For the architectural rationale behind Lucille's choice of HOCON and the Typesafe Config library, see [Architecture: Config]({{< relref "docs/architecture/components/config" >}}).
 
 ---
 
