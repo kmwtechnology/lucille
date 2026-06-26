@@ -14,12 +14,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.cloud.MiniSolrCloudCluster;
@@ -304,7 +304,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
     may error in manual testing. It is recommended that when making changes to related code to perform a manual test as well.
      */
 
-    Http2SolrClient mockHttp2Client = mock(Http2SolrClient.class);
+    HttpJdkSolrClient mockHttp2Client = mock(HttpJdkSolrClient.class);
     CloudHttp2SolrClient mockCloudHttp2Client = mock(CloudHttp2SolrClient.class);
 
     JettySolrRunner jetty = cluster.getJettySolrRunners().get(0);

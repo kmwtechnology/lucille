@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.io.Tuple;
 import org.junit.Test;
 import com.kmwllc.lucille.core.Document;
@@ -36,7 +36,7 @@ public class SolrUtilsTest {
   @Test
   public void getHttpClientAndSetCheckPeerNameTest() throws Exception {
     Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:SolrUtilsTest/auth.conf"));
-    Http2SolrClient client = SolrUtils.getHttpClientAndSetCheckPeerName(config);
+    HttpJdkSolrClient client = SolrUtils.getHttpClientAndSetCheckPeerName(config);
     // would like to inspect the solr client to confirm credentials are configured, but can’t do that so just checking it’s non-null
     assertNotNull(client);
     client.close();
@@ -156,8 +156,8 @@ public class SolrUtilsTest {
         SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);
         SolrClient cloudClientWithChroot = SolrUtils.getSolrClient(cloudConfigWithZkChroot)
     ) {
-      assertTrue(httpClient instanceof Http2SolrClient);
-      assertTrue(httpClientWithFalseCloud instanceof Http2SolrClient);
+      assertTrue(httpClient instanceof HttpJdkSolrClient);
+      assertTrue(httpClientWithFalseCloud instanceof HttpJdkSolrClient);
       assertTrue(cloudClient instanceof CloudSolrClient);
       assertTrue(cloudClientWithChroot instanceof CloudSolrClient);
     }

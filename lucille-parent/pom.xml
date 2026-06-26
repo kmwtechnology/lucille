@@ -44,8 +44,8 @@
     <maven-gpg-plugin.version>3.0.1</maven-gpg-plugin.version>
     <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
     <!-- todo if updated to version 9 will need to add solr-solrj-zookeeper dependency -->
-    <lucene.version>9.12.2</lucene.version>
-    <solr.version>9.10.0</solr.version>
+    <lucene.version>10.3.2</lucene.version>
+    <solr.version>10.0.0</solr.version>
     <opensearch-rest-client.version>1.2.0</opensearch-rest-client.version>
     <opensearch.version>0.1.0</opensearch.version>
     <opensearch-java.version>3.9.0</opensearch-java.version>
@@ -136,6 +136,18 @@
         <scope>import</scope>
       </dependency>
 
+      <!-- Pin OTel API to 1.56.0 — solr-core 10 requires it; elasticsearch-java pulls in 1.29.0 which lacks DoubleGauge -->
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-api</artifactId>
+        <version>1.56.0</version>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-context</artifactId>
+        <version>1.56.0</version>
+      </dependency>
+
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>jcl-over-slf4j</artifactId>
@@ -201,6 +213,17 @@
           </dependency>
         </dependencies>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <!-- Just using the same version, for now ? -->
+        <version>${maven-surefire-plugin.version}</version>
+        <configuration>
+          <argLine>@{argLine} -Dtest.solr.allowed.securerandom=NativePRNG -Duser.timezone=UTC</argLine>
+        </configuration>
+      </plugin>
+
       <!-- Ensure that the Maven jar plugin runs before the Maven
   shade plugin by listing the plugin higher within the file. -->
       <plugin>
