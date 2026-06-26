@@ -10,6 +10,7 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,6 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
 
 /**
  * A storage client for S3. Create using a configuration (commonly mapped to <b>s3</b>) which can contain
@@ -82,18 +82,39 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  }
+
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
     ListObjectsV2Request request = ListObjectsV2Request.builder()
         .bucket(getBucketOrContainerName(params))
-        .prefix(getStartingDirectory(params))
-        .maxKeys(maxNumOfPages).build();
-    ListObjectsV2Iterable response = s3.listObjectsV2Paginator(request);
-    response.stream()
-        .forEachOrdered(resp -> {
-          resp.contents().forEach(obj -> {
-            S3FileReference fileRef = new S3FileReference(obj, params);
-            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-          });
-        });
+        .prefix(prefix)
+        .delimiter("/")
+        .maxKeys(maxNumOfPages)
+        .build();
+
+    s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> {
+      resp.contents().forEach(obj -> {
+        S3FileReference fileRef = new S3FileReference(obj, params);
+        processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+      });
+
+      resp.commonPrefixes().forEach(cp -> {
+        URI prefixUri = uriForDirectory(cp.prefix(), params);
+        if (!isSkippedDirectory(prefixUri, params)) {
+          traversePrefix(publisher, params, stateMgr, cp.prefix());
+        }
+      });
+    });
+  }
+
+  private URI uriForDirectory(String prefix, TraversalParams params) {
+    URI paramsUri = params.getURI();
+    try {
+      return new URI(paramsUri.getScheme(), paramsUri.getAuthority(), "/" + prefix, null);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Unable to build S3 URI for prefix: " + prefix, e);
+    }
   }
 
   @Override

@@ -81,8 +81,17 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-      // We don't care about preVisiting a directory
-      return FileVisitResult.CONTINUE;
+      URI dirURI = dir.toAbsolutePath().normalize().toUri();
+
+      if (isSkippedDirectory(dirURI, params)) {
+        return FileVisitResult.SKIP_SUBTREE;
+      } else {
+        return FileVisitResult.CONTINUE;
+      }
+    }
+
+    private static String ensureTrailingSlash(String s) {
+      return s.endsWith("/") ? s : s + "/";
     }
 
     @Override
