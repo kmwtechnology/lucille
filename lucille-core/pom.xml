@@ -248,18 +248,15 @@
 
     <!--
           ===========================================================================================
-          TEMPORARY WORKAROUND — DELETE THIS ENTIRE BLOCK when solr-core POM is fixed
+          TEMPORARY WORKAROUND — DELETE THIS ENTIRE BLOCK when solr POM is fixed
           ===========================================================================================
-          solr-core-10.0.0.pom is malformed: Jackson dependencies have no versions and there is no
+          Solr's 10.0.0 POM is malformed: Jackson dependencies have no versions and there is no
           dependencyManagement section. Maven treats the POM as invalid and skips all transitive
           resolution, so MiniSolrCloudCluster cannot start in SolrIndexerIntegrationTest.
-          Until Apache Solr publishes a corrected POM (10.x+), we enumerate solr-core's full
+          Until they publish a corrected POM (10.x+), we enumerate solr-core's full
           runtime dependency list here, all at test scope.
-          Track: https://issues.apache.org/jira/browse/SOLR (search "malformed POM 10.0.0")
           ===========================================================================================
     -->
-
-    <!-- Lucene modules required by solr-core at runtime -->
     <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-classification</artifactId>
@@ -332,8 +329,6 @@
       <version>${lucene.version}</version>
       <scope>test</scope>
     </dependency>
-
-    <!-- Jackson formats — SolrCore.<clinit> instantiates CborResponseWriter and SmileResponseWriter -->
     <dependency>
       <groupId>com.fasterxml.jackson.dataformat</groupId>
       <artifactId>jackson-dataformat-cbor</artifactId>
@@ -344,8 +339,6 @@
       <artifactId>jackson-dataformat-smile</artifactId>
       <scope>test</scope>
     </dependency>
-
-    <!-- Jersey + HK2 — Solr's embedded HTTP layer -->
     <dependency>
       <groupId>org.glassfish.jersey.containers</groupId>
       <artifactId>jersey-container-jetty-http</artifactId>
@@ -388,8 +381,6 @@
       <version>3.1.1</version>
       <scope>test</scope>
     </dependency>
-
-    <!-- Jakarta APIs -->
     <dependency>
       <groupId>jakarta.inject</groupId>
       <artifactId>jakarta.inject-api</artifactId>
@@ -413,8 +404,6 @@
       <artifactId>swagger-annotations-jakarta</artifactId>
       <version>2.2.22</version>
     </dependency>
-
-    <!-- OpenTelemetry — Solr 10 metrics stack -->
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk</artifactId>
@@ -439,8 +428,6 @@
       <version>2.22.0-alpha</version>
       <scope>test</scope>
     </dependency>
-
-    <!-- Prometheus -->
     <dependency>
       <groupId>io.prometheus</groupId>
       <artifactId>prometheus-metrics-exposition-formats</artifactId>
@@ -453,16 +440,6 @@
       <version>1.3.10</version>
       <scope>test</scope>
     </dependency>
-
-    <!-- Dropwizard Metrics -->
-    <dependency>
-      <groupId>io.dropwizard.metrics</groupId>
-      <artifactId>metrics-core</artifactId>
-      <version>4.2.26</version>
-      <scope>test</scope>
-    </dependency>
-
-    <!-- Misc utilities pulled in by solr-core -->
     <dependency>
       <groupId>com.carrotsearch</groupId>
       <artifactId>hppc</artifactId>
@@ -523,7 +500,12 @@
       <version>1.1.10.8</version>
       <scope>test</scope>
     </dependency>
-    <!-- END TEMPORARY WORKAROUND (solr-core-10.0.0 malformed POM) -->
+
+    <!--
+      ==========================================
+      END TEMPORARY WORKAROUND (solr-core-10.0.0 malformed POM)
+      ==========================================
+    -->
 
      <!-- test dependency for solr integration tests -->
     <dependency>
@@ -667,7 +649,7 @@
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-core</artifactId>
-      <version>4.2.18</version>
+      <version>4.2.26</version>
     </dependency>
 
     <!-- used in tests, but expanded scope for incremental FileConnector -->
