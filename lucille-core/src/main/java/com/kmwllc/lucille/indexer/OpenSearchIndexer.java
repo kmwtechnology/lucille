@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
  *   <li>url (String, Required) : OpenSearch HTTP endpoint (e.g., https://localhost:9200).</li>
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
+ *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying OpenSearch HTTP client. Defaults to false.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
  *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
  * </ul>
@@ -54,7 +55,7 @@ public class OpenSearchIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
-      .optionalBoolean("update", "acceptInvalidCert").build();
+      .optionalBoolean("update", "acceptInvalidCert", "useCompression").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
@@ -80,6 +81,7 @@ public class OpenSearchIndexer extends Indexer {
     this.versionType =
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
     this.versionField = config.hasPath("indexer.versionField") ? config.getString("indexer.versionField") : null;
+
     // validate config indexer.versionType that must be set if config indexer.versionField is set
     if (this.versionField != null && this.versionType == null) {
       throw new IllegalArgumentException("indexer.versionType must be set if indexer.versionField is set");

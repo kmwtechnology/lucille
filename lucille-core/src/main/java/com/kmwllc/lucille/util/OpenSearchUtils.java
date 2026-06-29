@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.OpenSearchIndexer;
@@ -28,9 +29,9 @@ public class OpenSearchUtils {
 
   public static final Spec OPENSEARCH_PARENT_SPEC = SpecBuilder.parent("opensearch")
       .requiredString("url", "index")
-      .optionalBoolean("acceptInvalidCert").build();
+      .optionalBoolean("acceptInvalidCert", "useCompression").build();
 
-  private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
+  private static final Logger log = LoggerFactory.getLogger(OpenSearchUtils.class);
 
   /**
    * Generate a RestHighLevelClient from the given config file. Supports Apache Http OpenSearchClient
@@ -90,6 +91,7 @@ public class OpenSearchUtils {
           .build();
     }
 
+    boolean useCompression = ConfigUtils.getOrDefault(config, "opensearch.useCompression", false);
     final var transport = ApacheHttpClient5TransportBuilder
         .builder(hosts)
         .setMapper(new JacksonJsonpMapper())
@@ -102,6 +104,7 @@ public class OpenSearchUtils {
               .setDefaultCredentialsProvider(credentialsProvider)
               .setConnectionManager(connectionManager);
         })
+        .setCompressionEnabled(useCompression)
         .build();
 
     return new OpenSearchClient(transport);
