@@ -83,7 +83,9 @@ public class SolrUtils {
       public void close() {
         super.close();
         try {
-          httpClient.close();
+          if (httpClient != null) {
+            httpClient.close();
+          }
         } catch (IOException e) {
           log.warn("Error closing HttpJdkSolrClient", e);
         }
