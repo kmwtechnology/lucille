@@ -10,8 +10,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.admin.Admin;
 import org.junit.Test;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 public class VerifyIngestResult {
 

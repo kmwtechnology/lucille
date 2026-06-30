@@ -2,13 +2,13 @@ package com.kmwllc.lucille.core;
 
 import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.JsonNodeType;
+import tools.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.util.FieldFilter;
 import java.sql.Timestamp;
 import java.util.stream.Collectors;
@@ -81,25 +81,23 @@ public class JsonDocument implements Document {
     this.data.put(RUNID_FIELD, runId);
   }
 
-  public static JsonDocument fromJsonString(String json) throws DocumentException, JsonProcessingException {
+  public static JsonDocument fromJsonString(String json) throws DocumentException, JacksonException {
     return fromJsonString(json, null, null);
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException {
+      throws DocumentException, JacksonException {
     return fromJsonString(json, idUpdater, null);
   }
 
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, FieldFilter filter)
-      throws DocumentException, JsonProcessingException {
+      throws DocumentException, JacksonException {
 
     ObjectNode node = (ObjectNode) MAPPER.readTree(json);
 
     if (filter != null && filter.isActive()) {
-      Iterator<String> iter = node.fieldNames();
       Set<String> discardedFields = new HashSet<>();
-      while (iter.hasNext()) {
-        String fieldName = iter.next();
+      for (String fieldName : node.propertyNames()) {
         if (!filter.shouldInclude(fieldName)) {
           discardedFields.add(fieldName);
         }
@@ -425,13 +423,7 @@ public class JsonDocument implements Document {
     }
 
     JsonNode node = getSingleNode(name);
-
-    try {
-      return node.isNull() ? null : node.binaryValue();
-    } catch (IOException e) {
-      log.error("Error accessing byte[] field", e);
-      return null;
-    }
+    return node.isNull() ? null : node.binaryValue();
   }
 
   @Override
@@ -467,11 +459,7 @@ public class JsonDocument implements Document {
     ArrayNode array = data.withArray(name);
     List<byte[]> result = new ArrayList<>();
     for (JsonNode node : array) {
-      try {
-        result.add(node.isNull() ? null : node.binaryValue());
-      } catch (IOException e) {
-        log.error("Error accessing byte[] field", e);
-      }
+      result.add(node.isNull() ? null : node.binaryValue());
     }
     return result;
   }
@@ -831,8 +819,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void setOrAddAll(Document other) {
-    for (Iterator<String> it = ((JsonDocument) other).data.fieldNames(); it.hasNext(); ) {
-      String name = it.next();
+    for (String name : ((JsonDocument) other).data.propertyNames()) {
       if (RESERVED_FIELDS.contains(name)) {
         continue;
       }
@@ -869,8 +856,7 @@ public class JsonDocument implements Document {
     }
     ArrayNode node = data.withArray(CHILDREN_FIELD);
     ArrayList<Document> children = new ArrayList<>();
-    for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
-      JsonNode element = it.next();
+    for (JsonNode element : node.elements()) {
       try {
         children.add(new JsonDocument((ObjectNode) element.deepCopy()));
       } catch (DocumentException e) {
@@ -898,7 +884,7 @@ public class JsonDocument implements Document {
   public Set<String> getFieldNames() {
     LinkedHashSet<String> fieldNames = new LinkedHashSet<String>();
     // ObjectNode uses a LinkedHashMap internally, so this iteration will follow insertion order into the ObjectNode.
-    data.fieldNames().forEachRemaining(fieldNames::add);
+    data.propertyNames().forEach(fieldNames::add);
     return fieldNames;
   }
 
@@ -1015,7 +1001,7 @@ public class JsonDocument implements Document {
       return null;
     } else if (node.isObject()) {
       Map<String, Object> map = new HashMap<>();
-      node.fields().forEachRemaining(entry ->
+      node.properties().forEach(entry ->
           map.put(entry.getKey(), asMapWithByteArrayConversion(entry.getValue()))
       );
       return map;
@@ -1024,11 +1010,7 @@ public class JsonDocument implements Document {
       node.forEach(element -> list.add(asMapWithByteArrayConversion(element)));
       return list;
     } else if (node.isBinary()) {
-      try {
-        return Base64.getEncoder().encodeToString(node.binaryValue());
-      } catch (IOException e) {
-        return null;
-      }
+      return Base64.getEncoder().encodeToString(node.binaryValue());
     } else if (node.isTextual()) {
       return node.asText();
     } else if (node.isNumber()) {

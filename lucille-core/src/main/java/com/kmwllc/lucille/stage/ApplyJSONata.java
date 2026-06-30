@@ -2,7 +2,7 @@ package com.kmwllc.lucille.stage;
 
 import com.dashjoin.jsonata.JException;
 import com.dashjoin.jsonata.Jsonata;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;

@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.indexer;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.spec.Spec;

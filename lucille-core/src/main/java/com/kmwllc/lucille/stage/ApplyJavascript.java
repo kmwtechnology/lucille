@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.*;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.*;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileContentFetcher;
@@ -180,7 +180,7 @@ public class ApplyJavascript extends Stage {
         return jsonArrayToProxyArray(json, List.of(new Document.Segment(key)));
       }
 
-      if (json.isContainerNode()) {
+      if (json.isContainer()) {
         return new JsDocProxy(doc, List.of(new Document.Segment(key)));
       }
 
@@ -200,7 +200,7 @@ public class ApplyJavascript extends Stage {
           return null;
         }
 
-        return child.isContainerNode() ? new JsDocProxy(doc, join(key)) : jsonNodeToJsValue(child);
+        return child.isContainer() ? new JsDocProxy(doc, join(key)) : jsonNodeToJsValue(child);
       }
 
       if (current.isArray()) {
@@ -212,7 +212,7 @@ public class ApplyJavascript extends Stage {
 
         JsonNode child = current.get(idx);
 
-        return child.isContainerNode() ? new JsDocProxy(doc, join(key)) : jsonNodeToJsValue(child);
+        return child.isContainer() ? new JsDocProxy(doc, join(key)) : jsonNodeToJsValue(child);
       }
       return null;
     }
@@ -321,7 +321,7 @@ public class ApplyJavascript extends Stage {
 
       if (node.isObject()) {
         List<String> keys = new ArrayList<>();
-        node.fieldNames().forEachRemaining(keys::add);
+        node.propertyNames().forEach(keys::add);
         return ProxyArray.fromArray(keys.toArray(new String[0]));
       }
 
@@ -372,7 +372,7 @@ public class ApplyJavascript extends Stage {
 
       for (int i = 0; i < n; i++) {
         JsonNode child = jsonArray.get(i);
-        if (child.isContainerNode()) {
+        if (child.isContainer()) {
           List<Document.Segment> extendedKey = new ArrayList(baseKey);
           extendedKey.add(new Document.Segment(i));
           arr[i] = new JsDocProxy(doc, extendedKey);
@@ -415,10 +415,10 @@ public class ApplyJavascript extends Stage {
       }
 
       if (v.isString()) {
-        return TextNode.valueOf(v.asString());
+        return StringNode.valueOf(v.asString());
       }
 
-      return TextNode.valueOf(v.toString());
+      return StringNode.valueOf(v.toString());
     }
 
     // JS -> Document: build ArrayNode from JS array

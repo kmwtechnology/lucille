@@ -1,10 +1,10 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -129,8 +129,8 @@ public class PromptOllama extends Stage {
     try {
       JsonNode node = mapper.readTree(chatResult.getResponseModel().getMessage().getContent());
       // put all the fields from the JSON onto the Lucille Document.
-      node.fields().forEachRemaining(entry -> doc.update(entry.getKey(), updateMode, entry.getValue()));
-    } catch (JsonProcessingException e) {
+      node.properties().forEach(entry -> doc.update(entry.getKey(), updateMode, entry.getValue()));
+    } catch (JacksonException e) {
       if (requireJSON) {
         throw new StageException("Error getting JSON from response (requireJSON was set to true):", e);
       } else {

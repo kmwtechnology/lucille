@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core.spec;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;

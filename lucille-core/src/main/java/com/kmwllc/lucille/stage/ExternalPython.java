@@ -1,7 +1,8 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -89,7 +90,7 @@ public final class ExternalPython extends Stage {
         JsonNode node = mapper.readTree(responseJson);
 
         // update doc with fields from response
-        List<String> responseFieldNames = IteratorUtils.toList(node.fieldNames());
+        List<String> responseFieldNames = new ArrayList<>(node.propertyNames());
         for (String fieldName : responseFieldNames) {
           if (Document.RESERVED_FIELDS.contains(fieldName)) {
             continue;

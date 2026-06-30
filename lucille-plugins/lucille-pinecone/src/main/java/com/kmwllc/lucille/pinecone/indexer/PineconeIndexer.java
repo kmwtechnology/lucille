@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.pinecone.indexer;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;

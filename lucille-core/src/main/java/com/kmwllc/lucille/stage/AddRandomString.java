@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;

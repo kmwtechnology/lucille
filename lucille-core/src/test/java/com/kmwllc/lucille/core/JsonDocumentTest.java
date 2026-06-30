@@ -1,11 +1,11 @@
 package com.kmwllc.lucille.core;
 
 import com.dashjoin.jsonata.Jsonata;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.BooleanNode;
+import tools.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.typesafe.config.ConfigFactory;
 import java.sql.Timestamp;
@@ -50,12 +50,12 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
 
   @Override
   public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException {
+      throws DocumentException, JacksonException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
 
   @Test
-  public void testNestedArrays() throws DocumentException, JsonProcessingException {
+  public void testNestedArrays() throws DocumentException, JacksonException {
     Document d = createDocumentFromJson("{\"id\":\"id\",\"nested\":[[\"first\"],[\"second\"]]}");
     ObjectMapper mapper = new ObjectMapper();
     JsonNode first = mapper.readTree("[\"first\"]");

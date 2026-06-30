@@ -1,8 +1,8 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
@@ -128,9 +128,7 @@ public class ParseJson extends Stage {
       throw new StageException("Non-object JSON in document " + doc.getId() + " with src field: " + src);
     }
 
-    Iterator<Entry<String,JsonNode>> fields = node.fields();
-    while (fields.hasNext()) {
-      Entry<String,JsonNode> field = fields.next();
+    for (Entry<String, JsonNode> field : node.properties()) {
       doc.update(field.getKey(), updateMode, field.getValue());
     }
 

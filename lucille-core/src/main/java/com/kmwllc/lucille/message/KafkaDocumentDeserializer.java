@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.message;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import org.apache.kafka.common.errors.SerializationException;

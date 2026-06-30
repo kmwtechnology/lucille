@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.core.fileHandler;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -155,9 +155,7 @@ public class JsonFileHandler extends BaseFileHandler {
             ObjectNode node = (ObjectNode) mapper.readTree(line);
             if (fieldFilter.isActive()) {
               Set<String> discardedFields = new HashSet<>();
-              Iterator<String> iter = node.fieldNames();
-              while (iter.hasNext()) {
-                String fieldName = iter.next();
+              for (String fieldName : node.propertyNames()) {
                 if (!fieldFilter.shouldInclude(fieldName)) {
                   discardedFields.add(fieldName);
                 }

@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.StringNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -280,7 +280,7 @@ public class EmbeddedPythonTest {
     """);
 
     Document d = Document.create("d");
-    d.setNestedJson("meta.x", TextNode.valueOf("existing"));
+    d.setNestedJson("meta.x", StringNode.valueOf("existing"));
 
     stage.processDocument(d);
 

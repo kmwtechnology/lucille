@@ -5,7 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -171,10 +171,7 @@ public class AddRandomStringTest {
     for (JsonNode node : List.of(doc1.getJson("data"), doc2.getJson("data"), doc3.getJson("data"))) {
       assertTrue(node.isArray());
 
-      Iterator<JsonNode> elements = node.elements();
-
-      while (elements.hasNext()) {
-        JsonNode currentElement = elements.next();
+      for (JsonNode currentElement : node) {
         String currentElementData = currentElement.get("data").asText();
 
         int currentElementDataInt = Integer.valueOf(currentElementData);
@@ -197,10 +194,7 @@ public class AddRandomStringTest {
     for (JsonNode node : List.of(doc1.getJson("data"), doc2.getJson("data"), doc3.getJson("data"))) {
       assertTrue(node.isArray());
 
-      Iterator<JsonNode> elements = node.elements();
-
-      while (elements.hasNext()) {
-        JsonNode currentElement = elements.next();
+      for (JsonNode currentElement : node) {
         String currentElementText = currentElement.get("data").asText();
         assertTrue(acceptableStrings.contains(currentElementText));
       }

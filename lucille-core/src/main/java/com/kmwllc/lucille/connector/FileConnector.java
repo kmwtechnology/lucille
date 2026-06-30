@@ -14,7 +14,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.BaseFileReference;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;

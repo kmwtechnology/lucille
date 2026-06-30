@@ -3,7 +3,7 @@ package com.kmwllc.lucille.core.spec;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.List;

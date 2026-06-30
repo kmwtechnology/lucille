@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.spec.Spec;

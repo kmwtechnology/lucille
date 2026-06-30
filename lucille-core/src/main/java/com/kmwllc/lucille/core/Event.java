@@ -2,11 +2,9 @@ package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.apache.solr.common.annotation.JsonProperty;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -33,10 +31,6 @@ public class Event {
   private String key;
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-
-  static {
-    MAPPER.registerModule(new JavaTimeModule());
-  }
 
   private Event() {
   }
@@ -113,7 +107,7 @@ public class Event {
   public String toString() {
     try {
       return MAPPER.writeValueAsString(this);
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new IllegalStateException("Event could not be serialized.");
     }
   }

@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.connector.jdbc;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;

@@ -1,11 +1,11 @@
 package com.kmwllc.lucille.core;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document.Segment;
 import java.sql.Timestamp;
 import org.junit.Test;
@@ -29,12 +29,12 @@ public abstract class DocumentTest {
 
   public abstract Document createDocument(String id, String runId);
 
-  public Document createDocumentFromJson(String json) throws DocumentException, JsonProcessingException {
+  public Document createDocumentFromJson(String json) throws DocumentException, JacksonException {
     return createDocumentFromJson(json, null);
   }
 
   public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException;
+      throws DocumentException, JacksonException;
 
   @Test(expected = NullPointerException.class)
   public void testCreateWithoutId1() {
@@ -99,7 +99,7 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testIsMultiValued() throws DocumentException, JsonProcessingException {
+  public void testIsMultiValued() throws DocumentException, JacksonException {
     Document document = createDocumentFromJson("" + "{\"id\":\"123\", " + "\"null\":null," + "\"single\":\"val1\", "
         + "\"empty_arr\":[]," + "\"arr1\":[\"val1\"]," + "\"arr2\":[\"val1\", \"val2\"]}");
 
@@ -180,7 +180,7 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testRemoveField() throws DocumentException, JsonProcessingException {
+  public void testRemoveField() throws DocumentException, JacksonException {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
     assertNotNull(document.getString("id"));
@@ -195,7 +195,7 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testRemoveFromArray() throws DocumentException, JsonProcessingException {
+  public void testRemoveFromArray() throws DocumentException, JacksonException {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     Document document = createDocumentFromJson("{\"id\":\"123\", \"array\":[\"val1\", \"val2\"]}");
     assertEquals(List.of("val1", "val2"), document.getStringList("array"));
@@ -220,7 +220,7 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testHasNonNull() throws DocumentException, JsonProcessingException {
+  public void testHasNonNull() throws DocumentException, JacksonException {
     // {"id":"123", "field1":"val1", "field2":null}
     Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":null}");
     assertTrue(document.hasNonNull("id"));
@@ -238,7 +238,7 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testSetFieldObject() throws JsonProcessingException {
+  public void testSetFieldObject() throws JacksonException {
     Document document = createDocument("123");
     // check that all types supported will not throw error
     // Int
@@ -393,7 +393,7 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testGetNullField() throws DocumentException, JsonProcessingException {
+  public void testGetNullField() throws DocumentException, JacksonException {
 
     Document document = createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
@@ -867,7 +867,7 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testRenameAppendNotArray() throws DocumentException, JsonProcessingException {
+  public void testRenameAppendNotArray() throws DocumentException, JacksonException {
 
     // {"id":"123", "field1":"val1"}
     Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\"}");
@@ -1447,7 +1447,7 @@ public abstract class DocumentTest {
     try {
       Document created = createDocumentFromJson(string);
       assertEquals(document, created);
-    } catch (DocumentException | JsonProcessingException e) {
+    } catch (DocumentException | JacksonException e) {
       fail();
     }
   }
@@ -1492,7 +1492,7 @@ public abstract class DocumentTest {
   }
 
   @Test
-  public void testRemoveDuplicatesSameField() throws DocumentException, JsonProcessingException {
+  public void testRemoveDuplicatesSameField() throws DocumentException, JacksonException {
     Document d = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":[\"1\"]}");
 
     // single valued
@@ -1512,7 +1512,7 @@ public abstract class DocumentTest {
   private JsonNode fromString(String json) {
     try {
       return new ObjectMapper().readTree(json);
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       fail();
     }
     throw new RuntimeException("should not get here");
@@ -1521,7 +1521,7 @@ public abstract class DocumentTest {
   abstract static class NodeDocumentTest extends DocumentTest {
 
     @Test
-    public void testGetNullFieldExceptions() throws DocumentException, JsonProcessingException {
+    public void testGetNullFieldExceptions() throws DocumentException, JacksonException {
 
       Document document = createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 

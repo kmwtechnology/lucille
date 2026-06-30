@@ -2,9 +2,9 @@ package com.kmwllc.lucille.util;
 
 import static org.junit.Assert.*;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.util.*;
 import org.junit.Before;
@@ -19,7 +19,7 @@ public class LinkedMultiMapTest {
   MultiMap map;
 
   @Before
-  public void setup() throws JsonProcessingException {
+  public void setup() throws JacksonException {
     empty = new LinkedMultiMap();
     map = new LinkedMultiMap();
 
@@ -141,7 +141,7 @@ public class LinkedMultiMapTest {
   }
 
   @Test
-  public void testGetOne() throws JsonProcessingException {
+  public void testGetOne() throws JacksonException {
     exception(() -> empty.getOne(null));
     exception(() -> empty.getOne("hi"));
     exception(() -> map.getOne(null));
@@ -355,7 +355,7 @@ public class LinkedMultiMapTest {
     }
   }
 
-  private static ObjectNode makeJson(String json) throws JsonProcessingException {
+  private static ObjectNode makeJson(String json) throws JacksonException {
     return (ObjectNode) new ObjectMapper().readTree(json);
   }
 }

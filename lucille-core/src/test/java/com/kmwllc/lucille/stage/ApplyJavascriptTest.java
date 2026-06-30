@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.TextNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.StringNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -281,7 +281,7 @@ public class ApplyJavascriptTest {
     """);
 
     Document d = Document.create("d");
-    d.setNestedJson("meta.x", TextNode.valueOf("existing"));
+    d.setNestedJson("meta.x", StringNode.valueOf("existing"));
 
     stage.processDocument(d);
 
@@ -299,7 +299,7 @@ public class ApplyJavascriptTest {
 
     Document d = Document.create("d");
     d.setNestedJson("a.b", IntNode.valueOf(5));
-    d.setNestedJson("a.c", TextNode.valueOf("keep"));
+    d.setNestedJson("a.c", StringNode.valueOf("keep"));
 
     stage.processDocument(d);
 
@@ -371,7 +371,7 @@ public class ApplyJavascriptTest {
     """);
 
     Document d = Document.create("d");
-    d.setNestedJson("meta.x", TextNode.valueOf("existing"));
+    d.setNestedJson("meta.x", StringNode.valueOf("existing"));
 
     stage.processDocument(d);
 

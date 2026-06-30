@@ -1,7 +1,7 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.*;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.*;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -196,7 +196,7 @@ public class EmbeddedPython extends Stage {
         return new PyArrayProxy(doc, List.of(new Document.Segment(key)));
       }
 
-      if (json.isContainerNode()) {
+      if (json.isContainer()) {
         return new PyDocProxy(doc, List.of(new Document.Segment(key)));
       }
 
@@ -220,7 +220,7 @@ public class EmbeddedPython extends Stage {
           return new PyArrayProxy(doc, join(key));
         }
 
-        return child.isContainerNode() ? new PyDocProxy(doc, join(key)) : jsonNodeToPyValue(child);
+        return child.isContainer() ? new PyDocProxy(doc, join(key)) : jsonNodeToPyValue(child);
       }
 
       if (current.isArray()) {
@@ -236,7 +236,7 @@ public class EmbeddedPython extends Stage {
           return new PyArrayProxy(doc, join(key));
         }
 
-        return child.isContainerNode() ? new PyDocProxy(doc, join(key)) : jsonNodeToPyValue(child);
+        return child.isContainer() ? new PyDocProxy(doc, join(key)) : jsonNodeToPyValue(child);
       }
 
       return null;
@@ -346,7 +346,7 @@ public class EmbeddedPython extends Stage {
 
       if (node.isObject()) {
         List<String> keys = new ArrayList<>();
-        node.fieldNames().forEachRemaining(keys::add);
+        node.propertyNames().forEach(keys::add);
         return ProxyArray.fromArray(keys.toArray(new String[0]));
       }
 
@@ -415,7 +415,7 @@ public class EmbeddedPython extends Stage {
         JsonNode node = doc.getNestedJson(segments);
         if (node != null && !node.isNull()) {
           if (node.isObject()) {
-            node.fieldNames().forEachRemaining(keys::add);
+            node.propertyNames().forEach(keys::add);
           } else if (node.isArray()) {
             for (int i = 0; i < node.size(); i++) {
               keys.add(Integer.toString(i));
@@ -581,10 +581,10 @@ public class EmbeddedPython extends Stage {
       }
 
       if (v.isString()) {
-        return TextNode.valueOf(v.asString());
+        return StringNode.valueOf(v.asString());
       }
 
-      return TextNode.valueOf(v.toString());
+      return StringNode.valueOf(v.toString());
     }
 
     private static int parseArrayIndex(String s) {
@@ -634,7 +634,7 @@ public class EmbeddedPython extends Stage {
         return new PyArrayProxy(doc, extended);
       }
 
-      if (child.isContainerNode()) {
+      if (child.isContainer()) {
         List<Document.Segment> extended = new ArrayList<>(path);
         extended.add(new Document.Segment(i));
         return new PyDocProxy(doc, extended);

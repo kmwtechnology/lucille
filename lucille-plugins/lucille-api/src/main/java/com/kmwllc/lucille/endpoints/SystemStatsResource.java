@@ -6,7 +6,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.json.MetricsModule;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.util.LogUtils;
 import jakarta.annotation.security.PermitAll;
 import jakarta.ws.rs.GET;

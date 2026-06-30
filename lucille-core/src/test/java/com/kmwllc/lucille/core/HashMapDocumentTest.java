@@ -1,9 +1,12 @@
 package com.kmwllc.lucille.core;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DefaultTyping;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import tools.jackson.databind.node.ObjectNode;
 import org.junit.Ignore;
 import org.junit.Test;
 import java.util.List;
@@ -31,15 +34,18 @@ public class HashMapDocumentTest extends DocumentTest {
 
   @Override
   public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException {
+      throws DocumentException, JacksonException {
     return HashMapDocument.fromJsonString(json, idUpdater);
   }
 
   @Test
   public void testByteArraySerializationWithDefaultTypingEnabled() throws Exception {
-    ObjectMapper mapper = new ObjectMapper().enableDefaultTyping(
-        ObjectMapper.DefaultTyping.JAVA_LANG_OBJECT,
-        JsonTypeInfo.As.PROPERTY);
+    ObjectMapper mapper = JsonMapper.builder()
+        .activateDefaultTyping(
+            BasicPolymorphicTypeValidator.builder().allowIfBaseType(Object.class).build(),
+            DefaultTyping.JAVA_LANG_OBJECT,
+            JsonTypeInfo.As.PROPERTY)
+        .build();
 
     byte[] value1 = new byte[]{0x3c, 0x4c, 0x5c};
 
@@ -76,7 +82,7 @@ public class HashMapDocumentTest extends DocumentTest {
   }
 
   @Test(expected = AssertionError.class)
-  public void testNestedArrays() throws DocumentException, JsonProcessingException {
+  public void testNestedArrays() throws DocumentException, JacksonException {
     // todo decide how this should be addressed
     Document d = createDocumentFromJson("{\"id\":\"id\",\"nested\":[[\"first\"],[\"second\"]]}");
     assertEquals(List.of(List.of("first"), List.of("second")), d.getStringList("nested"));

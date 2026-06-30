@@ -1,11 +1,11 @@
 package com.kmwllc.lucille.stage;
 
-import com.fasterxml.jackson.core.JsonPointer;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JsonPointer;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -120,7 +120,7 @@ public class QueryOpensearch extends Stage {
 
     try {
       searchTemplateJson = mapper.readTree(searchTemplateStr);
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new StageException("Error building JSON from the searchTemplate provided.", e);
     }
   }

@@ -2,8 +2,8 @@ package com.kmwllc.lucille.stage;
 
 import static org.junit.Assert.*;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.NullNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.NullNode;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;

@@ -11,7 +11,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import tools.jackson.core.JacksonException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.RunResult;
@@ -42,7 +42,7 @@ public class ConfigValidationTest {
   }
 
   @Test
-  public void testApplyRegex() throws DocumentException, JsonProcessingException {
+  public void testApplyRegex() throws DocumentException, JacksonException {
 
     Document doc = Document.createFromJson("{\"id\":\"id\",\"true\": \"boolean\"}");
 

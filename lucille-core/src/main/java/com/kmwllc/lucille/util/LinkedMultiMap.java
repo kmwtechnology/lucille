@@ -1,9 +1,9 @@
 package com.kmwllc.lucille.util;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.StringNode;
 import com.kmwllc.lucille.core.HashMapDocument;
 
 import java.io.Serializable;
@@ -39,7 +39,7 @@ public class LinkedMultiMap implements MultiMap, Serializable {
               ObjectNode.class,
               Instant.class,
               HashMapDocument.class,
-              TextNode.class,
+              StringNode.class,
               ArrayNode.class,
               Date.class,
               Timestamp.class,

@@ -2,7 +2,7 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;

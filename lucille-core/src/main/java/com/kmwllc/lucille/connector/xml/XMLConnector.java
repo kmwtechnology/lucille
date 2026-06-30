@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.connector.xml;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.ConnectorException;

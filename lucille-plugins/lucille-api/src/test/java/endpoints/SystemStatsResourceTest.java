@@ -5,7 +5,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kmwllc.lucille.util.LogUtils;
 import org.junit.Test;
 import com.kmwllc.lucille.endpoints.SystemStatsResource;

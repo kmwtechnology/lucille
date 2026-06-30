@@ -2,11 +2,12 @@ package com.kmwllc.lucille.core;
 
 import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.Map.Entry;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.JsonNodeType;
+import tools.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.util.LinkedMultiMap;
 import com.kmwllc.lucille.util.MultiMap;
 
@@ -97,8 +98,7 @@ public class HashMapDocument implements Document, Serializable {
     data = new LinkedMultiMap();
     data.putOne(ID_FIELD, updateString(requireString(node.get(ID_FIELD)), idUpdater));
 
-    for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
-      Map.Entry<String, JsonNode> entry = it.next();
+    for (Entry<String, JsonNode> entry : node.properties()) {
       String key = entry.getKey();
       JsonNode value = entry.getValue();
 
@@ -164,12 +164,12 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   public static Document fromJsonString(String json)
-      throws DocumentException, JsonProcessingException {
+      throws DocumentException, JacksonException {
     return fromJsonString(json, null);
   }
 
   public static Document fromJsonString(String json, UnaryOperator<String> idUpdater)
-      throws DocumentException, JsonProcessingException {
+      throws DocumentException, JacksonException {
     return new HashMapDocument((ObjectNode) MAPPER.readTree(json), idUpdater);
   }
 
@@ -703,7 +703,7 @@ public class HashMapDocument implements Document, Serializable {
   public String toString() {
     try {
       return MAPPER.writeValueAsString(asMap());
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new RuntimeException(e);
     }
   }
