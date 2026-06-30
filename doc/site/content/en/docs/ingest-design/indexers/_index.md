@@ -33,7 +33,7 @@ solr {
 | `type` | String | — | Shorthand for built-in indexers: `Solr`, `OpenSearch`, `Elasticsearch`, `CSV`. |
 | `class` | String | — | Fully qualified class name for plugin or custom indexers. |
 | `batchSize` | Integer | 100 | Number of documents to accumulate before sending a batch. |
-| `batchByteSize` | Long | — (disabled) | Maximum cumulative byte size of documents in a batch before flushing. When set alone, document-count batching is disabled. When set alongside `batchSize`, whichever limit is reached first triggers a flush. |
+| `batchByteSize` | Long | — (disabled) | Estimated cumulative byte size of documents in a batch before flushing. The size is approximated by traversing the document's JSON structure, not by measuring exact serialized bytes. When set alone, document-count batching is disabled. When set alongside `batchSize`, whichever limit is reached first triggers a flush. |
 | `batchTimeout` | Integer (ms) | 100 | Milliseconds since last add or flush before the batch is sent regardless of size. |
 | `idOverrideField` | String | — | Document field whose value is used as the ID sent to the destination (instead of `id`). |
 | `indexOverrideField` | String | — | Document field whose value determines the target index/collection. Triggers per-index batching. Not supported by OpenSearch or Elasticsearch indexers. |

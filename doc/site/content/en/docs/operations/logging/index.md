@@ -65,7 +65,7 @@ Both the Worker and the Indexer use a dedicated logger (`com.kmwllc.lucille.core
 
 Each line in the output file is a standalone JSON object representing one failed document. The file uses JSONL format (one object per line), making it easy to parse with tools like `jq` or to replay via a `FileConnector` with the JSON file handler.
 
-Each Lucille process (Runner, Worker, Indexer, WorkerIndexer) writes its own `failed-documents.jsonl` file in its local `./log/` directory. In **local mode** this is simplest — all components run in one JVM, so you get a single file with every failed document. In **distributed mode**, where multiple Worker and Indexer processes run on separate hosts, each process produces its own file. You would need to consolidate these files across hosts using an external solution (e.g., a shared filesystem mount, log shipping, or a post-run collection script) — Lucille does not aggregate them for you.
+In **local mode**, all components run in one JVM, so you get a single file with every failed document. In **distributed mode**, each Lucille process (Worker, Indexer, WorkerIndexer) writes its own `failed-documents.jsonl` file in its local `./log/` directory. You would need to consolidate these files across hosts using an external solution (e.g., a shared filesystem mount, log shipping, or a post-run collection script) — Lucille does not aggregate them for you.
 
 ### Enabling Failed Document Logging
 

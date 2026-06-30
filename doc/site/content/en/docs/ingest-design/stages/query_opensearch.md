@@ -77,8 +77,8 @@ The stage connects to OpenSearch via the same `opensearch` config block used by 
 | `opensearch.url` | String | Yes | OpenSearch endpoint URL, optionally including credentials. |
 | `opensearch.index` | String | Yes | Index to query against. |
 | `opensearch.acceptInvalidCert` | Boolean | No | Accept invalid TLS certificates. Default: `false`. |
-| `templateName` | String | One of these | Name of a saved search template in the cluster. |
-| `searchTemplate` | String | is required | Inline template body (not saved to the cluster). |
+| `templateName` | String | Required if no `searchTemplate` | Name of a saved search template in the cluster. |
+| `searchTemplate` | String | Required if no `templateName` | Inline template body (not saved to the cluster). |
 | `requiredParamNames` | List\<String\> | No | Document fields required for the template. Missing fields cause a warning and an error field on the document. |
 | `optionalParamNames` | List\<String\> | No | Document fields used if present; omitted from the query otherwise. |
 | `opensearchResponsePath` | String | No | JsonPointer path into the response (e.g., `/hits/hits`). Defaults to the entire response. |
