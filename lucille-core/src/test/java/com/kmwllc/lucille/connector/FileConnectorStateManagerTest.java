@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URI;
@@ -155,6 +156,7 @@ public class FileConnectorStateManagerTest {
     manager.markFileEncountered("/files/info.txt");
     manager.markFileEncountered("/files/subdir/secrets.txt");
 
+    manager.incrementRunsNotEncountered();
     manager.shutdown();
     assertEquals(1, dbHelper.countConnections());
 
@@ -175,6 +177,7 @@ public class FileConnectorStateManagerTest {
     manager.markFileEncountered("/hello.txt");
 
     // traversal complete
+    manager.incrementRunsNotEncountered();
     manager.shutdown();
     assertEquals(1, dbHelper.countConnections());
 
@@ -353,9 +356,9 @@ public class FileConnectorStateManagerTest {
     String archivePrefix = "file:///tmp/archive.zip!";
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         Statement stmt = connection.createStatement()) {
-      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "entry1.txt', NULL, FALSE)");
-      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "subdir/entry2.txt', NULL, FALSE)");
-      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('file:///tmp/other.zip!entry.txt', NULL, FALSE)");
+      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "entry1.txt', NULL, FALSE, 0)");
+      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "subdir/entry2.txt', NULL, FALSE, 0)");
+      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('file:///tmp/other.zip!entry.txt', NULL, FALSE, 0)");
     }
 
     manager.markAllEntriesEncountered(archivePrefix);
@@ -479,6 +482,105 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
+  public void testRunsNotEncounteredIncrementsOnMiss() throws Exception {
+    // performDeletions=false so secrets isn't removed once its counter reaches the default runsBeforeExpiration
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    // encounter hello and info, but leave secrets unvisited
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet secretsRS = RunScript.execute(connection, new StringReader(secretsQuery));
+        ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery))) {
+
+      assertTrue(secretsRS.next());
+      assertEquals(1, secretsRS.getInt("runs_not_encountered"));
+
+      assertTrue(helloRS.next());
+      assertEquals(0, helloRS.getInt("runs_not_encountered"));
+    }
+    manager.shutdown();
+  }
+
+  @Test
+  public void testRunsNotEncounteredResetsOnReencounter() throws Exception {
+    // performDeletions=false so secrets persists after its first missed run, letting us re-encounter it
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    // first run: miss secrets so its counter reaches 1
+    manager.init();
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+    manager.shutdown();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet rs = RunScript.execute(connection, new StringReader(secretsQuery))) {
+      assertTrue(rs.next());
+      assertEquals(1, rs.getInt("runs_not_encountered"));
+    }
+
+    // second run: re-encounter secrets, counter should reset to 0
+    manager.init();
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.markFileEncountered(secretsFile);
+    manager.incrementRunsNotEncountered();
+    manager.shutdown();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet rs = RunScript.execute(connection, new StringReader(secretsQuery))) {
+      assertTrue(rs.next());
+      assertEquals(0, rs.getInt("runs_not_encountered"));
+    }
+  }
+
+  @Test
+  public void testRunsBeforeExpirationBelowOneThrows() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/zeroRunsBeforeExpiration.conf");
+    assertThrows(IllegalArgumentException.class, () -> { new FileConnectorStateManager(config, null); });
+  }
+
+  @Test
+  public void testDeletionDeferredByRunsBeforeExpiration() throws Exception {
+    // runsBeforeExpiration=2: secrets should survive 1 missed run but be deleted after 2
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/runsBeforeExpiration.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    // first run: miss secrets
+    manager.init();
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+    manager.shutdown();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet rs = RunScript.execute(connection, new StringReader(secretsQuery))) {
+      assertTrue(rs.next());
+      assertEquals(1, rs.getInt("runs_not_encountered"));
+    }
+
+    // second run: miss secrets again; counter reaches runsBeforeExpiration, should be deleted
+    manager.init();
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+    manager.shutdown();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet rs = RunScript.execute(connection, new StringReader(secretsQuery))) {
+      assertFalse(rs.next());
+    }
+  }
+
+  @Test
   public void testListExpiredFiles() throws Exception {
     // Directly tests listExpiredFiles()
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
@@ -488,10 +590,30 @@ public class FileConnectorStateManagerTest {
     // Mark hello and info as encountered; leave secrets unvisited (encountered = false).
     manager.markFileEncountered(helloFile);
     manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
 
     List<URI> expired = manager.listExpiredFiles();
     assertEquals(1, expired.size());
     assertTrue(expired.contains(URI.create(secretsFile)));
+
+    manager.shutdown();
+  }
+
+  @Test
+  public void testListExpiredFilesRespectsMultipleRunsBeforeExpiration() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/runsBeforeExpiration.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+
+    assertEquals(0, manager.listExpiredFiles().size());
+    manager.incrementRunsNotEncountered();
+
+    assertEquals(1, manager.listExpiredFiles().size());
+    assertTrue(manager.listExpiredFiles().contains(URI.create(secretsFile)));
 
     manager.shutdown();
   }

@@ -36,13 +36,6 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void validateOptions(Config config) {
-    if (!config.hasPath(GOOGLE_SERVICE_KEY)) {
-      throw new IllegalArgumentException("Missing " + GOOGLE_SERVICE_KEY + " in Config for GoogleStorageClient.");
-    }
-  }
-
-  @Override
   protected void initializeStorageClient() throws IOException {
     try (FileInputStream serviceAccountStream = new FileInputStream(config.getString(GOOGLE_SERVICE_KEY))) {
       storage = StorageOptions.newBuilder()
