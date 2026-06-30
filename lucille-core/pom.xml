@@ -246,6 +246,14 @@
       <scope>test</scope>
     </dependency>
 
+    <!--  Note that this is also one of the dependencies for solr that we had to pull in manually. However,
+       it is not test scoped because we use this in RunDetails.java as well. -->
+    <dependency>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-annotations-jakarta</artifactId>
+      <version>2.2.22</version>
+    </dependency>
+
     <!--
           ===========================================================================================
           TEMPORARY WORKAROUND — DELETE THIS ENTIRE BLOCK when solr POM is fixed
@@ -398,11 +406,6 @@
       <artifactId>jakarta.ws.rs-api</artifactId>
       <version>3.1.0</version>
       <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.swagger.core.v3</groupId>
-      <artifactId>swagger-annotations-jakarta</artifactId>
-      <version>2.2.22</version>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
@@ -816,11 +819,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-          <excludes>
-            <exclude>**/SolrIndexerIntegrationTest.java</exclude>
-          </excludes>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -837,9 +835,6 @@
 
         <!--   Configuration that alleviates the test after upgrade to Solr 10.0    -->
         <configuration>
-          <includes>
-            <include>**/SolrIndexerIntegrationTest.java</include>
-          </includes>
           <classesDirectory>target/fake</classesDirectory>
           <additionalClasspathElements>
             <additionalClasspathElement>${basedir}/target/lucille.jar</additionalClasspathElement>

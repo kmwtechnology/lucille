@@ -37,7 +37,7 @@ import org.mockito.Mockito;
  * SolrTestFramework.
  */
 @ThreadLeakScope(ThreadLeakScope.Scope.SUITE)
-public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
+public class SolrIndexerIT extends SolrCloudTestCase {
 
   private static MiniSolrCloudCluster cluster;
 
@@ -50,7 +50,7 @@ public class SolrIndexerIntegrationTest extends SolrCloudTestCase {
             .addConfig(
                 COL,
                 Path.of(
-                    SolrIndexerIntegrationTest.class
+                    SolrIndexerIT.class
                         .getClassLoader()
                         .getResource("SolrIndexerIntegrationTest/configsets/test/conf")
                         .getPath()))
