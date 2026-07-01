@@ -1,0 +1,24 @@
+{
+    "connectors": [
+      {
+        "class": "com.kmwllc.lucille.connector.CSVConnector",
+        "path": "conf/dummy.csv",
+        "name": "connector1",
+        "pipeline": "pipeline1"
+      }
+    ],
+    "pipelines": [
+      {
+        "name": "pipeline1",
+        "stages": []
+      }
+    ],
+    "indexer": {
+      "type": "CSV"
+    },
+    "csv": {
+      "columns": ["Name", "Age", "City"],
+      "path": "conf/dummy.csv",
+      "includeHeader": false
+    }
+}

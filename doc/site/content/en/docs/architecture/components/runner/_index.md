@@ -135,4 +135,4 @@ Lucille supports four run types, selected via command-line flags:
 
 For deployment instructions — starting runs in each mode, command-line flags, and operational considerations — see [Deployment]({{< relref "docs/operations/deployment" >}}).
 
-For runner and other top-level configuration parameters, see [Writing a Config]({{< relref "docs/reference/writing-a-config" >}}).
+For runner and other top-level configuration parameters, see [Writing a Config]({{< relref "docs/ingest-design/writing-a-config" >}}).

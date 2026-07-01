@@ -198,4 +198,4 @@ isComplete():
     return connector.isDone() && eventQueue.isEmpty() && pending.isEmpty();
 ```
 
-Nothing in this pseudocode specifies what the queues actually are — whether they are in-memory data structures or distributed messaging infrastructure. That question is addressed in the next page: [Pluggable Queueing and the Deployment Model]({{< relref "docs/architecture/overview/pluggable-queueing" >}}).
+Nothing in this pseudocode specifies what the queues actually are — whether they are in-memory data structures or distributed messaging infrastructure. That question is addressed in the next page: [Pluggable Queueing and the Deployment Model]({{< relref "docs/architecture/overview/local-vs-distributed" >}}).

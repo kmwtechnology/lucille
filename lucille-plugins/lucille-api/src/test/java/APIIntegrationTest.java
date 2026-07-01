@@ -1,7 +1,9 @@
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.APIApplication;
 import com.kmwllc.lucille.config.LucilleAPIConfiguration;
+import com.kmwllc.lucille.core.CreateConfigResult;
 import io.dropwizard.testing.ResourceHelpers;
 import io.dropwizard.testing.junit.DropwizardAppRule;
 import jakarta.ws.rs.client.Client;
@@ -9,11 +11,11 @@ import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
 import java.util.Base64;
+import java.util.Map;
 import org.junit.ClassRule;
 import org.junit.Test;
-
-
 
 public class APIIntegrationTest {
 
@@ -106,10 +108,8 @@ public class APIIntegrationTest {
   public void testConfigGenerationAndRunId() {
     Response configStatus = client.target(url + "v1/config").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
-    String configResponse = configStatus.readEntity(String.class);
-
-    // This is the configResponse structure, and we just need the id part: {"configId":"340a7c70-c3e0-4c0c-af96-1414caf3623f"}
-    String configId = configResponse.substring(13, configResponse.length() - 2);
+    CreateConfigResult configResponse = configStatus.readEntity(CreateConfigResult.class);
+    String configId = configResponse.getConfigId();
 
     Response configIdStatus = client.target(url + "v1/config/" + configId).request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();
@@ -135,5 +135,38 @@ public class APIIntegrationTest {
     assertEquals(200, runIdStatus.getStatus());
   }
 
+  @Test
+  public void testPresetConfigPresence() {
+    Response configGetStatus = client.target(url + "v1/config").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).get();
 
+    Map<String, Object> configGetMap = configGetStatus.readEntity(Map.class);
+    // presets folder has three configs: incremental(.conf), simple-csv-solr-example(.hocon), and simple-config(.json)
+    // Similar to PresetConfigHandlerTest - bad.conf is not included and does not cause
+    // issues initializing the API.
+    assertTrue(configGetMap.containsKey("incremental.conf"));
+    assertTrue(configGetMap.containsKey("simple-csv-solr-example.hocon"));
+    assertTrue(configGetMap.containsKey("simple-config.json"));
+  }
+
+  @Test
+  public void testDeleteConfig() {
+    Response configStatus = client.target(url + "v1/config").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
+    CreateConfigResult configResponse = configStatus.readEntity(CreateConfigResult.class);
+    String configId = configResponse.getConfigId();
+
+    Response deleteStatus = client.target(url + "v1/config/" + configId).request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).delete();
+    assertEquals(200, deleteStatus.getStatus());
+
+    // can't delete again!
+    Response secondDeleteStatus = client.target(url + "v1/config/" + configId).request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).delete();
+    assertEquals(Status.NOT_FOUND.getStatusCode(), secondDeleteStatus.getStatus());
+
+    Response badDeleteStatus = client.target(url + "v1/config/some-bad-config-id-idk").request()
+        .header(HttpHeaders.AUTHORIZATION, authHeader).delete();
+    assertEquals(Status.NOT_FOUND.getStatusCode(), badDeleteStatus.getStatus());
+  }
 }

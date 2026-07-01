@@ -3,8 +3,6 @@ title: Getting Started
 weight: 2
 description: >
   What Lucille is, how it works, and how to run your first pipeline.
-aliases:
-  - /docs/about/
 ---
 
 Lucille is a production-grade Search ETL framework for loading data into Lucene-based search engines — Apache Solr, Elasticsearch, and OpenSearch — and vector databases such as Pinecone and Weaviate. It supports batch, incremental, and streaming ingestion with inline document enrichment, and runs as a single JAR with no persistent server to manage. Lucille is Java-based and open-source, developed and maintained by [KMW Technology](https://kmwllc.com/).

@@ -53,6 +53,12 @@ If S2 generates a child document, that child is passed through S3 but NOT back t
 
 This is the correct semantic for search ingestion: if S1 extracts text from a PDF and S2 chunks that text into pieces, the chunks should flow through S3 (which might generate embeddings) but should NOT flow back through S1 (which would try to extract text from them again).
 
+### Depth-first traversal order
+
+The iterator chain traverses children depth-first. When a stage produces children, the first child flows through all downstream stages — and if those stages produce their own children, the first grandchild flows through all stages below it — before the second child at any level is even requested from its producing stage. This means that at any point during pipeline execution, only one document per level of the chain is actively being processed. Children do not accumulate in memory waiting for downstream processing — each child is fully processed and handed off to the Worker before the next sibling is pulled from the iterator.
+
+This property holds as long as child-generating stages return lazy iterators. A stage that materializes all children into a list before returning will hold those children in memory at that level, but they still flow through downstream stages one at a time. For maximum memory efficiency in stages that produce many children (e.g., text chunking), return a lazy iterator that generates children on demand rather than building a complete list.
+
 ---
 
 ## Why Iterators Instead of Lists

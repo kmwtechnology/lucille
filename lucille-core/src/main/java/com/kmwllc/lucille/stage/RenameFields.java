@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -10,6 +11,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -22,22 +24,29 @@ import java.util.Map.Entry;
  *   <li>fieldMapping (Map&lt;String, String&gt;) : A 1-1 mapping of original field names to new field names.</li>
  *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be
  *   'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
+ *   <li>applyToChildren (Boolean, Optional) : Determines whether renaming of fields will be applied to attached children.
+ *   If this stage has conditions, they will control the stage's own execution as normal, but will not be re-evaluated per child:
+ *   when this stage runs, renaming is applied to all attached children. This stage has no special handling for emitted children;
+ *   it sees them as first-class documents flowing through the pipeline.</li>
  * </ul>
  */
 public class RenameFields extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("updateMode")
+      .optionalBoolean("applyToChildren")
       .requiredParent("fieldMapping", new TypeReference<Map<String, String>>() {}).build();
 
   private final Map<String, Object> fieldMap;
   private final UpdateMode updateMode;
+  private final boolean applyToChildren;
 
   public RenameFields(Config config) {
     super(config);
 
     this.fieldMap = config.getConfig("fieldMapping").root().unwrapped();
     this.updateMode = UpdateMode.fromConfig(config);
+    this.applyToChildren = ConfigUtils.getOrDefault(config, "applyToChildren", false);
   }
 
   /**
@@ -61,6 +70,21 @@ public class RenameFields extends Stage {
 
       String dest = (String) fieldPair.getValue();
       doc.renameField(fieldPair.getKey(), dest, updateMode);
+    }
+
+    if (applyToChildren) {
+      List<Document> children = doc.getChildren();
+      if (!children.isEmpty()) {
+        for (Document childDoc : children) {
+          processDocument(childDoc);
+        }
+
+        doc.removeChildren();
+
+        for (Document childDoc : children) {
+          doc.addChild(childDoc);
+        }
+      }
     }
 
     return null;

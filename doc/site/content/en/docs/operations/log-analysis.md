@@ -17,7 +17,14 @@ Lucille uses SLF4J with Log4j2 as the logging backend. The log format depends on
 
 **JSON (structured logging for log aggregation):**
 ```json
-{"@timestamp":"2026-05-06T20:51:53.581Z","log.level":"INFO","message":"Pipeline Configuration is valid.","process.thread.name":"main","log.logger":"com.kmwllc.lucille.core.Runner","run_id":"c1d9413a-..."}
+{
+  "@timestamp": "2026-05-06T20:51:53.581Z",
+  "log.level": "INFO",
+  "message": "Pipeline Configuration is valid.",
+  "process.thread.name": "main",
+  "log.logger": "com.kmwllc.lucille.core.Runner",
+  "run_id": "c1d9413a-..."
+}
 ```
 
 The JSON format includes the `run_id` and `id` (document ID) fields from the MDC, making it possible to filter logs by run or by document in log aggregation tools. In plain text mode, only the `message` field is typically visible.
@@ -247,6 +254,8 @@ Search for `log.level":"ERROR"` or `log.level":"WARN"`. Common patterns:
 ### Which documents failed?
 
 The run summary reports how many documents failed but does not list their IDs. To identify specific failed documents, search the logs for failure messages. These are logged at ERROR level by the DocLogger and are visible in the default logging configuration without any changes.
+
+**Full document capture:** For a machine-readable record of every failed document (including all field values at the time of failure), enable the Failed Document Logger. It writes one JSON object per line to `./log/failed-documents.jsonl`, which can be parsed with `jq` or replayed through a `FileConnector`. See [Logging Setup — Failed Document Logging]({{< relref "docs/operations/logging#failed-document-logging" >}}) for configuration details.
 
 All document failures use a standardized `"Document FAILED"` prefix. To find every failed document in one pass:
 ```

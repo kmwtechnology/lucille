@@ -15,7 +15,7 @@ For scheduled batch ingests, package Lucille as a container and run it as a `Cro
 
 **Minimal Dockerfile:**
 ```dockerfile
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
@@ -88,6 +88,8 @@ spec:
                 memory: "4Gi"
                 cpu: "4"
 ```
+
+> **Exit code behavior:** The Runner exits 0 on success (including runs with individual document failures) and exits 1 only for infrastructure-level failures such as connector exceptions, indexer connection failures, or timeouts. This exit code drives the Kubernetes container restart policy (`restartPolicy`) and Job retry behavior (`backoffLimit`). See [Exit Codes]({{< relref "production-operations#exit-codes" >}}) for the full list of conditions.
 
 ### Distributed Deployment as Kubernetes Pods
 

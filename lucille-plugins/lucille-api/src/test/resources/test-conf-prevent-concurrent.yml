@@ -1,0 +1,25 @@
+server:
+  type: default
+  requestLog:
+    type: external
+logging:
+  type: external
+auth:
+  type: "basicAuth"
+  enabled: true
+  password: "password"
+
+preventConcurrentRuns: true
+
+swagger:
+  resourcePackage: "com.kmwllc.lucille.endpoints"
+  title: Lucille API
+  description: Lucille API
+  version: 0.0.1
+  contact: info@kmwllc.com
+  license: Apache 2.0
+  securityDefinitions:
+    basicAuth:
+      type: "basic"
+  security:
+    - basicAuth: []

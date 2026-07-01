@@ -7,6 +7,7 @@ public class MultiBatch implements Batch {
   private final Map<String, Batch> batches;
 
   private final int capacity;
+  private final long byteCapacity;
   private final int timeout;
   private final String indexField;
 
@@ -20,9 +21,10 @@ public class MultiBatch implements Batch {
    * elapsed since last add or flush. If any of the underlying batches are expired,
    * it will be flushed during the next call to add() or flushIfExpired().
    */
-  public MultiBatch(int capacity, int timeout, String indexField) {
+  public MultiBatch(int capacity, long byteCapacity, int timeout, String indexField) {
     this.batches = new HashMap<>();
     this.capacity = capacity;
+    this.byteCapacity = byteCapacity;
     this.timeout = timeout;
     this.indexField = indexField;
   }
@@ -35,7 +37,7 @@ public class MultiBatch implements Batch {
     if (batches.containsKey(index)) {
       batch = batches.get(index);
     } else {
-      batch = new SingleBatch(capacity, timeout);
+      batch = new SingleBatch(capacity, byteCapacity, timeout);
       batches.put(index, batch);
     }
 

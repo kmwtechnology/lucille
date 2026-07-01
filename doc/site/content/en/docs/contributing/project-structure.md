@@ -15,7 +15,8 @@ lucille (root aggregator)
 ├── lucille-parent          # parent POM: dependency versions, plugin config, build profiles
 ├── lucille-bom             # Bill of Materials: version-aligned dependency declarations
 ├── lucille-core            # the framework itself: Runner, Worker, Indexer, Pipeline, Document, Stages, Connectors
-├── lucille-plugins/        # optional modules with heavy or specialized dependencies (tika, pinecone, weaviate, jlama, parquet, ocr, video, entity-extraction, api)
+├── lucille-plugins/        # optional modules with heavy or specialized dependencies
+│                           #   (tika, pinecone, weaviate, jlama, parquet, ocr, video, entity-extraction, api)
 └── lucille-examples/       # runnable example projects demonstrating common ingestion patterns (not published to Maven Central)
 ```
 
@@ -27,7 +28,7 @@ lucille (root aggregator)
 
 The parent POM that all other modules inherit from. It defines:
 
-- **Java version** (17)
+- **Java version** (21)
 - **Dependency versions** for all third-party libraries (Jackson, Kafka, Solr, OpenSearch, Elasticsearch, AWS SDK, etc.) as properties
 - **Dependency management** section that pins versions so child modules don't need to specify versions
 - **Plugin configuration** for compilation, testing, Javadoc generation, source JARs, and GPG signing
@@ -181,7 +182,9 @@ mvn clean install -pl lucille-plugins/lucille-tika
 **When running Lucille from the command line**, the classpath typically looks like:
 
 ```bash
-java -Dconfig.file=config.conf -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*:lucille-plugins/lucille-tika/target/lucille-tika-*.jar' com.kmwllc.lucille.core.Runner
+java -Dconfig.file=config.conf \
+  -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*:lucille-plugins/lucille-tika/target/lucille-tika-*.jar' \
+  com.kmwllc.lucille.core.Runner
 ```
 
 Or more simply from an example directory where everything is in `target/lib/`:

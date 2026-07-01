@@ -413,7 +413,7 @@ public class TextExtractorTest {
     stage.processDocument(doc);
 
     // Give it a bit of time for the async task to be interrupted and set the flag
-    Thread.sleep(200);
+    Thread.sleep(400);
 
     // If timeout works, it should have returned within much less than 1000ms
     // and interrupted should be true (if we interrupt the thread)

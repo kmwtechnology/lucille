@@ -1,4 +1,4 @@
-# This Dockerfile defines an image that runs the Lucille Admin API using the latest OpenJDK 17
+# This Dockerfile defines an image that runs the Lucille Admin API using the latest OpenJDK 21
 # with a Lucille configuration file that can be specified via an environment variable.
 #
 # To build an image using this Dockerfile you must first:
