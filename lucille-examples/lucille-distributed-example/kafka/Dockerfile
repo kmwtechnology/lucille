@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17
+FROM eclipse-temurin:21
 
 RUN apt-get update && apt-get install curl -y
 RUN curl https://archive.apache.org/dist/kafka/3.7.0/kafka_2.13-3.7.0.tgz --output kafka.tgz

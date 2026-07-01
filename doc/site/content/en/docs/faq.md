@@ -10,7 +10,7 @@ description: >
 
 **What Java version do I need?**
 
-Java 17 or 21. Lucille is compiled targeting Java 17. See the [Support Matrix]({{< relref "docs/operations/support-matrix" >}}) for the full list of tested versions and distributions.
+Java 21. Lucille is compiled targeting Java 21. See the [Support Matrix]({{< relref "docs/operations/support-matrix" >}}) for the full list of tested versions and distributions.
 
 **Do I need Kafka to run Lucille?**
 

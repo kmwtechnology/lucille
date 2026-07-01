@@ -1,4 +1,4 @@
-# This Dockerfile defines an image that runs the Lucille Admin API using the latest OpenJDK 17
+# This Dockerfile defines an image that runs the Lucille Admin API using the latest OpenJDK 21
 # with a Lucille configuration file that can be specified via an environment variable.
 #
 # To build an image using this Dockerfile you must first:
@@ -38,8 +38,8 @@
 #
 # What follows is the main content of this Dockerfile:
 #
-# we use a base image with the latest OpenJDK 17
-FROM eclipse-temurin:17
+# we use a base image with the latest OpenJDK 21
+FROM eclipse-temurin:21
 
 # we copy local build artifacts and configuration into the image that we're building
 COPY conf/ conf/
