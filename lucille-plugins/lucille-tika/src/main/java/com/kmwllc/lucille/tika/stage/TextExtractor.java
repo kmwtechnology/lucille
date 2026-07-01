@@ -273,7 +273,7 @@ public class TextExtractor extends Stage {
     }
 
     doc.setOrAdd(textField, bch.toString());
-    String newMetadataPrefix = metadataPrefix == "" ? "" : metadataPrefix + "_";
+    String newMetadataPrefix = metadataPrefix.isEmpty() ? "" : metadataPrefix + "_";
     for (String name : metadata.names()) {
       // clean the field name first.
       String cleanName = cleanFieldName(name);
