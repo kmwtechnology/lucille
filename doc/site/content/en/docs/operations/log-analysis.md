@@ -255,6 +255,8 @@ Search for `log.level":"ERROR"` or `log.level":"WARN"`. Common patterns:
 
 The run summary reports how many documents failed but does not list their IDs. To identify specific failed documents, search the logs for failure messages. These are logged at ERROR level by the DocLogger and are visible in the default logging configuration without any changes.
 
+**Full document capture:** For a machine-readable record of every failed document (including all field values at the time of failure), enable the Failed Document Logger. It writes one JSON object per line to `./log/failed-documents.jsonl`, which can be parsed with `jq` or replayed through a `FileConnector`. See [Logging Setup — Failed Document Logging]({{< relref "docs/operations/logging#failed-document-logging" >}}) for configuration details.
+
 All document failures use a standardized `"Document FAILED"` prefix. To find every failed document in one pass:
 ```
 grep "Document FAILED" lucille.log

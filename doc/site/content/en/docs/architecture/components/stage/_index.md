@@ -38,6 +38,6 @@ The iterator-based return type (`Iterator<Document>`) means children are produce
 
 ## Practical Guide
 
-For how to configure stages — syntax, conditions, conditionPolicy, and the full catalogue of built-in stages — see [Stages]({{< relref "docs/reference/stages" >}}) in the Ingest Designer Guide.
+For how to configure stages — syntax, conditions, conditionPolicy, and the full catalogue of built-in stages — see [Stages]({{< relref "docs/ingest-design/stages" >}}) in the Ingest Designer Guide.
 
 For how to build a custom Stage, see [Developing Stages]({{< relref "docs/developer-guide/developing-stages" >}}).
