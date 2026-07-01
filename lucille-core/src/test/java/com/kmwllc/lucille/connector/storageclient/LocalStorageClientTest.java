@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -458,5 +459,132 @@ public class LocalStorageClientTest {
     localStorageClient.traverse(publisher, params);
     // only "new file" should be published - others are BEFORE the cutoff.
     assertEquals(1, publisher.numPublished());
+  }
+
+  @Test
+  public void testPathsToSkip() throws Exception {
+    String subdir1Uri = URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/").toString();
+
+    if (!subdir1Uri.endsWith("/")) {
+      subdir1Uri += "/";
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Uri),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipNoTrailingSlash() throws Exception {
+    String subdir1Uri = URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toString();
+
+    if (subdir1Uri.endsWith("/")) {
+      subdir1Uri = subdir1Uri.substring(0, subdir1Uri.length() - 1);
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Uri.toString()),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipRelative() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toString();
+
+    if (!subdir1Path.endsWith("/")) {
+      subdir1Path += "/";
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipRelativeNoTrailingSlash() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toString();
+
+    if (subdir1Path.endsWith("/")) {
+      subdir1Path = subdir1Path.substring(0, subdir1Path.length() - 1);
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipAbsolute() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toAbsolutePath().toString();
+
+    if (!subdir1Path.endsWith("/")) {
+      subdir1Path += "/";
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipAbsoluteNoTrailingSlash() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toAbsolutePath().toString();
+
+    if (subdir1Path.endsWith("/")) {
+      subdir1Path = subdir1Path.substring(0, subdir1Path.length() - 1);
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  // pathsToSkip entries must be absolute URIs. A file:// URI for subdir1 skips it entirely,
+  // leaving only the 4 root-level json files.
+  private void pathsToSkipTesting(Config connectorConfig) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(connectorConfig,
+        URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault"), "");
+    localStorageClient.init();
+    localStorageClient.traverse(publisher, params);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(4, docs.size());
+    assertTrue(docs.stream().noneMatch(d -> d.getString(FileConnector.FILE_PATH).contains("subdir1")));
+
+    localStorageClient.shutdown();
   }
 }
