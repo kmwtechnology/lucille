@@ -112,7 +112,7 @@ This decomposition means:
 The [lucille-file-to-file-example](https://github.com/kmwtechnology/lucille/tree/main/lucille-examples/lucille-file-to-file-example) includes a Dockerfile that demonstrates the standard pattern for running Lucille in a container:
 
 ```dockerfile
-FROM eclipse-temurin:17
+FROM eclipse-temurin:21
 COPY target/ /target/
 COPY conf/ /conf/
 ENV CONF=""
