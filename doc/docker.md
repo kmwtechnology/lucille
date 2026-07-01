@@ -7,7 +7,7 @@ The Lucille base Docker image provides a ready-to-run Lucille environment. Downs
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `LUCILLE_CONF` | **Yes** | *(none)* | Path to the Lucille config file inside the container |
-| `JAVA_OPTS` | No | `-Xms256m -Xmx1g` | JVM flags (heap size, GC tuning, etc.) |
+| `JAVA_OPTS` | No | `-Xms256m -Xmx256m` | JVM flags (heap size, GC tuning, etc.) |
 | `LUCILLE_OPTS` | No | *(empty)* | Lucille Runner CLI flags (e.g. `-local`, `-usekafka`) |
 
 ## Building the Base Image
@@ -33,7 +33,7 @@ COPY data/ /lucille/data/
 
 # Set the config file path and JVM options
 ENV LUCILLE_CONF=/lucille/conf/my-config.conf
-ENV JAVA_OPTS="-Xms512m -Xmx4g"
+ENV JAVA_OPTS="-Xms512m -Xmx512m"
 ```
 
 Build and run:
@@ -50,7 +50,7 @@ Use the base image directly, mounting your config and data directories from the 
 ```bash
 docker run \
   --env LUCILLE_CONF=/lucille/conf/my-config.conf \
-  --env JAVA_OPTS="-Xms1g -Xmx8g" \
+  --env JAVA_OPTS="-Xms1g -Xmx1g" \
   -v /path/on/host/conf:/lucille/conf \
   -v /path/on/host/data:/lucille/data \
   lucille:latest
@@ -61,16 +61,13 @@ docker run \
 Control JVM behavior through the `JAVA_OPTS` environment variable:
 
 ```bash
-# Set heap size
-docker run --env JAVA_OPTS="-Xms1g -Xmx4g" ...
+# Example: Adjust heap size
+docker run --env JAVA_OPTS="-Xms1g -Xmx1g" ...
 
-# Use container-aware memory settings (adapts to container memory limits)
-docker run --env JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0" ...
+# Example: Garbage collection tuning
+docker run --env JAVA_OPTS="-Xms1g -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200" ...
 
-# Enable G1 GC tuning
-docker run --env JAVA_OPTS="-Xms1g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200" ...
-
-# Enable remote debugging
+# Example: Remote debugging
 docker run -p 5005:5005 --env JAVA_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005" ...
 ```
 

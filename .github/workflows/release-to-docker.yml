@@ -41,9 +41,7 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: |
-            21
-            17
+          java-version: '21'
           distribution: temurin
           cache: maven
 

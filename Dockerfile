@@ -13,8 +13,6 @@ RUN apt-get update && apt-get upgrade -y && rm -f /usr/bin/pebble /bin/pebble
 COPY lucille-core/target/lucille.jar /lucille/lib/
 COPY lucille-core/target/lib/ /lucille/lib/
 
-COPY lucille-examples/lucille-rss-example/conf/single.conf /lucille/conf/single.conf
-
 # Default config directory — downstream consumers mount or COPY configs here
 RUN mkdir -p /lucille/conf
 
