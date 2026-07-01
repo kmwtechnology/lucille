@@ -117,9 +117,9 @@ public class OpenSearchIndexerTest {
     }
   }
 
-  // Unsupported, but shouldn't cause any errors.
+  // When childDocumentsField is not configured, children are not indexed with a warning and indexing still succeeds.
   @Test
-  public void testIndexerWithChildDocs() throws Exception {
+  public void testIndexerWithChildDocsNoChildField() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
@@ -137,6 +137,109 @@ public class OpenSearchIndexerTest {
     indexer.run(2);
 
     Assert.assertEquals(2, messenger.getSentEvents().size());
+  }
+
+  @Test
+  public void testChildDocumentsIndexed() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/childDocuments.conf");
+
+    Document child1 = Document.create("child1");
+    child1.setField("child_field", "value1");
+
+    Document child2 = Document.create("child2");
+    child2.setField("child_field", "value2");
+
+    Document parent = Document.create("parent1");
+    parent.setField("parent_field", "parentValue");
+    parent.addChild(child1);
+    parent.addChild(child2);
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(parent);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+
+    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+
+    // parent should still be indexed as appropriate (parent_field: parentValue)
+    assertEquals("parentValue", indexed.get("parent_field"));
+    // sanity checking we aren't using our children field to index
+    assertFalse(indexed.containsKey(Document.CHILDREN_FIELD));
+
+    List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
+    assertEquals(2, children.size());
+    assertEquals("value1", children.get(0).get("child_field"));
+    assertEquals("value2", children.get(1).get("child_field"));
+
+    assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(Event.Type.FINISH, messenger.getSentEvents().get(0).getType());
+  }
+
+  @Test
+  public void testChildDocumentsFieldFilterApplied() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    // blacklist.conf blacklists "id", "ignoreField1", and "ignoreField2"
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/blacklist.conf")
+        .withValue("opensearch.childDocumentsField", ConfigValueFactory.fromAnyRef("children"));
+
+    Document child = Document.create("child1");
+    child.setField("ignoreField1", "shouldBeRemoved");
+    child.setField("normalField", "shouldBeKept");
+
+    Document parent = Document.create("doc1");
+    parent.addChild(child);
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(parent);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+
+    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
+
+    assertEquals(1, children.size());
+    assertFalse(children.get(0).containsKey("id"));
+    assertFalse(children.get(0).containsKey("ignoreField1"));
+    assertEquals("shouldBeKept", children.get(0).get("normalField"));
+  }
+
+  @Test
+  public void testChildDocumentsGrandchildrenStripped() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/childDocuments.conf");
+
+    Document grandchild = Document.create("grandchild1");
+    grandchild.setField("grandchild_field", "gcValue");
+
+    Document child = Document.create("child1");
+    child.setField("child_field", "childValue");
+    child.addChild(grandchild);
+
+    Document parent = Document.create("parent1");
+    parent.addChild(child);
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(parent);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+
+    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
+
+    assertEquals(1, children.size());
+    assertEquals("childValue", children.get(0).get("child_field"));
+
+    // the child document should not have its own child - either through our children field
+    // or through the specified "childDocumentsField".
+    assertFalse(children.get(0).containsKey("children"));
+    assertFalse(children.get(0).containsKey(Document.CHILDREN_FIELD));
   }
 
   @Test
