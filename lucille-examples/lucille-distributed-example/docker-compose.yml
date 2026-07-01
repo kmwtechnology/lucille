@@ -1,58 +1,38 @@
 name: distributed-lucille
 services:
-  kafka: 
-    build: 
-      context: .
-      dockerfile: ./kafka/Dockerfile
-    container_name: kafka
-    depends_on: 
-      - zookeeper
-    ports:
-      - 9092:9092
-    networks: 
-      - lucille-net
-    healthcheck:
-      test: ["CMD", "kafka_2.13-3.7.0/bin/kafka-topics.sh", "--bootstrap-server=kafka:9092", "--list"]
-  zookeeper: 
-    build: 
+  zookeeper:
+    build:
       context: .
       dockerfile: ./zookeeper/Dockerfile
     container_name: zookeeper
     ports:
       - 2181:2181
-    networks: 
+    networks:
       - lucille-net
-  runner:
+    healthcheck:
+      test: ["CMD-SHELL", "kafka_2.13-3.7.0/bin/zookeeper-shell.sh zookeeper:2181 ls / || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+  kafka:
     build:
       context: .
-      dockerfile: ./runner/Dockerfile
+      dockerfile: ./kafka/Dockerfile
+    container_name: kafka
     depends_on:
-      kafka:
+      zookeeper:
         condition: service_healthy
-      indexer:
-        condition: service_healthy
-    networks: 
+    ports:
+      - 9092:9092
+    networks:
       - lucille-net
-  worker:
-    build:
-      context: .
-      dockerfile: ./worker/Dockerfile
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks: 
-      - lucille-net
-  indexer: 
-    build:
-      context: .
-      dockerfile: ./indexer/Dockerfile
-    depends_on:
-      kafka:
-        condition: service_healthy
-      solr:
-        condition: service_healthy
-    networks: 
-      - lucille-net
+    healthcheck:
+      test: ["CMD", "kafka_2.13-3.7.0/bin/kafka-topics.sh", "--bootstrap-server=kafka:9092", "--list"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
   solr:
     build:
       context: .
@@ -64,6 +44,47 @@ services:
     networks:
       - lucille-net
     healthcheck:
-      test: ["CMD", "/solr-9.5.0/bin/solr", "status"]
+      test: ["CMD-SHELL", "/solr-9.5.0/bin/solr status && curl -sf http://localhost:8983/solr/admin/info/system"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+  indexer:
+    build:
+      context: .
+      dockerfile: ./indexer/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+      solr:
+        condition: service_healthy
+    networks:
+      - lucille-net
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'com.kmwllc.lucille.core.Indexer' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+  worker:
+    build:
+      context: .
+      dockerfile: ./worker/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - lucille-net
+  runner:
+    build:
+      context: .
+      dockerfile: ./runner/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+      indexer:
+        condition: service_healthy
+    networks:
+      - lucille-net
 networks:
   lucille-net:
