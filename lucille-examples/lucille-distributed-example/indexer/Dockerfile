@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17
+FROM eclipse-temurin:21
 
 RUN apt-get update && apt-get install curl -y && apt-get install jq -y
 
