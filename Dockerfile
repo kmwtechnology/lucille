@@ -27,7 +27,7 @@ RUN groupadd -r lucille \
 # LUCILLE_OPTS: Lucille Runner CLI flags (e.g. -local, -usekafka)
 ENV LUCILLE_CONF=""
 ENV LUCILLE_OPTS=""
-ENV JAVA_OPTS="-Xms1g -Xmx1g"
+ENV JAVA_OPTS=""
 
 # Copy the entrypoint script
 COPY docker-entrypoint.sh /lucille/docker-entrypoint.sh
