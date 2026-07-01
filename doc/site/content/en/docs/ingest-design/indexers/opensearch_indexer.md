@@ -39,7 +39,21 @@ When `indexer.routingField` is set, the value of that field on each document is 
 
 When `indexer.versionType` is set to `external` or `external_gte`, the Kafka message offset is used as the document's version number. This enables optimistic concurrency control in streaming mode — OpenSearch will reject a write if the incoming version is not greater than (or equal to, for `external_gte`) the existing version.
 
-This only works with documents that carry Kafka metadata (i.e., in distributed mode where documents are `KafkaDocument` instances).
+By default this uses the Kafka offset (requiring distributed mode with `KafkaDocument` instances). To use a version value from the document itself — useful in local mode or when the version is sourced from an upstream system — set `indexer.versionField`:
+
+```hocon
+indexer {
+  versionType: "external_gte"
+  versionField: "my_version_field"
+}
+```
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `indexer.versionType` | String | No | `external` or `external_gte`. Enables optimistic concurrency control. |
+| `indexer.versionField` | String | No | Document field containing a numeric version value. When set, this field's value is used instead of the Kafka offset. Requires `versionType` to also be set. |
+
+If `versionField` is set but the field is absent on a particular document, and the document is not a `KafkaDocument`, the version is omitted and the document is indexed without optimistic concurrency control.
 
 ---
 

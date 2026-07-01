@@ -18,7 +18,7 @@ No. Local mode runs entirely in-memory inside a single JVM with no external depe
 
 **What search backends are supported?**
 
-Apache Solr, OpenSearch, and Elasticsearch are the supported search backends. The [Support Matrix]({{< relref "docs/operations/support-matrix" >}}) lists the tested versions for each. Pinecone and Weaviate are supported as vector database targets via optional Maven dependencies — see [Indexers]({{< relref "docs/reference/indexers" >}}) for configuration. A CSV indexer is also available for local development and testing without a running search backend.
+Apache Solr, OpenSearch, and Elasticsearch are the supported search backends. The [Support Matrix]({{< relref "docs/operations/support-matrix" >}}) lists the tested versions for each. Pinecone and Weaviate are supported as vector database targets via optional Maven dependencies — see [Indexers]({{< relref "docs/ingest-design/indexers" >}}) for configuration. A CSV indexer is also available for local development and testing without a running search backend.
 
 Custom connectors and indexers can be added without modifying the core project — implement the relevant interface, place the JAR on the classpath, and reference the fully-qualified class name in your config file.
 
@@ -71,7 +71,7 @@ The document is marked as failed and a FAIL event is sent to the Publisher. The 
 
 **How do I skip a Stage for some documents?**
 
-Use the `conditions` block on the Stage. Conditions can check field presence, field value, or combinations using `conditionPolicy: "all"` or `conditionPolicy: "any"`. A Stage whose conditions are not met is skipped for that document without any error. See [Stages]({{< relref "docs/reference/stages" >}}) for syntax and examples.
+Use the `conditions` block on the Stage. Conditions can check field presence, field value, or combinations using `conditionPolicy: "all"` or `conditionPolicy: "any"`. A Stage whose conditions are not met is skipped for that document without any error. See [Stages]({{< relref "docs/ingest-design/stages" >}}) for syntax and examples.
 
 **What is the difference between dropping and skipping a document?**
 
@@ -155,7 +155,7 @@ Yes. Start one or more Worker (or WorkerIndexer) processes pointed at a Kafka so
 
 **What plugins are available?**
 
-Optional extension modules are available as separate Maven dependencies: `lucille-tika` (text extraction from 1000+ file formats), `lucille-ocr` (Tesseract OCR), `lucille-entity-extraction` (OpenNLP NER), `lucille-jlama` (local LLM embeddings with no external API), `lucille-parquet` (Parquet file support), `lucille-pinecone` (Pinecone indexer), `lucille-weaviate` (Weaviate indexer), `lucille-video` (video frame extraction), and `lucille-api` (REST API for run triggering). Each is a separate Maven module that does not bloat the core JAR. Plugin stages are documented in [All Stages]({{< relref "docs/reference/stages/stages_reference" >}}); plugin connectors and indexers are documented in the [Connectors]({{< relref "docs/reference/connectors" >}}) and [Indexers]({{< relref "docs/reference/indexers" >}}) sections.
+Optional extension modules are available as separate Maven dependencies: `lucille-tika` (text extraction from 1000+ file formats), `lucille-ocr` (Tesseract OCR), `lucille-entity-extraction` (OpenNLP NER), `lucille-jlama` (local LLM embeddings with no external API), `lucille-parquet` (Parquet file support), `lucille-pinecone` (Pinecone indexer), `lucille-weaviate` (Weaviate indexer), `lucille-video` (video frame extraction), and `lucille-api` (REST API for run triggering). Each is a separate Maven module that does not bloat the core JAR. Plugin stages are documented in [All Stages]({{< relref "docs/ingest-design/stages/all-stages" >}}); plugin connectors and indexers are documented in the [Connectors]({{< relref "docs/ingest-design/connectors" >}}) and [Indexers]({{< relref "docs/ingest-design/indexers" >}}) sections.
 
 **When should a component go in `lucille-core` vs. a plugin?**
 
@@ -163,7 +163,7 @@ Add to `lucille-core` if the component is general-purpose and has no heavy trans
 
 **How do I write a new Stage?**
 
-Implement the `Stage` interface: override `start()` for initialization, `processDocument()` for per-document logic, and `stop()` for cleanup. Declare a `public static final Spec SPEC` describing all configuration parameters. See [Developing New Components]({{< relref "docs/developer-guide/dev_new_components" >}}).
+Implement the `Stage` interface: override `start()` for initialization, `processDocument()` for per-document logic, and `stop()` for cleanup. Declare a `public static final Spec SPEC` describing all configuration parameters. See [Developing New Components]({{< relref "docs/developer-guide/developing-new-components" >}}).
 
 ---
 
@@ -193,7 +193,7 @@ For Solr, a commit is required to make documents visible. Issue a commit with `o
 
 **How do I inspect what documents look like mid-pipeline, or replay a pipeline run without re-running enrichment?**
 
-The `Print` stage logs documents as JSON at any point in the pipeline and can write them to a JSONL file. Combined with a `NopIndexer`, this lets you capture fully-enriched documents to disk without indexing anything. You can then replay that file using `FileConnector` with the JSON handler and an empty pipeline, sending the already-processed documents directly to a live search backend. This is useful for iterating on indexer configuration or field mappings without repeating expensive enrichment steps (OCR, embeddings, database lookups). See the Print stage entry in [All Stages]({{< relref "docs/reference/stages/stages_reference" >}}) for the full pattern.
+The `Print` stage logs documents as JSON at any point in the pipeline and can write them to a JSONL file. Combined with a `NopIndexer`, this lets you capture fully-enriched documents to disk without indexing anything. You can then replay that file using `FileConnector` with the JSON handler and an empty pipeline, sending the already-processed documents directly to a live search backend. This is useful for iterating on indexer configuration or field mappings without repeating expensive enrichment steps (OCR, embeddings, database lookups). See the Print stage entry in [All Stages]({{< relref "docs/ingest-design/stages/all-stages" >}}) for the full pattern.
 
 **A Stage is initializing a large model for every document instead of once per thread.**
 

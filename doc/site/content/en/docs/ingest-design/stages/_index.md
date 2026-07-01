@@ -5,7 +5,7 @@ date: 2025-06-06
 description: Catalogue of built-in stages and how to configure them.
 ---
 
-For conceptual documentation — what a Stage is, the Stage contract, conditions as a design decision, and child document emission — see [Architecture: Stage]({{< relref "docs/architecture/components/Stages" >}}).
+For conceptual documentation — what a Stage is, the Stage contract, conditions as a design decision, and child document emission — see [Architecture: Stage]({{< relref "docs/architecture/components/stage" >}}).
 
 ## Configuring a Stage
 
@@ -113,20 +113,20 @@ When a stage has multiple conditions, `conditionPolicy` in the stage's root conf
 }
 ```
 
-For the full reference on controlling document fate and connector sequencing — conditions, skipping, dropping, error handling, child documents, and more — see [Control Flow]({{< relref "docs/reference/control-flow" >}}).
+For the full reference on controlling document fate and connector sequencing — conditions, skipping, dropping, error handling, child documents, and more — see [Control Flow]({{< relref "docs/ingest-design/control-flow" >}}).
 
 ---
 
 ## Stage Catalogue
 
-See [All Stages]({{< relref "docs/reference/stages/stages_reference" >}}) for a complete listing of all available stages organized by category, including their configuration parameters.
+See [All Stages]({{< relref "docs/ingest-design/stages/all-stages" >}}) for a complete listing of all available stages organized by category, including their configuration parameters.
 
 Detailed pages are available for more complex stages:
 
-- [ChunkText]({{< relref "docs/reference/stages/chunk_text" >}}) — Split long text fields into chunks for embedding and RAG pipelines.
-- [EmbeddedPython]({{< relref "docs/reference/stages/embedded_python" >}}) — Run Python code inside the JVM using GraalPy.
-- [ExternalPython]({{< relref "docs/reference/stages/external_python" >}}) — Delegate processing to an external Python process via Py4J.
-- [PromptOllama]({{< relref "docs/reference/stages/prompt_ollama" >}}) — Enrich documents using a locally-running LLM.
-- [QueryOpensearch]({{< relref "docs/reference/stages/query_opensearch" >}}) — Execute OpenSearch search templates per document.
+- [ChunkText]({{< relref "docs/ingest-design/stages/chunk_text" >}}) — Split long text fields into chunks for embedding and RAG pipelines.
+- [EmbeddedPython]({{< relref "docs/ingest-design/stages/embedded_python" >}}) — Run Python code inside the JVM using GraalPy.
+- [ExternalPython]({{< relref "docs/ingest-design/stages/external_python" >}}) — Delegate processing to an external Python process via Py4J.
+- [PromptOllama]({{< relref "docs/ingest-design/stages/prompt_ollama" >}}) — Enrich documents using a locally-running LLM.
+- [QueryOpensearch]({{< relref "docs/ingest-design/stages/query_opensearch" >}}) — Execute OpenSearch search templates per document.
 
-Plugin stages (TextExtractor, ApplyOCR, ApplyOpenNLPNameFinders, JlamaEmbed) are listed at the bottom of [All Stages]({{< relref "docs/reference/stages/stages_reference" >}}) with their Maven dependencies.
+Plugin stages (TextExtractor, ApplyOCR, ApplyOpenNLPNameFinders, JlamaEmbed) are listed at the bottom of [All Stages]({{< relref "docs/ingest-design/stages/all-stages" >}}) with their Maven dependencies.

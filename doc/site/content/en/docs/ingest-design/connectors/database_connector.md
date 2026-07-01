@@ -126,4 +126,4 @@ For large MySQL tables, set `fetchSize` to avoid loading the entire result set i
 
 ## Integration with QueryDatabase Stage
 
-For per-document database enrichment (joining a lookup table for each document mid-pipeline, rather than reading a source table), use the [`QueryDatabase`]({{< relref "docs/reference/stages/stages_reference" >}}) Stage.
+For per-document database enrichment (joining a lookup table for each document mid-pipeline, rather than reading a source table), use the [`QueryDatabase`]({{< relref "docs/ingest-design/stages/all-stages" >}}) Stage.

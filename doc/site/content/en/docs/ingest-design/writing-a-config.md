@@ -37,7 +37,7 @@ connectors: [
 ]
 ```
 
-See [Connectors]({{< relref "docs/reference/connectors" >}}) for the full catalogue of available connectors and their parameters.
+See [Connectors]({{< relref "docs/ingest-design/connectors" >}}) for the full catalogue of available connectors and their parameters.
 
 ### Pipelines and Stages
 
@@ -57,7 +57,7 @@ pipelines: [
 ]
 ```
 
-See [Stages]({{< relref "docs/reference/stages" >}}) for the full catalogue of available stages and their parameters.
+See [Stages]({{< relref "docs/ingest-design/stages" >}}) for the full catalogue of available stages and their parameters.
 
 ### Indexer
 
@@ -78,7 +78,7 @@ opensearch {
 }
 ```
 
-See [Indexers]({{< relref "docs/reference/indexers" >}}) for available indexer types and their configuration.
+See [Indexers]({{< relref "docs/ingest-design/indexers" >}}) for available indexer types and their configuration.
 
 ---
 

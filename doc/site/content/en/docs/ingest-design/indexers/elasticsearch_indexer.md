@@ -75,6 +75,29 @@ When `update: true`, documents are sent as partial updates (doc-as-upsert) rathe
 
 ---
 
+## Deletion Support
+
+The ElasticsearchIndexer supports three deletion mechanisms:
+
+**Delete by ID:** When a document is marked with `deletionMarkerField`/`deletionMarkerFieldValue` (and does not also have `deleteByFieldField`/`deleteByFieldValue`), the Indexer issues a bulk delete-by-ID operation for that document.
+
+**Delete by query:** When a document is marked for deletion AND contains both `deleteByFieldField` and `deleteByFieldValue`, the Indexer issues a `_delete_by_query` request. The `deleteByFieldField` value on the document identifies which Elasticsearch field to query, and the `deleteByFieldValue` value identifies the terms to match. Multiple delete-by-query documents in a batch are combined into a single bool/should query.
+
+**Batch ordering:** Within a batch, if the same document ID appears in both an upload and a delete operation, the last occurrence wins. This allows a batch to contain both updates and deletions for the same logical entity.
+
+```hocon
+indexer {
+  type: "Elasticsearch"
+  deletionMarkerField: "is_deleted"
+  deletionMarkerFieldValue: "true"
+  # Optional: for query-based deletions
+  deleteByFieldField: "delete_target_field"
+  deleteByFieldValue: "delete_target_value"
+}
+```
+
+---
+
 ## Troubleshooting
 
 **Join field errors:**
