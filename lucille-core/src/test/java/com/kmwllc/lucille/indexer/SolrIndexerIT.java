@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.solr.SolrTestCaseJ4.SuppressSSL;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
@@ -36,6 +37,7 @@ import org.mockito.Mockito;
  * Contains test that verify the integration with a working MiniSolrCloudCluster using the
  * SolrTestFramework.
  */
+@SuppressSSL
 @ThreadLeakScope(ThreadLeakScope.Scope.SUITE)
 public class SolrIndexerIT extends SolrCloudTestCase {
 
