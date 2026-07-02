@@ -14,6 +14,8 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    outputs:
+      release: ${{ env.release }}
     steps:
       - run: echo "Release version ${{ env.release }}!"
 
@@ -53,7 +55,7 @@ jobs:
     uses: ./.github/workflows/release-to-docker.yml
 
     with:
-      release_version: ${{ env.release }}
+      release_version: ${{ needs.publish.outputs.release }}
       docker_revision: "0"
 
     secrets: inherit
