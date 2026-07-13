@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.indexer;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
@@ -23,7 +24,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
+import org.opensearch.client.opensearch._types.BulkByScrollFailure;
 import org.opensearch.client.opensearch._types.FieldValue;
 import org.opensearch.client.opensearch._types.OpenSearchException;
 import org.opensearch.client.opensearch._types.VersionType;
@@ -47,6 +48,9 @@ import org.slf4j.LoggerFactory;
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying OpenSearch HTTP client. Defaults to false.</li>
+ *   <li>childDocumentsField (String, Optional) : Field name under which attached child documents are nested in the
+ *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
+ *   as type "nested" in the index mapping.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
  *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
  * </ul>
@@ -55,7 +59,8 @@ public class OpenSearchIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
-      .optionalBoolean("update", "acceptInvalidCert", "useCompression").build();
+      .optionalBoolean("update", "acceptInvalidCert", "useCompression")
+      .optionalString("childDocumentsField").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
@@ -70,6 +75,8 @@ public class OpenSearchIndexer extends Indexer {
   //flag for using partial update API when sending documents to opensearch
   private final boolean update;
 
+  private final String childDocumentsField;
+
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
       String metricsPrefix,String localRunId, OpenSearchClient client) {
     super(config, messenger, bypass, metricsPrefix, localRunId);
@@ -80,6 +87,7 @@ public class OpenSearchIndexer extends Indexer {
     this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
     this.versionType =
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
+    this.childDocumentsField = ConfigUtils.getOrDefault(config, "opensearch.childDocumentsField", null);
     this.versionField = config.hasPath("indexer.versionField") ? config.getString("indexer.versionField") : null;
 
     // validate config indexer.versionType that must be set if config indexer.versionField is set
@@ -302,8 +310,13 @@ public class OpenSearchIndexer extends Indexer {
       }
 
       if (!response.failures().isEmpty()) {
-        for (BulkIndexByScrollFailure failure : response.failures()) {
-          log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+        for (BulkByScrollFailure failure : response.failures()) {
+          if (failure.cause() == null) {
+            log.debug("Error while deleting by query, cause was null");
+          } else {
+            log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+          }
+
         }
         throw new IndexerException("encountered errors while deleting by query");
       }
@@ -342,8 +355,10 @@ public class OpenSearchIndexer extends Indexer {
         indexerDoc.put(Document.ID_FIELD, docId);
       }
 
-      // handle special operations required to add children documents
-      addChildren(doc, indexerDoc);
+      if (doc.hasChildren()) {
+        addChildren(doc, indexerDoc);
+      }
+
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
           ? getVersionNum(doc)
           : null;
@@ -411,24 +426,24 @@ public class OpenSearchIndexer extends Indexer {
     return failedDocs;
   }
 
+  /** Only call on documents that have children. */
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
-    List<Document> children = doc.getChildren();
-    if (children == null || children.isEmpty()) {
+    if (childDocumentsField == null) {
+      log.warn("Document {} has children but opensearch.childDocumentsField is not configured. They will not be indexed.", doc.getId());
       return;
     }
+
+    List<Map<String, Object>> childDocMaps = new ArrayList<>();
+    List<Document> children = doc.getChildren();
+
     for (Document child : children) {
-      Map<String, Object> map = child.asMap();
-      Map<String, Object> indexerChildDoc = new HashMap<>();
-      for (String key : map.keySet()) {
-        // we don't support children that contain nested children
-        if (Document.CHILDREN_FIELD.equals(key)) {
-          continue;
-        }
-        Object value = map.get(key);
-        indexerChildDoc.put(key, value);
-      }
-      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future (_childDocuments_)
+      // calling getIndexerDoc allows us to apply black/whitelist
+      Map<String, Object> childDocMap = getIndexerDoc(child);
+      // we don't support children that contain nested children
+      childDocMap.remove(Document.CHILDREN_FIELD);
+      childDocMaps.add(childDocMap);
     }
+    indexerDoc.put(childDocumentsField, childDocMaps);
   }
 
   private boolean isMarkedForDeletion(Document doc) {

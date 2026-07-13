@@ -14,9 +14,9 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.BaseHttpSolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.hamcrest.MatcherAssert;
@@ -1075,7 +1075,7 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     when(solrClient.add(any(Collection.class)))
-        .thenThrow(new BaseHttpSolrClient.RemoteSolrException("localhost", 503, "Service Unavailable", null));
+        .thenThrow(new RemoteSolrException("localhost", 503, "Service Unavailable", null));
 
     SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
     messenger.sendForIndexing(doc);
@@ -1148,7 +1148,7 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     when(solrClient.add(any(Collection.class)))
-        .thenThrow(new BaseHttpSolrClient.RemoteSolrException("localhost", 503, "Service Unavailable", null));
+        .thenThrow(new RemoteSolrException("localhost", 503, "Service Unavailable", null));
 
     SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
     Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
@@ -1174,7 +1174,7 @@ public class SolrIndexerTest {
 
     SolrClient solrClient = mock(SolrClient.class);
     when(solrClient.add(any(Collection.class)))
-        .thenThrow(new BaseHttpSolrClient.RemoteSolrException("localhost", 400, "Bad Request", null));
+        .thenThrow(new RemoteSolrException("localhost", 400, "Bad Request", null));
 
     SolrIndexer indexer = new SolrIndexer(config, messenger, "", solrClient);
     Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));

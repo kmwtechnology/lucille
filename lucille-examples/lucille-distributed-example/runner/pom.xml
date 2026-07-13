@@ -14,7 +14,7 @@ errors relating to the container's limited context.) -->
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-examples</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
@@ -39,8 +39,8 @@ errors relating to the container's limited context.) -->
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.8.1</version>
           <configuration>
-              <source>17</source>
-              <target>17</target>
+              <source>21</source>
+              <target>21</target>
           </configuration>
       </plugin>
       <plugin>
