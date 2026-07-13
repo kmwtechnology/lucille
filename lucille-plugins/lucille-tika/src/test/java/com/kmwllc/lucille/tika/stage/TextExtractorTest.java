@@ -420,7 +420,7 @@ public class TextExtractorTest {
       Thread.sleep(50);
     }
 
-    // If timeout works, it should have returned within much less than 1000ms
+    // If timeout works, it should have returned within much less than our 5 sec. max
     // and interrupted should be true (if we interrupt the thread)
     assertTrue("Parser should have been interrupted", InterruptTrackingParser.interrupted.get());
     // Document should not have text (or at least not from the parser)
