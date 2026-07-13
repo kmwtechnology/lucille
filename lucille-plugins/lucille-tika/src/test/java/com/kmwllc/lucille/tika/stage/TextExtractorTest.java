@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -405,15 +407,18 @@ public class TextExtractorTest {
   public void testTimeout() throws Exception {
     InterruptTrackingParser.interrupted.set(false);
 
-    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/timeout.conf");
+    Stage stage = factory.get("TextExtractorTest/timeout.conf");
 
     Document doc = Document.create("doc1");
     doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
 
     stage.processDocument(doc);
 
-    // Give it a bit of time for the async task to be interrupted and set the flag
-    Thread.sleep(400);
+    // poll for the parser to be interrupted. give it max ~5 sec. to do so
+    Instant deadline = Instant.now().plus(5, ChronoUnit.SECONDS);
+    while (!InterruptTrackingParser.interrupted.get() && Instant.now().isBefore(deadline)) {
+      Thread.sleep(50);
+    }
 
     // If timeout works, it should have returned within much less than 1000ms
     // and interrupted should be true (if we interrupt the thread)
