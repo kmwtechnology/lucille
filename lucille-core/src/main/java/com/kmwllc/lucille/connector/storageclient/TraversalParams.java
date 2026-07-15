@@ -10,6 +10,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -44,6 +45,7 @@ public class TraversalParams {
   // FilterOptions
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
+  private final List<URI> pathsToSkip;
   private final Duration lastModifiedCutoff;
   private final Duration lastPublishedCutoff;
   private final PublishMode publishMode;
@@ -90,6 +92,12 @@ public class TraversalParams {
     List<String> excludeRegex = filterOptions.hasPath("excludes") ?
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
+
+    List<String> pathsToSkipStrings = filterOptions.hasPath("pathsToSkip") ?
+        filterOptions.getStringList("pathsToSkip") : Collections.emptyList();
+    this.pathsToSkip = pathsToSkipStrings.stream()
+        .map(TraversalParams::makePathToSkipURI)
+        .collect(Collectors.toList());
 
     this.publishMode = filterOptions.hasPath("publishMode") ? PublishMode.fromString(filterOptions.getString("publishMode")) : PublishMode.FULL;
 
@@ -204,6 +212,38 @@ public class TraversalParams {
 
   public URI getMoveToErrorFolder() {
     return moveToErrorFolder;
+  }
+
+  public List<URI> getPathsToSkip() {
+    return pathsToSkip;
+  }
+
+  /**
+   * Creates a normalized URI for a path to skip.
+   * <p>
+   * Valid, absolute URIs are used as-is. As a convenience and a fallback, local
+   * file system paths may be provided without a scheme - either absolute or relative - and are
+   * converted to an absolute {@code file://} URI.
+   * <p>
+   * Throws an IllegalArgumentException in the event of an invalid URI / path.
+   */
+  private static URI makePathToSkipURI(String s) {
+    try {
+      URI uri = new URI(s);
+
+      if (uri.isAbsolute()) {
+        return uri.normalize();
+      }
+    } catch (URISyntaxException e) {
+      // Fall back, seeing if we can treat the entry as a local file system path.
+    }
+
+    // non-absolute URI, or invalid syntax: fall back to local file path.
+    try {
+      return Paths.get(s).toAbsolutePath().normalize().toUri();
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Error with path in pathsToSkip: '" + s + "'.", e);
+    }
   }
 
   public enum PublishMode {

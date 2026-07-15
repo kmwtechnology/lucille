@@ -20,6 +20,7 @@ import org.apache.logging.log4j.core.Logger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -27,6 +28,7 @@ import org.mockito.Mockito;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
@@ -840,6 +842,102 @@ public class RunnerTest {
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteInvalid1.conf"), Runner.RunType.LOCAL).getStatus());
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteInvalid2.conf"), Runner.RunType.LOCAL).getStatus());
     assertTrue(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteValid.conf"), Runner.RunType.LOCAL).getStatus());
+  }
+
+  /**
+   * Verifies that the -usekafka and -local command line flags assign to the proper RunType during a run
+   */
+  @Test
+  public void testRunTypeCliFlags() throws Exception {
+    assertEquals(Runner.RunType.LOCAL, runTypeForArgs());
+
+    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-usekafka"));
+    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-useKafka"));
+    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-USEKAFKA"));
+
+    assertEquals(Runner.RunType.KAFKA_LOCAL, runTypeForArgs("-usekafka", "-local"));
+    assertEquals(Runner.RunType.KAFKA_LOCAL, runTypeForArgs("-useKafka", "-LOCAL"));
+  }
+
+  /**
+   * Verifies that the -validate and -render command line flags route to the correct actions and exit
+   * without kicking off an actual run.
+   */
+  @Test
+  public void testValidateAndRenderCliFlags() throws Exception {
+    // -validate runs validation, but doesn't render the config or kick off a run
+    runMainWithMockedRunner(new String[] {"-validate"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
+      mockedRunner.verify(() -> Runner.renderConfig(any()), never());
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+    });
+
+    // -render prints the rendered config, but doesn't validate it or kick off a run
+    runMainWithMockedRunner(new String[] {"-render"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+    });
+
+    // the two flags can be combined; both actions run and still no actual run is kicked off
+    runMainWithMockedRunner(new String[] {"-validate", "-render"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+    });
+
+    // case insensitivity
+    runMainWithMockedRunner(new String[] {"-VALIDATE", "-Render"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
+      mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
+    });
+  }
+
+  /**
+   * Intercepts the run so no actual Lucille run takes place, and returns the RunType that main() resolved the args to.
+   */
+  private Runner.RunType runTypeForArgs(String... args) throws Exception {
+    ArgumentCaptor<Runner.RunType> runTypeCaptor = ArgumentCaptor.forClass(Runner.RunType.class);
+    runMainWithMockedRunner(args, mockedRunner ->
+        mockedRunner.verify(() -> Runner.runAndLogResult(any(), runTypeCaptor.capture(), anyBoolean())));
+    return runTypeCaptor.getValue();
+  }
+
+  /**
+   * Runs Runner.main() with the given args inside a mocked context, then hands the MockedStatic for
+   * Runner to the given verifier so it can assert how the args were routed.
+   *
+   * System.exit() is stubbed so it doesn't terminate the test JVM, and the methods
+   * main() can reach (runAndLogResult, renderConfig, runInValidationMode) are stubbed so main()'s
+   * real arg-parsing logic executes but no run, render, or validation actually takes place. All other
+   * static Runner methods, notably getRunType(), call through to the real implementation.
+   */
+  private void runMainWithMockedRunner(String[] args, Consumer<MockedStatic<Runner>> verifier) throws Exception {
+    RunResult mockResult = mock(RunResult.class);
+    when(mockResult.getStatus()).thenReturn(true);
+
+    try (MockedStatic<Runner.SystemHelper> mockedHelper = mockStatic(Runner.SystemHelper.class);
+        MockedStatic<Runner> mockedRunner = mockStatic(Runner.class, invocation -> {
+          switch (invocation.getMethod().getName()) {
+            case "runAndLogResult":
+              return mockResult;
+            case "runInValidationMode":
+              return Collections.emptyMap();
+            case "renderConfig":
+              return null;
+            default:
+              return invocation.callRealMethod();
+          }
+        })) {
+      assertNull(System.getProperty("config.file"));
+      System.setProperty("config.file", "src/test/resources/RunnerTest/singleDocSendEnabledFalse.conf");
+      try {
+        Runner.main(args);
+      } finally {
+        System.clearProperty("config.file");
+      }
+      verifier.accept(mockedRunner);
+    }
   }
 
   @Test

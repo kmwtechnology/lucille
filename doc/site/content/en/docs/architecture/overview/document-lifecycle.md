@@ -6,7 +6,7 @@ description: >
   The complete journey of a single Document through Lucille, from raw data in a source system to a searchable record in the search backend.
 ---
 
-This page traces a single Document from the moment it exists only as raw data in a source system to the moment it is retrievable by a search query. It takes the Lucille architecture as a given — for the conceptual explanation of how the system is structured, see [Parallelizing Search ETL]({{< relref "docs/architecture/overview/parallelizing-search-etl" >}}) and [Pluggable Queueing]({{< relref "docs/architecture/overview/pluggable-queueing" >}}).
+This page traces a single Document from the moment it exists only as raw data in a source system to the moment it is retrievable by a search query. It takes the Lucille architecture as a given — for the conceptual explanation of how the system is structured, see [Parallelizing Search ETL]({{< relref "docs/architecture/overview/parallelizing-search-etl" >}}) and [Pluggable Queueing]({{< relref "docs/architecture/overview/local-vs-distributed" >}}).
 
 ---
 

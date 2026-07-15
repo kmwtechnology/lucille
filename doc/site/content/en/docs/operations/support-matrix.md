@@ -9,10 +9,9 @@ description: Supported Java versions, search backends, Kafka versions, and opera
 
 | Version | Status |
 |---|---|
-| Java 17 | Supported (minimum required) |
-| Java 21 | Supported |
+| Java 21 | Supported (minimum required) |
 
-Lucille is compiled targeting Java 17. Both versions are tested in CI via GitHub Actions using Eclipse Temurin distributions.
+Lucille is compiled targeting Java 21. This version is tested in CI via GitHub Actions using Eclipse Temurin distributions.
 
 ## Build Tool
 

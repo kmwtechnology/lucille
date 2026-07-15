@@ -4,8 +4,6 @@ weight: 7
 date: 2025-06-09
 description: >
   HTTP REST API for managing Lucille configs and triggering runs without the CLI.
-aliases:
-  - /docs/reference/plugins/
 ---
 
 The `lucille-api` plugin adds an HTTP REST API built on [Dropwizard](https://www.dropwizard.io/) that allows managing configs and triggering runs over HTTP rather than via the CLI. It includes a Swagger UI and optional basic authentication.
@@ -45,9 +43,10 @@ All endpoints are under the `/v1` prefix.
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/v1/config` | Submit a config as a JSON object. Returns a `configId` UUID. |
+| `POST` | `/v1/config` | Submit a config as a JSON object. Returns a `configId` UUID. Up to 10,000 configs can be stored. |
 | `GET` | `/v1/config` | List all stored configs. |
 | `GET` | `/v1/config/{configId}` | Retrieve a specific config by ID. |
+| `DELETE` | `/v1/config/{configId}` | Delete a specific config by ID. |
 
 **Note:** Uploaded configs cannot resolve / use environment variables.
 
@@ -57,7 +56,7 @@ All endpoints are under the `/v1` prefix.
 |---|---|---|
 | `POST` | `/v1/run` | Start a run. Request body: `{"configId": "<uuid>"}`. Returns `RunDetails`. |
 | `GET` | `/v1/run` | List all runs and their status. |
-| `GET` | `/v1/run/{runId}` | Get details for a specific run. |
+| `GET` | `/v1/run/{runId}` | Get details for a specific run. Details for the last 10,000 runs are stored. |
 
 ### Health and Observability
 

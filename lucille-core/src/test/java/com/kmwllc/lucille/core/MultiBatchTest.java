@@ -16,7 +16,7 @@ public class MultiBatchTest {
    */
   @Test
   public void testSimpleAdd() {
-    MultiBatch batch = new MultiBatch(100, 100, "index");
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 100, "index");
     Document doc = Document.create("doc");
     List<Document> docs = batch.add(doc);
     assertTrue(docs.isEmpty());
@@ -30,7 +30,7 @@ public class MultiBatchTest {
    */
   @Test
   public void testSimpleAddToIndex() {
-    MultiBatch batch = new MultiBatch(100, 100, "index");
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 100, "index");
     Document doc = Document.create("doc");
     doc.setField("index", "index1");
     List<Document> docs = batch.add(doc);
@@ -45,7 +45,7 @@ public class MultiBatchTest {
    */
   @Test
   public void testSeveralAdd() {
-    MultiBatch batch = new MultiBatch(100, 1000, "index");
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 1000, "index");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
@@ -65,11 +65,11 @@ public class MultiBatchTest {
   }
 
   /**
-   * Test adding a several documents to a batch targetting separate indices and retrieving them by flushing the whole batch.
+   * Test adding a several documents to a batch targeting separate indices and retrieving them by flushing the whole batch.
    */
   @Test
   public void testSeveralAddToIndices() {
-    MultiBatch batch = new MultiBatch(100, 1000, "index");
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 1000, "index");
     Document doc1 = Document.create("doc1");
     doc1.setField("index", "index1");
     Document doc2 = Document.create("doc2");
@@ -100,7 +100,7 @@ public class MultiBatchTest {
    */
   @Test
   public void testFullBatch() {
-    MultiBatch batch = new MultiBatch(1, 1000, "index");
+    MultiBatch batch = new MultiBatch(1, Long.MAX_VALUE, 1000, "index");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
 
@@ -119,7 +119,7 @@ public class MultiBatchTest {
    */
   @Test
   public void testOneBatchisFull() {
-    MultiBatch batch = new MultiBatch(1, 1000, "index");
+    MultiBatch batch = new MultiBatch(1, Long.MAX_VALUE, 1000, "index");
     Document doc1 = Document.create("doc1");
     doc1.setField("index", "index1");
     Document doc2 = Document.create("doc2");
@@ -151,7 +151,7 @@ public class MultiBatchTest {
    */
   @Test(expected = NullPointerException.class)
   public void testSupplyNull() {
-    MultiBatch batch = new MultiBatch(100, 1000, "index");
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 1000, "index");
     batch.add(null);
   }
 
@@ -162,7 +162,7 @@ public class MultiBatchTest {
    */
   @Test
   public void testTimeout() throws InterruptedException {
-    MultiBatch batch = new MultiBatch(100, 10, "index");
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 10, "index");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
@@ -190,7 +190,7 @@ public class MultiBatchTest {
    */
   @Test
   public void testNonTimeout() throws InterruptedException {
-    MultiBatch batch = new MultiBatch(100, 100000, "index");
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 100000, "index");
     Document doc1 = Document.create("doc1");
     Document doc2 = Document.create("doc2");
     Document doc3 = Document.create("doc3");
@@ -209,7 +209,79 @@ public class MultiBatchTest {
 
   @Test
   public void testGetCapacity() throws InterruptedException {
-    MultiBatch batch = new MultiBatch(100, 1000, "index");
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 1000, "index");
     assertEquals(100, batch.getCapacity());
+  }
+
+  /**
+   * Test that the byte cap is enforced per index, not globally across the MultiBatch.
+   * Each index gets its own byte budget equal to two docs, so adding a third doc to a given index
+   * flushes only that index's docs while the other index is untouched.
+   */
+  @Test
+  public void testByteCapPerIndex() {
+    Document a1 = Document.create("a1");
+    a1.setField("index", "indexA");
+    Document a2 = Document.create("a2");
+    a2.setField("index", "indexA");
+    Document a3 = Document.create("a3");
+    a3.setField("index", "indexA");
+    Document b1 = Document.create("b1");
+    b1.setField("index", "indexB");
+    Document b2 = Document.create("b2");
+    b2.setField("index", "indexB");
+
+    // ids are the same length, so all docs serialize to the same byte size
+    long byteCap = a1.getByteSize() + a2.getByteSize();
+    MultiBatch batch = new MultiBatch(Indexer.NO_BATCH_SIZE, byteCap, 100000, "index");
+
+    assertTrue(batch.add(a1).isEmpty());
+    assertTrue(batch.add(b1).isEmpty());
+    assertTrue(batch.add(a2).isEmpty());
+    assertTrue(batch.add(b2).isEmpty());
+
+    // indexA's accumulated bytes exceed the cap on its third doc; indexB is unaffected
+    List<Document> docs = batch.add(a3);
+    assertEquals(2, docs.size());
+    docs.sort(Comparator.comparing(Document::getId));
+    assertEquals("a1", docs.get(0).getId());
+    assertEquals("a2", docs.get(1).getId());
+
+    docs = batch.flush();
+    docs.sort(Comparator.comparing(Document::getId));
+    assertEquals(3, docs.size());
+    assertEquals("a3", docs.get(0).getId());
+    assertEquals("b1", docs.get(1).getId());
+    assertEquals("b2", docs.get(2).getId());
+  }
+
+  /**
+   * Test that the byte cap flushes repeatedly for a single index across many adds.
+   */
+  @Test
+  public void testByteCapMultipleFlushes() {
+    MultiBatch batch;
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
+    Document doc4 = Document.create("doc4");
+
+    long byteCap = doc1.getByteSize() + doc2.getByteSize();
+    batch = new MultiBatch(Indexer.NO_BATCH_SIZE, byteCap, 100000, "index");
+
+    assertTrue(batch.add(doc1).isEmpty());
+    assertTrue(batch.add(doc2).isEmpty());
+
+    List<Document> firstFlush = batch.add(doc3);
+    assertEquals(2, firstFlush.size());
+    assertEquals("doc1", firstFlush.get(0).getId());
+    assertEquals("doc2", firstFlush.get(1).getId());
+
+    assertTrue(batch.add(doc4).isEmpty());
+
+    List<Document> finalFlush = batch.flush();
+    assertEquals(2, finalFlush.size());
+    assertEquals("doc3", finalFlush.get(0).getId());
+    assertEquals("doc4", finalFlush.get(1).getId());
   }
 }

@@ -28,7 +28,7 @@ lucille (root aggregator)
 
 The parent POM that all other modules inherit from. It defines:
 
-- **Java version** (17)
+- **Java version** (21)
 - **Dependency versions** for all third-party libraries (Jackson, Kafka, Solr, OpenSearch, Elasticsearch, AWS SDK, etc.) as properties
 - **Dependency management** section that pins versions so child modules don't need to specify versions
 - **Plugin configuration** for compilation, testing, Javadoc generation, source JARs, and GPG signing

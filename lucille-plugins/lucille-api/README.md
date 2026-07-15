@@ -16,7 +16,7 @@ The API can be run locally or in a Docker container:
 
 1. Create the docker image: `docker build -t lucille-api .`
 2. Replace the placeholders with your config file names or export them as environment variables. See [Configuration](#configuration) for more information
-3. Run the image: `docker run --env LUCILLE_CONF=${LUCILLE_CONF} --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
+3. Run the image: `docker run --env DROPWIZARD_CONF=${DROPWIZARD_CONF} -p 8080:8080 lucille-api`
 
 ### Upload Lucille Config
 1. This should be a HOCON file
@@ -42,12 +42,13 @@ All requests are served from `localhost:8080` (or `localhost:8443` if HTTPS is e
 | GET    | `/v1/config-info/connector-list`     | Lists the available connector classes | — |
 | GET    | `/v1/config-info/stage-list`         | Lists the available stage classes | — |
 | GET    | `/v1/config-info/indexer-list`       | Lists the available indexer classes | — |
-| POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run` | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
+| POST   | `/v1/config`                         | Register a new Lucille config. Responds with a generated `configId` to use in `POST /v1/run`. You may store up to 10,000 Configs. | Full Lucille config as JSON (see [Upload Lucille Config](#upload-lucille-config)) |
 | GET    | `/v1/config`                         | List all registered configs, keyed by `configId` | — |
 | GET    | `/v1/config/{configId}`              | Get a specific registered config | — |
-| POST   | `/v1/run`                            | Start a Lucille run using a previously registered config | `{"configId": "<uuid>"}` |
+| DELETE    | `/v1/config/{configId}`              | Delete a specific config | — |
+| POST   | `/v1/run`                            | Start a Lucille run using a previously registered config | `{"configId": "<uuid>", "removedConfigId": "<uuid>"}` |
 | GET    | `/v1/run`                            | List all runs and their statuses | — |
-| GET    | `/v1/run/{runId}`                    | Get details of a specific run | — |
+| GET    | `/v1/run/{runId}`                    | Get details of a specific run. Results for the last 10,000 runs are available. | — |
 
 If auth is enabled, add `-u <anyuser>:<password>` (the username is not validated, only the password). If HTTPS is enabled with a self-signed cert, also add `-k`:
 
@@ -57,10 +58,10 @@ curl -k -u user:password https://localhost:8443/v1/run
 
 ## Configuration
 
-### Lucille Configuration
+### API Configuration
 
-The Lucille Configuration file can be supplied via the LUCILLE_CONF environment variable. If building via Docker, this file should
-reside in the `lucille-api/conf` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
+The API Configuration file can be supplied via the `DROPWIZARD_CONF` environment variable. If building via Docker, this file should
+reside in the `conf/` directory, or be mounted as volume when starting the Docker container (more details in Dockerfile).
 
 ### Giving the API access to custom components
 
@@ -214,6 +215,9 @@ If you see logger context or SLF4J errors during integration tests:
 - Free up any ports (e.g., 8080) required by integration tests before running them.
 
 This setup ensures reliable Dropwizard integration testing and avoids logger conflicts.
+
+**Note**: The API will only store details for the last 10,000 runs. If you need this information,
+you will need to persist it yourself. Similarly, only 10,000 configs can be stored by the API.
 
 ## Development
 
