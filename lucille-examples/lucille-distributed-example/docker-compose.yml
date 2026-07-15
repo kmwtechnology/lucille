@@ -1,27 +1,16 @@
 name: distributed-lucille
 services:
-  kafka: 
-    build: 
-      context: .
-      dockerfile: ./kafka/Dockerfile
+  kafka:
+    image: apache/kafka:4.2.0
     container_name: kafka
-    depends_on: 
-      - zookeeper
     ports:
       - 9092:9092
-    networks: 
+    networks:
       - lucille-net
+    volumes:
+      - ./kafka/server.properties:/mnt/shared/config/server.properties
     healthcheck:
-      test: ["CMD", "kafka_2.13-3.7.0/bin/kafka-topics.sh", "--bootstrap-server=kafka:9092", "--list"]
-  zookeeper: 
-    build: 
-      context: .
-      dockerfile: ./zookeeper/Dockerfile
-    container_name: zookeeper
-    ports:
-      - 2181:2181
-    networks: 
-      - lucille-net
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server=kafka:9092", "--list"]
   runner:
     build:
       context: .
@@ -54,16 +43,15 @@ services:
     networks: 
       - lucille-net
   solr:
-    build:
-      context: .
-      dockerfile: ./solr/Dockerfile
+    image: solr:10.0.0
     container_name: solr
     ports:
       - 8983:8983
       - 9983:9983
+    command: ["--host", "solr"]
     networks:
       - lucille-net
     healthcheck:
-      test: ["CMD", "/solr-9.5.0/bin/solr", "status"]
+      test: ["CMD", "curl", "-f", "http://localhost:8983/api/node/health"]
 networks:
   lucille-net:

@@ -69,12 +69,12 @@ If you're contributing to Lucille or developing new components that will be part
 
 To build and run Lucille from source, you need:
 
-* **Java 17+ JDK** (not just a JRE)
+* **Java 21+ JDK** (not just a JRE)
 * **Maven** (recent version)
 
-## Java Setup (JDK 17+ Required)
+## Java Setup (JDK 21+ Required)
 
-**Important:** Before running any Lucille commands, make sure **`JAVA_HOME` points to a JDK 17+** (not just a JRE) **and** that **`$JAVA_HOME/bin` is on your `PATH`** (or `%JAVA_HOME%\bin` on Windows). Maven and the `java` launcher rely on this.
+**Important:** Before running any Lucille commands, make sure **`JAVA_HOME` points to a JDK 21+** (not just a JRE) **and** that **`$JAVA_HOME/bin` is on your `PATH`** (or `%JAVA_HOME%\bin` on Windows). Maven and the `java` launcher rely on this.
 
 ### Verify Java
 
@@ -82,7 +82,7 @@ To build and run Lucille from source, you need:
 java -version
 ```
 
-You should see **version 17** (or newer). If it’s missing or older than 17 install a JDK 17+ using **one** of the options below.
+You should see **version 21** (or newer). If it’s missing or older than 21 install a JDK 21+ using **one** of the options below.
 
 ### Install Options
 
@@ -90,16 +90,16 @@ You should see **version 17** (or newer). If it’s missing or older than 17 ins
 
 * **macOS (Homebrew)**
     ```bash
-    brew install openjdk@17
+    brew install openjdk@21
     ```
 * **Windows (Chocolatey)**
     ```bash
-    choco install microsoft-openjdk17
+    choco install microsoft-openjdk21
     ```
   
 **Vendor installer**
 
-* Download a JDK 17+ installer from a vendor such as **Oracle JDK**.
+* Download a JDK 21+ installer from a vendor such as **Oracle JDK**.
 * Run the installer, then set `JAVA_HOME` as shown below.
 
 ### Set `JAVA_HOME` and `PATH`
@@ -107,7 +107,7 @@ You should see **version 17** (or newer). If it’s missing or older than 17 ins
 **macOS**
 
 ```bash
-export JAVA_HOME="$(/usr/libexec/java_home -v 17)"
+export JAVA_HOME="$(/usr/libexec/java_home -v 21)"
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
 

@@ -23,7 +23,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrException;
@@ -94,7 +94,7 @@ public class SolrIndexer extends Indexer {
     if (bypass) {
       return true;
     }
-    if (solrClient instanceof Http2SolrClient) {
+    if (solrClient instanceof HttpJdkSolrClient) {
       try {
         SolrPingResponse resp = solrClient.ping();
         int status = resp.getStatus();

@@ -186,4 +186,4 @@ this.destField = ConfigUtils.getOrDefault(config, "destField", "output");  // op
 
 **No Lombok.** The project does not use Lombok or other annotation processors for boilerplate reduction. All getters, constructors, and builders are written explicitly.
 
-**Java 17 features:** The project targets Java 17 and uses features like text blocks, `var` (sparingly), `List.of()`, `Map.of()`, and pattern matching in `instanceof` where appropriate.
+**Java 21 features:** The project targets Java 21 and uses features like text blocks, `var` (sparingly), `List.of()`, `Map.of()`, and pattern matching in `instanceof` where appropriate.
