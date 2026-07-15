@@ -164,8 +164,41 @@ public class KafkaUtilsTest {
   }
 
   @Test
+  public void testArbitraryPropEnvVarResolution() {
+    String oldProducer = System.getProperty("PRODUCER_PROP");
+    String oldConsumer = System.getProperty("CONSUMER_PROP");
+
+    try {
+      System.setProperty("PRODUCER_PROP", "test-p");
+      System.setProperty("CONSUMER_PROP", "test-c");
+
+      Config config = ConfigFactory.load("KafkaUtilsTest/env-vars.conf");
+
+      Properties producerProps = KafkaUtils.createProducerProps(config);
+      Properties consumerProps = KafkaUtils.createConsumerProps(config, "client");
+
+      assertEquals("test-p", producerProps.getProperty("prop"));
+      assertEquals("test-c", consumerProps.getProperty("prop"));
+    } finally {
+
+      if (oldProducer == null) {
+        System.clearProperty("PRODUCER_PROP");
+      } else {
+        System.setProperty("PRODUCER_PROP", oldProducer);
+      }
+
+      if (oldConsumer == null) {
+        System.clearProperty("CONSUMER_PROP");
+      } else {
+        System.setProperty("CONSUMER_PROP", oldConsumer);
+      }
+    }
+  }
+
+
+  @Test
   public void testInvalidArbitraryProps() {
-    // only lists are invalid
+    // "LIST" is the only invalid type for an arbitrary property... see comment in KafkaUtils
     Config listPropConfig = ConfigFactory.load("KafkaUtilsTest/list-arbitrary.conf");
     assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createProducerProps(listPropConfig));
   }
