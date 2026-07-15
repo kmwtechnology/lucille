@@ -7,7 +7,7 @@
     <parent>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-plugins</artifactId>
-      <version>1.0.0-SNAPSHOT</version>
+      <version>0.11.0-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -72,7 +72,8 @@
      <dependency>
         <groupId>io.dropwizard.modules</groupId>
         <artifactId>dropwizard-testing-junit4</artifactId>
-        <version>${dropwizard-core.version}</version>
+        <!--    TODO: See comment in parent pom    -->
+        <version>5.0.0</version>
         <scope>test</scope>
         <exclusions>
             <exclusion>
@@ -125,13 +126,13 @@
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
-        <version>1.5.25</version>
+        <version>1.5.36</version>
       </dependency>
 
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-access</artifactId>
-        <version>1.5.25</version>
+        <version>1.5.36</version>
       </dependency>
     </dependencies>
 

@@ -77,13 +77,31 @@ public class AzureStorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  }
+
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
-        .listBlobs(new ListBlobsOptions().setPrefix(getStartingDirectory(params)).setMaxResultsPerPage(maxNumOfPages),
-            Duration.ofSeconds(10)).stream()
+        .listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10))
+        .stream()
         .forEachOrdered(blob -> {
-          AzureFileReference fileRef = new AzureFileReference(blob, params);
-          processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+          if (blob.isPrefix()) {
+            URI dirUri = uriForDirectory(blob.getName(), params);
+
+            if (!isSkippedDirectory(dirUri, params)) {
+              traversePrefix(publisher, params, stateMgr, blob.getName());
+            }
+          } else {
+            AzureFileReference fileRef = new AzureFileReference(blob, params);
+            processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
+          }
         });
+  }
+
+  private URI uriForDirectory(String prefix, TraversalParams params) {
+    URI pathURI = params.getURI();
+    String containerName = pathURI.getPath().split("/")[1];
+    return URI.create(String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(), containerName, prefix));
   }
 
   @Override

@@ -1,7 +1,9 @@
 package com.kmwllc.lucille.indexer;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorCause;
+import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
@@ -23,6 +25,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -107,9 +110,9 @@ public class ElasticsearchIndexerTest {
     }
   }
 
-  // Unsupported, but shouldn't cause any errors.
+  // When childDocumentsField is not configured, children are not indexed with a warning and indexing still succeeds.
   @Test
-  public void testIndexerWithChildDocs() throws Exception {
+  public void testIndexerWithChildDocsNoChildField() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
 
@@ -127,6 +130,109 @@ public class ElasticsearchIndexerTest {
     indexer.run(2);
 
     Assert.assertEquals(2, messenger.getSentEvents().size());
+  }
+
+  @Test
+  public void testChildDocumentsIndexed() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/childDocuments.conf");
+
+    Document child1 = Document.create("child1");
+    child1.setField("child_field", "value1");
+
+    Document child2 = Document.create("child2");
+    child2.setField("child_field", "value2");
+
+    Document parent = Document.create("parent1");
+    parent.setField("parent_field", "parentValue");
+    parent.addChild(child1);
+    parent.addChild(child2);
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(parent);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+
+    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+
+    // parent should still be indexed as appropriate (parent_field: parentValue)
+    assertEquals("parentValue", indexed.get("parent_field"));
+    // sanity checking we aren't using our children field to index
+    assertFalse(indexed.containsKey(Document.CHILDREN_FIELD));
+
+    List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
+    assertEquals(2, children.size());
+    assertEquals("value1", children.get(0).get("child_field"));
+    assertEquals("value2", children.get(1).get("child_field"));
+
+    assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(Event.Type.FINISH, messenger.getSentEvents().get(0).getType());
+  }
+
+  @Test
+  public void testChildDocumentsFieldFilterApplied() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    // blacklist.conf blacklists "id", "ignoreField1", and "ignoreField2"
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/blacklist.conf")
+        .withValue("elasticsearch.childDocumentsField", com.typesafe.config.ConfigValueFactory.fromAnyRef("children"));
+
+    Document child = Document.create("child1");
+    child.setField("ignoreField1", "shouldBeRemoved");
+    child.setField("normalField", "shouldBeKept");
+
+    Document parent = Document.create("doc1");
+    parent.addChild(child);
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(parent);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+
+    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
+
+    assertEquals(1, children.size());
+    assertFalse(children.get(0).containsKey("id"));
+    assertFalse(children.get(0).containsKey("ignoreField1"));
+    assertEquals("shouldBeKept", children.get(0).get("normalField"));
+  }
+
+  @Test
+  public void testChildDocumentsGrandchildrenStripped() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/childDocuments.conf");
+
+    Document grandchild = Document.create("grandchild1");
+    grandchild.setField("grandchild_field", "gcValue");
+
+    Document child = Document.create("child1");
+    child.setField("child_field", "childValue");
+    child.addChild(grandchild);
+
+    Document parent = Document.create("parent1");
+    parent.addChild(child);
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(parent);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+
+    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
+
+    assertEquals(1, children.size());
+    assertEquals("childValue", children.get(0).get("child_field"));
+
+    // the child document should not have its own child - either through our children field
+    // or through the specified "childDocumentsField".
+    assertFalse(children.get(0).containsKey("children"));
+    assertFalse(children.get(0).containsKey(Document.CHILDREN_FIELD));
   }
 
   @Test
@@ -1052,6 +1158,206 @@ public class ElasticsearchIndexerTest {
     // No error if the close goes wrong
     Mockito.doThrow(new RuntimeException("Mock Exception")).when(mockTransport).close();
     indexer.closeConnection();
+  }
+
+  /**
+   * A bulk-API-level failure carrying an HTTP status (ElasticsearchException) should be rethrown as
+   * an IndexerRetryableException carrying that same status code, so the base Indexer can apply its
+   * retry policy.
+   */
+  @Test
+  public void testBulkExceptionRethrownAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(throwingClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    Document doc = Document.create("doc1", "test_run");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(503, exc.getStatusCode());
+  }
+
+  /**
+   * A transport-level failure (IOException) carries no HTTP status, so it should be rethrown as an
+   * IndexerRetryableException with the UNKNOWN_STATUS_CODE sentinel.
+   */
+  @Test
+  public void testTransportFailureRethrownAsRetryableWithUnknownStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+    Mockito.when(throwingClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new IOException("connection refused"));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    Document doc = Document.create("doc1", "test_run");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, exc.getStatusCode());
+  }
+
+  /**
+   * A per-document (item-level) error whose id matches an uploaded document should be returned in the
+   * failedDocs set as an IndexerRetryableException carrying the item's HTTP status code, rather than
+   * thrown. This lets the base Indexer retry only the documents whose status code is retryable.
+   */
+  @Test
+  public void testItemLevelErrorReturnedAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient itemErrorClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(itemErrorClient.ping()).thenReturn(new BooleanResponse(true));
+
+    BulkResponse mockResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(itemErrorClient.bulk(any(BulkRequest.class))).thenReturn(mockResponse);
+
+    BulkResponseItem errorItem = Mockito.mock(BulkResponseItem.class);
+    ErrorCause errorCause = new ErrorCause.Builder()
+        .reason("too many requests").type("es_rejected_execution_exception").build();
+    Mockito.when(errorItem.error()).thenReturn(errorCause);
+    Mockito.when(errorItem.status()).thenReturn(429);
+    Mockito.when(errorItem.id()).thenReturn("doc1");
+    Mockito.when(mockResponse.items()).thenReturn(List.of(errorItem));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", itemErrorClient);
+
+    Document doc = Document.create("doc1", "test_run");
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc));
+
+    assertEquals(1, failedDocs.size());
+    Exception failure = failedDocs.iterator().next().getRight();
+    assertTrue(failure instanceof IndexerRetryableException);
+    assertEquals(429, ((IndexerRetryableException) failure).getStatusCode());
+  }
+
+  @Test
+  public void testDeleteByIdExceptionRethrownAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(throwingClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    // marked for deletion by id only (no deleteByField field/value present) -> routed to deleteById
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("deleted", "true");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(503, exc.getStatusCode());
+  }
+
+  @Test
+  public void testDeleteByQueryExceptionRethrownAsRetryableWithStatus() throws Exception {
+    ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(throwingClient.deleteByQuery(any(DeleteByQueryRequest.class)))
+        .thenThrow(new ElasticsearchException("es/delete_by_query", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/testDeleteByQuery.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", throwingClient);
+
+    // marked for deletion with deleteByField field/value present -> routed to deleteByQuery
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("deleted", "true");
+    doc.setField("field", "doc1field");
+    doc.setField("value", "doc1value");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(503, exc.getStatusCode());
+  }
+
+  /**
+   * End-to-end check that a retryable bulk-level failure is actually retried: the client throws a
+   * 503 (retryable under the default status codes) on the first attempt and succeeds on the second,
+   * so the document should ultimately receive a FINISH event. Mirrors
+   * OpenSearchIndexerTest#testRetrySucceedsOnSecondAttempt.
+   */
+  @Test
+  public void testRetrySucceedsOnSecondAttempt() throws Exception {
+    ElasticsearchClient retryClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(retryClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    BulkResponse successResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(successResponse.items()).thenReturn(List.of());
+
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse))
+        .thenReturn(successResponse);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/retry.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", retryClient);
+
+    Document doc = Document.create("doc1", "test_run");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    verify(retryClient, times(2)).bulk(any(BulkRequest.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  /**
+   * When the failure carries a status code that is not in the configured retryableStatusCodes list,
+   * no retry should be attempted. Here the client throws a 503 but only 429 is configured as
+   * retryable, so bulk() is called exactly once and the document fails.
+   */
+  @Test
+  public void testNoRetryForNonRetryableStatusCode() throws Exception {
+    ElasticsearchClient retryClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(retryClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/retryWith429Only.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", retryClient);
+
+    Document doc = Document.create("doc1", "test_run");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    verify(retryClient, times(1)).bulk(any(BulkRequest.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FAIL, events.get(0).getType());
   }
 
   public static class ErroringElasticsearchIndexer extends ElasticsearchIndexer {

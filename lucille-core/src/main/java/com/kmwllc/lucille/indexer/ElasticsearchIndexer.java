@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.indexer;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.BulkIndexByScrollFailure;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.VersionType;
@@ -18,6 +19,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -36,6 +38,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +56,9 @@ import java.util.Optional;
  *   <li>url (String, Required) : Elasticsearch HTTP endpoint (e.g., https://localhost:9200).</li>
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
+ *   <li>childDocumentsField (String, Optional) : Field name to place attached child documents in the
+ *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
+ *   as type "nested" in the index mapping.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
  *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
  *   <li>elasticsearch.join.joinFieldName (String, Optional) : Name of the join field mapped in the index.</li>
@@ -67,7 +73,7 @@ public class ElasticsearchIndexer extends Indexer {
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert")
-      .optionalString("parentName")
+      .optionalString("parentName", "childDocumentsField")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
@@ -80,6 +86,7 @@ public class ElasticsearchIndexer extends Indexer {
   private final ElasticJoinData joinData;
   private final String routingField;
   private final VersionType versionType;
+  private final String childDocumentsField;
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
       String metricsPrefix, String localRunId, ElasticsearchClient client) {
@@ -100,6 +107,7 @@ public class ElasticsearchIndexer extends Indexer {
     joinData = ElasticJoinData.fromConfig(config);
     this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
     this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
+    this.childDocumentsField = ConfigUtils.getOrDefault(config, "elasticsearch.childDocumentsField", null);
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
@@ -201,7 +209,15 @@ public class ElasticsearchIndexer extends Indexer {
       );
     }
 
-    BulkResponse response = client.bulk(br.build());
+    BulkResponse response;
+    try {
+      response = client.bulk(br.build());
+    } catch (ElasticsearchException e) {
+      throw new IndexerRetryableException(e.status(), "ElasticSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      throw new IndexerRetryableException("Transport failure communicating with ElasticSearch", e);
+    }
+
     if (response.errors()) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
@@ -270,7 +286,15 @@ public class ElasticsearchIndexer extends Indexer {
         .index(index)
         .query(q -> q.bool(boolQuery.build()))
         .build();
-    DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+
+    DeleteByQueryResponse response;
+    try {
+      response = client.deleteByQuery(deleteByQueryRequest);
+    } catch (ElasticsearchException e) {
+      throw new IndexerRetryableException(e.status(), "ElasticSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      throw new IndexerRetryableException("Transport failure communicating with ElasticSearch", e);
+    }
 
     if (!response.failures().isEmpty()) {
       for (BulkIndexByScrollFailure failure : response.failures()) {
@@ -313,8 +337,9 @@ public class ElasticsearchIndexer extends Indexer {
         indexerDoc.put(Document.ID_FIELD, docId);
       }
 
-      // handle special operations required to add children documents
-      addChildren(doc, indexerDoc);
+      if (doc.hasChildren()) {
+        addChildren(doc, indexerDoc);
+      }
 
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
           ? ((KafkaDocument) doc).getOffset()
@@ -360,7 +385,17 @@ public class ElasticsearchIndexer extends Indexer {
 
     Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
-    BulkResponse response = client.bulk(br.build());
+    BulkResponse response;
+    try {
+      response = client.bulk(br.build());
+    } catch (ElasticsearchException e) {
+      // HTTP-level error with a known status code — wrap so the base Indexer can apply retry policy
+      throw new IndexerRetryableException(e.status(), "ElasticSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      // Transport-level failure (connection refused, timeout, etc.) — no status code available
+      throw new IndexerRetryableException("Transport failure communicating with ElasticSearch", e);
+    }
+
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
@@ -368,7 +403,12 @@ public class ElasticsearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (documentsUploaded.containsKey(item.id())) {
             Document failedDoc = documentsUploaded.get(item.id());
-            failedDocs.add(Pair.of(failedDoc, new IndexerException(item.error().reason())));
+            // item.status() is always an HTTP status code. The Elasticsearch bulk API defines the per-item
+            // status field as the HTTP status of that individual operation (e.g. 200, 201, 400, 409, 429,
+            // 503). Wrapping it as an IndexerRetryableException lets the base Indexer apply the retry policy
+            // per-document, retrying only those whose status code is in the configured retryable set.
+            failedDocs.add(Pair.of(failedDoc, new IndexerRetryableException(item.status(),
+                "Elasticsearch bulk item error (status " + item.status() + "): " + item.error().reason(), null)));
           } else {
             throw new IndexerException(item.error().reason());
           }
@@ -404,24 +444,24 @@ public class ElasticsearchIndexer extends Indexer {
     }
   }
 
+  /** Only call on documents that have children. */
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
-    List<Document> children = doc.getChildren();
-    if (children == null || children.isEmpty()) {
+    if (childDocumentsField == null) {
+      log.warn("Document {} has children but elasticsearch.childDocumentsField is not configured. They will not be indexed.", doc.getId());
       return;
     }
+
+    List<Map<String, Object>> childDocMaps = new ArrayList<>();
+    List<Document> children = doc.getChildren();
+
     for (Document child : children) {
-      Map<String, Object> map = child.asMap();
-      Map<String, Object> indexerChildDoc = new HashMap<>();
-      for (String key : map.keySet()) {
-        // we don't support children that contain nested children
-        if (Document.CHILDREN_FIELD.equals(key)) {
-          continue;
-        }
-        Object value = map.get(key);
-        indexerChildDoc.put(key, value);
-      }
-      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future (_childDocuments_)
+      // calling getIndexerDoc allows us to apply black/whitelist
+      Map<String, Object> childDocMap = getIndexerDoc(child);
+      // we don't support children that contain nested children
+      childDocMap.remove(Document.CHILDREN_FIELD);
+      childDocMaps.add(childDocMap);
     }
+    indexerDoc.put(childDocumentsField, childDocMaps);
   }
 
   public static class ElasticJoinData {

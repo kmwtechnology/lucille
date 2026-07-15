@@ -7,6 +7,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URI;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -249,5 +250,41 @@ public class TraversalParamsTest {
 
     TraversalParams moveToError = paramsWithFileOptions(Map.of("moveToErrorFolder", "s3://target/"));
     assertEquals(URI.create("s3://target/"), moveToError.getMoveToErrorFolder());
+  }
+
+
+  @Test
+  public void testPathsToSkipPreservesSchemeUris() {
+    TraversalParams params = new TraversalParams(ConfigFactory.parseMap(Map.of(
+        "filterOptions.pathsToSkip", List.of("s3://bucket/skip/", "file:///Users/Desktop/")
+    )), DEFAULT_URI, DEFAULT_PREFIX);
+
+    assertEquals(
+        List.of(URI.create("s3://bucket/skip/"), URI.create("file:///Users/Desktop/")),
+        params.getPathsToSkip());
+  }
+
+  @Test
+  public void testPathsToSkipAcceptsAbsoluteLocalPath() {
+    // a local file system path without a scheme is converted to an absolute file:// URI
+    TraversalParams params = new TraversalParams(ConfigFactory.parseMap(Map.of(
+        "filterOptions.pathsToSkip", List.of("/Users/Desktop")
+    )), DEFAULT_URI, DEFAULT_PREFIX);
+
+    assertEquals(
+        List.of(Paths.get("/Users/Desktop").toAbsolutePath().normalize().toUri()),
+        params.getPathsToSkip());
+  }
+
+  @Test
+  public void testPathsToSkipAcceptsRelativeLocalPath() {
+    // a relative local path is resolved against the working directory and made absolute
+    TraversalParams params = new TraversalParams(ConfigFactory.parseMap(Map.of(
+        "filterOptions.pathsToSkip", List.of("src/test/resources")
+    )), DEFAULT_URI, DEFAULT_PREFIX);
+
+    URI expected = Paths.get("src/test/resources").toAbsolutePath().normalize().toUri();
+    assertEquals(List.of(expected), params.getPathsToSkip());
+    assertTrue(params.getPathsToSkip().get(0).isAbsolute());
   }
 }

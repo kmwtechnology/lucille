@@ -4,8 +4,6 @@ weight: 7
 date: 2025-06-09
 description: >
   HTTP REST API for managing Lucille configs and triggering runs without the CLI.
-aliases:
-  - /docs/reference/plugins/
 ---
 
 The `lucille-api` plugin adds an HTTP REST API built on [Dropwizard](https://www.dropwizard.io/) that allows managing configs and triggering runs over HTTP rather than via the CLI. It includes a Swagger UI and optional basic authentication.
