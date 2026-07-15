@@ -29,14 +29,15 @@ public class SpecBuilder {
   // ********** "Constructors" **********
 
   /**
-   * Creates a Spec with default legal properties suitable for a Stage. Includes name, class, conditions, and
-   * conditionPolicy.
+   * Creates a Spec with default legal properties suitable for a Stage. Includes name, class, conditions, enabled,
+   * and conditionPolicy.
    * @return a Spec with default legal properties suitable for a Stage.
    */
   public static SpecBuilder stage() {
     return new SpecBuilder(Set.of(
         new StringProperty("name", false),
         new StringProperty("class", false),
+        new BooleanProperty("enabled", false),
         new ListProperty("conditions", false, SpecBuilder.withoutDefaults()
             .optionalString("operator")
             .optionalString("valuesPath")

@@ -261,6 +261,37 @@ public class PipelineTest {
     verify(downstream, never()).processConditional(any());
   }
 
+  @Test
+  public void testDisabledStages() throws Exception {
+    Config pipelineConfig = ConfigFactory.load("PipelineTest/some-disabled.conf");
+    Pipeline pipeline = Pipeline.fromConfig(pipelineConfig, "my-pipeline", "");
+
+    assertEquals(2, pipeline.getStages().size());
+    assertEquals("PrintEnabled", pipeline.getStages().get(0).getName());
+    assertEquals("TimestampEnabled", pipeline.getStages().get(1).getName());
+  }
+
+  @Test
+  public void testAllDisabledStages() throws Exception {
+    Config pipelineConfig = ConfigFactory.load("PipelineTest/all-disabled.conf");
+    Pipeline pipeline = Pipeline.fromConfig(pipelineConfig, "my-pipeline", "");
+
+    // two of the stages have invalid config (missing "destField"). Note that no validation
+    // errors are thrown!
+    assertEquals(0, pipeline.getStages().size());
+  }
+
+  @Test
+  public void testDisabledStagesAreValidated() throws Exception {
+    // all three stages are disabled. the two timestamp stages do not have the "destField".
+    Config pipelineConfig = ConfigFactory.load("PipelineTest/all-disabled.conf");
+    List<Exception> validationErrors = Pipeline.validateStages(pipelineConfig, "my-pipeline");
+
+    assertEquals(2, validationErrors.size());
+    assertTrue(validationErrors.get(0).getMessage().contains("destField"));
+    assertTrue(validationErrors.get(1).getMessage().contains("destField"));
+  }
+
   private static class Stage1 extends Stage {
 
     public static final Spec SPEC = SpecBuilder.stage().build();

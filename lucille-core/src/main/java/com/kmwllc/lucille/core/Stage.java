@@ -26,7 +26,13 @@ import java.util.stream.Collectors;
  * reflectively in the super constructor, so the Stage will not function without declaring a Spec. The Config provided
  * to <code>super()</code> will be validated against the Spec. Validation errors will reference the Stage's <code>name</code>.
  *
- * <p> A {@link SpecBuilder#stage()} always has "name", "class", "conditions", and "conditionPolicy" as legal properties.
+ * <p> A {@link SpecBuilder#stage()} always has "name", "class", "conditions", "enabled", and "conditionPolicy" as legal properties.
+ *
+ * <p> Stages can be disabled by setting <code>enabled: false</code>. Stages default to being enabled.
+ * When <code>enabled</code> is <code>false</code>, the Stage should not even be instantiated.
+ * {@link Stage#start()} and {@link Stage#stop()} must not be called. So, it is the responsibility for <b>users</b> of the Stage
+ * class to ensure that Stages are <code>enabled</code> when appropriate. The Stage class itself holds no information pertaining
+ * to the <code>enabled</code> property.
  *
  * <p> Config Parameters (Conditions):
  * <ul>
