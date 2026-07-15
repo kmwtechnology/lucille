@@ -172,6 +172,7 @@ public class KafkaUtilsTest {
       System.setProperty("PRODUCER_PROP", "test-p");
       System.setProperty("CONSUMER_PROP", "test-c");
 
+      ConfigFactory.invalidateCaches();
       Config config = ConfigFactory.load("KafkaUtilsTest/env-vars.conf");
 
       Properties producerProps = KafkaUtils.createProducerProps(config);
