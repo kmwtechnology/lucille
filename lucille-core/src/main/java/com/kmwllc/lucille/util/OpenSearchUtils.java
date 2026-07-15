@@ -91,7 +91,7 @@ public class OpenSearchUtils {
           .build();
     }
 
-    boolean useCompression = ConfigUtils.getOrDefault(config, "opensearch.useCompression", false);
+    boolean useCompression = config.hasPath("opensearch.useCompression") && config.getBoolean("opensearch.useCompression");
     final var transport = ApacheHttpClient5TransportBuilder
         .builder(hosts)
         .setMapper(new JacksonJsonpMapper())
