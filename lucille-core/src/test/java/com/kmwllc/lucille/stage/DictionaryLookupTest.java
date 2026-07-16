@@ -71,25 +71,21 @@ public class DictionaryLookupTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testGetUniqueProperties() throws StageException {
     Stage stage = factory.get("DictionaryLookupTest/config.conf");
     assertEquals(
         Set.of(
             "ignoreCase",
             "usePayloads",
             "updateMode",
-            "name",
             "source",
             "dest",
-            "conditions",
-            "class",
             "dictPath",
             "setOnly",
             "useAnyMatch",
             "ignoreMissingSource",
-            "conditionPolicy",
             "gcp", "azure", "s3"),
-        stage.getLegalProperties());
+        stage.getUniqueProperties());
   }
 
   @Test

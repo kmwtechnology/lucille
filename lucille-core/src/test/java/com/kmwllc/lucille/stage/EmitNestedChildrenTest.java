@@ -85,7 +85,7 @@ public class EmitNestedChildrenTest {
   @Test
   public void testPipeline() throws Exception {
     // create pipeline with one EmitNestedChildren stage, with dropParent: false
-    Config config = ConfigFactory.load("EmitNestedChildrenTest/emitchild.conf");
+    Config config = ConfigFactory.load("EmitNestedChildrenTest/emitchild-pipeline.conf");
     Pipeline pipeline = Pipeline.fromConfig(config, "pipeline", "");
 
     Document parent = Document.create("parentId");

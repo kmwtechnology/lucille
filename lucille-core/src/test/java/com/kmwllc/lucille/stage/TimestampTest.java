@@ -35,8 +35,8 @@ public class TimestampTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testGetUniqueProperties() throws StageException {
     Stage stage = factory.get("TimestampTest/config.conf");
-    assertEquals(Set.of("destField", "name", "conditions", "class", "conditionPolicy"), stage.getLegalProperties());
+    assertEquals(Set.of("destField"), stage.getUniqueProperties());
   }
 }

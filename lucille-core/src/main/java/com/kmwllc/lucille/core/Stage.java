@@ -4,8 +4,13 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.spec.BooleanProperty;
+import com.kmwllc.lucille.core.spec.ListProperty;
+import com.kmwllc.lucille.core.spec.Property;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.core.spec.StringProperty;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import java.lang.reflect.Constructor;
@@ -45,7 +50,20 @@ import java.util.stream.Collectors;
  * </ul>
  */
 public abstract class Stage {
+
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
+
+  public static final Set<Property> DEFAULT_LEGAL_PROPERTIES = Set.of(
+      new StringProperty("name", false),
+      new StringProperty("class", false),
+      new BooleanProperty("enabled", false),
+      new ListProperty("conditions", false, SpecBuilder.withoutDefaults()
+          .optionalString("operator")
+          .optionalString("valuesPath")
+          .optionalList("values", new TypeReference<List<String>>(){})
+          .requiredList("fields", new TypeReference<List<String>>(){}).build()),
+      new StringProperty("conditionPolicy", false)
+  );
 
   protected Config config;
   private final Predicate<Document> condition;
@@ -338,8 +356,17 @@ public abstract class Stage {
     return config;
   }
 
-  public Set<String> getLegalProperties() {
-    return getSpec().getLegalProperties();
+  /**
+   * @return The unique property names for this Stage declared in its Spec. Does not return the default properties
+   * for a Stage (such as "name" and "conditions").
+   */
+  public Set<String> getUniqueProperties() {
+    Set<String> propNames = getSpec().getLegalProperties();
+
+    Set<String> defaultPropNames = DEFAULT_LEGAL_PROPERTIES.stream().map(Property::getName).collect(Collectors.toSet());
+    propNames.removeAll(defaultPropNames);
+
+    return propNames;
   }
 
   /**

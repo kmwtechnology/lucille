@@ -135,7 +135,7 @@ public class ReplacePatternsTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testGetUniqueProperties() throws StageException {
     Stage stage = factory.get("ReplacePatternsTest/config.conf");
     assertEquals(
         Set.of(
@@ -143,16 +143,12 @@ public class ReplacePatternsTest {
             "regex",
             "updateMode",
             "multiline",
-            "name",
             "source",
             "dest",
-            "conditions",
             "replacement",
             "replacementField",
-            "class",
             "dotall",
-            "literal",
-            "conditionPolicy"),
-        stage.getLegalProperties());
+            "literal"),
+        stage.getUniqueProperties());
   }
 }

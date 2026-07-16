@@ -51,10 +51,10 @@ public class CreateStaticTeaserTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testGetUniqueProperties() throws StageException {
     Stage stage = factory.get("CreateStaticTeaserTest/config.conf");
     assertEquals(
-        Set.of("updateMode", "name", "source", "dest", "conditions", "class", "maxLength", "conditionPolicy"),
-        stage.getLegalProperties());
+        Set.of("updateMode", "source", "dest", "maxLength"),
+        stage.getUniqueProperties());
   }
 }

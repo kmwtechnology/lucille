@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core.spec;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.Stage;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -34,16 +35,7 @@ public class SpecBuilder {
    * @return a Spec with default legal properties suitable for a Stage.
    */
   public static SpecBuilder stage() {
-    return new SpecBuilder(Set.of(
-        new StringProperty("name", false),
-        new StringProperty("class", false),
-        new BooleanProperty("enabled", false),
-        new ListProperty("conditions", false, SpecBuilder.withoutDefaults()
-            .optionalString("operator")
-            .optionalString("valuesPath")
-            .optionalList("values", new TypeReference<List<String>>(){})
-            .requiredList("fields", new TypeReference<List<String>>(){}).build()),
-        new StringProperty("conditionPolicy", false)));
+    return new SpecBuilder(Stage.DEFAULT_LEGAL_PROPERTIES);
   }
 
   /**

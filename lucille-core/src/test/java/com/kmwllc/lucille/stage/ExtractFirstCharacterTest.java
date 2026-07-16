@@ -57,8 +57,8 @@ public class ExtractFirstCharacterTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testGetUniqueProperties() throws StageException {
     Stage stage = factory.get("ExtractFirstCharacterTest/config.conf");
-    assertEquals(Set.of("name", "conditions", "replacement", "class", "conditionPolicy", "fieldMapping"), stage.getLegalProperties());
+    assertEquals(Set.of("replacement", "fieldMapping"), stage.getUniqueProperties());
   }
 }
