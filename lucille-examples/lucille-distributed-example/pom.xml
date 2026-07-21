@@ -51,12 +51,7 @@
               </execution>
             </executions>
             <configuration>
-              <executable>docker</executable>
-              <arguments>
-                <argument>compose</argument>
-                <argument>up</argument>
-                <argument>--abort-on-container-exit</argument>
-              </arguments>
+              <executable>${project.basedir}/scripts/run-nightly.sh</executable>
             </configuration>
           </plugin>
         </plugins>
