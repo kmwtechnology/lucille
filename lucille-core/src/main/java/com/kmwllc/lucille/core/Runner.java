@@ -20,6 +20,7 @@ import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
@@ -68,8 +69,8 @@ public class Runner {
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory queues
     TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after the run
-    KAFKA_LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via Kafka
-    KAFKA_DISTRIBUTED // assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
+    DISTRIBUTED, // launch Worker(s) and Indexer as threads; have all components communicate via Kafka
+    DISTRIBUTED_SANDBOX // assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
   }
 
   // no need to instantiate Runner; all methods currently static
@@ -155,10 +156,10 @@ public class Runner {
    * no args: pipelines workers and indexers will be executed in separate threads within the same JVM; communication
    * between components will take place in memory and Kafka will not be used
    * <p>
-   * -useKafka: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
+   * -distributed: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
    * and indexers will not be run. The assumption is that these have been deployed as separate processes.
    * <p>
-   * -local: modifies -useKafka so that workers and indexers are started as separate threads within the same JVM;
+   * -distributedSandbox: modified distributed where workers and indexers are started as separate threads within the same JVM;
    * kafka is still used for communication between them.
    * <p>
    * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
@@ -169,11 +170,18 @@ public class Runner {
     // during the run
     state = new RunnerState();
 
+    Option distributedOpt = Option.builder("distributed").hasArg(false)
+    .desc("Uses Kafka for inter-component communication and doesn't execute pipelines locally.")
+    .build();
+
+    Option distributedSandboxOpt = Option.builder("distributedsandbox").hasArg(false)
+        .desc("Modified distributed mode to execute pipelines locally.")
+        .build();
+
+    OptionGroup distributedType = new OptionGroup().addOption(distributedOpt).addOption(distributedSandboxOpt);
+
     Options cliOptions = new Options()
-        .addOption(Option.builder("usekafka").hasArg(false)
-            .desc("Use Kafka for inter-component communication and don't execute pipelines locally.").build())
-        .addOption(Option.builder("local").hasArg(false)
-            .desc("Modifies useKafka mode to execute pipelines locally").build())
+        .addOptionGroup(distributedType)
         .addOption(Option.builder("validate").hasArg(false)
             .desc("Validate the configuration and exit").build())
         .addOption(Option.builder("render").hasArg(false)
@@ -183,16 +191,12 @@ public class Runner {
     try {
       args = Arrays.stream(args).map(String::toLowerCase).toArray(String[]::new);
       cli = new DefaultParser().parse(cliOptions, args);
-    } catch (UnrecognizedOptionException | MissingOptionException e) {
-      try (StringWriter writer = new StringWriter();
-          PrintWriter printer = new PrintWriter(writer)) {
 
-        String header = "Run a sequence of connectors";
-        new HelpFormatter().printHelp(printer, 256, "Runner", header, cliOptions,
-            2, 10, "", true);
-        log.info(writer.toString());
+      if (!cli.getArgList().isEmpty()) {
+        printHelpAndExit(cliOptions, "Unrecognized argument(s): " + cli.getArgList());
       }
-      SystemHelper.exit(1);
+    } catch (UnrecognizedOptionException | MissingOptionException | AlreadySelectedException e) {
+      printHelpAndExit(cliOptions, e.getMessage());
     }
 
     Config config = ConfigFactory.load();
@@ -218,7 +222,7 @@ public class Runner {
       SystemHelper.exit(0);
     });
 
-    RunType runType = getRunType(cli.hasOption("usekafka"), cli.hasOption("local"));
+    RunType runType = getRunType(cli.hasOption("distributed"), cli.hasOption("distributedsandbox"));
 
     // Kick off the run with a log of the result
     RunResult result = runAndLogResult(config, runType, true);
@@ -434,15 +438,13 @@ public class Runner {
   }
 
   /**
-   * Derives the RunType for the new run from the 'useKafka' and 'local' parameters.
+   * Derives the RunType for the new run from the 'distributed' and 'distributedSandbox' parameters.
    */
-  static RunType getRunType(boolean useKafka, boolean local) {
-    if (useKafka) {
-      if (local) {
-        return RunType.KAFKA_LOCAL;
-      } else {
-        return RunType.KAFKA_DISTRIBUTED;
-      }
+  static RunType getRunType(boolean distributed, boolean distributedSandbox) {
+    if (distributed) {
+      return RunType.DISTRIBUTED;
+    } else if (distributedSandbox) {
+      return RunType.DISTRIBUTED_SANDBOX;
     } else {
       return RunType.LOCAL;
     }
@@ -540,7 +542,7 @@ public class Runner {
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
 
-    boolean startWorkerAndIndexer = !type.equals(RunType.KAFKA_DISTRIBUTED);
+    boolean startWorkerAndIndexer = !type.equals(RunType.DISTRIBUTED);
     boolean bypassSolr = type.equals(RunType.TEST);
 
     Map<String, TestMessenger> history = type.equals(RunType.TEST) ? new HashMap<>() : null;
@@ -826,5 +828,25 @@ public class Runner {
       log.error("Error obtaining metrics logging level", e);
     }
     return Slf4jReporter.LoggingLevel.DEBUG;
+  }
+
+  /**
+   * Prints CLI help text and exits the JVM
+   */
+  private static void printHelpAndExit(Options cliOptions, String message) {
+    if (message != null) {
+      log.warn(message);
+    }
+
+    try (StringWriter writer = new StringWriter();
+        PrintWriter printer = new PrintWriter(writer)) {
+      String header = "Run a sequence of connectors";
+      new HelpFormatter().printHelp(printer, 256, "Runner", header, cliOptions,
+          2, 10, "", true);
+      log.info(writer.toString());
+    } catch (IOException e) {
+      log.debug("Unexpected IOException", e);
+    }
+    SystemHelper.exit(1);
   }
 }

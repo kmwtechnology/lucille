@@ -851,12 +851,12 @@ public class RunnerTest {
   public void testRunTypeCliFlags() throws Exception {
     assertEquals(Runner.RunType.LOCAL, runTypeForArgs());
 
-    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-usekafka"));
-    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-useKafka"));
-    assertEquals(Runner.RunType.KAFKA_DISTRIBUTED, runTypeForArgs("-USEKAFKA"));
+    assertEquals(Runner.RunType.DISTRIBUTED, runTypeForArgs("-distributed"));
+    assertEquals(Runner.RunType.DISTRIBUTED, runTypeForArgs("-distributed"));
+    assertEquals(Runner.RunType.DISTRIBUTED, runTypeForArgs("-DISTRIBUTED"));
 
-    assertEquals(Runner.RunType.KAFKA_LOCAL, runTypeForArgs("-usekafka", "-local"));
-    assertEquals(Runner.RunType.KAFKA_LOCAL, runTypeForArgs("-useKafka", "-LOCAL"));
+    assertEquals(Runner.RunType.DISTRIBUTED_SANDBOX, runTypeForArgs("-distributedsandbox"));
+    assertEquals(Runner.RunType.DISTRIBUTED_SANDBOX, runTypeForArgs("-DISTRIBUTEDSANDBOX"));
   }
 
   /**
