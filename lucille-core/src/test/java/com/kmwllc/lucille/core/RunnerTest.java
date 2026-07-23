@@ -855,8 +855,8 @@ public class RunnerTest {
     assertEquals(Runner.RunType.DISTRIBUTED, runTypeForArgs("-distributed"));
     assertEquals(Runner.RunType.DISTRIBUTED, runTypeForArgs("-DISTRIBUTED"));
 
-    assertEquals(Runner.RunType.DISTRIBUTED_SANDBOX, runTypeForArgs("-distributedsandbox"));
-    assertEquals(Runner.RunType.DISTRIBUTED_SANDBOX, runTypeForArgs("-DISTRIBUTEDSANDBOX"));
+    assertEquals(Runner.RunType.EXTERNAL, runTypeForArgs("-external"));
+    assertEquals(Runner.RunType.EXTERNAL, runTypeForArgs("-EXTERNAL"));
   }
 
   /**

@@ -69,8 +69,8 @@ public class Runner {
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory queues
     TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after the run
-    DISTRIBUTED, // launch Worker(s) and Indexer as threads; have all components communicate via Kafka
-    DISTRIBUTED_SANDBOX // assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
+    EXTERNAL, // launch Worker(s) and Indexer as threads; have all components communicate via Kafka
+    DISTRIBUTED// assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
   }
 
   // no need to instantiate Runner; all methods currently static
@@ -159,8 +159,8 @@ public class Runner {
    * -distributed: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
    * and indexers will not be run. The assumption is that these have been deployed as separate processes.
    * <p>
-   * -distributedSandbox: modified distributed where workers and indexers are started as separate threads within the same JVM;
-   * kafka is still used for communication between them.
+   * -external: modified local mode where workers and indexers are started as separate threads within the same JVM and kafka is
+   * used for communication between them.
    * <p>
    * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
    */
@@ -174,11 +174,12 @@ public class Runner {
     .desc("Uses Kafka for inter-component communication and doesn't execute pipelines locally.")
     .build();
 
-    Option distributedSandboxOpt = Option.builder("distributedsandbox").hasArg(false)
-        .desc("Modified distributed mode to execute pipelines locally.")
+    Option external = Option.builder("external").hasArg(false)
+        .desc("Modified local mode where workers and indexers are separate threads within the JVM communicating "
+            + "through kafka")
         .build();
 
-    OptionGroup distributedType = new OptionGroup().addOption(distributedOpt).addOption(distributedSandboxOpt);
+    OptionGroup distributedType = new OptionGroup().addOption(distributedOpt).addOption(external);
 
     Options cliOptions = new Options()
         .addOptionGroup(distributedType)
@@ -193,10 +194,14 @@ public class Runner {
       cli = new DefaultParser().parse(cliOptions, args);
 
       if (!cli.getArgList().isEmpty()) {
-        printHelpAndExit(cliOptions, "Unrecognized argument(s): " + cli.getArgList());
+        printHelp(cliOptions, "Unrecognized argument(s): " + cli.getArgList());
+        SystemHelper.exit(1);
+        return;
       }
     } catch (UnrecognizedOptionException | MissingOptionException | AlreadySelectedException e) {
-      printHelpAndExit(cliOptions, e.getMessage());
+      printHelp(cliOptions, e.getMessage());
+      SystemHelper.exit(1);
+      return;
     }
 
     Config config = ConfigFactory.load();
@@ -222,7 +227,7 @@ public class Runner {
       SystemHelper.exit(0);
     });
 
-    RunType runType = getRunType(cli.hasOption("distributed"), cli.hasOption("distributedsandbox"));
+    RunType runType = getRunType(cli.hasOption("distributed"), cli.hasOption("external"));
 
     // Kick off the run with a log of the result
     RunResult result = runAndLogResult(config, runType, true);
@@ -438,13 +443,13 @@ public class Runner {
   }
 
   /**
-   * Derives the RunType for the new run from the 'distributed' and 'distributedSandbox' parameters.
+   * Derives the RunType for the new run from the 'distributed' and 'external' parameters.
    */
-  static RunType getRunType(boolean distributed, boolean distributedSandbox) {
+  static RunType getRunType(boolean distributed, boolean external) {
     if (distributed) {
       return RunType.DISTRIBUTED;
-    } else if (distributedSandbox) {
-      return RunType.DISTRIBUTED_SANDBOX;
+    } else if (external) {
+      return RunType.EXTERNAL;
     } else {
       return RunType.LOCAL;
     }
@@ -564,7 +569,7 @@ public class Runner {
         workerMessengerFactory = WorkerMessengerFactory.getConstantFactory(messenger);
         indexerMessengerFactory = IndexerMessengerFactory.getConstantFactory(messenger);
         publisherMessengerFactory = PublisherMessengerFactory.getConstantFactory(messenger);
-      } else { // RunType.KAFKA_LOCAL.equals(type) || RunType.KAFKA_DISTRIBUTED.equals(type)
+      } else { // RunType.EXTERNAL.equals(type) || RunType.DISTRIBUTED.equals(type)
         workerMessengerFactory = WorkerMessengerFactory.getKafkaFactory(config, connector.getPipelineName());
         indexerMessengerFactory = IndexerMessengerFactory.getKafkaFactory(config, connector.getPipelineName());
         publisherMessengerFactory = PublisherMessengerFactory.getKafkaFactory(config);
@@ -831,9 +836,9 @@ public class Runner {
   }
 
   /**
-   * Prints CLI help text and exits the JVM
+   * Prints CLI help text
    */
-  private static void printHelpAndExit(Options cliOptions, String message) {
+  private static void printHelp(Options cliOptions, String message) {
     if (message != null) {
       log.warn(message);
     }
@@ -847,6 +852,5 @@ public class Runner {
     } catch (IOException e) {
       log.debug("Unexpected IOException", e);
     }
-    SystemHelper.exit(1);
   }
 }
