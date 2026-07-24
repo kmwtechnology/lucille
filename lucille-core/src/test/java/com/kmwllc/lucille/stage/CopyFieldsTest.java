@@ -152,10 +152,10 @@ public class CopyFieldsTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("CopyFieldsTest/replace.conf");
     assertEquals(
         Set.of("fieldMapping", "isNested", "updateMode"),
-        stage.getUniqueProperties());
+        stage.getNonDefaultLegalProperties());
   }
 }

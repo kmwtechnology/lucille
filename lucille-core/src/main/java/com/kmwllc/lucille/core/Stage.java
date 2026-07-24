@@ -360,7 +360,7 @@ public abstract class Stage {
    * @return The unique property names for this Stage declared in its Spec. Does not return the default properties
    * for a Stage (such as "name" and "conditions").
    */
-  public Set<String> getUniqueProperties() {
+  public Set<String> getNonDefaultLegalProperties() {
     Set<String> propNames = getSpec().getLegalProperties();
 
     Set<String> defaultPropNames = DEFAULT_LEGAL_PROPERTIES.stream().map(Property::getName).collect(Collectors.toSet());

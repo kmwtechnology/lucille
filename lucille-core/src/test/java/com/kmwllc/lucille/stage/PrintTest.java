@@ -104,10 +104,10 @@ public class PrintTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("PrintTest/config.conf");
     assertEquals(Set.of("overwriteFile", "outputFile", "shouldLog", "blacklist", "whitelist", "appendThreadName"),
-        stage.getUniqueProperties());
+        stage.getNonDefaultLegalProperties());
   }
 
   @Test

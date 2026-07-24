@@ -188,9 +188,9 @@ public class StageTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testGetNonDefaultLegalProperties() throws StageException {
     Stage stage = factory.get("StageTest/processMust.conf");
-    assertEquals(Set.of(), stage.getUniqueProperties());
+    assertEquals(Set.of(), stage.getNonDefaultLegalProperties());
   }
 
   @Test

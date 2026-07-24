@@ -135,7 +135,7 @@ public class ReplacePatternsTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("ReplacePatternsTest/config.conf");
     assertEquals(
         Set.of(
@@ -149,6 +149,6 @@ public class ReplacePatternsTest {
             "replacementField",
             "dotall",
             "literal"),
-        stage.getUniqueProperties());
+        stage.getNonDefaultLegalProperties());
   }
 }

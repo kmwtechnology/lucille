@@ -39,8 +39,8 @@ public class DeleteFieldsTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("DeleteFieldsTest/config.conf");
-    assertEquals(Set.of("fields"), stage.getUniqueProperties());
+    assertEquals(Set.of("fields"), stage.getNonDefaultLegalProperties());
   }
 }

@@ -32,8 +32,8 @@ public class NormalizeFieldNamesTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("FieldNormalizerTest/config.conf");
-    assertEquals(Set.of("delimiter", "nonAlphanumReplacement"), stage.getUniqueProperties());
+    assertEquals(Set.of("delimiter", "nonAlphanumReplacement"), stage.getNonDefaultLegalProperties());
   }
 }

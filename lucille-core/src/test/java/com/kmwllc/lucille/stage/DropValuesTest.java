@@ -40,8 +40,8 @@ public class DropValuesTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("DropValuesTest/config.conf");
-    assertEquals(Set.of("values", "source"), stage.getUniqueProperties());
+    assertEquals(Set.of("values", "source"), stage.getNonDefaultLegalProperties());
   }
 }

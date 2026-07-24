@@ -43,8 +43,8 @@ public class TrimWhitespaceTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("TrimWhitespaceTest/config.conf");
-    assertEquals(Set.of("fields"), stage.getUniqueProperties());
+    assertEquals(Set.of("fields"), stage.getNonDefaultLegalProperties());
   }
 }

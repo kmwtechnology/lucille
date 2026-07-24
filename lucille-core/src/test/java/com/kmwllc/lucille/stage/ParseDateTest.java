@@ -59,7 +59,7 @@ public class ParseDateTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("ParseDateTest/config.conf");
     assertEquals(
         Set.of(
@@ -69,7 +69,7 @@ public class ParseDateTest {
             "source",
             "dest",
             "timeZoneId"),
-        stage.getUniqueProperties());
+        stage.getNonDefaultLegalProperties());
   }
 
   @Test

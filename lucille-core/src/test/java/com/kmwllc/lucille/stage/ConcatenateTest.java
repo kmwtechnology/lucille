@@ -58,10 +58,10 @@ public class ConcatenateTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("ConcatenateTest/config.conf");
     assertEquals(
         Set.of("updateMode", "formatString", "dest", "defaultInputs"),
-        stage.getUniqueProperties());
+        stage.getNonDefaultLegalProperties());
   }
 }

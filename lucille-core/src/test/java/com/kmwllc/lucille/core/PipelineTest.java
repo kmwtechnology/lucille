@@ -276,8 +276,10 @@ public class PipelineTest {
     Config pipelineConfig = ConfigFactory.load("PipelineTest/all-disabled.conf");
     Pipeline pipeline = Pipeline.fromConfig(pipelineConfig, "my-pipeline", "");
 
-    // two of the stages have invalid config (missing "destField"). Note that no validation
-    // errors are thrown!
+    // Note: two of the stages have invalid config (missing "destField").
+    // However, no validation errors are thrown - since disabled stages are not instantiated in Pipeline.fromConfig()
+    // (Disabled Stages are still validated in Pipeline.validateStages()... see next test. So, from the end user's perspective,
+    // disabled Stages "are validated" - the Runner does validation before building & starting a pipeline.)
     assertEquals(0, pipeline.getStages().size());
   }
 

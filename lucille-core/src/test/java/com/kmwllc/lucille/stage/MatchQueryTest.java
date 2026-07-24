@@ -62,9 +62,9 @@ public class MatchQueryTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("MatchQueryTest/config.conf");
-    assertEquals(Set.of("matchedQueriesField", "fields", "queries"), stage.getUniqueProperties());
+    assertEquals(Set.of("matchedQueriesField", "fields", "queries"), stage.getNonDefaultLegalProperties());
   }
 
   @Test

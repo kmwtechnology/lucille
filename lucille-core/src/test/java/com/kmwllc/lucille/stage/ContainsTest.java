@@ -48,10 +48,10 @@ public class ContainsTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("ContainsTest/config.conf");
     assertEquals(
         Set.of("output", "contains", "ignoreCase", "fields", "value"),
-        stage.getUniqueProperties());
+        stage.getNonDefaultLegalProperties());
   }
 }

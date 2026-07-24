@@ -169,7 +169,7 @@ public class ApplyRegexTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("ApplyRegexTest/config.conf");
     assertEquals(
         Set.of(
@@ -181,6 +181,6 @@ public class ApplyRegexTest {
             "dest",
             "dotall",
             "literal"),
-        stage.getUniqueProperties());
+        stage.getNonDefaultLegalProperties());
   }
 }

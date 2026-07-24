@@ -53,10 +53,10 @@ public class SplitFieldValuesTest {
 
   
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("SplitFieldValuesTest/config.conf");
     assertEquals(
         Set.of("inputField", "delimiter", "trimWhitespace", "outputField"),
-        stage.getUniqueProperties());
+        stage.getNonDefaultLegalProperties());
   }
 }

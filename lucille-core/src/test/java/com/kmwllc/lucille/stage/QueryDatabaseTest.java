@@ -134,7 +134,7 @@ public class QueryDatabaseTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws Exception {
+  public void testSpec() throws Exception {
     Stage stage = factory.get("QueryDatabaseTest/animal.conf");
     assertEquals(
         Set.of(
@@ -148,7 +148,7 @@ public class QueryDatabaseTest {
             "connectionRetries",
             "connectionRetryPause",
             "fieldMapping"),
-        stage.getUniqueProperties());
+        stage.getNonDefaultLegalProperties());
 
     stage.stop();
   }

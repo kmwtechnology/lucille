@@ -101,8 +101,8 @@ public class RenameFieldsTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("RenameFieldsTest/config.conf");
-    assertEquals(Set.of("updateMode", "applyToChildren", "fieldMapping"), stage.getUniqueProperties());
+    assertEquals(Set.of("updateMode", "applyToChildren", "fieldMapping"), stage.getNonDefaultLegalProperties());
   }
 }

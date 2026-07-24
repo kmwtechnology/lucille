@@ -29,8 +29,8 @@ public class LengthTest {
   }
 
   @Test
-  public void testGetUniqueProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("LengthTest/config.conf");
-    assertEquals(Set.of("fieldMapping"), stage.getUniqueProperties());
+    assertEquals(Set.of("fieldMapping"), stage.getNonDefaultLegalProperties());
   }
 }
