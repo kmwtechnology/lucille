@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.tuple.Pair;
 
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -1157,4 +1158,50 @@ public class RunnerTest {
     assertThrows(IllegalArgumentException.class, () -> Runner.runAndLogResult(config, RunType.LOCAL, null, false));
   }
 
+  @Test
+  public void testValidationOtherParents() throws Exception {
+    // only has optional properties. We have one present.
+    Map<String, List<Exception>> exceptions = Runner.runInValidationMode("RunnerTest/badRunnerConfig.conf");
+
+    assertEquals(1, exceptions.get("other").size());
+    String exceptionMessage = exceptions.get("other").get(0).getMessage();
+
+    // the message should complain about these properties...
+    assertTrue(exceptionMessage.contains("something"));
+    assertTrue(exceptionMessage.contains("somethingElse"));
+    // ...but not this property!
+    assertFalse(exceptionMessage.contains("metricsLoggingLevel"));
+
+    // Zookeeper only has one required property, "connectString".
+    exceptions = Runner.runInValidationMode("RunnerTest/badZookeeperConfig.conf");
+    assertEquals(1, exceptions.get("other").size());
+    exceptionMessage = exceptions.get("other").get(0).getMessage();
+
+    assertTrue(exceptionMessage.contains("something"));
+    assertTrue(exceptionMessage.contains("connectString"));
+
+    exceptions = Runner.runInValidationMode("RunnerTest/allBadOtherParents.conf");
+
+    // every "other" parent should have produced an "unknown property something" error - track them
+    // in a set so we can confirm each one is present (and that none are unexpectedly duplicated).
+    Set<String> expectedParents = Runner.PARENTS_AND_SPECS.stream()
+        .map(Pair::getLeft)
+        .collect(Collectors.toSet());
+
+    for (Exception e : exceptions.get("other")) {
+      // file is designed so all exceptions should be about a property named "something"
+      assertTrue(e.getMessage().contains("Config contains unknown property something"));
+
+      // the message identifies its parent as "... with <parentName> Config: ..." - find which parent it is,
+      // then remove it from the set to prove we saw an error for it exactly once.
+      String parentName = expectedParents.stream()
+          .filter(parent -> e.getMessage().contains("with " + parent + " Config"))
+          .findFirst()
+          .orElseThrow(() -> new AssertionError("Exception did not correspond to a known parent: " + e.getMessage()));
+      assertTrue("Saw more than one validation error for parent " + parentName, expectedParents.remove(parentName));
+    }
+
+    // every parent should have been accounted for.
+    assertTrue("Missing validation errors for parents: " + expectedParents, expectedParents.isEmpty());
+  }
 }

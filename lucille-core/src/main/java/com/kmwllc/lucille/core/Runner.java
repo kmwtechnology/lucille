@@ -65,7 +65,12 @@ public class Runner {
       .optionalString("metricsLoggingLevel")
       .optionalNumber("connectorTimeout").build();
 
-  private static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
+  // package access for ConfigValidationTest
+  /**
+   * Config Keys & Specs for the "other parents" in a Lucille Config validated here.
+   * If a new "other" parent is added here, it should be added here along with its Spec.
+   */
+  static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
       Pair.of("publisher", PublisherImpl.SPEC),
       Pair.of("log", LogUtils.SPEC),
       Pair.of("runner", Runner.SPEC),
