@@ -148,9 +148,8 @@
         <version>1.56.0</version>
       </dependency>
 
-      <!-- Force the whole httpcore5 family to a single fixed version. opensearch-java pulls in
-           httpcore5-h2/httpcore5-reactive transitively; without this, httpcore5-h2 resolves to 5.4.2
-           which is vulnerable to CVE-2026-54428 (unbounded HPACK header allocation). Fixed in 5.4.3. -->
+      <!-- Force the whole httpcore5 family to a single fixed version. As of 7/28/26, opensearch-java is pulling
+      in httpcore5-h2: 5.4.2, which has a CVE fixed in 5.4.3, which we are fixing to. -->
       <dependency>
         <groupId>org.apache.httpcomponents.core5</groupId>
         <artifactId>httpcore5</artifactId>

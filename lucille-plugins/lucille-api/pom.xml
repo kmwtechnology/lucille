@@ -135,14 +135,12 @@
         <version>1.5.36</version>
       </dependency>
 
-      <!-- Pin jetty-server to 12.1.10 — Dropwizard drags in 12.1.9 which has a CVE -->
+      <!--  Two Jetty related CVEs fixed in 12.1.10 (previously pulling in 12.1.9) -->
       <dependency>
         <groupId>org.eclipse.jetty</groupId>
         <artifactId>jetty-server</artifactId>
         <version>12.1.10</version>
       </dependency>
-
-      <!-- Pin jetty-security to 12.1.10 — Dropwizard drags in 12.1.9 which has a CVE -->
       <dependency>
         <groupId>org.eclipse.jetty</groupId>
         <artifactId>jetty-security</artifactId>
