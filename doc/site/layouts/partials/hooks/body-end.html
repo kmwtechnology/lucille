@@ -1,0 +1,19 @@
+{{ if .Site.Params.offlineSearch -}}
+<script src='{{ "js/mark.min.js" | relURL }}'></script>
+<script>
+  (function () {
+    var q = new URLSearchParams(window.location.search).get('q');
+    var content = document.querySelector('.td-content');
+    if (!q || !content || typeof Mark === 'undefined') return;
+
+    new Mark(content).mark(q, {
+      separateWordSearch: true,
+      acrossElements: true,
+      done: function () {
+        var first = content.querySelector('mark');
+        if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      },
+    });
+  })();
+</script>
+{{- end }}

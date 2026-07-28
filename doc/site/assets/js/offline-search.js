@@ -142,7 +142,8 @@
           const doc = resultDetails.get(r.ref);
           const href =
             $searchInput.data('offline-search-base-href') +
-            r.ref.replace(/^\//, '');
+            r.ref.replace(/^\//, '') +
+            '?q=' + encodeURIComponent(searchQuery);
 
           const $entry = $('<div>').addClass('mt-4');
 
