@@ -1,3 +1,6 @@
+<!-- Highlights every instance of the search query on the destination page and scrolls to the first instance
+  Depends on assets/js/offline-search.js appending the search query to destination URLs -->
+
 {{ if .Site.Params.offlineSearch -}}
 <script src='{{ "js/mark.min.js" | relURL }}'></script>
 <script>

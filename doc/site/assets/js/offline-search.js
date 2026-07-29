@@ -59,6 +59,32 @@
       $searchInput.trigger('change');
     });
 
+    // Build a snippet around the first match of a term in the document body, highlighting the matched term.
+    // Snippet is cut off at sentence boundaries 80 characters before and after the match.
+    // If no boundary is found, snippet starts from the first match
+    function buildSnippet(doc, r) {
+      const $p = $('<p>');
+      for (const term of Object.keys(r.matchData.metadata)) {
+        const match = r.matchData.metadata[term].body;
+        if (match && match.position && match.position.length) {
+          const [start, length] = match.position[0];
+          const from = Math.max(0, start - 80);
+          const to = start + 80;
+          const pre = doc.body.slice(from, start).lastIndexOf('. ');
+          const linePre = doc.body.slice(from, start).lastIndexOf('\n');
+          const post = /[.!?]\s|\n/.exec(doc.body.slice(start, to));
+          const snippetStart = pre === -1 && linePre === -1 ? start : Math.max(pre === -1 ? from : from + pre + 2, linePre === -1 ? from : from + linePre + 1);
+          const snippetEnd = post ? start + post.index + (post[0] === '\n' ? 0 : 1) : to;
+          $p.append(document.createTextNode(doc.body.slice(snippetStart, start)));
+          $p.append($('<mark>').text(doc.body.slice(start, start + length)));
+          $p.append(document.createTextNode(doc.body.slice(start + length, snippetEnd)));
+          return $p;
+        }
+      }
+      return $p.text(doc.excerpt);
+    }
+
+
     const render = ($targetSearchInput) => {
       //
       // Dispose existing popover
@@ -160,30 +186,8 @@
               .attr('href', href)
               .text(doc.title)
           );
-          // Center result snippet around text match
-          const $p = $('<p>');
-          let matched = false;
-          for (const term of Object.keys(r.matchData.metadata)) {
-            const match = r.matchData.metadata[term].body;
-            if (match && match.position && match.position.length) {
-              const [start, length] = match.position[0];
-              const from = Math.max(0, start - 80); // TODO: Review snippet formation logic
-              const to = start + 80;
-              const pre = doc.body.slice(from, start).lastIndexOf('. ');
-              const post = /[.!?]\s/.exec(doc.body.slice(start, to));
-              const snippetStart = pre === -1 ? from : from + pre + 2;
-              const snippetEnd = post ? start + post.index + 1 : to;
-              $p.append(document.createTextNode(doc.body.slice(snippetStart, start)));
-              $p.append($('<mark>').text(doc.body.slice(start, start + length)));
-              $p.append(document.createTextNode(doc.body.slice(start + length, snippetEnd)));
-              matched = true;
-              break;
-            }
-          }
-          if (!matched) {
-            $p.text(doc.excerpt);
-          }
-          $entry.append($p);
+
+          $entry.append(buildSnippet(doc, r));
 
           $searchResultBody.append($entry);
         });
