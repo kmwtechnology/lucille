@@ -845,7 +845,7 @@ public class RunnerTest {
   }
 
   /**
-   * Verifies that the -usekafka and -local command line flags assign to the proper RunType during a run
+   * Verifies that the -distributed and -external command line flags assign to the proper RunType during a run
    */
   @Test
   public void testRunTypeCliFlags() throws Exception {
