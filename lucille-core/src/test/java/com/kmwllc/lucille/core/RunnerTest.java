@@ -845,7 +845,7 @@ public class RunnerTest {
   }
 
   /**
-   * Verifies that the -usekafka and -local command line flags assign to the proper RunType during a run
+   * Verifies that the -distributed and -external command line flags assign to the proper RunType during a run
    */
   @Test
   public void testRunTypeCliFlags() throws Exception {
@@ -890,6 +890,43 @@ public class RunnerTest {
     runMainWithMockedRunner(new String[] {"-VALIDATE", "-Render"}, mockedRunner -> {
       mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
       mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
+    });
+  }
+
+  /**
+   * Verifies that an unrecognized CLI flag causes main() to reject the args.
+   */
+  @Test
+  public void testUnrecognizedOptionFlag() throws Exception {
+    runMainWithMockedRunner(new String[] {"-badflag"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedRunner.verify(() -> Runner.renderConfig(any()), never());
+    });
+  }
+
+  /**
+   * Verifies that specifying both -distributed and -external, which belong to the same mutually
+   * exclusive OptionGroup, causes main() to reject the args.
+   */
+  @Test
+  public void testMutuallyExclusiveDistributedAndExternalFlags() throws Exception {
+    runMainWithMockedRunner(new String[] {"-distributed", "-external"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedRunner.verify(() -> Runner.renderConfig(any()), never());
+    });
+  }
+
+  /**
+   * Verifies that a stray positional argument causes main() to reject the args instead of silently ignoring it.
+   */
+  @Test
+  public void testUnrecognizedPositionalArgument() throws Exception {
+    runMainWithMockedRunner(new String[] {"someArg"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedRunner.verify(() -> Runner.renderConfig(any()), never());
     });
   }
 
