@@ -894,6 +894,43 @@ public class RunnerTest {
   }
 
   /**
+   * Verifies that an unrecognized CLI flag causes main() to reject the args.
+   */
+  @Test
+  public void testUnrecognizedOptionFlag() throws Exception {
+    runMainWithMockedRunner(new String[] {"-badflag"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedRunner.verify(() -> Runner.renderConfig(any()), never());
+    });
+  }
+
+  /**
+   * Verifies that specifying both -distributed and -external, which belong to the same mutually
+   * exclusive OptionGroup, causes main() to reject the args.
+   */
+  @Test
+  public void testMutuallyExclusiveDistributedAndExternalFlags() throws Exception {
+    runMainWithMockedRunner(new String[] {"-distributed", "-external"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedRunner.verify(() -> Runner.renderConfig(any()), never());
+    });
+  }
+
+  /**
+   * Verifies that a stray positional argument causes main() to reject the args instead of silently ignoring it.
+   */
+  @Test
+  public void testUnrecognizedPositionalArgument() throws Exception {
+    runMainWithMockedRunner(new String[] {"someArg"}, mockedRunner -> {
+      mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
+      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedRunner.verify(() -> Runner.renderConfig(any()), never());
+    });
+  }
+
+  /**
    * Intercepts the run so no actual Lucille run takes place, and returns the RunType that main() resolved the args to.
    */
   private Runner.RunType runTypeForArgs(String... args) throws Exception {
