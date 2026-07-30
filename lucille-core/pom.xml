@@ -35,6 +35,14 @@
       <version>4.0.5</version>
     </dependency>
 
+    <!-- Pin parsson to 1.1.8 — opensearch-java drags in 1.1.7 transitively, which is vulnerable to
+         SNYK-JAVA-ORGECLIPSEPARSSON-17817925 (unbounded resource allocation). Fixed in 1.1.8. -->
+    <dependency>
+      <groupId>org.eclipse.parsson</groupId>
+      <artifactId>parsson</artifactId>
+      <version>1.1.8</version>
+    </dependency>
+
     <!--  Solr (indexer integration) wanted  -->
     <dependency>
       <groupId>jakarta.annotation</groupId>
@@ -74,7 +82,7 @@
     <dependency>
         <groupId>at.yawk.lz4</groupId>
         <artifactId>lz4-java</artifactId>
-        <version>1.10.1</version>
+        <version>1.11.1</version>
     </dependency>
 
     <dependency>
