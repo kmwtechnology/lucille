@@ -59,27 +59,66 @@
       $searchInput.trigger('change');
     });
 
-    // Build a snippet around the first match of a term in the document body, highlighting the matched term.
-    // Snippet is cut off at sentence boundaries 80 characters before and after the match.
-    // If no boundary is found, snippet starts from the first match
-    function buildSnippet(doc, r) {
+    // Build a snippet around the first relevant match of a query term in the document body.
+    // A relevant match is either an exact match of a query stem or contains the raw query word.
+    // Snippet is cut off at sentence/line boundaries 80 characters before and after the match.
+    // If no boundary is found, snippet starts from the first match.
+    // Every relevant occurrence within the snippet window is highlighted.
+    function buildSnippet(doc, r, queryStems) {
+      function findRaw(term) {
+        for (const [stem, raw] of queryStems) {
+          if (term === stem || term.includes(raw)) return raw;
+        }
+        return null;
+      }
+
+      function hitsFor(term, position) {
+        const raw = findRaw(term);
+        if (!raw) return [];
+        const hits = [];
+        position.forEach(([s, len]) => {
+          const offset = doc.body.slice(s, s + len).toLowerCase().indexOf(raw);
+          if (offset !== -1) hits.push([s + offset, raw.length]);
+        });
+        return hits;
+      }
+
       const $p = $('<p>');
       for (const term of Object.keys(r.matchData.metadata)) {
         const match = r.matchData.metadata[term].body;
-        if (match && match.position && match.position.length) {
-          const [start, length] = match.position[0];
-          const from = Math.max(0, start - 80);
-          const to = start + 80;
-          const pre = doc.body.slice(from, start).lastIndexOf('. ');
-          const linePre = doc.body.slice(from, start).lastIndexOf('\n');
-          const post = /[.!?]\s|\n/.exec(doc.body.slice(start, to));
-          const snippetStart = pre === -1 && linePre === -1 ? start : Math.max(pre === -1 ? from : from + pre + 2, linePre === -1 ? from : from + linePre + 1);
-          const snippetEnd = post ? start + post.index + (post[0] === '\n' ? 0 : 1) : to;
-          $p.append(document.createTextNode(doc.body.slice(snippetStart, start)));
-          $p.append($('<mark>').text(doc.body.slice(start, start + length)));
-          $p.append(document.createTextNode(doc.body.slice(start + length, snippetEnd)));
-          return $p;
+        if (!match || !match.position || !match.position.length) continue;
+        const hits = hitsFor(term, match.position);
+        if (!hits.length) continue;
+        const [start] = hits[0];
+
+        const windowStart = Math.max(0, start - 80);
+        const windowEnd = start + 80;
+        const startMatch = [...doc.body.slice(windowStart, start).matchAll(/[.!?;]\s|\n/g)].at(-1);
+        const endMatch = /[.!?;]\s|\n/.exec(doc.body.slice(start, windowEnd));
+        const snippetStart = startMatch ? windowStart + startMatch.index + (startMatch[0] === '\n' ? 1 : 2) : start;
+        const snippetEnd = endMatch ? start + endMatch.index + (endMatch[0] === '\n' ? 0 : 1) : windowEnd;
+
+        const hits = [];
+        for (const t of Object.keys(r.matchData.metadata)) {
+          const m = r.matchData.metadata[t].body;
+          if (m && m.position) {
+            hitsFor(t, m.position).forEach(([s, len]) => {
+              if (s + len > snippetStart && s < snippetEnd) hits.push([s, len]);
+            });
+          }
         }
+        hits.sort((a, b) => a[0] - b[0]);
+
+        let cursor = snippetStart;
+        hits.forEach(([s, len]) => {
+          const hitStart = Math.max(s, cursor);
+          const hitEnd = Math.min(s + len, snippetEnd);
+          $p.append(document.createTextNode(doc.body.slice(cursor, hitStart)));
+          $p.append($('<mark>').text(doc.body.slice(hitStart, hitEnd)));
+          cursor = hitEnd;
+        });
+        $p.append(document.createTextNode(doc.body.slice(cursor, snippetEnd)));
+        return $p;
       }
       return $p.text(doc.excerpt);
     }
@@ -110,11 +149,13 @@
         return;
       }
 
+      const queryStems = new Map();
       const results = idx
         .query((q) => {
           const tokens = lunr.tokenizer(searchQuery.toLowerCase());
           tokens.forEach((token) => {
             const queryString = token.toString();
+            queryStems.set(lunr.stemmer(new lunr.Token(queryString)).toString(), queryString);
             q.term(queryString, {
               boost: 100,
             });
@@ -187,7 +228,7 @@
               .text(doc.title)
           );
 
-          $entry.append(buildSnippet(doc, r));
+          $entry.append(buildSnippet(doc, r, queryStems));
 
           $searchResultBody.append($entry);
         });
