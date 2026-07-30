@@ -41,7 +41,6 @@ public class PublisherImpl implements Publisher {
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalNumber("queueCapacity", "maxPendingDocs").build();
 
-
   private static final Logger log = LoggerFactory.getLogger(PublisherImpl.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
