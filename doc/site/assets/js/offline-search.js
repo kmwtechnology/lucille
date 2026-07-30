@@ -87,9 +87,9 @@
       for (const term of Object.keys(r.matchData.metadata)) {
         const match = r.matchData.metadata[term].body;
         if (!match || !match.position || !match.position.length) continue;
-        const hits = hitsFor(term, match.position);
-        if (!hits.length) continue;
-        const [start] = hits[0];
+        const termHits = hitsFor(term, match.position);
+        if (!termHits.length) continue;
+        const [start] = termHits[0];
 
         const windowStart = Math.max(0, start - 80);
         const windowEnd = start + 80;
