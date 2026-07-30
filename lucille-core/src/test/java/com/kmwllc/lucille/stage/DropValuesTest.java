@@ -40,9 +40,8 @@ public class DropValuesTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("DropValuesTest/config.conf");
-    assertEquals(
-        Set.of("values", "name", "source", "conditions", "class", "conditionPolicy"), stage.getLegalProperties());
+    assertEquals(Set.of("values", "source"), stage.getNonDefaultLegalProperties());
   }
 }

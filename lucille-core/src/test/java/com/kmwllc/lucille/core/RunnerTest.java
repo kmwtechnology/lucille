@@ -1110,6 +1110,18 @@ public class RunnerTest {
   }
 
   @Test
+  public void testPreRunValidationAbortsOnInvalidButDisabledStage() throws Exception {
+    // has one stage (Timestamp) that is disabled but is missing a required property
+    Config config = ConfigFactory.load("RunnerTest/singleDocInvalid.conf");
+
+    RunResult result = Runner.run(config, Runner.RunType.TEST);
+
+    assertFalse(result.getStatus());
+    assertNotNull(result.getHistory());
+    assertTrue(result.getHistory().isEmpty());
+  }
+
+  @Test
   public void testRunnerStateSetAndCleared() throws Exception {
 
     // when executing a run in a way that doesn't involve main(), no instances of RunnerState should be created
