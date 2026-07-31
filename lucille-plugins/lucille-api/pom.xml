@@ -15,6 +15,31 @@
     <packaging>jar</packaging>
     <name>Lucille Plugins: Lucille API</name>
 
+    <properties>
+      <!-- Dropwizard 5.0.2 drags in Jetty 12.1.9, which has CVEs in jetty-security/jetty-server.
+           Pin the whole Jetty 12.1.x set to 12.1.10 via the Jetty BOMs (modules must share one version). -->
+      <jetty.version>12.1.10</jetty.version>
+    </properties>
+
+    <dependencyManagement>
+      <dependencies>
+        <dependency>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>jetty-bom</artifactId>
+          <version>${jetty.version}</version>
+          <type>pom</type>
+          <scope>import</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.eclipse.jetty.ee10</groupId>
+          <artifactId>jetty-ee10-bom</artifactId>
+          <version>${jetty.version}</version>
+          <type>pom</type>
+          <scope>import</scope>
+        </dependency>
+      </dependencies>
+    </dependencyManagement>
+
     <dependencies>
       <dependency>
         <groupId>com.kmwllc</groupId>
