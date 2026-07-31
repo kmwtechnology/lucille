@@ -16,6 +16,29 @@
   <packaging>jar</packaging>
   <name>Lucille Core</name>
 
+  <!-- solr-solrj-jetty:10.0.0 drags in the full Jetty 12.0.27 stack (jetty-util, jetty-io, jetty-client,
+       jetty-server, jetty-security, jetty-http2-client, jetty-ee10-servlet, ...), which has CVEs. Import
+       the Jetty BOMs to align every Jetty module to 12.0.35. 12.1.x (used by lucille-api via Dropwizard)
+       is unaffected, so the pin lives here rather than in the parent. -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-bom</artifactId>
+        <version>12.0.35</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.eclipse.jetty.ee10</groupId>
+        <artifactId>jetty-ee10-bom</artifactId>
+        <version>12.0.35</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
         <groupId>com.dashjoin</groupId>
@@ -245,15 +268,6 @@
       <version>${solr.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- Pin jetty-http to 12.0.33 — solr-solrj-jetty drags in 12.0.27 which has a CVE; 12.1.x (used by
-         lucille-api via Dropwizard) is unaffected so the pin lives here rather than in the parent -->
-    <dependency>
-      <groupId>org.eclipse.jetty</groupId>
-      <artifactId>jetty-http</artifactId>
-      <version>12.0.33</version>
-      <scope>test</scope>
-    </dependency>
-
     <!--  Note that this is also one of the dependencies for solr that we had to pull in manually. However,
        it is not test scoped because we use this in RunDetails.java as well. -->
     <dependency>
