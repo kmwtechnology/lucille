@@ -30,6 +30,7 @@ import java.util.List;
  *   <li>elasticsearch.url(String, required) : the Elasticsearch endpoint URL.</li>
  *   <li>elasticsearch.index (String, required) : the name of the index to query.</li>
  *   <li>elasticsearch.acceptInvalidCert (Boolean, optional) : allow self‑signed or invalid SSL certificates.</li>
+ *   <li>elasticsearch.useCompression (Boolean, optional) : whether to use compression in the underlying Elasticsearch HTTP client. Defaults to false.</li>
  *   <li>source (List&lt;String&gt;) : list of field names to fetch from Elasticsearch.</li>
  *   <li>dest (List&lt;String&gt;) : corresponding list of field names into which to write values.</li>
  *   <li>updateMode (String, optional) : how to merge fetched values into the document. Defaults to OVERWRITE if not specified.</li>
