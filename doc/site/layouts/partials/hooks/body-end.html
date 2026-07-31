@@ -17,6 +17,9 @@
         if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
       },
     });
+
+    var toc = document.querySelector('.td-toc');
+    if (toc) new Mark(toc).mark(q, { separateWordSearch: true });
   })();
 </script>
 {{- end }}
