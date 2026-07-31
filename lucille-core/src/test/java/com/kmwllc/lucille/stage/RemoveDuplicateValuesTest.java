@@ -146,8 +146,8 @@ public class RemoveDuplicateValuesTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("RemoveDuplicateValuesTest/config.conf");
-    assertEquals(Set.of("name", "conditions", "class", "conditionPolicy", "fieldMapping"), stage.getLegalProperties());
+    assertEquals(Set.of("fieldMapping"), stage.getNonDefaultLegalProperties());
   }
 }

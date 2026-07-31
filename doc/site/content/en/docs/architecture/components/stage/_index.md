@@ -28,6 +28,11 @@ Rather than supporting sub-pipelines or branching, Lucille provides per-stage co
 
 Conditions are evaluated by the framework before invoking the Stage. A Stage author never implements conditional logic — they write a Stage that does one thing, and the configuration determines which documents it applies to. This separation means Stages are simpler to write, simpler to test, and reusable across pipelines with different condition configurations.
 
+## Disabling Stages
+
+As a convenience, you can set `enabled: false` on any Stage in your Config. By doing so, the Stage is _not_ instantiated, `start()` and `stop()` are never called,
+and no Document is processed by that Stage. The Stage will still be validated against its Spec, warning you of any missing, invalid, or unknown properties in the Config.  
+
 ## Child Document Emission
 
 A Stage can produce additional documents — children — that flow through the remaining pipeline stages independently. This is how Lucille handles 1-to-N fan-out (e.g., chunking a document into embedding-sized pieces). Children are tracked by the Publisher's accounting system and indexed as independent records.

@@ -69,7 +69,7 @@ public class KafkaTest {
         .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
         .withFallback(base);
     RunResult result =
-        Runner.run(config, Runner.RunType.KAFKA_LOCAL);
+        Runner.run(config, Runner.RunType.EXTERNAL);
     assertTrue(result.getStatus());
 
     // connector1 will feed 3 documents to pipeline1, so there should be 3 messages in each of
