@@ -91,7 +91,7 @@ services:
         condition: service_started
     environment:
       LUCILLE_CONF: /conf/main.conf
-      LUCILLE_OPTS: -usekafka
+      LUCILLE_OPTS: -distributed
 
   # A custom container for the purpose of verifying the results of the distributed run.
   # (Runs VerifyIngestResult against the results.)
