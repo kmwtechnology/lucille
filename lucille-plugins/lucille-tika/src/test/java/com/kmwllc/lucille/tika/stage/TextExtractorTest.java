@@ -397,7 +397,10 @@ public class TextExtractorTest {
     public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
         throws TikaException, IOException, SAXException {
       try {
-        Thread.sleep(200);
+        // Block for a long time (10s) to reduce risk of a racy test.
+        // We don't want some race condition where this parse is able to complete causing the test to fail.
+        // Interrupt should cut the sleep short - we do not wait for this entire time.
+        Thread.sleep(10_000);
         super.parse(stream, handler, metadata, context);
       } catch (InterruptedException e) {
         interrupted.set(true);
