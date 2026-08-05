@@ -6,7 +6,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.spy;
@@ -38,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
 import org.apache.tika.parser.AbstractParser;
@@ -45,6 +48,7 @@ import org.apache.tika.parser.DefaultParser;
 import org.apache.tika.parser.ParseContext;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
@@ -459,6 +463,45 @@ public class TextExtractorTest {
 
     // the hint round-tripped through Tika's metadata, confirming it was passed to the parser
     assertEquals("myfile.csv", doc.getString("tika_resourcename"));
+  }
+
+  // processDocument should wrap the file-path content in a TikaInputStream before handing it to the parser, so
+  // container-aware detectors can spool and inspect the content (a plain InputStream limits detection to Mime Magic).
+  @Test
+  public void testFilePathWrappedInTikaInputStream() throws Exception {
+    TextExtractor stage = spy((TextExtractor) factory.get("TextExtractorTest/filepath.conf"));
+    stage.start();
+
+    Document doc = Document.create("doc1");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+
+    ArgumentCaptor<InputStream> streamCaptor = ArgumentCaptor.forClass(InputStream.class);
+    verify(stage).parseInputStream(any(Metadata.class), eq(doc), streamCaptor.capture());
+    assertTrue("stream handed to the parser should be a TikaInputStream, was: " + streamCaptor.getValue().getClass(),
+        streamCaptor.getValue() instanceof TikaInputStream);
+
+    stage.stop();
+  }
+
+  // same as above, for the byteArray path
+  @Test
+  public void testByteArrayWrappedInTikaInputStream() throws Exception {
+    TextExtractor stage = spy((TextExtractor) factory.get("TextExtractorTest/bytearray.conf"));
+    stage.start();
+
+    Document doc = Document.create("doc1");
+    doc.setField("byte_array", Files.readAllBytes(new File("src/test/resources/TextExtractorTest/tika.txt").toPath()));
+
+    stage.processDocument(doc);
+
+    ArgumentCaptor<InputStream> streamCaptor = ArgumentCaptor.forClass(InputStream.class);
+    verify(stage).parseInputStream(any(Metadata.class), eq(doc), streamCaptor.capture());
+    assertTrue("stream handed to the parser should be a TikaInputStream, was: " + streamCaptor.getValue().getClass(),
+        streamCaptor.getValue() instanceof TikaInputStream);
+
+    stage.stop();
   }
 
   public static class InterruptTrackingParser extends DefaultParser {

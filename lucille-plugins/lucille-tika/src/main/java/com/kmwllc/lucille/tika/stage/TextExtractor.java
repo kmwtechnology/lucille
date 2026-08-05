@@ -11,7 +11,6 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +26,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.fork.ForkParser;
+import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.metadata.TikaCoreProperties;
 import org.apache.tika.parser.AutoDetectParser;
@@ -243,8 +243,10 @@ public class TextExtractor extends Stage {
 
       byte[] byteArray = doc.getBytes(byteArrayField);
 
-      try (InputStream inputStream = new ByteArrayInputStream(byteArray)) {
-        parseInputStream(metadata, doc, inputStream);
+      // wrap in a TikaInputStream so container-aware detectors (which need to spool the content to a file) can run;
+      // a plain InputStream would limit detection to Mime-Magic on the leading bytes.
+      try (TikaInputStream tikaStream = TikaInputStream.get(byteArray, metadata)) {
+        parseInputStream(metadata, doc, tikaStream);
       } catch (IOException e) {
         log.warn("Error closing inputStream: ", e);
       }
@@ -253,8 +255,11 @@ public class TextExtractor extends Stage {
       // get fileObject from path
       String filePath = doc.getString(filePathField);
 
-      try (InputStream contentStream = fileFetcher.getInputStream(filePath)) {
-        parseInputStream(metadata, doc, contentStream);
+      // wrap in a TikaInputStream so container-aware detectors (which need to spool the content to a file) can run;
+      // a plain InputStream would limit detection to Mime-Magic on the leading bytes. Closing the TikaInputStream
+      // also closes the underlying content stream, so it is the only resource we need to manage here.
+      try (TikaInputStream tikaStream = TikaInputStream.get(fileFetcher.getInputStream(filePath))) {
+        parseInputStream(metadata, doc, tikaStream);
       } catch (IOException e) {
         log.warn("Error processing file {}", filePath, e);
       }
