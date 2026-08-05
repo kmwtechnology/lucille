@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.AbstractParser;
 import org.apache.tika.parser.DefaultParser;
 import org.apache.tika.parser.ParseContext;
 import org.junit.Assert;
@@ -440,5 +442,64 @@ public class TextExtractorTest {
     assertFalse("Parser should not have been interrupted", InterruptTrackingParser.interrupted.get());
     // Document should have text after processing without interruption.
     assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
+  }
+
+  @Test
+  public void testForkingParser() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/forking.conf");
+    Document doc = Document.create("doc1");
+
+    // set path as absolute Path
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+    assertEquals("Hi There!\n", doc.getString("text"));
+  }
+
+  @Test
+  public void testForkingParserWithMemoryHogParser() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/forking-oom.conf");
+    byte[] tikaTxtBytes = Files.readAllBytes(Paths.get("src/test/resources/TextExtractorTest/tika.txt"));
+    // magic bytes for a zip local file header, routed to MemoryHogParser by tika-config-oom.xml
+    byte[] zipMagicBytes = new byte[]{0x50, 0x4B, 0x03, 0x04};
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("content", tikaTxtBytes);
+    stage.processDocument(doc1);
+    assertEquals("Hi There!\n", doc1.getString("text"));
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("content", zipMagicBytes);
+    // OOM exception causes a specific doc failure.
+    assertThrows(StageException.class, () -> stage.processDocument(doc2));
+
+    // note that our JVM is still fully operational!
+    Document doc3 = Document.create("doc3");
+    doc3.setField("content", tikaTxtBytes);
+    stage.processDocument(doc3);
+    assertEquals("Hi There!\n", doc3.getString("text"));
+  }
+
+  /**
+   * Registered (see tika-config-oom.xml) as the parser for application/zip only, so it doesn't
+   * interfere with normal text/plain parsing. Deliberately allocates memory until it dies, so
+   * the resulting OutOfMemoryError doesn't depend on tuning a heap size against any particular
+   * file's actual parse-time memory footprint.
+   */
+  public static class MemoryHogParser extends AbstractParser {
+
+    @Override
+    public Set<MediaType> getSupportedTypes(ParseContext context) {
+      return Collections.singleton(MediaType.application("zip"));
+    }
+
+    @Override
+    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
+        throws TikaException, IOException, SAXException {
+      List<byte[]> chunks = new ArrayList<>();
+      while (true) {
+        chunks.add(new byte[10_000_000]);
+      }
+    }
   }
 }
