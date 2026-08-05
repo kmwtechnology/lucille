@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -24,6 +25,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
+import org.apache.tika.metadata.TikaCoreProperties;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
@@ -53,6 +55,28 @@ import org.xml.sax.SAXException;
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
+ * metadataFields (Map, Optional) : Maps Tika metadata keys to the names of document fields whose values should be
+ * copied into the {@link Metadata} handed to Tika <i>before</i> parsing. This is the input to Tika, and is distinct
+ * from the metadata Tika produces <i>after</i> parsing (which is written back to the document under metadataPrefix).
+ * <br>
+ * The primary use case is supplying content-type detection hints. Because this stage parses from a plain
+ * {@link InputStream}, Tika's container-aware detectors are skipped and detection falls back to "Mime Magic" on the
+ * leading bytes alone. Providing hints lets Tika refine or override that guess. The two most useful keys are:
+ * <ul>
+ *   <li>{@link TikaCoreProperties#RESOURCE_NAME_KEY} ("resourceName") - the file name. Lets Tika use the extension,
+ *   e.g. to distinguish a CSV from generic text, or to pick the right parser when magic bytes are ambiguous.</li>
+ *   <li>{@link Metadata#CONTENT_TYPE} ("Content-Type") - an advertised content type, such as one returned by a web
+ *   server or a source repository.</li>
+ * </ul>
+ * Each map value is the name of the document field to read the hint from; document fields that are absent are skipped.
+ * See <a href="https://tika.apache.org/3.2.3/detection.html">Tika content type detection</a> for details. Example: a
+ * document with "filename" and "content_type" fields would be configured as
+ * {
+ *   "metadataFields": {
+ *     "resourceName": "filename",
+ *     "Content-Type": "content_type"
+ *   }
+ * }
  */
 public class TextExtractor extends Stage {
 
@@ -62,6 +86,7 @@ public class TextExtractor extends Stage {
       .optionalList("blacklist", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeout")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .optionalParent("metadataFields", new TypeReference<Map<String, Object>>() {})
       .include(FileContentFetcher.SPEC).build();
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
@@ -78,6 +103,7 @@ public class TextExtractor extends Stage {
   private final FileContentFetcher fileFetcher;
   private ExecutorService executorService;
   private final FieldFilter fieldFilter;
+  private final Map<String, Object> metadataFields;
 
   public TextExtractor(Config config) throws StageException {
     super(config);
@@ -90,9 +116,9 @@ public class TextExtractor extends Stage {
     textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
     fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
+    metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
 
     this.fieldFilter = new FieldFilter(config);
-
 
     if (filePathField != null && byteArrayField != null) {
       throw new StageException("Provided both a filePathField and byteArrayField to the TextExtractor stage");
@@ -154,12 +180,15 @@ public class TextExtractor extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     // if the document has both a byteArray field and a filePathField, only byteArray will be processed.
+
+    Metadata metadata = createMetadataInput(doc);
+
     if (doc.has(byteArrayField)) {
 
       byte[] byteArray = doc.getBytes(byteArrayField);
 
       try (InputStream inputStream = new ByteArrayInputStream(byteArray)) {
-        parseInputStream(doc, inputStream);
+        parseInputStream(metadata, doc, inputStream);
       } catch (IOException e) {
         log.warn("Error closing inputStream: ", e);
         return null;
@@ -170,12 +199,39 @@ public class TextExtractor extends Stage {
       String filePath = doc.getString(filePathField);
 
       try (InputStream contentStream = fileFetcher.getInputStream(filePath)) {
-        parseInputStream(doc, contentStream);
+        parseInputStream(metadata, doc, contentStream);
       } catch (Exception e) {
         log.warn("Error with InputStream for file path.", e);
       }
     }
     return null;
+  }
+
+  /**
+   * Builds the input {@link Metadata} handed to Tika before parsing, copying values from the given document into the
+   * metadata according to the configured {@code metadataFields} mapping.
+   *
+   * <p>Each entry maps a Tika metadata key to the name of a document field to read from. Fields the document does not
+   * contain are skipped, and multi-valued fields contribute all of their values. These values act as detection hints
+   * (see the class-level documentation), not as extracted output.
+   *
+   * @param doc the document to read the configured hint fields from.
+   * @return a {@code Metadata} populated with the configured hints (empty when {@code metadataFields} is unset).
+   */
+  public Metadata createMetadataInput(Document doc) {
+    Metadata metadata = new Metadata();
+    if (metadataFields != null) {
+      for (Map.Entry<String, Object> entry : metadataFields.entrySet()) {
+        String metadataKey = entry.getKey();
+        String docFieldName = entry.getValue().toString();
+        if (doc.has(docFieldName)) {
+          for (String value : doc.getStringList(docFieldName)) {
+            metadata.add(metadataKey, value);
+          }
+        }
+      }
+    }
+    return metadata;
   }
 
   /**
@@ -190,10 +246,13 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Parses given input stream, close it, and adds the text data and metadata to given document
+   * Parses the given input stream, extracts text content and metadata, and adds them to the provided document.
+   *
+   * @param metadata A {@code Metadata} object used to hold metadata extracted from the input stream.
+   * @param doc A {@code Document} object where the extracted text data and metadata will be stored.
+   * @param inputStream The {@code InputStream} containing the content to be parsed.
    */
-  public void parseInputStream(Document doc, InputStream inputStream) {
-    Metadata metadata = new Metadata();
+  public void parseInputStream(Metadata metadata, Document doc, InputStream inputStream) {
     ContentHandler bch = new BodyContentHandler(textContentLimit);
     if (parseTimeout == null) {
       parse(doc, inputStream, metadata, bch);
@@ -213,7 +272,7 @@ public class TextExtractor extends Stage {
     }
 
     doc.setOrAdd(textField, bch.toString());
-    String newMetadataPrefix = metadataPrefix == "" ? "" : metadataPrefix + "_";
+    String newMetadataPrefix = metadataPrefix.isEmpty() ? "" : metadataPrefix + "_";
     for (String name : metadata.names()) {
       // clean the field name first.
       String cleanName = cleanFieldName(name);
@@ -227,6 +286,14 @@ public class TextExtractor extends Stage {
         }
       }
     }
+  }
+
+  /**
+   * Parses given input stream, close it, and adds the text data and metadata to given document
+   */
+  public void parseInputStream(Document doc, InputStream inputStream) {
+    Metadata metadata = new Metadata();
+    parseInputStream(metadata, doc, inputStream);
   }
 
   private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch) {

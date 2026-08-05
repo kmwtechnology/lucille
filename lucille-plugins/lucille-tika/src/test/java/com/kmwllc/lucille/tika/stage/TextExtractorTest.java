@@ -1,7 +1,9 @@
 package com.kmwllc.lucille.tika.stage;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -380,6 +382,81 @@ public class TextExtractorTest {
 
     List<String> fieldNames = doc.getStringList("tika_property_names");
     assertEquals(List.of("tika_content_type"), fieldNames);
+  }
+
+  // when metadataFields is set, the referenced document fields' values should be copied into the Metadata
+  // handed to Tika (used, for example, to supply content-type detection hints such as resourceName / Content-Type).
+  @Test
+  public void testMetadataFieldsWiredIn() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("filename", "myfile.csv");
+    doc.setField("content_type", "text/plain");
+
+    Metadata metadata = stage.createMetadataInput(doc);
+
+    // the map values ("filename", "content_type") are document field NAMES; the document's VALUES are wired in
+    // under the configured Tika keys.
+    assertEquals("myfile.csv", metadata.get("resourceName"));
+    assertEquals("text/plain", metadata.get("Content-Type"));
+  }
+
+  // multi-valued document fields should contribute all of their values to the input Metadata
+  @Test
+  public void testMetadataFieldsMultiValued() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("filename", "first.csv");
+    doc.addToField("filename", "second.csv");
+
+    Metadata metadata = stage.createMetadataInput(doc);
+
+    assertArrayEquals(new String[]{"first.csv", "second.csv"}, metadata.getValues("resourceName"));
+  }
+
+  // document fields referenced by metadataFields but absent from the document should be skipped, not error
+  @Test
+  public void testMetadataFieldsMissingDocField() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("filename", "myfile.csv");
+    // note: no "content_type" field on the document
+
+    Metadata metadata = stage.createMetadataInput(doc);
+
+    assertEquals("myfile.csv", metadata.get("resourceName"));
+    assertNull(metadata.get("Content-Type"));
+  }
+
+  // when metadataFields is not configured, the input Metadata should be empty
+  @Test
+  public void testMetadataFieldsNotConfigured() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/filepath.conf");
+
+    Metadata metadata = stage.createMetadataInput(Document.create("doc1"));
+
+    assertEquals(0, metadata.names().length);
+  }
+
+  // end-to-end: the wired-in resourceName hint reaches the parser. Tika does not overwrite resourceName, so the value
+  // we injected round-trips into the extracted metadata, proving the input Metadata built from metadataFields was
+  // actually handed to the parser (this is the hook Tika uses for filename-based content-type detection).
+  @Test
+  public void testMetadataFieldsHintReachesParser() throws StageException, IOException {
+    Stage stage = factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    byte[] fileContent = Files.readAllBytes(new File("src/test/resources/TextExtractorTest/tika.txt").toPath());
+    doc.setField("byte_array", fileContent);
+    doc.setField("filename", "myfile.csv");
+
+    stage.processDocument(doc);
+
+    // the hint round-tripped through Tika's metadata, confirming it was passed to the parser
+    assertEquals("myfile.csv", doc.getString("tika_resourcename"));
   }
 
   public static class InterruptTrackingParser extends DefaultParser {
