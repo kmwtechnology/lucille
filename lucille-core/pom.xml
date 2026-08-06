@@ -748,41 +748,26 @@
     </dependency>
 
     <!-- GraalVM SDK -->
-    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
        <groupId>org.graalvm.sdk</groupId>
        <artifactId>graal-sdk</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.4</version>
     </dependency>
 
     <!-- GraalVM JavaScript -->
     <dependency>
        <groupId>org.graalvm.js</groupId>
        <artifactId>js</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.4</version>
        <type>pom</type>
     </dependency>
 
     <!-- GraalVM Python -->
-    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
         <groupId>org.graalvm.python</groupId>
         <artifactId>python-language</artifactId>
-        <version>24.2.2</version>
+        <version>25.0.4</version>
     </dependency>
-
-    <!-- Force upgrade of bouncycastle to patch CVEs from transitive graalvm python dependency -->
-    <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcpkix-jdk18on</artifactId>
-        <version>1.84</version>
-    </dependency>
-    <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcprov-jdk18on</artifactId>
-        <version>1.84</version>
-    </dependency>
-
     
     <!-- Py4J Python -->
     <dependency>
