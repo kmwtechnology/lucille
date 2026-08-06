@@ -768,19 +768,19 @@
     <dependency>
         <groupId>org.graalvm.python</groupId>
         <artifactId>python-language</artifactId>
-        <version>24.2.2</version>
+        <version>25.0.4</version>
     </dependency>
 
     <!-- Force upgrade of bouncycastle to patch CVEs from transitive graalvm python dependency -->
     <dependency>
         <groupId>org.bouncycastle</groupId>
         <artifactId>bcpkix-jdk18on</artifactId>
-        <version>1.84</version>
+        <version>1.85</version>
     </dependency>
     <dependency>
         <groupId>org.bouncycastle</groupId>
         <artifactId>bcprov-jdk18on</artifactId>
-        <version>1.84</version>
+        <version>1.85</version>
     </dependency>
 
     
