@@ -253,6 +253,13 @@
       <version>12.0.33</version>
       <scope>test</scope>
     </dependency>
+    <!-- Pin jetty-util to 12.0.35 — solr-solrj-jetty drags in 12.0.27 which has a CVE -->
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-util</artifactId>
+      <version>12.0.35</version>
+      <scope>test</scope>
+    </dependency>
 
     <!--  Note that this is also one of the dependencies for solr that we had to pull in manually. However,
        it is not test scoped because we use this in RunDetails.java as well. -->
