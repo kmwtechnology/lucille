@@ -98,6 +98,7 @@ public class ElasticsearchUtilsTest {
       ArgumentCaptor<HttpHost> hostCaptor = ArgumentCaptor.forClass(HttpHost.class);
       mockRest5Client.when(() -> Rest5Client.builder(hostCaptor.capture())).thenReturn(builder);
       when(builder.setHttpClient(any())).thenReturn(builder);
+      when(builder.setCompressionEnabled(false)).thenReturn(builder);
       when(builder.build()).thenReturn(rest5Client);
 
       SSLContextBuilder mockSSLBuilder = mock(SSLContextBuilder.class);
@@ -138,6 +139,7 @@ public class ElasticsearchUtilsTest {
       ArgumentCaptor<HttpHost> hostCaptor = ArgumentCaptor.forClass(HttpHost.class);
       mockRest5Client.when(() -> Rest5Client.builder(hostCaptor.capture())).thenReturn(builder);
       when(builder.setHttpClient(any())).thenReturn(builder);
+      when(builder.setCompressionEnabled(false)).thenReturn(builder);
       when(builder.build()).thenReturn(rest5Client);
 
       SSLContextBuilder mockSSLBuilder = mock(SSLContextBuilder.class);

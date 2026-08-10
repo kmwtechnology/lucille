@@ -32,7 +32,7 @@ public class ElasticsearchUtils {
 
   public static Spec ELASTICSEARCH_PARENT_SPEC = SpecBuilder.parent("elasticsearch")
       .requiredString("index", "url")
-      .optionalBoolean("update", "acceptInvalidCert")
+      .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalString("parentName")
       .optionalParent("join", new TypeReference<Map<String, String>>(){}).build();
 
@@ -82,8 +82,10 @@ public class ElasticsearchUtils {
             .build())
         .build();
 
+    boolean useCompression = config.hasPath("elasticsearch.useCompression") && config.getBoolean("elasticsearch.useCompression");
     Rest5Client rest5Client = Rest5Client.builder(host)
         .setHttpClient(httpClient)
+        .setCompressionEnabled(useCompression)
         .build();
 
     ElasticsearchTransport transport = new Rest5ClientTransport(rest5Client, new JacksonJsonpMapper());
