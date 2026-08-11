@@ -253,6 +253,13 @@
       <version>12.0.33</version>
       <scope>test</scope>
     </dependency>
+    <!-- Pin jetty-util to 12.0.35 — solr-solrj-jetty drags in 12.0.27 which has a CVE -->
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-util</artifactId>
+      <version>12.0.35</version>
+      <scope>test</scope>
+    </dependency>
 
     <!--  Note that this is also one of the dependencies for solr that we had to pull in manually. However,
        it is not test scoped because we use this in RunDetails.java as well. -->
@@ -673,7 +680,7 @@
     <dependency>
         <groupId>org.jsoup</groupId>
         <artifactId>jsoup</artifactId>
-        <version>1.17.2</version>
+        <version>1.23.1</version>
     </dependency>
 
     <!-- dependency for OpenAiEmbedding Stage -->
@@ -748,41 +755,26 @@
     </dependency>
 
     <!-- GraalVM SDK -->
-    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
        <groupId>org.graalvm.sdk</groupId>
        <artifactId>graal-sdk</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.4</version>
     </dependency>
 
     <!-- GraalVM JavaScript -->
     <dependency>
        <groupId>org.graalvm.js</groupId>
        <artifactId>js</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.4</version>
        <type>pom</type>
     </dependency>
 
     <!-- GraalVM Python -->
-    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
         <groupId>org.graalvm.python</groupId>
         <artifactId>python-language</artifactId>
-        <version>24.2.2</version>
+        <version>25.0.4</version>
     </dependency>
-
-    <!-- Force upgrade of bouncycastle to patch CVEs from transitive graalvm python dependency -->
-    <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcpkix-jdk18on</artifactId>
-        <version>1.84</version>
-    </dependency>
-    <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcprov-jdk18on</artifactId>
-        <version>1.84</version>
-    </dependency>
-
     
     <!-- Py4J Python -->
     <dependency>
