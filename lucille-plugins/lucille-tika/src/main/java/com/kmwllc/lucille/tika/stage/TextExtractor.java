@@ -257,8 +257,7 @@ public class TextExtractor extends Stage {
       String filePath = doc.getString(filePathField);
 
       // wrap in a TikaInputStream so container-aware detectors (which need to spool the content to a file) can run;
-      // a plain InputStream would limit detection to Mime-Magic on the leading bytes. Closing the TikaInputStream
-      // also closes the underlying content stream, so it is the only resource we need to manage here.
+      // a plain InputStream would limit detection to Mime-Magic on the leading bytes.
       try (InputStream fetchedStream = fileFetcher.getInputStream(filePath); TikaInputStream tikaStream = TikaInputStream.get(fetchedStream)) {
         parseInputStream(metadata, doc, tikaStream);
       } catch (IOException e) {

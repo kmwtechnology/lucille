@@ -12,7 +12,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -292,8 +292,10 @@ public class TextExtractorTest {
       // go through the process of processing the document.
       stage.processDocument(doc);
 
-      // verify that close method is called on the inputStream
-      verify(inputStream, times(1)).close();
+      // verify the fetched inputStream is closed (no leak). The stream is both wrapped in a TikaInputStream and
+      // declared directly in the try-with-resources for exception safety, so close() may be invoked more than once;
+      // close() is idempotent, so we only assert it happens at least once.
+      verify(inputStream, atLeastOnce()).close();
     }
 
   }
