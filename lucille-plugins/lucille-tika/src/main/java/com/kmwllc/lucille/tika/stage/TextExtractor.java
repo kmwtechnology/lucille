@@ -66,7 +66,8 @@ import org.xml.sax.SAXException;
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
  * metadataFields (Map, Optional) : Maps Tika metadata keys to the names of document fields whose values should be
  * copied into the {@link Metadata} handed to Tika <i>before</i> parsing. This is the input to Tika, and is distinct
- * from the metadata Tika produces <i>after</i> parsing (which is written back to the document under metadataPrefix).
+ * from the metadata Tika produces <i>after</i> parsing (Both input and output metadata are written back to the document under
+ * metadataPrefix unless they are filtered out by the whitelist and/or blacklist configuration).
  * <br>
  * The primary use case is supplying content-type detection hints. Because this stage parses from a plain
  * {@link InputStream}, Tika's container-aware detectors are skipped and detection falls back to "Mime Magic" on the
@@ -258,7 +259,7 @@ public class TextExtractor extends Stage {
       // wrap in a TikaInputStream so container-aware detectors (which need to spool the content to a file) can run;
       // a plain InputStream would limit detection to Mime-Magic on the leading bytes. Closing the TikaInputStream
       // also closes the underlying content stream, so it is the only resource we need to manage here.
-      try (TikaInputStream tikaStream = TikaInputStream.get(fileFetcher.getInputStream(filePath))) {
+      try (InputStream fetchedStream = fileFetcher.getInputStream(filePath); TikaInputStream tikaStream = TikaInputStream.get(fetchedStream)) {
         parseInputStream(metadata, doc, tikaStream);
       } catch (IOException e) {
         log.warn("Error processing file {}", filePath, e);
@@ -352,14 +353,6 @@ public class TextExtractor extends Stage {
         }
       }
     }
-  }
-
-  /**
-   * Parses given input stream, close it, and adds the text data and metadata to given document
-   */
-  public void parseInputStream(Document doc, InputStream inputStream) throws StageException {
-    Metadata metadata = new Metadata();
-    parseInputStream(metadata, doc, inputStream);
   }
 
   private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch) throws StageException {
