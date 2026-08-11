@@ -1,14 +1,18 @@
 package com.kmwllc.lucille.tika.stage;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
 import org.apache.tika.parser.AbstractParser;
@@ -43,6 +48,7 @@ import org.apache.tika.parser.DefaultParser;
 import org.apache.tika.parser.ParseContext;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
@@ -286,8 +292,10 @@ public class TextExtractorTest {
       // go through the process of processing the document.
       stage.processDocument(doc);
 
-      // verify that close method is called on the inputStream
-      verify(inputStream, times(1)).close();
+      // verify the fetched inputStream is closed (no leak). The stream is both wrapped in a TikaInputStream and
+      // declared directly in the try-with-resources for exception safety, so close() may be invoked more than once;
+      // close() is idempotent, so we only assert it happens at least once.
+      verify(inputStream, atLeastOnce()).close();
     }
 
   }
@@ -382,6 +390,120 @@ public class TextExtractorTest {
 
     List<String> fieldNames = doc.getStringList("tika_property_names");
     assertEquals(List.of("tika_content_type"), fieldNames);
+  }
+
+  // when metadataFields is set, the referenced document fields' values should be copied into the Metadata
+  // handed to Tika (used, for example, to supply content-type detection hints such as resourceName / Content-Type).
+  @Test
+  public void testMetadataFieldsWiredIn() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("filename", "myfile.csv");
+    doc.setField("content_type", "text/plain");
+
+    Metadata metadata = stage.createMetadataInput(doc);
+
+    // the map values ("filename", "content_type") are document field NAMES; the document's VALUES are wired in
+    // under the configured Tika keys.
+    assertEquals("myfile.csv", metadata.get("resourceName"));
+    assertEquals("text/plain", metadata.get("Content-Type"));
+  }
+
+  // multi-valued document fields should contribute all of their values to the input Metadata
+  @Test
+  public void testMetadataFieldsMultiValued() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("filename", "first.csv");
+    doc.addToField("filename", "second.csv");
+
+    Metadata metadata = stage.createMetadataInput(doc);
+
+    assertArrayEquals(new String[]{"first.csv", "second.csv"}, metadata.getValues("resourceName"));
+  }
+
+  // document fields referenced by metadataFields but absent from the document should be skipped, not error
+  @Test
+  public void testMetadataFieldsMissingDocField() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("filename", "myfile.csv");
+    // note: no "content_type" field on the document
+
+    Metadata metadata = stage.createMetadataInput(doc);
+
+    assertEquals("myfile.csv", metadata.get("resourceName"));
+    assertNull(metadata.get("Content-Type"));
+  }
+
+  // when metadataFields is not configured, the input Metadata should be empty
+  @Test
+  public void testMetadataFieldsNotConfigured() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/filepath.conf");
+
+    Metadata metadata = stage.createMetadataInput(Document.create("doc1"));
+
+    assertEquals(0, metadata.names().length);
+  }
+
+  // end-to-end: the wired-in resourceName hint reaches the parser. Tika does not overwrite resourceName, so the value
+  // we injected round-trips into the extracted metadata, proving the input Metadata built from metadataFields was
+  // actually handed to the parser (this is the hook Tika uses for filename-based content-type detection).
+  @Test
+  public void testMetadataFieldsHintReachesParser() throws StageException, IOException {
+    Stage stage = factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    byte[] fileContent = Files.readAllBytes(new File("src/test/resources/TextExtractorTest/tika.txt").toPath());
+    doc.setField("byte_array", fileContent);
+    doc.setField("filename", "myfile.csv");
+
+    stage.processDocument(doc);
+
+    // the hint round-tripped through Tika's metadata, confirming it was passed to the parser
+    assertEquals("myfile.csv", doc.getString("tika_resourcename"));
+  }
+
+  // processDocument should wrap the file-path content in a TikaInputStream before handing it to the parser, so
+  // container-aware detectors can spool and inspect the content (a plain InputStream limits detection to Mime Magic).
+  @Test
+  public void testFilePathWrappedInTikaInputStream() throws Exception {
+    TextExtractor stage = spy((TextExtractor) factory.get("TextExtractorTest/filepath.conf"));
+    stage.start();
+
+    Document doc = Document.create("doc1");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+
+    ArgumentCaptor<InputStream> streamCaptor = ArgumentCaptor.forClass(InputStream.class);
+    verify(stage).parseInputStream(any(Metadata.class), eq(doc), streamCaptor.capture());
+    assertTrue("stream handed to the parser should be a TikaInputStream, was: " + streamCaptor.getValue().getClass(),
+        streamCaptor.getValue() instanceof TikaInputStream);
+
+    stage.stop();
+  }
+
+  // same as above, for the byteArray path
+  @Test
+  public void testByteArrayWrappedInTikaInputStream() throws Exception {
+    TextExtractor stage = spy((TextExtractor) factory.get("TextExtractorTest/bytearray.conf"));
+    stage.start();
+
+    Document doc = Document.create("doc1");
+    doc.setField("byte_array", Files.readAllBytes(new File("src/test/resources/TextExtractorTest/tika.txt").toPath()));
+
+    stage.processDocument(doc);
+
+    ArgumentCaptor<InputStream> streamCaptor = ArgumentCaptor.forClass(InputStream.class);
+    verify(stage).parseInputStream(any(Metadata.class), eq(doc), streamCaptor.capture());
+    assertTrue("stream handed to the parser should be a TikaInputStream, was: " + streamCaptor.getValue().getClass(),
+        streamCaptor.getValue() instanceof TikaInputStream);
+
+    stage.stop();
   }
 
   public static class InterruptTrackingParser extends DefaultParser {
