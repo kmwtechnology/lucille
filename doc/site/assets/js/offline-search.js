@@ -1,4 +1,8 @@
-// Adapted from code by Matt Walters https://www.mattwalters.net/posts/2018-03-28-hugo-and-lunr/
+// Adapted code from https://github.com/google/docsy/blob/v0.14.0/assets/js/offline-search.js
+// Main changes from original code:
+// - buildSnippet() centers the result snippet on the actual match and highlights it, instead of a static excerpt
+// - only highlights matches that are exact or contain the raw query word (excludes fuzzy/wildcard noise, see queryStems)
+// - appends "?q=" to result links so hooks/body-end.html can highlight + scroll to the match on the destination page
 
 (function ($) {
   'use strict';
@@ -33,7 +37,7 @@
     $.ajax($searchInput.data('offline-search-index-json-src')).then((data) => {
       idx = lunr(function () {
         this.ref('ref');
-        this.metadataWhitelist = ['position'];
+        this.metadataWhitelist = ['position']; // Match position needed for snippet generation
 
         // If you added more searchable fields to the search index, list them here.
         // Here you can specify searchable fields to the search index - e.g. individual toxonomies for you project
@@ -123,7 +127,6 @@
       return $p.text(doc.excerpt);
     }
 
-
     const render = ($targetSearchInput) => {
       //
       // Dispose existing popover
@@ -210,7 +213,7 @@
           const href =
             $searchInput.data('offline-search-base-href') +
             r.ref.replace(/^\//, '') +
-            '?q=' + encodeURIComponent(searchQuery);
+            '?q=' + encodeURIComponent(searchQuery); // read by hooks/body-end.html to highlight the match on the destination page
 
           const $entry = $('<div>').addClass('mt-4');
 
