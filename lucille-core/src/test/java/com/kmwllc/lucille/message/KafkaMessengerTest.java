@@ -47,7 +47,9 @@ public class KafkaMessengerTest {
       messenger.sendFailed(doc);
       ArgumentCaptor<ProducerRecord> captor = ArgumentCaptor.forClass(ProducerRecord.class);
       Mockito.verify(mockProducer, Mockito.times(1)).send(captor.capture());
-      Mockito.verify(mockProducer, Mockito.times(1)).flush();
+      // the send is followed by a get() on the returned future, which already establishes
+      // durability for that record; a per-record flush() would only add a producer-global barrier
+      Mockito.verify(mockProducer, Mockito.never()).flush();
       Mockito.verify(mockResult, Mockito.times(1)).get();
 
       assertEquals("foo_fail", captor.getValue().topic());
@@ -97,7 +99,9 @@ public class KafkaMessengerTest {
       messenger2.sendEvent(event);
       ArgumentCaptor<ProducerRecord> captor = ArgumentCaptor.forClass(ProducerRecord.class);
       Mockito.verify(mockProducer, Mockito.times(1)).send(captor.capture());
-      Mockito.verify(mockProducer, Mockito.times(1)).flush();
+      // the send is followed by a get() on the returned future, which already establishes
+      // durability for that record; a per-record flush() would only add a producer-global barrier
+      Mockito.verify(mockProducer, Mockito.never()).flush();
       Mockito.verify(mockResult, Mockito.times(1)).get();
 
       assertEquals("foo2_event_id", captor.getValue().topic());
@@ -148,7 +152,9 @@ public class KafkaMessengerTest {
 
       ArgumentCaptor<ProducerRecord> captor = ArgumentCaptor.forClass(ProducerRecord.class);
       Mockito.verify(mockProducer, Mockito.times(1)).send(captor.capture());
-      Mockito.verify(mockProducer, Mockito.times(1)).flush();
+      // the send is followed by a get() on the returned future, which already establishes
+      // durability for that record; a per-record flush() would only add a producer-global barrier
+      Mockito.verify(mockProducer, Mockito.never()).flush();
       Mockito.verify(mockResult, Mockito.times(1)).get();
 
       assertEquals("foo2_event_id", captor.getValue().topic());
