@@ -2,24 +2,48 @@
   Depends on assets/js/offline-search.js appending the search query to destination URLs -->
 
 {{ if .Site.Params.offlineSearch -}}
-<script src='{{ "js/mark.min.js" | relURL }}'></script>
+<style>
+  ::highlight(search-match) { background-color: yellow; }
+</style>
 <script>
   (function () {
     var q = new URLSearchParams(window.location.search).get('q');
     var content = document.querySelector('.td-content');
-    if (!q || !content || typeof Mark === 'undefined') return;
+    var words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!q || !content || !CSS.highlights) return;
 
-    new Mark(content).mark(q, {
-      separateWordSearch: true,
-      acrossElements: true,
-      done: function () {
-        var first = content.querySelector('mark');
-        if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      },
-    });
-
+    function findMatches(root) {
+      var matches = [];
+      var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      var node;
+      while ((node = walker.nextNode())) {
+        var text = node.textContent.toLowerCase();
+        words.forEach(function (word) {
+          var start = 0, index;
+          while ((index = text.indexOf(word, start)) >= 0) {
+            var match = new Range();
+            match.setStart(node, index);
+            match.setEnd(node, index + word.length);
+            matches.push(match);
+            start = index + word.length;
+          }
+        });
+      }
+      return matches;
+    }
+    var contentMatches = findMatches(content);
     var toc = document.querySelector('.td-toc');
-    if (toc) new Mark(toc).mark(q, { separateWordSearch: true });
+    var tocMatches = toc ? findMatches(toc) : [];
+    var allMatches = contentMatches.concat(tocMatches);
+    if (!allMatches.length) return;
+    CSS.highlights.set('search-match', new Highlight(...allMatches));
+    if (contentMatches[0]) contentMatches[0].startContainer.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Removes ?q= from the URL bar once highlighting is applied, so bookmarked/shared links are clean.
+    // Additionally removes highlights on refresh
+    var url = new URL(window.location);
+    url.searchParams.delete('q');
+    history.replaceState(null, '', url);
   })();
 </script>
 {{- end }}
