@@ -31,7 +31,7 @@ public class KafkaMessengerTest {
       KafkaConsumer<String, KafkaDocument> mockConsumer = (KafkaConsumer<String, KafkaDocument>) Mockito.mock(KafkaConsumer.class);
       randomUtils.when(() -> RandomStringUtils.randomAlphanumeric(8)).thenReturn("random");
       kafkaUtils.when(() -> {
-        KafkaUtils.createDocumentProducer(config);
+        KafkaUtils.createDocumentProducer(Mockito.eq(config), Mockito.anyString());
       }).thenReturn(mockProducer);
       kafkaUtils.when(() -> {
         KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-worker-foo-random");
@@ -73,10 +73,10 @@ public class KafkaMessengerTest {
       KafkaConsumer<String, KafkaDocument> mockConsumer = (KafkaConsumer<String, KafkaDocument>) Mockito.mock(KafkaConsumer.class);
       randomUtils.when(() -> RandomStringUtils.randomAlphanumeric(8)).thenReturn("random");
       kafkaUtils.when(() -> {
-        KafkaUtils.createEventProducer(config);
+        KafkaUtils.createEventProducer(Mockito.eq(config), Mockito.anyString());
       }).thenReturn(null);
       kafkaUtils.when(() -> {
-        KafkaUtils.createEventProducer(config2);
+        KafkaUtils.createEventProducer(Mockito.eq(config2), Mockito.anyString());
       }).thenReturn(mockProducer);
       kafkaUtils.when(() -> {
         KafkaUtils.createDocumentConsumer(config2, "com.kmwllc.lucille-worker-foo2-random");
@@ -127,10 +127,10 @@ public class KafkaMessengerTest {
       KafkaConsumer<String, KafkaDocument> mockConsumer = (KafkaConsumer<String, KafkaDocument>) Mockito.mock(KafkaConsumer.class);
       randomUtils.when(() -> RandomStringUtils.randomAlphanumeric(8)).thenReturn("random");
       kafkaUtils.when(() -> {
-        KafkaUtils.createEventProducer(config);
+        KafkaUtils.createEventProducer(Mockito.eq(config), Mockito.anyString());
       }).thenReturn(null);
       kafkaUtils.when(() -> {
-        KafkaUtils.createEventProducer(config2);
+        KafkaUtils.createEventProducer(Mockito.eq(config2), Mockito.anyString());
       }).thenReturn(mockProducer);
       kafkaUtils.when(() -> {
         KafkaUtils.createDocumentConsumer(config2, "com.kmwllc.lucille-worker-foo2-random");

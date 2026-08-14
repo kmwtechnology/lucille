@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -41,7 +42,10 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.idSet = idSet;
-    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    // random suffix because several indexers can run as separate threads in one JVM, and Kafka warns
+    // on duplicate client ids
+    this.kafkaEventProducer = KafkaUtils.createEventProducer(config,
+        "com.kmwllc.lucille-indexer-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8) + "-events");
     this.pipelineName = pipelineName;
     this.config = config;
   }

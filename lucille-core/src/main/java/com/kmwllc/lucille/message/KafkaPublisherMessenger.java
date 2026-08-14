@@ -41,7 +41,7 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
     String eventTopicName = KafkaUtils.getEventTopicName(config, pipelineName, runId);
     this.eventConsumer = KafkaUtils.createEventConsumer(config, kafkaClientId);
     this.eventConsumer.subscribe(Collections.singletonList(eventTopicName));
-    this.kafkaProducer = KafkaUtils.createDocumentProducer(config);
+    this.kafkaProducer = KafkaUtils.createDocumentProducer(config, kafkaClientId + "-documents");
   }
 
   @Override

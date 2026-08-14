@@ -27,11 +27,11 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
     this.pipelineName = pipelineName;
-    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
-    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
+    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config, kafkaClientId + "-documents");
+    this.kafkaEventProducer = KafkaUtils.createEventProducer(config, kafkaClientId + "-events");
     this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
   }

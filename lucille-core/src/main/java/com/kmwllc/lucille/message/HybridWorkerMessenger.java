@@ -36,7 +36,10 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
-    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    // random suffix for the same reason as the source consumer's: several of these run as separate
+    // worker threads in one JVM, and Kafka warns on duplicate client ids
+    this.kafkaEventProducer = KafkaUtils.createEventProducer(config,
+        "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8) + "-events");
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName,

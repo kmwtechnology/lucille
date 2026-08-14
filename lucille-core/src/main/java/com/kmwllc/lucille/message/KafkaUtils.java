@@ -47,11 +47,18 @@ public class KafkaUtils {
       .requiredString("bootstrapServers", "consumerGroupId")
       .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
       .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
-          "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic")
-      .optionalNumber("metadataMaxAgeMs", "lingerMs").build();
+          "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
+          "compressionType")
+      .optionalNumber("metadataMaxAgeMs", "lingerMs", "bufferMemory", "batchSize", "deliveryTimeoutMs").build();
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
+
+  /** kafka-clients' own buffer.memory default, used as the floor when Lucille sizes the accumulator. */
+  private static final long DEFAULT_BUFFER_MEMORY = 33_554_432L;
+  private static final int DEFAULT_BATCH_SIZE = 131_072;
+  private static final String DEFAULT_COMPRESSION_TYPE = "lz4";
+  private static final int DEFAULT_DELIVERY_TIMEOUT_MS = 120_000;
 
   private static Properties loadExternalProps(String filename, Config config) {
     try (Reader propertiesReader = FileContentFetcher.getOneTimeReader(filename, StandardCharsets.UTF_8.name(), config)) {
@@ -134,28 +141,64 @@ public class KafkaUtils {
   }
 
   //access set to package so unit tests can validate created properties without initializing a Producer
-  static Properties createProducerProps(Config config) {
+  static Properties createProducerProps(Config config, String clientId) {
     if (config.hasPath("kafka.producerPropertyFile")) {
-      return loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+      Properties loadedProps = loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+      // the file replaces Lucille's settings wholesale, by design -- but the client id is assigned per
+      // component, and every producer keys its records by document id, so neither is the file's to pick
+      loadedProps.put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
+      loadedProps.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+      return loadedProps;
     }
     Properties producerProps = new Properties();
     producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     if (config.hasPath("kafka.securityProtocol")) {
       producerProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, config.getString("kafka.securityProtocol"));
     }
-    producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getInt("kafka.maxRequestSize"));
-    producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getInt("kafka.maxRequestSize"));
     producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    // without a client id the broker cannot tell Lucille's producers apart in its request logs, its
+    // metrics, or its quotas -- every one of them reports as the empty default
+    producerProps.put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
+
+    int maxRequestSize = config.getInt("kafka.maxRequestSize");
+    producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, maxRequestSize);
+    // buffer.memory used to be pinned to maxRequestSize. They bound unrelated things -- the whole
+    // accumulator versus a single record -- so bringing maxRequestSize down to a size a broker will
+    // actually accept silently shrank the send buffer with it. The default still covers an oversized
+    // maxRequestSize, because a record larger than the accumulator can never be sent at all.
+    producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.hasPath("kafka.bufferMemory")
+        ? config.getLong("kafka.bufferMemory")
+        : Math.max(DEFAULT_BUFFER_MEMORY, maxRequestSize));
+
     // Pinned rather than left to the client default, which changed from 0 to 5 in kafka-clients 4.0.
-    // Lucille's producers send synchronously (send().get()), so the calling thread has nothing to
-    // batch with while it waits: any non-zero linger is added directly to the per-record latency.
-    // Raise this once the send path becomes asynchronous, at which point linger buys real batching.
-    producerProps.put(ProducerConfig.LINGER_MS_CONFIG, ConfigUtils.getOrDefault(config, "kafka.lingerMs", 0));
+    // The publisher's send is asynchronous, so its threads do not wait on a linger and batches fill
+    // from the queue depth instead (91 records/request measured at linger 0). Everything else here --
+    // the worker's document sends, every event send -- is still send().get(), where any non-zero
+    // linger is added directly to the per-record latency. Revisit when those paths go async.
+    producerProps.put(ProducerConfig.LINGER_MS_CONFIG,
+        config.hasPath("kafka.lingerMs") ? config.getLong("kafka.lingerMs") : 0L);
+    // the client default of 16 KB is small for Lucille documents now that batches actually fill
+    producerProps.put(ProducerConfig.BATCH_SIZE_CONFIG,
+        config.hasPath("kafka.batchSize") ? config.getInt("kafka.batchSize") : DEFAULT_BATCH_SIZE);
+    // documents go over the wire as JSON, which compresses well; the cost is per batch, so this only
+    // became worth paying once the sends stopped being one record at a time
+    producerProps.put(ProducerConfig.COMPRESSION_TYPE_CONFIG,
+        config.hasPath("kafka.compressionType") ? config.getString("kafka.compressionType") : DEFAULT_COMPRESSION_TYPE);
+    // states the client default as a deliberate bound rather than inheriting it
+    producerProps.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
+        config.hasPath("kafka.deliveryTimeoutMs") ? config.getInt("kafka.deliveryTimeoutMs") : DEFAULT_DELIVERY_TIMEOUT_MS);
+
+    // Not configurable: the Publisher stops tracking a document as soon as the producer reports it
+    // accepted, so "accepted" has to mean replicated, and a retried batch must not land after a later
+    // one. Both of these were inherited defaults that changed underneath Lucille in kafka-clients 3.0.
+    // A deployment that genuinely needs different values can supply a kafka.producerPropertyFile.
+    producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
+    producerProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
     return producerProps;
   }
 
-  public static KafkaProducer<String, Document> createDocumentProducer(Config config) {
-    Properties producerProps = createProducerProps(config);
+  public static KafkaProducer<String, Document> createDocumentProducer(Config config, String clientId) {
+    Properties producerProps = createProducerProps(config, clientId);
     String serializerClass = config.hasPath("kafka.documentSerializer")
         ? config.getString("kafka.documentSerializer")
         : KafkaDocumentSerializer.class.getName();
@@ -163,11 +206,11 @@ public class KafkaUtils {
     return new KafkaProducer<>(producerProps);
   }
 
-  public static KafkaProducer<String, String> createEventProducer(Config config) {
+  public static KafkaProducer<String, String> createEventProducer(Config config, String clientId) {
     if (config.hasPath("kafka.events") && !config.getBoolean("kafka.events")) {
       return null;
     }
-    Properties producerProps = createProducerProps(config);
+    Properties producerProps = createProducerProps(config, clientId);
     producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     return new KafkaProducer<>(producerProps);
   }

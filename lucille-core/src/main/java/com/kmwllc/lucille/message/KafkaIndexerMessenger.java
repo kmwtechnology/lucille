@@ -28,7 +28,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     String kafkaClientId = "com.kmwllc.lucille-indexer-" + pipelineName;
     this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
-    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.kafkaEventProducer = KafkaUtils.createEventProducer(config, kafkaClientId + "-events");
     this.config = config;
   }
 

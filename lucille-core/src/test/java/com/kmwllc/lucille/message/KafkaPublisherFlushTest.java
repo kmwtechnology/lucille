@@ -16,6 +16,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -77,6 +78,7 @@ import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 public class KafkaPublisherFlushTest {
 
   private static final String SOURCE_TOPIC = "flushtest_source";
+  private static final AtomicInteger PRODUCER_SEQ = new AtomicInteger();
   private static final String PIPELINE = "flushtest";
 
   private static final int THREADS = 16;
@@ -397,7 +399,9 @@ public class KafkaPublisherFlushTest {
 
   /** Builds a producer from the real production properties, optionally overriding linger.ms. */
   private KafkaProducer<String, Document> documentProducer(Config config, String lingerMsOverride) {
-    Properties props = KafkaUtils.createProducerProps(config);
+    // distinct client id per producer: several are alive at once here, and Kafka warns when two
+    // register the same one
+    Properties props = KafkaUtils.createProducerProps(config, "flushtest-" + PRODUCER_SEQ.incrementAndGet());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaDocumentSerializer.class.getName());
     if (lingerMsOverride != null) {
       props.put(ProducerConfig.LINGER_MS_CONFIG, lingerMsOverride);
