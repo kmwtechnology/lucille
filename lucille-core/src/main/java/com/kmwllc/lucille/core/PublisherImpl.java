@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.Condition;
 import org.apache.commons.collections4.Bag;
@@ -59,10 +60,16 @@ public class PublisherImpl implements Publisher {
   // than the number of calls to publish() if isCollapsing==true
   private AtomicLong numPublished = new AtomicLong(0);
 
-  private long numCreated = 0;
-  private long numFailed = 0;
-  private long numSucceeded = 0;
-  private long numDropped = 0;
+  // these are mutated by the single event-handling thread in handleEvent(), and numFailed is also
+  // mutated by producer callbacks on the messenger's I/O thread, so they must be atomic
+  private final AtomicLong numCreated = new AtomicLong(0);
+  private final AtomicLong numFailed = new AtomicLong(0);
+  private final AtomicLong numSucceeded = new AtomicLong(0);
+  private final AtomicLong numDropped = new AtomicLong(0);
+
+  // the first failure reported by a messenger send that had already been handed off, and so could
+  // not be thrown from publish(). Held so that the run fails rather than silently losing documents.
+  private final AtomicReference<Exception> publishException = new AtomicReference<>();
 
   private Instant start;
   private final Timer timer;
@@ -252,6 +259,14 @@ public class PublisherImpl implements Publisher {
   }
 
   private void sendForProcessing(Document document) throws Exception {
+    // a send that failed on the messenger's I/O thread after we had already returned from publish()
+    // has nowhere else to surface; report it on the next publish so the connector stops promptly
+    // rather than feeding documents to a destination that is not accepting them
+    Exception previousFailure = publishException.get();
+    if (previousFailure != null) {
+      throw new Exception("A previously published document could not be sent for processing", previousFailure);
+    }
+
     document.initializeRunId(runId);
 
     // capture the docId before we make the document available for update by other threads
@@ -264,7 +279,7 @@ public class PublisherImpl implements Publisher {
     docIdsToTrack.add(docId);
 
     try {
-      messenger.sendForProcessing(document);
+      messenger.sendForProcessing(document, exception -> onSendComplete(docId, exception));
     } catch (Exception e) {
       // we assume that if an exception was encountered here, the doc was not actually made available for processing,
       // and that we won't be receiving any Events relating to it, so we can stop tracking its docId now
@@ -273,6 +288,29 @@ public class PublisherImpl implements Publisher {
     }
 
     numPublished.incrementAndGet();
+  }
+
+  /**
+   * Invoked when the messenger has accepted a Document, or permanently failed to. Runs on the
+   * messenger's I/O thread for asynchronous messengers, so it touches only atomic state and does
+   * not block.
+   */
+  private void onSendComplete(String docId, Exception exception) {
+    if (exception == null) {
+      return;
+    }
+
+    // the document never reached the pipeline, so no worker will ever emit a terminal Event for it;
+    // leaving it in docIdsToTrack would hold waitForCompletion() open until the connector timeout
+    if (docIdsToTrack.remove(docId, 1)) {
+      signalIfPendingDocsBelowMax();
+    }
+    numFailed.incrementAndGet();
+
+    // keep the first failure: it is the one with the most useful cause, and later sends often fail
+    // only as a consequence of it
+    publishException.compareAndSet(null, exception);
+    log.error("Failed to publish document {}", docId, exception);
   }
 
   @Override
@@ -308,7 +346,7 @@ public class PublisherImpl implements Publisher {
 
     if (event.isCreate()) {
 
-      numCreated++;
+      numCreated.incrementAndGet();
 
       // if we're learning that a child document has been created, we need to begin tracking it unless
       // we have already received an early confirmation that it was indexed
@@ -320,11 +358,11 @@ public class PublisherImpl implements Publisher {
     } else {
 
       if (Event.Type.FINISH.equals(event.getType())) {
-        numSucceeded++;
+        numSucceeded.incrementAndGet();
       } else if (Event.Type.FAIL.equals(event.getType())) {
-        numFailed++;
+        numFailed.incrementAndGet();
       } else if (Event.Type.DROP.equals(event.getType())) {
-        numDropped++;
+        numDropped.incrementAndGet();
       }
 
       // if we're learning that a document has finished processing, or failed, we can stop tracking it;
@@ -334,24 +372,30 @@ public class PublisherImpl implements Publisher {
       if (!docIdsToTrack.remove(docId, 1)) {
         docIdsIndexedBeforeTracking.add(docId);
       } else {
-        if (maxPendingDocs != null) {
-          try {
-            lockForPendingDocs.lock();
-            // since we have removed a docID from the bag of docIdsToTrack (and this is the main place where we do this),
-            // check to see if the number of pending docs has fallen below the specified max and
-            // notify any threads that are waiting on that condition; specifically, notify the connector thread(s)
-            // where publish() is being called
-            if (docIdsToTrack.size() < maxPendingDocs) {
-              pendingDocsBelowMaxCondition.signalAll();
-            }
-          } finally {
-            lockForPendingDocs.unlock();
-          }
-        }
+        signalIfPendingDocsBelowMax();
       }
     }
 
     MDC.remove(Document.ID_FIELD);
+  }
+
+  /**
+   * Called after removing a docId from docIdsToTrack. Checks whether the number of pending docs has
+   * fallen below the specified max and, if so, notifies any threads waiting on that condition --
+   * specifically the connector thread(s) blocked in publish().
+   */
+  private void signalIfPendingDocsBelowMax() {
+    if (maxPendingDocs == null) {
+      return;
+    }
+    try {
+      lockForPendingDocs.lock();
+      if (docIdsToTrack.size() < maxPendingDocs) {
+        pendingDocsBelowMaxCondition.signalAll();
+      }
+    } finally {
+      lockForPendingDocs.unlock();
+    }
   }
 
   @Override
@@ -409,12 +453,20 @@ public class PublisherImpl implements Publisher {
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
             timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
         log.info("{} docs published{}. {} children created. {} success events. {} failure events. {} drop events.",
-            numReceived.get(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
-        if (numPublished.get() > 0 && numFailed == 0) {
+            numReceived.get(), collapseInfo, numCreated.get(), numSucceeded.get(), numFailed.get(), numDropped.get());
+        if (numPublished.get() > 0 && numFailed.get() == 0) {
           log.info("All documents SUCCEEDED.");
         }
-        if (numFailed > 0) {
-          log.error(numFailed + " documents FAILED, but run will continue.");
+        if (numFailed.get() > 0) {
+          log.error(numFailed.get() + " documents FAILED, but run will continue.");
+        }
+        // A document whose send failed asynchronously was removed from tracking by the callback, so
+        // it cannot hold the run open. Without this check the run would report success having
+        // silently dropped it.
+        Exception publishFailure = publishException.get();
+        if (publishFailure != null) {
+          log.error("Exiting run: one or more documents could not be published", publishFailure);
+          return new PublisherResult(false, "Publish failure: " + publishFailure.getMessage());
         }
         return new PublisherResult(!thread.hasException(), null);
       }
@@ -454,22 +506,22 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public long numCreated() {
-    return numCreated;
+    return numCreated.get();
   }
 
   @Override
   public long numSucceeded() {
-    return numSucceeded;
+    return numSucceeded.get();
   }
 
   @Override
   public long numFailed() {
-    return numFailed;
+    return numFailed.get();
   }
 
   @Override
   public long numDropped() {
-    return numDropped;
+    return numDropped.get();
   }
 
   public Integer getMaxPendingDocs() {

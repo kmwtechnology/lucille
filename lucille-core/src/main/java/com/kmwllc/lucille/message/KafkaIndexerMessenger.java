@@ -9,7 +9,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,9 +71,9 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
-        new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaEventProducer.flush(); // TODO
+    // see KafkaPublisherMessenger.sendForProcessing for why there is no flush() here
+    kafkaEventProducer.send(
+        new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
   }
 
   @Override

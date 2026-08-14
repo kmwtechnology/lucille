@@ -7,7 +7,6 @@ import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 
 import java.util.HashMap;
@@ -59,9 +58,9 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     }
     if (kafkaEventProducer != null) {
       String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-      RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
-          new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-      kafkaEventProducer.flush(); // TODO
+      // see KafkaPublisherMessenger.sendForProcessing for why there is no flush() here
+      kafkaEventProducer.send(
+          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
     }
   }
 

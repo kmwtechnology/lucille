@@ -7,7 +7,9 @@ import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Test;
 
 import java.util.Properties;
@@ -47,6 +49,33 @@ public class KafkaUtilsTest {
       assertThat(String.format("%s should match.", key), directProps.get(key.toString()).toString(),
           equalTo(externalProps.get(key.toString()).toString()));
     }
+  }
+
+  /**
+   * The asynchronous publish path relies on producer settings that Lucille never states explicitly,
+   * and kafka-clients has changed those defaults underneath it twice (acks 1 -> all in 3.0,
+   * linger.ms 0 -> 5 in 4.0), each time in a release upgraded for unrelated reasons. Resolving them
+   * through ProducerConfig against the jar actually on the classpath is the only way to know what
+   * they are; this test fails on the next such change rather than letting it pass silently.
+   */
+  @Test
+  public void testProducerConfigInvariantsForAsyncPublishing() {
+    Config directConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/direct.conf");
+    Properties props = KafkaUtils.createProducerProps(directConfig);
+    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    ProducerConfig resolved = new ProducerConfig(props);
+
+    // durability: the Publisher stops tracking a document once the producer reports it accepted, so
+    // "accepted" has to mean replicated, not merely received by the partition leader
+    assertThat(resolved.values().get(ProducerConfig.ACKS_CONFIG), equalTo("-1"));
+
+    // ordering: with several batches in flight per connection, only idempotence keeps a retried
+    // batch from landing after a later one. Documents are keyed by id, so this is per-document
+    // ordering for repeated ids.
+    assertThat(resolved.values().get(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG), equalTo(true));
+
+    // latency: pinned by createProducerProps, not inherited. See the comment there.
+    assertThat(resolved.values().get(ProducerConfig.LINGER_MS_CONFIG), equalTo(0L));
   }
 
   @Test

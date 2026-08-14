@@ -29,25 +29,28 @@ import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 
 /**
- * Demonstrates the cost of the per-record {@code kafkaProducer.flush()} in
- * {@link KafkaPublisherMessenger#sendForProcessing(Document)}, and of the synchronous
- * {@code send().get()} it follows.
+ * Covers the per-record {@code kafkaProducer.flush()} that {@code sendForProcessing} used to call,
+ * and the producer configuration that makes removing it worthwhile.
  *
  * The tests fall into two groups.
  *
- * MECHANISM tests pass against the code as it stands and pin down *why* the publish path is slow:
- *  - {@link #mechanism_flushDestroysBatching()} — flush() ships one record per produce request.
+ * MECHANISM tests hand-roll producers to pin down *why* a per-record flush is the wrong shape.
+ * They configure linger.ms explicitly rather than taking it from Lucille's producer properties,
+ * because the point is the client's behaviour, not Lucille's chosen setting:
+ *  - {@link #mechanism_flushDestroysBatching()} — flush() cuts batches short; it is equivalent to
+ *    globally setting linger.ms=0.
  *  - {@link #mechanism_flushCostScalesWithThreadCount()} — flush() is a producer-global barrier,
  *    so its cost is paid waiting on *other* threads and grows with concurrency.
  *  - {@link #mechanism_singleThreadedPublisherPaysLingerPerRecord()} — with one publishing thread
  *    flush() is a no-op, but the kafka-clients 4.x linger.ms=5 default adds ~5ms to every
- *    send().get() for no benefit.
+ *    send().get() for no benefit. This is why KafkaUtils pins linger.ms to 0 while the send path
+ *    is synchronous.
  *
- * REGRESSION test {@link #regression_publisherShouldBatchUnderConcurrency()} asserts the property
- * we want and FAILS against the code as it stands. Deleting the flush() on
- * KafkaPublisherMessenger:56 makes it pass.
+ * REGRESSION test {@link #regression_publisherShouldBatchUnderConcurrency()} runs the real
+ * {@link KafkaPublisherMessenger} and asserts it batches as well as a bare producer on the same
+ * properties. Reintroducing a per-record flush() in sendForProcessing makes it fail.
  *
- * Representative numbers from mechanism_flushSuppressesBatching on this embedded broker
+ * Representative numbers from mechanism_flushDestroysBatching on this embedded broker
  * (16 threads x 40 small records):
  *
  * <pre>
@@ -60,8 +63,9 @@ import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
  * calling flush() per record is equivalent to globally disabling linger.ms. Second, while the
  * send is synchronous, batching and latency are in direct opposition -- the arm that batches best
  * is the slowest, because every thread waits out the linger on every record. Batching only pays
- * once the send stops blocking. So removing flush() is not on its own a throughput win; removing
- * it *and* going async is.
+ * once the send stops blocking. So removing flush() is not on its own a throughput win; that is
+ * why it was removed together with pinning linger.ms=0 (the third row), and why linger.ms should
+ * be raised again only once the send path goes asynchronous.
  *
  * CAVEAT: an in-JVM embedded broker has near-zero round-trip latency and almost no tail, which is
  * exactly the condition under which flush()'s cross-thread barrier is cheapest. These tests prove
@@ -105,8 +109,10 @@ public class KafkaPublisherFlushTest {
   public void mechanism_flushDestroysBatching() throws Exception {
     Config config = config();
 
-    try (KafkaProducer<String, Document> withFlush = documentProducer(config, null);
-        KafkaProducer<String, Document> withoutFlush = documentProducer(config, null);
+    // linger.ms=5 is the kafka-clients 4.x default, set explicitly here because Lucille's producer
+    // properties now pin it to 0 -- and pinning it to 0 is half of what this test motivates
+    try (KafkaProducer<String, Document> withFlush = documentProducer(config, "5");
+        KafkaProducer<String, Document> withoutFlush = documentProducer(config, "5");
         KafkaProducer<String, Document> withoutFlushNoLinger = documentProducer(config, "0")) {
 
       long flushedNanos = publishConcurrently(withFlush, true);
@@ -135,11 +141,14 @@ public class KafkaPublisherFlushTest {
           unflushedBatch > 2 * flushedBatch);
 
       // the sharpest statement of the mechanism: calling flush() per record is equivalent to
-      // globally disabling linger.ms. Both arms below keep linger.ms at its 4.x default of 5
-      // except the last, which sets it to 0 -- and the flushing arm matches the linger=0 arm.
-      assertEquals("per-record flush() should batch like linger.ms=0, since that is effectively "
-              + "what it does to the whole producer",
-          metric(withoutFlushNoLinger, "records-per-request-avg"), flushedBatch, 1.0);
+      // globally disabling linger.ms. The flushing arm runs at linger.ms=5 but batches like the
+      // linger.ms=0 arm, not like the linger.ms=5 arm it is actually configured as. Stated as a
+      // ratio rather than an absolute delta because the exact figure moves with machine load.
+      double noLingerBatch = metric(withoutFlushNoLinger, "records-per-request-avg");
+      assertTrue("per-record flush() should batch like linger.ms=0 (" + noLingerBatch
+              + "), since that is effectively what it does to the whole producer, but it batched "
+              + flushedBatch,
+          flushedBatch < 2.0 * noLingerBatch);
 
       // and it is not trading away durability: both arms wrote every record
       assertEquals(THREADS * RECORDS_PER_THREAD, (long) metric(withFlush, "record-send-total"));
@@ -158,8 +167,8 @@ public class KafkaPublisherFlushTest {
   public void mechanism_flushCostScalesWithThreadCount() throws Exception {
     Config config = config();
 
-    try (KafkaProducer<String, Document> single = documentProducer(config, null);
-        KafkaProducer<String, Document> concurrent = documentProducer(config, null)) {
+    try (KafkaProducer<String, Document> single = documentProducer(config, "5");
+        KafkaProducer<String, Document> concurrent = documentProducer(config, "5")) {
 
       long singleThreadFlushNanos = timeSpentFlushing(single, 1, THREADS * RECORDS_PER_THREAD);
       long concurrentFlushNanos = timeSpentFlushing(concurrent, THREADS, RECORDS_PER_THREAD);
@@ -186,7 +195,7 @@ public class KafkaPublisherFlushTest {
     Config config = config();
     int records = 30;
 
-    try (KafkaProducer<String, Document> defaultLinger = documentProducer(config, null);
+    try (KafkaProducer<String, Document> defaultLinger = documentProducer(config, "5");
         KafkaProducer<String, Document> noLinger = documentProducer(config, "0")) {
 
       // warm up metadata/connection so the first record's cost is not counted
@@ -215,12 +224,13 @@ public class KafkaPublisherFlushTest {
   // --------------------------------------------------------------- regression
 
   /**
-   * FAILS against the current code. Asserts the property we actually want from the publisher:
-   * when many threads publish concurrently, the producer should batch. Today the per-record
-   * flush() in sendForProcessing prevents it.
+   * Asserts the property we want from the publisher: when many threads publish concurrently, the
+   * messenger should batch as well as a bare producer built from the same properties does. A
+   * per-record flush() in sendForProcessing breaks that, because flush() drains the accumulator
+   * on every record no matter how the producer is configured.
    *
-   * Exercises the real KafkaPublisherMessenger rather than a hand-rolled producer, so it is a
-   * genuine regression test for the fix rather than a demonstration of the mechanism.
+   * Exercises the real KafkaPublisherMessenger rather than a hand-rolled producer, so it guards
+   * the fix rather than demonstrating the mechanism.
    */
   @Test
   public void regression_publisherShouldBatchUnderConcurrency() throws Exception {
@@ -252,7 +262,8 @@ public class KafkaPublisherFlushTest {
 
       double messengerBatch = metric(producerOf(messenger), "records-per-request-avg");
 
-      // control: the identical workload on an identically-configured producer, without the flush
+      // control: the identical workload on a producer built from the same production properties,
+      // sending the same way the messenger does but with no flush of its own
       double controlBatch;
       try (KafkaProducer<String, Document> control = documentProducer(config, null)) {
         publishConcurrently(control, false);
@@ -264,15 +275,115 @@ public class KafkaPublisherFlushTest {
 
       // the publisher should batch about as well as the same workload does without the flush
       assertTrue("KafkaPublisherMessenger batches " + messengerBatch
-              + " records/request but the same workload without the per-record flush() batches "
-              + controlBatch + " -- the flush() on KafkaPublisherMessenger:56 is suppressing it",
+              + " records/request but the same workload on the same producer properties batches "
+              + controlBatch + " -- something in sendForProcessing is suppressing batching, most "
+              + "likely a reintroduced per-record flush()",
           messengerBatch > 0.6 * controlBatch);
     } finally {
       messenger.close();
     }
   }
 
+  /**
+   * The payoff. sendForProcessing(doc, callback) hands the record to the producer and returns, so
+   * the publishing thread no longer waits a broker round trip per document and the records it
+   * queues can actually be batched. Compares it against the synchronous overload on the same
+   * messenger, same broker, same workload.
+   */
+  @Test
+  public void asyncSendBatchesAndOutrunsTheSynchronousSend() throws Exception {
+    Config config = config();
+    KafkaPublisherMessenger messenger = new KafkaPublisherMessenger(config);
+    messenger.initialize("run-" + System.nanoTime(), PIPELINE);
+
+    try {
+      int total = THREADS * RECORDS_PER_THREAD;
+      CountDownLatch acked = new CountDownLatch(total);
+      AtomicLong failures = new AtomicLong(0);
+
+      long asyncNanos = runOnThreads(threadNum -> {
+        for (int i = 0; i < RECORDS_PER_THREAD; i++) {
+          try {
+            messenger.sendForProcessing(Document.create("async-" + threadNum + "-" + i), exception -> {
+              if (exception != null) {
+                failures.incrementAndGet();
+              }
+              acked.countDown();
+            });
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        }
+      });
+
+      assertTrue("all sends should complete", acked.await(120, TimeUnit.SECONDS));
+      assertEquals("no send should have failed", 0, failures.get());
+      double asyncBatch = metric(producerOf(messenger), "records-per-request-avg");
+      assertEquals("every record should have been sent", total,
+          (long) metric(producerOf(messenger), "record-send-total"));
+
+      // control: the same messenger, same producer configuration, using the blocking overload
+      KafkaPublisherMessenger syncMessenger = new KafkaPublisherMessenger(config);
+      syncMessenger.initialize("run-" + System.nanoTime(), PIPELINE);
+      double syncBatch;
+      long syncNanos;
+      try {
+        syncNanos = runOnThreads(threadNum -> {
+          for (int i = 0; i < RECORDS_PER_THREAD; i++) {
+            try {
+              syncMessenger.sendForProcessing(Document.create("sync-" + threadNum + "-" + i));
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          }
+        });
+        syncBatch = metric(producerOf(syncMessenger), "records-per-request-avg");
+      } finally {
+        syncMessenger.close();
+      }
+
+      System.out.printf("%n[async] records/request=%.2f  wall=%.0fms   [sync] records/request=%.2f  wall=%.0fms%n%n",
+          asyncBatch, asyncNanos / 1_000_000.0, syncBatch, syncNanos / 1_000_000.0);
+
+      // the whole point: the sending thread stops gating on the ack, so records accumulate and
+      // batch instead of trickling out one round trip at a time
+      assertTrue("async publishing should batch far better than blocking on every ack: "
+              + asyncBatch + " vs " + syncBatch + " records/request",
+          asyncBatch > 3 * syncBatch);
+
+      // note this is the cheapest possible case for the synchronous arm -- an in-JVM broker with
+      // near-zero round-trip time. The gap widens with real network latency.
+      assertTrue("async publishing should be faster than blocking on every ack: "
+              + asyncNanos / 1_000_000.0 + "ms vs " + syncNanos / 1_000_000.0 + "ms",
+          asyncNanos < syncNanos);
+    } finally {
+      messenger.close();
+    }
+  }
+
   // ------------------------------------------------------------------ helpers
+
+  /** Runs the given per-thread body on THREADS threads at once; returns wall-clock nanos. */
+  private long runOnThreads(java.util.function.IntConsumer body) throws Exception {
+    ExecutorService pool = Executors.newFixedThreadPool(THREADS);
+    CountDownLatch start = new CountDownLatch(1);
+    for (int t = 0; t < THREADS; t++) {
+      final int threadNum = t;
+      pool.submit(() -> {
+        try {
+          start.await();
+          body.accept(threadNum);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+      });
+    }
+    long begin = System.nanoTime();
+    start.countDown();
+    pool.shutdown();
+    assertTrue(pool.awaitTermination(120, TimeUnit.SECONDS));
+    return System.nanoTime() - begin;
+  }
 
   private Config config() {
     return ConfigFactory.empty()

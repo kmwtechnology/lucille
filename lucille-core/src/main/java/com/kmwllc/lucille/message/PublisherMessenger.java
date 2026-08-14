@@ -24,9 +24,27 @@ public interface PublisherMessenger {
   String getRunId();
 
   /**
-   * Submits a Document for processing by a configured pipeline.
+   * Submits a Document for processing by a configured pipeline, blocking until the destination has
+   * accepted it.
    */
   void sendForProcessing(Document document) throws Exception;
+
+  /**
+   * Submits a Document for processing by a configured pipeline, invoking the given callback when
+   * the destination has accepted the Document or permanently failed to.
+   *
+   * Implementations backed by an asynchronous client should return as soon as the Document has been
+   * handed to that client, so that the calling thread does not wait out a round trip per document.
+   * A failure detected before handing the Document off is thrown from this method rather than
+   * reported to the callback; once handed off, all failures arrive via the callback.
+   *
+   * The default implementation is the synchronous send followed by an inline callback, which is
+   * correct for any messenger that completes the send before returning.
+   */
+  default void sendForProcessing(Document document, SendCallback callback) throws Exception {
+    sendForProcessing(document);
+    callback.onCompletion(null);
+  }
 
   /**
    * Retrieves and removes an Event waiting to be processed.

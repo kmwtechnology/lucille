@@ -8,7 +8,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,9 +103,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = kafkaEventProducer.send(
+    // see KafkaPublisherMessenger.sendForProcessing for why there is no flush() here
+    kafkaEventProducer.send(
         new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaEventProducer.flush();
   }
 
   @Override

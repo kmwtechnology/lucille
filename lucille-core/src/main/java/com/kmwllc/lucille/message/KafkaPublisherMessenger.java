@@ -8,7 +8,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,10 +49,30 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
     return runId;
   }
 
+  /**
+   * Blocks until the record has been acked. Prefer the callback overload: this one pins the calling
+   * thread's throughput at one document per broker round trip.
+   */
   public void sendForProcessing(Document document) throws Exception {
-    RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-        new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document)).get();
-    kafkaProducer.flush();
+    // No flush() here. flush() is producer-global: it blocks the calling thread until every record
+    // buffered by every *other* publishing thread has been acked, which turns concurrent publishing
+    // into a convoy whose cost grows with the thread count. It is also redundant for durability --
+    // the get() below has already blocked until this record was acked by all in-sync replicas.
+    // Records still in the accumulator at end of run are flushed by KafkaProducer.close().
+    kafkaProducer.send(sourceRecord(document)).get();
+  }
+
+  @Override
+  public void sendForProcessing(Document document, SendCallback callback) throws Exception {
+    // The calling thread returns once the record is in the accumulator; the producer's sender thread
+    // batches it with whatever else is queued and reports the outcome to the callback. send() still
+    // blocks if the accumulator is full, bounded by max.block.ms -- that is the backpressure signal.
+    kafkaProducer.send(sourceRecord(document), (metadata, exception) -> callback.onCompletion(exception));
+  }
+
+  private ProducerRecord<String, Document> sourceRecord(Document document) {
+    return new ProducerRecord<>(
+        KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document);
   }
 
   /**

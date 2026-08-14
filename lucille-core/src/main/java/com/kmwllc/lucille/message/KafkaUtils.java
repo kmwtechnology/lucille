@@ -48,7 +48,7 @@ public class KafkaUtils {
       .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
       .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
           "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic")
-      .optionalNumber("metadataMaxAgeMs").build();
+      .optionalNumber("metadataMaxAgeMs", "lingerMs").build();
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
@@ -146,6 +146,11 @@ public class KafkaUtils {
     producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getInt("kafka.maxRequestSize"));
     producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getInt("kafka.maxRequestSize"));
     producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    // Pinned rather than left to the client default, which changed from 0 to 5 in kafka-clients 4.0.
+    // Lucille's producers send synchronously (send().get()), so the calling thread has nothing to
+    // batch with while it waits: any non-zero linger is added directly to the per-record latency.
+    // Raise this once the send path becomes asynchronous, at which point linger buys real batching.
+    producerProps.put(ProducerConfig.LINGER_MS_CONFIG, ConfigUtils.getOrDefault(config, "kafka.lingerMs", 0));
     return producerProps;
   }
 
