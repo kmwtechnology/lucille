@@ -107,7 +107,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     if (authEnabled) {
       AuthType authType = config.getAuthConfig().getType();
 
-      if (authType == null) {
+      if (AuthType.NO_AUTH.equals(authType)) {
         throw new IllegalArgumentException("auth.type must be set when auth.enabled is true.");
       }
 
