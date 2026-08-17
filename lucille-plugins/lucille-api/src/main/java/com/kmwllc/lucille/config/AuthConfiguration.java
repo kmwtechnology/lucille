@@ -32,7 +32,7 @@ public final class AuthConfiguration {
   }
 
   /**
-   * The authentication type to use. Defaults to NO_AUTH if not specified and required when authentication is enabled.
+   * The authentication type to use. Defaults to NO_AUTH if empty and required when authentication is enabled.
    */
   private AuthType type;
 
@@ -56,12 +56,19 @@ public final class AuthConfiguration {
   }
 
   /**
-   * Sets the authentication type from a string. "basicAuth" sets BASIC_AUTH, otherwise NO_AUTH.
+   * Sets the authentication type from a string. "basicAuth" sets BASIC_AUTH and empty string sets NO_AUTH.
    * @param type the authentication type as a string
+   * @throws IllegalArgumentException if AuthType is not recognized
    */
   @JsonProperty
-  public void setType(String type) {
-    this.type = "basicAuth".equals(type) ? AuthType.BASIC_AUTH : AuthType.NO_AUTH;
+  public void setType(String type) throws Exception {
+    if (type.equals("basicAuth")) {
+      this.type = AuthType.BASIC_AUTH;
+    } else if (type.isEmpty()) {
+      this.type = AuthType.NO_AUTH;
+    } else {
+      throw new Exception("Unsupported auth type configured for the Lucille Admin API: " + type);
+    }
   }
   
   /**
