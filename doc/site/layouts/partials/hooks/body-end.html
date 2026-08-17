@@ -9,8 +9,8 @@
   (function () {
     var q = new URLSearchParams(window.location.search).get('q');
     var content = document.querySelector('.td-content');
-    var words = q.toLowerCase().split(/\s+/).filter(Boolean);
     if (!q || !content || !CSS.highlights) return;
+    var words = q.toLowerCase().split(/\s+/).filter(Boolean);
 
     function findMatches(root) {
       var matches = [];
