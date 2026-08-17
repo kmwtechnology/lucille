@@ -283,7 +283,11 @@ public class PublisherImpl implements Publisher {
     } catch (Exception e) {
       // we assume that if an exception was encountered here, the doc was not actually made available for processing,
       // and that we won't be receiving any Events relating to it, so we can stop tracking its docId now
-      docIdsToTrack.remove(docId, 1);
+      if (docIdsToTrack.remove(docId, 1)) {
+        // the slot this doc occupied is free again; other threads may be blocked on maxPendingDocs
+        // and would otherwise wait for the 10 second fallback wakeup to notice
+        signalIfPendingDocsBelowMax();
+      }
       throw e;
     }
 

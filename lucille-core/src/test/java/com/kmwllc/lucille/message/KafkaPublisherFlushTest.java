@@ -212,12 +212,12 @@ public class KafkaPublisherFlushTest {
       double defaultMsPerRecord = defaultLingerNanos / 1_000_000.0 / records;
       double noLingerMsPerRecord = noLingerNanos / 1_000_000.0 / records;
 
-      // a single-threaded publisher waits out the full linger on every record
-      assertTrue("default linger should cost ~5ms/record, measured " + defaultMsPerRecord,
-          defaultMsPerRecord > 3.0);
-      assertTrue("linger.ms=0 should be materially faster: " + noLingerMsPerRecord
-              + "ms vs " + defaultMsPerRecord + "ms",
-          noLingerMsPerRecord < defaultMsPerRecord);
+      // a single-threaded publisher waits out the full linger on every record. Compared against the
+      // linger.ms=0 control rather than an absolute wall-clock threshold: linger.ms is a maximum
+      // delay, not a guaranteed one, and per-record timings vary with the machine and its load
+      assertTrue("default linger should cost materially more per record than linger.ms=0: "
+              + defaultMsPerRecord + "ms vs " + noLingerMsPerRecord + "ms",
+          defaultMsPerRecord > 2.0 * noLingerMsPerRecord);
     }
   }
 

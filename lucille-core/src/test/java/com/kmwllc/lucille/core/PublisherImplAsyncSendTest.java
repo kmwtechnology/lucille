@@ -7,9 +7,11 @@ import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.message.PublisherMessenger;
 import com.kmwllc.lucille.message.SendCallback;
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -159,6 +161,78 @@ public class PublisherImplAsyncSendTest {
     }
     assertEquals(threads * docsPerThread, publisher.numSucceeded());
     assertEquals(0, publisher.numPending());
+  }
+
+  /**
+   * A synchronous throw from sendForProcessing stops tracking the document, which can bring the
+   * pending count back below maxPendingDocs. Publishers parked on that limit have to be signalled,
+   * otherwise they sit until the 10 second fallback wakeup with capacity already available.
+   */
+  @Test
+  public void testSynchronousSendFailureReleasesPublishersBlockedOnMaxPendingDocs() throws Exception {
+    Config config = ConfigFactory.parseString("publisher.maxPendingDocs = 2");
+    CountDownLatch sendReached = new CountDownLatch(1);
+    CountDownLatch releaseSend = new CountDownLatch(1);
+
+    DeferredMessenger messenger = new DeferredMessenger() {
+      @Override
+      public void sendForProcessing(Document document, SendCallback callback) {
+        if ("doc2".equals(document.getId())) {
+          // the docId is already tracked at this point, so pending has reached maxPendingDocs
+          sendReached.countDown();
+          try {
+            releaseSend.await();
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+          throw new RuntimeException("rejected by the destination");
+        }
+        super.sendForProcessing(document, callback);
+      }
+    };
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    publisher.publish(Document.create("doc1"));
+
+    // doc2 passes the maxPendingDocs gate while one doc is pending, then stalls mid-send with two
+    // pending -- the window in which another publisher can block
+    Thread failing = new Thread(() -> assertThrows(Exception.class, () -> publisher.publish(Document.create("doc2"))));
+    failing.start();
+    assertTrue(sendReached.await(10, TimeUnit.SECONDS));
+
+    CountDownLatch published = new CountDownLatch(1);
+    Thread blocked = new Thread(() -> {
+      try {
+        publisher.publish(Document.create("doc3"));
+        published.countDown();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+    blocked.start();
+    awaitConditionWait(blocked);
+
+    // doc2's failure frees a slot; doc3 should proceed on the signal, not on the fallback wakeup
+    releaseSend.countDown();
+    assertTrue("a publisher blocked on maxPendingDocs must be signalled when a synchronous send "
+        + "failure frees a slot", published.await(3, TimeUnit.SECONDS));
+
+    failing.join();
+    blocked.join();
+    assertEquals(2, publisher.numPending());
+  }
+
+  /** Waits until the given thread has parked, which for a blocked publisher means on the condition. */
+  private static void awaitConditionWait(Thread thread) throws Exception {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < deadline) {
+      Thread.State state = thread.getState();
+      if (state == Thread.State.WAITING || state == Thread.State.TIMED_WAITING) {
+        return;
+      }
+      Thread.sleep(5);
+    }
+    throw new AssertionError("thread never blocked");
   }
 
   /**
