@@ -32,7 +32,7 @@ public final class AuthConfiguration {
   }
 
   /**
-   * The authentication type to use. Defaults to NO_AUTH if not specified.
+   * The authentication type to use. Defaults to NO_AUTH if not specified and required when authentication is enabled.
    */
   private AuthType type;
 
@@ -61,11 +61,7 @@ public final class AuthConfiguration {
    */
   @JsonProperty
   public void setType(String type) {
-    if (type.equals("basicAuth")) {
-      this.type = AuthType.BASIC_AUTH;
-    } else {
-      this.type = AuthType.NO_AUTH;
-    }
+    this.type = "basicAuth".equals(type) ? AuthType.BASIC_AUTH : AuthType.NO_AUTH;
   }
   
   /**
