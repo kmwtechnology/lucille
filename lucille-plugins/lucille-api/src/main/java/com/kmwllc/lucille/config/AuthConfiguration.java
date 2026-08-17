@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.dropwizard.auth.Auth;
 
 /**
  * Configuration for authentication in the Lucille Admin API.
@@ -32,9 +33,9 @@ public final class AuthConfiguration {
   }
 
   /**
-   * The authentication type to use. Defaults to NO_AUTH if empty and required when authentication is enabled.
+   * The authentication type to use. Defaults to NO_AUTH if empty and must be BASIC_AUTH when authentication is enabled.
    */
-  private AuthType type;
+  private AuthType type = AuthType.NO_AUTH;
 
   /**
    * Password for BASIC_AUTH authentication.
@@ -56,18 +57,18 @@ public final class AuthConfiguration {
   }
 
   /**
-   * Sets the authentication type from a string. "basicAuth" sets BASIC_AUTH and empty string sets NO_AUTH.
+   * Sets the authentication type from a string. "basicAuth" sets BASIC_AUTH and null or empty sets NO_AUTH.
    * @param type the authentication type as a string
    * @throws IllegalArgumentException if AuthType is not recognized
    */
   @JsonProperty
-  public void setType(String type) throws Exception {
-    if (type.equals("basicAuth")) {
-      this.type = AuthType.BASIC_AUTH;
-    } else if (type.isEmpty()) {
+  public void setType(String type) {
+    if (type == null || type.isEmpty()) {
       this.type = AuthType.NO_AUTH;
+    } else if (type.equals("basicAuth")) {
+      this.type = AuthType.BASIC_AUTH;
     } else {
-      throw new Exception("Unsupported auth type configured for the Lucille Admin API: " + type);
+      throw new IllegalArgumentException("Unsupported auth type configured for the Lucille Admin API: " + type);
     }
   }
   

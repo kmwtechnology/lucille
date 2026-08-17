@@ -1,5 +1,4 @@
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -29,7 +28,7 @@ public class APIApplicationAuthTest {
     AuthConfiguration authConfig = new AuthConfiguration();
     authConfig.setEnabled(false);
 
-    assertNull(authConfig.getType());
+    assertEquals(AuthType.NO_AUTH, authConfig.getType());
 
     LucilleAPIConfiguration config = new LucilleAPIConfiguration();
     config.setAuthConfig(authConfig);
@@ -38,13 +37,18 @@ public class APIApplicationAuthTest {
   }
 
   @Test
-  public void testBlankAuthTypeIsNoAuth() {
+  public void testAuthTypeSetter() {
     AuthConfiguration authConfig = new AuthConfiguration();
+
+    authConfig.setType("");
+    assertEquals(AuthType.NO_AUTH, authConfig.getType());
 
     authConfig.setType(null);
     assertEquals(AuthType.NO_AUTH, authConfig.getType());
 
-    authConfig.setType("");
-    assertEquals(AuthType.NO_AUTH, authConfig.getType());
+    authConfig.setType("basicAuth");
+    assertEquals(AuthType.BASIC_AUTH, authConfig.getType());
+
+    assertThrows(IllegalArgumentException.class, () -> authConfig.setType("enhancedAuth"));
   }
 }
