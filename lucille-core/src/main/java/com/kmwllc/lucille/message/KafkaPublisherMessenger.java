@@ -53,7 +53,6 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
   public void sendForProcessing(Document document) throws Exception {
     RecordMetadata result = (RecordMetadata) kafkaProducer.send(
         new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document)).get();
-    kafkaProducer.flush();
   }
 
   /**

@@ -74,7 +74,6 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
     RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
         new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaEventProducer.flush(); // TODO
   }
 
   @Override

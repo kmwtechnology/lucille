@@ -70,14 +70,12 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   public void sendForIndexing(Document document) throws Exception {
     RecordMetadata result = kafkaDocumentProducer.send(
         new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
-    kafkaDocumentProducer.flush();
   }
 
   public void sendFailed(Document document) throws Exception {
     ProducerRecord<String, Document> producerRecord =
         new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
     RecordMetadata metadata = kafkaDocumentProducer.send(producerRecord).get();
-    kafkaDocumentProducer.flush();
   }
 
   @Override
@@ -101,7 +99,6 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
     RecordMetadata result = kafkaEventProducer.send(
         new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaEventProducer.flush();
   }
 
   @Override
