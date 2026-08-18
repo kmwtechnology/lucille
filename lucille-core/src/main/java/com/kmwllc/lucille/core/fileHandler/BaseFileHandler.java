@@ -51,7 +51,13 @@ public abstract class BaseFileHandler implements FileHandler {
 
     // once docIterator.hasNext() is false, it will close its resources in handler and return
     while (docIterator.hasNext()) {
-      Document doc = docIterator.next();
+      Document doc;
+      try {
+        doc = docIterator.next();
+      } catch (Exception e) {
+        log.error("Error reading next document from file {}", pathStr, e);
+        continue;
+      }
       if (doc != null) {
         try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
           docLogger.info("FileHandler is now publishing Document {}", doc.getId());
