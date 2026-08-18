@@ -441,25 +441,19 @@ public abstract class Indexer implements Runnable {
 
       Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
 
-      for (Document d : batchedDocs) {
-        if (failedDocs.contains(d)) {
-          continue;
-        }
+      List<Document> succeededDocs = batchedDocs.stream()
+          .filter(d -> !failedDocs.contains(d))
+          .collect(Collectors.toList());
 
-        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
-          if (d.getRunId() != null) {
-            MDC.pushByKey(RUNID_FIELD, d.getRunId());
-          }
-
-          messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
-          docLogger.info("Sent success message for doc {}.", d.getId());
-        } catch (Exception e) {
-          docLogger.error("Error sending completion event for doc {}. RUN WILL HANG.", d.getId(), e);
-        } finally {
-          if (d.getRunId() != null) {
-            MDC.popByKey(RUNID_FIELD);
+      try {
+        messenger.sendEvents(succeededDocs, "SUCCEEDED", Event.Type.FINISH);
+        for (Document d : succeededDocs) {
+          try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+            docLogger.info("Sent success message for doc {}.", d.getId());
           }
         }
+      } catch (Exception e) {
+        log.error("Error sending completion events. RUN WILL HANG.", e);
       }
     } catch (Throwable t) {
       // Rethrow Errors (OutOfMemoryError, etc.) — they should never be swallowed

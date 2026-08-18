@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class KafkaIndexerMessenger implements IndexerMessenger {
 
@@ -74,6 +75,35 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
     RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
         new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+  }
+
+  @Override
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+    if (kafkaEventProducer == null || documents.isEmpty()) {
+      return;
+    }
+
+    AtomicReference<Exception> sendException = new AtomicReference<>();
+
+    for (Document document : documents) {
+      Event event = new Event(document, message, type);
+      String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
+      kafkaEventProducer.send(
+          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()),
+          (metadata, exception) -> {
+            if (exception != null) {
+              log.error("Failed to send event for doc: {}", event.getDocumentId(), exception);
+              sendException.compareAndSet(null, exception);
+            }
+          });
+    }
+
+    kafkaEventProducer.flush();
+
+    Exception e = sendException.get();
+    if (e != null) {
+      throw new Exception("Failed to send one or more events", e);
+    }
   }
 
   @Override
