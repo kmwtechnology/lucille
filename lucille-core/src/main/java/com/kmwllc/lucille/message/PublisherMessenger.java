@@ -41,6 +41,12 @@ public interface PublisherMessenger {
   Event pollEvent() throws Exception;
 
   /**
+   * Ensures any buffered messages have been delivered. Surfaces any asynchronous send failure.
+   * Called at the end of a publishing run, after the last document has been submitted.
+   */
+  default void flush() throws Exception {}
+
+  /**
    * Closes any connections opened by this PublisherMessenger.
    */
   void close();

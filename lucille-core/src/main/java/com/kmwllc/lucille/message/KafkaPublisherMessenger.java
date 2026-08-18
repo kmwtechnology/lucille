@@ -8,17 +8,18 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class KafkaPublisherMessenger implements PublisherMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaPublisherMessenger.class);
 
   private final Config config;
+  private final AtomicReference<Exception> sendException = new AtomicReference<>();
   private KafkaProducer<String, Document> kafkaProducer;
   private Consumer<String, String> eventConsumer;
   private String runId;
@@ -51,8 +52,28 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
   }
 
   public void sendForProcessing(Document document) throws Exception {
-    RecordMetadata result = (RecordMetadata) kafkaProducer.send(
-        new ProducerRecord(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document)).get();
+    checkException();
+    kafkaProducer.send(
+        new ProducerRecord<>(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document),
+        (metadata, exception) -> {
+          if (exception != null) {
+            log.error("Kafka send failed for document: {}", document.getId(), exception);
+            sendException.compareAndSet(null, exception);
+          }
+        });
+  }
+
+  @Override
+  public void flush() throws Exception {
+    kafkaProducer.flush();
+    checkException();
+  }
+
+  private void checkException() throws Exception {
+    Exception e = sendException.get();
+    if (e != null) {
+      throw new Exception("Kafka send failed", e);
+    }
   }
 
   /**

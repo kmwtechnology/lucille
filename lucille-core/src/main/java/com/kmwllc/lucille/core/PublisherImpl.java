@@ -281,6 +281,7 @@ public class PublisherImpl implements Publisher {
       sendForProcessing(previousDoc);
     }
     previousDoc = null;
+    messenger.flush();
   }
 
   @Override
