@@ -10,7 +10,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,11 +27,11 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
     this.pipelineName = pipelineName;
-    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
-    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
+    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config, kafkaClientId + "-documents");
+    this.kafkaEventProducer = KafkaUtils.createEventProducer(config, kafkaClientId + "-events");
     this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
   }
@@ -68,16 +67,15 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    */
   @Override
   public void sendForIndexing(Document document) throws Exception {
-    RecordMetadata result = kafkaDocumentProducer.send(
+    // see KafkaPublisherMessenger.sendForProcessing for why there is no flush() here
+    kafkaDocumentProducer.send(
         new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
-    kafkaDocumentProducer.flush();
   }
 
   public void sendFailed(Document document) throws Exception {
     ProducerRecord<String, Document> producerRecord =
         new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    RecordMetadata metadata = kafkaDocumentProducer.send(producerRecord).get();
-    kafkaDocumentProducer.flush();
+    kafkaDocumentProducer.send(producerRecord).get();
   }
 
   @Override
@@ -99,9 +97,8 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = kafkaEventProducer.send(
+    kafkaEventProducer.send(
         new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaEventProducer.flush();
   }
 
   @Override

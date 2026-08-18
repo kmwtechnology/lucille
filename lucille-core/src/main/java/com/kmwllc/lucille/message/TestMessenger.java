@@ -89,6 +89,12 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
+  public void sendForProcessing(Document document, SendCallback callback) throws Exception {
+    savedSourceMessages.add(document);
+    messenger.sendForProcessing(document, callback);
+  }
+
+  @Override
   public void close() {
     messenger.close();
   }
