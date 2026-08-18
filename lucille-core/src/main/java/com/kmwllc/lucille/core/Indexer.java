@@ -453,7 +453,8 @@ public abstract class Indexer implements Runnable {
           }
         }
       } catch (Exception e) {
-        log.error("Error sending completion events. RUN WILL HANG.", e);
+        List<String> docIds = succeededDocs.stream().map(Document::getId).collect(Collectors.toList());
+        log.error("Error sending completion events for docs {}. RUN WILL HANG.", docIds, e);
       }
     } catch (Throwable t) {
       // Rethrow Errors (OutOfMemoryError, etc.) — they should never be swallowed
