@@ -144,7 +144,14 @@ public class KafkaUtils {
       producerProps.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, config.getString("kafka.securityProtocol"));
     }
     producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getInt("kafka.maxRequestSize"));
-    producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getInt("kafka.maxRequestSize"));
+    // buffer.memory controls the total bytes the producer's accumulator can hold across all
+    // partitions. Use Kafka's default of 32MB (unchanged since 0.9.0.0 through at least 3.9.x)
+    // as a floor, but allow it to grow if maxRequestSize exceeds that — otherwise a single
+    // oversized record couldn't fit in the accumulator. Previously this was set equal to
+    // maxRequestSize, which starved the buffer when maxRequestSize was configured to match
+    // a broker's message size limit and left no room for async send batching.
+    producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
+        Math.max(33_554_432L, config.getInt("kafka.maxRequestSize")));
     producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     return producerProps;
   }
