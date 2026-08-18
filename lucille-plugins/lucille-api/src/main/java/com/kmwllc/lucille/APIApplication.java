@@ -88,10 +88,11 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
   }
 
   /**
-   * Starts the Lucille API server, configures authentication, and registers resources. Throws Exception on unsupported auth type, aborting startup.
+   * Starts the Lucille API server, configures authentication, and registers resources.
    * @param config the Lucille API configuration
    * @param env the Dropwizard environment
-   * @throws Exception if authentication type is unsupported (startup abort) or other startup failures
+   * @throws IllegalArgumentException if authentication is enabled and AuthType is not basicAuth
+   * @throws Exception for other startup failures
    */
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
@@ -104,16 +105,18 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
     // Enable Basic Auth only if it's enabled in the configuration
     if (authEnabled) {
-      if (config.getAuthConfig().getType().equals(AuthType.BASIC_AUTH)) {
-        env.jersey()
-            .register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<PrincipalImpl>()
-                .setAuthenticator(new BasicAuthenticator(config.getAuthConfig().getPassword()))
-                .buildAuthFilter()));
-        env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
-        log.info("Basic authentication has been enabled.");
-      } else {
-        throw new Exception("Unsupported auth type configured for the Lucille Admin API.");
+      AuthType authType = config.getAuthConfig().getType();
+
+      if (AuthType.NO_AUTH.equals(authType)) {
+        throw new IllegalArgumentException("auth.type must be set to basicAuth when auth.enabled is true.");
       }
+
+      env.jersey()
+          .register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<PrincipalImpl>()
+              .setAuthenticator(new BasicAuthenticator(config.getAuthConfig().getPassword()))
+              .buildAuthFilter()));
+      env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
+      log.info("Basic authentication has been enabled.");
     } else {
       log.info("Authentication is disabled.");
     }

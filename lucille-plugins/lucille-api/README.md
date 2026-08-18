@@ -100,7 +100,7 @@ Authentication is configured under the `auth` block. When `enabled: true`, every
 
 | Property |            Description                |
 |----------|-------------------------------------- |
-| type     | currently only `basicAuth` is supported |
+| type     | required when `enabled` is `true`, currently only `basicAuth` is supported |
 | enabled  | `true` to require auth, `false` to disable |
 | password | the password Basic Auth requests must match |
 
