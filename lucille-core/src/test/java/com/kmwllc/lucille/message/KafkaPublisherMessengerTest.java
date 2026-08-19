@@ -122,4 +122,96 @@ public class KafkaPublisherMessengerTest {
       verify(mockProducer, atLeast(3)).send(any(ProducerRecord.class), any(Callback.class));
     }
   }
+
+  /**
+   * Test that when the final document published by the connector fails asynchronously (no
+   * subsequent sendForProcessing call to surface it via checkException), the error is caught
+   * by publisher.flush() at end of connector execution, and the run still aborts rather than
+   * hanging.
+   *
+   * The chain is: ConnectorThread calls PublisherImpl.flush(), which calls
+   * KafkaPublisherMessenger.flush(), which calls kafkaProducer.flush() (a no-op on the mock
+   * since callbacks have already fired synchronously) and then checkException(), which finds
+   * the exception captured by the send callback and throws. An exception thrown directly by
+   * kafkaProducer.flush() itself (e.g. producer closed, interrupted) would propagate through
+   * the same code path but is not simulated here.
+   *
+   * This is the specific edge case that motivated adding flush() to the PublisherMessenger
+   * interface: without it, the failed docId would be orphaned in docIdsToTrack and
+   * waitForCompletion() would hang until the connector timeout.
+   */
+  @Test
+  public void testFlushSurfacesLastDocFailure() throws Exception {
+    int numDocs = 5;
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "numDocs", numDocs,
+        "name", "connector1",
+        "class", "com.kmwllc.lucille.connector.SequenceConnector",
+        "pipeline", "pipeline1"
+    ));
+
+    Config runnerConfig = ConfigFactory.parseMap(Map.of(
+        "runner.connectorTimeout", 30000
+    ));
+
+    // Mock the KafkaProducer: all sends succeed except the last one
+    KafkaProducer<String, Document> mockProducer = mock(KafkaProducer.class);
+    AtomicInteger sendCount = new AtomicInteger(0);
+
+    RecordMetadata dummyMetadata = new RecordMetadata(new TopicPartition("test", 0), 0, 0, 0L, 0, 0);
+    Future<RecordMetadata> mockFuture = mock(Future.class);
+    when(mockFuture.get()).thenReturn(dummyMetadata);
+
+    when(mockProducer.send(any(ProducerRecord.class), any(Callback.class))).thenAnswer(invocation -> {
+      Callback callback = invocation.getArgument(1);
+      int count = sendCount.incrementAndGet();
+      if (count == numDocs) {
+        // last send fails via callback
+        callback.onCompletion(null, new Exception("Simulated broker failure on last doc"));
+      } else {
+        callback.onCompletion(dummyMetadata, null);
+      }
+      return mockFuture;
+    });
+
+    @SuppressWarnings("unchecked")
+    KafkaConsumer<String, String> mockEventConsumer = mock(KafkaConsumer.class);
+    when(mockEventConsumer.poll(any())).thenReturn(ConsumerRecords.empty());
+
+    Config messengerConfig = ConfigFactory.parseMap(Map.of(
+        "kafka.sourceTopic", "test_source"
+    ));
+
+    try (MockedStatic<KafkaUtils> kafkaUtils = mockStatic(KafkaUtils.class)) {
+      kafkaUtils.when(() -> KafkaUtils.createEventTopic(any(), any(), any())).thenAnswer(inv -> null);
+      kafkaUtils.when(() -> KafkaUtils.getEventTopicName(any(), any(), any())).thenReturn("test_events");
+      kafkaUtils.when(() -> KafkaUtils.createEventConsumer(any(), any())).thenReturn(mockEventConsumer);
+      kafkaUtils.when(() -> KafkaUtils.createDocumentProducer(any())).thenReturn(mockProducer);
+      kafkaUtils.when(() -> KafkaUtils.getSourceTopicName(any(), any())).thenReturn("test_source");
+
+      KafkaPublisherMessenger messenger = new KafkaPublisherMessenger(messengerConfig);
+
+      Connector connector = new SequenceConnector(connectorConfig);
+      PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+      Instant start = Instant.now();
+      ConnectorResult result = Runner.runConnector(runnerConfig, "run1", connector, publisher);
+      Instant end = Instant.now();
+
+      // run aborted
+      assertFalse(result.getStatus());
+
+      // run completed promptly — the flush caught the error, not the connector timeout
+      assertTrue("Run took too long — flush may not have surfaced the error",
+          ChronoUnit.SECONDS.between(start, end) < 10);
+
+      // all sends were attempted — the failure only surfaces at flush time
+      assertEquals(numDocs, sendCount.get());
+
+      // numPublished is numDocs because the last send's failure is deferred past the
+      // numPublished increment
+      assertEquals(numDocs, publisher.numPublished());
+    }
+  }
 }
