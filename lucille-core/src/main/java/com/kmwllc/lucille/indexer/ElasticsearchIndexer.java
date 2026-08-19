@@ -56,6 +56,7 @@ import java.util.Optional;
  *   <li>url (String, Required) : Elasticsearch HTTP endpoint (e.g., https://localhost:9200).</li>
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
+ *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying Elasticsearch HTTP client. Defaults to false.</li>
  *   <li>childDocumentsField (String, Optional) : Field name to place attached child documents in the
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
@@ -72,7 +73,7 @@ public class ElasticsearchIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
-      .optionalBoolean("update", "acceptInvalidCert")
+      .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalString("parentName", "childDocumentsField")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 

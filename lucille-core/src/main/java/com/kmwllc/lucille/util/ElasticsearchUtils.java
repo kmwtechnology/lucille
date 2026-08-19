@@ -3,22 +3,25 @@ package com.kmwllc.lucille.util;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
+import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.util.Map;
-import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.elasticsearch.client.RestClient;
 
 import java.net.URI;
 
@@ -29,48 +32,63 @@ public class ElasticsearchUtils {
 
   public static Spec ELASTICSEARCH_PARENT_SPEC = SpecBuilder.parent("elasticsearch")
       .requiredString("index", "url")
-      .optionalBoolean("update", "acceptInvalidCert")
+      .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalString("parentName")
       .optionalParent("join", new TypeReference<Map<String, String>>(){}).build();
 
   public static ElasticsearchClient getElasticsearchOfficialClient(Config config) throws Exception {
     URI hostUri = URI.create(getElasticsearchUrl(config));
 
-    final CredentialsProvider provider = new BasicCredentialsProvider();
+    HttpHost host = new HttpHost(hostUri.getScheme(), hostUri.getHost(), hostUri.getPort());
 
     // get user info from URI if present and setup BasicAuth credentials if needed
+    final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
     String userInfo = hostUri.getUserInfo();
     if (userInfo != null) {
       int pos = userInfo.indexOf(":");
       String username = userInfo.substring(0, pos);
       String password = userInfo.substring(pos + 1);
-      provider.setCredentials(AuthScope.ANY,
-          new UsernamePasswordCredentials(username, password));
+      credentialsProvider.setCredentials(new AuthScope(host),
+          new UsernamePasswordCredentials(username, password.toCharArray()));
     }
 
     // Potentially disable SSL/TLS verification for when testing locally
     boolean allowInvalidCert = getAllowInvalidCert(config);
     SSLContext sslContext;
-    HostnameVerifier hostnameVerifier;
+    TlsStrategy tlsStrategy;
 
     if (allowInvalidCert) {
       sslContext = SSLContextBuilder.create()
           .loadTrustMaterial(null, (chains, authType) -> true)
           .build();
-      hostnameVerifier = NoopHostnameVerifier.INSTANCE;
+      tlsStrategy = ClientTlsStrategyBuilder.create()
+          .setSslContext(sslContext)
+          .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+          .build();
     } else {
       sslContext = SSLContextBuilder.create()
           .build();
-      // set host name verifier to null to pick up default.
-      hostnameVerifier = null;
+      tlsStrategy = ClientTlsStrategyBuilder.create()
+          .setSslContext(sslContext)
+          .build();
     }
 
-    RestClient restClient = RestClient.builder(new HttpHost(hostUri.getHost(), hostUri.getPort(), hostUri.getScheme()))
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder.setDefaultCredentialsProvider(provider)
-            .setSSLContext(sslContext)
-            .setSSLHostnameVerifier(hostnameVerifier)).build();
+    // elasticsearch-java 9.x uses the Apache HttpClient 5 based Rest5Client transport; the legacy
+    // org.elasticsearch.client.RestClient (HttpClient 4) is no longer bundled.
+    CloseableHttpAsyncClient httpClient = HttpAsyncClients.custom()
+        .setDefaultCredentialsProvider(credentialsProvider)
+        .setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
+            .setTlsStrategy(tlsStrategy)
+            .build())
+        .build();
 
-    ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+    boolean useCompression = config.hasPath("elasticsearch.useCompression") && config.getBoolean("elasticsearch.useCompression");
+    Rest5Client rest5Client = Rest5Client.builder(host)
+        .setHttpClient(httpClient)
+        .setCompressionEnabled(useCompression)
+        .build();
+
+    ElasticsearchTransport transport = new Rest5ClientTransport(rest5Client, new JacksonJsonpMapper());
     return new ElasticsearchClient(transport);
   }
 

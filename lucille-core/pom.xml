@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.11.0-SNAPSHOT</version>
+    <version>0.12.0-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -33,6 +33,14 @@
       <groupId>jakarta.xml.bind</groupId>
       <artifactId>jakarta.xml.bind-api</artifactId>
       <version>4.0.5</version>
+    </dependency>
+
+    <!-- Pin parsson to 1.1.8 — opensearch-java drags in 1.1.7 transitively, which is vulnerable to
+         SNYK-JAVA-ORGECLIPSEPARSSON-17817925 (unbounded resource allocation). Fixed in 1.1.8. -->
+    <dependency>
+      <groupId>org.eclipse.parsson</groupId>
+      <artifactId>parsson</artifactId>
+      <version>1.1.8</version>
     </dependency>
 
     <!--  Solr (indexer integration) wanted  -->
@@ -74,7 +82,7 @@
     <dependency>
         <groupId>at.yawk.lz4</groupId>
         <artifactId>lz4-java</artifactId>
-        <version>1.10.1</version>
+        <version>1.11.1</version>
     </dependency>
 
     <dependency>
@@ -243,6 +251,13 @@
       <groupId>org.eclipse.jetty</groupId>
       <artifactId>jetty-http</artifactId>
       <version>12.0.33</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Pin jetty-util to 12.0.35 — solr-solrj-jetty drags in 12.0.27 which has a CVE -->
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-util</artifactId>
+      <version>12.0.35</version>
       <scope>test</scope>
     </dependency>
 
@@ -665,7 +680,7 @@
     <dependency>
         <groupId>org.jsoup</groupId>
         <artifactId>jsoup</artifactId>
-        <version>1.17.2</version>
+        <version>1.23.1</version>
     </dependency>
 
     <!-- dependency for OpenAiEmbedding Stage -->
@@ -740,41 +755,26 @@
     </dependency>
 
     <!-- GraalVM SDK -->
-    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
        <groupId>org.graalvm.sdk</groupId>
        <artifactId>graal-sdk</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.4</version>
     </dependency>
 
     <!-- GraalVM JavaScript -->
     <dependency>
        <groupId>org.graalvm.js</groupId>
        <artifactId>js</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.4</version>
        <type>pom</type>
     </dependency>
 
     <!-- GraalVM Python -->
-    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
         <groupId>org.graalvm.python</groupId>
         <artifactId>python-language</artifactId>
-        <version>24.2.2</version>
+        <version>25.0.4</version>
     </dependency>
-
-    <!-- Force upgrade of bouncycastle to patch CVEs from transitive graalvm python dependency -->
-    <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcpkix-jdk18on</artifactId>
-        <version>1.84</version>
-    </dependency>
-    <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcprov-jdk18on</artifactId>
-        <version>1.84</version>
-    </dependency>
-
     
     <!-- Py4J Python -->
     <dependency>

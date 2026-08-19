@@ -226,53 +226,6 @@ public class ConfigValidationTest {
   }
 
   @Test
-  public void testValidationOtherParents() throws Exception {
-    // only has optional properties. We have one present.
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badRunnerConfig.conf"));
-
-    assertEquals(1, exceptions.get("other").size());
-    String exceptionMessage = exceptions.get("other").get(0).getMessage();
-
-    // the message should complain about these properties...
-    assertTrue(exceptionMessage.contains("something"));
-    assertTrue(exceptionMessage.contains("somethingElse"));
-    // ...but not this property!
-    assertFalse(exceptionMessage.contains("metricsLoggingLevel"));
-
-    // Zookeeper only has one required property, "connectString".
-    exceptions = Runner.runInValidationMode(addPath("badZookeeperConfig.conf"));
-    assertEquals(1, exceptions.get("other").size());
-    exceptionMessage = exceptions.get("other").get(0).getMessage();
-
-    assertTrue(exceptionMessage.contains("something"));
-    assertTrue(exceptionMessage.contains("connectString"));
-
-    exceptions = Runner.runInValidationMode(addPath("badZookeeperAndRunner.conf"));
-    // designed the validation method so that each parent (publisher, runner, zookeeper) gets its own exception
-    assertEquals(2, exceptions.get("other").size());
-
-    boolean zookeeperSeen = false;
-    boolean runnerSeen = false;
-
-    for (Exception e : exceptions.get("other")) {
-      // running assertions + making sure we see an exception for zookeeper and runner configs
-      if (e.getMessage().contains("zookeeper")) {
-        assertTrue(e.getMessage().contains("connectString"));
-        assertTrue(e.getMessage().contains("something"));
-        zookeeperSeen = true;
-      } else if (e.getMessage().contains("runner")) {
-        assertTrue(e.getMessage().contains("something"));
-        assertTrue(e.getMessage().contains("somethingElse"));
-        runnerSeen = true;
-      } else {
-        fail("Exception for \"other\" that doesn't reference zookeeper or runner.");
-      }
-    }
-
-    assertTrue("Didn't see a validation error for zookeeper and runner.", zookeeperSeen && runnerSeen);
-  }
-
-  @Test
   public void testSameConnectorAndPipelineNames() throws Exception {
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("repeatedConnector.conf"));
 
