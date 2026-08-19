@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.message;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -9,6 +10,7 @@ import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
+import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
@@ -51,7 +53,10 @@ public class KafkaUtils {
       .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
       .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
           "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic")
-      .optionalNumber("metadataMaxAgeMs").build();
+      .optionalNumber("metadataMaxAgeMs")
+      .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
+      .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
+      .optionalParent("admin", new TypeReference<Map<String, Object>>(){}).build();
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
