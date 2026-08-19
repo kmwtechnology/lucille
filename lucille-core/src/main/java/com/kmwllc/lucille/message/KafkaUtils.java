@@ -136,7 +136,10 @@ public class KafkaUtils {
   //access set to package so unit tests can validate created properties without initializing a Producer
   static Properties createProducerProps(Config config) {
     if (config.hasPath("kafka.producerPropertyFile")) {
-      return loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+      Properties loadedProps = loadExternalProps(config.getString("kafka.producerPropertyFile"), config);
+      // Idempotence must stay enabled regardless of what the property file says — see comment below.
+      loadedProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+      return loadedProps;
     }
     Properties producerProps = new Properties();
     producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
@@ -153,6 +156,12 @@ public class KafkaUtils {
     producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
         Math.max(33_554_432L, config.getInt("kafka.maxRequestSize")));
     producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    // The async publish path relies on per-partition ordering to ensure that multiple operations
+    // on the same document (create, update, delete in streaming mode) are applied in the correct
+    // sequence. Kafka guarantees this only when the idempotent producer is active — without it,
+    // retries with max.in.flight > 1 can reorder records within a partition. Pin this explicitly
+    // so it cannot be weakened by defaults changing in future kafka-clients versions.
+    producerProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
     return producerProps;
   }
 

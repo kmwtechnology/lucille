@@ -47,6 +47,16 @@ public class KafkaUtilsTest {
       assertThat(String.format("%s should match.", key), directProps.get(key.toString()).toString(),
           equalTo(externalProps.get(key.toString()).toString()));
     }
+
+    // Idempotence must be enabled on all producers to guarantee per-partition ordering for
+    // streaming-mode operations on the same document. Verify it cannot be omitted or overridden.
+    assertThat(directProps.get("enable.idempotence").toString(), equalTo("true"));
+    assertThat(externalProps.get("enable.idempotence").toString(), equalTo("true"));
+
+    // Verify that a property file explicitly setting enable.idempotence=false is overridden
+    Config overrideConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/external-idempotence-off.conf");
+    Properties overrideProps = KafkaUtils.createProducerProps(overrideConfig);
+    assertThat(overrideProps.get("enable.idempotence").toString(), equalTo("true"));
   }
 
   @Test
