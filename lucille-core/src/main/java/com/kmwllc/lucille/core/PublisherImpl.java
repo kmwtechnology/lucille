@@ -82,10 +82,11 @@ public class PublisherImpl implements Publisher {
 
   // Map of published document IDs that have not reached a terminal state. Also tracks children.
   // Uses ConcurrentHashMap for lock-free concurrent access from multiple publishing threads and
-  // the event-handling thread. The AtomicInteger value is a count: if two documents with the same
-  // ID are published (e.g. create + update in streaming mode, or at-least-once redelivery), we
-  // expect to receive separate terminal events for each, so each add increments and each remove
-  // decrements. The entry is evicted when the count reaches zero.
+  // the event-handling thread. The AtomicInteger value is used as a mutable int counter (its
+  // atomicity is not relied upon — all access is within compute() which holds the bin lock).
+  // If two documents with the same ID are published (e.g. create + update in streaming mode,
+  // or at-least-once redelivery), we expect to receive separate terminal events for each, so
+  // each add increments and each remove decrements. The entry is evicted when the count reaches zero.
   //
   // Note that a Publisher may be shared by a Runner and a Connector: the connector may be publishing
   // new Documents (via publish()) while the Runner is receiving Events and calling handleEvent().
