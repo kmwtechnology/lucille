@@ -283,6 +283,14 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.consumerPropertyFile` | Path to external consumer properties | No |
 | `kafka.producerPropertyFile` | Path to external producer properties | No |
 | `kafka.adminPropertyFile` | Path to external admin properties | No |
+| `kafka.consumer` | Arbitrary properties for consumer | No |
+| `kafka.producer` | Arbitrary properties for producer | No |
+| `kafka.admin` | Arbitrary properties for admin | No |
+
+As a convenience, in your Config, you can also include additional properties for consumers, producers, and admin under
+`kafka.consumer`, `kafka.producer`, and `kafka.admin`, respectively. This allows you to use HOCON's environment variable 
+resolution for your Kafka properties. Additionally, properties declared here _will_ override any values declared in a 
+`consumerPropertyFile`, `producerPropertyFile`, or `adminPropertyFile`.
 
 ## Partitions and Parallelism
 
