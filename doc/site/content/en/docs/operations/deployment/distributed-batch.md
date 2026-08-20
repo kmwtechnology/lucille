@@ -5,7 +5,7 @@ date: 2025-06-09
 description: Running Lucille components as separate processes communicating via Kafka.
 ---
 
-## Kafka-Distributed Mode
+## Distributed Mode
 
 In distributed mode, each Lucille component runs as its own JVM process. All inter-component communication uses Kafka topics.
 
@@ -183,7 +183,7 @@ java \
   -Dconfig.file=/path/to/config.conf \
   -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
-  -usekafka
+  -distributed
 ```
 
 ### Workers

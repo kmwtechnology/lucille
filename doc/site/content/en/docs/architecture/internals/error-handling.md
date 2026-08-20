@@ -80,7 +80,7 @@ This depends on the deployment mode:
 
 - **Local mode:** The Worker thread dies. Since the Worker is a thread in the Runner's JVM, the Runner's `waitForCompletion()` will eventually time out or detect that work is not completing (pending documents never reach a terminal state). The run fails.
 
-- **Kafka-distributed mode:** The Worker process dies. Kafka's consumer group protocol detects the dead consumer and reassigns its partitions to another available Worker instance. The document that was being processed when the crash occurred was not committed (offset not advanced), so it will be redelivered to the new Worker. The document gets reprocessed.
+- **Distributed mode:** The Worker process dies. Kafka's consumer group protocol detects the dead consumer and reassigns its partitions to another available Worker instance. The document that was being processed when the crash occurred was not committed (offset not advanced), so it will be redelivered to the new Worker. The document gets reprocessed.
 
 **Severity:** In local mode, fatal to the run. In distributed mode, recoverable — the document is retried on another Worker.
 
@@ -104,7 +104,7 @@ The document is effectively quarantined. The rest of the ingest continues unaffe
 
 Before the Indexer thread starts processing, `validateConnection()` is called. If it returns `false`:
 
-- **In the Runner (local/Kafka-local mode):** The Runner logs "Indexer could not connect", calls `indexer.closeConnection()`, and returns a failing `ConnectorResult`. The run is aborted.
+- **In the Runner (local/external mode):** The Runner logs "Indexer could not connect", calls `indexer.closeConnection()`, and returns a failing `ConnectorResult`. The run is aborted.
 
 - **In standalone Indexer mode (distributed):** The Indexer logs the error and calls `System.exit(1)`.
 
@@ -132,7 +132,7 @@ The Indexer catches the exception, logs it, and sends a FAIL event for every doc
 
 - **Local mode:** The Indexer thread dies. Documents accumulate on the indexing queue but are never consumed. The Publisher's `waitForCompletion()` will eventually time out because pending documents never reach a terminal state. The run fails.
 
-- **Kafka-distributed mode:** The Indexer process dies. Kafka's consumer group protocol reassigns its partitions to another available Indexer instance. Unacknowledged documents (those in the batch that was being processed) are redelivered to the new Indexer. Since search engine upserts are idempotent, re-indexing an already-indexed document produces the same result.
+- **Distributed mode:** The Indexer process dies. Kafka's consumer group protocol reassigns its partitions to another available Indexer instance. Unacknowledged documents (those in the batch that was being processed) are redelivered to the new Indexer. Since search engine upserts are idempotent, re-indexing an already-indexed document produces the same result.
 
 **Severity:** In local mode, fatal to the run. In distributed mode, recoverable.
 
@@ -144,7 +144,7 @@ The Runner has a signal handler (`Signal.handle(new Signal("INT"), ...)`) that a
 
 - **Local mode:** Everything dies — all components are threads in the same JVM. The run is lost. Documents that were in-flight are lost (they were in in-memory queues).
 
-- **Kafka-distributed mode:** Only the Connector and Publisher die. Workers and Indexers are separate processes and continue running. However, no new documents will be published, and the Publisher's accounting is lost. Documents already on Kafka topics will still be processed and indexed by the Workers and Indexers, but there is no completion detection — the run has no coordinator to declare it done.
+- **Distributed mode:** Only the Connector and Publisher die. Workers and Indexers are separate processes and continue running. However, no new documents will be published, and the Publisher's accounting is lost. Documents already on Kafka topics will still be processed and indexed by the Workers and Indexers, but there is no completion detection — the run has no coordinator to declare it done.
 
 **Severity:** Fatal to the run in all modes. In distributed mode, in-flight work is not lost (it's on Kafka), but run-level accounting is.
 

@@ -35,24 +35,24 @@ java \
   com.kmwllc.lucille.core.Runner
 ```
 
-**Kafka-distributed mode:**
+**Distributed mode:**
 
 ```bash
 java \
   -Dconfig.file=/path/to/config.conf \
   -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
-  -usekafka
+  -distributed
 ```
 
-**Kafka-local mode** (single JVM, Kafka messaging):
+**External mode** (single JVM, Kafka messaging):
 
 ```bash
 java \
   -Dconfig.file=/path/to/config.conf \
   -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
-  -usekafka -local
+  -external
 ```
 
 **Config validation only (no run):**
@@ -125,8 +125,8 @@ Lucille supports four run types, selected via command-line flags:
 | RunType | Flag(s) | Description |
 |---|---|---|
 | `LOCAL` | (none) | Single JVM, in-memory queues. Default. |
-| `KAFKA_LOCAL` | `-usekafka -local` | Single JVM, Kafka messaging. |
-| `KAFKA_DISTRIBUTED` | `-usekafka` | Separate JVMs per component, Kafka messaging. |
+| `EXTERNAL` | `-external` | Single JVM, Kafka messaging. |
+| `DISTRIBUTED` | `-distributed` | Separate JVMs per component, Kafka messaging. |
 | `TEST` | (API only) | Single JVM, in-memory, search backend bypassed, messages captured. |
 
 ---

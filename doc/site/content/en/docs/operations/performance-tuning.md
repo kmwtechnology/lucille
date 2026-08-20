@@ -327,7 +327,7 @@ A higher timeout allows more documents to accumulate (better throughput) but inc
 
 ### Adding Workers
 
-In Kafka-distributed mode, adding Worker processes increases throughput proportionally (up to the number of source topic partitions):
+In distributed mode, adding Worker processes increases throughput proportionally (up to the number of source topic partitions):
 
 ```bash
 # Start additional Worker processes

@@ -202,7 +202,7 @@ for (String fieldName : doc) {
 
 ## Serialization
 
-Documents serialize to and from JSON. In Kafka-distributed mode, Documents flow between components as JSON bytes. The `id` and `run_id` are always included.
+Documents serialize to and from JSON. In distributed mode, Documents flow between components as JSON bytes. The `id` and `run_id` are always included.
 
 ```java
 String json = doc.toString();
