@@ -9,13 +9,12 @@ import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.Condition;
-import org.apache.commons.collections4.Bag;
-import org.apache.commons.collections4.bag.HashBag;
-import org.apache.commons.collections4.bag.SynchronizedBag;
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,18 +80,23 @@ public class PublisherImpl implements Publisher {
   private final ReentrantLock lockForPauseResume = new ReentrantLock();
   private volatile Condition resumeCondition = null;
 
-  // Bag of published documents that have not reached a terminal state. Also includes children of published documents.
-  // Note that this is a Bag, not a Set, because if two documents with the same ID are published, we would
-  // expect to receive two separate terminal events relating to those documents, and we will therefore make
-  // two attempts to remove the ID. Upon each removal attempt, we would like there to be something present
-  // to remove; otherwise we would classify the event as an "early" terminal event and treat it specially.
-  // Also note that a Publisher may be shared by a Runner and a Connector: the connector may be publishing
-  // new Documents while the Connector is receiving Events and calling handleEvent().
-  // publish() and handleEvent() both update docIdsToTrack so the bag should be synchronized.
-  private final Bag<String> docIdsToTrack = SynchronizedBag.synchronizedBag(new HashBag<>());
+  // Map of published document IDs that have not reached a terminal state. Also tracks children.
+  // Uses ConcurrentHashMap for lock-free concurrent access from multiple publishing threads and
+  // the event-handling thread. The AtomicInteger value is a count: if two documents with the same
+  // ID are published (e.g. create + update in streaming mode, or at-least-once redelivery), we
+  // expect to receive separate terminal events for each, so each add increments and each remove
+  // decrements. The entry is evicted when the count reaches zero.
+  //
+  // Note that a Publisher may be shared by a Runner and a Connector: the connector may be publishing
+  // new Documents (via publish()) while the Runner is receiving Events and calling handleEvent().
+  // These operations run in separate threads and both update docIdsToTrack.
+  private final ConcurrentHashMap<String, AtomicInteger> docIdsToTrack = new ConcurrentHashMap<>();
 
-  // Bag of child documents for which a terminal event has been received early, before the corresponding CREATE event
-  private final Bag<String> docIdsIndexedBeforeTracking = SynchronizedBag.synchronizedBag(new HashBag<>());
+  // Map of child document IDs for which a terminal event (FINISH/FAIL/DROP) has been received
+  // early, before the corresponding CREATE event. When a CREATE event later arrives for such a
+  // docId, we check this map first: if present, we decrement rather than adding to docIdsToTrack,
+  // since the document has already completed and doesn't need tracking.
+  private final ConcurrentHashMap<String, AtomicInteger> docIdsIndexedBeforeTracking = new ConcurrentHashMap<>();
 
   public PublisherImpl(Config config, PublisherMessenger messenger, String runId,
       String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
@@ -261,14 +265,14 @@ public class PublisherImpl implements Publisher {
     // As soon as the document has been sent for processing, the publisher could begin receiving Events relating to that document.
     // If the publisher quickly receives a DROP event, for example, we want to be sure that the docId has already been
     // added to docIdsToTrack so that it can be found there and removed, not mistakenly added to docIdsIndexedBeforeTracking
-    docIdsToTrack.add(docId);
+    docIdsToTrack.computeIfAbsent(docId, k -> new AtomicInteger(0)).incrementAndGet();
 
     try {
       messenger.sendForProcessing(document);
     } catch (Exception e) {
       // we assume that if an exception was encountered here, the doc was not actually made available for processing,
       // and that we won't be receiving any Events relating to it, so we can stop tracking its docId now
-      docIdsToTrack.remove(docId, 1);
+      decrementOrRemove(docIdsToTrack, docId);
       throw e;
     }
 
@@ -314,8 +318,8 @@ public class PublisherImpl implements Publisher {
       // if we're learning that a child document has been created, we need to begin tracking it unless
       // we have already received an early confirmation that it was indexed
       // TODO: this does not handle redundant create events
-      if (!docIdsIndexedBeforeTracking.remove(docId, 1)) {
-        docIdsToTrack.add(docId);
+      if (!decrementOrRemove(docIdsIndexedBeforeTracking, docId)) {
+        docIdsToTrack.computeIfAbsent(docId, k -> new AtomicInteger(0)).incrementAndGet();
       }
 
     } else {
@@ -332,13 +336,13 @@ public class PublisherImpl implements Publisher {
       // but if we weren't previously tracking it, we need to remember that we've seen it so that
       // if we receive an out-of-order or late create event for this document in the future,
       // we won't start tracking it then
-      if (!docIdsToTrack.remove(docId, 1)) {
-        docIdsIndexedBeforeTracking.add(docId);
+      if (!decrementOrRemove(docIdsToTrack, docId)) {
+        docIdsIndexedBeforeTracking.computeIfAbsent(docId, k -> new AtomicInteger(0)).incrementAndGet();
       } else {
         if (maxPendingDocs != null) {
           try {
             lockForPendingDocs.lock();
-            // since we have removed a docID from the bag of docIdsToTrack (and this is the main place where we do this),
+            // since we have removed a docID from docIdsToTrack (and this is the main place where we do this),
             // check to see if the number of pending docs has fallen below the specified max and
             // notify any threads that are waiting on that condition; specifically, notify the connector thread(s)
             // where publish() is being called
@@ -475,5 +479,25 @@ public class PublisherImpl implements Publisher {
 
   public Integer getMaxPendingDocs() {
     return maxPendingDocs;
+  }
+
+  /**
+   * Decrements the count for the given key in the map and removes the entry if the count reaches
+   * zero. Returns true if the key was present (and decremented), false otherwise.
+   *
+   * Called from publish threads (error path in sendForProcessing) and the event-handling thread
+   * (handleEvent). Concurrent calls on different keys are fully safe (ConcurrentHashMap). Concurrent
+   * calls on the same key are safe in practice: AtomicInteger.decrementAndGet() is atomic, and if
+   * two threads both see count <= 0 and call map.remove(), the second remove is a no-op.
+   */
+  private static boolean decrementOrRemove(ConcurrentHashMap<String, AtomicInteger> map, String key) {
+    AtomicInteger count = map.get(key);
+    if (count == null) {
+      return false;
+    }
+    if (count.decrementAndGet() <= 0) {
+      map.remove(key);
+    }
+    return true;
   }
 }

@@ -47,10 +47,11 @@ public interface Publisher {
   long numReceived();
 
   /**
-   * Returns the number of documents for which we are still awaiting a terminal event.
+   * Returns the number of distinct document IDs for which we are still awaiting a terminal event.
    *
-   * This number includes documents published via publish() as well as child documents generated
-   * during pipeline execution.
+   * This count includes documents published via publish() as well as child documents generated
+   * during pipeline execution. If the same document ID is published multiple times (e.g. in
+   * streaming mode), it is counted once here, not once per occurrence.
    */
   long numPending();
 
