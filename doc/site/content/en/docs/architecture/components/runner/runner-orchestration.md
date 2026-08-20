@@ -224,6 +224,25 @@ Each connector gets its own WorkerPool, Indexer, and Publisher. Components from 
 
 ## The `main()` Method and CLI Options
 
+```java
+Option distributedOpt = Option.builder("distributed").hasArg(false)
+    .desc("Uses Kafka for inter-component communication and doesn't execute pipelines locally.")
+    .build();
+
+Option external = Option.builder("external").hasArg(false)
+    .desc("Modified local mode where workers and indexers are separate threads within the JVM communicating "
+        + "through kafka")
+    .build();
+
+OptionGroup distributedType = new OptionGroup().addOption(distributedOpt).addOption(external);
+
+Options cliOptions = new Options()
+    .addOptionGroup(distributedType)
+    .addOption(Option.builder("validate").hasArg(false)
+        .desc("Validate the configuration and exit").build())
+    .addOption(Option.builder("render").hasArg(false)
+        .desc("Print out the configuration file with substitutions applied and exit").build());
+```
 
 | Flag | Effect |
 |------|--------|
