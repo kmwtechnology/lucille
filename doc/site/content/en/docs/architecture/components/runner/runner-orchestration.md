@@ -224,17 +224,6 @@ Each connector gets its own WorkerPool, Indexer, and Publisher. Components from 
 
 ## The `main()` Method and CLI Options
 
-```java
-Options cliOptions = new Options()
-    .addOption(Option.builder("distributed").hasArg(false)
-        .desc("Use Kafka for inter-component communication; don't execute pipelines locally").build())
-    .addOption(Option.builder("external").hasArg(false)
-        .desc("Execute pipelines locally but use Kafka for inter-component communication").build())
-    .addOption(Option.builder("validate").hasArg(false)
-        .desc("Validate the configuration and exit").build())
-    .addOption(Option.builder("render").hasArg(false)
-        .desc("Print out the configuration file with substitutions applied and exit").build());
-```
 
 | Flag | Effect |
 |------|--------|
@@ -244,7 +233,9 @@ Options cliOptions = new Options()
 | `-validate` | Validate config and exit (no execution) |
 | `-render` | Print resolved config as JSON and exit |
 
-The `-validate` and `-render` flags can be combined. All args are lowercased before parsing.
+The `-validate` and `-render` flags can be combined. `-distributed` and `-external` cannot as they are mutually exclusive, supplying both is rejected. 
+
+Anything the parser doesn't recognize (unknown flags or leftover positional arguments) cause the Runner to log the usage text and exit 1 rather than starting a run.
 
 ## Thread Model (Local Mode)
 
