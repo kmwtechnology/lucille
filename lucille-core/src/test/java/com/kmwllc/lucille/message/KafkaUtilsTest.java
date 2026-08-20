@@ -185,6 +185,14 @@ public class KafkaUtilsTest {
   }
 
   @Test
+  public void testArbitraryProducerPropsWillNotOverwriteIdempotence() {
+    Config listPropConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/idempotence.conf");
+    Properties props = KafkaUtils.createProducerProps(listPropConfig);
+    // tried to set idempotence to false via arbitrary props, we force it to be true
+    assertThat(props.get("enable.idempotence").toString(), equalTo("true"));
+  }
+
+  @Test
   public void testInvalidArbitraryProps() {
     // "LIST" is the only invalid type for an arbitrary property... see comment in KafkaUtils
     Config listPropConfig = ConfigFactory.load("KafkaUtilsTest/list-arbitrary.conf");
