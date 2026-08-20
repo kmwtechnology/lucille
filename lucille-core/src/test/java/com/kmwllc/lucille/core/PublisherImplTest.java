@@ -138,14 +138,17 @@ public class PublisherImplTest {
 
     publisher.publish(Document.create("doc1"));
     assertEquals(2, publisher.numPublished());
-    assertEquals(2, publisher.numPending());
+    // numPending reports distinct document IDs being tracked, not total occurrences;
+    // "doc1" is tracked once (with a count of 2 internally)
+    assertEquals(1, publisher.numPending());
 
     Event finishEvent = new Event(doc.getId(), "run1", "", Event.Type.FINISH);
     publisher.handleEvent(finishEvent);
     assertEquals(2, publisher.numPublished());
+    // still pending: internal count decremented from 2 to 1
     assertEquals(1, publisher.numPending());
 
-    publisher.handleEvent(finishEvent); // redundant finish event
+    publisher.handleEvent(finishEvent); // second finish event clears the entry
     assertEquals(2, publisher.numPublished());
     assertEquals(0, publisher.numPending());
   }
