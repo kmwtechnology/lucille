@@ -23,6 +23,12 @@ public interface Publisher {
    *
    * IMPORTANT: After calling publish, code should not update the Document or read values from it since at this point
    * it may have been picked up by a worker thread.
+   *
+   * Exceptions thrown by this method represent framework-level failures (e.g. the messaging
+   * infrastructure is unavailable) and should be treated as unrecoverable. Connectors must not
+   * catch and swallow these exceptions. Doing so may leave the run in an inconsistent state.
+   * Connectors that need to handle per-document errors (e.g. failures constructing the Document
+   * before calling publish) should do so before this method is called.
    */
   void publish(Document document) throws Exception;
 

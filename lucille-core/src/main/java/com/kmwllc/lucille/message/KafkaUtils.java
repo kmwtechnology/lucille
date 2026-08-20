@@ -197,11 +197,25 @@ public class KafkaUtils {
       }
 
       producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getInt("kafka.maxRequestSize"));
-      producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getInt("kafka.maxRequestSize"));
+      // buffer.memory controls the total bytes the producer's accumulator can hold across all
+      // partitions. Use Kafka's default of 32MB (unchanged since 0.9.0.0 through at least 3.9.x)
+      // as a floor, but allow it to grow if maxRequestSize exceeds that — otherwise a single
+      // oversized record couldn't fit in the accumulator. Previously this was set equal to
+      // maxRequestSize, which starved the buffer when maxRequestSize was configured to match
+      // a broker's message size limit and left no room for async send batching.
+      producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG,
+          Math.max(33_554_432L, config.getInt("kafka.maxRequestSize")));
       producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     }
 
     mergeConfigProps(producerProps, config, "kafka.producer");
+
+    // The async publish path relies on per-partition ordering to ensure that multiple operations
+    // on the same document (create, update, delete in streaming mode) are applied in the correct
+    // sequence. Kafka guarantees this only when the idempotent producer is active — without it,
+    // retries with max.in.flight > 1 can reorder records within a partition. Pin this explicitly
+    // so it cannot be weakened by defaults changing in future kafka-clients versions.
+    producerProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
     return producerProps;
   }
 

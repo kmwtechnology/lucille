@@ -247,7 +247,7 @@ public class FileConnector extends AbstractConnector {
         publisher.publish(doc);
         publishedTombstoneCount++;
       } catch (Exception e) {
-        log.warn("Error occurred while publishing document tombstone for file: %s".formatted(uri), e);
+        throw new ConnectorException("Error publishing document tombstone for file: " + uri, e);
       }
     }
     log.info("Published {} of {} document tombstones for tracking and index removal", publishedTombstoneCount, expiredFileCount);
