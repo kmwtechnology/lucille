@@ -245,20 +245,19 @@
       <version>${solr.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- Pin jetty-http to 12.0.33 — solr-solrj-jetty drags in 12.0.27 which has a CVE; 12.1.x (used by
-         lucille-api via Dropwizard) is unaffected so the pin lives here rather than in the parent -->
+    <!-- Floor for jetty-http: solr-solrj-zookeeper pulls 12.0.27 (CVE-2026-2332).
+    Not test-scoped so it propagates downstream. -->
     <dependency>
       <groupId>org.eclipse.jetty</groupId>
       <artifactId>jetty-http</artifactId>
       <version>12.0.33</version>
-      <scope>test</scope>
     </dependency>
-    <!-- Pin jetty-util to 12.0.35 — solr-solrj-jetty drags in 12.0.27 which has a CVE -->
+     <!-- Floor for jetty-util: solr-solrj-zookeeper pulls 12.0.27 (CVE-2026-8384).
+     Not test-scoped so it propagates downstream. -->
     <dependency>
       <groupId>org.eclipse.jetty</groupId>
       <artifactId>jetty-util</artifactId>
       <version>12.0.35</version>
-      <scope>test</scope>
     </dependency>
 
     <!--  Note that this is also one of the dependencies for solr that we had to pull in manually. However,
