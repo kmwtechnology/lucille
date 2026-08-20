@@ -50,7 +50,7 @@
     <opensearch.version>0.1.0</opensearch.version>
     <opensearch-java.version>3.9.0</opensearch-java.version>
     <httpcore5.version>5.4.3</httpcore5.version>
-    <httpclient5.version>5.6.2</httpclient5.version>
+    <httpclient5.version>5.6.3</httpclient5.version>
     <elasticsearch.version>9.0.0</elasticsearch.version>
     <aws-java-sdk.version>1.12.769</aws-java-sdk.version>
     <log4j.version>2.26.1</log4j.version>
@@ -58,13 +58,13 @@
     <apache-commons-lang3.version>3.18.0</apache-commons-lang3.version>
     <apache-commons-text.version>1.10.0</apache-commons-text.version>
     <protobuf.version>3.25.5</protobuf.version>
-    <netty.version>4.1.136.Final</netty.version>
+    <netty.version>4.1.137.Final</netty.version>
     <grpc.version>1.82.1</grpc.version>
     <!--  TODO: dropwizard-testing-junit4 is currently at 5.0.0 since 5.0.2 did not exist at time of upgrade. Bring back to use ${dropwizard-core.version} -->
     <dropwizard-core.version>5.0.2</dropwizard-core.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit4.version>4.13.2</junit4.version>
-    <aws-sdk.version>2.49.4</aws-sdk.version>
+    <aws-sdk.version>2.52.1</aws-sdk.version>
     <hadoop.version>3.5.0</hadoop.version>
   </properties>
 
