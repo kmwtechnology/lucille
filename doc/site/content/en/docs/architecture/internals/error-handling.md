@@ -168,7 +168,11 @@ If the configured `runner.connectorTimeout` (default 24 hours) is exceeded, `wai
 The Worker calls `messenger.commitPendingDocOffsets()` after processing each document. If this throws, the Worker logs the error and continues. The consequence is that if the Worker later crashes, the document may be redelivered and reprocessed (at-least-once semantics). This is safe because pipeline processing is expected to be idempotent.
 
 **Document publish fails (publisher.publish() throws):**
-If the Publisher's `sendForProcessing()` throws (e.g., the processing queue is broken), the exception propagates up to the Connector's `execute()` method. Unless the Connector catches it, this becomes scenario #3 (connector execute throws) and the run fails.
+If `publisher.publish()` throws, the exception represents a framework-level failure — the messaging infrastructure is unavailable or has permanently rejected a record. This is governed by Lucille's **fail-fast policy**: Kafka communication failures are treated as non-recoverable and abort the run. See [Kafka Integration — Producer Behavior]({{< relref "kafka-integration#producer-behavior" >}}) for the full rationale.
+
+Connectors **must not** catch and swallow exceptions from `publish()`. Doing so leaves the run in an inconsistent state: the Publisher's document-tracking accounting assumes every published document will eventually receive a terminal event, and a silently dropped document can never satisfy that assumption — causing `waitForCompletion()` to hang until the connector timeout.
+
+The exception propagates up to the Connector's `execute()` method, which becomes scenario #3 (connector execute throws) and the run fails. Connectors that need to handle per-document errors (e.g., a malformed source record) should do so *before* calling `publish()`.
 
 ---
 
