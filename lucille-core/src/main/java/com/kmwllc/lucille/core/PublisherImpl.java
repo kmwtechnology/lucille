@@ -265,7 +265,11 @@ public class PublisherImpl implements Publisher {
     // As soon as the document has been sent for processing, the publisher could begin receiving Events relating to that document.
     // If the publisher quickly receives a DROP event, for example, we want to be sure that the docId has already been
     // added to docIdsToTrack so that it can be found there and removed, not mistakenly added to docIdsIndexedBeforeTracking
-    docIdsToTrack.computeIfAbsent(docId, k -> new AtomicInteger(0)).incrementAndGet();
+    docIdsToTrack.compute(docId, (k, count) -> {
+      if (count == null) return new AtomicInteger(1);
+      count.incrementAndGet();
+      return count;
+    });
 
     try {
       messenger.sendForProcessing(document);
@@ -319,7 +323,11 @@ public class PublisherImpl implements Publisher {
       // we have already received an early confirmation that it was indexed
       // TODO: this does not handle redundant create events
       if (!decrementOrRemove(docIdsIndexedBeforeTracking, docId)) {
-        docIdsToTrack.computeIfAbsent(docId, k -> new AtomicInteger(0)).incrementAndGet();
+        docIdsToTrack.compute(docId, (k, count) -> {
+          if (count == null) return new AtomicInteger(1);
+          count.incrementAndGet();
+          return count;
+        });
       }
 
     } else {
@@ -337,7 +345,11 @@ public class PublisherImpl implements Publisher {
       // if we receive an out-of-order or late create event for this document in the future,
       // we won't start tracking it then
       if (!decrementOrRemove(docIdsToTrack, docId)) {
-        docIdsIndexedBeforeTracking.computeIfAbsent(docId, k -> new AtomicInteger(0)).incrementAndGet();
+        docIdsIndexedBeforeTracking.compute(docId, (k, count) -> {
+          if (count == null) return new AtomicInteger(1);
+          count.incrementAndGet();
+          return count;
+        });
       } else {
         if (maxPendingDocs != null) {
           try {
@@ -482,22 +494,25 @@ public class PublisherImpl implements Publisher {
   }
 
   /**
-   * Decrements the count for the given key in the map and removes the entry if the count reaches
-   * zero. Returns true if the key was present (and decremented), false otherwise.
+   * Atomically decrements the count for the given key in the map and removes the entry if the
+   * count reaches zero. Returns true if the key was present (and decremented), false otherwise.
+   *
+   * Uses compute() to hold the bin lock for the key during the entire read-modify-write, preventing
+   * a concurrent increment from interleaving between the decrement and the removal.
    *
    * Called from publish threads (error path in sendForProcessing) and the event-handling thread
    * (handleEvent). Concurrent calls on different keys are fully safe (ConcurrentHashMap). Concurrent
-   * calls on the same key are safe in practice: AtomicInteger.decrementAndGet() is atomic, and if
-   * two threads both see count <= 0 and call map.remove(), the second remove is a no-op.
+   * calls on the same key are safe because compute() serializes them per bin.
    */
   private static boolean decrementOrRemove(ConcurrentHashMap<String, AtomicInteger> map, String key) {
-    AtomicInteger count = map.get(key);
-    if (count == null) {
-      return false;
-    }
-    if (count.decrementAndGet() <= 0) {
-      map.remove(key);
-    }
-    return true;
+    // single-element array allows the lambda to communicate a result back to the caller,
+    // since Java lambdas cannot assign to local variables from the enclosing scope
+    boolean[] wasPresent = {false};
+    map.compute(key, (k, count) -> {
+      if (count == null) return null;
+      wasPresent[0] = true;
+      return count.decrementAndGet() <= 0 ? null : count;
+    });
+    return wasPresent[0];
   }
 }
