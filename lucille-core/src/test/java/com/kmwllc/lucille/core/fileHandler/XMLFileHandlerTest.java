@@ -3,6 +3,10 @@ package com.kmwllc.lucille.core.fileHandler;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -289,5 +293,35 @@ public class XMLFileHandlerTest {
     )));
 
     assertThrows(IllegalArgumentException.class, () -> FileHandler.create("xml", config));
+  }
+
+  /**
+   * Test that a publish failure during XML processing propagates as a FileHandlerException
+   * rather than being swallowed. Uses the same staff.xml fixture as testStaff().
+   */
+  @Test
+  public void testPublishFailureAborts() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        "xmlIdPath", "/Company/staff/id",
+        "encoding", "utf-8",
+        "outputField", "xml"
+    )));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = spy(new PublisherImpl(config, messenger, "run1", "pipeline1"));
+    doCallRealMethod()
+        .doThrow(new Exception("Simulated Kafka failure"))
+        .when(publisher).publish(any(Document.class));
+
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staff.xml";
+    File file = new File(filePath);
+
+    assertThrows(FileHandlerException.class, () ->
+        xmlHandler.processFileAndPublish(publisher, new FileInputStream(file), filePath));
+
+    // first document was published successfully before the failure on the second
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
   }
 }

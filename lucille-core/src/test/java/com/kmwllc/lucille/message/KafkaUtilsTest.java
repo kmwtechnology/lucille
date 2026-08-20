@@ -47,6 +47,27 @@ public class KafkaUtilsTest {
       assertThat(String.format("%s should match.", key), directProps.get(key.toString()).toString(),
           equalTo(externalProps.get(key.toString()).toString()));
     }
+
+    // Idempotence must be enabled on all producers to guarantee per-partition ordering for
+    // streaming-mode operations on the same document. Verify it cannot be omitted or overridden.
+    assertThat(directProps.get("enable.idempotence").toString(), equalTo("true"));
+    assertThat(externalProps.get("enable.idempotence").toString(), equalTo("true"));
+
+    // Verify that a property file explicitly setting enable.idempotence=false is overridden
+    Config overrideConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/external-idempotence-off.conf");
+    Properties overrideProps = KafkaUtils.createProducerProps(overrideConfig);
+    assertThat(overrideProps.get("enable.idempotence").toString(), equalTo("true"));
+
+    // buffer.memory must be at least 32MB (Kafka's default) regardless of maxRequestSize,
+    // so the async producer has room to buffer multiple records
+    Config smallMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 1048576, maxPollIntervalSecs: 300, consumerGroupId: \"test\" }");
+    Properties smallProps = KafkaUtils.createProducerProps(smallMaxRequest);
+    assertTrue(Long.parseLong(smallProps.get("buffer.memory").toString()) >= 33_554_432L);
+
+    // buffer.memory grows if maxRequestSize exceeds 32MB
+    Config largeMaxRequest = ConfigFactory.parseString("kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 67108864, maxPollIntervalSecs: 300, consumerGroupId: \"test\" }");
+    Properties largeProps = KafkaUtils.createProducerProps(largeMaxRequest);
+    assertTrue(Long.parseLong(largeProps.get("buffer.memory").toString()) >= 67_108_864L);
   }
 
   @Test

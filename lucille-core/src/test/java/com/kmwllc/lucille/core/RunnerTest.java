@@ -7,6 +7,7 @@ import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
+import com.kmwllc.lucille.connector.SequenceConnector;
 import com.kmwllc.lucille.core.Runner.RunType;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
@@ -1350,5 +1351,61 @@ public class RunnerTest {
 
     // every parent should have been accounted for.
     assertTrue("Missing validation errors for parents: " + expectedParents, expectedParents.isEmpty());
+  }
+
+  /**
+   * Test that a publish failure mid-run (after some documents have been published successfully)
+   * causes the run to abort promptly rather than hanging until the connector timeout.
+   *
+   * This verifies the fail-fast contract: exceptions from publisher.publish() represent
+   * unrecoverable framework errors (e.g. Kafka unavailable) and should stop the ingest.
+   *
+   * Uses TestMessenger (local mode) where sendForProcessing() is overridden to throw on the
+   * 3rd call, simulating a failure that is surfaced immediately to the caller. See
+   * KafkaPublisherMessengerTest.testPublishFailureAbortsRunDistributed for the distributed-mode
+   * case where the failure is reported asynchronously via callback.
+   */
+  @Test
+  public void testPublishFailureAbortsRunLocal() throws Exception {
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "numDocs", 10,
+        "name", "connector1",
+        "class", "com.kmwllc.lucille.connector.SequenceConnector",
+        "pipeline", "pipeline1"
+    ));
+
+    Config runnerConfig = ConfigFactory.parseMap(Map.of(
+        "runner.connectorTimeout", 30000
+    ));
+
+    TestMessenger messenger = spy(new TestMessenger());
+    // first two sends succeed, third throws
+    doCallRealMethod()
+        .doCallRealMethod()
+        .doThrow(new Exception("Simulated Kafka send failure"))
+        .when(messenger).sendForProcessing(any(Document.class));
+
+    Connector connector = new SequenceConnector(connectorConfig);
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    Instant start = Instant.now();
+    ConnectorResult result = Runner.runConnector(runnerConfig, "run1", connector, publisher);
+    Instant end = Instant.now();
+
+    // run aborted
+    assertFalse(result.getStatus());
+
+    // run completed promptly — did not hang for the full 30s connector timeout
+    assertTrue("Run took too long — may have hung instead of aborting",
+        ChronoUnit.SECONDS.between(start, end) < 10);
+
+    // exactly 2 documents were published successfully before the failure on the 3rd
+    assertEquals(2, messenger.getDocsSentForProcessing().size());
+
+    // numPublished matches because the failure is synchronous here (TestMessenger throws from
+    // sendForProcessing directly). With KafkaPublisherMessenger, a send that is buffered
+    // successfully increments numPublished even though the broker hasn't acked yet — so
+    // numPublished could exceed the number of documents that actually reached the broker.
+    assertEquals(2, publisher.numPublished());
   }
 }
