@@ -14,7 +14,7 @@ Java 21. Lucille is compiled targeting Java 21. See the [Support Matrix]({{< rel
 
 **Do I need Kafka to run Lucille?**
 
-No. Local mode runs entirely in-memory inside a single JVM with no external dependencies beyond the JVM itself. Kafka is only required when running in distributed mode (`-usekafka`). You can develop and test your full pipeline without Kafka and add it later when you need to scale out.
+No. Local mode runs entirely in-memory inside a single JVM with no external dependencies beyond the JVM itself. Kafka is only required when running in distributed mode (`-distributed`). You can develop and test your full pipeline without Kafka and add it later when you need to scale out.
 
 **What search backends are supported?**
 

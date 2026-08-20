@@ -47,11 +47,11 @@ All components run as threads in one JVM. Inter-component communication uses in-
 
 ![Architecture diagram: local mode](topology-local.png)
 
-### Kafka Local
+### External
 
 All components still run as threads in one JVM, but inter-component communication uses an external Kafka instance instead of in-memory queues. Useful for testing Kafka integration without deploying separate processes.
 
-![Architecture diagram: Kafka-local mode](topology-local-kafka.png)
+![Architecture diagram: external mode](topology-local-kafka.png)
 
 ## Distributed Modes
 

@@ -233,7 +233,7 @@ No other changes needed. The same config, more threads.
 
 **Step 2: distribute across machines.** If one machine isn't enough, switch to distributed mode. Lucille's components — Runner, Workers, and Indexer — run as separate JVM processes and communicate through Kafka. Here's what changes:
 
-- The Runner gets the `-usekafka` flag: `com.kmwllc.lucille.core.Runner -usekafka`
+- The Runner gets the `-distributed` flag: `com.kmwllc.lucille.core.Runner -distributed`
 - Workers and the Indexer are started as separate processes on separate machines (or in separate Kubernetes pods): `com.kmwllc.lucille.core.Worker my-pipeline` and `com.kmwllc.lucille.core.Indexer my-pipeline`
 - A `kafka {}` block with `bootstrapServers` is added to the config
 

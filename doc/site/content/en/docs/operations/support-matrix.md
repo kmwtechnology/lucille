@@ -36,7 +36,7 @@ The following backends are supported via the Indexer component.
 | kafka-clients | 4.0.0 |
 | Kafka broker | 3.x, 4.x |
 
-Kafka is only required when running in distributed mode (`-usekafka`). Local mode uses in-memory queues and has no Kafka dependency.
+Kafka is only required when running in distributed mode (`-distributed`). Local mode uses in-memory queues and has no Kafka dependency.
 
 ## Operating Systems
 

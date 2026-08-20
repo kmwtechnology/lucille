@@ -74,7 +74,7 @@ java \
   -Dconfig.file=<PATH/TO/YOUR/CONFIG.conf> \
   -cp 'lucille-core/target/lucille.jar:lucille-core/target/lib/*' \
   com.kmwllc.lucille.core.Runner \
-  -usekafka
+  -distributed
 ```
 
 ### Start Workers
@@ -107,7 +107,7 @@ java \
 |---|---|
 | `-Dconfig.file=...` | Path to your HOCON configuration file |
 | `-cp '...'` | Lucille core JAR and all runtime dependencies |
-| `Runner -usekafka` | Starts the run and coordinates with Kafka |
+| `Runner -distributed` | Starts the run and coordinates with Kafka |
 | `Worker <pipeline-name>` | Processes documents through the named pipeline |
 | `Indexer <pipeline-name>` | Writes processed documents to the configured backend |
 

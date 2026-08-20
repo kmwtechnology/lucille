@@ -8,7 +8,7 @@ description: >
 
 ## Overview
 
-Kafka is Lucille's distributed messaging backbone. When running in `KAFKA_LOCAL` or `KAFKA_DISTRIBUTED` mode, all inter-component communication flows through Kafka topics. This enables horizontal scaling: multiple Worker processes can consume from the same source topic, and multiple Indexer processes can consume from the same dest topic.
+Kafka is Lucille's distributed messaging backbone. When running in `EXTERNAL` or `DISTRIBUTED` mode, all inter-component communication flows through Kafka topics. This enables horizontal scaling: multiple Worker processes can consume from the same source topic, and multiple Indexer processes can consume from the same dest topic.
 
 ## Topic Naming Conventions
 

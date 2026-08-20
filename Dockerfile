@@ -24,7 +24,7 @@ RUN groupadd -r lucille \
 # Environment variables with sensible defaults
 # LUCILLE_CONF: path to the Lucille config file (required)
 # JAVA_OPTS: JVM flags such as heap size and GC settings
-# LUCILLE_OPTS: Lucille Runner CLI flags (e.g. -local, -usekafka)
+# LUCILLE_OPTS: Lucille Runner CLI flags (e.g. -distributed, -external)
 ENV LUCILLE_CONF=""
 ENV LUCILLE_OPTS=""
 ENV JAVA_OPTS=""
