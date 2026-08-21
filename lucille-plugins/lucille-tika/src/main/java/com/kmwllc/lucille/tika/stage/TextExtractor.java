@@ -125,7 +125,7 @@ public class TextExtractor extends Stage {
   // The cache is bounded by MAX_CACHED_CONFIGS. It is a "soft cap" - once it is reached,
   // no additional TikaConfigs will be cached.
   // Canonical paths are used as keys to prevent unwarranted collisions.
-  private static final int MAX_CACHED_CONFIGS = 100;
+  private static final int MAX_CACHED_CONFIGS = 1000;
   private static final ConcurrentHashMap<String, TikaConfig> TIKA_CONFIG_CACHE = new ConcurrentHashMap<>();
 
   private String textField;
