@@ -572,6 +572,18 @@ public class TextExtractorTest {
   }
 
   @Test
+  public void testForkingSizeLimit() throws Exception {
+    // Hitting textContentLimit should be treated as expected truncation, not a document failure,
+    // even in fork mode where the write-limit exception crosses the child-JVM boundary.
+    Stage stage = factory.get("TextExtractorTest/forking-sizelimit.conf");
+    Document doc = Document.create("doc1");
+    byte[] fileContent = Files.readAllBytes(Paths.get("src/test/resources/TextExtractorTest/tika.txt"));
+    doc.setField("byte_array", fileContent);
+    stage.processDocument(doc);
+    assertEquals("Hi ", doc.getString("text"));
+  }
+
+  @Test
   public void testForkingParser() throws Exception {
     Stage stage = factory.get("TextExtractorTest/forking.conf");
     Document doc = Document.create("doc1");

@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.extractor.DocumentSelector;
+import org.apache.tika.exception.WriteLimitReachedException;
 import org.apache.tika.fork.ForkParser;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
@@ -54,6 +56,9 @@ import org.xml.sax.SAXException;
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
  * parseTimeout (Long, Optional) : timeout for parsing in milliseconds.
+ * skipEmbeddedContentTypePrefixes (List&lt;String&gt;, Optional) : content-type prefixes for which embedded documents are
+ * skipped (not parsed), e.g. ["image/"] to skip embedded images. Defaults to empty (all embedded documents parsed).
+ * Embedded parts with no content type are always parsed.
  * whitelist (List&lt;String&gt;, Optional) : list of metadata names that are to be included in document
  * blacklist (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
  * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
@@ -104,6 +109,7 @@ public class TextExtractor extends Stage {
       .optionalList("whitelist", new TypeReference<List<String>>() {})
       .optionalList("blacklist", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeout")
+      .optionalList("skipEmbeddedContentTypePrefixes", new TypeReference<List<String>>() {})
       .optionalParent(FORK_SPEC, FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .optionalParent("metadataFields", new TypeReference<Map<String, Object>>() {})
       .include(FileContentFetcher.SPEC).build();
@@ -141,6 +147,7 @@ public class TextExtractor extends Stage {
   private ExecutorService executorService;
   private final FieldFilter fieldFilter;
   private final Map<String, Object> metadataFields;
+  private final List<String> skipEmbeddedContentTypePrefixes;
 
   public TextExtractor(Config config) throws StageException {
     super(config);
@@ -154,6 +161,9 @@ public class TextExtractor extends Stage {
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
     fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
     metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
+    skipEmbeddedContentTypePrefixes = config.hasPath("skipEmbeddedContentTypePrefixes")
+        ? config.getStringList("skipEmbeddedContentTypePrefixes")
+        : List.of();
 
     forkEnabled = ConfigUtils.getOrDefault(config, "fork.enabled", false);
     forkPoolSize = ConfigUtils.getOrDefault(config, "fork.poolSize", 5);
@@ -213,6 +223,13 @@ public class TextExtractor extends Stage {
       // every embedded document, so we set ours here to reuse it. We don't set it in the fork case
       // since TikaConfig isn't Serializable and the context is sent to the child JVM.
       parseCtx.set(TikaConfig.class, tikaConfig);
+      // Skip parsing embedded documents whose content type matches a configured prefix, avoiding
+      // their stream open, detection, and parse entirely. Only set when configured, so the default
+      // (empty) leaves Tika's normal behavior unchanged. Non-fork only, alongside the other context
+      // hints above.
+      if (!skipEmbeddedContentTypePrefixes.isEmpty()) {
+        parseCtx.set(DocumentSelector.class, new EmbeddedContentTypeSelector(skipEmbeddedContentTypePrefixes));
+      }
       if (parseTimeout != null) {
         // each worker is running in a single thread so we only need to run the extraction with a
         // single thread executor rather than using a thread pool.
@@ -374,6 +391,12 @@ public class TextExtractor extends Stage {
       } catch (TimeoutException e) {
         future.cancel(true);
         log.warn("Tika parsing timed out after {} ms", parseTimeout);
+        // close the stream to abort a parse blocked on a stream read (the common hang case)
+        try {
+          inputStream.close();
+        } catch (IOException ioe) {
+          log.warn("Error closing input stream after parse timeout", ioe);
+        }
         // future.cancel() doesn't stop a parse thread (may be stuck), but discard + recreate does -
         // prevent zombie thread / blocking queued documents
         executorService.shutdownNow();
@@ -412,10 +435,15 @@ public class TextExtractor extends Stage {
     try {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
-      if (forkEnabled) {
+      // We expect truncation when textContentLimit is reached.
+      // It is best to check this condition because exceptions tend to be rewrapped. 
+      if (WriteLimitReachedException.isWriteLimitReached(e)) {
+        log.debug("textContentLimit ({}) reached; extracted text truncated.", textContentLimit);
+      } else if (forkEnabled) {
         throw new StageException("Forked Tika process failed for document: " + doc.getId(), e);
+      } else {
+        log.warn("Tika Exception: {}", e.getMessage());
       }
-      log.warn("Tika Exception: {}", e.getMessage());
     }
   }
 }
