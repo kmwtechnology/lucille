@@ -48,7 +48,9 @@ import org.xml.sax.SAXException;
  * filePathField (String, Optional) : name of field from which file path can be extracted, if filePathField
  * and byteArrayField both not provided, stage will do nothing
  * byteArrayField (String, Optional) : name of field from which byte array data can be extracted
- * tikaConfigPath (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
+ * tikaConfigPath (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser.
+ * A provided config is applied to embedded documents as well as the top-level document; without one, Tika parses
+ * embedded documents with its default config.
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
  * parseTimeout (Long, Optional) : timeout for parsing in milliseconds.
@@ -190,13 +192,10 @@ public class TextExtractor extends Stage {
       }
     }
 
-    // we use an auto detect parser whether we are forking or not
-    AutoDetectParser autoParser;
-    if (this.tikaConfigPath == null) {
-      autoParser = new AutoDetectParser();
-    } else {
-      autoParser = new AutoDetectParser(getTikaConfig());
-    }
+    // we use an auto detect parser whether we are forking or not. A null path uses Tika's default
+    // config, which is what new AutoDetectParser() would build internally anyway.
+    TikaConfig tikaConfig = this.tikaConfigPath == null ? TikaConfig.getDefaultConfig() : getTikaConfig();
+    AutoDetectParser autoParser = new AutoDetectParser(tikaConfig);
 
     if (forkEnabled) {
       forkParser = new ForkParser(TextExtractor.class.getClassLoader(), autoParser);
@@ -210,6 +209,10 @@ public class TextExtractor extends Stage {
     } else {
       parser = autoParser;
       parseCtx.set(Parser.class, parser);
+      // Without a TikaConfig in the context, Tika builds a fresh one (an expensive operation) for
+      // every embedded document, so we set ours here to reuse it. We don't set it in the fork case
+      // since TikaConfig isn't Serializable and the context is sent to the child JVM.
+      parseCtx.set(TikaConfig.class, tikaConfig);
       if (parseTimeout != null) {
         // each worker is running in a single thread so we only need to run the extraction with a
         // single thread executor rather than using a thread pool.
