@@ -543,7 +543,7 @@ Provide exactly one of `filePathField` or `byteArrayField` as the source.
 | `textContentLimit` | Integer | No | Maximum number of characters of extracted text; text beyond this is truncated. Defaults to unlimited. |
 | `parseTimeout` | Long | No | Timeout for parsing a single document, in milliseconds. |
 | `tikaConfigPath` | String | No | Path to a Tika config file. If omitted, a default `AutoDetectParser` is used. A provided config is applied to embedded documents as well as the top-level document. |
-| `skipEmbeddedContentTypePrefixes` | List\<String\> | No | Content-type prefixes for which embedded documents are skipped (not parsed), e.g. `["image/"]`. Defaults to empty (all embedded documents are parsed). Embedded parts with no content type are always parsed. |
+| `skipEmbeddedContentTypePrefixes` | List\<String\> | No | Content-type prefixes for which embedded documents are skipped (not parsed), e.g. `["image/"]`. Defaults to empty (all embedded documents are parsed). Embedded parts with no content type are always parsed. Not supported with `fork`. |
 | `whitelist` | List\<String\> | No | Metadata names to include in the document. |
 | `blacklist` | List\<String\> | No | Metadata names to exclude from the document. |
 | `fieldNamesField` | String | No | If set, each extracted metadata field's prefixed name is added as a value to this multi-valued field. |

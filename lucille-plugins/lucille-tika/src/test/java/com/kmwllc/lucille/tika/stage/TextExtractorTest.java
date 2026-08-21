@@ -572,6 +572,17 @@ public class TextExtractorTest {
   }
 
   @Test
+  public void testSkipEmbeddedWithForkThrows() {
+    // DocumentSelector can't cross the fork boundary, so this combination is rejected at construction.
+    Map<String, Object> config = Map.of(
+        "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
+        "byteArrayField", "byte_array",
+        "skipEmbeddedContentTypePrefixes", List.of("image/"),
+        "fork", Map.of("enabled", true));
+    assertThrows(StageException.class, () -> factory.get(config));
+  }
+
+  @Test
   public void testForkingSizeLimit() throws Exception {
     // Hitting textContentLimit should be treated as expected truncation, not a document failure,
     // even in fork mode where the write-limit exception crosses the child-JVM boundary.

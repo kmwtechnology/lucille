@@ -186,6 +186,10 @@ public class TextExtractor extends Stage {
     if (filePathField == null && byteArrayField == null) {
       throw new StageException("Provided neither a filePathField nor byteArrayField to the TextExtractor stage");
     }
+    // DocumentSelector can't cross the fork boundary (not Serializable), so skipping can't be applied there.
+    if (forkEnabled && !skipEmbeddedContentTypePrefixes.isEmpty()) {
+      throw new StageException("skipEmbeddedContentTypePrefixes is not supported when fork.enabled is true.");
+    }
     parseCtx = new ParseContext();
 
     this.fileFetcher = FileContentFetcher.create(config);
@@ -402,6 +406,8 @@ public class TextExtractor extends Stage {
         executorService.shutdownNow();
         executorService = Executors.newSingleThreadExecutor();
         handleParseTimeout(inputStream);
+        // the parse thread may still be writing to bch/metadata, so don't read them.
+        return;
       } catch (Exception e) {
         log.warn("Error during async Tika parsing: {}", e.getMessage());
       }
