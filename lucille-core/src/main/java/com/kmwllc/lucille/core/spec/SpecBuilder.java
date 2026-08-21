@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core.spec;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.Stage;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -29,20 +30,12 @@ public class SpecBuilder {
   // ********** "Constructors" **********
 
   /**
-   * Creates a Spec with default legal properties suitable for a Stage. Includes name, class, conditions, and
-   * conditionPolicy.
+   * Creates a Spec with default legal properties suitable for a Stage. Includes name, class, conditions, enabled,
+   * and conditionPolicy.
    * @return a Spec with default legal properties suitable for a Stage.
    */
   public static SpecBuilder stage() {
-    return new SpecBuilder(Set.of(
-        new StringProperty("name", false),
-        new StringProperty("class", false),
-        new ListProperty("conditions", false, SpecBuilder.withoutDefaults()
-            .optionalString("operator")
-            .optionalString("valuesPath")
-            .optionalList("values", new TypeReference<List<String>>(){})
-            .requiredList("fields", new TypeReference<List<String>>(){}).build()),
-        new StringProperty("conditionPolicy", false)));
+    return new SpecBuilder(Stage.DEFAULT_LEGAL_PROPERTIES);
   }
 
   /**
@@ -98,29 +91,6 @@ public class SpecBuilder {
 
     return new SpecBuilder(parentName);
   }
-
-  // ************* Basic Properties **************
-
-  /**
-   * Returns this Spec with the given properties added as required properties.
-   * @param requiredProperties The required properties you want to add to this Spec.
-   * @return This Spec with the given required properties added.
-   */
-  public SpecBuilder withRequiredProperties(String... requiredProperties) {
-    Arrays.stream(requiredProperties).forEach(requiredPropertyName -> properties.add(new AnyProperty(requiredPropertyName, true)));
-    return this;
-  }
-
-  /**
-   * Returns this Spec with the given properties added as optional properties.
-   * @param optionalProperties The optional properties you want to add to this Spec.
-   * @return This Spec with the given optional properties added.
-   */
-  public SpecBuilder withOptionalProperties(String... optionalProperties) {
-    Arrays.stream(optionalProperties).forEach(optionalPropertyName -> properties.add(new AnyProperty(optionalPropertyName, false)));
-    return this;
-  }
-
   // ************ Adding Basic Types ****************
 
   public SpecBuilder requiredString(String... requiredStringFieldNames) {

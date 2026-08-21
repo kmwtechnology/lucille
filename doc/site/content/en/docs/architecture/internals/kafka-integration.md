@@ -8,7 +8,7 @@ description: >
 
 ## Overview
 
-Kafka is Lucille's distributed messaging backbone. When running in `KAFKA_LOCAL` or `KAFKA_DISTRIBUTED` mode, all inter-component communication flows through Kafka topics. This enables horizontal scaling: multiple Worker processes can consume from the same source topic, and multiple Indexer processes can consume from the same dest topic.
+Kafka is Lucille's distributed messaging backbone. When running in `EXTERNAL` or `DISTRIBUTED` mode, all inter-component communication flows through Kafka topics. This enables horizontal scaling: multiple Worker processes can consume from the same source topic, and multiple Indexer processes can consume from the same dest topic.
 
 ## Topic Naming Conventions
 
@@ -283,6 +283,14 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.consumerPropertyFile` | Path to external consumer properties | No |
 | `kafka.producerPropertyFile` | Path to external producer properties | No |
 | `kafka.adminPropertyFile` | Path to external admin properties | No |
+| `kafka.consumer` | Arbitrary properties for consumer | No |
+| `kafka.producer` | Arbitrary properties for producer | No |
+| `kafka.admin` | Arbitrary properties for admin | No |
+
+As a convenience, in your Config, you can also include additional properties for consumers, producers, and admin under
+`kafka.consumer`, `kafka.producer`, and `kafka.admin`, respectively. This allows you to use HOCON's environment variable 
+resolution for your Kafka properties. Additionally, properties declared here _will_ override any values declared in a 
+`consumerPropertyFile`, `producerPropertyFile`, or `adminPropertyFile`.
 
 ## Partitions and Parallelism
 
@@ -353,19 +361,78 @@ The Worker's synchronous commit ensures that if a Worker crashes, the document i
 
 ## Producer Behavior
 
-All producers use synchronous sends (`.get()` after `send()`):
+### Fail-Fast Policy
+
+Lucille treats Kafka communication failures as non-recoverable. If the Kafka producer reports that a send has permanently failed — after exhausting its own internal retries (bounded by `delivery.timeout.ms`, default 2 minutes) — the run aborts. Lucille does not implement application-level retry logic on top of the producer's built-in retry mechanism. The reasoning:
+
+- The Kafka producer already retries transient failures (network blips, leader elections) internally and transparently. A failure that surfaces to Lucille means retries were exhausted or the error is non-retryable.
+- A run that has lost documents to a broken messaging path cannot produce a correct result. Continuing would silently drop data.
+- Simplicity: the framework does not attempt partial recovery or compensating transactions. A failed run is restarted from the beginning.
+
+This policy applies uniformly to all Kafka send paths — publishing documents, forwarding processed documents to the indexer, sending events, and sending to the dead-letter queue.
+
+### Asynchronous vs. Synchronous Send Paths
+
+Not all send paths use the same strategy. The choice depends on volume and whether offset-commit ordering is required.
+
+| Path | Strategy | Rationale |
+|------|----------|-----------|
+| `KafkaPublisherMessenger.sendForProcessing` | **Asynchronous** — fire-and-forget with a callback; flushed at end of run | High volume. The publisher can emit thousands of documents per second. Blocking on each broker round trip would cap throughput at ~1 doc per RTT. |
+| `KafkaWorkerMessenger.sendForIndexing` | **Synchronous** — `send().get()` | The source offset must not be committed until the processed document is durably on the dest topic. A synchronous ack guarantees this ordering. |
+| `KafkaWorkerMessenger.sendFailed` | **Synchronous** — `send().get()` | Rare path (retry count exceeded). One record per exhausted-retry document; async provides no meaningful benefit. |
+| Worker/Indexer `sendEvent` (single) | **Synchronous** — `send().get()` | Used for failure events and per-document cases. Low volume; per-document error attribution is straightforward when each send either succeeds or throws immediately. |
+| Indexer `sendEvents` (batch) | **Asynchronous** — fire all sends with callbacks, flush once at end | After a successful index batch, completion events are sent for all documents in the batch. Sending them one-at-a-time with a broker round trip per event would add latency proportional to batch size. |
+
+The synchronous paths call `.get()` on the returned `Future`, which blocks until the broker has acknowledged the record. No additional `flush()` is needed — the record is durably stored before execution continues.
+
+### Error Surface Points (Publisher Path)
+
+Because the publisher send path is asynchronous, a failure can occur after `sendForProcessing()` has returned. The error is surfaced in two places:
+
+1. **At the start of the next `sendForProcessing()` call.** Before enqueuing a new record, the publisher checks whether a prior send failed (via a latched `AtomicReference<Exception>`). If so, it throws immediately. This prevents a connector from feeding documents to a destination that is no longer accepting them.
+
+2. **In `PublisherMessenger.flush()`, called at the end of the publishing run.** This drains the producer's buffer (`kafkaProducer.flush()`) and then checks for any latched async failure. If the last document's send failed, this is where it surfaces.
+
+In both cases, the thrown exception propagates up through `Publisher.publish()` or `Publisher.flush()` into the connector's `execute()` method, which terminates the run.
+
+### The `Publisher.publish()` Contract
+
+Exceptions thrown by `Publisher.publish()` represent framework-level failures — the messaging infrastructure is unavailable or has rejected a record after exhausting retries. These exceptions are **non-recoverable** and **must not be caught or swallowed** by connectors.
+
+Connectors that need to handle per-document errors (e.g., a malformed source record that cannot be converted into a Document) should do so *before* calling `publish()`. Once `publish()` is called, any exception means the run should terminate. Catching and continuing past such an exception leaves the run in an inconsistent state: the Publisher's document-tracking accounting assumes every published document will eventually receive a terminal event, and a silently dropped document can never satisfy that assumption.
 
 ```java
-kafkaDocumentProducer.send(new ProducerRecord<>(...)).get();
-kafkaDocumentProducer.flush();
+// CORRECT: handle document-construction errors before publish
+try {
+    Document doc = buildDocumentFromRecord(record);
+    publisher.publish(doc);
+} catch (DocumentBuildException e) {
+    log.warn("Skipping malformed record: {}", record.getId(), e);
+    // This is fine — the document was never published, so no tracking state is affected
+}
+
+// WRONG: catching publish failures
+try {
+    publisher.publish(doc);
+} catch (Exception e) {
+    log.warn("Failed to publish, continuing...", e);
+    // DO NOT DO THIS — the run is now in an inconsistent state
+}
 ```
 
-This ensures the message is acknowledged by the broker before proceeding. Combined with `MAX_POLL_RECORDS_CONFIG = 1`, this creates a strict one-at-a-time processing model that prioritizes correctness over throughput.
+### Idempotent Producer
 
-Producer settings:
-```java
-producerProps.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getInt("kafka.maxRequestSize"));
-producerProps.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getInt("kafka.maxRequestSize"));
-```
+All Kafka producers created by Lucille have `enable.idempotence=true` set explicitly. This setting is forced and cannot be overridden, even via `kafka.producerPropertyFile`.
 
-Both `maxRequestSize` and `bufferMemory` are set to the same value, ensuring the producer can always send a single maximum-sized message.
+Why this matters: the asynchronous publish path sends multiple records without waiting for individual acknowledgments. The Kafka producer may have several batches in flight simultaneously (`max.in.flight.requests.per.connection` defaults to 5). Without idempotence, if a batch fails and is retried, it can land *after* a later batch that was already acknowledged — reordering records within a partition.
+
+Since documents are keyed by their document ID, all operations on the same document land on the same partition. If a connector publishes a create and then a delete for the same document ID, reordering would apply the delete before the create, leaving the document in the wrong state. The idempotent producer prevents this by assigning sequence numbers that the broker uses to deduplicate retries and reject out-of-order batches.
+
+Forcing idempotence also implicitly sets `acks=all` (the record must be replicated to all in-sync replicas before being acknowledged). This is the correct setting for Lucille: the Publisher stops tracking a document once the producer reports it accepted, so "accepted" must mean "durably replicated."
+
+### Buffer Memory
+
+The producer's `buffer.memory` controls the total bytes the accumulator can hold across all partitions — it bounds how many records can be waiting to be sent at any given time. This is unrelated to `max.request.size`, which bounds the size of a single record.
+
+- `buffer.memory` defaults to 32 MB (Kafka's own default since 0.9.0.0), or to `kafka.maxRequestSize` if that exceeds 32 MB. This ensures a single oversized record can always fit in the accumulator while providing adequate space for async send batching.
+- The Kafka producer property `max.request.size` is set from the Lucille config key `kafka.maxRequestSize` — it controls the maximum size of a single produce request sent to the broker.

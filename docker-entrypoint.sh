@@ -48,6 +48,7 @@ case "$LUCILLE_ROLE_NORMALIZED" in
 esac
 
 # JAVA_OPTS: JVM-level flags (heap, GC, etc.)
+# LUCILLE_OPTS: Lucille Runner CLI flags (e.g. -distributed, -external)
 # exec replaces the shell so Java is PID 1 and receives signals (SIGTERM, SIGINT) directly
 exec java \
   ${JAVA_OPTS} \

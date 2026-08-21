@@ -105,6 +105,7 @@ public class OpenSearchUtilsTest {
       mockStaticTransportBuilder.when(() -> ApacheHttpClient5TransportBuilder.builder(hostCaptor.capture())).thenReturn(mockClientBuilder);
       when(mockClientBuilder.setMapper(any())).thenReturn(mockClientBuilder);
       when(mockClientBuilder.setHttpClientConfigCallback(any())).thenReturn(mockClientBuilder);
+      when(mockClientBuilder.setCompressionEnabled(false)).thenReturn(mockClientBuilder);
 
       // Setting up the sslBuilder and the tlsBuilder
       SSLContextBuilder mockSSLBuilder = mock(SSLContextBuilder.class);
@@ -152,6 +153,7 @@ public class OpenSearchUtilsTest {
       mockStaticTransportBuilder.when(() -> ApacheHttpClient5TransportBuilder.builder(hostCaptor.capture())).thenReturn(mockClientBuilder);
       when(mockClientBuilder.setMapper(any())).thenReturn(mockClientBuilder);
       when(mockClientBuilder.setHttpClientConfigCallback(any())).thenReturn(mockClientBuilder);
+      when(mockClientBuilder.setCompressionEnabled(false)).thenReturn(mockClientBuilder);
 
       // Setting up the TLSBuilder. SSLBuilder couldn't be mocked for this test.
       ClientTlsStrategyBuilder mockTlsBuilder = mock(ClientTlsStrategyBuilder.class);

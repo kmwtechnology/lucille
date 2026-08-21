@@ -4,6 +4,8 @@ import static com.kmwllc.lucille.core.Document.ID_FIELD;
 import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.*;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
@@ -19,6 +21,11 @@ import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
 
 class Worker implements Runnable {
+
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
+      .optionalString("pipeline")
+      .optionalNumber("threads", "maxProcessingSecs", "maxRetries")
+      .optionalBoolean("exitOnTimeout", "enableHeartbeat").build();
 
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 

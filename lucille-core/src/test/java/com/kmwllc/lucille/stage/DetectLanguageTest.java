@@ -47,7 +47,7 @@ public class DetectLanguageTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("DetectLanguageTest/config.conf");
     assertEquals(
         Set.of(
@@ -56,12 +56,8 @@ public class DetectLanguageTest {
             "languageConfidenceField",
             "updateMode",
             "minProbability",
-            "name",
             "source",
-            "conditions",
-            "class",
-            "maxLength",
-            "conditionPolicy"),
-        stage.getLegalProperties());
+            "maxLength"),
+        stage.getNonDefaultLegalProperties());
   }
 }

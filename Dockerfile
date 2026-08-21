@@ -26,7 +26,7 @@ RUN groupadd -r lucille \
 # LUCILLE_ROLE: which Lucille component to run: runner, worker, or indexer. Defaults to runner (which is the component to use for local runs)
 # LUCILLE_PIPELINE: pipeline name to process; use only (required) when LUCILLE_ROLE is worker or indexer
 # JAVA_OPTS: JVM flags such as heap size and GC settings
-# LUCILLE_OPTS: Runner CLI flags, used only when LUCILLE_ROLE=runner (e.g. -local, -usekafka)
+# LUCILLE_OPTS: Runner CLI flags, used only when LUCILLE_ROLE=runner (e.g. -distributed, -external)
 ENV LUCILLE_CONF=""
 ENV LUCILLE_ROLE="runner"
 ENV LUCILLE_PIPELINE=""

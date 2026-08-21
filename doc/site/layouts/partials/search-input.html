@@ -73,6 +73,10 @@ Each docs section (docs, docs-pre-release, docs-<tag>) gets its own offline
     >
   </div>
 
+  <style>
+    .td-offline-search-results mark { background-color: yellow; }
+  </style>
+
   {{- end -}}
 
   {{ if gt (.Scratch.Get "docsy-search") 1 -}}

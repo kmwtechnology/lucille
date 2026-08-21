@@ -108,6 +108,13 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   }
 
   @Override
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+    for (Document document : documents) {
+      sendEvent(document, message, type);
+    }
+  }
+
+  @Override
   public void close() {
   }
 
