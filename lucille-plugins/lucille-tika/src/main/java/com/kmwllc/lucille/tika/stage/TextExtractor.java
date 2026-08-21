@@ -374,6 +374,11 @@ public class TextExtractor extends Stage {
       } catch (TimeoutException e) {
         future.cancel(true);
         log.warn("Tika parsing timed out after {} ms", parseTimeout);
+        // future.cancel() doesn't stop a parse thread (may be stuck), but discard + recreate does -
+        // prevent zombie thread / blocking queued documents
+        executorService.shutdownNow();
+        executorService = Executors.newSingleThreadExecutor();
+        handleParseTimeout(inputStream);
       } catch (Exception e) {
         log.warn("Error during async Tika parsing: {}", e.getMessage());
       }
@@ -394,6 +399,13 @@ public class TextExtractor extends Stage {
         }
       }
     }
+  }
+
+  /**
+   * Hook invoked when a parse attempt times out, after the executor has been discarded and recreated.
+   * No-op by default; subclasses can override it, e.g. to record metrics on the timed-out document.
+   */
+  protected void handleParseTimeout(InputStream inputStream) {
   }
 
   private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch) throws StageException {
