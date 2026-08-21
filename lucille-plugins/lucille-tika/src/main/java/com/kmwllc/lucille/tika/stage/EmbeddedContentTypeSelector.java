@@ -24,20 +24,24 @@ final class EmbeddedContentTypeSelector implements DocumentSelector {
     if (skipContentTypePrefixes == null) {
       throw new IllegalArgumentException("skipContentTypePrefixes must not be null");
     }
+
     this.skipContentTypePrefixes = List.copyOf(skipContentTypePrefixes);
   }
 
   @Override
   public boolean select(Metadata metadata) {
     String contentType = metadata.get(Metadata.CONTENT_TYPE);
+
     if (contentType == null) {
       return true;
     }
+
     for (String prefix : skipContentTypePrefixes) {
       if (contentType.startsWith(prefix)) {
         return false;
       }
     }
+
     return true;
   }
 }
