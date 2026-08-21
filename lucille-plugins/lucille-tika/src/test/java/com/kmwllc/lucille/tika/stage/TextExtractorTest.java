@@ -28,6 +28,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
@@ -603,6 +605,41 @@ public class TextExtractorTest {
     doc3.setField("content", tikaTxtBytes);
     stage.processDocument(doc3);
     assertEquals("Hi There!\n", doc3.getString("text"));
+  }
+
+  /**
+   * Sanity check that a TikaConfig is built once per config path and reused across stage instances,
+   * rather than rebuilt for every stage (as would happen with each worker thread in a real run).
+   */
+  @Test
+  public void testTikaConfigCaching() throws Exception {
+    // Clear the JVM-wide cache so this test doesn't depend on ordering with other tests, and so we
+    // don't leave a mock config behind for them afterward.
+    Field cacheField = TextExtractor.class.getDeclaredField("TIKA_CONFIG_CACHE");
+    cacheField.setAccessible(true);
+    Map<?, ?> cache = (Map<?, ?>) cacheField.get(null);
+    cache.clear();
+
+    // AutoDetectParser(TikaConfig) reads these four getters off the config, so delegate them to a
+    // real default config to let the mock stand in without changing what the stage builds.
+    TikaConfig realConfig = TikaConfig.getDefaultConfig();
+    try (MockedConstruction<TikaConfig> mockedConstruction = mockConstruction(TikaConfig.class,
+        (mock, context) -> {
+          when(mock.getMediaTypeRegistry()).thenReturn(realConfig.getMediaTypeRegistry());
+          when(mock.getParser()).thenReturn(realConfig.getParser());
+          when(mock.getDetector()).thenReturn(realConfig.getDetector());
+          when(mock.getAutoDetectParserConfig()).thenReturn(realConfig.getAutoDetectParserConfig());
+        })) {
+      // Two stages pointing at the same tikaConfigPath, as two worker threads would each be. Each
+      // factory.get(...) calls start(), which is what resolves the config.
+      factory.get("TextExtractorTest/tika-config.conf");
+      factory.get("TextExtractorTest/tika-config.conf");
+
+      // The config is built for the first stage and served from the cache for the second.
+      assertEquals(1, mockedConstruction.constructed().size());
+    } finally {
+      cache.clear();
+    }
   }
 
   /**

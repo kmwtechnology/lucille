@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -109,6 +110,16 @@ public class TextExtractor extends Stage {
       Arrays.asList("java", "-Djava.awt.headless=true");
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
+
+  // Building TikaConfigs from files is expensive, so we cache these configs across the JVM.
+  // This is particularly helpful in multi-threaded runs, where each thread has its own instance of
+  // TextExtractor but is using the same TikaConfig.
+  // The cache is bounded by MAX_CACHED_CONFIGS. It is a "soft cap" - once it is reached,
+  // no additional TikaConfigs will be cached.
+  // Canonical paths are used as keys to prevent unwarranted collisions.
+  private static final int MAX_CACHED_CONFIGS = 100;
+  private static final ConcurrentHashMap<String, TikaConfig> TIKA_CONFIG_CACHE = new ConcurrentHashMap<>();
+
   private String textField;
   private String filePathField;
   private String tikaConfigPath;
@@ -184,13 +195,7 @@ public class TextExtractor extends Stage {
     if (this.tikaConfigPath == null) {
       autoParser = new AutoDetectParser();
     } else {
-      try {
-        File f = new File(this.tikaConfigPath);
-        TikaConfig tc = new TikaConfig(f);
-        autoParser = new AutoDetectParser(tc);
-      } catch (Exception e) {
-        throw new StageException("Error starting TextExtractor stage.", e);
-      }
+      autoParser = new AutoDetectParser(getTikaConfig());
     }
 
     if (forkEnabled) {
@@ -210,6 +215,40 @@ public class TextExtractor extends Stage {
         // single thread executor rather than using a thread pool.
         executorService = Executors.newSingleThreadExecutor();
       }
+    }
+  }
+
+  /**
+   * Returns the {@link TikaConfig} for this stage's configured {@code tikaConfigPath}, building it at
+   * most once per distinct config file across the JVM (see {@link #TIKA_CONFIG_CACHE}).
+   */
+  private TikaConfig getTikaConfig() throws StageException {
+    try {
+      // Canonical paths used to prevent errors (if relative paths are used in a distributed environment, for example)
+      String key = new File(tikaConfigPath).getCanonicalPath();
+      TikaConfig cached = TIKA_CONFIG_CACHE.get(key);
+      if (cached != null) {
+        return cached;
+      }
+
+      // Currently uses just a soft cap, since the number of unique Tika configs should be relatively low
+      if (TIKA_CONFIG_CACHE.size() >= MAX_CACHED_CONFIGS) {
+        return new TikaConfig(new File(key));
+      }
+
+      // computeIfAbsent so concurrent workers requesting the same path build it only once; a failed
+      // build propagates out and is never cached.
+      return TIKA_CONFIG_CACHE.computeIfAbsent(key, path -> {
+        try {
+          return new TikaConfig(new File(path));
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      });
+    } catch (RuntimeException e) {
+      throw new StageException("Error starting TextExtractor stage.", e.getCause() != null ? e.getCause() : e);
+    } catch (Exception e) {
+      throw new StageException("Error starting TextExtractor stage.", e);
     }
   }
 
