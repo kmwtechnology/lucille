@@ -14,7 +14,7 @@ if [ ! -f "$LUCILLE_CONF" ]; then
 fi
 
 # LUCILLE_ROLE selects which component this container runs:
-#   runner  (default)  - com.kmwllc.lucille.core.Runner. Optionally driven by LUCILLE_OPTS (e.g. -usekafka)
+#   runner  (default)  - com.kmwllc.lucille.core.Runner. Optionally driven by LUCILLE_OPTS (e.g. -distributed)
 #   worker             - com.kmwllc.lucille.core.Worker <pipeline>, requires LUCILLE_PIPELINE
 #   indexer            - com.kmwllc.lucille.core.Indexer <pipeline>, requires LUCILLE_PIPELINE
 LUCILLE_ROLE_NORMALIZED=$(echo "${LUCILLE_ROLE:-runner}" | tr '[:upper:]' '[:lower:]')
