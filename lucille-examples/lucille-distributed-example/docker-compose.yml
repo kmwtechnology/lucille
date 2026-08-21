@@ -1,4 +1,24 @@
 name: distributed-lucille
+
+# Runner, Worker, and Indexer all run from the same published lucille-core image;
+# only LUCILLE_ROLE/LUCILLE_PIPELINE differ. Building it once here (instead of per-service)
+# means docker compose builds it once and reuses the image for all three services.
+#
+# working_dir overrides the image's default WORKDIR (/lucille) back to `/`, matching where
+# the old per-role Dockerfiles ran from. main.conf's FileConnector paths are relative
+# ("conf/source.csv") and get resolved (and recorded in indexed docs) against the process's
+# cwd, so this keeps VerifyIngestResult's hardcoded "file:///conf/source.csv" assertions valid.
+x-lucille-core: &lucille-core
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  image: lucille-core:distributed-example
+  working_dir: /
+  volumes:
+    - ./conf:/conf:ro
+  networks:
+    - lucille-net
+
 services:
   kafka:
     image: apache/kafka:4.2.0
@@ -11,37 +31,7 @@ services:
       - ./kafka/server.properties:/mnt/shared/config/server.properties
     healthcheck:
       test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server=kafka:9092", "--list"]
-  runner:
-    build:
-      context: .
-      dockerfile: ./runner/Dockerfile
-    depends_on:
-      kafka:
-        condition: service_healthy
-      indexer:
-        condition: service_healthy
-    networks: 
-      - lucille-net
-  worker:
-    build:
-      context: .
-      dockerfile: ./worker/Dockerfile
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks: 
-      - lucille-net
-  indexer: 
-    build:
-      context: .
-      dockerfile: ./indexer/Dockerfile
-    depends_on:
-      kafka:
-        condition: service_healthy
-      solr:
-        condition: service_healthy
-    networks: 
-      - lucille-net
+
   solr:
     image: solr:10.0.0
     container_name: solr
@@ -53,5 +43,67 @@ services:
       - lucille-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8983/api/node/health"]
+
+  # One-shot init container: creates the Solr collection the Indexer writes to.
+  # Kept separate from the lucille-core image so lucille-core doesn't need curl baked in.
+  solr-init:
+    image: curlimages/curl:8.11.1
+    depends_on:
+      solr:
+        condition: service_healthy
+    networks:
+      - lucille-net
+    command:
+      - "http://solr:8983/solr/admin/collections?action=CREATE&name=quickstart&numShards=1&collection.configName=_default"
+
+  worker:
+    <<: *lucille-core
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      LUCILLE_CONF: /conf/main.conf
+      LUCILLE_ROLE: worker
+      LUCILLE_PIPELINE: simple_pipeline
+
+  indexer:
+    <<: *lucille-core
+    depends_on:
+      kafka:
+        condition: service_healthy
+      solr:
+        condition: service_healthy
+      solr-init:
+        condition: service_completed_successfully
+    environment:
+      LUCILLE_CONF: /conf/main.conf
+      LUCILLE_ROLE: indexer
+      LUCILLE_PIPELINE: simple_pipeline
+
+  runner:
+    <<: *lucille-core
+    depends_on:
+      kafka:
+        condition: service_healthy
+      # waiting for the Indexer to start. It's okay to queue Documents on Kafka if the Indexer
+      # is not yet consuming documents.
+      indexer:
+        condition: service_started
+    environment:
+      LUCILLE_CONF: /conf/main.conf
+      LUCILLE_OPTS: -distributed
+
+  # A custom container for the purpose of verifying the results of the distributed run.
+  # (Runs VerifyIngestResult against the results.)
+  verifier:
+    build:
+      context: .
+      dockerfile: ./runner/Dockerfile
+    depends_on:
+      runner:
+        condition: service_completed_successfully
+    networks:
+      - lucille-net
+
 networks:
   lucille-net:
