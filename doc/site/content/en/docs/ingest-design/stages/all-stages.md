@@ -521,7 +521,9 @@ Measures the byte size of a field value (e.g., a byte array or string) and store
 
 `com.kmwllc.lucille.tika.stage.TextExtractor` *(requires `lucille-tika`)*
 
-Extracts text from over 1,000 file formats — PDF, Microsoft Office documents, HTML, images with embedded OCR, and many more — using [Apache Tika](https://tika.apache.org/). Reads raw bytes from a source field and writes extracted text to a destination field.
+Extracts text from over 1,000 file formats — PDF, Microsoft Office documents, HTML, images with embedded OCR, and many more — using [Apache Tika](https://tika.apache.org/). Reads a file (from a path or raw bytes on the document) and writes the extracted text and metadata back onto the document.
+
+Provide exactly one of `filePathField` or `byteArrayField` as the source.
 
 **Maven dependency:**
 ```xml
@@ -532,14 +534,34 @@ Extracts text from over 1,000 file formats — PDF, Microsoft Office documents, 
 </dependency>
 ```
 
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `filePathField` | String | One of `filePathField`/`byteArrayField` | Document field holding the path to the file to parse. |
+| `byteArrayField` | String | One of `filePathField`/`byteArrayField` | Document field holding the file's raw bytes to parse. |
+| `textField` | String | No | Destination field for the extracted text. Defaults to `text`. |
+| `metadataPrefix` | String | No | Prefix applied to fields holding extracted metadata. Defaults to `tika`. |
+| `textContentLimit` | Integer | No | Maximum number of characters of extracted text; text beyond this is truncated. Defaults to unlimited. |
+| `parseTimeout` | Long | No | Timeout for parsing a single document, in milliseconds. |
+| `tikaConfigPath` | String | No | Path to a Tika config file. If omitted, a default `AutoDetectParser` is used. A provided config is applied to embedded documents as well as the top-level document. |
+| `skipEmbeddedContentTypePrefixes` | List\<String\> | No | Content-type prefixes for which embedded documents are skipped (not parsed), e.g. `["image/"]`. Defaults to empty (all embedded documents are parsed). Embedded parts with no content type are always parsed. Not supported with `fork`. |
+| `whitelist` | List\<String\> | No | Metadata names to include in the document. |
+| `blacklist` | List\<String\> | No | Metadata names to exclude from the document. |
+| `fieldNamesField` | String | No | If set, each extracted metadata field's prefixed name is added as a value to this multi-valued field. |
+| `metadataFields` | Map | No | Maps Tika metadata keys to document field names whose values are supplied to Tika as detection hints before parsing (e.g. `resourceName`, `Content-Type`). |
+| `fork` | Map | No | Runs parsing in a child JVM via Tika's `ForkParser` to isolate crashes. Keys: `enabled` (Boolean), `poolSize` (Integer), `jvmArgs` (List\<String\>), `serverPulseMillis` (Long). |
+| `s3` / `azure` / `gcp` | Map | No | Credentials for reading `filePathField` files from cloud storage. See the [File Connector]({{< relref "docs/ingest-design/connectors/file_connector" >}}) for the arguments. |
+
 ```hocon
 {
   name: "extract-text"
   class: "com.kmwllc.lucille.tika.stage.TextExtractor"
-  source: "file_content"
-  dest: "extracted_text"
+  byteArrayField: "file_content"
+  textField: "extracted_text"
 }
 ```
+
+Tika can be an intensive process. There are some small alterations we have made within the stage to improve its throughput; if
+you are working closely with `TextExtractor` and focused on performance, you may want to look into these a bit closer.
 
 ---
 
