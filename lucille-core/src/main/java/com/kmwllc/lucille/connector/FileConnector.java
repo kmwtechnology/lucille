@@ -54,7 +54,7 @@ import com.typesafe.config.Config;
  *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
  *   <li>multithreaded (Boolean, Optional) : Traverse each of the paths concurrently, on its own thread. Only applies
- *   when more than one path is given; Requires that the paths do not overlap. Defaults to false.</li>>
+ *   when more than one path is given; Requires that the paths do not overlap. Defaults to false.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
