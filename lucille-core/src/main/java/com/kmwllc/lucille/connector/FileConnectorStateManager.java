@@ -9,7 +9,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,10 +40,14 @@ import com.typesafe.config.Config;
  * <p> Lucille includes H2 as a dependency. You are welcome to configure the FileConnectorStateManager to use an embedded
  * H2 instance - use the <code>org.h2.Driver</code>, and something like <code>jdbc:h2:{LOCAL_FILE_PATH}</code> as your connectionString.
  *
- * <p> <b>Note:</b> This class is operating under two key assumptions about FileConnector / Connectors:
+ * <p> <b>Note:</b> This class is operating under these key assumptions about FileConnector / Connectors:
  * <ol>
  *   <li>Connectors run sequentially.</li>
- *   <li>The FileConnector is not multithreaded.</li>
+ *   <li>A FileConnector traversal may be multithreaded. The whole-table operations - {@link #init()},
+ *   {@link #incrementRunsNotEncountered()}, {@link #listExpiredFiles()}, and {@link #shutdown()} - run only on the
+ *   connector thread, before or after the traversal. Per-file operations are delegated to the calling thread's
+ *   {@link TraversalState}.</li>
+ *   <li>The paths a FileConnector traverses do not overlap.</li>
  * </ol>
  */
 public class FileConnectorStateManager {
@@ -64,9 +67,10 @@ public class FileConnectorStateManager {
   private Instant traversalInstant;
 
   private Connection jdbcConnection;
-  private PreparedStatement queryStatement;
-  private PreparedStatement updateStatement;
-  private PreparedStatement insertNewFileStatement;
+
+  // Per-file operations are delegated to the calling thread's TraversalState, since a JDBC Connection is not thread-safe.
+  // init() binds one for the thread that calls it, and each additional traversal thread binds its own with openStateForThread().
+  private final ThreadLocal<TraversalState> threadState = new ThreadLocal<>();
 
   /**
    * Creates a FileConnectorStateManager from the given config.
@@ -93,15 +97,9 @@ public class FileConnectorStateManager {
    * appropriate schema if it doesn't. After connecting to the table, sets encountered=FALSE for all rows.
    */
   public void init() throws ClassNotFoundException, SQLException {
-    try {
-      Class.forName(driver);
-    } catch (ClassNotFoundException e) {
-      log.error("Driver class {} not found. Is the jar file in your classpath?", driver);
-      throw e;
-    }
-
     traversalInstant = Instant.now();
-    jdbcConnection = DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
+
+    jdbcConnection = openConnection();
 
     // After getting connection setup, make sure the table exists, create it if it doesn't.
     DatabaseMetaData metadata = jdbcConnection.getMetaData();
@@ -124,15 +122,78 @@ public class FileConnectorStateManager {
       log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
     }
 
-    // create PreparedStatements to be used for sql queries that take input
-    String querySQL = "SELECT last_published FROM \"" + tableName + "\" WHERE name=?";
-    queryStatement = jdbcConnection.prepareStatement(querySQL);
+    openStateForThread();
+  }
 
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true, runs_not_encountered = 0 WHERE name=?";
-    updateStatement = jdbcConnection.prepareStatement(updateSQL);
+  /**
+   * Binds a {@link TraversalState}, holding its own connection to the state database, to the calling thread. The
+   * per-file methods on this class then operate through it. {@link #init()} does this for the thread that calls it, so
+   * only additional traversal threads need to call this.
+   *
+   * <p> Every call must be paired with {@link #closeStateForThread()}, or the thread's connection is leaked.
+   *
+   * @throws IllegalStateException If called before {@link #init()} (the state table is created there), or if the
+   * calling thread already has a state bound.
+   */
+  public void openStateForThread() throws ClassNotFoundException, SQLException {
+    if (jdbcConnection == null) {
+      throw new IllegalStateException("openStateForThread() was called before init().");
+    }
 
-    String insertNewFileSQL = "INSERT INTO \"" + tableName + "\" VALUES (?, NULL, TRUE, 0)";
-    insertNewFileStatement = jdbcConnection.prepareStatement(insertNewFileSQL);
+    if (threadState.get() != null) {
+      throw new IllegalStateException("Thread " + Thread.currentThread().getName() + " already has an open state.");
+    }
+
+    Connection connection = openConnection();
+
+    try {
+      threadState.set(new TraversalState(connection, tableName, traversalInstant));
+    } catch (SQLException e) {
+      // the TraversalState only takes ownership of the connection once it is fully constructed, so we close it here
+      try {
+        connection.close();
+      } catch (SQLException closeException) {
+        e.addSuppressed(closeException);
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Closes the calling thread's {@link TraversalState} and unbinds it. Does nothing if the thread has none. Does not
+   * perform deletions - those belong to {@link #shutdown()}, and run once, after every traversal has finished.
+   */
+  public void closeStateForThread() {
+    TraversalState state = threadState.get();
+
+    if (state != null) {
+      threadState.remove();
+      state.close();
+    }
+  }
+
+  // Returns the calling thread's TraversalState. Every per-file operation goes through here.
+  private TraversalState currentState() {
+    TraversalState state = threadState.get();
+
+    if (state == null) {
+      throw new IllegalStateException("Thread " + Thread.currentThread().getName()
+          + " has no open state. Call openStateForThread() before traversing on this thread.");
+    }
+
+    return state;
+  }
+
+  // Opens a connection to the database specified by your Config. Throws an exception if an error occurs.
+  private Connection openConnection() throws ClassNotFoundException, SQLException {
+    try {
+      Class.forName(driver);
+    } catch (ClassNotFoundException e) {
+      log.error("Driver class {} not found. Is the jar file in your classpath?", driver);
+      throw e;
+    }
+
+    return DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
   }
 
   /**
@@ -154,6 +215,8 @@ public class FileConnectorStateManager {
    * Throws an exception if an error occurs.
    */
   public void shutdown() throws SQLException {
+    closeStateForThread();
+
     if (performDeletions) {
       deleteExpiredFilesAndResetTable();
     }
@@ -163,30 +226,6 @@ public class FileConnectorStateManager {
         jdbcConnection.close();
       } catch (SQLException e) {
         log.warn("Couldn't close connection to database.", e);
-      }
-    }
-
-    if (queryStatement != null) {
-      try {
-        queryStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close query statement (PreparedStatement).", e);
-      }
-    }
-
-    if (updateStatement != null) {
-      try {
-        updateStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close update statement (PreparedStatement).", e);
-      }
-    }
-
-    if (insertNewFileStatement != null) {
-      try {
-        insertNewFileStatement.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close insert statement (PreparedStatement).", e);
       }
     }
   }
@@ -219,18 +258,7 @@ public class FileConnectorStateManager {
    * @param fullPathStr The full path to the file you encountered during a FileConnector traversal.
    */
   public void markFileEncountered(String fullPathStr) {
-    // First, we try an update statement, see if it updates an existing file.
-    try {
-      updateStatement.setString(1, fullPathStr);
-      int rowsChanged = updateStatement.executeUpdate();
-
-      // if it doesn't change any rows, then we need to insert this file - it is "new".
-      if (rowsChanged == 0) {
-        insertFile(fullPathStr);
-      }
-    } catch (SQLException e) {
-      log.warn("Error marking file encountered in state database.", e);
-    }
+    currentState().markFileEncountered(fullPathStr);
   }
 
   /**
@@ -241,20 +269,7 @@ public class FileConnectorStateManager {
    * @param prefix The prefix to match against entry names (typically archivePath + ARCHIVE_FILE_SEPARATOR).
    */
   public void markAllEntriesEncountered(String prefix) {
-    // updates every entry whose name starts with the given prefix
-    // this is useful for archive files, in which the paths look like:
-    // file:///tmp/archive.zip!entry1.txt or file:///tmp/archive.zip!subdir/entry2.txt.
-    // the LIKE operator allows us to target entries which don't match our parameter, but contain it.
-    // So the parameter/prefix could be "file:///tmp/archive.zip!" and those aforementioned paths would get updated.
-    String updateSQL = "UPDATE \"" + tableName + "\" SET encountered=true WHERE name LIKE ?";
-    try (PreparedStatement ps = jdbcConnection.prepareStatement(updateSQL)) {
-      // the "%" says anything can come after the prefix in a given DB entry and it will still match
-      ps.setString(1, prefix + "%");
-      int rowsChanged = ps.executeUpdate();
-      log.debug("Marked {} archive entries as encountered for prefix '{}'", rowsChanged, prefix);
-    } catch (SQLException e) {
-      log.warn("Error marking archive entries as encountered for prefix '{}'.", prefix, e);
-    }
+    currentState().markAllEntriesEncountered(prefix);
   }
 
   /**
@@ -266,23 +281,7 @@ public class FileConnectorStateManager {
    * on this file.
    */
   public Instant getLastPublished(String fullPathStr) {
-    try {
-      queryStatement.setString(1, fullPathStr);
-      try (ResultSet rs = queryStatement.executeQuery()) {
-        if (rs.next()) {
-          // Get timestamp as OffsetDateTime, which is stored in UTC
-          // Note: H2 may convert to local timezone on retrieval, but toInstant() returns the correct absolute point in time.
-          OffsetDateTime odt = rs.getObject("last_published", OffsetDateTime.class);
-          if (odt != null) {
-            return odt.toInstant();
-          }
-        }
-      }
-    } catch (SQLException e) {
-      log.warn("SQL error occurred getting last published for {}, lastPublishedCutoff won't apply.", fullPathStr, e);
-    }
-
-    return null;
+    return currentState().getLastPublished(fullPathStr);
   }
 
   /**
@@ -290,26 +289,6 @@ public class FileConnectorStateManager {
    * @param fullPathStr The full path to the file that was successfully published.
    */
   public void successfullyPublishedFile(String fullPathStr) {
-    String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
-
-    try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
-      statement.setObject(1, traversalInstant);
-      statement.setString(2, fullPathStr);
-
-      int rowsChanged = statement.executeUpdate();
-
-      if (rowsChanged != 1) {
-        log.warn("Updating {} last published timestamp changed {} rows.", fullPathStr, rowsChanged);
-      }
-    } catch (SQLException e) {
-      log.warn("Couldn't update a file's last published timestamp.", e);
-    }
-  }
-
-  // Insert a file with the given name into the database. It will have no "last_published" time, but will
-  // be marked as encountered.
-  private void insertFile(String fullPathStr) throws SQLException {
-    insertNewFileStatement.setString(1, fullPathStr);
-    insertNewFileStatement.executeUpdate();
+    currentState().successfullyPublishedFile(fullPathStr);
   }
 }
