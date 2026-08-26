@@ -552,8 +552,9 @@ public class TextExtractorTest {
     // If timeout works, it should have returned within much less than our 5 sec. max
     // and interrupted should be true (if we interrupt the thread)
     assertTrue("Parser should have been interrupted", InterruptTrackingParser.interrupted.get());
-    // Document should not have text (or at least not from the parser)
-    assertEquals("Document should have empty text.", "", doc.getString("text"));
+    // On timeout we don't read the shared handler (the parse thread may still be writing to it), so
+    // the text field is left unset rather than populated with partial output.
+    assertFalse("Document should not have text on timeout.", doc.has("text"));
 
     stage.stop();
 
