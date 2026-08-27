@@ -66,6 +66,9 @@ public class FileConnectorStateManager {
 
   private Instant traversalInstant;
 
+  // Used for the whole-table operations: creating the table, resetting encountered flags, incrementRunsNotEncountered(),
+  // listExpiredFiles(), and the deletions in shutdown(). Kept separate from the per-thread connections because it has to
+  // outlive them.
   private Connection jdbcConnection;
 
   // Per-file operations are delegated to the calling thread's TraversalState, since a JDBC Connection is not thread-safe.
@@ -122,7 +125,9 @@ public class FileConnectorStateManager {
       log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
     }
 
-    openStateForThread();
+    // Binds a state to the thread that called init(), sharing this state manager's own connection rather than opening a second
+    // A single-threaded traversal runs on this thread, while a multithreaded traversal leaves this state unused.
+    threadState.set(new TraversalState(jdbcConnection, tableName, traversalInstant));
   }
 
   /**
@@ -166,9 +171,16 @@ public class FileConnectorStateManager {
   public void closeStateForThread() {
     TraversalState state = threadState.get();
 
-    if (state != null) {
-      threadState.remove();
-      state.close();
+    if (state == null) {
+      return;
+    }
+
+    threadState.remove();
+    state.closeStatements();
+
+    // Any connection other than this state manager's own was opened for one traversal thread, so it closes here
+    if (state.connection() != jdbcConnection) {
+      closeConnection(state.connection());
     }
   }
 
@@ -196,6 +208,18 @@ public class FileConnectorStateManager {
     return DriverManager.getConnection(connectionString, jdbcUser, jdbcPassword);
   }
 
+  private static void closeConnection(Connection connection) {
+    if (connection == null) {
+      return;
+    }
+
+    try {
+      connection.close();
+    } catch (SQLException e) {
+      log.warn("Couldn't close connection to database.", e);
+    }
+  }
+
   /**
    * Increments the runs_not_encountered counter for every file that was not seen during the current traversal. This method must
    * be called exactly once per run, after all markFileEncountered calls are complete.
@@ -221,13 +245,7 @@ public class FileConnectorStateManager {
       deleteExpiredFilesAndResetTable();
     }
 
-    if (jdbcConnection != null) {
-      try {
-        jdbcConnection.close();
-      } catch (SQLException e) {
-        log.warn("Couldn't close connection to database.", e);
-      }
-    }
+    closeConnection(jdbcConnection);
   }
   
   public List<URI> listExpiredFiles() throws SQLException {

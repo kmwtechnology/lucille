@@ -341,12 +341,18 @@ public class FileConnector extends AbstractConnector {
       // then be treated as expired, tombstoned and deleted.
       ConnectorException failure = null;
 
-      for (Future<?> traversal : traversals) {
+      // traversals is in the same order as storageURIs, so the index identifies the path that failed
+      for (int i = 0; i < traversals.size(); i++) {
+        URI resource = storageURIs.get(i);
+
         try {
-          traversal.get();
+          traversals.get(i).get();
+          log.info("Finished traversing '{}'.", resource);
         } catch (ExecutionException e) {
+          log.error("Error occurred while traversing '{}', CONTINUING", resource, e.getCause());
+
           if (failure == null) {
-            failure = new ConnectorException("Error occurred while traversing.", e.getCause());
+            failure = new ConnectorException("One or more traversals failed.", e.getCause());
           } else {
             failure.addSuppressed(e.getCause());
           }

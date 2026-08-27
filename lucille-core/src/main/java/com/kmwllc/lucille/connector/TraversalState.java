@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,12 +16,12 @@ import org.slf4j.LoggerFactory;
  * encountered during a single FileConnector traversal.
  *
  * <p> A JDBC Connection is not thread-safe, so each traversal thread uses its own TraversalState. Obtain one from
- * {@link FileConnectorStateManager} and close it when the traversal finishes.
+ * {@link FileConnectorStateManager}, which owns the connection's lifetime.
  *
  * <p> Every operation here affects a single file (or, for {@link #markAllEntriesEncountered(String)}, the entries of a
  * single archive). Operations spanning the whole table belong to {@link FileConnectorStateManager}.
  */
-public class TraversalState implements AutoCloseable {
+class TraversalState {
 
   private static final Logger log = LoggerFactory.getLogger(TraversalState.class);
 
@@ -33,11 +34,10 @@ public class TraversalState implements AutoCloseable {
   private final PreparedStatement insertNewFileStatement;
 
   /**
-   * Builds a TraversalState around the given connection, which it takes ownership of and closes in {@link #close()}.
-   * The table must already exist - PreparedStatements are validated against the schema as they are created.
+   * Builds a TraversalState on the given connection. Does not take ownership of it.
    *
    * @param jdbcConnection An open connection to the state database.
-   * @param tableName The name of the state table.
+   * @param tableName The name of the state table. Must already exist in the database with the correct schema.
    * @param traversalInstant The instant stamped onto files published during this run.
    */
   TraversalState(Connection jdbcConnection, String tableName, Instant traversalInstant) throws SQLException {
@@ -59,7 +59,7 @@ public class TraversalState implements AutoCloseable {
    * Update the database to reflect that the given file was encountered during a FileConnector traversal.
    * @param fullPathStr The full path to the file you encountered during a FileConnector traversal.
    */
-  public void markFileEncountered(String fullPathStr) {
+  void markFileEncountered(String fullPathStr) {
     // First, we try an update statement, see if it updates an existing file.
     try {
       updateStatement.setString(1, fullPathStr);
@@ -82,7 +82,7 @@ public class TraversalState implements AutoCloseable {
    *
    * @param prefix The prefix to match against entry names (typically archivePath + ARCHIVE_FILE_SEPARATOR).
    */
-  public void markAllEntriesEncountered(String prefix) {
+  void markAllEntriesEncountered(String prefix) {
     // updates every entry whose name starts with the given prefix
     // this is useful for archive files, in which the paths look like:
     // file:///tmp/archive.zip!entry1.txt or file:///tmp/archive.zip!subdir/entry2.txt.
@@ -107,7 +107,7 @@ public class TraversalState implements AutoCloseable {
    * @return The instant at which this file was last known to be published by Lucille; null if there is no information
    * on this file.
    */
-  public Instant getLastPublished(String fullPathStr) {
+  Instant getLastPublished(String fullPathStr) {
     try {
       queryStatement.setString(1, fullPathStr);
       try (ResultSet rs = queryStatement.executeQuery()) {
@@ -131,7 +131,7 @@ public class TraversalState implements AutoCloseable {
    * Updates the state database to reflect that the given file was successfully published during a FileConnector traversal.
    * @param fullPathStr The full path to the file that was successfully published.
    */
-  public void successfullyPublishedFile(String fullPathStr) {
+  void successfullyPublishedFile(String fullPathStr) {
     String updateSQL = "UPDATE \"" + tableName + "\" SET last_published = ? WHERE name = ?";
 
     try (PreparedStatement statement = jdbcConnection.prepareStatement(updateSQL)) {
@@ -148,16 +148,19 @@ public class TraversalState implements AutoCloseable {
     }
   }
 
-  /**
-   * Closes this TraversalState's connection, which also closes the PreparedStatements created from it. Does not perform
-   * any deletions - those belong to {@link FileConnectorStateManager}, and run once, after every traversal has finished.
-   */
-  @Override
-  public void close() {
-    try {
-      jdbcConnection.close();
-    } catch (SQLException e) {
-      log.warn("Couldn't close connection to database.", e);
+  // The connection these PreparedStatements were prepared on.
+  Connection connection() {
+    return jdbcConnection;
+  }
+
+  // Closes the PreparedStatements. The connection may outlive this TraversalState, so they don't close with it.
+  void closeStatements() {
+    for (PreparedStatement statement : List.of(queryStatement, updateStatement, insertNewFileStatement)) {
+      try {
+        statement.close();
+      } catch (SQLException e) {
+        log.warn("Couldn't close a PreparedStatement.", e);
+      }
     }
   }
 }
