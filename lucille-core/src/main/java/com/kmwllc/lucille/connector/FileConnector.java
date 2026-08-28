@@ -54,7 +54,7 @@ import com.typesafe.config.Config;
  *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
  *   <li>multithreaded (Boolean, Optional) : Traverse each of the paths concurrently, on its own thread. Only applies
- *   when more than one path is given; Requires that the paths do not overlap. Defaults to false.</li>
+ *   when more than one path is given. Requires that the paths do not overlap. Defaults to false.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
@@ -315,10 +315,8 @@ public class FileConnector extends AbstractConnector {
   }
 
   /**
-   * Traverses each of the storage paths on its own thread.
-   *
-   * <p> Requires the configured paths to not overlap so that concurrent traversals never touch the same row of the state database,
-   * <p> so the database's own row-level locking is all the synchronization needed.
+   * Traverses each of the storage paths on its own thread. Requires the paths to not overlap, so that concurrent
+   * traversals never touch the same row of the state database.
    */
   private void traversePathsWithMultithreading(Publisher publisher) throws ConnectorException {
     ThreadFactory threadFactory = new BasicThreadFactory.Builder()
@@ -336,9 +334,8 @@ public class FileConnector extends AbstractConnector {
         }));
       }
 
-      // Every traversal runs to completion, even after one of them fails. Aborting the others partway through would
-      // leave only some of this run's files marked as encountered in the state database, and the unmarked ones would
-      // then be treated as expired, tombstoned and deleted.
+      // Every traversal runs to completion, even after one fails. Aborting the others would leave some of this run's
+      // files unmarked in the state database, and they would then be expired, tombstoned and deleted.
       ConnectorException failure = null;
 
       // traversals is in the same order as storageURIs, so the index identifies the path that failed
@@ -370,8 +367,8 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
-  // Gives the calling thread its own TraversalState for the duration of the traversal. A JDBC Connection is not
-  // thread-safe, so each traversal thread needs its own. Which the state manager keeps track of.
+  // Gives the calling thread its own TraversalState for the traversal. A JDBC Connection is not thread-safe, so each
+  // traversal thread needs its own.
   private void traverseStoragePathOnThisThread(Publisher publisher, URI pathToTraverse) throws Exception {
     if (stateManager == null) {
       traverseStoragePath(publisher, pathToTraverse);

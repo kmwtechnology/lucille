@@ -66,9 +66,7 @@ public class FileConnectorStateManager {
 
   private Instant traversalInstant;
 
-  // Used for the whole-table operations: creating the table, resetting encountered flags, incrementRunsNotEncountered(),
-  // listExpiredFiles(), and the deletions in shutdown(). Kept separate from the per-thread connections because it has to
-  // outlive them.
+  // Used for the whole-table operations. Kept separate from the per-thread connections because it has to outlive them.
   private Connection jdbcConnection;
 
   // Per-file operations are delegated to the calling thread's TraversalState, since a JDBC Connection is not thread-safe.
@@ -125,8 +123,8 @@ public class FileConnectorStateManager {
       log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
     }
 
-    // Binds a state to the thread that called init(), sharing this state manager's own connection rather than opening a second
-    // A single-threaded traversal runs on this thread, while a multithreaded traversal leaves this state unused.
+    // Binds a state to this thread, sharing the connection above rather than opening a second one. A single-threaded
+    // traversal runs on this thread; a multithreaded one leaves this state unused.
     threadState.set(new TraversalState(jdbcConnection, tableName, traversalInstant));
   }
 
@@ -154,7 +152,7 @@ public class FileConnectorStateManager {
     try {
       threadState.set(new TraversalState(connection, tableName, traversalInstant));
     } catch (SQLException e) {
-      // the TraversalState only takes ownership of the connection once it is fully constructed, so we close it here
+      // the connection has no owner until the TraversalState is bound, so close it here
       try {
         connection.close();
       } catch (SQLException closeException) {
@@ -165,8 +163,8 @@ public class FileConnectorStateManager {
   }
 
   /**
-   * Closes the calling thread's {@link TraversalState} and unbinds it. Does nothing if the thread has none. Does not
-   * perform deletions - those belong to {@link #shutdown()}, and run once, after every traversal has finished.
+   * Closes the calling thread's {@link TraversalState} and unbinds it, closing its connection unless that connection is
+   * this state manager's own. Does nothing if the thread has none.
    */
   public void closeStateForThread() {
     TraversalState state = threadState.get();
@@ -178,7 +176,6 @@ public class FileConnectorStateManager {
     threadState.remove();
     state.closeStatements();
 
-    // Any connection other than this state manager's own was opened for one traversal thread, so it closes here
     if (state.connection() != jdbcConnection) {
       closeConnection(state.connection());
     }
@@ -196,7 +193,7 @@ public class FileConnectorStateManager {
     return state;
   }
 
-  // Opens a connection to the database specified by your Config. Throws an exception if an error occurs.
+  // Opens a connection to the database specified by your Config.
   private Connection openConnection() throws ClassNotFoundException, SQLException {
     try {
       Class.forName(driver);
