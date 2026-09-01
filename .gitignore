@@ -19,8 +19,9 @@ dist/
 # Package files
 *.jar
 
-# Maven
+# Maven / Gradle build output
 target/
+.gradle/
 dist/
 
 # JetBrains IDE
