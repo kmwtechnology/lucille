@@ -32,7 +32,8 @@ public class HashMapDocument implements Document, Serializable {
 
   static final long serialVersionUID = 1L;
 
-  protected static final ObjectMapper MAPPER = new ObjectMapper();
+  // shares JsonDocument's read constraints so large byte[] fields parse; see JsonDocument.createDocumentMapper()
+  protected static final ObjectMapper MAPPER = JsonDocument.createDocumentMapper();
 
   private static final Function<Object, Integer> TO_INT =
       value -> {

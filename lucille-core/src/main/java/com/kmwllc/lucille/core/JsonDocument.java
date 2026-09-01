@@ -2,7 +2,9 @@ package com.kmwllc.lucille.core;
 
 import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,13 +31,32 @@ import java.util.function.UnaryOperator;
  */
 public class JsonDocument implements Document {
 
-  protected static final ObjectMapper MAPPER = new ObjectMapper();
+  protected static final ObjectMapper MAPPER = createDocumentMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>() {
   };
   private static final Logger log = LoggerFactory.getLogger(JsonDocument.class);
 
   @JsonValue
   protected ObjectNode data;
+
+  /**
+   * Creates the ObjectMapper used to parse Documents from JSON.
+   *
+   * Jackson's default StreamReadConstraints cap any single JSON string value at 20,000,000 chars
+   * (StreamReadConstraints.DEFAULT_MAX_STRING_LEN). A Document's byte[] field is serialized as one
+   * base64 string, so a byte[] of 15 MiB or more (20,054,016 chars) is written without complaint by
+   * KafkaDocumentSerializer, accepted by the broker, and then rejected with a StreamConstraintsException
+   * by every consumer that tries to read it back. The constraint exists to bound untrusted input, but a
+   * Kafka record is already bounded by the producer's max.request.size (kafka.maxRequestSize) and the
+   * broker's message.max.bytes, so a lower limit here only adds a hidden consumer-side cliff below
+   * limits the user has already sized. maxStringLength is therefore raised to Integer.MAX_VALUE; all
+   * other constraints keep their defaults.
+   */
+  public static ObjectMapper createDocumentMapper() {
+    return new ObjectMapper(JsonFactory.builder()
+        .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(Integer.MAX_VALUE).build())
+        .build());
+  }
 
   /**
    * A copy constructor for {@link Document} that deep copies the ObjectNode and verifies the
