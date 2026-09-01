@@ -62,6 +62,10 @@ DetectLanguage/profiles
 # VSCode
 .vscode
 
+# Claude Code: local worktrees/settings and per-checkout instructions
+.claude/
+CLAUDE.md
+
 # Python files created from ExternalPython resources
 python/
 
