@@ -10,7 +10,7 @@ import org.apache.kafka.common.serialization.Deserializer;
 
 public class KafkaDocumentDeserializer implements Deserializer<Document> {
 
-  // a stock ObjectMapper rejects any byte[] field of 15 MiB or more that the serializer happily wrote;
+  // a stock ObjectMapper rejects any byte[] field over 15,000,000 bytes (~14.3 MiB) that the serializer happily wrote;
   // see JsonDocument.createDocumentMapper()
   private static final ObjectMapper MAPPER = JsonDocument.createDocumentMapper();
 

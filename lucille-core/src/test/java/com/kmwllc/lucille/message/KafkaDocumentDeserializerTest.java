@@ -11,8 +11,9 @@ import org.junit.Test;
 
 public class KafkaDocumentDeserializerTest {
 
-  // 15 MiB of bytes base64-encodes to 20,054,016 chars, just over Jackson's default
-  // StreamReadConstraints maxStringLength of 20,000,000. A 14 MiB payload fits under the default.
+  // Base64 encodes n bytes as 4 * ceil(n / 3) chars, so Jackson's default StreamReadConstraints
+  // maxStringLength of 20,000,000 is exceeded by any byte[] over 15,000,000 bytes (~14.3 MiB).
+  // 15 MiB (15,728,640 bytes) encodes to 20,971,520 chars; a 14 MiB payload fits under the default.
   private static final int LARGE_BYTES_LEN = 15 * 1024 * 1024;
 
   private static byte[] patternedBytes(int len) {

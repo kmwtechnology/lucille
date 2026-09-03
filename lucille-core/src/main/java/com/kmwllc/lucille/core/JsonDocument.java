@@ -40,17 +40,26 @@ public class JsonDocument implements Document {
   protected ObjectNode data;
 
   /**
-   * Creates the ObjectMapper used to parse Documents from JSON.
+   * Creates the ObjectMapper used to parse JSON into Documents.
+   *
+   * This is not a Kafka-only mapper. It backs {@link #MAPPER} (and therefore {@link #fromJsonString},
+   * which {@link Document#createFromJson} dispatches to and which JsonFileHandler calls for each line of
+   * a JSON-Lines file), {@link HashMapDocument}'s mapper, {@link KafkaDocument}'s ConsumerRecord
+   * constructor, and KafkaDocumentDeserializer. Every path that turns JSON text into a Document goes
+   * through the constraints configured here.
    *
    * Jackson's default StreamReadConstraints cap any single JSON string value at 20,000,000 chars
    * (StreamReadConstraints.DEFAULT_MAX_STRING_LEN). A Document's byte[] field is serialized as one
-   * base64 string, so a byte[] of 15 MiB or more (20,054,016 chars) is written without complaint by
-   * KafkaDocumentSerializer, accepted by the broker, and then rejected with a StreamConstraintsException
-   * by every consumer that tries to read it back. The constraint exists to bound untrusted input, but a
-   * Kafka record is already bounded by the producer's max.request.size (kafka.maxRequestSize) and the
-   * broker's message.max.bytes, so a lower limit here only adds a hidden consumer-side cliff below
-   * limits the user has already sized. maxStringLength is therefore raised to Integer.MAX_VALUE; all
-   * other constraints keep their defaults.
+   * base64 string of 4 * ceil(n / 3) chars, so any byte[] larger than 15,000,000 bytes (about 14.3 MiB;
+   * a 15 MiB array encodes to 20,971,520 chars) is written without complaint by KafkaDocumentSerializer,
+   * accepted by the broker, and then rejected with a StreamConstraintsException by every consumer that
+   * tries to read it back. The constraint exists to bound untrusted input, but a Kafka record is already
+   * bounded by the producer's max.request.size (kafka.maxRequestSize) and the broker's
+   * message.max.bytes, so a lower limit here only adds a hidden consumer-side cliff below limits the
+   * user has already sized. On the non-Kafka paths the caller has already materialized the whole JSON
+   * String in memory before the mapper sees it, so the cap could only reject the input after that
+   * allocation, not prevent it. maxStringLength is therefore raised to Integer.MAX_VALUE; all other
+   * constraints keep their defaults.
    */
   public static ObjectMapper createDocumentMapper() {
     return new ObjectMapper(JsonFactory.builder()
