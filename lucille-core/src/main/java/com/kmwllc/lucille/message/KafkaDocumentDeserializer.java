@@ -3,13 +3,16 @@ package com.kmwllc.lucille.message;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.KafkaDocument;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Deserializer;
 
 public class KafkaDocumentDeserializer implements Deserializer<Document> {
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  // a stock ObjectMapper rejects any byte[] field over 15,000,000 bytes (~14.3 MiB) that the serializer happily wrote;
+  // see JsonDocument.createDocumentMapper()
+  private static final ObjectMapper MAPPER = JsonDocument.createDocumentMapper();
 
   @Override
   public Document deserialize(String topic, byte[] data) {
