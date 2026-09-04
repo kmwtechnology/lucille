@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom"
-import Layout from "./components/layout"
-import Dashboard from "./pages/dashboard"
+import { ErrorFallback } from "./components/error-fallback/error-fallback"
+import Layout from "./components/layout/layout"
+import Dashboard from "./pages/dashboard/dashboard"
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -13,17 +14,19 @@ function Placeholder({ title }: { title: string }) {
 
 function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="configs" element={<Placeholder title="Configurations" />} />
-        <Route path="configs/detail" element={<Placeholder title="Configuration Detail" />} />
-        <Route path="configs/connectors" element={<Placeholder title="Connectors" />} />
-        <Route path="configs/stages" element={<Placeholder title="Pipeline Stages" />} />
-        <Route path="configs/indexers" element={<Placeholder title="Indexers" />} />
-        <Route path="runs" element={<Placeholder title="Runs" />} />
-      </Route>
-    </Routes>
+    <ErrorFallback>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="configs" element={<Placeholder title="Configurations" />} />
+          <Route path="configs/detail" element={<Placeholder title="Configuration Detail" />} />
+          <Route path="configs/connectors" element={<Placeholder title="Connectors" />} />
+          <Route path="configs/stages" element={<Placeholder title="Pipeline Stages" />} />
+          <Route path="configs/indexers" element={<Placeholder title="Indexers" />} />
+          <Route path="runs" element={<Placeholder title="Runs" />} />
+        </Route>
+      </Routes>
+    </ErrorFallback>
   )
 }
 

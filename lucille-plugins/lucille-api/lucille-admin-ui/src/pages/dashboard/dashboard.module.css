@@ -1,0 +1,180 @@
+@reference "../../index.css";
+
+/* Dashboard page styles */
+.page {
+  @apply p-4 sm:p-6 lg:p-8;
+}
+
+.pageHeader {
+  @apply mb-6 sm:mb-8;
+}
+
+.pageTitle {
+  @apply text-3xl font-bold mb-2 text-primary-800;
+}
+
+.pageSubtitle {
+  @apply text-muted-foreground;
+}
+
+/* Status cards row */
+.statusGrid {
+  @apply grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 mb-8;
+}
+
+/* Detail cards row */
+.detailGrid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8;
+}
+
+/* Stat card shared styles */
+.statCard {
+  @apply shadow-sm hover:shadow-md transition-shadow flex flex-col h-full;
+}
+
+.statCardHealthy {
+  @apply border-teal-100;
+}
+
+.statCardUnhealthy {
+  @apply border-red-100 bg-red-50;
+}
+
+.statCardBlue {
+  @apply border-blue-100 shadow-sm;
+}
+
+.statCardTeal {
+  @apply border-teal-100 shadow-sm;
+}
+
+.statCardOrange {
+  @apply border-orange-100 shadow-sm;
+}
+
+/* Stat card content */
+.statHeader {
+  @apply pb-2 space-y-1;
+}
+
+.statTitleHealthy {
+  @apply flex items-center gap-2 text-base sm:text-lg text-teal-700;
+}
+
+.statTitleUnhealthy {
+  @apply flex items-center gap-2 text-base sm:text-lg text-red-700;
+}
+
+.statValue {
+  @apply text-2xl font-bold;
+}
+
+.statValueTeal {
+  @apply text-2xl font-bold text-teal-700;
+}
+
+.statValueBlue {
+  @apply text-2xl font-bold text-blue-700;
+}
+
+.statValueOrange {
+  @apply text-2xl font-bold text-orange-700;
+}
+
+.statValueRed {
+  @apply text-2xl font-bold text-red-700;
+}
+
+.statValueYellow {
+  @apply text-2xl font-bold text-yellow-700;
+}
+
+.statSubtext {
+  @apply text-sm text-muted-foreground;
+}
+
+.statSubtextTeal {
+  @apply text-sm text-teal-600;
+}
+
+.statSubtextRed {
+  @apply text-sm text-red-600;
+}
+
+.statSubtextYellow {
+  @apply text-sm text-yellow-600;
+}
+
+/* Detail cards */
+.detailCard {
+  @apply border-primary-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full;
+}
+
+.detailCardStatic {
+  @apply border-primary-100 shadow-sm flex flex-col h-full;
+}
+
+.detailHeader {
+  @apply pb-2 space-y-1;
+}
+
+.detailTitle {
+  @apply flex items-center gap-2 text-base sm:text-lg;
+}
+
+.detailDescription {
+  @apply text-xs sm:text-sm;
+}
+
+.detailContent {
+  @apply flex-1;
+}
+
+.detailList {
+  @apply space-y-2;
+}
+
+.detailRow {
+  @apply flex justify-between items-center;
+}
+
+.detailLabel {
+  @apply text-xs sm:text-sm;
+}
+
+.detailValue {
+  @apply font-medium text-xs sm:text-sm;
+}
+
+.badge {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800;
+}
+
+.cardFooterButton {
+  @apply w-full text-primary-600 hover:text-primary-700 hover:bg-primary-50 text-xs sm:text-sm py-1.5;
+}
+
+/* Quick Actions */
+.quickActionsTitle {
+  @apply text-lg sm:text-xl text-primary-800;
+}
+
+.quickActionsContent {
+  @apply flex-1 grid gap-3 sm:gap-4;
+}
+
+.actionButtonPrimary {
+  @apply w-full justify-start bg-primary-600 hover:bg-primary-700 text-xs sm:text-sm py-2 h-auto;
+}
+
+.actionButtonSecondary {
+  @apply w-full justify-start bg-secondary-600 hover:bg-secondary-700 text-xs sm:text-sm py-2 h-auto;
+}
+
+.errorText {
+  @apply text-xs font-medium text-red-600;
+}
+
+.loadingText {
+  @apply text-xs font-medium text-muted-foreground;
+}

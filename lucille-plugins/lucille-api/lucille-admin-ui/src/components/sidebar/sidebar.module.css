@@ -1,0 +1,84 @@
+@reference "../../index.css";
+
+/* Sidebar styles */
+.mobileMenuButton {
+  @apply md:hidden fixed top-4 left-4 z-50;
+}
+
+.desktopSidebar {
+  @apply hidden md:block w-64 shrink-0 border-r bg-white;
+}
+
+.brandHeader {
+  @apply flex h-16 items-center border-b px-6;
+  background: linear-gradient(135deg, #0fb6c6, #0094ff);
+}
+
+.brandLink {
+  @apply flex items-center gap-2 font-bold text-xl text-white;
+}
+
+.navWrapper {
+  @apply py-4;
+}
+
+.nav {
+  @apply space-y-1 px-3;
+}
+
+.mobileSidebar {
+  @apply fixed inset-y-0 left-0 z-40 w-72 bg-white border-r
+    transition-transform duration-200 ease-in-out md:hidden;
+}
+
+.mobileSidebarOpen {
+  @apply translate-x-0;
+}
+
+.mobileSidebarClosed {
+  @apply -translate-x-full;
+}
+
+.closeButton {
+  @apply ml-auto text-white hover:bg-white/20;
+}
+
+.backdrop {
+  @apply fixed inset-0 z-30 bg-black/50 md:hidden;
+}
+
+/* Navigation items */
+.sectionToggle {
+  @apply flex items-center justify-between w-full text-left rounded-md px-3 py-3 text-sm font-medium
+    text-muted-foreground hover:bg-primary-50 hover:text-primary-600;
+}
+
+.sectionToggleInner {
+  @apply flex items-center gap-3;
+}
+
+.chevron {
+  @apply h-4 w-4 transition-transform duration-200;
+}
+
+.chevronExpanded {
+  @apply rotate-180;
+}
+
+.childrenWrapper {
+  @apply ml-6 space-y-1;
+}
+
+.navLink {
+  @apply flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium
+    text-muted-foreground hover:bg-primary-50 hover:text-primary-600;
+}
+
+.navLinkChild {
+  @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium
+    text-muted-foreground hover:bg-primary-50 hover:text-primary-600;
+}
+
+.navLinkActive {
+  @apply bg-primary-50 text-primary-700;
+}

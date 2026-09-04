@@ -1,10 +1,9 @@
 import { NavLink, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button/button"
 import { Activity, BookOpen, ChevronDown, Database, Home, Layers, Play, Settings, Menu, X, Zap } from "lucide-react"
 import { useState, useEffect } from "react"
-
-const techGradient = "linear-gradient(135deg, #0fb6c6, #0094ff)"
+import styles from "./sidebar.module.css"
 
 export default function Sidebar() {
   const { pathname } = useLocation()
@@ -63,35 +62,26 @@ export default function Sidebar() {
           <div key={link.label} className="space-y-1">
             <button
               onClick={() => toggleSection(link.label.toLowerCase())}
-              className={cn(
-                "flex items-center justify-between w-full text-left rounded-md px-3 py-3 text-sm font-medium",
-                "text-muted-foreground hover:bg-primary-50 hover:text-primary-600"
-              )}
+              className={styles.sectionToggle}
             >
-              <div className="flex items-center gap-3">
+              <div className={styles.sectionToggleInner}>
                 <Icon className="h-5 w-5" />
                 <span>{link.label}</span>
               </div>
               <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform duration-200",
-                  isExpanded ? "rotate-180" : ""
-                )}
+                className={cn(styles.chevron, isExpanded && styles.chevronExpanded)}
               />
             </button>
             {isExpanded && (
-              <div className="ml-6 space-y-1">
+              <div className={styles.childrenWrapper}>
                 {"children" in link && link.children?.map((child) => (
                   <NavLink
                     key={child.href}
                     to={child.href}
                     end
-                    className={({ isActive }) => cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium",
-                      isActive
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-muted-foreground hover:bg-primary-50 hover:text-primary-600",
-                    )}
+                    className={({ isActive }) =>
+                      cn(styles.navLinkChild, isActive && styles.navLinkActive)
+                    }
                     onClick={() => isMobile && setSidebarOpen(false)}
                   >
                     <child.icon className="h-4 w-4" />
@@ -109,12 +99,9 @@ export default function Sidebar() {
           key={link.href}
           to={link.href}
           end
-          className={({ isActive }) => cn(
-            "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium",
-            isActive
-              ? "bg-primary-50 text-primary-700"
-              : "text-muted-foreground hover:bg-primary-50 hover:text-primary-600",
-          )}
+          className={({ isActive }) =>
+            cn(styles.navLink, isActive && styles.navLinkActive)
+          }
           onClick={() => isMobile && setSidebarOpen(false)}
         >
           <Icon className="h-5 w-5" />
@@ -127,7 +114,7 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile menu button */}
-      <div className="md:hidden fixed top-4 left-4 z-50">
+      <div className={styles.mobileMenuButton}>
         <Button
           variant="outline"
           size="icon"
@@ -140,15 +127,15 @@ export default function Sidebar() {
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:block w-64 shrink-0 border-r bg-white">
-        <div className="flex h-16 items-center border-b px-6" style={{ background: techGradient }}>
-          <NavLink to="/" className="flex items-center gap-2 font-bold text-xl text-white">
+      <aside className={styles.desktopSidebar}>
+        <div className={styles.brandHeader}>
+          <NavLink to="/" className={styles.brandLink}>
             <Database className="h-6 w-6" />
             <span>Lucille Admin</span>
           </NavLink>
         </div>
-        <div className="py-4">
-          <nav className="space-y-1 px-3">
+        <div className={styles.navWrapper}>
+          <nav className={styles.nav}>
             {renderNavItems(links)}
           </nav>
         </div>
@@ -157,27 +144,27 @@ export default function Sidebar() {
       {/* Mobile sidebar */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-40 w-72 bg-white border-r transition-transform duration-200 ease-in-out md:hidden",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full",
+          styles.mobileSidebar,
+          sidebarOpen ? styles.mobileSidebarOpen : styles.mobileSidebarClosed,
         )}
       >
-        <div className="flex h-16 items-center border-b px-6" style={{ background: techGradient }}>
-          <NavLink to="/" className="flex items-center gap-2 font-bold text-xl text-white">
+        <div className={styles.brandHeader}>
+          <NavLink to="/" className={styles.brandLink}>
             <Database className="h-6 w-6" />
             <span>Lucille Admin</span>
           </NavLink>
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto text-white hover:bg-white/20"
+            className={styles.closeButton}
             onClick={() => setSidebarOpen(false)}
             aria-label="Close menu"
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
-        <div className="py-4">
-          <nav className="space-y-1 px-3">
+        <div className={styles.navWrapper}>
+          <nav className={styles.nav}>
             {renderNavItems(links, true)}
           </nav>
         </div>
@@ -186,7 +173,7 @@ export default function Sidebar() {
       {/* Backdrop for mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          className={styles.backdrop}
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />

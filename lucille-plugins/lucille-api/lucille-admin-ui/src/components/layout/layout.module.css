@@ -1,0 +1,11 @@
+@reference "../../index.css";
+
+/* Layout styles */
+.wrapper {
+  @apply flex min-h-screen;
+  background: linear-gradient(135deg, #f0fafa, #f0f7ff);
+}
+
+.main {
+  @apply flex-1 w-0;
+}

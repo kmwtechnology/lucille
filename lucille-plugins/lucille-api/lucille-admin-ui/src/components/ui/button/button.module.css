@@ -1,0 +1,56 @@
+@reference "../../../index.css";
+
+/* Button base styles */
+.base {
+  @apply inline-flex items-center justify-center gap-2
+    whitespace-nowrap rounded-md text-sm font-medium
+    transition-all outline-none shrink-0
+    disabled:pointer-events-none disabled:opacity-50
+    focus-visible:ring-ring/50 focus-visible:ring-[3px];
+}
+
+.base :global(svg) {
+  @apply pointer-events-none size-4 shrink-0;
+}
+
+/* Variants */
+.default {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+}
+
+.destructive {
+  @apply bg-destructive text-white hover:bg-destructive/90;
+}
+
+.outline {
+  @apply border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground;
+}
+
+.secondary {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+
+.ghost {
+  @apply hover:bg-accent hover:text-accent-foreground;
+}
+
+.link {
+  @apply text-primary underline-offset-4 hover:underline;
+}
+
+/* Sizes */
+.sizeDefault {
+  @apply h-9 px-4 py-2;
+}
+
+.sizeSm {
+  @apply h-8 rounded-md gap-1.5 px-3;
+}
+
+.sizeLg {
+  @apply h-10 rounded-md px-6;
+}
+
+.sizeIcon {
+  @apply size-9;
+}
