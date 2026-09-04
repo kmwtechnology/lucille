@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
+import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -111,6 +112,47 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
+
+  /**
+   * {@inheritDoc}
+   * <p> Compares the URIs by path segment, so <code>s3://bucket/data</code> contains <code>s3://bucket/data/2024</code>.
+   * A URI with an empty path is the root of its bucket or container, and contains everything in it.
+   * <p> Object storage prefixes are raw strings rather than path segments, so overlaps that do not fall on a segment
+   * boundary are missed, implementations may override to catch them.
+   */
+  @Override
+  public boolean containsPath(URI parent, URI child) {
+    URI normalizedParent = parent.normalize();
+    URI normalizedChild = child.normalize();
+
+    if (!Objects.equals(normalizedParent.getScheme(), normalizedChild.getScheme())
+        || !Objects.equals(normalizedParent.getAuthority(), normalizedChild.getAuthority())) {
+      return false;
+    }
+
+    return pathContains(normalizedParent.getPath(), normalizedChild.getPath());
+  }
+
+  /**
+   * Returns whether the child path is the parent path, or sits underneath it, treating both as '/'-delimited.
+   * @param parentPath The path that may contain the other.
+   * @param childPath The path that may sit under the other.
+   */
+  protected static boolean pathContains(String parentPath, String childPath) {
+    String parent = stripTrailingSlash(parentPath);
+    String child = stripTrailingSlash(childPath);
+
+    // an empty path is the root of a bucket / container, which contains everything in it
+    return parent.isEmpty() || child.equals(parent) || child.startsWith(parent + "/");
+  }
+
+  private static String stripTrailingSlash(String path) {
+    if (path == null || path.isEmpty()) {
+      return "";
+    }
+
+    return path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+  }
 
   /**
    * Returns whether the provided URI, which represents a directory in some storage provider, is a directory

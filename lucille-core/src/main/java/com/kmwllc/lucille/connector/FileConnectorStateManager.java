@@ -43,7 +43,7 @@ import com.typesafe.config.Config;
  * <p> <b>Note:</b> This class is operating under these key assumptions about FileConnector / Connectors:
  * <ol>
  *   <li>Connectors run sequentially.</li>
- *   <li>A FileConnector traversal may be multithreaded. The whole-table operations - {@link #init()},
+ *   <li>A FileConnector traversal may be concurrent. The whole-table operations - {@link #init()},
  *   {@link #incrementRunsNotEncountered()}, {@link #listExpiredFiles()}, and {@link #shutdown()} - run only on the
  *   connector thread, before or after the traversal. Per-file operations are delegated to the calling thread's
  *   {@link TraversalState}.</li>
@@ -123,20 +123,16 @@ public class FileConnectorStateManager {
       log.debug("{} rows from the state database had encountered switched from TRUE to FALSE.", rowsAffected);
     }
 
-    // Binds a state to this thread, sharing the connection above rather than opening a second one. A single-threaded
-    // traversal runs on this thread; a multithreaded one leaves this state unused.
+    // Binds a state to this thread, sharing the connection above rather than opening a second one. A sequential
+    // traversal runs on this thread; a concurrent one leaves this state unused.
     threadState.set(new TraversalState(jdbcConnection, tableName, traversalInstant));
   }
 
   /**
-   * Binds a {@link TraversalState}, holding its own connection to the state database, to the calling thread. The
-   * per-file methods on this class then operate through it. {@link #init()} does this for the thread that calls it, so
-   * only additional traversal threads need to call this.
-   *
-   * <p> Every call must be paired with {@link #closeStateForThread()}, or the thread's connection is leaked.
-   *
-   * @throws IllegalStateException If called before {@link #init()} (the state table is created there), or if the
-   * calling thread already has a state bound.
+   * Binds a {@link TraversalState}, with its own connection to the state database, to the calling thread. The per-file
+   * methods on this class then operate through it. {@link #init()} does this for the thread that calls it, so only
+   * additional traversal threads need to call this. Every call must be paired with {@link #closeStateForThread()}.
+   * @throws IllegalStateException If called before {@link #init()}, or if the calling thread already has a state bound.
    */
   public void openStateForThread() throws ClassNotFoundException, SQLException {
     if (jdbcConnection == null) {

@@ -13,13 +13,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * <p> Holds a JDBC connection, and the PreparedStatements built on it, used to read and update state for the files
- * encountered during a single FileConnector traversal.
+ * encountered during a single FileConnector traversal. A JDBC Connection is not thread-safe, so each traversal thread
+ * uses its own TraversalState. Obtain one from {@link FileConnectorStateManager}, which owns the connection's lifetime.
  *
- * <p> A JDBC Connection is not thread-safe, so each traversal thread uses its own TraversalState. Obtain one from
- * {@link FileConnectorStateManager}, which owns the connection's lifetime.
- *
- * <p> Every operation here affects a single file (or, for {@link #markAllEntriesEncountered(String)}, the entries of a
- * single archive). Operations spanning the whole table belong to {@link FileConnectorStateManager}.
+ * <p> Every operation here affects a single file, or the entries of a single archive. Operations spanning the whole
+ * table belong to {@link FileConnectorStateManager}.
  */
 class TraversalState {
 
@@ -35,7 +33,6 @@ class TraversalState {
 
   /**
    * Builds a TraversalState on the given connection. Does not take ownership of it.
-   *
    * @param jdbcConnection An open connection to the state database.
    * @param tableName The name of the state table. Must already exist in the database with the correct schema.
    * @param traversalInstant The instant stamped onto files published during this run.
