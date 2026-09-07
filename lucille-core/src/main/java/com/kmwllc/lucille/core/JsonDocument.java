@@ -42,7 +42,7 @@ public class JsonDocument implements Document {
   /**
    * Creates the ObjectMapper used to parse JSON into Documents.
    *
-   * This is not a Kafka-only mapper. It backs {@link #MAPPER} (and therefore {@link #fromJsonString},
+   * The mapper is used in several places: it backs {@link #MAPPER} (and therefore {@link #fromJsonString},
    * which {@link Document#createFromJson} dispatches to and which JsonFileHandler calls for each line of
    * a JSON-Lines file), {@link HashMapDocument}'s mapper, {@link KafkaDocument}'s ConsumerRecord
    * constructor, and KafkaDocumentDeserializer. Every path that turns JSON text into a Document goes
