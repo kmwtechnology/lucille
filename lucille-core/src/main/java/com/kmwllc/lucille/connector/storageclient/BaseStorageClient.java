@@ -130,15 +130,11 @@ public abstract class BaseStorageClient implements StorageClient {
       return false;
     }
 
-    return pathContains(normalizedParent.getPath(), normalizedChild.getPath());
+    return isUnder(normalizedChild.getPath(), normalizedParent.getPath());
   }
 
-  /**
-   * Returns whether the child path is the parent path, or sits underneath it, treating both as '/'-delimited.
-   * @param parentPath The path that may contain the other.
-   * @param childPath The path that may sit under the other.
-   */
-  protected static boolean pathContains(String parentPath, String childPath) {
+  // Returns whether the child path is the parent path, or sits underneath it, treating both as '/'-delimited.
+  private static boolean isUnder(String childPath, String parentPath) {
     String parent = stripTrailingSlash(parentPath);
     String child = stripTrailingSlash(childPath);
 
