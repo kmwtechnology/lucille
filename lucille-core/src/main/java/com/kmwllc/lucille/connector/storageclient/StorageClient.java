@@ -46,6 +46,15 @@ public interface StorageClient {
   void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
 
   /**
+   * Returns whether a traversal of the given parent would also visit the files under the given child, based on this
+   * provider's addressing rules. Does not require this client to be initialized, and does not contact the provider.
+   * @param parent A URI to a path in storage.
+   * @param child A URI to a path in storage, which may or may not sit under the parent.
+   * @return Whether traversing parent would also visit the files under child.
+   */
+  boolean containsPath(URI parent, URI child);
+
+  /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.
    * @param uri A URI to the file whose contents you want to extract.
    * @return An InputStream for the file's contents.

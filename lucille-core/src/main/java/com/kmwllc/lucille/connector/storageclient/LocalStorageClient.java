@@ -51,6 +51,19 @@ public class LocalStorageClient extends BaseStorageClient {
 
   private String getStartingDirectory(TraversalParams params) { return params.getURI().getPath(); }
 
+  /**
+   * {@inheritDoc}
+   * <p> Resolves both paths to an absolute, normalized form so a relative path and an absolute path to the same
+   * directory are recognized as the same. Does not resolve symlinks.
+   */
+  @Override
+  public boolean containsPath(URI parent, URI child) {
+    Path parentPath = Paths.get(parent.getPath()).toAbsolutePath().normalize();
+    Path childPath = Paths.get(child.getPath()).toAbsolutePath().normalize();
+
+    return childPath.startsWith(parentPath);
+  }
+
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
     Path pathForFile = Paths.get(filePath.getPath());
