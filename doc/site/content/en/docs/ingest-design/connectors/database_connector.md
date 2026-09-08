@@ -42,7 +42,7 @@ connectors: [
 | `fetchSize` | Integer | No | JDBC fetch size hint for streaming large result sets. For MySQL, set to `Integer.MIN_VALUE` (i.e., `-2147483648`) to avoid buffering the full result set in memory. |
 | `preSQL` | String | No | A SQL statement (INSERT, DELETE, UPDATE, or DDL) executed once before the main query. Useful for creating temp tables, acquiring locks, or seeding data. |
 | `postSQL` | String | No | A SQL statement executed once after the main query completes successfully. Useful for cleanup, releasing locks, or writing completion markers. |
-| `otherSQLs` | List\<String\> | No | Additional SELECT queries to JOIN onto the primary result. Each query must return rows ordered by its join key. |
+| `otherSQLs` | List\<String\> | No | Additional SELECT queries whose matching rows are attached to each primary Document as child Documents. Each query must return rows ordered by its join key. |
 | `otherJoinFields` | List\<String\> | No | Join fields parallel to `otherSQLs`. Required when `otherSQLs` is specified. Must be integer-valued columns. |
 | `ignoreColumns` | List\<String\> | No | Column names to skip when populating Documents. |
 | `connectionRetries` | Integer | 1 | Number of connection retry attempts on failure. |
@@ -85,7 +85,20 @@ Use `preSQL` and `postSQL` to run setup and teardown logic that must happen befo
 }
 ```
 
-For each primary row, the connector merges matching rows from `otherSQLs` as multi-valued fields onto the Document.
+For each primary row, every matching row from `otherSQLs` is attached to the Document as a nested child Document, with the secondary query's column names becoming fields on the child. The values are not merged into multi-valued fields on the parent.
+
+To flatten the children into multi-valued fields, add the [`CollapseChildrenDocuments`]({{< relref "docs/ingest-design/stages/all-stages#collapsechildrendocuments" >}}) Stage to the pipeline:
+
+```hocon
+{
+  name: "collapse-children"
+  class: "com.kmwllc.lucille.stage.CollapseChildrenDocuments"
+  fieldsToCopy: ["tag_name"]
+  dropChildren: true
+}
+```
+
+Each article Document then carries a multi-valued `tag_name` field and no child Documents.
 
 ## Incremental Ingest
 
