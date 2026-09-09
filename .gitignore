@@ -19,8 +19,9 @@ dist/
 # Package files
 *.jar
 
-# Maven
+# Maven / Gradle build output
 target/
+.gradle/
 dist/
 
 # JetBrains IDE
@@ -61,6 +62,10 @@ DetectLanguage/profiles
 
 # VSCode
 .vscode
+
+# Claude Code: local worktrees/settings and per-checkout instructions
+.claude/
+CLAUDE.md
 
 # Python files created from ExternalPython resources
 python/
