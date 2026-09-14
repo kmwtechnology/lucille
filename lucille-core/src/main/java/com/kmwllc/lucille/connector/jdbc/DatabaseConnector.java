@@ -26,7 +26,9 @@ import org.slf4j.LoggerFactory;
  * Database Connector - This connector can run a <code>SELECT</code> statement and return the rows from the database as published Documents.
  * If <code>otherSQLs</code> is set, the <code>sql</code> and <code>otherSQLs</code> must all be ordered by their join key, and
  * <code>otherJoinFields</code> must be populated. If those parameters are populated, this connector will run the <code>otherSQL</code>
- * statements in parallel, flattening the rows from the <code>otherSQL</code> statements onto the Document as a child document.
+ * statements in parallel, attaching each matching row from the <code>otherSQL</code> statements to the Document as a child Document.
+ * The {@link com.kmwllc.lucille.stage.CollapseChildrenDocuments} Stage can be used to flatten those children into multi-valued
+ * fields on the parent.
  * <p> <b>Note:</b> With <code>otherSQL</code> statements, the Connector only supports integer join keys.
  *
  * <p> Config Parameters:
