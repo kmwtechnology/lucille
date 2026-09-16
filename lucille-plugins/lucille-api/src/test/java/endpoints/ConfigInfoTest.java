@@ -2,12 +2,9 @@ package endpoints;
 
 import static org.junit.Assert.*;
 
-import java.util.Optional;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.kmwllc.lucille.AuthHandler;
 import com.kmwllc.lucille.endpoints.ConfigInfo;
 
 import jakarta.ws.rs.core.Response;
@@ -21,12 +18,12 @@ public class ConfigInfoTest {
 
   @Before
   public void setUp() {
-    resource = new ConfigInfo(new AuthHandler(false));
+    resource = new ConfigInfo();
   }
 
   @Test
   public void testConnectors_basicShape() throws Exception {
-    Response resp = resource.getConnectors(Optional.empty());
+    Response resp = resource.getConnectors();
     assertEquals(200, resp.getStatus());
 
     ArrayNode arr = mapper.valueToTree(resp.getEntity());
@@ -42,7 +39,7 @@ public class ConfigInfoTest {
 
   @Test
   public void testIndexers_basicShape() throws Exception {
-    Response resp = resource.getIndexers(Optional.empty());
+    Response resp = resource.getIndexers();
     assertEquals(200, resp.getStatus());
 
     ArrayNode arr = mapper.valueToTree(resp.getEntity());
@@ -58,7 +55,7 @@ public class ConfigInfoTest {
 
   @Test
   public void testStages_basicShape() throws Exception {
-    Response resp = resource.getStages(Optional.empty());
+    Response resp = resource.getStages();
     assertEquals(200, resp.getStatus());
 
     ArrayNode arr = mapper.valueToTree(resp.getEntity());
@@ -75,7 +72,7 @@ public class ConfigInfoTest {
   // THIS TEST WILL NOT PASS MANUALLY UNLESS YOU HAVE RUN THE DOCLET THROUGH MVN CLEAN INSTALL
   @Test
   public void testStages_AddRandomBoolean_containsFields() throws Exception {
-    Response resp = resource.getStages(Optional.empty());
+    Response resp = resource.getStages();
     assertEquals(200, resp.getStatus());
 
     ArrayNode arr = mapper.valueToTree(resp.getEntity());

@@ -3,9 +3,11 @@ package com.kmwllc.lucille;
 import com.typesafe.config.Config;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.kmwllc.lucille.auth.BasicAuthenticator;
+import com.kmwllc.lucille.auth.RequireAuthDynamicFeature;
 import com.kmwllc.lucille.config.AuthConfiguration.AuthType;
 import com.kmwllc.lucille.config.LucilleAPIConfiguration;
 import com.kmwllc.lucille.core.RunnerManager;
@@ -14,7 +16,6 @@ import com.kmwllc.lucille.endpoints.LivenessResource;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import com.kmwllc.lucille.endpoints.ReadinessResource;
 import com.kmwllc.lucille.endpoints.SystemStatsResource;
-import io.dropwizard.auth.AuthDynamicFeature;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.PrincipalImpl;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
@@ -43,6 +44,13 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
    * Logger for the Lucille API application.
    */
   public static final Logger log = LoggerFactory.getLogger(APIApplication.class);
+
+  /**
+   * Packages holding the resources that serve the Swagger UI and the OpenAPI document. They are reachable
+   * without authentication.
+   */
+  private static final Set<String> SWAGGER_PACKAGES =
+      Set.of("io.federecio.dropwizard.swagger", "io.swagger.v3.jaxrs2");
 
   /**
    * Default constructor for APIApplication.
@@ -112,9 +120,9 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
       }
 
       env.jersey()
-          .register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<PrincipalImpl>()
+          .register(new RequireAuthDynamicFeature(new BasicCredentialAuthFilter.Builder<PrincipalImpl>()
               .setAuthenticator(new BasicAuthenticator(config.getAuthConfig().getPassword()))
-              .buildAuthFilter()));
+              .buildAuthFilter(), SWAGGER_PACKAGES));
       env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
       log.info("Basic authentication has been enabled.");
     } else {
@@ -132,15 +140,13 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     Map<String, Config> presetConfigs = presetConfigHandler.fetchConfigs();
 
     // Register our 3 Resources
-    AuthHandler authHandler = new AuthHandler(authEnabled);
-    env.jersey().register(new LucilleResource(runnerManager, authHandler, config.isPreventConcurrentRuns(), presetConfigs));
+    env.jersey().register(new LucilleResource(runnerManager, config.isPreventConcurrentRuns(), presetConfigs));
     env.jersey().register(new LivenessResource());
     env.jersey().register(new ReadinessResource());
-    env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
 
     // Register SystemStatsResource
     env.jersey().register(new SystemStatsResource());
-    env.jersey().register(new ConfigInfo(authHandler));
+    env.jersey().register(new ConfigInfo());
   }
 
   /**

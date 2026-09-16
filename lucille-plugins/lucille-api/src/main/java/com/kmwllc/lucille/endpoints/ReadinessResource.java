@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.annotation.security.PermitAll;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -24,7 +23,6 @@ import jakarta.ws.rs.core.Response;
 @Path("/v1/readyz")
 @Tag(name = "Health", description = "Health info.")
 @Produces(MediaType.APPLICATION_JSON)
-@PermitAll
 public class ReadinessResource {
 
   /**
