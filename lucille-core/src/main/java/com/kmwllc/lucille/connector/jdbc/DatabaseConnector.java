@@ -350,7 +350,7 @@ public class DatabaseConnector extends AbstractConnector {
       try {
         connection = createConnectionWithRetries();
       } catch (ClassNotFoundException e) {
-        log.error("Error creating connection.", e);
+        throw new SQLException("Database driver could not be loaded: " + driver, e);
       }
       Statement state2 = connection.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
       // Statement state2 = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);

@@ -660,6 +660,30 @@ public class DatabaseConnectorTest {
   }
 
   @Test
+  public void testDriverNotFound() throws ConnectorException {
+    // Create a test config with a driver class that isn't on the classpath
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "com.nonexistent.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select * from companies");
+    configValues.put("idField", "id");
+
+    // create a config object off that map
+    Config config = ConfigFactory.parseMap(configValues);
+
+    // create the connector with the config
+    DatabaseConnector connector = new DatabaseConnector(config);
+    // the driver can't be loaded, so execute should fail rather than proceeding without a connection
+    Throwable exception = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    assertEquals(ClassNotFoundException.class, exception.getCause().getClass());
+    connector.close();
+  }
+
+  @Test
   public void testReservedFieldError() throws ConnectorException, SQLException {
     HashMap<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
