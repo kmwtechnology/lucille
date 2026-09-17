@@ -151,13 +151,13 @@
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
-        <version>1.5.36</version>
+        <version>1.6.3</version>
       </dependency>
 
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-access</artifactId>
-        <version>1.5.36</version>
+        <version>1.6.3</version>
       </dependency>
 
       <!--  Jetty related CVEs fixed in 12.1.13 (previously pinned to 12.1.10) -->
