@@ -8,7 +8,6 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.json.MetricsModule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.util.LogUtils;
-import jakarta.annotation.security.PermitAll;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -44,7 +43,6 @@ import java.util.Map;
 @Path("/v1/systemstats")
 @Tag(name = "System", description = "System statistics info.")
 @Produces(MediaType.APPLICATION_JSON)
-@PermitAll
 public class SystemStatsResource {
 
   private static final Logger log = LoggerFactory.getLogger(SystemStatsResource.class);

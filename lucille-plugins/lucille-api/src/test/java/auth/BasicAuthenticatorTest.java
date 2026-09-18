@@ -1,44 +1,36 @@
 package auth;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import java.util.Optional;
 
 import org.junit.Test;
 
-import com.kmwllc.lucille.AuthHandler;
-import com.kmwllc.lucille.core.RunnerManager;
-import com.kmwllc.lucille.endpoints.LucilleResource;
+import com.kmwllc.lucille.auth.BasicAuthenticator;
 
 import io.dropwizard.auth.PrincipalImpl;
-import jakarta.ws.rs.core.Response;
+import io.dropwizard.auth.basic.BasicCredentials;
 
 public class BasicAuthenticatorTest {
-	
-  private final AuthHandler authHandler = new AuthHandler(true);
+
+  private final BasicAuthenticator authenticator = new BasicAuthenticator("password");
 
   @Test
-  public void testAuthSuccess() {
+  public void testAuthSuccess() throws Exception {
     /**
-     * The Authentication should pass when any user is passed to the endpoints
+     * The Authentication should pass when the configured password is given
      */
-    Optional<PrincipalImpl> user = Optional.of(new PrincipalImpl("test"));
-    RunnerManager runnerManager = RunnerManager.getInstance();
-    LucilleResource api = new LucilleResource(runnerManager, authHandler);
-    String configBody = "pipeline = \"testPipeline\"";
-    Response status = api.createConfig(user, configBody);
-    assertEquals(200, status.getStatus());
-  } 
+    Optional<PrincipalImpl> user = authenticator.authenticate(new BasicCredentials("test", "password"));
+    assertTrue(user.isPresent());
+    assertEquals("test", user.get().getName());
+  }
 
   @Test
-  public void testAuthFailure() {
+  public void testAuthFailure() throws Exception {
     /**
-     * If an empty Optional is passed the Authentication should fail
+     * If the wrong password is given the Authentication should fail
      */
-    Optional<PrincipalImpl> noUser = Optional.empty();
-    RunnerManager runnerManager = RunnerManager.getInstance();
-    LucilleResource api = new LucilleResource(runnerManager, authHandler);
-    String configBody = "pipeline = \"testPipeline\"";
-    Response status = api.createConfig(noUser, configBody);
-    assertEquals(401, status.getStatus());
+    Optional<PrincipalImpl> user = authenticator.authenticate(new BasicCredentials("test", "wrong"));
+    assertTrue(user.isEmpty());
   }
 }
