@@ -16,6 +16,10 @@
   <packaging>jar</packaging>
   <name>Lucille Core</name>
 
+  <properties>
+    <jetty12.version>12.0.39</jetty12.version>
+  </properties>
+
   <dependencies>
     <dependency>
         <groupId>com.dashjoin</groupId>
@@ -77,6 +81,22 @@
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-clients</artifactId>
       <version>4.2.0</version>
+    </dependency>
+
+    <!-- Floor for zstd-jni: kafka-clients pulls 1.5.6-10 (CVE-2026-87823, plus an out-of-bounds
+    read, a use-after-free and an infinite loop), still the case as of Kafka 4.3.1. -->
+    <dependency>
+      <groupId>com.github.luben</groupId>
+      <artifactId>zstd-jni</artifactId>
+      <version>1.5.7-17</version>
+    </dependency>
+
+    <!-- Floor for snappy-java: kafka-clients pulls 1.1.10.7. 1.1.10.8 is the latest release but
+    does not fix CVE-2026-90559, which covers "through 1.1.10.8" and has no fixed release yet. -->
+    <dependency>
+      <groupId>org.xerial.snappy</groupId>
+      <artifactId>snappy-java</artifactId>
+      <version>1.1.10.8</version>
     </dependency>
 
     <dependency>
@@ -232,6 +252,40 @@
       <version>5.11.2</version>
     </dependency>
 
+    <!-- Floor for the Jetty 12.0.x set: solr-solrj-jetty pulls 12.0.27 (CVE-2026-19203 and
+    CVE-2026-2332 in jetty-http, CVE-2026-12611 in jetty-http2-common, CVE-2026-8384 in
+    jetty-util). jetty-http2-client-transport is the root of that chain, so flooring it lifts the
+    other client modules with it; Jetty modules must all share one version. Declared ahead of the
+    Solr modules below, since Maven breaks the equal-depth tie on declaration order. Not
+    test-scoped so they propagate downstream. -->
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>jetty-http2-client-transport</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+    <!--  Note that http2-common and http2-hpack also arrive via solr-test-framework, which declares
+       them at compile scope, so the transport floor above does not reach them. -->
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>jetty-http2-common</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>jetty-http2-hpack</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-http</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-util</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+
     <!-- Solr modules -->
     <dependency>
       <groupId>org.apache.solr</groupId>
@@ -244,20 +298,6 @@
       <artifactId>solr-solrj-jetty</artifactId>
       <version>${solr.version}</version>
       <scope>test</scope>
-    </dependency>
-    <!-- Floor for jetty-http: solr-solrj-zookeeper pulls 12.0.27 (CVE-2026-2332).
-    Not test-scoped so it propagates downstream. -->
-    <dependency>
-      <groupId>org.eclipse.jetty</groupId>
-      <artifactId>jetty-http</artifactId>
-      <version>12.0.33</version>
-    </dependency>
-     <!-- Floor for jetty-util: solr-solrj-zookeeper pulls 12.0.27 (CVE-2026-8384).
-     Not test-scoped so it propagates downstream. -->
-    <dependency>
-      <groupId>org.eclipse.jetty</groupId>
-      <artifactId>jetty-util</artifactId>
-      <version>12.0.35</version>
     </dependency>
 
     <!--  Note that this is also one of the dependencies for solr that we had to pull in manually. However,
@@ -511,12 +551,8 @@
       <version>0.8</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>org.xerial.snappy</groupId>
-      <artifactId>snappy-java</artifactId>
-      <version>1.1.10.8</version>
-      <scope>test</scope>
-    </dependency>
+    <!--  Note that snappy-java was part of this list, but is now declared non-test-scoped
+       alongside kafka-clients as a CVE floor. -->
 
     <!--
       ==========================================
@@ -632,6 +668,23 @@
         <version>12.35.1</version>
     </dependency>
 
+    <!-- Pin reactor-core and reactor-netty for CVEs from azure-storage-blob -->
+    <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-core</artifactId>
+      <version>3.8.7</version>
+    </dependency>
+    <dependency>
+      <groupId>io.projectreactor.netty</groupId>
+      <artifactId>reactor-netty-core</artifactId>
+      <version>1.3.7</version>
+    </dependency>
+    <dependency>
+      <groupId>io.projectreactor.netty</groupId>
+      <artifactId>reactor-netty-http</artifactId>
+      <version>1.3.7</version>
+    </dependency>
+
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-storage</artifactId>
@@ -679,7 +732,7 @@
     <dependency>
         <groupId>org.jsoup</groupId>
         <artifactId>jsoup</artifactId>
-        <version>1.23.1</version>
+        <version>1.23.2</version>
     </dependency>
 
     <!-- dependency for OpenAiEmbedding Stage -->
