@@ -233,11 +233,13 @@
     </dependency>
 
     <!-- Solr modules -->
+    <!-- Must be a runtime (not test) dependency: SolrJ's javabin RequestWriter needs
+         org.apache.solr.client.api.util.ReflectWritable from solr-api to serialize update
+         bodies. Without it in target/lib, updates silently send an empty body. -->
     <dependency>
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-api</artifactId>
       <version>${solr.version}</version>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.solr</groupId>
