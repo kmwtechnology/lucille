@@ -729,8 +729,6 @@
       <version>2.2.224</version>
     </dependency>
 
-    <!-- jsoup 1.23.2 is the latest release but does not fix CVE-2026-75140, which covers "through
-    1.23.2"; that fix exists only as commit 862ba2f. -->
     <dependency>
         <groupId>org.jsoup</groupId>
         <artifactId>jsoup</artifactId>
