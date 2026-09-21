@@ -31,7 +31,8 @@ The API can be run locally or in a Docker container:
 
 ## Available Endpoints
 
-All requests are served from `localhost:8080` (or `localhost:8443` if HTTPS is enabled). When auth is enabled, every endpoint except the Dropwizard admin port requires Basic Auth credentials.
+All requests are served from `localhost:8080` (or `localhost:8443` if HTTPS is enabled). When auth is enabled, every endpoint in 
+the table requires Basic Auth credentials, except the liveness and readiness probes and the Dropwizard admin port.
 
 | Method | Path | Description | Body |
 |--------|------|-------------|------|
@@ -224,3 +225,13 @@ you will need to persist it yourself. Similarly, only 10,000 configs can be stor
 Any functionality exposed by the Admin API should be mirrored by an internal API in lucille-core which handles all of the logic.
 Currently, this internal API class is the `RunnerManager`, but future expansions could require more classes. Business logic should
 not go in the `lucille-api` module and should all be contained within `lucille-core`.
+
+### Authentication
+
+New endpoints are authenticated automatically. `RequireAuthDynamicFeature`, registered once in `APIApplication`, applies the auth
+filter to every resource method Jersey registers, so there is no check to write inside an endpoint and nothing to add to it. 
+
+To make an endpoint reachable without credentials, annotate its method or class with `@AuthNotRequired` and add its path to
+`PUBLIC_ENDPOINTS` in `APIAuthCoverageTest`. That test requests every registered endpoint without credentials and fails if one that
+is not on the list responds, so an endpoint cannot be left unauthenticated by accident. Resources declared outside this module, such
+as those serving Swagger, cannot be annotated and are exempted by package in `AUTH_EXEMPT_PACKAGES` instead.

@@ -36,7 +36,7 @@ public class APIAuthCoverageTest {
 
   // The endpoints that are intentionally reachable without credentials. Adding to this set widens the
   // anonymously reachable surface of the API, so it should not happen without a good reason.
-  private static final Set<String> PUBLIC_ENDPOINTS = Set.of("/swagger", "/openapi.json");
+  private static final Set<String> PUBLIC_ENDPOINTS = Set.of("/swagger", "/openapi.json", "/v1/readyz", "/v1/livez");
 
   // Substituted for any path parameter, for example /v1/config/{configId}.
   private static final String PATH_PARAMETER_VALUE = "auth-coverage-test";

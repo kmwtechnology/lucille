@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.endpoints;
 
+import com.kmwllc.lucille.auth.AuthNotRequired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +24,7 @@ import jakarta.ws.rs.core.Response;
 @Path("/v1/readyz")
 @Tag(name = "Health", description = "Health info.")
 @Produces(MediaType.APPLICATION_JSON)
+@AuthNotRequired
 public class ReadinessResource {
 
   /**
