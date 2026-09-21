@@ -10,14 +10,9 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.spec.Spec;
 
-import io.dropwizard.auth.Auth;
-import io.dropwizard.auth.PrincipalImpl;
-import com.kmwllc.lucille.AuthHandler;
-
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ClassInfoList;
 import io.github.classgraph.ScanResult;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -42,14 +37,16 @@ import org.jsoup.select.Elements;
 public class ConfigInfo {
 
   private static final ObjectMapper mapper = new ObjectMapper();
-  private final AuthHandler authHandler;
 
   private ArrayNode cachedConnectorListJson;
   private ArrayNode cachedStageListJson;
   private ArrayNode cachedIndexerListJson;
 
-  public ConfigInfo(AuthHandler authHandler) {
-    this.authHandler = authHandler;
+  /**
+   * Constructs a new ConfigInfo.
+   */
+  public ConfigInfo() {
+    super();
   }
 
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -211,13 +208,8 @@ public class ConfigInfo {
 
   @GET
   @Path("/connector-list")
-  public Response getConnectors(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user)
+  public Response getConnectors()
       throws IOException, NoSuchFieldException, IllegalAccessException {
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse;
-    }
-
     if (cachedConnectorListJson == null) {
       Map<String, ComponentDoc> connectorDocs = loadDocs("connector-javadocs.json");
       cachedConnectorListJson = buildSpecArrayForSubclasses(AbstractConnector.class.getName(), connectorDocs);
@@ -228,13 +220,8 @@ public class ConfigInfo {
 
   @GET
   @Path("/stage-list")
-  public Response getStages(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user)
+  public Response getStages()
       throws IOException, NoSuchFieldException, IllegalAccessException {
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse;
-    }
-
     if (cachedStageListJson == null) {
       Map<String, ComponentDoc> stageDocs = loadDocs("stage-javadocs.json");
       cachedStageListJson = buildSpecArrayForSubclasses(Stage.class.getName(), stageDocs);
@@ -245,13 +232,8 @@ public class ConfigInfo {
 
   @GET
   @Path("/indexer-list")
-  public Response getIndexers(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user)
+  public Response getIndexers()
       throws IOException, NoSuchFieldException, IllegalAccessException {
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse;
-    }
-
     if (cachedIndexerListJson == null) {
       Map<String, ComponentDoc> indexerDocs = loadDocs("indexer-javadocs.json");
       cachedIndexerListJson = buildSpecArrayForSubclasses(Indexer.class.getName(), indexerDocs);
