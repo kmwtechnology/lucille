@@ -52,9 +52,10 @@ public class APIAuthCoverageTest {
   private record Endpoint(String httpMethod, String path) {}
 
   @Test
-  public void testEveryEndpointRequiresAuthentication() {
+  public void testAuthRequiredUnlessPublic() {
     for (Endpoint endpoint : discoverEndpoints()) {
-      int status = request(endpoint, false).getStatus();
+      Response response = request(endpoint, false);
+      int status = response.getStatus();
 
       if (PUBLIC_ENDPOINTS.contains(endpoint.path())) {
         assertNotEquals(endpoint + " is in PUBLIC_ENDPOINTS but requires authentication.", 401, status);
