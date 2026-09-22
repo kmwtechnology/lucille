@@ -81,6 +81,9 @@ import com.typesafe.config.Config;
  *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
  *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
  *   <li>s3.region (String, Optional) : AWS region for S3.</li>
+ *   <li>s3.anonymous (Boolean, Optional) : Send unsigned requests, for public buckets that need no
+ *   credentials. Cannot be combined with accessKeyId/secretAccessKey. When set and no region is given,
+ *   region defaults to us-east-1, S3's global endpoint. Defaults to false.</li>
  *   <li>s3.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
  *   <li>azure.connectionString (String, Optional) : Azure connection string.</li>
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
@@ -108,6 +111,7 @@ public class FileConnector extends AbstractConnector {
   public static final String S3_REGION = "region";
   public static final String S3_ACCESS_KEY_ID = "accessKeyId";
   public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
+  public static final String S3_ANONYMOUS = "anonymous";
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
   public static final String MAX_NUM_OF_PAGES = "maxNumOfPages";
 
@@ -124,6 +128,7 @@ public class FileConnector extends AbstractConnector {
       .optionalNumber("maxNumOfPages").build();
   public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
       .optionalString("accessKeyId", "secretAccessKey", "region")
+      .optionalBoolean("anonymous")
       .optionalNumber("maxNumOfPages").build();
   public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
       .optionalString("connectionString", "accountName", "accountKey")
