@@ -5,6 +5,7 @@ import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.FileConnector.S3_ANONYMOUS;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
@@ -15,6 +16,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -42,11 +44,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.Test;
+import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -95,6 +101,12 @@ public class S3StorageClientTest {
     // valid: accessKeyID + secretAccesKey
     new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ACCESS_KEY_ID, "accessKey", S3_SECRET_ACCESS_KEY, "secretKey")));
 
+    // valid: anonymous only
+    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true)));
+
+    // valid: anonymous + region
+    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true, S3_REGION, "us-east-1")));
+
     // invalid: region + accessKeyId without secretAccessKey
     assertThrows(IllegalArgumentException.class,
         () -> new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey"))));
@@ -102,6 +114,11 @@ public class S3StorageClientTest {
     // invalid: region + secretAccessKey without accessKeyId
     assertThrows(IllegalArgumentException.class,
         () -> new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_SECRET_ACCESS_KEY, "secretKey"))));
+
+    // invalid: anonymous + accessKeyId + secretAccessKey
+    assertThrows(IllegalArgumentException.class,
+        () -> new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true, S3_ACCESS_KEY_ID, "accessKey",
+            S3_SECRET_ACCESS_KEY, "secretKey"))));
   }
 
   @Test
@@ -638,6 +655,20 @@ public class S3StorageClientTest {
     ));
 
     pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testAnonymousDefaultsToUsEast1() throws Exception {
+    S3ClientBuilder builder = mock(S3ClientBuilder.class, Answers.RETURNS_SELF);
+
+    try (MockedStatic<S3Client> mockedS3Client = mockStatic(S3Client.class)) {
+      mockedS3Client.when(S3Client::builder).thenReturn(builder);
+      new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true))).init();
+    }
+
+    // anonymous requests still need a region, and the default chain cannot supply one
+    verify(builder, times(1)).region(Region.US_EAST_1);
+    verify(builder, times(1)).credentialsProvider(isA(AnonymousCredentialsProvider.class));
   }
 
   private void pathsToSkipTesting(Config connectorConfig) throws Exception {
