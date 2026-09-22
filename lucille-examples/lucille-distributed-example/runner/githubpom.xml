@@ -13,11 +13,11 @@
   <packaging>jar</packaging>
 
   <dependencies>
-    <!-- Jackson dependency -->
+    <!-- Jackson dependency. No parent here, so keep in sync with jackson-bom in lucille-parent. -->
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.18.1</version>
+      <version>2.22.2</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>

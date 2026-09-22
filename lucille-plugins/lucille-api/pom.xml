@@ -17,8 +17,8 @@
 
     <properties>
       <!-- Dropwizard 5.0.2 drags in Jetty 12.1.9, which has CVEs in jetty-security/jetty-server.
-           Pin the whole Jetty 12.1.x set to 12.1.10 via the Jetty BOMs (modules must share one version). -->
-      <jetty.version>12.1.10</jetty.version>
+           Pin the whole Jetty 12.1.x set to 12.1.13 via the Jetty BOMs (modules must share one version). -->
+      <jetty.version>12.1.13</jetty.version>
     </properties>
 
     <dependencyManagement>
@@ -151,25 +151,32 @@
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
-        <version>1.5.36</version>
+        <version>1.6.3</version>
       </dependency>
 
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-access</artifactId>
-        <version>1.5.36</version>
+        <version>1.6.3</version>
       </dependency>
 
-      <!--  Two Jetty related CVEs fixed in 12.1.10 (previously pulling in 12.1.9) -->
+      <!--  Jetty related CVEs fixed in 12.1.13 (previously pinned to 12.1.10) -->
       <dependency>
         <groupId>org.eclipse.jetty</groupId>
         <artifactId>jetty-server</artifactId>
-        <version>12.1.10</version>
+        <version>${jetty.version}</version>
       </dependency>
       <dependency>
         <groupId>org.eclipse.jetty</groupId>
         <artifactId>jetty-security</artifactId>
-        <version>12.1.10</version>
+        <version>${jetty.version}</version>
+      </dependency>
+
+      <!--  Floor for freemarker: dropwizard-swagger pulls 2.3.34 via dropwizard-views-freemarker (CVE-2026-84939) -->
+      <dependency>
+        <groupId>org.freemarker</groupId>
+        <artifactId>freemarker</artifactId>
+        <version>2.3.35</version>
       </dependency>
     </dependencies>
 
