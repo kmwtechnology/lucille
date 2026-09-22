@@ -1,7 +1,7 @@
 // Adapted code from https://github.com/google/docsy/blob/v0.14.0/assets/js/offline-search.js
 // Main changes from original code:
 // - buildSnippet() centers the result snippet on the actual match and highlights it, instead of a static excerpt
-// - only highlights matches that are exact or contain the raw query word (excludes fuzzy/wildcard noise, see queryStems)
+// - only highlights matches that are exact or contain the raw query word or its stem (excludes fuzzy noise, see queryStems)
 // - appends "?q=" to result links so hooks/body-end.html can highlight + scroll to the match on the destination page
 
 (function ($) {
@@ -39,15 +39,13 @@
         this.ref('ref');
         this.metadataWhitelist = ['position']; // Match position needed for snippet generation
 
-        // If you added more searchable fields to the search index, list them here.
-        // Here you can specify searchable fields to the search index - e.g. individual toxonomies for you project
-        // With "boost" you can add weighting for specific (default weighting without boost: 1)
-        this.field('title', { boost: 5 });
-        this.field('categories', { boost: 3 });
-        this.field('tags', { boost: 3 });
-        // this.field('projects', { boost: 3 }); // example for an individual toxonomy called projects
-        this.field('description', { boost: 2 });
-        this.field('body');
+        // Searchable fields, matching the dict built in assets/json/offline-search-index.json
+        this.field('title', { boost: 20 });
+        this.field('description', { boost: 4 });
+        this.field('identifiers', { boost: 3 });
+        this.field('section', { boost: 1 });
+        this.field('body', { boost: 1 });
+        this.field('code', { boost: 0.25 });
 
         data.forEach((doc) => {
           this.add(doc);
@@ -56,6 +54,7 @@
             title: doc.title,
             excerpt: doc.excerpt,
             body: doc.body,
+            code: doc.code,
           });
         });
       });
@@ -63,68 +62,105 @@
       $searchInput.trigger('change');
     });
 
-    // Build a snippet around the first relevant match of a query term in the document body.
-    // A relevant match is either an exact match of a query stem or contains the raw query word.
-    // Snippet is cut off at sentence/line boundaries 80 characters before and after the match.
-    // If no boundary is found, snippet starts from the first match.
-    // Every relevant occurrence within the snippet window is highlighted.
+    // Edit distance for the fuzzy clause, tiered by term length
+    const fuzzyDistance = (len) => (len < 4 ? 0 : len < 7 ? 1 : 2);
+
+    // Fields a snippet can come from, in priority order
+    // identifiers are excluded because they hold space-split camelCase names that do not appear on screen
+    const SNIPPET_FIELDS = ['body', 'code'];
+
+    // Where a snippet may start and end, per field. Code has no sentences or line breaks so it is cut at whitespace
+    const SNIPPET_BOUNDARY = { body: /[.!?;]\s|\n/, code: /\s/ };
+
+    // Build a snippet around the first relevant match of a query term, trying each
+    // snippet field in order and falling back to the static excerpt
+    // A relevant match is an exact match of a query stem, or contains the raw query word/stem
+    // Fuzzy-only matches are discarded and snippets are cut at sentence/line boundaries 80 characters before and after the match
+    // If no boundary is found, snippet starts from the first match
+    // Every relevant occurrence within the snippet window is highlighted
     function buildSnippet(doc, r, queryStems) {
-      function findRaw(term) {
+      // Query text to look for inside a matched span, best highlight first
+      // Prefer the raw word, fall back to the stem. The index is stemmed and the wildcard
+      // clauses match on it, so a span like "SolrIndexerTest" holds "index" but not "indexers"
+      function matchTexts(term) {
         for (const [stem, raw] of queryStems) {
-          if (term === stem || term.includes(raw)) return raw;
+          if (term === stem || term.includes(raw) || term.includes(stem)) {
+            return raw === stem ? [raw] : [raw, stem];
+          }
         }
         return null;
       }
 
-      function hitsFor(term, position) {
-        const raw = findRaw(term);
-        if (!raw) return [];
+      function hitsFor(text, term, position) {
+        const candidates = matchTexts(term);
+        if (!candidates) return [];
         const hits = [];
         position.forEach(([s, len]) => {
-          const offset = doc.body.slice(s, s + len).toLowerCase().indexOf(raw);
-          if (offset !== -1) hits.push([s + offset, raw.length]);
+          const span = text.slice(s, s + len).toLowerCase();
+          for (const candidate of candidates) {
+            const offset = span.indexOf(candidate);
+            if (offset !== -1) {
+              hits.push([s + offset, candidate.length]);
+              break;
+            }
+          }
         });
         return hits;
       }
 
-      const $p = $('<p>');
-      for (const term of Object.keys(r.matchData.metadata)) {
-        const match = r.matchData.metadata[term].body;
-        if (!match || !match.position || !match.position.length) continue;
-        const termHits = hitsFor(term, match.position);
-        if (!termHits.length) continue;
-        const [start] = termHits[0];
+      function snippetForField(field) {
+        const text = doc[field];
+        if (!text) return null;
 
-        const windowStart = Math.max(0, start - 80);
-        const windowEnd = start + 80;
-        const startMatch = [...doc.body.slice(windowStart, start).matchAll(/[.!?;]\s|\n/g)].at(-1);
-        const endMatch = /[.!?;]\s|\n/.exec(doc.body.slice(start, windowEnd));
-        const snippetStart = startMatch ? windowStart + startMatch.index + (startMatch[0] === '\n' ? 1 : 2) : start;
-        const snippetEnd = endMatch ? start + endMatch.index + (endMatch[0] === '\n' ? 0 : 1) : windowEnd;
+        for (const term of Object.keys(r.matchData.metadata)) {
+          const match = r.matchData.metadata[term][field];
+          if (!match || !match.position || !match.position.length) continue;
+          const termHits = hitsFor(text, term, match.position);
+          if (!termHits.length) continue;
+          const [start] = termHits[0];
 
-        const hits = [];
-        for (const t of Object.keys(r.matchData.metadata)) {
-          const m = r.matchData.metadata[t].body;
-          if (m && m.position) {
-            hitsFor(t, m.position).forEach(([s, len]) => {
-              if (s + len > snippetStart && s < snippetEnd) hits.push([s, len]);
-            });
+          const boundary = SNIPPET_BOUNDARY[field];
+          const windowStart = Math.max(0, start - 80);
+          const windowEnd = start + 80;
+          const startMatch = [...text.slice(windowStart, start).matchAll(new RegExp(boundary, 'g'))].at(-1);
+          const endMatch = boundary.exec(text.slice(start, windowEnd));
+          // Start past the boundary; end keeps its punctuation but drops the trailing space.
+          const snippetStart = startMatch ? windowStart + startMatch.index + startMatch[0].length : start;
+          const snippetEnd = endMatch ? start + endMatch.index + endMatch[0].length - 1 : windowEnd;
+
+          const hits = [];
+          for (const t of Object.keys(r.matchData.metadata)) {
+            const m = r.matchData.metadata[t][field];
+            if (m && m.position) {
+              hitsFor(text, t, m.position).forEach(([s, len]) => {
+                if (s + len > snippetStart && s < snippetEnd) hits.push([s, len]);
+              });
+            }
           }
-        }
-        hits.sort((a, b) => a[0] - b[0]);
+          hits.sort((a, b) => a[0] - b[0]);
 
-        let cursor = snippetStart;
-        hits.forEach(([s, len]) => {
-          const hitStart = Math.max(s, cursor);
-          const hitEnd = Math.min(s + len, snippetEnd);
-          $p.append(document.createTextNode(doc.body.slice(cursor, hitStart)));
-          $p.append($('<mark>').text(doc.body.slice(hitStart, hitEnd)));
-          cursor = hitEnd;
-        });
-        $p.append(document.createTextNode(doc.body.slice(cursor, snippetEnd)));
-        return $p;
+          // Constructed per attempt, so a field that yields no hits leaves nothing behind.
+          const $p = $('<p>');
+          if (field === 'code') $p.addClass('td-offline-search-results__code');
+          let cursor = snippetStart;
+          hits.forEach(([s, len]) => {
+            const hitStart = Math.max(s, cursor);
+            const hitEnd = Math.min(s + len, snippetEnd);
+            $p.append(document.createTextNode(text.slice(cursor, hitStart)));
+            $p.append($('<mark>').text(text.slice(hitStart, hitEnd)));
+            cursor = hitEnd;
+          });
+          $p.append(document.createTextNode(text.slice(cursor, snippetEnd)));
+          return $p;
+        }
+        return null;
       }
-      return $p.text(doc.excerpt);
+
+      for (const field of SNIPPET_FIELDS) {
+        const $snippet = snippetForField(field);
+        if ($snippet) return $snippet;
+      }
+      return $('<p>').text(doc.excerpt);
     }
 
     const render = ($targetSearchInput) => {
@@ -158,18 +194,30 @@
           const tokens = lunr.tokenizer(searchQuery.toLowerCase());
           tokens.forEach((token) => {
             const queryString = token.toString();
-            queryStems.set(lunr.stemmer(new lunr.Token(queryString)).toString(), queryString);
+            const stem = lunr.stemmer(new lunr.Token(queryString)).toString();
+            queryStems.set(stem, queryString);
             q.term(queryString, {
               boost: 100,
             });
-            q.term(queryString, {
+            // Prefix and substring are weighted separately since a prefix match tends to
+            // be closer to what was typed ("connect" -> "connector"), while a substring
+            // can land mid-word ("run" -> "truncate")
+            // Both take the stem since lunr skips the pipeline on any clause with a wildcard
+            q.term(stem, {
+              wildcard: lunr.Query.wildcard.TRAILING,
+              boost: 20,
+              usePipeline: false,
+            });
+            q.term(stem, {
               wildcard:
                 lunr.Query.wildcard.LEADING | lunr.Query.wildcard.TRAILING,
-              boost: 10,
+              boost: 5,
+              usePipeline: false,
             });
-            q.term(queryString, {
-              editDistance: 2,
-            });
+            const editDistance = fuzzyDistance(queryString.length);
+            if (editDistance > 0) {
+              q.term(queryString, { editDistance });
+            }
           });
         })
         .slice(0, $targetSearchInput.data('offline-search-max-results'));
