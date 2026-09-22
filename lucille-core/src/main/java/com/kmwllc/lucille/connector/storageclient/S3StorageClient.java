@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.FileConnector.S3_ANONYMOUS;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
@@ -14,6 +15,7 @@ import java.net.URISyntaxException;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -44,6 +46,18 @@ public class S3StorageClient extends BaseStorageClient {
       throw new IllegalArgumentException("'" + S3_ACCESS_KEY_ID + "' and '" + S3_SECRET_ACCESS_KEY +
           "' must be specified together or omitted together in Config for S3StorageClient.");
     }
+
+    if (anonymous(config) && config.hasPath(S3_ACCESS_KEY_ID)) {
+      throw new IllegalArgumentException("'" + S3_ANONYMOUS + "' cannot be combined with '" + S3_ACCESS_KEY_ID
+          + "' / '" + S3_SECRET_ACCESS_KEY + "' in Config for S3StorageClient.");
+    }
+  }
+
+  // us-east-1 acts as S3's global endpoint and redirects to the bucket's real region.
+  static final Region ANONYMOUS_DEFAULT_REGION = Region.US_EAST_1;
+
+  private static boolean anonymous(Config config) {
+    return config.hasPath(S3_ANONYMOUS) && config.getBoolean(S3_ANONYMOUS);
   }
 
   @Override
@@ -52,13 +66,15 @@ public class S3StorageClient extends BaseStorageClient {
       S3ClientBuilder builder = S3Client.builder();
 
       if (config.hasPath(S3_REGION)) {
-        Region configRegion = Region.of(config.getString(S3_REGION));
-        builder = builder.region(configRegion);
+        builder = builder.region(Region.of(config.getString(S3_REGION)));
+      } else if (anonymous(config)) {
+        builder = builder.region(ANONYMOUS_DEFAULT_REGION);
       }
 
-      // use StaticCredentialsProvider when access key is provided,
-      // otherwise don't set a credentials provider but instead implicitly use the default credentials provider chain
-      if (config.hasPath(S3_ACCESS_KEY_ID) && config.hasPath(S3_SECRET_ACCESS_KEY)) {
+      // Unsigned requests, for public buckets that need no credentials at all.
+      if (anonymous(config)) {
+        builder = builder.credentialsProvider(AnonymousCredentialsProvider.create());
+      } else if (config.hasPath(S3_ACCESS_KEY_ID) && config.hasPath(S3_SECRET_ACCESS_KEY)) {
         AwsBasicCredentials awsCred = AwsBasicCredentials.create(config.getString(S3_ACCESS_KEY_ID), config.getString(S3_SECRET_ACCESS_KEY));
         builder = builder.credentialsProvider(StaticCredentialsProvider.create(awsCred));
       }
