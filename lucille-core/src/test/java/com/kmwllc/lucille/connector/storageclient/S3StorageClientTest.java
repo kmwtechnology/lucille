@@ -658,7 +658,7 @@ public class S3StorageClientTest {
   }
 
   @Test
-  public void testAnonymousDefaultsToUsEast1() throws Exception {
+  public void testIsAnonymousDefaultsToUsEast1() throws Exception {
     S3ClientBuilder builder = mock(S3ClientBuilder.class, Answers.RETURNS_SELF);
 
     try (MockedStatic<S3Client> mockedS3Client = mockStatic(S3Client.class)) {

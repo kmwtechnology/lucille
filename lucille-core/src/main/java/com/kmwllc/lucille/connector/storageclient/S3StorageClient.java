@@ -29,11 +29,17 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
  * A storage client for S3. Create using a configuration (commonly mapped to <b>s3</b>) which can contain
- * "region" and can contain <b>both</b> "accessKeyId" and "secretAccessKey".
+ * "region" and can contain <b>both</b> "accessKeyId" and "secretAccessKey". Set "anonymous" instead to send
+ * unsigned requests to public buckets. This cannot be combined with "accessKeyId" / "secretAccessKey", and
+ * defaults the region to us-east-1 when no "region" is given.
  */
 public class S3StorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
+
+  // us-east-1 acts as S3's global endpoint and redirects to the bucket's real region.
+  static final Region ANONYMOUS_DEFAULT_REGION = Region.US_EAST_1;
+
   protected S3Client s3;
 
   public S3StorageClient(Config s3CloudOptions) {
@@ -47,16 +53,13 @@ public class S3StorageClient extends BaseStorageClient {
           "' must be specified together or omitted together in Config for S3StorageClient.");
     }
 
-    if (anonymous(config) && config.hasPath(S3_ACCESS_KEY_ID)) {
+    if (isAnonymous(config) && config.hasPath(S3_ACCESS_KEY_ID)) {
       throw new IllegalArgumentException("'" + S3_ANONYMOUS + "' cannot be combined with '" + S3_ACCESS_KEY_ID
           + "' / '" + S3_SECRET_ACCESS_KEY + "' in Config for S3StorageClient.");
     }
   }
 
-  // us-east-1 acts as S3's global endpoint and redirects to the bucket's real region.
-  static final Region ANONYMOUS_DEFAULT_REGION = Region.US_EAST_1;
-
-  private static boolean anonymous(Config config) {
+  private static boolean isAnonymous(Config config) {
     return config.hasPath(S3_ANONYMOUS) && config.getBoolean(S3_ANONYMOUS);
   }
 
@@ -67,12 +70,12 @@ public class S3StorageClient extends BaseStorageClient {
 
       if (config.hasPath(S3_REGION)) {
         builder = builder.region(Region.of(config.getString(S3_REGION)));
-      } else if (anonymous(config)) {
+      } else if (isAnonymous(config)) {
         builder = builder.region(ANONYMOUS_DEFAULT_REGION);
       }
 
       // Unsigned requests, for public buckets that need no credentials at all.
-      if (anonymous(config)) {
+      if (isAnonymous(config)) {
         builder = builder.credentialsProvider(AnonymousCredentialsProvider.create());
       } else if (config.hasPath(S3_ACCESS_KEY_ID) && config.hasPath(S3_SECRET_ACCESS_KEY)) {
         AwsBasicCredentials awsCred = AwsBasicCredentials.create(config.getString(S3_ACCESS_KEY_ID), config.getString(S3_SECRET_ACCESS_KEY));
