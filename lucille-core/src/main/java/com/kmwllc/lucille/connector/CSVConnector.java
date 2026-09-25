@@ -74,12 +74,14 @@ public class CSVConnector extends AbstractConnector {
 
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
-    File file = new File(pathStr);
-    Path path;
-    try {
-      path = file.toPath();
-    } catch (InvalidPathException e) {
-      throw new ConnectorException("Error converting " + pathStr + "to Path", e);
+    boolean isClasspathFile = pathStr.startsWith("classpath:");
+    Path path = null;
+    if (!isClasspathFile) {
+      try {
+        path = new File(pathStr).toPath();
+      } catch (InvalidPathException e) {
+        throw new ConnectorException("Error converting " + pathStr + "to Path", e);
+      }
     }
 
     createProcessedAndErrorFoldersIfSet();
@@ -91,15 +93,24 @@ public class CSVConnector extends AbstractConnector {
     } catch (Exception e) {
       if (moveToErrorFolder != null) {
         // move to error folder
-        moveFile(path.toAbsolutePath().normalize(), moveToErrorFolder);
+        moveFileIfNotClasspath(path, moveToErrorFolder);
       }
-      throw new ConnectorException("Error processing or publishing file: " + path, e);
+      throw new ConnectorException("Error processing or publishing file: " + pathStr, e);
     }
 
     if (moveToAfterProcessing != null) {
       // move to processed folder
-      moveFile(path.toAbsolutePath().normalize(), moveToAfterProcessing);
+      moveFileIfNotClasspath(path, moveToAfterProcessing);
     }
+  }
+  
+  private void moveFileIfNotClasspath(Path path, String option) {
+    if (path == null) {
+      log.warn("Skipping moving classpath file: {} to {}", pathStr, option);
+      return;
+    }
+
+    moveFile(path.toAbsolutePath().normalize(), option);
   }
 
   public String toString() {
@@ -126,11 +137,6 @@ public class CSVConnector extends AbstractConnector {
   }
 
   public void moveFile(Path absolutePath, String option) {
-    if (absolutePath.startsWith("classpath:")) {
-      log.warn("Skipping moving classpath file: {} to {}", absolutePath, moveToAfterProcessing);
-      return;
-    }
-
     String fileName = absolutePath.getFileName().toString();
     Path dest = Paths.get(option + File.separatorChar + fileName);
     try {
