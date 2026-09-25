@@ -1,0 +1,31 @@
+# Temporary workflow for investigating Windows-specific test failures.
+# Runs lucille-core's tests on a Windows runner.
+
+name: Windows Tests (lucille-core)
+
+on:
+  push:
+    branches: [ "LC-629-handling-of-different-file-path-separators-across-different-operating-systems" ]
+
+jobs:
+  test:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+    - name: Test lucille-core with Maven
+      run: mvn -B test -pl lucille-core -am --file pom.xml
+
+    - name: Upload test reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: surefire-reports-windows
+        path: lucille-core/target/surefire-reports/
