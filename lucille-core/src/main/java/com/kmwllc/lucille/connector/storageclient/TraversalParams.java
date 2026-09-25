@@ -10,6 +10,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
@@ -65,7 +66,7 @@ public class TraversalParams {
 
     try {
       if (fileOptions.hasPath(FileConnector.MOVE_TO_AFTER_PROCESSING)) {
-        this.moveToAfterProcessing = new URI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
+        this.moveToAfterProcessing = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
       } else {
         this.moveToAfterProcessing = null;
       }
@@ -75,7 +76,7 @@ public class TraversalParams {
 
     try {
       if (fileOptions.hasPath(FileConnector.MOVE_TO_ERROR_FOLDER)) {
-        this.moveToErrorFolder = new URI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
+        this.moveToErrorFolder = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
       } else {
         this.moveToErrorFolder = null;
       }
@@ -243,6 +244,34 @@ public class TraversalParams {
       return Paths.get(s).toAbsolutePath().normalize().toUri();
     } catch (Exception e) {
       throw new IllegalArgumentException("Error with path in pathsToSkip: '" + s + "'.", e);
+    }
+  }
+
+  /**
+   * Parses a configured path or URI into a URI.
+   * <p>
+   * Strings that are valid URIs are used as-is. Local file system paths that are not valid URIs, such as Windows paths
+   * ("C:\data", "C:/data", "\\server\share"), are converted to an absolute {@code file://} URI.
+   * <p>
+   * Throws a URISyntaxException if the string is neither a valid URI nor a local file system path.
+   */
+  public static URI parsePathOrURI(String s) throws URISyntaxException {
+    try {
+      URI uri = new URI(s);
+
+      if (uri.getScheme() == null || uri.getScheme().length() > 1) {
+        return uri;
+      }
+    } catch (URISyntaxException e) {
+      if (s.contains("://")) {
+        throw e;
+      }
+    }
+
+    try {
+      return Paths.get(s).toUri();
+    } catch (InvalidPathException e) {
+      throw new URISyntaxException(s, e.getReason());
     }
   }
 

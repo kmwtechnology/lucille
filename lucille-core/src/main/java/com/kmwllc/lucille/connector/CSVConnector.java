@@ -103,7 +103,7 @@ public class CSVConnector extends AbstractConnector {
       moveFileIfNotClasspath(path, moveToAfterProcessing);
     }
   }
-  
+
   private void moveFileIfNotClasspath(Path path, String option) {
     if (path == null) {
       log.warn("Skipping moving classpath file: {} to {}", pathStr, option);

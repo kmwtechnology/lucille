@@ -290,7 +290,7 @@ public class FileConnectorTest {
     assertEquals("Small City Mug", doc10.getString("name"));
 
     Document doc11 = documentList.stream().filter(d ->
-        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir"+File.separatorChar+"e.yaml")).findAny().orElseThrow();
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir/e.yaml")).findAny().orElseThrow();
     assertTrue(doc11.getId().startsWith("normal-"));
 
     Document doc12 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-1")).findAny().orElseThrow();

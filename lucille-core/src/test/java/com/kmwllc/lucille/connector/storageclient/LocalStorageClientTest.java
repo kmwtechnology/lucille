@@ -41,7 +41,7 @@ public class LocalStorageClientTest {
     localStorageClient.traverse(publisher, params);
 
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
-        "subdir1"+File.separatorChar+"e.json", "subdir1"+File.separatorChar+"e.json.gz", "subdir1"+File.separatorChar+"e.yaml", "subdir1"+File.separatorChar+"f.jsonl"};
+        "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
     int docCount = 0;
     for (Document doc : messenger.getDocsSentForProcessing()) {
       String docId = doc.getId();
@@ -160,10 +160,10 @@ public class LocalStorageClientTest {
     assertEquals("Awesome Wood Mug", doc5.getString("name"));
 
     Document doc6 = docs.stream().filter(d -> d.has(FILE_PATH) &&
-        d.getString(FILE_PATH).endsWith("subdir1"+File.separatorChar+"e.json.gz")).findAny().orElseThrow();
+        d.getString(FILE_PATH).endsWith("subdir1/e.json.gz")).findAny().orElseThrow();
 
     Document doc7 = docs.stream().filter(d ->
-        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir1"+File.separatorChar+"e.yaml")).findAny().orElseThrow();
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir1/e.yaml")).findAny().orElseThrow();
 
     Document doc8 = docs.stream().filter(d -> d.getId().equals("f1")).findAny().orElseThrow();
     assertEquals("Awesome Night Mug", doc8.getString("name"));
@@ -425,7 +425,7 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create(defaultAbsolutePath.toString()), "file_");
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), TraversalParams.parsePathOrURI(defaultAbsolutePath.toString()), "file_");
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
 
