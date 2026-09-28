@@ -8,15 +8,22 @@ import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.parquet.ParquetFileIterator;
 import com.typesafe.config.Config;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Stream;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.parquet.avro.AvroReadSupport;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.InputFile;
 
 import java.net.URI;
 
@@ -85,6 +92,18 @@ public class ParquetConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try (FileSystem fs = FileSystem.get(new URI(fsUri), hadoopConfig)) {
+      // Hadoop's local listFiles loads file permissions, which needs winutils.exe / hadoop.dll on Windows. List local
+      // files with java.nio instead.
+      if (fs instanceof LocalFileSystem) {
+        for (Path file : listLocalParquetFiles(fs)) {
+          if (!limitNotReached()) {
+            break;
+          }
+          publishFile(publisher, HadoopInputFile.fromPath(file, hadoopConfig));
+        }
+        return;
+      }
+
       RemoteIterator<LocatedFileStatus> statusIterator = fs.listFiles(new Path(path), true);
 
       while (limitNotReached() && statusIterator.hasNext()) {
@@ -94,20 +113,36 @@ public class ParquetConnector extends AbstractConnector {
           continue;
         }
 
-        ParquetFileReader reader = ParquetFileReader.open(HadoopInputFile.fromStatus(status, hadoopConfig));
-        Iterator<Document> docIterator = new ParquetFileIterator(reader, idField, start, limit - count);
-
-        while (docIterator.hasNext()) {
-          Document doc = docIterator.next();
-
-          if (doc != null) {
-            publisher.publish(doc);
-            count++;
-          }
-        }
+        publishFile(publisher, HadoopInputFile.fromStatus(status, hadoopConfig));
       }
     } catch (Exception e) {
       throw new ConnectorException("Problem running the ParquetConnector", e);
+    }
+  }
+
+  private List<Path> listLocalParquetFiles(FileSystem fs) throws IOException {
+    java.nio.file.Path root = Paths.get(fs.makeQualified(new Path(path)).toUri());
+
+    try (Stream<java.nio.file.Path> files = Files.walk(root)) {
+      return files
+          .filter(Files::isRegularFile)
+          .filter(file -> file.getFileName().toString().endsWith("parquet"))
+          .map(file -> new Path(file.toUri()))
+          .toList();
+    }
+  }
+
+  private void publishFile(Publisher publisher, InputFile file) throws Exception {
+    ParquetFileReader reader = ParquetFileReader.open(file);
+    Iterator<Document> docIterator = new ParquetFileIterator(reader, idField, start, limit - count);
+
+    while (docIterator.hasNext()) {
+      Document doc = docIterator.next();
+
+      if (doc != null) {
+        publisher.publish(doc);
+        count++;
+      }
     }
   }
 }

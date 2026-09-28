@@ -10,18 +10,9 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.List;
-import org.junit.Assume;
-import org.junit.Before;
 import org.junit.Test;
 
 public class ParquetConnectorTest {
-
-  // TODO: Currently skipping these tests
-  @Before
-  public void skipOnWindows() {
-    Assume.assumeFalse(System.getProperty("os.name").toLowerCase().startsWith("windows"));
-  }
-
   /*
   In example.parquet, the data is:
 
