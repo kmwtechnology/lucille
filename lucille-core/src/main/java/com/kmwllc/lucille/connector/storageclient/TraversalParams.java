@@ -232,7 +232,8 @@ public class TraversalParams {
     try {
       URI uri = new URI(s);
 
-      if (uri.isAbsolute()) {
+      // a single-letter scheme is a Windows drive letter ("C:/data"), handled as a local path below
+      if (uri.isAbsolute() && uri.getScheme().length() > 1) {
         return uri.normalize();
       }
     } catch (URISyntaxException e) {

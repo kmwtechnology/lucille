@@ -51,6 +51,8 @@ s3 {
 
 For S3 paths, percent-encode special characters in `paths` (e.g., `s3://bucket/folder%20with%20spaces`).
 
+Local paths can be given as `file://` URIs or as plain file system paths, including Windows paths such as `C:/data` or `C:\\data` (backslashes must be escaped in HOCON). The same applies to `moveToAfterProcessing`, `moveToErrorFolder`, and `pathsToSkip`.
+
 A single connector can traverse multiple paths across providers:
 
 ```hocon
@@ -316,7 +318,7 @@ Every document published by the `FileConnector` carries these fields:
 
 | Field | Type | Description |
 |---|---|---|
-| `file_path` | String | Full path or URI to the file. |
+| `file_path` | String | URI of the file (e.g. `file:///C:/data/a.json`, `s3://bucket/a.json`). Always uses `/` as the separator, regardless of operating system. |
 | `file_modification_date` | Instant | Last-modified timestamp of the file. |
 | `file_creation_date` | Instant | Creation timestamp of the file (where available). |
 | `file_size_bytes` | Long | File size in bytes. |

@@ -21,7 +21,7 @@ jobs:
         distribution: 'temurin'
         cache: maven
     - name: Build with Maven
-      run: mvn -B verify "-Dmaven.test.failure.ignore=true" --file pom.xml
+      run: mvn -B verify --file pom.xml
 
     - name: Upload test reports
       if: always()
