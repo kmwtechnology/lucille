@@ -1,14 +1,21 @@
-# Temporary workflow for investigating Windows-specific test failures.
-# Runs the full build (all modules, unit and integration tests) on a Windows runner.
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
 
-name: Windows Tests
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: Java CI with Maven (Windows)
 
 on:
   push:
-    branches: [ "LC-629-handling-of-different-file-path-separators-across-different-operating-systems" ]
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  test:
+  build:
 
     runs-on: windows-latest
 
@@ -22,12 +29,3 @@ jobs:
         cache: maven
     - name: Build with Maven
       run: mvn -B verify --file pom.xml
-
-    - name: Upload test reports
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-reports-windows
-        path: |
-          **/target/surefire-reports/
-          **/target/failsafe-reports/
