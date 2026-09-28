@@ -92,8 +92,8 @@ public class ParquetConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     try (FileSystem fs = FileSystem.get(new URI(fsUri), hadoopConfig)) {
-      // Hadoop's local listFiles loads file permissions, which needs winutils.exe / hadoop.dll on Windows. List local
-      // files with java.nio instead.
+      // Hadoop's local listFiles loads file permissions, which needs winutils.exe / hadoop.dll on Windows.
+      // List local files with java.nio instead.
       if (fs instanceof LocalFileSystem) {
         for (Path file : listLocalParquetFiles(fs)) {
           if (!limitNotReached()) {
