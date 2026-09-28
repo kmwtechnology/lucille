@@ -1,7 +1,7 @@
 # Temporary workflow for investigating Windows-specific test failures.
-# Runs lucille-core's tests on a Windows runner.
+# Runs the full build (all modules, unit and integration tests) on a Windows runner.
 
-name: Windows Tests (lucille-core)
+name: Windows Tests
 
 on:
   push:
@@ -20,12 +20,14 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
-    - name: Test lucille-core with Maven
-      run: mvn -B test -pl lucille-core -am --file pom.xml
+    - name: Build with Maven
+      run: mvn -B verify "-Dmaven.test.failure.ignore=true" --file pom.xml
 
     - name: Upload test reports
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: surefire-reports-windows
-        path: lucille-core/target/surefire-reports/
+        name: test-reports-windows
+        path: |
+          **/target/surefire-reports/
+          **/target/failsafe-reports/
