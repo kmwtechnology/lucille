@@ -55,7 +55,7 @@ public class SolrIndexerIT extends SolrCloudTestCase {
                     SolrIndexerIT.class
                         .getClassLoader()
                         .getResource("SolrIndexerIntegrationTest/configsets/test/conf")
-                        .getPath()))
+                        .toURI()))
             .configure();
 
     CollectionAdminRequest.createCollection(COL, COL, 1, 1)
