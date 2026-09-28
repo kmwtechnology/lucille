@@ -51,6 +51,12 @@ public class FileConnectorStateManagerTest {
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
 
+  // The publish time is taken right after start, and can equal it on a coarse clock.
+  private static void assertPublishedDuringTest(Instant start, Instant published) {
+    assertFalse("published " + published + " is before start " + start, published.isBefore(start.minusMillis(1)));
+    assertFalse("published " + published + " is in the future", published.isAfter(Instant.now().plusMillis(1)));
+  }
+
   @Test
   public void testStateManagerRootDirectory() throws Exception {
     Instant start = Instant.now();
@@ -79,15 +85,15 @@ public class FileConnectorStateManagerTest {
       assertTrue(helloRS.next());
       Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
       // the timestamp should be after the start of the test
-      assertTrue(helloTimestamp.after(Timestamp.from(start)));
+      assertPublishedDuringTest(start, helloTimestamp.toInstant());
 
       assertTrue(infoRS.next());
       Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
-      assertTrue(infoTimestamp.after(Timestamp.from(start)));
+      assertPublishedDuringTest(start, infoTimestamp.toInstant());
 
       assertTrue(secretRS.next());
       Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
-      assertTrue(secretTimestamp.after(Timestamp.from(start)));
+      assertPublishedDuringTest(start, secretTimestamp.toInstant());
     }
 
     manager.shutdown();
@@ -106,13 +112,13 @@ public class FileConnectorStateManagerTest {
     }
 
     Instant helloLastPublished = manager.getLastPublished(helloFile);
-    assertTrue(helloLastPublished.isAfter(start) && helloLastPublished.isBefore(Instant.now()));
+    assertPublishedDuringTest(start, helloLastPublished);
 
     Instant infoLastPublished = manager.getLastPublished(infoFile);
-    assertTrue(infoLastPublished.isAfter(start) && infoLastPublished.isBefore(Instant.now()));
+    assertPublishedDuringTest(start, infoLastPublished);
 
     Instant secretsLastPublished = manager.getLastPublished(secretsFile);
-    assertTrue(secretsLastPublished.isAfter(start) && secretsLastPublished.isBefore(Instant.now()));
+    assertPublishedDuringTest(start, secretsLastPublished);
 
     manager.shutdown();
   }
@@ -138,7 +144,7 @@ public class FileConnectorStateManagerTest {
 
       assertTrue(infoRS.next());
       Instant newInstant = infoRS.getObject("last_published", Instant.class);
-      assertTrue(newInstant.isBefore(Instant.now()) && newInstant.isAfter(start));
+      assertPublishedDuringTest(start, newInstant);
     }
 
     manager.shutdown();
@@ -221,15 +227,15 @@ public class FileConnectorStateManagerTest {
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
       Instant helloInstant = helloRS.getObject("last_published", Instant.class);
-      assertTrue(helloInstant.isBefore(Instant.now()) && helloInstant.isAfter(start));
+      assertPublishedDuringTest(start, helloInstant);
 
       assertTrue(infoRS.next());
       Instant infoInstant = infoRS.getObject("last_published", Instant.class);
-      assertTrue(infoInstant.isBefore(Instant.now()) && infoInstant.isAfter(start));
+      assertPublishedDuringTest(start, infoInstant);
 
       assertTrue(secretRS.next());
       Instant secretInstant = secretRS.getObject("last_published", Instant.class);
-      assertTrue(secretInstant.isBefore(Instant.now()) && secretInstant.isAfter(start));     }
+      assertPublishedDuringTest(start, secretInstant);     }
 
     manager.shutdown();
   }
@@ -301,7 +307,7 @@ public class FileConnectorStateManagerTest {
 
       assertTrue(aJSONResults.next());
       publishedTimestamp = aJSONResults.getTimestamp("last_published");
-      assertTrue(publishedTimestamp.after(Timestamp.from(start)));
+      assertPublishedDuringTest(start, publishedTimestamp.toInstant());
 
       assertTrue(subdirCSVResults.next());
       assertEquals(publishedTimestamp, subdirCSVResults.getTimestamp("last_published"));
