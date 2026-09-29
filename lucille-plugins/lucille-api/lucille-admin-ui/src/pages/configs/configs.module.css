@@ -1,0 +1,48 @@
+@reference "../../index.css";
+
+/* Configurations list page styles */
+.page {
+  @apply p-4 sm:p-6 lg:p-8;
+}
+
+.pageHeader {
+  @apply mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4;
+}
+
+.pageTitle {
+  @apply text-3xl font-bold mb-2 text-primary-800;
+}
+
+.pageSubtitle {
+  @apply text-muted-foreground;
+}
+
+.createButton {
+  @apply justify-start bg-primary-600 hover:bg-primary-700 text-xs sm:text-sm py-2 h-auto;
+}
+
+/* Config grid */
+.configGrid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
+}
+
+/* Config card */
+.configCard {
+  @apply border-primary-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full;
+}
+
+.configHeader {
+  @apply pb-2 space-y-1;
+}
+
+.configTitle {
+  @apply flex items-center gap-2 text-base sm:text-lg;
+}
+
+.configId {
+  @apply truncate font-mono text-sm text-primary-700;
+}
+
+.configContent {
+  @apply flex-1;
+}

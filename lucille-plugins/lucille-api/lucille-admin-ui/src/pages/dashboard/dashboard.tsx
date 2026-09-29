@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from "@/components/ui/card/card"
 import {
-  ArrowRight,
   Play,
   Settings,
   Activity,
@@ -21,6 +20,7 @@ import { formatBytes } from "@/lib/utils"
 import { useFetch } from "@/hooks/use-fetch"
 import { useHealthStatus } from "@/hooks/use-health-status"
 import type { Run, SystemStats } from "@/types/api"
+import { ViewLink } from "@/components/view-link/view-link"
 import styles from "./dashboard.module.css"
 
 export default function Dashboard() {
@@ -216,9 +216,7 @@ export default function Dashboard() {
             )}
           </CardContent>
           <CardFooter>
-            <Link variant="ghost" size="sm" className={styles.cardFooterButton} to="/configs">
-              Manage Configs <ArrowRight className="ml-1 h-3 w-3 sm:h-4 sm:w-4" />
-            </Link>
+            <ViewLink to="/configs" label="Manage Configs" />
           </CardFooter>
         </Card>
 
@@ -259,9 +257,7 @@ export default function Dashboard() {
             )}
           </CardContent>
           <CardFooter>
-            <Link variant="ghost" size="sm" className={styles.cardFooterButton} to="/runs">
-              View Runs <ArrowRight className="ml-1 h-3 w-3 sm:h-4 sm:w-4" />
-            </Link>
+            <ViewLink to="/runs" label="View Runs" />
           </CardFooter>
         </Card>
 
@@ -274,10 +270,10 @@ export default function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent className={styles.quickActionsContent}>
-            <Link className={styles.actionButtonPrimary} to="/configs/detail?id=new">
+            <Link className={styles.actionButtonPrimary} to="/configs/create">
               <Settings className="mr-2 h-4 w-4 flex-shrink-0" /> Create New Configuration
             </Link>
-            <Link className={styles.actionButtonSecondary} to="/runs?id=new">
+            <Link className={styles.actionButtonSecondary} to="/runs/detail?id=new">
               <Play className="mr-2 h-4 w-4 flex-shrink-0" /> Start New Run
             </Link>
           </CardContent>
