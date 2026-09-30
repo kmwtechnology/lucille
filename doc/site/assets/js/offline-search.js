@@ -1,8 +1,10 @@
-// Adapted code from https://github.com/google/docsy/blob/v0.14.0/assets/js/offline-search.js
-// Main changes from original code:
-// - buildSnippet() centers the result snippet on the actual match and highlights it, instead of a static excerpt
-// - only highlights matches that are exact or contain the raw query word or its stem (excludes fuzzy noise, see queryStems)
-// - appends "?q=" to result links so hooks/body-end.html can highlight + scroll to the match on the destination page
+/*
+ * Adapted code from https://github.com/google/docsy/blob/v0.14.0/assets/js/offline-search.js
+ * Main changes from original code:
+ * - buildSnippet() centers the result snippet on the actual match and highlights it, instead of a static excerpt
+ * - only highlights matches that are exact or contain the raw query word or its stem (excludes fuzzy noise, see queryStems)
+ * - appends "?q=" to result links so hooks/body-end.html can highlight + scroll to the match on the destination page
+ */
 
 (function ($) {
   'use strict';
@@ -62,9 +64,6 @@
       $searchInput.trigger('change');
     });
 
-    // Edit distance for the fuzzy clause, tiered by term length
-    const fuzzyDistance = (len) => (len < 4 ? 0 : len < 7 ? 1 : 2);
-
     // Fields a snippet can come from, in priority order
     // identifiers are excluded because they hold space-split camelCase names that do not appear on screen
     const SNIPPET_FIELDS = ['body', 'code'];
@@ -72,16 +71,20 @@
     // Where a snippet may start and end, per field. Code has no sentences or line breaks so it is cut at whitespace
     const SNIPPET_BOUNDARY = { body: /[.!?;]\s|\n/, code: /\s/ };
 
-    // Build a snippet around the first relevant match of a query term, trying each
-    // snippet field in order and falling back to the static excerpt
-    // A relevant match is an exact match of a query stem, or contains the raw query word/stem
-    // Fuzzy-only matches are discarded and snippets are cut at sentence/line boundaries 80 characters before and after the match
-    // If no boundary is found, snippet starts from the first match
-    // Every relevant occurrence within the snippet window is highlighted
+    /*
+     * Build a snippet around the first relevant match of a query term, trying each
+     * snippet field in order and falling back to the static excerpt
+     * A relevant match is an exact match of a query stem, or contains the raw query word/stem
+     * Fuzzy-only matches are discarded and snippets are cut at sentence/line boundaries 80 characters before and after the match
+     * If no boundary is found, snippet starts from the first match
+     * Every relevant occurrence within the snippet window is highlighted
+     */
     function buildSnippet(doc, r, queryStems) {
-      // Query text to look for inside a matched span, best highlight first
-      // Prefer the raw word, fall back to the stem. The index is stemmed and the wildcard
-      // clauses match on it, so a span like "SolrIndexerTest" holds "index" but not "indexers"
+      /*
+       * Query text to look for inside a matched span, best highlight first
+       * Prefer the raw word, fall back to the stem. The index is stemmed and the wildcard
+       * clauses match on it, so a span like "SolrIndexerTest" holds "index" but not "indexers"
+       */
       function matchTexts(term) {
         for (const [stem, raw] of queryStems) {
           if (term === stem || term.includes(raw) || term.includes(stem)) {
@@ -199,10 +202,12 @@
             q.term(queryString, {
               boost: 100,
             });
-            // Prefix and substring are weighted separately since a prefix match tends to
-            // be closer to what was typed ("connect" -> "connector"), while a substring
-            // can land mid-word ("run" -> "truncate")
-            // Both take the stem since lunr skips the pipeline on any clause with a wildcard
+            /*
+             * Prefix and substring are weighted separately since a prefix match tends to
+             * be closer to what was typed ("connect" -> "connector"), while a substring
+             * can land mid-word ("run" -> "truncate")
+             * Both take the stem since lunr skips the pipeline on any clause with a wildcard
+             */
             q.term(stem, {
               wildcard: lunr.Query.wildcard.TRAILING,
               boost: 20,
@@ -214,7 +219,8 @@
               boost: 5,
               usePipeline: false,
             });
-            const editDistance = fuzzyDistance(queryString.length);
+            // Edit distance tiered by length to match OpenSearch fuzziness, sized on the stem
+            const editDistance = stem.length < 3 ? 0 : stem.length < 6 ? 1 : 2;
             if (editDistance > 0) {
               q.term(queryString, { editDistance });
             }
