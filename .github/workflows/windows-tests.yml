@@ -8,11 +8,11 @@
 
 name: Java CI with Maven (Windows)
 
+# Runs on merges to main. To run it on a branch, use "Run workflow" in the Actions tab.
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
