@@ -55,6 +55,8 @@ import com.typesafe.config.Config;
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
  *   <li>concurrent (Boolean, Optional) : Traverse each of the paths concurrently, on its own thread. Only applies
  *   when more than one path is given. Requires that the paths do not overlap. Defaults to false.</li>
+ *   <li>maxThreads (Int, Optional) : Caps the number of threads used when concurrent is true. Paths beyond the cap wait
+ *   for a free thread. Must be at least 1. Defaults to one thread per path.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
@@ -139,6 +141,7 @@ public class FileConnector extends AbstractConnector {
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredList("paths", new TypeReference<List<String>>(){})
       .optionalBoolean("concurrent")
+      .optionalNumber("maxThreads")
       .optionalParent(
           SpecBuilder.parent("filterOptions")
               .optionalList("includes", new TypeReference<List<String>>(){})
@@ -164,11 +167,17 @@ public class FileConnector extends AbstractConnector {
   private final FileConnectorStateManager stateManager;
 
   private final boolean concurrent;
+  private final Integer maxThreads;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
     this.concurrent = ConfigUtils.getOrDefault(config, "concurrent", false);
+    this.maxThreads = config.hasPath("maxThreads") ? config.getInt("maxThreads") : null;
+
+    if (maxThreads != null && maxThreads < 1) {
+      throw new IllegalArgumentException("maxThreads must be >= 1.");
+    }
 
     List<String> paths = config.getStringList("paths");
     this.storageURIs = new ArrayList<>();
@@ -329,14 +338,15 @@ public class FileConnector extends AbstractConnector {
   }
 
   /**
-   * Traverses each of the storage paths on its own thread. Requires the paths to not overlap, so that concurrent
-   * traversals never touch the same row of the state database.
+   * Traverses the storage paths concurrently, on up to maxThreads threads. Requires the paths to not overlap, so that
+   * concurrent traversals never touch the same row of the state database.
    */
   private void traversePathsConcurrently(Publisher publisher) throws ConnectorException {
     ThreadFactory threadFactory = new BasicThreadFactory.Builder()
         .namingPattern(ThreadNameUtils.createName("PathTraversal") + "-%d")
         .build();
-    ExecutorService executor = Executors.newFixedThreadPool(storageURIs.size(), threadFactory);
+    int poolSize = maxThreads == null ? storageURIs.size() : Math.min(maxThreads, storageURIs.size());
+    ExecutorService executor = Executors.newFixedThreadPool(poolSize, threadFactory);
 
     try {
       List<Future<?>> traversals = new ArrayList<>();
