@@ -83,17 +83,14 @@ public class FileConnectorStateManagerTest {
         ResultSet secretRS = RunScript.execute(connection, new StringReader(secretsQuery))) {
 
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
       // the timestamp should be after the start of the test
-      assertPublishedDuringTest(start, helloTimestamp.toInstant());
+      assertPublishedDuringTest(start, helloRS.getTimestamp("last_published").toInstant());
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
-      assertPublishedDuringTest(start, infoTimestamp.toInstant());
+      assertPublishedDuringTest(start, infoRS.getTimestamp("last_published").toInstant());
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
-      assertPublishedDuringTest(start, secretTimestamp.toInstant());
+      assertPublishedDuringTest(start, secretRS.getTimestamp("last_published").toInstant());
     }
 
     manager.shutdown();
@@ -111,14 +108,9 @@ public class FileConnectorStateManagerTest {
       manager.successfullyPublishedFile(filePath);
     }
 
-    Instant helloLastPublished = manager.getLastPublished(helloFile);
-    assertPublishedDuringTest(start, helloLastPublished);
-
-    Instant infoLastPublished = manager.getLastPublished(infoFile);
-    assertPublishedDuringTest(start, infoLastPublished);
-
-    Instant secretsLastPublished = manager.getLastPublished(secretsFile);
-    assertPublishedDuringTest(start, secretsLastPublished);
+    assertPublishedDuringTest(start, manager.getLastPublished(helloFile));
+    assertPublishedDuringTest(start, manager.getLastPublished(infoFile));
+    assertPublishedDuringTest(start, manager.getLastPublished(secretsFile));
 
     manager.shutdown();
   }
@@ -143,8 +135,7 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/info.txt'"))) {
 
       assertTrue(infoRS.next());
-      Instant newInstant = infoRS.getObject("last_published", Instant.class);
-      assertPublishedDuringTest(start, newInstant);
+      assertPublishedDuringTest(start, infoRS.getObject("last_published", Instant.class));
     }
 
     manager.shutdown();
@@ -226,16 +217,14 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/info.txt'"));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
-      Instant helloInstant = helloRS.getObject("last_published", Instant.class);
-      assertPublishedDuringTest(start, helloInstant);
+      assertPublishedDuringTest(start, helloRS.getObject("last_published", Instant.class));
 
       assertTrue(infoRS.next());
-      Instant infoInstant = infoRS.getObject("last_published", Instant.class);
-      assertPublishedDuringTest(start, infoInstant);
+      assertPublishedDuringTest(start, infoRS.getObject("last_published", Instant.class));
 
       assertTrue(secretRS.next());
-      Instant secretInstant = secretRS.getObject("last_published", Instant.class);
-      assertPublishedDuringTest(start, secretInstant);     }
+      assertPublishedDuringTest(start, secretRS.getObject("last_published", Instant.class));
+    }
 
     manager.shutdown();
   }

@@ -93,18 +93,18 @@ public class CSVConnector extends AbstractConnector {
     } catch (Exception e) {
       if (moveToErrorFolder != null) {
         // move to error folder
-        moveFileIfNotClasspath(path, moveToErrorFolder);
+        moveFileIfResolved(path, moveToErrorFolder);
       }
       throw new ConnectorException("Error processing or publishing file: " + pathStr, e);
     }
 
     if (moveToAfterProcessing != null) {
       // move to processed folder
-      moveFileIfNotClasspath(path, moveToAfterProcessing);
+      moveFileIfResolved(path, moveToAfterProcessing);
     }
   }
 
-  private void moveFileIfNotClasspath(Path path, String option) {
+  private void moveFileIfResolved(Path path, String option) {
     if (path == null) {
       log.warn("Skipping moving classpath file: {} to {}", pathStr, option);
       return;
