@@ -63,6 +63,8 @@ DetectLanguage/profiles
 
 # VSCode
 .vscode
+# VSCode Local History extension
+.history/
 
 # Claude Code: local worktrees/settings and per-checkout instructions
 .claude/
