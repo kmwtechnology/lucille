@@ -34,6 +34,11 @@ public class NopIndexer extends Indexer {
   protected String getIndexerConfigKey() { return null; }
 
   @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
+
+  @Override
   public boolean validateConnection() {
     return true;
   }

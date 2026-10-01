@@ -10,7 +10,6 @@ import javax.net.ssl.SSLContext;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
-import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.core5.http.HttpHost;
@@ -29,7 +28,8 @@ public class OpenSearchUtils {
 
   public static final Spec OPENSEARCH_PARENT_SPEC = SpecBuilder.parent("opensearch")
       .requiredString("url", "index")
-      .optionalBoolean("acceptInvalidCert", "useCompression").build();
+      .optionalBoolean("acceptInvalidCert", "useCompression")
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchUtils.class);
 
@@ -96,9 +96,8 @@ public class OpenSearchUtils {
         .builder(hosts)
         .setMapper(new JacksonJsonpMapper())
         .setHttpClientConfigCallback(httpClientBuilder -> {
-          final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
-              .setTlsStrategy(tlsStrategy)
-              .build();
+          final var connectionManager =
+              AsyncConnectionPoolUtils.buildConnectionManager(config, "opensearch", tlsStrategy);
 
           return httpClientBuilder
               .setDefaultCredentialsProvider(credentialsProvider)

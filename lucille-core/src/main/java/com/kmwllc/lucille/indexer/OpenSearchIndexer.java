@@ -60,6 +60,7 @@ public class OpenSearchIndexer extends Indexer {
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalString("childDocumentsField").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
@@ -107,6 +108,11 @@ public class OpenSearchIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "opensearch"; }
+
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
 
   private static OpenSearchClient getClient(Config config, boolean bypass) throws IndexerException {
     try {

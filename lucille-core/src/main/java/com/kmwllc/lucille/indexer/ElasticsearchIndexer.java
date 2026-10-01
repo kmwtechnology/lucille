@@ -75,6 +75,7 @@ public class ElasticsearchIndexer extends Indexer {
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalString("parentName", "childDocumentsField")
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
@@ -122,6 +123,11 @@ public class ElasticsearchIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "elasticsearch"; }
+
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
 
   private static ElasticsearchClient getClient(Config config, boolean bypass) throws IndexerException{
     try {

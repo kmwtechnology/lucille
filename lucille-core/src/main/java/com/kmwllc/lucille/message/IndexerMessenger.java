@@ -52,4 +52,13 @@ public interface IndexerMessenger {
    * Provides a way to communicate to other components that a batch of documents has been completed.
    */
   void batchComplete(List<Document> batch) throws Exception;
+
+  /**
+   * Called periodically on the indexer thread while it is blocked waiting for in-flight batches to finish (only when
+   * indexer.maxConcurrentBatches is greater than 1). Implementations that must keep polling a source to stay alive,
+   * such as a Kafka consumer group member, can do so here. Must not deliver documents or change the position from
+   * which {@link #pollDocToIndex()} will continue. The default does nothing.
+   */
+  default void keepAlive() throws Exception {
+  }
 }
