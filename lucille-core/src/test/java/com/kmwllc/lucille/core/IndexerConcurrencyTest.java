@@ -579,6 +579,31 @@ public class IndexerConcurrencyTest {
     assertEquals(List.of(1L, 2L, 3L), committed);
   }
 
+  // A send slower than indexer.batchTimeout must not make the next add flush the leftover document as a batch of its
+  // own: time the indexer thread spends blocked on sends does not count toward the timeout.
+  @Test
+  public void testSlowSynchronousSendDoesNotSplitBatches() throws Exception {
+    assertFullBatchesDespiteSlowSends(1);
+  }
+
+  // The same for time spent waiting for a free slot when maxConcurrentBatches is reached.
+  @Test
+  public void testWaitForFreeSlotDoesNotSplitBatches() throws Exception {
+    assertFullBatchesDespiteSlowSends(2);
+  }
+
+  private void assertFullBatchesDespiteSlowSends(int maxConcurrentBatches) throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    ControlledIndexer controlled = new ControlledIndexer(
+        config(maxConcurrentBatches, Map.of("indexer.batchSize", 2, "indexer.batchTimeout", 50)), messenger);
+    controlled.sendDelayMs = 200;
+    for (String tag : List.of("a", "b", "c", "d", "e", "f", "g", "h")) {
+      messenger.queue.add(doc(tag, tag));
+    }
+    controlled.run(8);
+    assertEquals(List.of("a,b", "c,d", "e,f", "g,h"), messenger.completed());
+  }
+
   // --- helpers ---
 
   private static Config config(int maxConcurrentBatches) {
@@ -701,6 +726,9 @@ public class IndexerConcurrencyTest {
     private final Map<String, Deque<Throwable>> failures = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> attempts = new ConcurrentHashMap<>();
 
+    // When positive, every send sleeps this long after its gate opens.
+    volatile long sendDelayMs;
+
     // Unique per test, so a test can find its own send pool threads.
     final String runId;
 
@@ -771,6 +799,9 @@ public class IndexerConcurrencyTest {
         CountDownLatch gate = gates.get(tag);
         if (gate != null && !gate.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
           throw new IllegalStateException("gate for " + tag + " was never released");
+        }
+        if (sendDelayMs > 0) {
+          Thread.sleep(sendDelayMs);
         }
         Deque<Throwable> pending = failures.get(tag);
         Throwable failure = pending == null ? null : pending.poll();

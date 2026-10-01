@@ -541,11 +541,15 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
+    long blockedStart = System.nanoTime();
     if (sendPool == null) {
       completeBatch(batchedDocs, send(batchedDocs));
     } else {
       dispatch(batchedDocs);
     }
+    // While this thread was sending, or waiting for a free slot, it could not add documents, so that time must not expire
+    // the partly filled batch; otherwise the next add would flush it early, often as a batch of a single document.
+    batch.excludeFromTimeout(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - blockedStart));
   }
 
   /**

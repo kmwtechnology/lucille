@@ -48,4 +48,14 @@ public interface Batch {
    * Retrieves the capacity of a batch.
    */
   public int getCapacity();
+
+  /**
+   * Excludes the given amount of time from the expiry timeout, as if the last add or flush had happened that much later.
+   * The Indexer calls this after it has been blocked sending batches: no Document could be added during that time, so it
+   * says nothing about whether the input has gone idle, and it should not expire a partly filled batch.
+   *
+   * @param millis The time, in milliseconds, to leave out of the timeout.
+   */
+  default void excludeFromTimeout(long millis) {
+  }
 }
