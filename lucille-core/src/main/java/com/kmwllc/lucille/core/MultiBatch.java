@@ -66,4 +66,11 @@ public class MultiBatch implements Batch {
   public int getCapacity() {
     return capacity;
   }
+
+  @Override
+  public void excludeFromTimeout(long millis) {
+    for (Batch batch : batches.values()) {
+      batch.excludeFromTimeout(millis);
+    }
+  }
 }

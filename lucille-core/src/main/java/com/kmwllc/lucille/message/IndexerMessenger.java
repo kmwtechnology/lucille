@@ -52,4 +52,14 @@ public interface IndexerMessenger {
    * Provides a way to communicate to other components that a batch of documents has been completed.
    */
   void batchComplete(List<Document> batch) throws Exception;
+
+  /**
+   * Whether an Indexer using this messenger may have several batches in flight at once (indexer.maxConcurrentBatches
+   * greater than 1). Batches are completed in dispatch order, but documents are polled while earlier batches are still
+   * being sent, so a messenger that commits its input at poll rather than on {@link #batchComplete(List)} must return
+   * false. The default is false.
+   */
+  default boolean supportsConcurrentBatches() {
+    return false;
+  }
 }

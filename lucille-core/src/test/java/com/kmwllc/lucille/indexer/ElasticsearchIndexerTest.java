@@ -48,6 +48,11 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -1373,5 +1378,136 @@ public class ElasticsearchIndexerTest {
     public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
+  }
+
+  // Upper bound on any wait inside a stubbed client call, so a lost overlap fails the test instead of hanging it.
+  private static final long CONCURRENCY_WAIT_SECONDS = 2;
+
+  /**
+   * Proves concurrent sends through the real sendToIndex path: with maxConcurrentBatches=2, the doc0 batch and the doc2
+   * batch must both be inside the client before either may return, and the doc0 batch may only return after the doc2
+   * batch has finished. FINISH events and batchComplete calls must still follow document order. With
+   * maxConcurrentBatches=1 the two waits time out and the test fails.
+   */
+  @Test
+  public void testConcurrentBatches() throws Exception {
+    int maxConcurrentBatches = 2;
+    AtomicInteger inClient = new AtomicInteger();
+    AtomicInteger maxInClient = new AtomicInteger();
+    CountDownLatch overlapping = new CountDownLatch(2);
+    CountDownLatch doc2BatchSent = new CountDownLatch(1);
+    List<String> sendFinishOrder = Collections.synchronizedList(new ArrayList<>());
+    List<String> timeouts = Collections.synchronizedList(new ArrayList<>());
+
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenAnswer(invocation -> {
+      blockingSend(lowestDocId(invocation.getArgument(0)), inClient, maxInClient, overlapping, doc2BatchSent,
+          sendFinishOrder, timeouts);
+      return response;
+    });
+
+    List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
+    TestMessenger messenger = new TestMessenger() {
+      @Override
+      public void batchComplete(List<Document> batch) throws Exception {
+        completedBatches.add(batch.get(0).getId());
+        super.batchComplete(batch);
+      }
+    };
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
+        .withValue("indexer.maxConcurrentBatches", ConfigValueFactory.fromAnyRef(maxConcurrentBatches));
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    for (int i = 0; i < 6; i++) {
+      messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
+    }
+    long start = System.nanoTime();
+    indexer.run(6);
+    long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+
+    assertEquals("Sends timed out waiting for a concurrent send after " + elapsedMs + " ms", List.of(), timeouts);
+    assertTrue("Expected at least 2 sends in flight at once, saw " + maxInClient.get(), maxInClient.get() >= 2);
+    assertTrue("Saw " + maxInClient.get() + " sends in flight, above the limit of " + maxConcurrentBatches,
+        maxInClient.get() <= maxConcurrentBatches);
+    // The doc2 batch really did finish sending before the doc0 batch.
+    assertEquals(List.of("doc2", "doc0"), sendFinishOrder.subList(0, 2));
+    assertEquals(3, sendFinishOrder.size());
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(6, events.size());
+    for (int i = 0; i < 6; i++) {
+      assertEquals("doc" + i, events.get(i).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i).getType());
+    }
+    assertEquals(List.of("doc0", "doc2", "doc4"), completedBatches);
+  }
+
+  /**
+   * With maxConcurrentBatches unset, every send runs on the indexer thread itself and never overlaps another.
+   */
+  @Test
+  public void testSerialBatchesByDefault() throws Exception {
+    AtomicInteger inClient = new AtomicInteger();
+    AtomicInteger maxInClient = new AtomicInteger();
+    Set<Thread> sendThreads = ConcurrentHashMap.newKeySet();
+
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenAnswer(invocation -> {
+      recordingSend(inClient, maxInClient, sendThreads);
+      return response;
+    });
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    for (int i = 0; i < 6; i++) {
+      messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
+    }
+    indexer.run(6);
+
+    verify(mockClient, times(3)).bulk(any(BulkRequest.class));
+    assertEquals(1, maxInClient.get());
+    assertEquals(Set.of(Thread.currentThread()), sendThreads);
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(6, events.size());
+    for (int i = 0; i < 6; i++) {
+      assertEquals("doc" + i, events.get(i).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i).getType());
+    }
+  }
+
+  // Body of a stubbed client call for testConcurrentBatches. Identifies the batch by its lowest doc id.
+  private static void blockingSend(String batch, AtomicInteger inClient, AtomicInteger maxInClient,
+      CountDownLatch overlapping, CountDownLatch doc2BatchSent, List<String> sendFinishOrder, List<String> timeouts)
+      throws InterruptedException {
+    maxInClient.accumulateAndGet(inClient.incrementAndGet(), Math::max);
+    overlapping.countDown();
+    if (!overlapping.await(CONCURRENCY_WAIT_SECONDS, TimeUnit.SECONDS)) {
+      timeouts.add(batch + " batch: no other send entered the client");
+    }
+    if ("doc0".equals(batch) && !doc2BatchSent.await(CONCURRENCY_WAIT_SECONDS, TimeUnit.SECONDS)) {
+      timeouts.add("doc0 batch: doc2 batch never finished first");
+    }
+    sendFinishOrder.add(batch);
+    inClient.decrementAndGet();
+    if ("doc2".equals(batch)) {
+      doc2BatchSent.countDown();
+    }
+  }
+
+  // Body of a stubbed client call for testSerialBatchesByDefault. The short sleep gives any overlap a chance to show.
+  private static void recordingSend(AtomicInteger inClient, AtomicInteger maxInClient, Set<Thread> sendThreads)
+      throws InterruptedException {
+    sendThreads.add(Thread.currentThread());
+    maxInClient.accumulateAndGet(inClient.incrementAndGet(), Math::max);
+    Thread.sleep(20);
+    inClient.decrementAndGet();
+  }
+
+  private static String lowestDocId(BulkRequest request) {
+    return request.operations().stream().map(op -> op.index().id()).sorted().findFirst().orElseThrow();
   }
 }

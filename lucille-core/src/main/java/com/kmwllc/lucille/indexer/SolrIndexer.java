@@ -85,6 +85,11 @@ public class SolrIndexer extends Indexer {
   @Override
   protected String getIndexerConfigKey() { return "solr"; }
 
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
+
   private static SolrClient getSolrClient(Config config, boolean bypass) {
     return bypass ? null : SolrUtils.getSolrClient(config);
   }

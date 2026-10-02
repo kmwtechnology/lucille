@@ -332,4 +332,18 @@ public class SingleBatchTest {
     assertEquals("b2", finalFlush.get(0).getId());
   }
 
+
+  /**
+   * Time excluded from the timeout, such as time the Indexer spent blocked on sends, does not expire the batch.
+   */
+  @Test
+  public void testExcludeFromTimeout() throws Exception {
+    SingleBatch batch = new SingleBatch(100, Long.MAX_VALUE, 100);
+    batch.add(Document.create("doc"));
+    Thread.sleep(150);
+    batch.excludeFromTimeout(10_000);
+    assertTrue(batch.flushIfExpired().isEmpty());
+    assertTrue(batch.add(Document.create("doc2")).isEmpty());
+    assertEquals(2, batch.flush().size());
+  }
 }

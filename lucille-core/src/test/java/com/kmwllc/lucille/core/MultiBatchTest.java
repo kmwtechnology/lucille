@@ -284,4 +284,22 @@ public class MultiBatchTest {
     assertEquals("doc3", finalFlush.get(0).getId());
     assertEquals("doc4", finalFlush.get(1).getId());
   }
+
+  /**
+   * Excluded time applies to every underlying batch.
+   */
+  @Test
+  public void testExcludeFromTimeout() throws Exception {
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 100, "index");
+    Document doc1 = Document.create("doc1");
+    doc1.setField("index", "index1");
+    Document doc2 = Document.create("doc2");
+    doc2.setField("index", "index2");
+    batch.add(doc1);
+    batch.add(doc2);
+    Thread.sleep(150);
+    batch.excludeFromTimeout(10_000);
+    assertTrue(batch.flushIfExpired().isEmpty());
+    assertEquals(2, batch.flush().size());
+  }
 }

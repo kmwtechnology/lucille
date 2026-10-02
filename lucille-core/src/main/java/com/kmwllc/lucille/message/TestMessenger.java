@@ -105,6 +105,11 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
     messenger.batchComplete(batch);
   }
 
+  @Override
+  public boolean supportsConcurrentBatches() {
+    return true;
+  }
+
   /**
    * Returns the ordered history of all Events sent via sendEvent().
    */

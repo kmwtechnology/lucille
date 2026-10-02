@@ -121,4 +121,9 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   @Override
   public void batchComplete(List<Document> batch) throws Exception {
   }
+
+  @Override
+  public boolean supportsConcurrentBatches() {
+    return true;
+  }
 }
