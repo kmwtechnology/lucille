@@ -119,6 +119,11 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
+  public boolean supportsConcurrentBatches() {
+    return true;
+  }
+
+  @Override
   public void close() throws Exception {
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();

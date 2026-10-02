@@ -54,11 +54,12 @@ public interface IndexerMessenger {
   void batchComplete(List<Document> batch) throws Exception;
 
   /**
-   * Called periodically on the indexer thread while it is blocked waiting for in-flight batches to finish (only when
-   * indexer.maxConcurrentBatches is greater than 1). Implementations that must keep polling a source to stay alive,
-   * such as a Kafka consumer group member, can do so here. Must not deliver documents or change the position from
-   * which {@link #pollDocToIndex()} will continue. The default does nothing.
+   * Whether an Indexer using this messenger may have several batches in flight at once (indexer.maxConcurrentBatches
+   * greater than 1). Batches are completed in dispatch order, but documents are polled while earlier batches are still
+   * being sent, so a messenger that commits its input at poll rather than on {@link #batchComplete(List)} must return
+   * false. The default is false.
    */
-  default void keepAlive() throws Exception {
+  default boolean supportsConcurrentBatches() {
+    return false;
   }
 }

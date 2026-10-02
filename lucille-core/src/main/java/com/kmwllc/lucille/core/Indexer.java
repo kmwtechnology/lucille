@@ -15,26 +15,16 @@ import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
-import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -111,8 +101,8 @@ import sun.misc.Signal;
  *   <li>indexer.versionField (String, Optional) : The field name to use for versioning. This field must be present in the document and must be of a type that supports versioning with that specific indexer implementation (e.g., numeric, string).</li>
  *   <li>indexer.maxConcurrentBatches (Integer, Optional) : Maximum number of batches that may be in flight to the destination
  *   at once. Defaults to {@value #DEFAULT_MAX_CONCURRENT_BATCHES}, which sends each batch synchronously on the indexer thread.
- *   Values greater than 1 are only accepted by implementations whose {@link #supportsConcurrentSends()} returns true. See
- *   "Concurrent sends" below.</li>
+ *   Values greater than 1 are only accepted by implementations whose {@link #supportsConcurrentSends()} returns true, with
+ *   a messenger whose {@link IndexerMessenger#supportsConcurrentBatches()} returns true. See "Concurrent sends" below.</li>
  * </ul>
  *
  * <p> <b>Concurrent sends.</b> When indexer.maxConcurrentBatches is greater than 1, {@link #sendToIndex(List)} (including
@@ -132,8 +122,6 @@ import sun.misc.Signal;
  *   flight, and nothing is dispatched behind it until it completes.</li>
  *   <li>All in-flight batches are completed before {@link #run()} returns. An interrupt does not abandon them: it is
  *   held while the indexer thread waits and completes a batch, then restored so the next poll sees it.</li>
- *   <li>While the indexer thread waits for an in-flight batch, it calls {@link IndexerMessenger#keepAlive()} every
- *   second.</li>
  * </ul>
  */
 public abstract class Indexer implements Runnable {
@@ -147,10 +135,6 @@ public abstract class Indexer implements Runnable {
   public static final double DEFAULT_RETRY_RANDOMIZATION_FACTOR = 0.5;
   public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503, IndexerRetryableException.UNKNOWN_STATUS_CODE);
   public static final int DEFAULT_MAX_CONCURRENT_BATCHES = 1;
-  private static final long SEND_POOL_SHUTDOWN_TIMEOUT_MS = 10000;
-  // How often the indexer thread calls IndexerMessenger.keepAlive() while it waits for an in-flight batch.
-  static final long KEEP_ALIVE_INTERVAL_MS = 1000;
-  private static final AtomicInteger SEND_POOL_INSTANCES = new AtomicInteger();
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -188,20 +172,11 @@ public abstract class Indexer implements Runnable {
   // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
   private final List<Integer> retryableStatusCodes;
 
-  private final int maxConcurrentBatches;
-  // Null when maxConcurrentBatches is 1; batches are then sent synchronously on the indexer thread.
-  private final ExecutorService sendPool;
-  // Batches dispatched to sendPool, oldest first. Only touched by the indexer thread.
-  private final Deque<InFlightBatch> inFlight = new ArrayDeque<>();
-  // Destination IDs of every batch in inFlight. Disjoint across batches by construction.
-  private final Set<String> inFlightIds = new HashSet<>();
+  // Null when indexer.maxConcurrentBatches is 1; batches are then sent synchronously on the indexer thread.
+  private final ConcurrentBatchSender concurrentSender;
 
   // The outcome of one sendToIndex call (with retries): exactly one of failedDocPairs and error is meaningful.
-  private record SendOutcome(Set<Pair<Document, Exception>> failedDocPairs, Throwable error, long elapsedNanos) {}
-
-  private record InFlightBatch(List<Document> docs, Set<String> ids, Future<SendOutcome> outcome) {}
-
-  private record AwaitedOutcome(SendOutcome outcome, boolean interrupted) {}
+  record SendOutcome(Set<Pair<Document, Exception>> failedDocPairs, Throwable error, long elapsedNanos) {}
 
   public void terminate() {
     running = false;
@@ -346,7 +321,7 @@ public abstract class Indexer implements Runnable {
       });
     }
 
-    this.maxConcurrentBatches = getMaxConcurrentBatches(config);
+    int maxConcurrentBatches = getMaxConcurrentBatches(config);
     if (maxConcurrentBatches < 1) {
       throw new IllegalArgumentException("indexer.maxConcurrentBatches must be at least 1.");
     }
@@ -354,13 +329,16 @@ public abstract class Indexer implements Runnable {
       throw new IllegalArgumentException(getClass().getName() + " does not support concurrent sends; "
           + "indexer.maxConcurrentBatches must be 1 or unset.");
     }
+    if (maxConcurrentBatches > 1 && messenger != null && !messenger.supportsConcurrentBatches()) {
+      throw new IllegalArgumentException("indexer.maxConcurrentBatches > 1 is not supported with "
+          + messenger.getClass().getName());
+    }
 
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
 
-    // ThreadPoolExecutor starts threads lazily, so an Indexer that is never run holds none.
-    this.sendPool = maxConcurrentBatches == 1 ? null : Executors.newFixedThreadPool(maxConcurrentBatches,
-        sendThreadFactory(localRunId));
+    this.concurrentSender = maxConcurrentBatches == 1 ? null : new ConcurrentBatchSender(maxConcurrentBatches, localRunId,
+        this::send, this::completeBatch, this::destinationIds, this::isDeleteByQuery);
   }
 
   /**
@@ -371,19 +349,6 @@ public abstract class Indexer implements Runnable {
     // getInt, unlike ConfigUtils.getOrDefault, converts a string value such as an environment substitution.
     return config.hasPath("indexer.maxConcurrentBatches")
         ? config.getInt("indexer.maxConcurrentBatches") : DEFAULT_MAX_CONCURRENT_BATCHES;
-  }
-
-  // Thread names are Lucille-<runId>-IndexerSend-<instance>-<n>; the instance number keeps them unique when several
-  // indexers share a run.
-  private static ThreadFactory sendThreadFactory(String runId) {
-    int instance = SEND_POOL_INSTANCES.incrementAndGet();
-    AtomicInteger count = new AtomicInteger();
-    return task -> {
-      Thread thread = new Thread(task,
-          ThreadNameUtils.createName("IndexerSend-" + instance + "-" + count.incrementAndGet(), runId));
-      thread.setDaemon(true);
-      return thread;
-    };
   }
 
   /**
@@ -432,8 +397,8 @@ public abstract class Indexer implements Runnable {
   public abstract void closeConnection();
 
   private void close() {
-    if (sendPool != null) {
-      shutdownSendPool();
+    if (concurrentSender != null) {
+      concurrentSender.shutdown();
     }
     if (messenger != null) {
       try {
@@ -443,24 +408,6 @@ public abstract class Indexer implements Runnable {
       }
     }
     closeConnection();
-  }
-
-  // On the normal path every batch has been completed, so the pool is idle. If the indexer thread is exiting
-  // abnormally (an Error), sends still in flight are interrupted.
-  private void shutdownSendPool() {
-    if (inFlight.isEmpty()) {
-      sendPool.shutdown();
-    } else {
-      log.warn("Shutting down indexer with {} batches still in flight.", inFlight.size());
-      sendPool.shutdownNow();
-    }
-    try {
-      if (!sendPool.awaitTermination(SEND_POOL_SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-        log.warn("Indexer send pool did not terminate within {} ms.", SEND_POOL_SHUTDOWN_TIMEOUT_MS);
-      }
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
   }
 
   @Override
@@ -476,7 +423,9 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
-      completeAllInFlight();
+      if (concurrentSender != null) {
+        concurrentSender.completeAll();
+      }
     } finally {
       MDC.popByKey(RUNID_FIELD);
       close();
@@ -494,7 +443,9 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
-      completeAllInFlight();
+      if (concurrentSender != null) {
+        concurrentSender.completeAll();
+      }
     } finally {
       close();
     }
@@ -533,8 +484,8 @@ public abstract class Indexer implements Runnable {
       lastLog = Instant.now();
     }
 
-    if (sendPool != null) {
-      completeFinishedInFlight();
+    if (concurrentSender != null) {
+      concurrentSender.completeFinished();
     }
 
     if (batchedDocs.isEmpty()) {
@@ -542,10 +493,10 @@ public abstract class Indexer implements Runnable {
     }
 
     long blockedStart = System.nanoTime();
-    if (sendPool == null) {
+    if (concurrentSender == null) {
       completeBatch(batchedDocs, send(batchedDocs));
     } else {
-      dispatch(batchedDocs);
+      concurrentSender.dispatch(batchedDocs);
     }
     // While this thread was sending, or waiting for a free slot, it could not add documents, so that time must not expire
     // the partly filled batch; otherwise the next add would flush it early, often as a batch of a single document.
@@ -638,121 +589,16 @@ public abstract class Indexer implements Runnable {
     }
   }
 
-  /**
-   * Submits the batch to the send pool once it may run alongside the batches already in flight, completing the oldest
-   * in-flight batches until it can. See "Concurrent sends" in the class javadoc for the rules.
-   */
-  private void dispatch(List<Document> batchedDocs) {
+  // The IDs a batch is written under at the destination: each document's own (the idOverrideField value, or the document
+  // ID) and, recursively, those of its children, which are written under their own document IDs.
+  private Set<String> destinationIds(List<Document> batchedDocs) {
     Set<String> ids = new HashSet<>();
     for (Document doc : batchedDocs) {
-      addDestinationIds(doc, ids);
+      String idOverride = getDocIdOverride(doc);
+      ids.add(idOverride != null ? idOverride : doc.getId());
+      addChildIds(doc, ids);
     }
-    boolean isBarrier = batchedDocs.stream().anyMatch(this::isDeleteByQuery);
-
-    while (!inFlight.isEmpty()
-        && (isBarrier || inFlight.size() >= maxConcurrentBatches || overlapsInFlight(ids))) {
-      completeOldestInFlight();
-    }
-
-    Map<String, String> mdc = MDC.getCopyOfContextMap();
-    Future<SendOutcome> outcome = sendPool.submit(() -> {
-      if (mdc != null) {
-        MDC.setContextMap(mdc);
-      }
-      try {
-        return send(batchedDocs);
-      } finally {
-        MDC.clear();
-      }
-    });
-    inFlight.addLast(new InFlightBatch(batchedDocs, ids, outcome));
-    inFlightIds.addAll(ids);
-
-    if (isBarrier) {
-      completeAllInFlight();
-    }
-  }
-
-  private boolean overlapsInFlight(Set<String> ids) {
-    for (String id : ids) {
-      if (inFlightIds.contains(id)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // Completes in-flight batches whose sends have finished, stopping at the first one that hasn't, so completion order
-  // matches dispatch order.
-  private void completeFinishedInFlight() {
-    while (!inFlight.isEmpty() && inFlight.peekFirst().outcome().isDone()) {
-      completeOldestInFlight();
-    }
-  }
-
-  private void completeAllInFlight() {
-    while (!inFlight.isEmpty()) {
-      completeOldestInFlight();
-    }
-  }
-
-  // Waits for the oldest in-flight batch's send to finish and completes it.
-  //
-  // The batch is completed with the interrupt status clear, because the messenger calls that complete it may block
-  // (a queue put, a producer flush) and would otherwise throw at once, losing the batch's completion. Any interrupt,
-  // whether it arrived before or during the wait, is restored afterwards so the next poll sees it.
-  private void completeOldestInFlight() {
-    InFlightBatch oldest = inFlight.peekFirst();
-    // A send that has already finished never checks the flag, so clear it here rather than relying on the wait.
-    boolean interrupted = Thread.interrupted();
-    try {
-      AwaitedOutcome awaited = awaitOutcome(oldest.outcome());
-      interrupted |= awaited.interrupted();
-      inFlight.removeFirst();
-      inFlightIds.removeAll(oldest.ids());
-      completeBatch(oldest.docs(), awaited.outcome());
-    } finally {
-      if (interrupted) {
-        Thread.currentThread().interrupt();
-      }
-    }
-  }
-
-  // Waits without giving up on interruption: the batch has been sent (or is being sent) and must be accounted for.
-  // Returns with the interrupt status clear, reporting whether an interrupt arrived. Calls messenger.keepAlive() every
-  // KEEP_ALIVE_INTERVAL_MS while the send is unfinished, so a messenger that must poll to stay alive (such as a
-  // consumer group member) survives a long wait.
-  private AwaitedOutcome awaitOutcome(Future<SendOutcome> future) {
-    boolean interrupted = false;
-    while (true) {
-      try {
-        return new AwaitedOutcome(future.get(KEEP_ALIVE_INTERVAL_MS, TimeUnit.MILLISECONDS), interrupted);
-      } catch (InterruptedException e) {
-        interrupted = true;
-      } catch (TimeoutException e) {
-        keepAlive();
-      } catch (ExecutionException e) {
-        // send() captures its own Throwables, so this only happens if the task wrapper itself failed.
-        return new AwaitedOutcome(new SendOutcome(null, e.getCause(), 0), interrupted);
-      }
-    }
-  }
-
-  private void keepAlive() {
-    try {
-      messenger.keepAlive();
-    } catch (Exception e) {
-      log.warn("Error in messenger keepAlive while waiting for an in-flight batch.", e);
-    }
-  }
-
-  // The IDs a document is written under at the destination: its own (the idOverrideField value, or the document ID)
-  // and, recursively, those of its children, which are written under their own document IDs. Batches sharing an ID are
-  // never in flight together.
-  private void addDestinationIds(Document doc, Set<String> ids) {
-    String idOverride = getDocIdOverride(doc);
-    ids.add(idOverride != null ? idOverride : doc.getId());
-    addChildIds(doc, ids);
+    return ids;
   }
 
   private static void addChildIds(Document doc, Set<String> ids) {

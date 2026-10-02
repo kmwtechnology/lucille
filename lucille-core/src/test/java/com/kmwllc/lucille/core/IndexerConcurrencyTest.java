@@ -11,6 +11,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.CSVIndexer;
 import com.kmwllc.lucille.message.HybridIndexerMessenger;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.ArrayDeque;
@@ -412,58 +413,6 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
-  public void testKeepAliveWhileWaitingForBatch() throws Exception {
-    RecordingMessenger messenger = new RecordingMessenger();
-    ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
-    controlled.gate("a");
-    start(controlled, "a", "b", "c");
-    awaitTrue(() -> indexer.started.containsAll(List.of("a", "b")));
-    awaitIndexerWaitingForBatch();
-
-    awaitTrue(() -> messenger.keepAlives.get() >= 3);
-    assertFalse(indexer.started.contains("c"));
-    indexer.release("a");
-    awaitTrue(() -> messenger.completed().size() == 3);
-  }
-
-  @Test
-  public void testKeepAliveFailureDoesNotStopWaiting() throws Exception {
-    RecordingMessenger messenger = new RecordingMessenger();
-    messenger.keepAliveFailure = new RuntimeException("keepAlive failed");
-    ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
-    controlled.gate("a");
-    start(controlled, "a", "b", "c");
-    awaitTrue(() -> messenger.keepAlives.get() >= 2);
-    assertTrue(indexerThread.isAlive());
-    indexer.release("a");
-    awaitTrue(() -> messenger.completed().size() == 3);
-    assertEquals(List.of("a", "b", "c"), messenger.completed());
-  }
-
-  @Test
-  public void testNoKeepAliveWithoutBatchesInFlight() throws Exception {
-    RecordingMessenger messenger = new RecordingMessenger();
-    start(new ControlledIndexer(config(2), messenger), "a", "b");
-    awaitTrue(() -> messenger.completed().size() == 2);
-    // Idle polling for longer than the keep-alive interval.
-    Thread.sleep(Indexer.KEEP_ALIVE_INTERVAL_MS * 3 / 2);
-    assertEquals(0, messenger.keepAlives.get());
-  }
-
-  @Test
-  public void testNoKeepAliveForSynchronousSends() throws Exception {
-    RecordingMessenger messenger = new RecordingMessenger();
-    ControlledIndexer controlled = new ControlledIndexer(config(1), messenger);
-    controlled.gate("a");
-    start(controlled, "a");
-    awaitTrue(() -> indexer.started.contains("a"));
-    Thread.sleep(Indexer.KEEP_ALIVE_INTERVAL_MS * 3 / 2);
-    indexer.release("a");
-    awaitTrue(() -> messenger.completed().size() == 1);
-    assertEquals(0, messenger.keepAlives.get());
-  }
-
-  @Test
   public void testSendsRunOnLucilleNamedPoolThreads() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
@@ -538,6 +487,29 @@ public class IndexerConcurrencyTest {
         "indexer.type", "csv", "indexer.maxConcurrentBatches", 1,
         "csv.columns", List.of("id"), "csv.path", "target/IndexerConcurrencyTest.csv"));
     new CSVIndexer(csvConfig, new RecordingMessenger(), false, "testing").closeConnection();
+  }
+
+  @Test
+  public void testMessengerWithoutConcurrentSupportRejectsConcurrency() throws Exception {
+    // KafkaIndexerMessenger commits offsets at poll, so it cannot have batches in flight. Its constructor does not connect.
+    Config kafka = ConfigFactory.parseMap(Map.of("kafka.bootstrapServers", "localhost:9092",
+        "kafka.consumerGroupId", "IndexerConcurrencyTest", "kafka.maxPollIntervalSecs", 60, "kafka.events", false));
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(kafka, "pipeline1");
+    try {
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+          () -> new ControlledIndexer(config(2), messenger));
+      assertEquals("indexer.maxConcurrentBatches > 1 is not supported with " + KafkaIndexerMessenger.class.getName(),
+          e.getMessage());
+      new ControlledIndexer(config(1), messenger);
+    } finally {
+      messenger.close();
+    }
+  }
+
+  @Test
+  public void testNullMessengerAcceptsConcurrency() {
+    // Validation-only construction, without a messenger.
+    new ControlledIndexer(config(2), null).closeConnection();
   }
 
   /**
@@ -669,7 +641,8 @@ public class IndexerConcurrencyTest {
     }
     boolean inAwaitOutcome = false;
     for (StackTraceElement frame : thread.getStackTrace()) {
-      if (frame.getClassName().equals(Indexer.class.getName()) && frame.getMethodName().equals("awaitOutcome")) {
+      if (frame.getClassName().equals(ConcurrentBatchSender.class.getName())
+          && frame.getMethodName().equals("awaitOutcome")) {
         inAwaitOutcome = true;
         break;
       }
@@ -828,8 +801,6 @@ public class IndexerConcurrencyTest {
 
     final LinkedBlockingQueue<Document> queue = new LinkedBlockingQueue<>();
     final AtomicInteger polls = new AtomicInteger();
-    final AtomicInteger keepAlives = new AtomicInteger();
-    volatile RuntimeException keepAliveFailure;
     private final List<String> events = Collections.synchronizedList(new ArrayList<>());
     private final List<String> completed = Collections.synchronizedList(new ArrayList<>());
     volatile boolean closed;
@@ -849,11 +820,8 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public void keepAlive() {
-      keepAlives.incrementAndGet();
-      if (keepAliveFailure != null) {
-        throw keepAliveFailure;
-      }
+    public boolean supportsConcurrentBatches() {
+      return true;
     }
 
     @Override
