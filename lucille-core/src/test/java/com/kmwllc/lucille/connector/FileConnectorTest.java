@@ -290,7 +290,7 @@ public class FileConnectorTest {
     assertEquals("Small City Mug", doc10.getString("name"));
 
     Document doc11 = documentList.stream().filter(d ->
-        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir"+File.separatorChar+"e.yaml")).findAny().orElseThrow();
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir/e.yaml")).findAny().orElseThrow();
     assertTrue(doc11.getId().startsWith("normal-"));
 
     Document doc12 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-1")).findAny().orElseThrow();
@@ -665,9 +665,10 @@ public class FileConnectorTest {
 
       // Delete file2, modify file1, leave file3 alone.
       // Set file1's modification time explicitly to a point after the first run's traversalInstant just in case
+      // Minus 1ms so it's safely before the second run's traversalInstant (they can match on Windows' coarser clock)
       Files.delete(file2.toPath());
       Files.writeString(file1.toPath(), "Modified Content 1");
-      Files.setLastModifiedTime(file1.toPath(), FileTime.from(Instant.now()));
+      Files.setLastModifiedTime(file1.toPath(), FileTime.from(Instant.now().minusMillis(1)));
 
       // Second run, should publish modified file1 + tombstone for deleted file2
       TestMessenger messenger2 = new TestMessenger();

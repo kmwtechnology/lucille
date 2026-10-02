@@ -66,6 +66,8 @@
     <junit4.version>4.13.2</junit4.version>
     <aws-sdk.version>2.52.1</aws-sdk.version>
     <hadoop.version>3.5.0</hadoop.version>
+    <!-- SecureRandom algorithm Solr's test framework expects the JVM to use; overridden by the windows profile -->
+    <test.solr.securerandom>NativePRNG</test.solr.securerandom>
   </properties>
 
   <repositories>
@@ -221,7 +223,7 @@
           <redirectTestOutputToFile>false</redirectTestOutputToFile>
           <!--ensure consistent timezone for unit tests-->
           <!--suppress UnresolvedMavenProperty -->
-          <argLine>${argLine} -Dtest.solr.allowed.securerandom=NativePRNG -Duser.timezone=UTC</argLine>
+          <argLine>${argLine} -Dtest.solr.allowed.securerandom=${test.solr.securerandom} -Duser.timezone=UTC</argLine>
         </configuration>
         <dependencies>
           <dependency>
@@ -238,7 +240,7 @@
         <!-- Just using the same version, for now ? -->
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
-          <argLine>@{argLine} -Dtest.solr.allowed.securerandom=NativePRNG -Duser.timezone=UTC</argLine>
+          <argLine>@{argLine} -Dtest.solr.allowed.securerandom=${test.solr.securerandom} -Duser.timezone=UTC</argLine>
         </configuration>
       </plugin>
 
@@ -378,6 +380,18 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+    <profile>
+      <!-- Windows JVMs have no NativePRNG and default to DRBG -->
+      <id>windows</id>
+      <activation>
+        <os>
+          <family>windows</family>
+        </os>
+      </activation>
+      <properties>
+        <test.solr.securerandom>DRBG</test.solr.securerandom>
+      </properties>
     </profile>
   </profiles>
 
