@@ -70,7 +70,9 @@ import sun.misc.Signal;
  *   <li>indexer.batchByteSize (Long, Optional) : Total size of documents accumulated before sending to the destination. Defaults to
  *   {@value #NO_BATCH_SIZE_BYTES}.</li>
  *   <li>indexer.batchTimeout (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
- *   will be considered as expired. Defaults to {@value #DEFAULT_BATCH_TIMEOUT}.</li>
+ *   will be considered as expired. Time the indexer thread spends sending batches is excluded, at every
+ *   maxConcurrentBatches; before concurrent sends were added, a send slower than the timeout expired the next partly
+ *   filled batch. Defaults to {@value #DEFAULT_BATCH_TIMEOUT}.</li>
  *   <li>indexer.deletionMarkerField (String, Optional) : Field that, when set to indexer.deletionMarkerFieldValue, marks a document
  *   for deletion. Must be set together with indexer.deletionMarkerFieldValue.</li>
  *   <li>indexer.deletionMarkerFieldValue (String, Optional) : Value of indexer.deletionMarkerField that triggers deletion.
@@ -317,7 +319,7 @@ public abstract class Indexer implements Runnable {
     this.batchSender = maxConcurrentBatches == 1
         ? new SynchronousBatchSender(this::sendWithRetry, this::completeBatch)
         : new ConcurrentBatchSender(maxConcurrentBatches, localRunId, this::sendWithRetry, this::completeBatch,
-            this::destinationIds, this::isDeleteByQuery);
+            this::destinationIds, this::isDeleteByQueryRequest);
   }
 
   /**
@@ -461,16 +463,14 @@ public abstract class Indexer implements Runnable {
       lastLog = Instant.now();
     }
 
-    batchSender.completeFinished();
-
-    if (batchedDocs.isEmpty()) {
-      return;
-    }
-
+    // While this thread sends batches (sending, waiting for a free slot, or completing finished batches) it cannot add
+    // documents, so that time must not expire the partly filled batch; otherwise the next add would flush it early,
+    // often as a batch of a single document.
     long blockedStart = System.nanoTime();
-    batchSender.send(batchedDocs);
-    // While this thread was sending, or waiting for a free slot, it could not add documents, so that time must not expire
-    // the partly filled batch; otherwise the next add would flush it early, often as a batch of a single document.
+    batchSender.completeFinished();
+    if (!batchedDocs.isEmpty()) {
+      batchSender.send(batchedDocs);
+    }
     batch.delayExpirationBy(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - blockedStart));
   }
 
@@ -499,10 +499,32 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Records metrics and sends FAIL / FINISH events for a sent batch, then marks it complete. Always runs on the indexer
-   * thread, in the order batches were sent.
+   * Records metrics and sends FAIL / FINISH events for a sent batch, then marks it complete with
+   * {@link IndexerMessenger#batchComplete(List)}. Always runs on the indexer thread, in the order batches were sent.
+   *
+   * <p> If the send ended in an Error, it is rethrown and the batch is not marked complete: it was not indexed, so a
+   * messenger must not commit its input.
+   *
+   * <p> The batch is completed with the interrupt status clear, because the messenger calls may block (a queue put) and
+   * would otherwise throw at once, losing the batch's completion. An interrupt is restored afterwards so the next poll
+   * sees it. This applies at every maxConcurrentBatches; before concurrent sends were added, an interrupt raised during a
+   * synchronous send could lose that batch's completion.
    */
   private void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+    if (outcome.error() instanceof Error error) {
+      throw error;
+    }
+    boolean interrupted = Thread.interrupted();
+    try {
+      completeSentBatch(batchedDocs, outcome);
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
+  }
+
+  private void completeSentBatch(List<Document> batchedDocs, SendOutcome outcome) {
     try {
       if (outcome.error() != null) {
         throw outcome.error();
@@ -582,13 +604,23 @@ public abstract class Indexer implements Runnable {
     }
   }
 
-  // Whether the document is a delete-by-query request, which can match documents in any batch. Mirrors the checks in the
-  // Solr, OpenSearch, and Elasticsearch indexers.
-  private boolean isDeleteByQuery(Document doc) {
+  /**
+   * Whether the document asks for a deletion: its indexer.deletionMarkerField holds indexer.deletionMarkerFieldValue.
+   */
+  protected boolean isDeletionRequest(Document doc) {
     return deletionMarkerField != null
         && deletionMarkerFieldValue != null
         && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue)
+        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
+  }
+
+  /**
+   * Whether the document asks for a delete-by-query: it is a {@link #isDeletionRequest deletion request} that also has
+   * the indexer.deleteByFieldField and indexer.deleteByFieldValue fields. Such a request can match documents in any
+   * batch, so concurrent sends run it alone.
+   */
+  protected boolean isDeleteByQueryRequest(Document doc) {
+    return isDeletionRequest(doc)
         && deleteByFieldField != null
         && doc.has(deleteByFieldField)
         && deleteByFieldValue != null

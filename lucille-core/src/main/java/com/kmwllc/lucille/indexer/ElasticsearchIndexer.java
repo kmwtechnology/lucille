@@ -174,12 +174,12 @@ public class ElasticsearchIndexer extends Indexer {
       // use doc id override if specified, otherwise delete will try to delete wrong id
       String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
 
-      if (!isMarkedForDeletion(doc)) {
+      if (!isDeletionRequest(doc)) {
         idsToDelete.remove(id);
         documentsToUpload.put(id, doc);
       } else {
         documentsToUpload.remove(id);
-        if (!isMarkedForDeletionByField(doc)) {
+        if (!isDeleteByQueryRequest(doc)) {
           idsToDelete.add(id);
         } else {
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
@@ -423,20 +423,6 @@ public class ElasticsearchIndexer extends Indexer {
     }
 
     return failedDocs;
-  }
-
-  private boolean isMarkedForDeletion(Document doc) {
-    return deletionMarkerField != null
-        && deletionMarkerFieldValue != null
-        && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
-  }
-
-  private boolean isMarkedForDeletionByField(Document doc) {
-    return deleteByFieldField != null
-        && doc.has(deleteByFieldField)
-        && deleteByFieldValue != null
-        && doc.has(deleteByFieldValue);
   }
 
   @Override

@@ -319,8 +319,8 @@ public class IndexerConcurrencyTest {
 
     StackOverflowError error = assertThrows(StackOverflowError.class, () -> controlled.run(1));
     assertEquals("boom", error.getMessage());
-    // batchComplete still runs for the failed batch, as it does for synchronous sends
-    assertEquals(List.of("a"), messenger.completed());
+    // a batch whose send ended in an Error was not indexed, so it is not marked complete
+    assertEquals(List.of(), messenger.completed());
     assertTrue(messenger.closed);
     assertFalse(sendThreadsAlive(controlled));
   }
@@ -349,9 +349,54 @@ public class IndexerConcurrencyTest {
     runner.join(TIMEOUT_MS);
     assertFalse(runner.isAlive());
     assertTrue(String.valueOf(thrown.get()), thrown.get() instanceof StackOverflowError);
-    assertEquals(List.of("a"), messenger.completed());
+    assertEquals(List.of(), messenger.completed());
     assertTrue(messenger.closed);
     awaitTrue(() -> !sendThreadsAlive(controlled));
+  }
+
+  /**
+   * Uses the real HybridIndexerMessenger: a batch whose send ended in an Error was never indexed, so its offsets must
+   * never be queued for commit, at any maxConcurrentBatches.
+   */
+  @Test
+  public void testErrorBatchOffsetsAreNeverQueued() throws Exception {
+    for (int maxConcurrentBatches : new int[] {1, 2}) {
+      Config config = config(maxConcurrentBatches).withFallback(ConfigFactory.parseMap(Map.of("kafka.events", false)));
+      LinkedBlockingQueue<Document> dest = new LinkedBlockingQueue<>();
+      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets = new LinkedBlockingQueue<>();
+      HybridIndexerMessenger messenger = new HybridIndexerMessenger(config, dest, offsets, null, "pipeline1");
+      ControlledIndexer controlled = new ControlledIndexer(config, messenger);
+      controlled.failNextAttempt("k0", new StackOverflowError("boom"));
+      addKafkaDocs(dest, 1);
+
+      assertThrows(StackOverflowError.class, () -> controlled.run(1));
+      assertTrue("K=" + maxConcurrentBatches + ": " + offsets, offsets.isEmpty());
+    }
+  }
+
+  /**
+   * At maxConcurrentBatches 1, an interrupt raised during the send must not reach the messenger calls that complete the
+   * batch: HybridIndexerMessenger.batchComplete uses a blocking put, which would throw at once and lose the offset. The
+   * interrupt is restored afterwards.
+   */
+  @Test
+  public void testInterruptDuringSynchronousSendStillQueuesOffsets() throws Exception {
+    Config config = config(1).withFallback(ConfigFactory.parseMap(Map.of("kafka.events", false)));
+    LinkedBlockingQueue<Document> dest = new LinkedBlockingQueue<>();
+    LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets = new LinkedBlockingQueue<>();
+    HybridIndexerMessenger messenger = new HybridIndexerMessenger(config, dest, offsets, null, "pipeline1");
+    ControlledIndexer controlled = new ControlledIndexer(config, messenger);
+    controlled.interruptDuringSend = true;
+    addKafkaDocs(dest, 1);
+
+    try {
+      controlled.run(1);
+      assertTrue("the interrupt is restored", Thread.currentThread().isInterrupted());
+    } finally {
+      Thread.interrupted();
+    }
+    Map<TopicPartition, OffsetAndMetadata> queued = offsets.poll();
+    assertEquals(1L, queued.get(new TopicPartition("source", 0)).offset());
   }
 
   @Test
@@ -627,6 +672,7 @@ public class IndexerConcurrencyTest {
     awaitTrue(() -> isWaitingForBatch(indexerThread));
   }
 
+  // Relies on the name of ConcurrentBatchSender.awaitOutcome: renaming that method silently breaks this probe.
   private static boolean isWaitingForBatch(Thread thread) {
     if (!isParked(thread)) {
       return false;
@@ -693,6 +739,9 @@ public class IndexerConcurrencyTest {
 
     // When positive, every send sleeps this long after its gate opens.
     volatile long sendDelayMs;
+
+    // When true, every send interrupts the thread it runs on.
+    volatile boolean interruptDuringSend;
 
     // Unique per test, so a test can find its own send pool threads.
     final String runId;
@@ -767,6 +816,9 @@ public class IndexerConcurrencyTest {
         }
         if (sendDelayMs > 0) {
           Thread.sleep(sendDelayMs);
+        }
+        if (interruptDuringSend) {
+          Thread.currentThread().interrupt();
         }
         Deque<Throwable> pending = failures.get(tag);
         Throwable failure = pending == null ? null : pending.poll();

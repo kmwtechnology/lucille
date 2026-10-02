@@ -180,25 +180,18 @@ public class SolrIndexer extends Indexer {
       SolrDocRequests solrDocRequests = solrDocRequestsByCollection.get(collection);
       String solrId = idOverride != null ? idOverride : doc.getId();
 
-      if (isDeletion(doc)) {
+      if (isDeletionRequest(doc)) {
 
         // if the add/update requests contain the ID of this delete, send the add/updates
         // immediately so the add/update
         // of the document is processed before this delete.
 
-        if (solrDocRequests.containsIdForAddUpdate(solrId)
-            || (deleteByFieldField != null
-            && doc.has(deleteByFieldField)
-            && deleteByFieldValue != null
-            && doc.has(deleteByFieldValue))) {
+        if (solrDocRequests.containsIdForAddUpdate(solrId) || isDeleteByQueryRequest(doc)) {
           sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
           solrDocRequests.resetAddUpdates();
         }
 
-        if (deleteByFieldField != null
-            && doc.has(deleteByFieldField)
-            && deleteByFieldValue != null
-            && doc.has(deleteByFieldValue)) {
+        if (isDeleteByQueryRequest(doc)) {
           solrDocRequests.addDeleteByFieldValue(
               doc.getString(deleteByFieldField), doc.getString(deleteByFieldValue));
         } else {
@@ -325,13 +318,6 @@ public class SolrIndexer extends Indexer {
     }
     // SolrException can carry an ErrorCode.UNKNOWN, which is a 0 and not a real http response
     return new IndexerRetryableException("Solr error with no HTTP status code", e);
-  }
-
-  private boolean isDeletion(Document doc) {
-    return this.deletionMarkerField != null
-        && this.deletionMarkerFieldValue != null
-        && doc.hasNonNull(this.deletionMarkerField)
-        && doc.getString(this.deletionMarkerField).equals(this.deletionMarkerFieldValue);
   }
 
   private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)

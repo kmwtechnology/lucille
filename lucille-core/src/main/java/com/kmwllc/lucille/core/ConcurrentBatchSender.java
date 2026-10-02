@@ -70,7 +70,7 @@ class ConcurrentBatchSender implements BatchSender {
 
   /**
    * @param send sends a batch; runs on the pool and must not throw.
-   * @param complete completes a sent batch; runs on the indexer thread.
+   * @param complete completes a sent batch; runs on the indexer thread, and must shield itself from interrupts.
    * @param destinationIds the IDs a batch writes at the destination; batches sharing one are never in flight together.
    * @param isBarrier whether a document (a delete-by-query) requires its batch to be the only one in flight.
    */
@@ -165,26 +165,12 @@ class ConcurrentBatchSender implements BatchSender {
     return false;
   }
 
-  // Waits for the oldest in-flight batch's send to finish and completes it.
-  //
-  // The batch is completed with the interrupt status clear, because the messenger calls that complete it may block
-  // (a queue put) and would otherwise throw at once, losing the batch's completion. Any interrupt, whether it arrived
-  // before or during the wait, is restored afterwards so the next poll sees it.
+  // Waits for the oldest in-flight batch's send to finish and completes it. The completion callback (Indexer.completeBatch)
+  // shields the messenger calls from any interrupt and restores it.
   private void completeOldest() {
-    InFlightBatch oldest = inFlight.peekFirst();
-    // A send that has already finished never checks the flag, so clear it here rather than relying on the wait.
-    boolean interrupted = Thread.interrupted();
-    try {
-      SendOutcome outcome = awaitOutcome(oldest.outcome());
-      interrupted |= Thread.interrupted();
-      inFlight.removeFirst();
-      inFlightIds.removeAll(oldest.ids());
-      complete.accept(oldest.docs(), outcome);
-    } finally {
-      if (interrupted) {
-        Thread.currentThread().interrupt();
-      }
-    }
+    InFlightBatch oldest = inFlight.removeFirst();
+    inFlightIds.removeAll(oldest.ids());
+    complete.accept(oldest.docs(), awaitOutcome(oldest.outcome()));
   }
 
   // Waits without giving up on interruption: the batch has been sent (or is being sent) and must be accounted for. An

@@ -18,8 +18,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -39,8 +42,9 @@ import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 
 /**
- * Runs a real Indexer at indexer.maxConcurrentBatches 3 over KafkaIndexerMessenger and an embedded broker: every document
- * gets a FINISH event, and the committed offsets end after the last record of each partition.
+ * Runs a real Indexer at indexer.maxConcurrentBatches 3 over KafkaIndexerMessenger and an embedded broker. While a batch
+ * is held in flight, the committed offset does not cover it, even though later batches were polled and sent; once it is
+ * released, every document gets a FINISH event and the committed offset ends after the last record.
  */
 public class KafkaIndexerMessengerConcurrencyTest {
 
@@ -73,7 +77,8 @@ public class KafkaIndexerMessengerConcurrencyTest {
     String pipeline = "concurrent";
     String runId = "run-" + pipeline;
     String topic = KafkaUtils.getDestTopicName(pipeline);
-    embeddedKafka.addTopics(new NewTopic(topic, 2, (short) 1));
+    TopicPartition partition = new TopicPartition(topic, 0);
+    embeddedKafka.addTopics(new NewTopic(topic, 1, (short) 1));
     Config config = ConfigFactory.parseMap(Map.of(
         "kafka.bootstrapServers", embeddedKafka.getBrokersAsString(),
         "kafka.consumerGroupId", "group-" + pipeline,
@@ -82,36 +87,37 @@ public class KafkaIndexerMessengerConcurrencyTest {
         "kafka.events", true,
         "indexer.maxConcurrentBatches", 3,
         "indexer.batchSize", 2,
-        "indexer.batchTimeout", 20));
+        "indexer.batchTimeout", 10000));
 
-    int perPartition = 15;
+    // Batches are [d0,d1] [d2,d3] [d4,d5] [d6,d7] [d8,d9]; [d2,d3] is held in its send.
+    int count = 10;
     Set<String> ids = new HashSet<>();
     try (KafkaProducer<String, Document> producer = KafkaUtils.createDocumentProducer(config)) {
-      for (int partition = 0; partition < 2; partition++) {
-        for (int i = 0; i < perPartition; i++) {
-          String id = "p" + partition + "-" + i;
-          producer.send(new ProducerRecord<>(topic, partition, id, Document.create(id, runId))).get();
-          ids.add(id);
-        }
+      for (int i = 0; i < count; i++) {
+        String id = "d" + i;
+        producer.send(new ProducerRecord<>(topic, 0, id, Document.create(id, runId))).get();
+        ids.add(id);
       }
     }
-    Map<TopicPartition, Long> expected = Map.of(
-        new TopicPartition(topic, 0), (long) perPartition, new TopicPartition(topic, 1), (long) perPartition);
 
-    SlowIndexer indexer = new SlowIndexer(config, new KafkaIndexerMessenger(config, pipeline));
+    GatedIndexer indexer = new GatedIndexer(config, new KafkaIndexerMessenger(config, pipeline), "d2");
     Thread thread = new Thread(indexer);
     thread.start();
     try {
-      long deadline = System.currentTimeMillis() + TIMEOUT_MS;
-      while (!expected.equals(committed(config)) && System.currentTimeMillis() < deadline) {
-        Thread.sleep(50);
-      }
+      // [d4,d5] and [d6,d7] have been polled and sent behind the held batch, which is still in flight.
+      waitFor(() -> indexer.finished.containsAll(List.of("d4", "d6")));
+      assertTrue("batches were sent concurrently", indexer.maxConcurrent.get() > 1);
+      Long committed = committed(config).get(partition);
+      assertTrue("committed " + committed + " covers the batch in flight", committed == null || committed <= 2);
+
+      indexer.gate.countDown();
+      waitFor(() -> Long.valueOf(count).equals(committed(config).get(partition)));
     } finally {
+      indexer.gate.countDown();
       indexer.terminate();
       thread.join(TIMEOUT_MS);
     }
-    assertEquals(expected, committed(config));
-    assertTrue("batches were sent concurrently", indexer.maxConcurrent.get() > 1);
+    assertEquals(Long.valueOf(count), committed(config).get(partition));
 
     Set<String> finished = new HashSet<>();
     try (KafkaConsumer<String, String> events = eventConsumer(config)) {
@@ -127,6 +133,16 @@ public class KafkaIndexerMessengerConcurrencyTest {
       }
     }
     assertEquals(ids, finished);
+  }
+
+  private static void waitFor(BooleanSupplier condition) throws InterruptedException {
+    long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+    while (!condition.getAsBoolean()) {
+      if (System.currentTimeMillis() > deadline) {
+        throw new AssertionError("condition not met within " + TIMEOUT_MS + " ms");
+      }
+      Thread.sleep(20);
+    }
   }
 
   private static Map<TopicPartition, Long> committed(Config config) {
@@ -156,16 +172,20 @@ public class KafkaIndexerMessengerConcurrencyTest {
     return new KafkaConsumer<>(props);
   }
 
-  // Indexer that sends batches concurrently, taking a random few milliseconds per batch.
-  public static class SlowIndexer extends Indexer {
+  // Indexer that sends batches concurrently, holding the batch that contains heldId until gate is released.
+  public static class GatedIndexer extends Indexer {
 
     public static final Spec SPEC = SpecBuilder.indexer().build();
 
+    final CountDownLatch gate = new CountDownLatch(1);
+    final Set<String> finished = ConcurrentHashMap.newKeySet();
     final AtomicInteger maxConcurrent = new AtomicInteger();
     private final AtomicInteger concurrent = new AtomicInteger();
+    private final String heldId;
 
-    SlowIndexer(Config config, IndexerMessenger messenger) {
+    GatedIndexer(Config config, IndexerMessenger messenger, String heldId) {
       super(config, messenger, false, "KafkaIndexerMessengerConcurrencyTest", null);
+      this.heldId = heldId;
     }
 
     @Override
@@ -191,10 +211,13 @@ public class KafkaIndexerMessengerConcurrencyTest {
     protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
       maxConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
-        Thread.sleep(ThreadLocalRandom.current().nextInt(20, 120));
+        if (documents.stream().anyMatch(d -> d.getId().equals(heldId))) {
+          gate.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        }
         return Collections.emptySet();
       } finally {
         concurrent.decrementAndGet();
+        documents.forEach(d -> finished.add(d.getId()));
       }
     }
   }
