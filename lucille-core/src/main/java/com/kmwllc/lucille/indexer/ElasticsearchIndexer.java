@@ -75,7 +75,6 @@ public class ElasticsearchIndexer extends Indexer {
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalString("parentName", "childDocumentsField")
-      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);

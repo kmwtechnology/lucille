@@ -22,11 +22,33 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 /**
- * Sends an Indexer's batches on a pool of threads when indexer.maxConcurrentBatches is greater than 1. Only the send runs
- * on the pool; every method here is called on the indexer thread, which also completes batches, in dispatch order. See
- * "Concurrent sends" in the {@link Indexer} javadoc for the rules.
+ * Sends an Indexer's batches on a pool of K threads, where K is indexer.maxConcurrentBatches (greater than 1).
+ *
+ * <p> The model is a sliding window: keep up to K batches in flight. Before sending a batch, complete the oldest batch in
+ * flight until there is room and no conflict. Only the send (sendToIndex, with retries) runs on the pool; batches are
+ * completed on the indexer thread, in the order they were sent. Polling and every IndexerMessenger call stay on the
+ * indexer thread.
+ *
+ * <p> Guarantees:
+ * <ul>
+ *   <li>At most K batches are in flight.</li>
+ *   <li>Batches are completed in send order, so a messenger that commits its input on batch completion never commits
+ *   past an unfinished batch. (With indexer.indexOverrideField, batches are kept per index and one index's batch can be
+ *   flushed before another's holding earlier input; that is true of synchronous sends too.)</li>
+ *   <li>A batch is not sent while it shares a destination ID with a batch in flight, so writes and deletes of the same
+ *   document are applied in order. A document's destination IDs are its own (the idOverrideField value, or the document
+ *   ID) and the document IDs of its children, recursively.</li>
+ *   <li>A batch containing a delete-by-query document is sent only when nothing else is in flight, and is completed
+ *   before anything is sent behind it.</li>
+ *   <li>An interrupt does not abandon a batch in flight: it is held while the indexer thread waits for and completes the
+ *   batch, then restored so the next poll sees it.</li>
+ * </ul>
+ *
+ * <p> Why a sliding window rather than sending batches in groups of K and waiting for each group: a group waits for its
+ * slowest bulk request, and in benchmarks that made generations 14-25% slower. The window refills a slot as soon as the
+ * oldest batch completes.
  */
-class ConcurrentBatchSender {
+class ConcurrentBatchSender implements BatchSender {
 
   private static final Logger log = LoggerFactory.getLogger(ConcurrentBatchSender.class);
   private static final long SHUTDOWN_TIMEOUT_MS = 10000;
@@ -39,7 +61,7 @@ class ConcurrentBatchSender {
   private final Predicate<Document> isBarrier;
   private final ExecutorService pool;
 
-  // Batches dispatched to the pool, oldest first.
+  // Batches sent to the pool, oldest first.
   private final Deque<InFlightBatch> inFlight = new ArrayDeque<>();
   // Destination IDs of every batch in inFlight. Disjoint across batches by construction.
   private final Set<String> inFlightIds = new HashSet<>();
@@ -72,10 +94,11 @@ class ConcurrentBatchSender {
     });
   }
 
-  /** Submits the batch once it may run alongside those in flight, completing the oldest in-flight batches until it can. */
-  void dispatch(List<Document> batchedDocs) {
-    Set<String> ids = destinationIds.apply(batchedDocs);
-    boolean barrier = batchedDocs.stream().anyMatch(isBarrier);
+  /** Submits the batch to the pool once it may run alongside those in flight, completing the oldest until it can. */
+  @Override
+  public void send(List<Document> batch) {
+    Set<String> ids = destinationIds.apply(batch);
+    boolean barrier = batch.stream().anyMatch(isBarrier);
 
     while (!inFlight.isEmpty() && (barrier || inFlight.size() >= maxConcurrentBatches || overlapsInFlight(ids))) {
       completeOldest();
@@ -87,12 +110,12 @@ class ConcurrentBatchSender {
         MDC.setContextMap(mdc);
       }
       try {
-        return send.apply(batchedDocs);
+        return send.apply(batch);
       } finally {
         MDC.clear();
       }
     });
-    inFlight.addLast(new InFlightBatch(batchedDocs, ids, outcome));
+    inFlight.addLast(new InFlightBatch(batch, ids, outcome));
     inFlightIds.addAll(ids);
 
     if (barrier) {
@@ -100,21 +123,24 @@ class ConcurrentBatchSender {
     }
   }
 
-  /** Completes in-flight batches whose sends have finished, stopping at the first that hasn't, to keep dispatch order. */
-  void completeFinished() {
+  /** Completes in-flight batches whose sends have finished, stopping at the first that hasn't, to keep send order. */
+  @Override
+  public void completeFinished() {
     while (!inFlight.isEmpty() && inFlight.peekFirst().outcome().isDone()) {
       completeOldest();
     }
   }
 
-  void completeAll() {
+  @Override
+  public void completeAll() {
     while (!inFlight.isEmpty()) {
       completeOldest();
     }
   }
 
   /** Stops the pool. Sends still in flight (only when the indexer thread is exiting on an Error) are interrupted. */
-  void shutdown() {
+  @Override
+  public void close() {
     if (inFlight.isEmpty()) {
       pool.shutdown();
     } else {

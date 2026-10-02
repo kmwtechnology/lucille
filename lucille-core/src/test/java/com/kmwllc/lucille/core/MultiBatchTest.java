@@ -286,10 +286,10 @@ public class MultiBatchTest {
   }
 
   /**
-   * Excluded time applies to every underlying batch.
+   * Delayed expiration applies to every underlying batch.
    */
   @Test
-  public void testExcludeFromTimeout() throws Exception {
+  public void testDelayExpirationBy() throws Exception {
     MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 100, "index");
     Document doc1 = Document.create("doc1");
     doc1.setField("index", "index1");
@@ -298,7 +298,7 @@ public class MultiBatchTest {
     batch.add(doc1);
     batch.add(doc2);
     Thread.sleep(150);
-    batch.excludeFromTimeout(10_000);
+    batch.delayExpirationBy(10_000);
     assertTrue(batch.flushIfExpired().isEmpty());
     assertEquals(2, batch.flush().size());
   }

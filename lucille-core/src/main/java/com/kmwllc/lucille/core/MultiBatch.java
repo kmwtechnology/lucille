@@ -68,9 +68,9 @@ public class MultiBatch implements Batch {
   }
 
   @Override
-  public void excludeFromTimeout(long millis) {
+  public void delayExpirationBy(long millis) {
     for (Batch batch : batches.values()) {
-      batch.excludeFromTimeout(millis);
+      batch.delayExpirationBy(millis);
     }
   }
 }

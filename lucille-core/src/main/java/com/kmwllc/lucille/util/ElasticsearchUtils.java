@@ -33,7 +33,6 @@ public class ElasticsearchUtils {
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalString("parentName")
-      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>(){}).build();
 
   public static ElasticsearchClient getElasticsearchOfficialClient(Config config) throws Exception {
@@ -77,7 +76,7 @@ public class ElasticsearchUtils {
     // org.elasticsearch.client.RestClient (HttpClient 4) is no longer bundled.
     CloseableHttpAsyncClient httpClient = HttpAsyncClients.custom()
         .setDefaultCredentialsProvider(credentialsProvider)
-        .setConnectionManager(AsyncConnectionPoolUtils.buildConnectionManager(config, "elasticsearch", tlsStrategy))
+        .setConnectionManager(AsyncConnectionPoolUtils.buildConnectionManager(config, tlsStrategy))
         .build();
 
     boolean useCompression = config.hasPath("elasticsearch.useCompression") && config.getBoolean("elasticsearch.useCompression");

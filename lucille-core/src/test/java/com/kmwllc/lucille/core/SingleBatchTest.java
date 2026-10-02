@@ -334,14 +334,14 @@ public class SingleBatchTest {
 
 
   /**
-   * Time excluded from the timeout, such as time the Indexer spent blocked on sends, does not expire the batch.
+   * Time the Indexer spent blocked on sends, passed to delayExpirationBy, does not expire the batch.
    */
   @Test
-  public void testExcludeFromTimeout() throws Exception {
+  public void testDelayExpirationBy() throws Exception {
     SingleBatch batch = new SingleBatch(100, Long.MAX_VALUE, 100);
     batch.add(Document.create("doc"));
     Thread.sleep(150);
-    batch.excludeFromTimeout(10_000);
+    batch.delayExpirationBy(10_000);
     assertTrue(batch.flushIfExpired().isEmpty());
     assertTrue(batch.add(Document.create("doc2")).isEmpty());
     assertEquals(2, batch.flush().size());

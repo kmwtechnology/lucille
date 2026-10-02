@@ -28,8 +28,7 @@ public class OpenSearchUtils {
 
   public static final Spec OPENSEARCH_PARENT_SPEC = SpecBuilder.parent("opensearch")
       .requiredString("url", "index")
-      .optionalBoolean("acceptInvalidCert", "useCompression")
-      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal").build();
+      .optionalBoolean("acceptInvalidCert", "useCompression").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchUtils.class);
 
@@ -97,7 +96,7 @@ public class OpenSearchUtils {
         .setMapper(new JacksonJsonpMapper())
         .setHttpClientConfigCallback(httpClientBuilder -> {
           final var connectionManager =
-              AsyncConnectionPoolUtils.buildConnectionManager(config, "opensearch", tlsStrategy);
+              AsyncConnectionPoolUtils.buildConnectionManager(config, tlsStrategy);
 
           return httpClientBuilder
               .setDefaultCredentialsProvider(credentialsProvider)

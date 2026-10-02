@@ -60,7 +60,6 @@ public class OpenSearchIndexer extends Indexer {
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
-      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalString("childDocumentsField").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);

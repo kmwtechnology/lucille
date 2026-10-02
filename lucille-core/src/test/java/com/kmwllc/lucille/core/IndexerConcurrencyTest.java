@@ -11,7 +11,6 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.CSVIndexer;
 import com.kmwllc.lucille.message.HybridIndexerMessenger;
 import com.kmwllc.lucille.message.IndexerMessenger;
-import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.ArrayDeque;
@@ -490,20 +489,13 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
-  public void testMessengerWithoutConcurrentSupportRejectsConcurrency() throws Exception {
-    // KafkaIndexerMessenger commits offsets at poll, so it cannot have batches in flight. Its constructor does not connect.
-    Config kafka = ConfigFactory.parseMap(Map.of("kafka.bootstrapServers", "localhost:9092",
-        "kafka.consumerGroupId", "IndexerConcurrencyTest", "kafka.maxPollIntervalSecs", 60, "kafka.events", false));
-    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(kafka, "pipeline1");
-    try {
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-          () -> new ControlledIndexer(config(2), messenger));
-      assertEquals("indexer.maxConcurrentBatches > 1 is not supported with " + KafkaIndexerMessenger.class.getName(),
-          e.getMessage());
-      new ControlledIndexer(config(1), messenger);
-    } finally {
-      messenger.close();
-    }
+  public void testBatchSenderSelection() {
+    Config unset = ConfigFactory.parseMap(Map.of("indexer.batchSize", 1));
+    assertTrue(new ControlledIndexer(unset, new RecordingMessenger()).getBatchSender() instanceof SynchronousBatchSender);
+    assertTrue(new ControlledIndexer(config(1), new RecordingMessenger()).getBatchSender()
+        instanceof SynchronousBatchSender);
+    assertTrue(new ControlledIndexer(config(2), new RecordingMessenger()).getBatchSender()
+        instanceof ConcurrentBatchSender);
   }
 
   @Test
@@ -817,11 +809,6 @@ public class IndexerConcurrencyTest {
     public Document pollDocToIndex() throws Exception {
       polls.incrementAndGet();
       return queue.poll(10, TimeUnit.MILLISECONDS);
-    }
-
-    @Override
-    public boolean supportsConcurrentBatches() {
-      return true;
     }
 
     @Override

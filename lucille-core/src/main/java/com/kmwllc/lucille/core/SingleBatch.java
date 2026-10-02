@@ -77,15 +77,15 @@ public class SingleBatch implements Batch {
     return capacity;
   }
 
+  @Override
+  public void delayExpirationBy(long millis) {
+    lastAddOrFlushInstant = lastAddOrFlushInstant.plusMillis(millis);
+  }
+
   /**
    * Indicates whether the configured timeout has elapsed since the most
    * recent of the following events: add(), flush(), flushIfExpired() with an expiration detected, new Batch().
    */
-  @Override
-  public void excludeFromTimeout(long millis) {
-    lastAddOrFlushInstant = lastAddOrFlushInstant.plusMillis(millis);
-  }
-
   private boolean isExpired() {
     return ChronoUnit.MILLIS.between(lastAddOrFlushInstant, Instant.now()) > timeout;
   }

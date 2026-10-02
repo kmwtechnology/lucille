@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.util;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -15,7 +14,7 @@ public class AsyncConnectionPoolUtilsTest {
 
   private static PoolingAsyncClientConnectionManager build(Map<String, Object> settings) {
     Config config = ConfigFactory.parseMap(settings);
-    return AsyncConnectionPoolUtils.buildConnectionManager(config, "opensearch", ClientTlsStrategyBuilder.create().build());
+    return AsyncConnectionPoolUtils.buildConnectionManager(config, ClientTlsStrategyBuilder.create().build());
   }
 
   @Test
@@ -50,35 +49,11 @@ public class AsyncConnectionPoolUtilsTest {
   }
 
   @Test
-  public void testExplicitSettingsWin() throws Exception {
-    try (PoolingAsyncClientConnectionManager manager = build(Map.of("indexer.maxConcurrentBatches", 8,
-        "opensearch.maxConnectionsPerRoute", 3, "opensearch.maxConnectionsTotal", 7))) {
-      assertEquals(3, manager.getDefaultMaxPerRoute());
-      assertEquals(7, manager.getMaxTotal());
-    }
-  }
-
-  @Test
-  public void testStringSettings() throws Exception {
+  public void testStringSetting() throws Exception {
     // Environment substitutions always yield strings.
-    Config fromEnv = ConfigFactory.parseString(
-        "indexer.maxConcurrentBatches: ${?K}\nopensearch { maxConnectionsPerRoute: ${?ROUTE}, maxConnectionsTotal: ${?TOTAL} }")
-        .resolveWith(ConfigFactory.parseMap(Map.of("K", "8", "ROUTE", "12", "TOTAL", "40")));
-    try (PoolingAsyncClientConnectionManager manager = AsyncConnectionPoolUtils.buildConnectionManager(fromEnv,
-        "opensearch", ClientTlsStrategyBuilder.create().build())) {
-      assertEquals(12, manager.getDefaultMaxPerRoute());
-      assertEquals(40, manager.getMaxTotal());
-    }
-    // A string maxConcurrentBatches also feeds the per-route fallback.
     try (PoolingAsyncClientConnectionManager manager = build(Map.of("indexer.maxConcurrentBatches", "32"))) {
       assertEquals(33, manager.getDefaultMaxPerRoute());
       assertEquals(33, manager.getMaxTotal());
     }
-  }
-
-  @Test
-  public void testRejectsNonPositive() {
-    assertThrows(IllegalArgumentException.class, () -> build(Map.of("opensearch.maxConnectionsPerRoute", 0)));
-    assertThrows(IllegalArgumentException.class, () -> build(Map.of("opensearch.maxConnectionsTotal", 0)));
   }
 }
