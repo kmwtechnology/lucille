@@ -43,6 +43,14 @@ interface BatchDispatcher extends AutoCloseable {
   void dispatch(List<Document> batchedDocs);
 
   /**
+   * Completes any batches whose sends have already finished, without blocking on those still in flight. The indexer
+   * calls this each poll cycle so that completed batches are accounted for promptly. The default does nothing, which
+   * suits a dispatcher that completes each batch within {@link #dispatch(List)}.
+   */
+  default void completeFinishedBatches() {
+  }
+
+  /**
    * Completes every batch that has been dispatched but not yet completed. Called when the indexer stops, so that no
    * batch is left unaccounted for.
    */

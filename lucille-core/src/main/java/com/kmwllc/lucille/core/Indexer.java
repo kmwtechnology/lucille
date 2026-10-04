@@ -340,8 +340,9 @@ public abstract class Indexer implements Runnable {
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
 
-    // The concurrent dispatcher is introduced in a later change; for now every Indexer sends synchronously.
-    this.dispatcher = new SynchronousDispatcher(this::send, this::completeBatch);
+    this.dispatcher = maxConcurrentBatches == 1
+        ? new SynchronousDispatcher(this::send, this::completeBatch)
+        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this::send, this::completeBatch);
   }
 
   /**
@@ -479,6 +480,9 @@ public abstract class Indexer implements Runnable {
               histogram.getSnapshot().getMean() / 1000000));
       lastLog = Instant.now();
     }
+
+    // Account for any concurrent batches that have finished sending (a no-op for synchronous dispatch).
+    dispatcher.completeFinishedBatches();
 
     if (batchedDocs.isEmpty()) {
       return;
