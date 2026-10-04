@@ -559,6 +559,10 @@ public abstract class Indexer implements Runnable {
    * thread.
    */
   private void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+    // An Error (OutOfMemoryError, etc.) means the send did not run to a defined conclusion — the batch's documents were
+    // not indexed. The batch must NOT be marked complete: with commit-on-completion that would commit offsets for
+    // documents that were never indexed, silently losing them. So completion is skipped for an Error (set below).
+    boolean markComplete = true;
     try {
       if (outcome.error() != null) {
         throw outcome.error();
@@ -594,8 +598,10 @@ public abstract class Indexer implements Runnable {
         log.error("Error sending completion events for docs {}. RUN WILL HANG.", docIds, e);
       }
     } catch (Throwable t) {
-      // Rethrow Errors (OutOfMemoryError, etc.) — they should never be swallowed
+      // Rethrow Errors (OutOfMemoryError, etc.) — they should never be swallowed, and the batch must not be marked
+      // complete (its documents were not indexed; committing their offsets would lose them).
       if (t instanceof Error) {
+        markComplete = false;
         throw (Error) t;
       }
       Exception e = (t instanceof Exception) ? (Exception) t : new RuntimeException(t);
@@ -607,11 +613,14 @@ public abstract class Indexer implements Runnable {
         sendFailEvent(d, e.getMessage());
       }
     } finally {
-      // We always mark batches as completed, regardless of whether the whole batch failed, some docs failed, etc.
-      try {
-        messenger.batchComplete(batchedDocs);
-      } catch (Exception e) {
-        log.error("Error marking batch complete.", e);
+      // Mark the batch complete for a normal outcome or a (handled) Exception, where the batch ran to a defined
+      // conclusion and its documents are accounted for as succeeded or failed. Skip it only for an Error (see above).
+      if (markComplete) {
+        try {
+          messenger.batchComplete(batchedDocs);
+        } catch (Exception e) {
+          log.error("Error marking batch complete.", e);
+        }
       }
     }
   }
@@ -696,7 +705,17 @@ public abstract class Indexer implements Runnable {
         && deletionMarkerFieldValue != null
         && doc.hasNonNull(deletionMarkerField)
         && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue)
-        && deleteByFieldField != null
+        && hasDeleteByFieldValues(doc);
+  }
+
+  /**
+   * Whether the document carries the delete-by-query fields (the configured deleteByFieldField naming the field to
+   * query, and deleteByFieldValue naming the field holding the value). Shared by the Solr, OpenSearch, and Elasticsearch
+   * indexers, which call it on a document already known to be marked for deletion to decide between delete-by-query and
+   * delete-by-id. Returns false unless both fields are configured and present.
+   */
+  protected boolean hasDeleteByFieldValues(Document doc) {
+    return deleteByFieldField != null
         && doc.has(deleteByFieldField)
         && deleteByFieldValue != null
         && doc.has(deleteByFieldValue);
