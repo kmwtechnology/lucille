@@ -97,6 +97,9 @@ import sun.misc.Signal;
  *   An empty list is rejected as invalid configuration. Only allowed when maxRetries is also set.</li>
  *   <li>indexer.versionType (String, Optional) : The type of versioning to use for indexing documents. Specific indexer implementations may support different version types. The default version type is implementation-specific.</li>
  *   <li>indexer.versionField (String, Optional) : The field name to use for versioning. This field must be present in the document and must be of a type that supports versioning with that specific indexer implementation (e.g., numeric, string).</li>
+ *   <li>indexer.maxConcurrentBatches (Integer, Optional) : Maximum number of batches that may be in flight to the destination
+ *   at once. Defaults to {@value #DEFAULT_MAX_CONCURRENT_BATCHES}, which sends each batch synchronously on the indexer thread.
+ *   Values greater than 1 are only accepted by implementations whose {@link #supportsConcurrentSends()} returns true.</li>
  * </ul>
  */
 public abstract class Indexer implements Runnable {
@@ -109,6 +112,7 @@ public abstract class Indexer implements Runnable {
   public static final long DEFAULT_RETRY_MAX_WAIT_DURATION_MS = 30000;
   public static final double DEFAULT_RETRY_RANDOMIZATION_FACTOR = 0.5;
   public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503, IndexerRetryableException.UNKNOWN_STATUS_CODE);
+  public static final int DEFAULT_MAX_CONCURRENT_BATCHES = 1;
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -145,6 +149,9 @@ public abstract class Indexer implements Runnable {
   private final Retry retry;
   // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
   private final List<Integer> retryableStatusCodes;
+
+  // The maximum number of batches that may be in flight at once. 1 (the default) means synchronous sends.
+  private final int maxConcurrentBatches;
 
   // Sends batches to the destination and accounts for them. See BatchDispatcher.
   private final BatchDispatcher dispatcher;
@@ -321,10 +328,40 @@ public abstract class Indexer implements Runnable {
       });
     }
 
+    this.maxConcurrentBatches = getMaxConcurrentBatches(config);
+    if (maxConcurrentBatches < 1) {
+      throw new IllegalArgumentException("indexer.maxConcurrentBatches must be at least 1.");
+    }
+    if (maxConcurrentBatches > 1 && !supportsConcurrentSends()) {
+      throw new IllegalArgumentException(getClass().getName() + " does not support concurrent sends; "
+          + "indexer.maxConcurrentBatches must be 1 or unset.");
+    }
+
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
 
+    // The concurrent dispatcher is introduced in a later change; for now every Indexer sends synchronously.
     this.dispatcher = new SynchronousDispatcher(this::send, this::completeBatch);
+  }
+
+  /**
+   * Returns the configured indexer.maxConcurrentBatches, or {@value #DEFAULT_MAX_CONCURRENT_BATCHES} when it is not set.
+   */
+  public static int getMaxConcurrentBatches(Config config) {
+    // getInt, unlike ConfigUtils.getOrDefault, converts a string value such as an environment substitution.
+    return config.hasPath("indexer.maxConcurrentBatches")
+        ? config.getInt("indexer.maxConcurrentBatches") : DEFAULT_MAX_CONCURRENT_BATCHES;
+  }
+
+  /**
+   * Whether this Indexer's {@link #sendToIndex(List)} may be called from several threads at once. Implementations that
+   * return true accept indexer.maxConcurrentBatches greater than 1. This method is called from the Indexer constructor,
+   * so it must not depend on subclass state.
+   *
+   * @return true if this Indexer's sendToIndex is thread-safe; false (the default) otherwise.
+   */
+  protected boolean supportsConcurrentSends() {
+    return false;
   }
 
   /**
@@ -631,7 +668,7 @@ public abstract class Indexer implements Runnable {
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
             "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
         .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
-            "retryMaxWaitDurationMs", "retryRandomizationFactor")
+            "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
         .optionalList("blacklist", new TypeReference<List<String>>(){})

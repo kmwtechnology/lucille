@@ -108,6 +108,11 @@ public class OpenSearchIndexer extends Indexer {
   @Override
   protected String getIndexerConfigKey() { return "opensearch"; }
 
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
+
   private static OpenSearchClient getClient(Config config, boolean bypass) throws IndexerException {
     try {
       return bypass ? null : OpenSearchUtils.getOpenSearchRestClient(config);

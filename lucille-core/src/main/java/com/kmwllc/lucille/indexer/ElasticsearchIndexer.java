@@ -123,6 +123,11 @@ public class ElasticsearchIndexer extends Indexer {
   @Override
   protected String getIndexerConfigKey() { return "elasticsearch"; }
 
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
+
   private static ElasticsearchClient getClient(Config config, boolean bypass) throws IndexerException{
     try {
       return bypass ? null : ElasticsearchUtils.getElasticsearchOfficialClient(config);
