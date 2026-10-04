@@ -56,7 +56,9 @@ public class KafkaUtils {
       .optionalNumber("metadataMaxAgeMs")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
-      .optionalParent("admin", new TypeReference<Map<String, Object>>(){}).build();
+      .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
+      // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
+      .optionalParent("event", new TypeReference<Map<String, Object>>(){}).build();
 
   public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
