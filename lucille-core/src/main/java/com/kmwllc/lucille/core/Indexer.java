@@ -374,10 +374,19 @@ public abstract class Indexer implements Runnable {
 
   /**
    * Whether this Indexer's {@link #sendToIndex(List)} may be called from several threads at once. Implementations that
-   * return true accept indexer.maxConcurrentBatches greater than 1. This method is called from the Indexer constructor,
-   * so it must not depend on subclass state.
+   * return true accept indexer.maxConcurrentBatches greater than 1 and so may have several sends in flight.
    *
-   * @return true if this Indexer's sendToIndex is thread-safe; false (the default) otherwise.
+   * <p> This is the premise the whole concurrent-send feature rests on. An implementation holds a single destination
+   * client (created once in its constructor) and reuses it for every send; when sends run concurrently, that one client
+   * is called from several threads at once. Returning true therefore asserts that the destination client is safe for
+   * concurrent use. The Solr, OpenSearch, and Elasticsearch Java clients are documented as thread-safe; clients that are
+   * not (or whose thread-safety is unknown) must leave this false. A thread-safe client must also allow enough
+   * concurrent connections to carry the configured concurrency — see {@link com.kmwllc.lucille.util.AsyncConnectionPoolUtils}.
+   *
+   * <p> Called from the Indexer constructor, so it must not depend on subclass state.
+   *
+   * @return true if this Indexer's sendToIndex (and its destination client) is safe to call concurrently; false (the
+   *     default) otherwise.
    */
   protected boolean supportsConcurrentSends() {
     return false;

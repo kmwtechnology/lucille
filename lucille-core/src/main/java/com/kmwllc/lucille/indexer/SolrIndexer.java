@@ -85,6 +85,8 @@ public class SolrIndexer extends Indexer {
   @Override
   protected String getIndexerConfigKey() { return "solr"; }
 
+  // SolrJ's Http2SolrClient and CloudHttp2SolrClient are thread-safe and intended to be shared, so concurrent sends
+  // through the single shared client are safe.
   @Override
   protected boolean supportsConcurrentSends() {
     return true;

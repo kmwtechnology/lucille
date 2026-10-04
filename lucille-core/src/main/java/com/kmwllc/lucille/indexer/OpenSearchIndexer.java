@@ -60,6 +60,7 @@ public class OpenSearchIndexer extends Indexer {
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalString("childDocumentsField").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
@@ -108,6 +109,8 @@ public class OpenSearchIndexer extends Indexer {
   @Override
   protected String getIndexerConfigKey() { return "opensearch"; }
 
+  // The OpenSearch Java client is thread-safe over a shared connection pool, so concurrent sends through the single
+  // shared client are safe. The pool is sized for the configured concurrency by AsyncConnectionPoolUtils.
   @Override
   protected boolean supportsConcurrentSends() {
     return true;

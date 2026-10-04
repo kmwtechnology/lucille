@@ -75,6 +75,7 @@ public class ElasticsearchIndexer extends Indexer {
       .requiredString("index", "url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalString("parentName", "childDocumentsField")
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
@@ -123,6 +124,8 @@ public class ElasticsearchIndexer extends Indexer {
   @Override
   protected String getIndexerConfigKey() { return "elasticsearch"; }
 
+  // The Elasticsearch Java client is thread-safe over a shared connection pool, so concurrent sends through the single
+  // shared client are safe. The pool is sized for the configured concurrency by AsyncConnectionPoolUtils.
   @Override
   protected boolean supportsConcurrentSends() {
     return true;
