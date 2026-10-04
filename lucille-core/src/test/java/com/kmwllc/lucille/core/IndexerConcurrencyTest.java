@@ -151,6 +151,29 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
+  public void testGrandchildIdDeterminesOverlap() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    indexer = new ControlledIndexer(config(3), messenger);
+    // ancestorA writes a grandchild "sharedGrandchild" (doc -> child -> grandchild); ancestorB writes the same id as
+    // its own direct child. Their destination id sets overlap only via the recursively-collected grandchild id.
+    indexer.messenger().queueDoc(docWithGrandchild("ancestorA", "childA", "sharedGrandchild"));
+    indexer.messenger().queueDoc(docWithChild("ancestorB", "sharedGrandchild"));
+    indexer.blockSendsFor("ancestorA", "ancestorB");
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    awaitUntil(() -> indexer.hasStartedSend("ancestorA"));
+    awaitNextBatchBlocked();
+    assertFalse("ancestorB must wait: it writes ancestorA's grandchild id", indexer.hasStartedSend("ancestorB"));
+
+    indexer.releaseSends("ancestorA");
+    awaitUntil(() -> indexer.hasStartedSend("ancestorB"));
+    indexer.releaseSends("ancestorB");
+    awaitUntil(() -> messenger.completedBatches().size() == 2);
+    assertEquals(List.of("ancestorA", "ancestorB"), messenger.completedBatches());
+  }
+
+  @Test
   public void testIdOverrideFieldDeterminesOverlap() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // With idOverrideField set, a document's destination id is the value of that field, not its document id.
@@ -356,6 +379,30 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
+  public void testRetryRunsOnPoolWithoutReorderingCompletion() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    // Retries enabled with a tiny wait; K=2 so both batches can be in flight while doc1 retries on the pool.
+    ControlledIndexer controlled = new ControlledIndexer(
+        config(2, Map.of("indexer.maxRetries", 3, "indexer.retryWaitDurationMs", 1)), messenger);
+    indexer = controlled;
+    // doc1's send fails retryably twice (then succeeds); doc2 is held so it is still in flight while doc1 retries.
+    controlled.failSendRetryablyThenSucceed("doc1", 2);
+    controlled.blockSendsFor("doc2");
+    queueDocsAndStartIndexer("doc1", "doc2");
+
+    awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
+    // doc1 finished (after its retries), but must not complete ahead of... it is first, so release doc2 and both
+    // complete in dispatch order.
+    indexer.releaseSends("doc2");
+    awaitUntil(() -> messenger.completedBatches().size() == 2);
+
+    assertEquals(List.of("doc1", "doc2"), messenger.completedBatches());
+    assertEquals(List.of("FINISH:doc1", "FINISH:doc2"), messenger.sentEvents());
+    // doc1 was attempted three times: two retryable failures plus the successful attempt.
+    assertEquals(3, controlled.sendAttempts("doc1"));
+  }
+
+  @Test
   public void testPerDocumentFailureInConcurrentBatch() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // batchSize 2, so okDoc and failedDoc go in the same batch; K=2 sends it on the pool.
@@ -418,6 +465,15 @@ public class IndexerConcurrencyTest {
   private static Document docWithChild(String docId, String childId) {
     Document doc = Document.create(docId);
     doc.addChild(Document.create(childId));
+    return doc;
+  }
+
+  /** A document with the given id carrying a child, which in turn carries a grandchild with the given id. */
+  private static Document docWithGrandchild(String docId, String childId, String grandchildId) {
+    Document doc = Document.create(docId);
+    Document child = Document.create(childId);
+    child.addChild(Document.create(grandchildId));
+    doc.addChild(child);
     return doc;
   }
 
@@ -525,6 +581,10 @@ public class IndexerConcurrencyTest {
     private final Map<String, Throwable> sendFailures = new ConcurrentHashMap<>();
     // Document ids that sendToIndex reports as per-document failures (returned in the failed set, not thrown).
     private final Set<String> failedDocIds = ConcurrentHashMap.newKeySet();
+    // Per document id, how many more send attempts should throw a retryable exception before succeeding.
+    private final Map<String, AtomicInteger> retryableFailures = new ConcurrentHashMap<>();
+    // Per document id, the total number of send attempts made (to assert that retries actually occurred).
+    private final Map<String, AtomicInteger> sendAttempts = new ConcurrentHashMap<>();
 
     ControlledIndexer(Config config, RecordingMessenger messenger) {
       super(config, messenger, false, "IndexerConcurrencyTest", "IndexerConcurrencyTest");
@@ -570,6 +630,17 @@ public class IndexerConcurrencyTest {
       failedDocIds.add(docId);
     }
 
+    /** Makes the next {@code count} send attempts for the given document id throw a retryable exception, then succeed. */
+    void failSendRetryablyThenSucceed(String docId, int count) {
+      retryableFailures.put(docId, new AtomicInteger(count));
+    }
+
+    /** The number of send attempts made for the given document id (initial attempt plus retries). */
+    int sendAttempts(String docId) {
+      AtomicInteger attempts = sendAttempts.get(docId);
+      return attempts == null ? 0 : attempts.get();
+    }
+
     /** Whether the sends of all the given document ids have begun. */
     boolean hasStartedSends(String... docIds) {
       return sendsStarted.containsAll(List.of(docIds));
@@ -612,6 +683,7 @@ public class IndexerConcurrencyTest {
     @Override
     protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
       String docId = documents.get(0).getId();
+      sendAttempts.computeIfAbsent(docId, k -> new AtomicInteger()).incrementAndGet();
       peakConcurrentSends.accumulateAndGet(concurrentSends.incrementAndGet(), Math::max);
       if (!sendsStarted.contains(docId)) {
         sendsStarted.add(docId);
@@ -623,6 +695,12 @@ public class IndexerConcurrencyTest {
         }
         if (sendDelayMs > 0) {
           Thread.sleep(sendDelayMs);
+        }
+        // Throw a retryable exception for the first N attempts of this document, so the base-class retry policy re-runs
+        // the send; the attempt counter proves the retries happened on the send pool.
+        AtomicInteger remainingRetryableFailures = retryableFailures.get(docId);
+        if (remainingRetryableFailures != null && remainingRetryableFailures.getAndDecrement() > 0) {
+          throw new IndexerRetryableException(503, "retryable failure for " + docId, null);
         }
         // A configured failure is held as a Throwable, which cannot be rethrown directly (sendToIndex declares only
         // throws Exception, not Throwable). Split by type so each is thrown as itself: Error unchecked, Exception as the
