@@ -60,6 +60,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
   private static Admin admin;
 
   private KafkaProducer<String, Document> producer;
+  private final List<KafkaIndexerMessenger> messengers = new ArrayList<>();
 
   @BeforeClass
   public static void startKafka() {
@@ -81,7 +82,10 @@ public class KafkaConcurrentIndexerEndToEndTest {
   }
 
   @After
-  public void tearDown() {
+  public void tearDown() throws Exception {
+    for (KafkaIndexerMessenger messenger : messengers) {
+      messenger.close();
+    }
     if (producer != null) {
       producer.close();
     }
@@ -138,7 +142,61 @@ public class KafkaConcurrentIndexerEndToEndTest {
     assertEquals(ids, finished);
   }
 
+  /**
+   * Exercises the keepAlive pause/resume/seek sequence against a real broker, which a MockConsumer cannot faithfully
+   * model (its seek does not re-deliver a consumed record). A consumer polls part way through its partitions, then
+   * keepAlive is called many times — each call pauses the assignment, polls, and seeks back any record it pulls — and
+   * finally polling resumes. The sequence is correct only if every remaining document is still delivered in order:
+   * keepAlive must neither consume a record it only polled to stay alive nor advance the read position past one.
+   */
+  @Test
+  public void testKeepAlivePreservesPositionAndDeliversEveryDocument() throws Exception {
+    String pipeline = newPipeline(1);
+    // maxConcurrentBatches > 1 so the Kafka messenger is in its concurrent (commit-on-completion) mode, where keepAlive
+    // is used.
+    Config config = config(pipeline, 3, Map.of());
+    int total = 12;
+    List<String> produced = produce(config, pipeline, 0, total, "run");
+
+    KafkaIndexerMessenger messenger = messenger(config, pipeline);
+    List<String> delivered = new ArrayList<>();
+
+    // Deliver the first few records normally.
+    while (delivered.size() < 4) {
+      Document doc = messenger.pollDocToIndex();
+      if (doc != null) {
+        delivered.add(doc.getId());
+      }
+    }
+
+    // Now stay alive without delivering: keepAlive pauses the assignment, polls, and seeks back. Even though records
+    // remain on the broker, keepAlive must not deliver or skip any of them.
+    for (int i = 0; i < 20; i++) {
+      messenger.keepAlive();
+    }
+
+    // Polling resumes and must deliver exactly the remaining records, in order, picking up right where it left off.
+    while (delivered.size() < total) {
+      Document doc = messenger.pollDocToIndex();
+      if (doc != null) {
+        delivered.add(doc.getId());
+      }
+    }
+
+    // keepAlive neither dropped nor reordered anything: the full produced sequence came through intact.
+    assertEquals(produced, delivered);
+    // And it did poll the broker (so a real wait would keep the consumer in its group), not short-circuit.
+    assertTrue("keepAlive must stay in the group by polling", messenger.assignment().contains(
+        new TopicPartition(KafkaUtils.getDestTopicName(pipeline), 0)));
+  }
+
   // --- helpers ---
+
+  private KafkaIndexerMessenger messenger(Config config, String pipeline) {
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
+    messengers.add(messenger);
+    return messenger;
+  }
 
   private static String newPipeline(int partitions) {
     String pipeline = "e2e" + counter.incrementAndGet();

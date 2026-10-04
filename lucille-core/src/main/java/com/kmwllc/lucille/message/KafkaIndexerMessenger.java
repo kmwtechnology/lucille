@@ -87,6 +87,12 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     return true;
   }
 
+  // The destination-topic partitions currently assigned to this consumer. Package-private for tests that drive real
+  // rebalances and need to observe when the assignment has settled.
+  Set<TopicPartition> assignment() {
+    return destConsumer.assignment();
+  }
+
   @Override
   public void keepAlive() throws Exception {
     destConsumer.pause(destConsumer.assignment());
