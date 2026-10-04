@@ -333,28 +333,28 @@ public class SingleBatchTest {
   }
 
   /**
-   * Test that excludeFromTimeout keeps a batch from expiring for the excluded span: after adding a doc and sleeping
-   * past the timeout, excluding at least the elapsed time means flushIfExpired() does not flush.
+   * Test that delayExpirationBy keeps a batch from expiring for the delayed span: after adding a doc and sleeping
+   * past the timeout, delaying by at least the elapsed time means flushIfExpired() does not flush.
    */
   @Test
-  public void testExcludeFromTimeout() throws InterruptedException {
+  public void testDelayExpirationBy() throws InterruptedException {
     SingleBatch batch = new SingleBatch(100, Long.MAX_VALUE, 20);
     assertTrue(batch.add(Document.create("doc1")).isEmpty());
 
     TimeUnit.MILLISECONDS.sleep(40);
-    // Without excluding the elapsed time, the batch would now be expired (40 ms > 20 ms timeout). Excluding 1000 ms
+    // Without delaying by the elapsed time, the batch would now be expired (40 ms > 20 ms timeout). Delaying 1000 ms
     // pushes the reference instant well into the future, so the batch is not expired.
-    batch.excludeFromTimeout(1000);
-    assertTrue("excluded time must not count toward expiry", batch.flushIfExpired().isEmpty());
+    batch.delayExpirationBy(1000);
+    assertTrue("delayed time must not count toward expiry", batch.flushIfExpired().isEmpty());
   }
 
   @Test
-  public void testExpiryResumesAfterExcludedSpan() throws InterruptedException {
+  public void testExpiryResumesAfterDelayedSpan() throws InterruptedException {
     SingleBatch batch = new SingleBatch(100, Long.MAX_VALUE, 20);
     assertTrue(batch.add(Document.create("doc1")).isEmpty());
 
-    // Exclude only a short span, then sleep well past both that span and the timeout: the batch expires normally.
-    batch.excludeFromTimeout(20);
+    // Delay by only a short span, then sleep well past both that span and the timeout: the batch expires normally.
+    batch.delayExpirationBy(20);
     TimeUnit.MILLISECONDS.sleep(80);
     assertEquals(1, batch.flushIfExpired().size());
   }

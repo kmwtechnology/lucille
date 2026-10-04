@@ -78,8 +78,8 @@ public class SingleBatch implements Batch {
   }
 
   @Override
-  public void excludeFromTimeout(long millis) {
-    // Move the reference instant forward, so the excluded span does not count toward expiry.
+  public void delayExpirationBy(long millis) {
+    // Move the reference instant forward, so the delayed span does not count toward expiry.
     lastAddOrFlushInstant = lastAddOrFlushInstant.plusMillis(millis);
   }
 

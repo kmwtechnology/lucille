@@ -286,11 +286,11 @@ public class MultiBatchTest {
   }
 
   /**
-   * Test that excludeFromTimeout applies to every per-index sub-batch: after adding docs to two indices and sleeping
-   * past the timeout, excluding at least the elapsed time keeps both sub-batches from expiring.
+   * Test that delayExpirationBy applies to every per-index sub-batch: after adding docs to two indices and sleeping
+   * past the timeout, delaying by at least the elapsed time keeps both sub-batches from expiring.
    */
   @Test
-  public void testExcludeFromTimeout() throws InterruptedException {
+  public void testDelayExpirationBy() throws InterruptedException {
     MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 20, "index");
     Document doc1 = Document.create("doc1");
     doc1.setField("index", "index1");
@@ -300,8 +300,8 @@ public class MultiBatchTest {
     assertTrue(batch.add(doc2).isEmpty());
 
     TimeUnit.MILLISECONDS.sleep(40);
-    // Excluding 1000 ms pushes every sub-batch's reference instant well into the future, so nothing expires.
-    batch.excludeFromTimeout(1000);
-    assertTrue("excluded time must not expire any sub-batch", batch.flushIfExpired().isEmpty());
+    // Delaying by 1000 ms pushes every sub-batch's reference instant well into the future, so nothing expires.
+    batch.delayExpirationBy(1000);
+    assertTrue("delayed time must not expire any sub-batch", batch.flushIfExpired().isEmpty());
   }
 }

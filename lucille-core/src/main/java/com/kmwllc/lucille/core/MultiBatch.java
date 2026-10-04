@@ -68,11 +68,11 @@ public class MultiBatch implements Batch {
   }
 
   @Override
-  public void excludeFromTimeout(long millis) {
-    // Exclude the span from every per-index sub-batch, so a rarely-touched index's batch is not expired by time the
+  public void delayExpirationBy(long millis) {
+    // Delay the deadline of every per-index sub-batch, so a rarely-touched index's batch is not expired by time the
     // indexer spent sending other indexes' batches.
     for (Batch batch : batches.values()) {
-      batch.excludeFromTimeout(millis);
+      batch.delayExpirationBy(millis);
     }
   }
 }
