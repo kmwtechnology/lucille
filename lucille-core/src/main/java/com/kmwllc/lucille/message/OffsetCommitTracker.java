@@ -18,6 +18,15 @@ import org.slf4j.LoggerFactory;
  * the batch completes (at-least-once) rather than when its documents were polled. This is what makes a crash re-deliver
  * documents rather than lose them.
  *
+ * <p> Assumes the destination topic has no offset gaps — every offset the consumer could read is delivered as a record.
+ * This holds for Lucille's destination topic: its producer is non-transactional (see {@code KafkaUtils.createProducerProps},
+ * which sets {@code enable.idempotence} but no {@code transactional.id}), so there are no transaction-marker offsets,
+ * and the topic is not compacted. The frontier advances only across <i>contiguous</i> completed offsets, so a gap it
+ * never sees as a record (a transaction marker, or a record removed by compaction) would stall it: offsets past the gap
+ * stay uncommitted and their records are re-delivered. That is at-least-once, not loss — but if this tracker is ever
+ * pointed at a transactional or compacted topic, the frontier would need to advance over such gaps rather than wait for
+ * them to fill.
+ *
  * <p> Correctness:
  * <ul>
  *   <li><b>No lost document.</b> Per partition, the committed offset is a <i>frontier</i>: it advances only across a
@@ -116,7 +125,9 @@ class OffsetCommitTracker {
         p -> lowestPolled.getOrDefault(p, offset));
     java.util.NavigableSet<Long> ahead = completedAhead.computeIfAbsent(partition, p -> new java.util.TreeSet<>());
     ahead.add(offset);
-    // Absorb completed offsets while they are contiguous from the frontier.
+    // Absorb completed offsets while they are contiguous from the frontier. This assumes the topic has no offset gaps
+    // (non-transactional, non-compacted — see the class javadoc): a true gap would never arrive as a completed offset,
+    // so the frontier would stop here and wait for an offset that never comes.
     while (ahead.remove(frontier)) {
       frontier++;
     }
