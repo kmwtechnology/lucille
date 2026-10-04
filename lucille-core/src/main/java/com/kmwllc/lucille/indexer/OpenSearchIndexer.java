@@ -183,7 +183,7 @@ public class OpenSearchIndexer extends Indexer {
         documentsToUpload.put(indexAndId, doc);
       } else {
         documentsToUpload.remove(indexAndId);
-        if (!isMarkedForDeletionByField(doc)) {
+        if (!hasDeleteByFieldValues(doc)) {
           idsToDelete.add(indexAndId);
         } else {
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
@@ -461,12 +461,7 @@ public class OpenSearchIndexer extends Indexer {
         && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
   }
 
-  private boolean isMarkedForDeletionByField(Document doc) {
-    return deleteByFieldField != null
-        && doc.has(deleteByFieldField)
-        && deleteByFieldValue != null
-        && doc.has(deleteByFieldValue);
-  }
+
 
   private Long getVersionNum(Document doc) {
     if (versionField != null && doc.has(versionField)) {

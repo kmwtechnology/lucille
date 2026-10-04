@@ -182,7 +182,7 @@ public class ElasticsearchIndexer extends Indexer {
         documentsToUpload.put(id, doc);
       } else {
         documentsToUpload.remove(id);
-        if (!isMarkedForDeletionByField(doc)) {
+        if (!hasDeleteByFieldValues(doc)) {
           idsToDelete.add(id);
         } else {
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
@@ -435,12 +435,7 @@ public class ElasticsearchIndexer extends Indexer {
         && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
   }
 
-  private boolean isMarkedForDeletionByField(Document doc) {
-    return deleteByFieldField != null
-        && doc.has(deleteByFieldField)
-        && deleteByFieldValue != null
-        && doc.has(deleteByFieldValue);
-  }
+
 
   @Override
   public void closeConnection() {

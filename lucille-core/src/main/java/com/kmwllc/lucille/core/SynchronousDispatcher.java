@@ -24,7 +24,18 @@ class SynchronousDispatcher implements BatchDispatcher {
   @Override
   public void dispatch(List<Document> batchedDocs) {
     SendOutcome outcome = batchSender.apply(batchedDocs);
-    batchCompleter.accept(batchedDocs, outcome);
+    // An interrupt (from a forced or timed-out shutdown) can arrive during the send above. The batch has been sent and
+    // must still be completed; run completion with the interrupt flag clear, because batchComplete may itself block
+    // (e.g. the Hybrid messenger's queue put, which throws if interrupted) and losing a batch's completion would leak
+    // its offsets/events. Restore the flag afterward so the run loop still exits.
+    boolean interrupted = Thread.interrupted();
+    try {
+      batchCompleter.accept(batchedDocs, outcome);
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   @Override
