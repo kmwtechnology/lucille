@@ -50,16 +50,21 @@ class OffsetCommitTracker {
 
   private final Consumer<?, ?> consumer;
 
-  // Per assigned partition, the lowest offset polled but not yet absorbed into the commit frontier. Used to seed the
-  // frontier (the consumer resumes contiguously from its committed position, so the lowest polled offset is that
-  // position) and to decide staleness after a rebalance.
+  // Offset convention: a "...Through" offset is an exclusive upper bound — the offset *after* the last record it refers
+  // to, i.e. the next offset to read — matching Kafka's committed-offset semantics. lowestPolled is the exception noted
+  // below: it is an inclusive offset, because "the lowest offset polled" is naturally a record's own offset.
+  //
+  // Per assigned partition, the lowest offset polled but not yet absorbed into the commit frontier (inclusive). Used to
+  // seed the frontier (the consumer resumes contiguously from its committed position, so the lowest polled offset is
+  // that position) and to decide staleness after a rebalance.
   private final Map<TopicPartition, Long> lowestPolled = new HashMap<>();
   // Per assigned partition, the offset after the last record polled in the current assignment.
   private final Map<TopicPartition, Long> polledThrough = new HashMap<>();
   // Per partition, the commit frontier: the next offset to commit, below which every record has completed. Advances
   // only across a contiguous run of completed offsets, so it never passes an uncompleted earlier record (as can happen
-  // with MultiBatch per-index flushing, or any out-of-order completion).
-  private final Map<TopicPartition, Long> committedThrough = new HashMap<>();
+  // with MultiBatch per-index flushing, or any out-of-order completion). Named a frontier, not "...Through", because it
+  // advances before anything is committed — a commit may still fail and be retried.
+  private final Map<TopicPartition, Long> commitFrontier = new HashMap<>();
   // Per partition, completed offsets at or above the frontier, waiting for the gap below them to fill.
   private final Map<TopicPartition, java.util.NavigableSet<Long>> completedAhead = new HashMap<>();
   // Per partition revoked or lost, the polled-through offset when it was taken away. A batch whose commit offset is at
@@ -121,7 +126,7 @@ class OffsetCommitTracker {
   private void recordCompleted(TopicPartition partition, long offset) {
     // The frontier starts at the partition's resume position: the lowest offset we have polled on it. The consumer
     // reads contiguously from its committed offset, so nothing below that lowest polled offset is ours to commit.
-    long frontier = committedThrough.computeIfAbsent(partition,
+    long frontier = commitFrontier.computeIfAbsent(partition,
         p -> lowestPolled.getOrDefault(p, offset));
     java.util.NavigableSet<Long> ahead = completedAhead.computeIfAbsent(partition, p -> new java.util.TreeSet<>());
     ahead.add(offset);
@@ -131,7 +136,7 @@ class OffsetCommitTracker {
     while (ahead.remove(frontier)) {
       frontier++;
     }
-    committedThrough.put(partition, frontier);
+    commitFrontier.put(partition, frontier);
     // The committed offset is the next offset to read, which is exactly the frontier.
     OffsetAndMetadata current = pendingOffsets.get(partition);
     if (current == null || current.offset() < frontier) {
@@ -184,13 +189,13 @@ class OffsetCommitTracker {
           log.warn("Could not commit offsets {} on revocation; those documents will be re-delivered.", toCommit, e);
         }
       }
-      forget(partitions);
+      dropAssignmentState(partitions);
     }
 
     @Override
     public void onPartitionsLost(Collection<TopicPartition> partitions) {
       // The partitions may already be owned by another consumer, so nothing is committed.
-      forget(partitions);
+      dropAssignmentState(partitions);
     }
 
     @Override
@@ -199,10 +204,10 @@ class OffsetCommitTracker {
 
     // Records polled under the current assignment of these partitions become stale, and the partition's per-assignment
     // state (frontier, completed-ahead, pending offset, lowest-polled) is dropped so a later re-assignment starts fresh.
-    private void forget(Collection<TopicPartition> partitions) {
+    private void dropAssignmentState(Collection<TopicPartition> partitions) {
       for (TopicPartition partition : partitions) {
         pendingOffsets.remove(partition);
-        committedThrough.remove(partition);
+        commitFrontier.remove(partition);
         completedAhead.remove(partition);
         lowestPolled.remove(partition);
         Long polled = polledThrough.remove(partition);

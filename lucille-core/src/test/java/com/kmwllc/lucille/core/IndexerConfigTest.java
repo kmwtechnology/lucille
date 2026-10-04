@@ -81,7 +81,7 @@ public class IndexerConfigTest {
 
   @Test
   public void testRejectsGreaterThanOneWhenMessengerUnsupported() {
-    // The indexer supports concurrent sends, but the messenger commits at poll (supportsConcurrentBatches() false), so
+    // The indexer supports concurrent sends, but the messenger commits at poll (commitsOnBatchCompletion() false), so
     // K > 1 must be rejected to avoid losing in-flight documents on a crash.
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
         () -> new ConcurrentCapableIndexer(configWith(2), new CommitAtPollMessenger()));
@@ -136,7 +136,7 @@ public class IndexerConfigTest {
     }
   }
 
-  /** A messenger that leaves supportsConcurrentBatches() at its unsafe default (false), standing in for one that
+  /** A messenger that leaves commitsOnBatchCompletion() at its unsafe default (false), standing in for one that
    * commits its input at poll. Only that one method matters for these tests; the rest are inert. */
   private static class CommitAtPollMessenger implements IndexerMessenger {
     @Override

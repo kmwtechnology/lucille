@@ -153,7 +153,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
   // Queues offsets on batch completion (not at poll), so it is safe for concurrent batches.
   @Override
-  public boolean supportsConcurrentBatches() {
+  public boolean commitsOnBatchCompletion() {
     return true;
   }
 }

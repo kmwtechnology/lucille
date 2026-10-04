@@ -124,7 +124,7 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
 
   // Holds documents in an in-memory queue and does not commit input, so it is safe for concurrent batches.
   @Override
-  public boolean supportsConcurrentBatches() {
+  public boolean commitsOnBatchCompletion() {
     return true;
   }
 }

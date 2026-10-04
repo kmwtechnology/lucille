@@ -337,7 +337,7 @@ public abstract class Indexer implements Runnable {
       throw new IllegalArgumentException(getClass().getName() + " does not support concurrent sends; "
           + "indexer.maxConcurrentBatches must be 1 or unset.");
     }
-    if (maxConcurrentBatches > 1 && messenger != null && !messenger.supportsConcurrentBatches()) {
+    if (maxConcurrentBatches > 1 && messenger != null && !messenger.commitsOnBatchCompletion()) {
       throw new IllegalArgumentException(messenger.getClass().getName() + " does not support concurrent batches "
           + "(it must commit its input on batch completion, not at poll); indexer.maxConcurrentBatches must be 1 or unset.");
     }
@@ -346,8 +346,8 @@ public abstract class Indexer implements Runnable {
     validateIndexerConfigs(config);
 
     this.dispatcher = maxConcurrentBatches == 1
-        ? new SynchronousDispatcher(this::send, this::completeBatch)
-        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this::send, this::completeBatch,
+        ? new SynchronousDispatcher(this::sendWithRetry, this::completeBatch)
+        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this::sendWithRetry, this::completeBatch,
             this::destinationIds, this::isDeleteByQuery, this::keepAliveMessenger);
   }
 
@@ -386,6 +386,10 @@ public abstract class Indexer implements Runnable {
    * concurrent use. The Solr, OpenSearch, and Elasticsearch Java clients are documented as thread-safe; clients that are
    * not (or whose thread-safety is unknown) must leave this false. A thread-safe client must also allow enough
    * concurrent connections to carry the configured concurrency — see {@link com.kmwllc.lucille.util.AsyncConnectionPoolUtils}.
+   *
+   * <p> This is a distinct check from the messenger's {@code commitsOnBatchCompletion()}: this one is about the
+   * destination <i>client</i>'s thread-safety, that one is about the messenger's <i>commit discipline</i>. Both must
+   * hold for indexer.maxConcurrentBatches greater than 1 to be enabled.
    *
    * <p> Called from the Indexer constructor, so it must not depend on subclass state.
    *
@@ -531,7 +535,7 @@ public abstract class Indexer implements Runnable {
    * Sends the batch to the destination, applying the retry policy. Never throws: any Throwable is captured in the
    * returned {@link SendOutcome} so that {@link #completeBatch} can handle it.
    */
-  private SendOutcome send(List<Document> batchedDocs) {
+  private SendOutcome sendWithRetry(List<Document> batchedDocs) {
     long start = System.nanoTime();
     try {
       // Note: the retry wraps the entire sendToIndex() call. If sendToIndex() partially succeeds

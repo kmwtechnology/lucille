@@ -107,7 +107,7 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
 
   // Wraps a LocalMessenger, which is safe for concurrent batches.
   @Override
-  public boolean supportsConcurrentBatches() {
+  public boolean commitsOnBatchCompletion() {
     return true;
   }
 

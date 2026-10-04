@@ -63,14 +63,15 @@ public interface IndexerMessenger {
   }
 
   /**
-   * Whether this messenger is safe for an Indexer with indexer.maxConcurrentBatches greater than 1. With concurrency,
-   * documents are polled while earlier batches are still being sent and offsets/acknowledgements are only safe to
-   * commit on {@link #batchComplete(List)} — so a messenger that commits or acknowledges its input at poll time must
-   * return false, or a crash could lose in-flight documents. The default is false, so an unknown messenger disables
-   * concurrency rather than risking data loss; messengers that commit on completion (or do not commit input at all)
-   * override this to true.
+   * Whether this messenger commits (or acknowledges) its input on {@link #batchComplete(List)} rather than at poll —
+   * the property that makes it safe to run an Indexer with indexer.maxConcurrentBatches greater than 1. With
+   * concurrency, documents are polled while earlier batches are still being sent, so a messenger that commits its input
+   * at poll time could lose in-flight documents on a crash and must return false. This is a distinct check from
+   * {@code Indexer.supportsConcurrentSends()}, which instead asserts the destination <i>client</i> is thread-safe; both
+   * must hold for concurrency to be enabled. The default is false, so an unknown messenger disables concurrency rather
+   * than risking data loss; messengers that commit on completion (or do not commit input at all) override this to true.
    */
-  default boolean supportsConcurrentBatches() {
+  default boolean commitsOnBatchCompletion() {
     return false;
   }
 }
