@@ -344,7 +344,17 @@ public abstract class Indexer implements Runnable {
     this.dispatcher = maxConcurrentBatches == 1
         ? new SynchronousDispatcher(this::send, this::completeBatch)
         : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this::send, this::completeBatch,
-            this::destinationIds, this::isDeleteByQuery);
+            this::destinationIds, this::isDeleteByQuery, this::keepAliveMessenger);
+  }
+
+  // Calls messenger.keepAlive() for the ConcurrentDispatcher while it waits on in-flight batches. Never throws: a
+  // keepAlive failure is logged and the wait continues.
+  private void keepAliveMessenger() {
+    try {
+      messenger.keepAlive();
+    } catch (Exception e) {
+      log.warn("Error in messenger keepAlive while waiting for an in-flight batch.", e);
+    }
   }
 
   /**

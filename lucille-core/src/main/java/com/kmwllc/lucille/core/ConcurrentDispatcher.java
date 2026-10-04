@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -37,6 +38,8 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   private static final Logger log = LoggerFactory.getLogger(ConcurrentDispatcher.class);
   private static final long SHUTDOWN_TIMEOUT_MS = 10000;
+  // How often keepAlive is invoked while the indexer thread waits for an in-flight batch to finish.
+  static final long KEEP_ALIVE_INTERVAL_MS = 1000;
 
   // Counts ConcurrentDispatcher instances created in this JVM, giving each a unique id. The id goes into this pool's
   // thread names so that indexers running at the same time (several concurrent runs can share a runId) have
@@ -49,6 +52,9 @@ class ConcurrentDispatcher implements BatchDispatcher {
   private final Function<List<Document>, Set<String>> destinationIdExtractor;
   // Whether a document forces its batch to run alone (a delete-by-query, which can match documents in any batch).
   private final Predicate<Document> isBarrierDocument;
+  // Called periodically while the indexer thread waits for an in-flight batch, so a messenger that must contact a
+  // source to stay alive (such as a Kafka consumer group member) can do so. Must not throw.
+  private final Runnable keepAlive;
   private final ExecutorService pool;
 
   // Batches dispatched to the pool, oldest first. Only touched by the indexer thread.
@@ -85,12 +91,14 @@ class ConcurrentDispatcher implements BatchDispatcher {
       Function<List<Document>, SendOutcome> batchSender,
       BiConsumer<List<Document>, SendOutcome> batchCompleter,
       Function<List<Document>, Set<String>> destinationIdExtractor,
-      Predicate<Document> isBarrierDocument) {
+      Predicate<Document> isBarrierDocument,
+      Runnable keepAlive) {
     this.maxConcurrentBatches = maxConcurrentBatches;
     this.batchSender = batchSender;
     this.batchCompleter = batchCompleter;
     this.destinationIdExtractor = destinationIdExtractor;
     this.isBarrierDocument = isBarrierDocument;
+    this.keepAlive = keepAlive;
     // Thread names are Lucille-<runId>-IndexerSend-<dispatcherInstanceId>-<sendThreadNum>: dispatcherInstanceId
     // distinguishes this pool from other concurrent dispatchers' pools, sendThreadNum distinguishes the send threads
     // within this pool.
@@ -177,31 +185,74 @@ class ConcurrentDispatcher implements BatchDispatcher {
   }
 
   // Waits for the oldest in-flight batch's send to finish and completes it, on the indexer thread.
+  //
+  // Completion runs with the interrupt flag clear, because the completing messenger calls may themselves make
+  // interruptible blocking calls (e.g. a queue put) that would otherwise throw at once and lose the batch's completion.
+  // Any interrupt — whether it was already pending or arrived during the wait — is restored afterwards, so the next
+  // poll observes it and the run loop exits. See the note on interrupts in awaitOutcome.
   private void completeOldest() {
     InFlightBatch oldest = inFlightBatches.removeFirst();
     inFlightIds.removeAll(oldest.ids());
-    batchCompleter.accept(oldest.docs(), awaitOutcome(oldest.outcome()));
-  }
-
-  // Waits for a send to finish. The batch has been sent (or is being sent) and must be accounted for, so an interrupt
-  // during the wait is noted and restored afterwards rather than abandoning the batch.
-  private static SendOutcome awaitOutcome(Future<SendOutcome> future) {
-    boolean interrupted = false;
+    // Clear and remember any already-pending interrupt, so completion below runs with the flag clear.
+    boolean interrupted = Thread.interrupted();
     try {
-      while (true) {
-        try {
-          return future.get();
-        } catch (InterruptedException e) {
-          interrupted = true;
-        } catch (ExecutionException e) {
-          // batchSender captures its own Throwables, so this only happens if the task wrapper itself failed.
-          return new SendOutcome(null, e.getCause(), 0);
-        }
-      }
+      AwaitedOutcome awaited = awaitOutcome(oldest.outcome());
+      interrupted |= awaited.interrupted();
+      batchCompleter.accept(oldest.docs(), awaited.outcome());
     } finally {
       if (interrupted) {
         Thread.currentThread().interrupt();
       }
+    }
+  }
+
+  // Waits for a send to finish, calling keepAlive every KEEP_ALIVE_INTERVAL_MS while it is unfinished.
+  //
+  // On interrupts: an interrupt arriving here is rare. Normal shutdown does not interrupt the indexer thread — the
+  // Runner and WorkerIndexer stop the indexer with terminate() (which sets a flag) followed by join(), letting the run
+  // loop exit on its own. An interrupt reaches this wait only in edge cases: a forced or timed-out shutdown escalating
+  // to Thread.interrupt() or an executor shutdownNow() while a send happens to be slow, or JVM/container termination.
+  //
+  // Rare as it is, it must be handled rather than propagated, because the batch has already been sent (or is being
+  // sent) and must still be accounted for: its completion emits the batch's events and (for a commit-on-completion
+  // messenger) commits its offsets. Abandoning it on interrupt would lose those — a hung run waiting on events that
+  // never arrive, or uncommitted offsets. So an interrupt is reported (not re-thrown) and the wait continues until the
+  // send finishes; completeOldest clears the flag across completion and restores it afterwards.
+  //
+  // Returns with the interrupt flag left as the caller set it; the returned AwaitedOutcome says whether an interrupt
+  // arrived during the wait.
+  private AwaitedOutcome awaitOutcome(Future<SendOutcome> future) {
+    boolean interrupted = false;
+    while (true) {
+      try {
+        return new AwaitedOutcome(future.get(KEEP_ALIVE_INTERVAL_MS, TimeUnit.MILLISECONDS), interrupted);
+      } catch (InterruptedException e) {
+        interrupted = true;
+      } catch (TimeoutException e) {
+        keepAlive.run();
+      } catch (ExecutionException e) {
+        // batchSender captures its own Throwables, so this only happens if the task wrapper itself failed.
+        return new AwaitedOutcome(new SendOutcome(null, e.getCause(), 0), interrupted);
+      }
+    }
+  }
+
+  // The result of awaiting a send: its outcome, and whether an interrupt arrived during the wait.
+  private static final class AwaitedOutcome {
+    private final SendOutcome outcome;
+    private final boolean interrupted;
+
+    AwaitedOutcome(SendOutcome outcome, boolean interrupted) {
+      this.outcome = outcome;
+      this.interrupted = interrupted;
+    }
+
+    SendOutcome outcome() {
+      return outcome;
+    }
+
+    boolean interrupted() {
+      return interrupted;
     }
   }
 }
