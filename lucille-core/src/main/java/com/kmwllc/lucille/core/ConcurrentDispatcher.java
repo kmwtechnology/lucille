@@ -165,7 +165,15 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   @Override
   public void close() {
-    pool.shutdown();
+    // On a normal stop, run() has drained every batch, so nothing is in flight and the pool is idle. If the indexer
+    // thread is unwinding abnormally (an Error from a send or completion), batches may still be in flight; interrupt
+    // their sends rather than waiting them out, since the run is already failing and their results would be discarded.
+    if (inFlightBatches.isEmpty()) {
+      pool.shutdown();
+    } else {
+      log.warn("Shutting down indexer send pool with {} batch(es) still in flight.", inFlightBatches.size());
+      pool.shutdownNow();
+    }
     try {
       if (!pool.awaitTermination(SHUTDOWN_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
         log.warn("Indexer send pool did not terminate within {} ms.", SHUTDOWN_TIMEOUT_MS);
@@ -173,6 +181,11 @@ class ConcurrentDispatcher implements BatchDispatcher {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
+  }
+
+  // For tests: whether the send pool has fully terminated (all send threads have stopped). True only after close().
+  boolean sendPoolTerminated() {
+    return pool.isTerminated();
   }
 
   // Completes in-flight batches whose sends have finished, stopping at the first that hasn't, so completion order

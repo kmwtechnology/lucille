@@ -357,6 +357,12 @@ public abstract class Indexer implements Runnable {
     }
   }
 
+  // For tests: whether the concurrent send pool (if any) has fully terminated. True when sending synchronously, as
+  // there is no pool to terminate.
+  boolean sendPoolTerminated() {
+    return !(dispatcher instanceof ConcurrentDispatcher concurrent) || concurrent.sendPoolTerminated();
+  }
+
   /**
    * Returns the configured indexer.maxConcurrentBatches, or {@value #DEFAULT_MAX_CONCURRENT_BATCHES} when it is not set.
    */

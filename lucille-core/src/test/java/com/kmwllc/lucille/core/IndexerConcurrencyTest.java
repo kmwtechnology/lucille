@@ -2,6 +2,8 @@ package com.kmwllc.lucille.core;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -278,6 +280,81 @@ public class IndexerConcurrencyTest {
     assertEquals(List.of("doc1", "doc2", "doc3"), messenger.completedBatches().subList(0, 3));
   }
 
+  @Test
+  public void testTerminateDrainsInFlightBatches() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    indexer = new ControlledIndexer(config(3), messenger);
+    indexer.blockSendsFor("doc1", "doc2", "doc3");
+    queueDocsAndStartIndexer("doc1", "doc2", "doc3");
+    awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2", "doc3"));
+
+    // Terminate while all three are in flight. run() must drain them rather than return with batches unaccounted for,
+    // so the thread stays alive until we release the sends.
+    indexer.terminate();
+    awaitNextBatchBlocked();
+    assertTrue("run() must not return while batches are still in flight", indexerThread.isAlive());
+
+    indexer.releaseSends("doc1", "doc2", "doc3");
+    indexerThread.join(TIMEOUT_MS);
+    assertFalse(indexerThread.isAlive());
+    assertEquals(List.of("doc1", "doc2", "doc3"), messenger.completedBatches());
+    // The send pool is shut down with the indexer.
+    assertTrue(indexer.sendPoolTerminated());
+  }
+
+  @Test
+  public void testRunIterationsDrainsInFlightBatches() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    ControlledIndexer controlled = new ControlledIndexer(config(4), messenger);
+    indexer = controlled;
+    // Sends are not blocked; run(n) must still drain every dispatched batch before returning.
+    for (String docId : List.of("doc1", "doc2", "doc3", "doc4", "doc5")) {
+      messenger.queueDoc(Document.create(docId));
+    }
+    controlled.run(5);
+    assertEquals(List.of("doc1", "doc2", "doc3", "doc4", "doc5"), messenger.completedBatches());
+    assertTrue(controlled.sendPoolTerminated());
+  }
+
+  @Test
+  public void testErrorFromSendSurfacesAndStopsPool() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
+    indexer = controlled;
+    // The send for doc1 throws an Error (e.g. OutOfMemoryError), which must propagate out of run() on the indexer
+    // thread rather than be swallowed.
+    controlled.failSend("doc1", new StackOverflowError("boom"));
+    messenger.queueDoc(Document.create("doc1"));
+
+    StackOverflowError error = assertThrows(StackOverflowError.class, () -> controlled.run(1));
+    assertEquals("boom", error.getMessage());
+    // Even on the Error path, the send pool must be shut down rather than left running.
+    assertTrue(controlled.sendPoolTerminated());
+  }
+
+  @Test
+  public void testErrorWithOtherSendsInFlightStopsPoolPromptly() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
+    indexer = controlled;
+    // doc1's send throws an Error; doc2's send stays blocked and so is still in flight when the Error propagates out of
+    // run(). Closing must not wait out doc2's (never-ending) send — it must interrupt the pool and abandon it.
+    controlled.failSend("doc1", new StackOverflowError("boom"));
+    controlled.blockSendsFor("doc2");
+    messenger.queueDoc(Document.create("doc1"));
+    messenger.queueDoc(Document.create("doc2"));
+
+    long start = System.currentTimeMillis();
+    assertThrows(StackOverflowError.class, () -> controlled.run(2));
+    long elapsedMs = System.currentTimeMillis() - start;
+
+    // The pool is interrupted and stops promptly, not after the full shutdown timeout. (run() returns only once close()
+    // has shut the pool down, so by here it is terminated.)
+    assertTrue(controlled.sendPoolTerminated());
+    assertTrue("close() must not wait out an in-flight send on the Error path (took " + elapsedMs + " ms)",
+        elapsedMs < 5000);
+  }
+
   // --- helpers ---
 
   private static Config config(int maxConcurrentBatches) {
@@ -397,6 +474,8 @@ public class IndexerConcurrencyTest {
     private final AtomicInteger concurrentSends = new AtomicInteger();
     // Per document id, a latch its send waits on; absent means the send does not block.
     private final Map<String, CountDownLatch> sendLatches = new ConcurrentHashMap<>();
+    // Per document id, a Throwable its send should throw (after any latch is released) instead of succeeding.
+    private final Map<String, Throwable> sendFailures = new ConcurrentHashMap<>();
 
     ControlledIndexer(Config config, RecordingMessenger messenger) {
       super(config, messenger, false, "IndexerConcurrencyTest", "IndexerConcurrencyTest");
@@ -425,6 +504,11 @@ public class IndexerConcurrencyTest {
     /** Unblocks every send, used in teardown so a test never leaves the indexer thread blocked. */
     void releaseAllSends() {
       sendLatches.values().forEach(CountDownLatch::countDown);
+    }
+
+    /** Makes the send of the given document id throw the given Throwable (after any latch is released). */
+    void failSend(String docId, Throwable failure) {
+      sendFailures.put(docId, failure);
     }
 
     /** Whether the sends of all the given document ids have begun. */
@@ -477,6 +561,16 @@ public class IndexerConcurrencyTest {
         CountDownLatch latch = sendLatches.get(docId);
         if (latch != null && !latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
           throw new IllegalStateException("send latch for " + docId + " was never released");
+        }
+        // A configured failure is held as a Throwable, which cannot be rethrown directly (sendToIndex declares only
+        // throws Exception, not Throwable). Split by type so each is thrown as itself: Error unchecked, Exception as the
+        // declared checked type. This lets a test simulate either an unchecked Error (e.g. OutOfMemoryError) or a normal
+        // send Exception.
+        Throwable failure = sendFailures.get(docId);
+        if (failure instanceof Error error) {
+          throw error;
+        } else if (failure instanceof Exception exception) {
+          throw exception;
         }
         return Set.of();
       } finally {
