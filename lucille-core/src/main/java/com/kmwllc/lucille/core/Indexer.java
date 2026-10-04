@@ -20,6 +20,7 @@ import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -342,7 +343,8 @@ public abstract class Indexer implements Runnable {
 
     this.dispatcher = maxConcurrentBatches == 1
         ? new SynchronousDispatcher(this::send, this::completeBatch)
-        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this::send, this::completeBatch);
+        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this::send, this::completeBatch,
+            this::destinationIds);
   }
 
   /**
@@ -618,6 +620,32 @@ public abstract class Indexer implements Runnable {
       return doc.getString(indexOverrideField);
     }
     return null;
+  }
+
+  /**
+   * The ids a batch writes at the destination: for each document, the id it is written under (its idOverrideField value,
+   * or its document id) and, recursively, the ids of its children, which are written under their own document ids. The
+   * ConcurrentDispatcher uses this to keep two batches that would write the same id from being in flight together, so
+   * that writes and deletes of the same document are applied in order.
+   */
+  private Set<String> destinationIds(List<Document> batchedDocs) {
+    Set<String> ids = new HashSet<>();
+    for (Document doc : batchedDocs) {
+      String idOverride = getDocIdOverride(doc);
+      ids.add(idOverride != null ? idOverride : doc.getId());
+      addChildIds(doc, ids);
+    }
+    return ids;
+  }
+
+  private static void addChildIds(Document doc, Set<String> ids) {
+    if (!doc.hasChildren()) {
+      return;
+    }
+    for (Document child : doc.getChildren()) {
+      ids.add(child.getId());
+      addChildIds(child, ids);
+    }
   }
 
   protected Map<String, Object> getIndexerDoc(Document doc) {

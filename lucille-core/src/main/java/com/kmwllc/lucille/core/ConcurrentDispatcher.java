@@ -4,8 +4,10 @@ import com.kmwllc.lucille.core.Indexer.SendOutcome;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,22 +42,32 @@ class ConcurrentDispatcher implements BatchDispatcher {
   private final int maxConcurrentBatches;
   private final Function<List<Document>, SendOutcome> batchSender;
   private final BiConsumer<List<Document>, SendOutcome> batchCompleter;
+  private final Function<List<Document>, Set<String>> destinationIdExtractor;
   private final ExecutorService pool;
 
   // Batches dispatched to the pool, oldest first. Only touched by the indexer thread.
   private final Deque<InFlightBatch> inFlightBatches = new ArrayDeque<>();
+  // The destination ids of every batch in inFlightBatches, unioned. Disjoint across batches by construction, since a
+  // batch is not dispatched while it shares an id with one in flight. Only touched by the indexer thread.
+  private final Set<String> inFlightIds = new HashSet<>();
 
   private static final class InFlightBatch {
     private final List<Document> docs;
+    private final Set<String> ids;
     private final Future<SendOutcome> outcome;
 
-    InFlightBatch(List<Document> docs, Future<SendOutcome> outcome) {
+    InFlightBatch(List<Document> docs, Set<String> ids, Future<SendOutcome> outcome) {
       this.docs = docs;
+      this.ids = ids;
       this.outcome = outcome;
     }
 
     List<Document> docs() {
       return docs;
+    }
+
+    Set<String> ids() {
+      return ids;
     }
 
     Future<SendOutcome> outcome() {
@@ -65,10 +77,12 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   ConcurrentDispatcher(int maxConcurrentBatches, String runId,
       Function<List<Document>, SendOutcome> batchSender,
-      BiConsumer<List<Document>, SendOutcome> batchCompleter) {
+      BiConsumer<List<Document>, SendOutcome> batchCompleter,
+      Function<List<Document>, Set<String>> destinationIdExtractor) {
     this.maxConcurrentBatches = maxConcurrentBatches;
     this.batchSender = batchSender;
     this.batchCompleter = batchCompleter;
+    this.destinationIdExtractor = destinationIdExtractor;
     // Thread names are Lucille-<runId>-IndexerSend-<dispatcherInstanceId>-<sendThreadNum>: dispatcherInstanceId
     // distinguishes this pool from other concurrent dispatchers' pools, sendThreadNum distinguishes the send threads
     // within this pool.
@@ -84,8 +98,10 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   @Override
   public void dispatch(List<Document> batchedDocs) {
-    // Make room: while the window is full, complete the oldest in-flight batch.
-    while (inFlightBatches.size() >= maxConcurrentBatches) {
+    Set<String> ids = destinationIdExtractor.apply(batchedDocs);
+    // Wait until this batch may run alongside those in flight: there must be a free slot, and no in-flight batch may
+    // write any id this batch writes (so writes and deletes of the same document stay in order).
+    while (!inFlightBatches.isEmpty() && (inFlightBatches.size() >= maxConcurrentBatches || overlapsInFlight(ids))) {
       completeOldest();
     }
 
@@ -100,7 +116,17 @@ class ConcurrentDispatcher implements BatchDispatcher {
         MDC.clear();
       }
     });
-    inFlightBatches.addLast(new InFlightBatch(batchedDocs, outcome));
+    inFlightBatches.addLast(new InFlightBatch(batchedDocs, ids, outcome));
+    inFlightIds.addAll(ids);
+  }
+
+  private boolean overlapsInFlight(Set<String> ids) {
+    for (String id : ids) {
+      if (inFlightIds.contains(id)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -134,6 +160,7 @@ class ConcurrentDispatcher implements BatchDispatcher {
   // Waits for the oldest in-flight batch's send to finish and completes it, on the indexer thread.
   private void completeOldest() {
     InFlightBatch oldest = inFlightBatches.removeFirst();
+    inFlightIds.removeAll(oldest.ids());
     batchCompleter.accept(oldest.docs(), awaitOutcome(oldest.outcome()));
   }
 

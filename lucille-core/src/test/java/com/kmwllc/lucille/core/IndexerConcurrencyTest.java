@@ -11,6 +11,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,30 +57,30 @@ public class IndexerConcurrencyTest {
   @Test
   public void testCompletionFollowsDispatchOrder() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
-    // maxConcurrentBatches = 2, batchSize = 1, so a and b can be in flight at once as separate batches.
+    // maxConcurrentBatches = 2, batchSize = 1, so doc1 and doc2 can be in flight at once as separate batches.
     indexer = new ControlledIndexer(config(2), messenger);
     // Hold both sends open so neither can finish until we say so.
-    indexer.blockSendsFor("a", "b");
-    // Add a then b to the messenger's in-memory FIFO queue and start the indexer thread; it polls and dispatches them
-    // in that order.
-    queueDocsAndStartIndexer("a", "b");
+    indexer.blockSendsFor("doc1", "doc2");
+    // Add doc1 then doc2 to the messenger's in-memory FIFO queue and start the indexer thread; it polls and dispatches
+    // them in that order.
+    queueDocsAndStartIndexer("doc1", "doc2");
     // Wait until both sends are actually running on the pool, i.e. both batches are in flight.
-    awaitUntil(() -> indexer.hasStartedSends("a", "b"));
+    awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
 
-    // Let b's send finish first, while a's is still blocked.
-    indexer.releaseSends("b");
-    // Wait until b's send has returned, so the only thing stopping b's completion is a being unfinished.
-    awaitUntil(() -> indexer.hasFinishedSend("b"));
-    // Let a full poll cycle pass, giving the indexer the chance to (wrongly) complete b if ordering were not enforced.
+    // Let doc2's send finish first, while doc1's is still blocked.
+    indexer.releaseSends("doc2");
+    // Wait until doc2's send has returned, so the only thing stopping doc2's completion is doc1 being unfinished.
+    awaitUntil(() -> indexer.hasFinishedSend("doc2"));
+    // Let a full poll cycle pass, giving the indexer the chance to (wrongly) complete doc2 if ordering were not enforced.
     awaitFullPollCycle(messenger);
-    // b must not be completed yet: completion is in dispatch order, and a (dispatched first) has not finished.
-    assertEquals("b finished first but must not complete ahead of a", List.of(), messenger.completedBatches());
+    // doc2 must not be completed yet: completion is in dispatch order, and doc1 (dispatched first) has not finished.
+    assertEquals("doc2 finished first but must not complete ahead of doc1", List.of(), messenger.completedBatches());
 
-    // Now let a finish; a then b should complete, in dispatch order.
-    indexer.releaseSends("a");
+    // Now let doc1 finish; doc1 then doc2 should complete, in dispatch order.
+    indexer.releaseSends("doc1");
     // Wait for both completions to be recorded.
     awaitUntil(() -> messenger.completedBatches().size() == 2);
-    assertEquals(List.of("a", "b"), messenger.completedBatches());
+    assertEquals(List.of("doc1", "doc2"), messenger.completedBatches());
     // Both sends really did overlap, confirming the test exercised concurrency rather than serial sends.
     assertEquals(2, indexer.peakConcurrentSends());
   }
@@ -89,38 +90,113 @@ public class IndexerConcurrencyTest {
     RecordingMessenger messenger = new RecordingMessenger();
     // Window of 2: at most two batches may be in flight at once.
     indexer = new ControlledIndexer(config(2), messenger);
-    // Hold a, b, and c open so we control when the window frees up.
-    indexer.blockSendsFor("a", "b", "c");
+    // Hold doc1, doc2, and doc3 open so we control when the window frees up.
+    indexer.blockSendsFor("doc1", "doc2", "doc3");
     // Add four docs to the messenger's in-memory FIFO queue; polling them in order, the indexer fills the window with
-    // a and b, then tries to dispatch c.
-    queueDocsAndStartIndexer("a", "b", "c", "d");
-    // Wait until the window is full (a and b both in flight).
-    awaitUntil(() -> indexer.hasStartedSends("a", "b"));
+    // doc1 and doc2, then tries to dispatch doc3.
+    queueDocsAndStartIndexer("doc1", "doc2", "doc3", "doc4");
+    // Wait until the window is full (doc1 and doc2 both in flight).
+    awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
 
-    // Wait until the indexer thread is blocked in dispatch (it has stopped polling): dispatching c must wait for a slot.
+    // Wait until the indexer thread is blocked in dispatch (it has stopped polling): dispatching doc3 must wait for a
+    // slot.
     awaitBlockedInDispatch();
-    // c must not have started, because the window is full and no in-flight batch has finished.
-    assertFalse("c must not start while the window is full", indexer.hasStartedSend("c"));
+    // doc3 must not have started, because the window is full and no in-flight batch has finished.
+    assertFalse("doc3 must not start while the window is full", indexer.hasStartedSend("doc3"));
     // The cap held: never more than two sends ran at once.
     assertEquals("never more than maxConcurrentBatches in flight", 2, indexer.peakConcurrentSends());
 
-    // Finish a, freeing one slot; c can now be dispatched and start.
-    indexer.releaseSends("a");
-    awaitUntil(() -> indexer.hasStartedSend("c"));
+    // Finish doc1, freeing one slot; doc3 can now be dispatched and start.
+    indexer.releaseSends("doc1");
+    awaitUntil(() -> indexer.hasStartedSend("doc3"));
 
     // Finish the rest; all four batches should complete in dispatch order.
-    indexer.releaseSends("b", "c");
+    indexer.releaseSends("doc2", "doc3");
     awaitUntil(() -> messenger.completedBatches().size() == 4);
-    assertEquals(List.of("a", "b", "c", "d"), messenger.completedBatches());
+    assertEquals(List.of("doc1", "doc2", "doc3", "doc4"), messenger.completedBatches());
     // The cap still held across the whole run.
     assertEquals(2, indexer.peakConcurrentSends());
+  }
+
+  @Test
+  public void testOverlappingDestinationIdsCannotBeInFlightTogether() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    // Window of 3, so capacity is not the limiting factor here — only id overlap is.
+    indexer = new ControlledIndexer(config(3), messenger);
+    // parentA and parentB each write a child document with id "sharedChild", so their destination id sets overlap.
+    // disjointDoc shares no id with either.
+    indexer.messenger().queueDoc(docWithChild("parentA", "sharedChild"));
+    indexer.messenger().queueDoc(Document.create("disjointDoc"));
+    indexer.messenger().queueDoc(docWithChild("parentB", "sharedChild"));
+    indexer.blockSendsFor("parentA", "disjointDoc", "parentB");
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    // parentA and disjointDoc share no destination id, so both go in flight.
+    awaitUntil(() -> indexer.hasStartedSends("parentA", "disjointDoc"));
+    // The indexer blocks dispatching parentB, since it writes "sharedChild", which parentA (still in flight) also writes.
+    awaitBlockedInDispatch();
+    assertFalse("parentB must wait: it shares the child id \"sharedChild\" with the in-flight parentA",
+        indexer.hasStartedSend("parentB"));
+
+    // Finishing parentA clears the overlap; parentB can now start.
+    indexer.releaseSends("parentA");
+    awaitUntil(() -> indexer.hasStartedSend("parentB"));
+
+    indexer.releaseSends("disjointDoc", "parentB");
+    awaitUntil(() -> messenger.completedBatches().size() == 3);
+    assertEquals(List.of("parentA", "disjointDoc", "parentB"), messenger.completedBatches());
+  }
+
+  @Test
+  public void testIdOverrideFieldDeterminesOverlap() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    // With idOverrideField set, a document's destination id is the value of that field, not its document id.
+    indexer = new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")), messenger);
+    // firstDoc and secondDoc have different document ids but the same destination id ("sharedDestId"), via the
+    // override field, so they must not overlap.
+    Document firstDoc = Document.create("firstDoc");
+    firstDoc.setField("destId", "sharedDestId");
+    Document secondDoc = Document.create("secondDoc");
+    secondDoc.setField("destId", "sharedDestId");
+    indexer.messenger().queueDoc(firstDoc);
+    indexer.messenger().queueDoc(secondDoc);
+    indexer.blockSendsFor("firstDoc", "secondDoc");
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    // firstDoc goes in flight; secondDoc must wait, since it writes the same destination id "sharedDestId".
+    awaitUntil(() -> indexer.hasStartedSend("firstDoc"));
+    awaitBlockedInDispatch();
+    assertFalse("secondDoc must wait: it writes the same destination id as firstDoc",
+        indexer.hasStartedSend("secondDoc"));
+
+    indexer.releaseSends("firstDoc");
+    awaitUntil(() -> indexer.hasStartedSend("secondDoc"));
+    indexer.releaseSends("secondDoc");
+    awaitUntil(() -> messenger.completedBatches().size() == 2);
+    assertEquals(List.of("firstDoc", "secondDoc"), messenger.completedBatches());
   }
 
   // --- helpers ---
 
   private static Config config(int maxConcurrentBatches) {
-    return ConfigFactory.parseMap(Map.of(
+    return config(maxConcurrentBatches, Map.of());
+  }
+
+  /** Base config (batchSize 1, short batchTimeout) with the given maxConcurrentBatches, plus any extra settings. */
+  private static Config config(int maxConcurrentBatches, Map<String, Object> extraSettings) {
+    Map<String, Object> settings = new HashMap<>(Map.of(
         "indexer.batchSize", 1, "indexer.batchTimeout", 20, "indexer.maxConcurrentBatches", maxConcurrentBatches));
+    settings.putAll(extraSettings);
+    return ConfigFactory.parseMap(settings);
+  }
+
+  /** A document with the given id that carries one child document with the given child id. */
+  private static Document docWithChild(String docId, String childId) {
+    Document doc = Document.create(docId);
+    doc.addChild(Document.create(childId));
+    return doc;
   }
 
   /** Queues a document for each of the given ids on the messenger, then starts the indexer thread. */
