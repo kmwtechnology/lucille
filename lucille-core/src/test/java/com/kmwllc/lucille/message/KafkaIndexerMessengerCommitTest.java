@@ -52,6 +52,68 @@ public class KafkaIndexerMessengerCommitTest {
     assertEquals(Long.valueOf(2L), committedOffset(consumer));
   }
 
+  @Test
+  public void testRevokedAndReassignedPartitionIsNotRewound() throws Exception {
+    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
+    consumer.setMaxPollRecords(1);
+    TopicPartition p0 = new TopicPartition(TOPIC, 0);
+    TopicPartition p1 = new TopicPartition(TOPIC, 1);
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config(), "pipeline1", consumer);
+    consumer.rebalance(Set.of(p0, p1));
+    consumer.updateBeginningOffsets(Map.of(p0, 0L, p1, 0L));
+
+    // Poll two records from p0 and one from p1 under this assignment.
+    consumer.addRecord(record(p0, 0));
+    Document p0First = messenger.pollDocToIndex();
+    consumer.addRecord(record(p0, 1));
+    Document p0Second = messenger.pollDocToIndex();
+    consumer.addRecord(record(p1, 0));
+    Document p1First = messenger.pollDocToIndex();
+
+    // p0 is revoked, reassigned to another consumer which indexes further and commits offset 10, then p0 comes back.
+    consumer.rebalance(Set.of(p1));
+    consumer.commitSync(Map.of(p0, new OffsetAndMetadata(10)));
+    consumer.rebalance(Set.of(p0, p1));
+
+    // Our stale batches complete. p0's records were polled under the earlier assignment, so committing their offsets
+    // would rewind p0 from 10 back to 2 — this must not happen. p1 is still ours from the same assignment, so it
+    // commits normally.
+    messenger.batchComplete(java.util.List.of(p0First, p0Second, p1First));
+    assertEquals(10L, consumer.committed(Set.of(p0)).get(p0).offset());
+    assertEquals(1L, consumer.committed(Set.of(p1)).get(p1).offset());
+  }
+
+  @Test
+  public void testFailedCommitIsRetainedAndRetried() throws Exception {
+    java.util.concurrent.atomic.AtomicInteger failuresRemaining = new java.util.concurrent.atomic.AtomicInteger(1);
+    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST) {
+      @Override
+      public synchronized void commitSync(Map<TopicPartition, OffsetAndMetadata> offsets) {
+        if (failuresRemaining.getAndDecrement() > 0) {
+          throw new org.apache.kafka.clients.consumer.CommitFailedException("simulated commit failure");
+        }
+        super.commitSync(offsets);
+      }
+    };
+    consumer.setMaxPollRecords(1);
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config(), "pipeline1", consumer);
+    consumer.rebalance(Set.of(PARTITION_0));
+    consumer.updateBeginningOffsets(Map.of(PARTITION_0, 0L));
+    consumer.addRecord(record(0));
+    Document first = messenger.pollDocToIndex();
+    consumer.addRecord(record(1));
+    Document second = messenger.pollDocToIndex();
+
+    // The first batch's commit fails; the offset must be retained, not lost, so nothing is committed yet.
+    org.junit.Assert.assertThrows(org.apache.kafka.clients.consumer.CommitFailedException.class,
+        () -> messenger.batchComplete(java.util.List.of(first)));
+    assertNull(committedOffset(consumer));
+
+    // Completing the next batch retries the retained offset together with the new one; the commit now succeeds at 2.
+    messenger.batchComplete(java.util.List.of(second));
+    assertEquals(Long.valueOf(2L), committedOffset(consumer));
+  }
+
   private static Config config() {
     return ConfigFactory.parseMap(Map.of(
         "kafka.bootstrapServers", "localhost:9092",
@@ -61,13 +123,18 @@ public class KafkaIndexerMessengerCommitTest {
         "kafka.events", false));
   }
 
-  // A destination-topic record whose value is a KafkaDocument carrying its own Kafka metadata.
+  // A destination-topic record on partition 0 whose value is a KafkaDocument carrying its own Kafka metadata.
   private static ConsumerRecord<String, KafkaDocument> record(long offset) {
-    String id = "doc" + offset;
+    return record(PARTITION_0, offset);
+  }
+
+  // A destination-topic record on the given partition whose value is a KafkaDocument carrying its own Kafka metadata.
+  private static ConsumerRecord<String, KafkaDocument> record(TopicPartition partition, long offset) {
+    String id = "doc-" + partition.partition() + "-" + offset;
     try {
       KafkaDocument doc = new KafkaDocument(
-          new ConsumerRecord<>(TOPIC, 0, offset, id, Document.create(id, "run1").toString()));
-      return new ConsumerRecord<>(TOPIC, 0, offset, id, doc);
+          new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, Document.create(id, "run1").toString()));
+      return new ConsumerRecord<>(partition.topic(), partition.partition(), offset, id, doc);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
