@@ -198,4 +198,27 @@ public class KafkaUtilsTest {
     Config listPropConfig = ConfigFactory.load("KafkaUtilsTest/list-arbitrary.conf");
     assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createProducerProps(listPropConfig));
   }
+
+  @Test
+  public void testDocumentConsumerRejectsAutoCommit() {
+    // The indexer commits destination-topic offsets on batch completion; auto-commit would commit them at poll time
+    // (before indexing) and could skip documents on a crash. An override that re-enables it must fail fast rather than
+    // silently undermine the design.
+    Config autoCommitOn = ConfigFactory.parseString(
+        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalSecs: 300, consumerGroupId: \"test\", "
+        + "consumer { enable.auto.commit: true } }");
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> KafkaUtils.createDocumentConsumer(autoCommitOn, "test-client"));
+    assertTrue(e.getMessage().contains("enable.auto.commit"));
+  }
+
+  @Test
+  public void testDocumentConsumerAllowsExplicitlyDisabledAutoCommit() {
+    // Explicitly setting it to the required value must be accepted (constructing the consumer connects lazily, so this
+    // does not require a running broker).
+    Config autoCommitOff = ConfigFactory.parseString(
+        "kafka { bootstrapServers: \"localhost:9092\", maxPollIntervalSecs: 300, consumerGroupId: \"test\", "
+        + "consumer { enable.auto.commit: false } }");
+    KafkaUtils.createDocumentConsumer(autoCommitOff, "test-client").close();
+  }
 }

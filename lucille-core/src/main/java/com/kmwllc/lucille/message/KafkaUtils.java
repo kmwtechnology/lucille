@@ -151,11 +151,28 @@ public class KafkaUtils {
    */
   public static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Config config, String clientId) {
     Properties consumerProps = createConsumerProps(config, clientId);
+    requireAutoCommitDisabled(consumerProps);
     String deserializerClass = config.hasPath("kafka.documentDeserializer")
         ? config.getString("kafka.documentDeserializer")
         : KafkaDocumentDeserializer.class.getName();
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
     return new KafkaConsumer<>(consumerProps);
+  }
+
+  /**
+   * Fails fast if the document consumer would auto-commit offsets. The indexer commits destination-topic offsets only
+   * once a batch has completed (at-least-once); auto-commit would instead commit at poll time, before the documents are
+   * indexed, so a crash would skip them (at-most-once). The default built here is {@code false}, but a
+   * {@code kafka.consumerPropertyFile} or a {@code kafka.consumer.enable.auto.commit} override could re-enable it, which
+   * must not be allowed to pass silently.
+   */
+  private static void requireAutoCommitDisabled(Properties consumerProps) {
+    Object autoCommit = consumerProps.get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
+    if (autoCommit != null && Boolean.parseBoolean(autoCommit.toString().trim())) {
+      throw new IllegalArgumentException(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + " must be false for the indexer's "
+          + "document consumer: offsets are committed on batch completion, and auto-commit would commit them at poll "
+          + "time (before indexing), which could skip documents on a crash. Remove the override that enables it.");
+    }
   }
 
   /**
