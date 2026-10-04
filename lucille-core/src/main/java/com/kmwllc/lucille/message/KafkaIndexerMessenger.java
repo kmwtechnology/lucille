@@ -7,14 +7,18 @@ import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class KafkaIndexerMessenger implements IndexerMessenger {
@@ -26,9 +30,13 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final Config config;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
+    this(config, pipelineName, KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-indexer-" + pipelineName));
+  }
+
+  // For tests: allows a MockConsumer (or other test double) to be supplied in place of the real Kafka consumer.
+  KafkaIndexerMessenger(Config config, String pipelineName, Consumer<String, KafkaDocument> destConsumer) {
     this.pipelineName = pipelineName;
-    String kafkaClientId = "com.kmwllc.lucille-indexer-" + pipelineName;
-    this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
+    this.destConsumer = destConsumer;
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
@@ -42,9 +50,9 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
-      // offsets are committed synchronously to ensure that offsets are successfully committed and to reduce the likelihood of duplicate events being sent to the event topic.
-      // This reduces the number of documents that might be reindexed in the event of an indexer crash/restart or in the case of a consumer group reblance.
-      destConsumer.commitSync();
+      // Offsets are not committed here. Committing at poll, before the document is indexed, is at-most-once: a crash
+      // after the commit but before indexing would skip the document entirely. Instead the offset is committed in
+      // batchComplete, once the document has been indexed and its events emitted (at-least-once).
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
@@ -111,8 +119,35 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     destConsumer.close();
   }
 
+  /**
+   * Commits the destination-topic offsets of a completed batch. For each partition represented in the batch, commits
+   * the offset after that partition's last record in the batch (the next offset to read). Because the Indexer completes
+   * batches in the order it dispatched them, every record below a committed offset has been indexed, so a committed
+   * offset is safe: a crash re-reads from it and loses nothing. Delivery is at-least-once — records polled but not yet
+   * committed are re-delivered (and re-indexed, idempotently) after a crash or rebalance.
+   */
   @Override
   public void batchComplete(List<Document> batch) throws Exception {
+    if (batch.isEmpty()) {
+      return;
+    }
+    Map<TopicPartition, OffsetAndMetadata> offsets = new HashMap<>();
+    for (Document doc : batch) {
+      if (!(doc instanceof KafkaDocument)) {
+        continue;
+      }
+      KafkaDocument kafkaDoc = (KafkaDocument) doc;
+      TopicPartition partition = new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition());
+      // The committed offset is the offset of the next record to read, so add one to the last record processed.
+      long nextOffset = kafkaDoc.getOffset() + 1;
+      OffsetAndMetadata current = offsets.get(partition);
+      if (current == null || current.offset() < nextOffset) {
+        offsets.put(partition, new OffsetAndMetadata(nextOffset));
+      }
+    }
+    if (!offsets.isEmpty()) {
+      destConsumer.commitSync(offsets);
+    }
   }
 
 }
