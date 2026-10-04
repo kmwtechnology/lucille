@@ -410,6 +410,9 @@ public class IndexerConcurrencyTest {
   public void testErrorFromSendDoesNotCompleteTheBatch() throws Exception {
     // An Error means the batch's documents were never indexed. The batch must NOT be marked complete: with
     // commit-on-completion, completing it would commit the offsets of unindexed documents and silently lose them.
+    // But a FAIL event must still be sent for every document, so the run's publisher stops tracking them and does not
+    // hang forever (which would otherwise happen in every deployment mode, including local where batchComplete is a
+    // no-op and there is no offset replay to recover the batch).
     for (int maxConcurrentBatches : new int[] {1, 2}) {
       RecordingMessenger messenger = new RecordingMessenger();
       ControlledIndexer controlled = new ControlledIndexer(config(maxConcurrentBatches), messenger);
@@ -420,6 +423,8 @@ public class IndexerConcurrencyTest {
       assertThrows(OutOfMemoryError.class, () -> controlled.run(1));
       assertTrue("an Error must not mark the batch complete (K=" + maxConcurrentBatches + ")",
           messenger.completedBatches().isEmpty());
+      assertEquals("an Error must still FAIL its documents so the run can terminate (K=" + maxConcurrentBatches + ")",
+          List.of("FAIL:doc1"), messenger.sentEvents());
       indexer = null;
     }
   }

@@ -560,8 +560,12 @@ public abstract class Indexer implements Runnable {
    */
   private void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
     // An Error (OutOfMemoryError, etc.) means the send did not run to a defined conclusion — the batch's documents were
-    // not indexed. The batch must NOT be marked complete: with commit-on-completion that would commit offsets for
-    // documents that were never indexed, silently losing them. So completion is skipped for an Error (set below).
+    // not indexed. Two things must happen on that path, and they are deliberately split:
+    //  - FAIL events are still sent for every document, so the run's publisher stops tracking them and does not hang
+    //    waiting for completions that will never come. (This is the Exception path's behavior too.)
+    //  - batchComplete is NOT called, so a commit-on-completion messenger (Kafka/Hybrid) does not commit offsets for
+    //    documents that were never indexed; they stay uncommitted and are re-delivered on restart rather than lost.
+    //    (markComplete is set false below.)
     boolean markComplete = true;
     try {
       if (outcome.error() != null) {
@@ -598,19 +602,19 @@ public abstract class Indexer implements Runnable {
         log.error("Error sending completion events for docs {}. RUN WILL HANG.", docIds, e);
       }
     } catch (Throwable t) {
-      // Rethrow Errors (OutOfMemoryError, etc.) — they should never be swallowed, and the batch must not be marked
-      // complete (its documents were not indexed; committing their offsets would lose them).
+      // Either way, nothing (or essentially nothing) was indexed, so every document is treated as failed: send a FAIL
+      // event for each so the publisher stops tracking it and the run can terminate rather than hang.
+      String message = t.getMessage();
+      log.error("Error sending documents to index: {}", message, t);
+      for (Document d : batchedDocs) {
+        sendFailEvent(d, message);
+      }
+      // An Error (OutOfMemoryError, etc.) must never be swallowed, and must not mark the batch complete — the documents
+      // were not indexed, so committing their offsets would lose them. FAIL events were still sent just above, so the
+      // run does not hang; the uncommitted offsets let a Kafka/Hybrid messenger re-deliver the batch on restart.
       if (t instanceof Error) {
         markComplete = false;
         throw (Error) t;
-      }
-      Exception e = (t instanceof Exception) ? (Exception) t : new RuntimeException(t);
-      // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing) to be indexed.
-      // So everything is considered to have failed - we won't even look at failedDocs.
-      log.error("Error sending documents to index: {}", e.getMessage(), e);
-
-      for (Document d : batchedDocs) {
-        sendFailEvent(d, e.getMessage());
       }
     } finally {
       // Mark the batch complete for a normal outcome or a (handled) Exception, where the batch ran to a defined
