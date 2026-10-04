@@ -18,11 +18,13 @@ import org.slf4j.LoggerFactory;
  * the batch completes (at-least-once) rather than when its documents were polled. This is what makes a crash re-deliver
  * documents rather than lose them.
  *
- * <p> Correctness, given that the Indexer completes batches in the order it dispatched them:
+ * <p> Correctness:
  * <ul>
- *   <li><b>No lost document.</b> Every record polled before this batch's last record went into this batch or an earlier
- *   one, so when this batch completes, every record below its committed offset has been indexed. A crash re-reads from
- *   the committed offset and loses nothing.</li>
+ *   <li><b>No lost document.</b> Per partition, the committed offset is a <i>frontier</i>: it advances only across a
+ *   contiguous run of completed offsets, so every record below it has been indexed. It never passes an uncompleted
+ *   earlier record — which can arise from out-of-order completion generally, and specifically from MultiBatch, where
+ *   per-index sub-batches let a higher-offset record complete while a lower-offset one is still unflushed. A crash
+ *   re-reads from the frontier and loses nothing. (This holds independently of the order in which batches complete.)</li>
  *   <li><b>No rewind of another consumer.</b> Only partitions still assigned to this consumer are committed, and offsets
  *   of records polled under an earlier assignment of a partition (revoked and possibly reassigned since) are dropped,
  *   because another consumer may have committed further. Dropping an offset only re-delivers its records.</li>
@@ -39,8 +41,18 @@ class OffsetCommitTracker {
 
   private final Consumer<?, ?> consumer;
 
+  // Per assigned partition, the lowest offset polled but not yet absorbed into the commit frontier. Used to seed the
+  // frontier (the consumer resumes contiguously from its committed position, so the lowest polled offset is that
+  // position) and to decide staleness after a rebalance.
+  private final Map<TopicPartition, Long> lowestPolled = new HashMap<>();
   // Per assigned partition, the offset after the last record polled in the current assignment.
   private final Map<TopicPartition, Long> polledThrough = new HashMap<>();
+  // Per partition, the commit frontier: the next offset to commit, below which every record has completed. Advances
+  // only across a contiguous run of completed offsets, so it never passes an uncompleted earlier record (as can happen
+  // with MultiBatch per-index flushing, or any out-of-order completion).
+  private final Map<TopicPartition, Long> committedThrough = new HashMap<>();
+  // Per partition, completed offsets at or above the frontier, waiting for the gap below them to fill.
+  private final Map<TopicPartition, java.util.NavigableSet<Long>> completedAhead = new HashMap<>();
   // Per partition revoked or lost, the polled-through offset when it was taken away. A batch whose commit offset is at
   // or below this holds records from an earlier assignment and must not be committed.
   private final Map<TopicPartition, Long> staleThrough = new HashMap<>();
@@ -59,9 +71,14 @@ class OffsetCommitTracker {
   /** Records that the given partition has been polled through the given offset (the offset after the polled record). */
   void recordPolled(TopicPartition partition, long nextOffset) {
     polledThrough.put(partition, nextOffset);
+    // Remember the lowest offset still outstanding on this partition, used to seed the commit frontier.
+    lowestPolled.putIfAbsent(partition, nextOffset - 1);
   }
 
-  /** Records the offsets of a completed batch and commits all pending offsets. See the class javadoc for correctness. */
+  /**
+   * Records the offsets of a completed batch and commits each partition's frontier — the offset below which every
+   * record has completed. See the class javadoc for why this cannot skip an uncompleted earlier record.
+   */
   void batchCompleted(List<Document> batch) {
     for (Document doc : batch) {
       if (!(doc instanceof KafkaDocument)) {
@@ -69,20 +86,36 @@ class OffsetCommitTracker {
       }
       KafkaDocument kafkaDoc = (KafkaDocument) doc;
       TopicPartition partition = new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition());
-      // The committed offset is the offset of the next record to read, so add one to the last record processed.
-      long nextOffset = kafkaDoc.getOffset() + 1;
+      long offset = kafkaDoc.getOffset();
       // Skip records polled under an earlier assignment of this partition: committing them could rewind a consumer that
       // owns the partition now.
       Long stale = staleThrough.get(partition);
-      if (stale != null && nextOffset <= stale) {
+      if (stale != null && offset + 1 <= stale) {
         continue;
       }
-      OffsetAndMetadata current = pendingOffsets.get(partition);
-      if (current == null || current.offset() < nextOffset) {
-        pendingOffsets.put(partition, new OffsetAndMetadata(nextOffset));
-      }
+      recordCompleted(partition, offset);
     }
     commitPending();
+  }
+
+  // Marks one offset complete and advances the partition's frontier across any now-contiguous run of completed offsets.
+  private void recordCompleted(TopicPartition partition, long offset) {
+    // The frontier starts at the partition's resume position: the lowest offset we have polled on it. The consumer
+    // reads contiguously from its committed offset, so nothing below that lowest polled offset is ours to commit.
+    long frontier = committedThrough.computeIfAbsent(partition,
+        p -> lowestPolled.getOrDefault(p, offset));
+    java.util.NavigableSet<Long> ahead = completedAhead.computeIfAbsent(partition, p -> new java.util.TreeSet<>());
+    ahead.add(offset);
+    // Absorb completed offsets while they are contiguous from the frontier.
+    while (ahead.remove(frontier)) {
+      frontier++;
+    }
+    committedThrough.put(partition, frontier);
+    // The committed offset is the next offset to read, which is exactly the frontier.
+    OffsetAndMetadata current = pendingOffsets.get(partition);
+    if (current == null || current.offset() < frontier) {
+      pendingOffsets.put(partition, new OffsetAndMetadata(frontier));
+    }
   }
 
   /** Commits any offsets of completed batches not yet committed. Called on a clean shutdown. */
@@ -143,10 +176,14 @@ class OffsetCommitTracker {
     public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
     }
 
-    // Records polled under the current assignment of these partitions become stale, and any pending offset is dropped.
+    // Records polled under the current assignment of these partitions become stale, and the partition's per-assignment
+    // state (frontier, completed-ahead, pending offset, lowest-polled) is dropped so a later re-assignment starts fresh.
     private void forget(Collection<TopicPartition> partitions) {
       for (TopicPartition partition : partitions) {
         pendingOffsets.remove(partition);
+        committedThrough.remove(partition);
+        completedAhead.remove(partition);
+        lowestPolled.remove(partition);
         Long polled = polledThrough.remove(partition);
         if (polled != null) {
           staleThrough.merge(partition, polled, Math::max);

@@ -54,6 +54,35 @@ public class KafkaIndexerMessengerCommitTest {
   }
 
   @Test
+  public void testCommitDoesNotSkipAnUncompletedEarlierOffset() throws Exception {
+    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
+    consumer.setMaxPollRecords(1);
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config(), "pipeline1", consumer);
+    consumer.rebalance(Set.of(PARTITION_0));
+    consumer.updateBeginningOffsets(Map.of(PARTITION_0, 0L));
+    consumer.addRecord(record(0));
+    consumer.addRecord(record(1));
+    consumer.addRecord(record(2));
+
+    // Poll three records on one partition. (With indexOverrideField, these could be destined for different indexes and
+    // so complete out of offset order — this test completes them in such an order directly.)
+    Document offset0 = messenger.pollDocToIndex();
+    Document offset1 = messenger.pollDocToIndex();
+    Document offset2 = messenger.pollDocToIndex();
+
+    // Complete offset 0, then offset 2, leaving offset 1 still in flight. The committed offset must not pass 1: a crash
+    // now must re-deliver offset 1, not skip it. (Committing 3 here would lose offset 1 — the bug this guards against.)
+    messenger.batchComplete(java.util.List.of(offset0));
+    assertEquals(Long.valueOf(1L), committedOffset(consumer));
+    messenger.batchComplete(java.util.List.of(offset2));
+    assertEquals("must not commit past the uncompleted offset 1", Long.valueOf(1L), committedOffset(consumer));
+
+    // Completing offset 1 fills the gap, so the commit advances past all three contiguous offsets to 3.
+    messenger.batchComplete(java.util.List.of(offset1));
+    assertEquals(Long.valueOf(3L), committedOffset(consumer));
+  }
+
+  @Test
   public void testRevokedAndReassignedPartitionIsNotRewound() throws Exception {
     MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
     consumer.setMaxPollRecords(1);
