@@ -355,6 +355,34 @@ public class IndexerConcurrencyTest {
         elapsedMs < 5000);
   }
 
+  @Test
+  public void testSlowSynchronousSendDoesNotSplitBatches() throws Exception {
+    assertFullBatchesDespiteSlowSends(1);
+  }
+
+  @Test
+  public void testWaitForFreeSlotDoesNotSplitBatches() throws Exception {
+    assertFullBatchesDespiteSlowSends(2);
+  }
+
+  // A send slower than batchTimeout must not make the next add flush the leftover document as a batch of its own: time
+  // the indexer thread spends blocked sending (K=1) or waiting for a free slot (K>1) is excluded from the batch timer.
+  private void assertFullBatchesDespiteSlowSends(int maxConcurrentBatches) throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    ControlledIndexer controlled = new ControlledIndexer(
+        config(maxConcurrentBatches, Map.of("indexer.batchSize", 2, "indexer.batchTimeout", 50)), messenger);
+    indexer = controlled;
+    // Each send takes far longer than the 50 ms batchTimeout.
+    controlled.setSendDelayMs(200);
+    for (String docId : List.of("doc1", "doc2", "doc3", "doc4", "doc5", "doc6")) {
+      messenger.queueDoc(Document.create(docId));
+    }
+
+    controlled.run(6);
+    // Batches must stay full (two docs each), not fragment into singles because a slow send let the timer expire.
+    assertEquals(List.of("doc1,doc2", "doc3,doc4", "doc5,doc6"), messenger.completedBatches());
+  }
+
   // --- helpers ---
 
   private static Config config(int maxConcurrentBatches) {
@@ -474,6 +502,8 @@ public class IndexerConcurrencyTest {
     private final AtomicInteger concurrentSends = new AtomicInteger();
     // Per document id, a latch its send waits on; absent means the send does not block.
     private final Map<String, CountDownLatch> sendLatches = new ConcurrentHashMap<>();
+    // When positive, every send sleeps this many milliseconds (simulating a slow destination).
+    private volatile long sendDelayMs = 0;
     // Per document id, a Throwable its send should throw (after any latch is released) instead of succeeding.
     private final Map<String, Throwable> sendFailures = new ConcurrentHashMap<>();
 
@@ -509,6 +539,11 @@ public class IndexerConcurrencyTest {
     /** Makes the send of the given document id throw the given Throwable (after any latch is released). */
     void failSend(String docId, Throwable failure) {
       sendFailures.put(docId, failure);
+    }
+
+    /** Makes every send sleep this many milliseconds, simulating a slow destination. */
+    void setSendDelayMs(long sendDelayMs) {
+      this.sendDelayMs = sendDelayMs;
     }
 
     /** Whether the sends of all the given document ids have begun. */
@@ -561,6 +596,9 @@ public class IndexerConcurrencyTest {
         CountDownLatch latch = sendLatches.get(docId);
         if (latch != null && !latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
           throw new IllegalStateException("send latch for " + docId + " was never released");
+        }
+        if (sendDelayMs > 0) {
+          Thread.sleep(sendDelayMs);
         }
         // A configured failure is held as a Throwable, which cannot be rethrown directly (sendToIndex declares only
         // throws Exception, not Throwable). Split by type so each is thrown as itself: Error unchecked, Exception as the

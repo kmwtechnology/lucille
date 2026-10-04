@@ -332,4 +332,31 @@ public class SingleBatchTest {
     assertEquals("b2", finalFlush.get(0).getId());
   }
 
+  /**
+   * Test that excludeFromTimeout keeps a batch from expiring for the excluded span: after adding a doc and sleeping
+   * past the timeout, excluding at least the elapsed time means flushIfExpired() does not flush.
+   */
+  @Test
+  public void testExcludeFromTimeout() throws InterruptedException {
+    SingleBatch batch = new SingleBatch(100, Long.MAX_VALUE, 20);
+    assertTrue(batch.add(Document.create("doc1")).isEmpty());
+
+    TimeUnit.MILLISECONDS.sleep(40);
+    // Without excluding the elapsed time, the batch would now be expired (40 ms > 20 ms timeout). Excluding 1000 ms
+    // pushes the reference instant well into the future, so the batch is not expired.
+    batch.excludeFromTimeout(1000);
+    assertTrue("excluded time must not count toward expiry", batch.flushIfExpired().isEmpty());
+  }
+
+  @Test
+  public void testExpiryResumesAfterExcludedSpan() throws InterruptedException {
+    SingleBatch batch = new SingleBatch(100, Long.MAX_VALUE, 20);
+    assertTrue(batch.add(Document.create("doc1")).isEmpty());
+
+    // Exclude only a short span, then sleep well past both that span and the timeout: the batch expires normally.
+    batch.excludeFromTimeout(20);
+    TimeUnit.MILLISECONDS.sleep(80);
+    assertEquals(1, batch.flushIfExpired().size());
+  }
+
 }

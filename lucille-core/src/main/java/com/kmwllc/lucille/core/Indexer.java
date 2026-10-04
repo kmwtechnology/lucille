@@ -506,7 +506,12 @@ public abstract class Indexer implements Runnable {
       return;
     }
 
+    // dispatch() blocks while this thread sends the batch (synchronous) or waits for a free slot (concurrent). No
+    // document can be added during that time, so exclude it from the batch timer; otherwise the next add would see an
+    // expired batch and flush a partly filled one, often as a single-document bulk.
+    long blockedStartNanos = System.nanoTime();
     dispatcher.dispatch(batchedDocs);
+    batch.excludeFromTimeout((System.nanoTime() - blockedStartNanos) / 1_000_000);
   }
 
   /**

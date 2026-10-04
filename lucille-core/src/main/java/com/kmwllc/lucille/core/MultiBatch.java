@@ -66,4 +66,13 @@ public class MultiBatch implements Batch {
   public int getCapacity() {
     return capacity;
   }
+
+  @Override
+  public void excludeFromTimeout(long millis) {
+    // Exclude the span from every per-index sub-batch, so a rarely-touched index's batch is not expired by time the
+    // indexer spent sending other indexes' batches.
+    for (Batch batch : batches.values()) {
+      batch.excludeFromTimeout(millis);
+    }
+  }
 }

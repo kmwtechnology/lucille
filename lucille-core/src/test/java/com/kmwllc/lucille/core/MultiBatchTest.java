@@ -284,4 +284,24 @@ public class MultiBatchTest {
     assertEquals("doc3", finalFlush.get(0).getId());
     assertEquals("doc4", finalFlush.get(1).getId());
   }
+
+  /**
+   * Test that excludeFromTimeout applies to every per-index sub-batch: after adding docs to two indices and sleeping
+   * past the timeout, excluding at least the elapsed time keeps both sub-batches from expiring.
+   */
+  @Test
+  public void testExcludeFromTimeout() throws InterruptedException {
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 20, "index");
+    Document doc1 = Document.create("doc1");
+    doc1.setField("index", "index1");
+    Document doc2 = Document.create("doc2");
+    doc2.setField("index", "index2");
+    assertTrue(batch.add(doc1).isEmpty());
+    assertTrue(batch.add(doc2).isEmpty());
+
+    TimeUnit.MILLISECONDS.sleep(40);
+    // Excluding 1000 ms pushes every sub-batch's reference instant well into the future, so nothing expires.
+    batch.excludeFromTimeout(1000);
+    assertTrue("excluded time must not expire any sub-batch", batch.flushIfExpired().isEmpty());
+  }
 }
