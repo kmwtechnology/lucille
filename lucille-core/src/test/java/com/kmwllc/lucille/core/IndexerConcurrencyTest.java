@@ -356,6 +356,23 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
+  public void testPerDocumentFailureInConcurrentBatch() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    // batchSize 2, so okDoc and failedDoc go in the same batch; K=2 sends it on the pool.
+    ControlledIndexer controlled = new ControlledIndexer(config(2, Map.of("indexer.batchSize", 2)), messenger);
+    indexer = controlled;
+    // The destination rejects failedDoc individually; okDoc succeeds in the same batch.
+    controlled.failDocument("failedDoc");
+    messenger.queueDoc(Document.create("okDoc"));
+    messenger.queueDoc(Document.create("failedDoc"));
+
+    controlled.run(2);
+    // The batch completes, and events reflect the per-document split: FAIL for the rejected doc, FINISH for the other.
+    assertEquals(List.of("okDoc,failedDoc"), messenger.completedBatches());
+    assertEquals(Set.of("FAIL:failedDoc", "FINISH:okDoc"), Set.copyOf(messenger.sentEvents()));
+  }
+
+  @Test
   public void testSlowSynchronousSendDoesNotSplitBatches() throws Exception {
     assertFullBatchesDespiteSlowSends(1);
   }
@@ -506,6 +523,8 @@ public class IndexerConcurrencyTest {
     private volatile long sendDelayMs = 0;
     // Per document id, a Throwable its send should throw (after any latch is released) instead of succeeding.
     private final Map<String, Throwable> sendFailures = new ConcurrentHashMap<>();
+    // Document ids that sendToIndex reports as per-document failures (returned in the failed set, not thrown).
+    private final Set<String> failedDocIds = ConcurrentHashMap.newKeySet();
 
     ControlledIndexer(Config config, RecordingMessenger messenger) {
       super(config, messenger, false, "IndexerConcurrencyTest", "IndexerConcurrencyTest");
@@ -544,6 +563,11 @@ public class IndexerConcurrencyTest {
     /** Makes every send sleep this many milliseconds, simulating a slow destination. */
     void setSendDelayMs(long sendDelayMs) {
       this.sendDelayMs = sendDelayMs;
+    }
+
+    /** Makes sendToIndex report the given document id as a per-document failure (returned, not thrown). */
+    void failDocument(String docId) {
+      failedDocIds.add(docId);
     }
 
     /** Whether the sends of all the given document ids have begun. */
@@ -610,7 +634,12 @@ public class IndexerConcurrencyTest {
         } else if (failure instanceof Exception exception) {
           throw exception;
         }
-        return Set.of();
+        // Report any configured per-document failures as returned pairs (not thrown), as a real sendToIndex does for
+        // documents the destination rejected individually.
+        return documents.stream()
+            .filter(d -> failedDocIds.contains(d.getId()))
+            .map(d -> Pair.<Document, Exception>of(d, new IndexerException("rejected " + d.getId())))
+            .collect(Collectors.toSet());
       } finally {
         concurrentSends.decrementAndGet();
         if (!sendsFinished.contains(docId)) {
