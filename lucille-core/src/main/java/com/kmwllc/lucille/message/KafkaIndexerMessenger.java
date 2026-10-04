@@ -14,8 +14,10 @@ import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class KafkaIndexerMessenger implements IndexerMessenger {
@@ -48,6 +50,13 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    */
   @Override
   public Document pollDocToIndex() throws Exception {
+    // Undo any pause applied by keepAlive() so this poll can deliver records again. paused() reports only partitions
+    // still assigned, so partitions revoked since the pause are simply dropped from the set.
+    Set<TopicPartition> paused = destConsumer.paused();
+    if (!paused.isEmpty()) {
+      destConsumer.resume(paused);
+    }
+
     ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
@@ -63,6 +72,25 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       return doc;
     }
     return null;
+  }
+
+  /**
+   * Polls the consumer so it stays in its consumer group during a long wait, without delivering any records or moving
+   * the position {@link #pollDocToIndex()} continues from. All currently assigned partitions are paused first, so the
+   * poll returns nothing from them; {@link #pollDocToIndex()} resumes them on its next call. A partition newly assigned
+   * during this poll is not yet paused and may return a record, so the consumer seeks back to the first record returned
+   * for each such partition, leaving it to be delivered by a later {@link #pollDocToIndex()}.
+   */
+  @Override
+  public void keepAlive() throws Exception {
+    destConsumer.pause(destConsumer.assignment());
+    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(Duration.ZERO);
+    for (TopicPartition partition : consumerRecords.partitions()) {
+      List<ConsumerRecord<String, KafkaDocument>> records = consumerRecords.records(partition);
+      if (!records.isEmpty()) {
+        destConsumer.seek(partition, records.get(0).offset());
+      }
+    }
   }
 
   @Override
