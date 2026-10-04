@@ -55,6 +55,16 @@ class OffsetCommitTracker {
   private final Map<TopicPartition, java.util.NavigableSet<Long>> completedAhead = new HashMap<>();
   // Per partition revoked or lost, the polled-through offset when it was taken away. A batch whose commit offset is at
   // or below this holds records from an earlier assignment and must not be committed.
+  //
+  // Known limitation (bounded duplicate work, never data loss): this watermark is not cleared when the same consumer
+  // is later re-assigned the partition. If that happens, records the consumer re-reads from the committed offset and
+  // re-indexes under the new assignment fall at or below the watermark, so their offsets are treated as stale and not
+  // committed. If the partition then goes idle, those offsets stay uncommitted and are re-delivered (and re-indexed,
+  // idempotently) on every restart. Delivery stays at-least-once; only the duplicate re-indexing is wasted. It is left
+  // as-is deliberately: the safe alternative is per-assignment epoch tracking, and simply clearing the watermark on
+  // re-assignment would be unsafe (a record left over from the old assignment could then commit an offset that rewinds
+  // another consumer that owned the partition in between). Revisit with epoch tracking only if the duplicate work
+  // proves material.
   private final Map<TopicPartition, Long> staleThrough = new HashMap<>();
   // Offsets of completed batches not yet committed successfully; retained and retried if a commit fails.
   private final Map<TopicPartition, OffsetAndMetadata> pendingOffsets = new HashMap<>();
