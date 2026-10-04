@@ -100,7 +100,7 @@ public class IndexerConcurrencyTest {
 
     // Wait until the indexer thread is blocked in dispatch (it has stopped polling): dispatching doc3 must wait for a
     // slot.
-    awaitBlockedInDispatch();
+    awaitNextBatchBlocked();
     // doc3 must not have started, because the window is full and no in-flight batch has finished.
     assertFalse("doc3 must not start while the window is full", indexer.hasStartedSend("doc3"));
     // The cap held: never more than two sends ran at once.
@@ -135,7 +135,7 @@ public class IndexerConcurrencyTest {
     // parentA and disjointDoc share no destination id, so both go in flight.
     awaitUntil(() -> indexer.hasStartedSends("parentA", "disjointDoc"));
     // The indexer blocks dispatching parentB, since it writes "sharedChild", which parentA (still in flight) also writes.
-    awaitBlockedInDispatch();
+    awaitNextBatchBlocked();
     assertFalse("parentB must wait: it shares the child id \"sharedChild\" with the in-flight parentA",
         indexer.hasStartedSend("parentB"));
 
@@ -167,7 +167,7 @@ public class IndexerConcurrencyTest {
 
     // firstDoc goes in flight; secondDoc must wait, since it writes the same destination id "sharedDestId".
     awaitUntil(() -> indexer.hasStartedSend("firstDoc"));
-    awaitBlockedInDispatch();
+    awaitNextBatchBlocked();
     assertFalse("secondDoc must wait: it writes the same destination id as firstDoc",
         indexer.hasStartedSend("secondDoc"));
 
@@ -176,6 +176,60 @@ public class IndexerConcurrencyTest {
     indexer.releaseSends("secondDoc");
     awaitUntil(() -> messenger.completedBatches().size() == 2);
     assertEquals(List.of("firstDoc", "secondDoc"), messenger.completedBatches());
+  }
+
+  @Test
+  public void testDeleteByQueryBatchRunsAlone() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    // Window of 3, so only the delete-by-query barrier — not capacity — can hold batches back.
+    indexer = new ControlledIndexer(config(3, deleteByQuerySettings()), messenger);
+    // A normal doc, a delete-by-query doc, then another normal doc.
+    indexer.messenger().queueDoc(Document.create("normalBefore"));
+    indexer.messenger().queueDoc(deleteByQueryDoc("deleteByQuery"));
+    indexer.messenger().queueDoc(Document.create("normalAfter"));
+    indexer.blockSendsFor("normalBefore", "deleteByQuery", "normalAfter");
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    // normalBefore is in flight. The delete-by-query must wait until nothing else is in flight, because it can match
+    // documents in any batch.
+    awaitUntil(() -> indexer.hasStartedSend("normalBefore"));
+    awaitNextBatchBlocked();
+    assertFalse("delete-by-query must wait until nothing else is in flight", indexer.hasStartedSend("deleteByQuery"));
+
+    // Once normalBefore completes, the delete-by-query runs — alone.
+    indexer.releaseSends("normalBefore");
+    awaitUntil(() -> indexer.hasStartedSend("deleteByQuery"));
+    awaitNextBatchBlocked();
+    assertFalse("nothing may be dispatched behind a delete-by-query until it completes",
+        indexer.hasStartedSend("normalAfter"));
+
+    // After the delete-by-query completes, normalAfter can run.
+    indexer.releaseSends("deleteByQuery");
+    awaitUntil(() -> indexer.hasStartedSend("normalAfter"));
+
+    indexer.releaseSends("normalAfter");
+    awaitUntil(() -> messenger.completedBatches().size() == 3);
+    assertEquals(List.of("normalBefore", "deleteByQuery", "normalAfter"), messenger.completedBatches());
+    // The barrier forced fully serial execution: never more than one send at a time.
+    assertEquals(1, indexer.peakConcurrentSends());
+  }
+
+  @Test
+  public void testDeleteByIdIsNotABarrier() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    indexer = new ControlledIndexer(config(2, deleteByQuerySettings()), messenger);
+    // A delete-by-*id* doc (marked for deletion, but without the deleteByField fields) is not a barrier: it targets a
+    // single id, so it is gated only by id overlap, like a normal write.
+    indexer.messenger().queueDoc(Document.create("normalDoc"));
+    indexer.messenger().queueDoc(deleteByIdDoc("deleteById"));
+    indexer.blockSendsFor("normalDoc", "deleteById");
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    // Both can be in flight at once; the delete-by-id does not force serial execution.
+    awaitUntil(() -> indexer.hasStartedSends("normalDoc", "deleteById"));
+    assertEquals(2, indexer.peakConcurrentSends());
   }
 
   // --- helpers ---
@@ -196,6 +250,30 @@ public class IndexerConcurrencyTest {
   private static Document docWithChild(String docId, String childId) {
     Document doc = Document.create(docId);
     doc.addChild(Document.create(childId));
+    return doc;
+  }
+
+  /** Indexer settings that enable deletion handling, so a document can be a delete-by-id or delete-by-query request. */
+  private static Map<String, Object> deleteByQuerySettings() {
+    return Map.of(
+        "indexer.deletionMarkerField", "isDeleted",
+        "indexer.deletionMarkerFieldValue", "true",
+        "indexer.deleteByFieldField", "deleteField",
+        "indexer.deleteByFieldValue", "deleteValue");
+  }
+
+  /** A document marked for deletion and carrying the deleteByField fields, making it a delete-by-query request. */
+  private static Document deleteByQueryDoc(String docId) {
+    Document doc = deleteByIdDoc(docId);
+    doc.setField("deleteField", "someField");
+    doc.setField("deleteValue", "someValue");
+    return doc;
+  }
+
+  /** A document marked for deletion but without the deleteByField fields, making it a delete-by-id request. */
+  private static Document deleteByIdDoc(String docId) {
+    Document doc = Document.create(docId);
+    doc.setField("isDeleted", "true");
     return doc;
   }
 
@@ -226,10 +304,14 @@ public class IndexerConcurrencyTest {
     awaitUntil(() -> messenger.pollCount() >= start + 2);
   }
 
-  // Waits until the indexer thread appears blocked inside dispatch(): it has stopped polling, so the poll count holds
-  // steady across a short window. (When the window is full, dispatch blocks completing the oldest batch, during which
-  // the indexer neither polls nor starts new sends.)
-  private void awaitBlockedInDispatch() throws InterruptedException {
+  // Waits until the next batch cannot start: the indexer thread is blocked inside dispatch(), held by the window being
+  // full, an id overlap, or a pending delete-by-query barrier. This makes a following assertion that some batch has
+  // not started reflect the gate holding it back, rather than mere timing.
+  //
+  // The blocked state is detected indirectly: a thread blocked in dispatch() is not polling, so the poll count holds
+  // steady. We wait until it has not advanced across a short window. (Safe here because a test always has documents
+  // queued, so the only reason polling stops is the dispatch() block.)
+  private void awaitNextBatchBlocked() throws InterruptedException {
     RecordingMessenger messenger = indexer.messenger();
     long deadline = System.currentTimeMillis() + TIMEOUT_MS;
     while (System.currentTimeMillis() < deadline) {
@@ -239,7 +321,7 @@ public class IndexerConcurrencyTest {
         return;
       }
     }
-    throw new AssertionError("indexer thread did not block in dispatch within " + TIMEOUT_MS + " ms");
+    throw new AssertionError("next batch was not blocked within " + TIMEOUT_MS + " ms");
   }
 
   /**
@@ -365,7 +447,7 @@ public class IndexerConcurrencyTest {
    *
    * <p> The shared {@link com.kmwllc.lucille.message.TestMessenger} is not used here because it records neither the
    * order in which {@link #batchComplete(List)} is called — which is exactly what these tests assert — nor the number
-   * of polls, which {@link #awaitFullPollCycle} and {@link #awaitBlockedInDispatch} need. Those observations are
+   * of polls, which {@link #awaitFullPollCycle} and {@link #awaitNextBatchBlocked} need. Those observations are
    * specific to concurrency testing, so they live in this local double rather than being added to the widely used
    * TestMessenger.
    */

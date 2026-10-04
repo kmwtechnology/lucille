@@ -344,7 +344,7 @@ public abstract class Indexer implements Runnable {
     this.dispatcher = maxConcurrentBatches == 1
         ? new SynchronousDispatcher(this::send, this::completeBatch)
         : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this::send, this::completeBatch,
-            this::destinationIds);
+            this::destinationIds, this::isDeleteByQuery);
   }
 
   /**
@@ -646,6 +646,22 @@ public abstract class Indexer implements Runnable {
       ids.add(child.getId());
       addChildIds(child, ids);
     }
+  }
+
+  /**
+   * Whether the document is a delete-by-query request, which can match documents in any batch and so forces its batch
+   * to be sent alone when maxConcurrentBatches is greater than 1. Mirrors the delete-by-query detection in the Solr,
+   * OpenSearch, and Elasticsearch indexers.
+   */
+  private boolean isDeleteByQuery(Document doc) {
+    return deletionMarkerField != null
+        && deletionMarkerFieldValue != null
+        && doc.hasNonNull(deletionMarkerField)
+        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue)
+        && deleteByFieldField != null
+        && doc.has(deleteByFieldField)
+        && deleteByFieldValue != null
+        && doc.has(deleteByFieldValue);
   }
 
   protected Map<String, Object> getIndexerDoc(Document doc) {

@@ -16,18 +16,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 /**
  * A {@link BatchDispatcher} that sends batches on a pool of threads when indexer.maxConcurrentBatches is greater than 1,
- * so that several sends can be in flight at once. Only the send runs on the pool; every method here is called on the
- * indexer thread, which also completes batches, in the order they were dispatched.
+ * so that several sends can be in flight at once. A batch waits before being dispatched if the window is full, if it
+ * shares a destination id with a batch still in flight, or if it is a delete-by-query barrier (which runs alone).
+ * Batches are completed in the order they were dispatched.
  *
- * <p> This is built up over several changes. At this stage it supports concurrent sends with ordered completion and a
- * capacity limit (no more than maxConcurrentBatches batches in flight). The destination-ID and delete-by-query gates,
- * interrupt handling, and shutdown draining are added in later changes.
+ * <p> <b>Threading.</b> Only the send ({@code batchSender}) runs on the pool. Every other method — {@link #dispatch},
+ * {@link #completeFinishedBatches}, {@link #drain}, and the completion they drive — is called on the single indexer
+ * thread. The in-flight state ({@code inFlightBatches}, {@code inFlightIds}) is therefore confined to that thread and
+ * needs no synchronization; the {@link Future} returned by the pool provides the happens-before edge for each send's
+ * result. Interrupt handling and shutdown draining are refined in later changes.
  */
 class ConcurrentDispatcher implements BatchDispatcher {
 
@@ -43,6 +47,8 @@ class ConcurrentDispatcher implements BatchDispatcher {
   private final Function<List<Document>, SendOutcome> batchSender;
   private final BiConsumer<List<Document>, SendOutcome> batchCompleter;
   private final Function<List<Document>, Set<String>> destinationIdExtractor;
+  // Whether a document forces its batch to run alone (a delete-by-query, which can match documents in any batch).
+  private final Predicate<Document> isBarrierDocument;
   private final ExecutorService pool;
 
   // Batches dispatched to the pool, oldest first. Only touched by the indexer thread.
@@ -78,11 +84,13 @@ class ConcurrentDispatcher implements BatchDispatcher {
   ConcurrentDispatcher(int maxConcurrentBatches, String runId,
       Function<List<Document>, SendOutcome> batchSender,
       BiConsumer<List<Document>, SendOutcome> batchCompleter,
-      Function<List<Document>, Set<String>> destinationIdExtractor) {
+      Function<List<Document>, Set<String>> destinationIdExtractor,
+      Predicate<Document> isBarrierDocument) {
     this.maxConcurrentBatches = maxConcurrentBatches;
     this.batchSender = batchSender;
     this.batchCompleter = batchCompleter;
     this.destinationIdExtractor = destinationIdExtractor;
+    this.isBarrierDocument = isBarrierDocument;
     // Thread names are Lucille-<runId>-IndexerSend-<dispatcherInstanceId>-<sendThreadNum>: dispatcherInstanceId
     // distinguishes this pool from other concurrent dispatchers' pools, sendThreadNum distinguishes the send threads
     // within this pool.
@@ -99,13 +107,19 @@ class ConcurrentDispatcher implements BatchDispatcher {
   @Override
   public void dispatch(List<Document> batchedDocs) {
     Set<String> ids = destinationIdExtractor.apply(batchedDocs);
-    // Wait until this batch may run alongside those in flight: there must be a free slot, and no in-flight batch may
-    // write any id this batch writes (so writes and deletes of the same document stay in order).
-    while (!inFlightBatches.isEmpty() && (inFlightBatches.size() >= maxConcurrentBatches || overlapsInFlight(ids))) {
+    // A barrier batch (one containing a delete-by-query, which can match documents in any batch) must run alone.
+    boolean barrier = batchedDocs.stream().anyMatch(isBarrierDocument);
+    // Wait until this batch may run alongside those in flight: a barrier waits for nothing to be in flight; otherwise
+    // there must be a free slot and no in-flight batch may write any id this batch writes (so writes and deletes of the
+    // same document stay in order).
+    while (!inFlightBatches.isEmpty()
+        && (barrier || inFlightBatches.size() >= maxConcurrentBatches || overlapsInFlight(ids))) {
       completeOldest();
     }
 
     Map<String, String> mdc = MDC.getCopyOfContextMap();
+    // The task runs on a pool thread, so it must touch only batchSender and the per-thread MDC — never the dispatcher's
+    // in-flight state (inFlightBatches, inFlightIds), which belongs to the indexer thread and is unsynchronized.
     Future<SendOutcome> outcome = pool.submit(() -> {
       if (mdc != null) {
         MDC.setContextMap(mdc);
@@ -118,6 +132,11 @@ class ConcurrentDispatcher implements BatchDispatcher {
     });
     inFlightBatches.addLast(new InFlightBatch(batchedDocs, ids, outcome));
     inFlightIds.addAll(ids);
+
+    // Keep a barrier alone: complete it before anything else is dispatched behind it.
+    if (barrier) {
+      drain();
+    }
   }
 
   private boolean overlapsInFlight(Set<String> ids) {
