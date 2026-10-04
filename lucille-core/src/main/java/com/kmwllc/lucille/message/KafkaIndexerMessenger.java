@@ -81,6 +81,12 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    * during this poll is not yet paused and may return a record, so the consumer seeks back to the first record returned
    * for each such partition, leaving it to be delivered by a later {@link #pollDocToIndex()}.
    */
+  // Commits offsets on batch completion (not at poll), so it is safe for concurrent batches.
+  @Override
+  public boolean supportsConcurrentBatches() {
+    return true;
+  }
+
   @Override
   public void keepAlive() throws Exception {
     destConsumer.pause(destConsumer.assignment());

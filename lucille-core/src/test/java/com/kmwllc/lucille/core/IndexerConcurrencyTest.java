@@ -813,5 +813,11 @@ public class IndexerConcurrencyTest {
     public void keepAlive() {
       keepAliveCount.incrementAndGet();
     }
+
+    // Records batch completions in order and commits nothing at poll, so it is safe for concurrent batches.
+    @Override
+    public boolean supportsConcurrentBatches() {
+      return true;
+    }
   }
 }

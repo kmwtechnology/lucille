@@ -337,6 +337,10 @@ public abstract class Indexer implements Runnable {
       throw new IllegalArgumentException(getClass().getName() + " does not support concurrent sends; "
           + "indexer.maxConcurrentBatches must be 1 or unset.");
     }
+    if (maxConcurrentBatches > 1 && messenger != null && !messenger.supportsConcurrentBatches()) {
+      throw new IllegalArgumentException(messenger.getClass().getName() + " does not support concurrent batches "
+          + "(it must commit its input on batch completion, not at poll); indexer.maxConcurrentBatches must be 1 or unset.");
+    }
 
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);

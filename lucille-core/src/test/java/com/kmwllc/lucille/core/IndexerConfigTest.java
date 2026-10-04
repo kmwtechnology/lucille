@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.CSVIndexer;
+import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -74,8 +75,23 @@ public class IndexerConfigTest {
 
   @Test
   public void testAcceptsGreaterThanOneWhenSupported() {
-    // Constructing without throwing is the assertion.
-    new ConcurrentCapableIndexer(configWith(2));
+    // TestMessenger supports concurrent batches; constructing without throwing is the assertion.
+    new ConcurrentCapableIndexer(configWith(2), new TestMessenger());
+  }
+
+  @Test
+  public void testRejectsGreaterThanOneWhenMessengerUnsupported() {
+    // The indexer supports concurrent sends, but the messenger commits at poll (supportsConcurrentBatches() false), so
+    // K > 1 must be rejected to avoid losing in-flight documents on a crash.
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> new ConcurrentCapableIndexer(configWith(2), new CommitAtPollMessenger()));
+    assertTrue(e.getMessage(), e.getMessage().contains("does not support concurrent batches"));
+  }
+
+  @Test
+  public void testAcceptsGreaterThanOneWithNullMessenger() {
+    // A null messenger (as used by some benchmarks) is not a data-loss risk, so concurrency is allowed.
+    new ConcurrentCapableIndexer(configWith(2), null);
   }
 
   private static Config configWith(int maxConcurrentBatches) {
@@ -88,7 +104,11 @@ public class IndexerConfigTest {
     public static final Spec SPEC = SpecBuilder.indexer().build();
 
     ConcurrentCapableIndexer(Config config) {
-      super(config, new TestMessenger(), false, "IndexerConfigTest", null);
+      this(config, new TestMessenger());
+    }
+
+    ConcurrentCapableIndexer(Config config, IndexerMessenger messenger) {
+      super(config, messenger, false, "IndexerConfigTest", null);
     }
 
     @Override
@@ -113,6 +133,35 @@ public class IndexerConfigTest {
     @Override
     protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
       return Set.of();
+    }
+  }
+
+  /** A messenger that leaves supportsConcurrentBatches() at its unsafe default (false), standing in for one that
+   * commits its input at poll. Only that one method matters for these tests; the rest are inert. */
+  private static class CommitAtPollMessenger implements IndexerMessenger {
+    @Override
+    public Document pollDocToIndex() {
+      return null;
+    }
+
+    @Override
+    public void sendEvent(Event event) {
+    }
+
+    @Override
+    public void sendEvent(Document document, String message, Event.Type type) {
+    }
+
+    @Override
+    public void sendEvents(List<Document> documents, String message, Event.Type type) {
+    }
+
+    @Override
+    public void batchComplete(List<Document> batch) {
+    }
+
+    @Override
+    public void close() {
     }
   }
 }
