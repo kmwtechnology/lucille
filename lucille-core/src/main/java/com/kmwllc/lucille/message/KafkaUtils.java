@@ -60,8 +60,6 @@ public class KafkaUtils {
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
-  /** The default poll interval; Lucille's messengers use {@link #getPollInterval(Config)} so it can be configured. */
-  public static final Duration POLL_INTERVAL = Duration.ofMillis(DEFAULT_POLL_INTERVAL_MS);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
 
   /**

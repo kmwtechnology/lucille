@@ -134,6 +134,7 @@ Reads processed documents from the dest topic:
 public class KafkaIndexerMessenger implements IndexerMessenger {
     private final Consumer<String, KafkaDocument> destConsumer;
     private final KafkaProducer<String, String> kafkaEventProducer;
+    private final Duration pollInterval;  // kafka.pollIntervalMs, default 2000ms
 }
 ```
 
@@ -141,7 +142,7 @@ Key difference from the Worker: offsets are committed **immediately after pollin
 
 ```java
 public Document pollDocToIndex() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(pollInterval);
     if (consumerRecords.count() > 0) {
         destConsumer.commitSync();  // Commit immediately
         // return the document
