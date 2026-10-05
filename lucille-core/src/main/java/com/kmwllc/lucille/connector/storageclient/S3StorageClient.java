@@ -25,6 +25,7 @@ import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
@@ -40,10 +41,13 @@ public class S3StorageClient extends BaseStorageClient {
   // us-east-1 acts as S3's global endpoint and redirects to the bucket's real region.
   static final Region ANONYMOUS_DEFAULT_REGION = Region.US_EAST_1;
 
+  // S3 returns at most 1000 keys per LIST request, whatever larger value is asked for.
+  static final int DEFAULT_MAX_KEYS = 1000;
+
   protected S3Client s3;
 
   public S3StorageClient(Config s3CloudOptions) {
-    super(s3CloudOptions);
+    super(s3CloudOptions, DEFAULT_MAX_KEYS);
   }
 
   @Override
@@ -101,22 +105,22 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
-    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+    String startingDirectory = getStartingDirectory(params);
+    if (params.getPathsToSkip().isEmpty()) {
+      // nothing to prune, so a single flat listing of every key under the prefix replaces one listing per directory
+      ListObjectsV2Request request = listRequest(params, startingDirectory).build();
+      s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> publishContents(publisher, params, stateMgr, resp));
+    } else {
+      traversePrefix(publisher, params, stateMgr, startingDirectory);
+    }
   }
 
+  // Lists one directory level at a time so that skipped directories are never listed.
   private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
-    ListObjectsV2Request request = ListObjectsV2Request.builder()
-        .bucket(getBucketOrContainerName(params))
-        .prefix(prefix)
-        .delimiter("/")
-        .maxKeys(maxNumOfPages)
-        .build();
+    ListObjectsV2Request request = listRequest(params, prefix).delimiter("/").build();
 
     s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> {
-      resp.contents().forEach(obj -> {
-        S3FileReference fileRef = new S3FileReference(obj, params);
-        processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-      });
+      publishContents(publisher, params, stateMgr, resp);
 
       resp.commonPrefixes().forEach(cp -> {
         URI prefixUri = uriForDirectory(cp.prefix(), params);
@@ -124,6 +128,21 @@ public class S3StorageClient extends BaseStorageClient {
           traversePrefix(publisher, params, stateMgr, cp.prefix());
         }
       });
+    });
+  }
+
+  private ListObjectsV2Request.Builder listRequest(TraversalParams params, String prefix) {
+    return ListObjectsV2Request.builder()
+        .bucket(getBucketOrContainerName(params))
+        .prefix(prefix)
+        .maxKeys(maxNumOfPages);
+  }
+
+  private void publishContents(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr,
+      ListObjectsV2Response resp) {
+    resp.contents().forEach(obj -> {
+      S3FileReference fileRef = new S3FileReference(obj, params);
+      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
     });
   }
 
