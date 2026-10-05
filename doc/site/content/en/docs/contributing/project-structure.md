@@ -168,7 +168,7 @@ mvn clean install -pl lucille-plugins/lucille-tika
 ### What artifacts are produced
 
 - **lucille-core:** `target/lucille.jar` — a thin JAR containing only Lucille's own classes (named `lucille.jar` via `finalName` in the POM). Runtime dependencies are copied to `target/lib/`. To run Lucille, both must be on the classpath: `-cp 'target/lucille.jar:target/lib/*'` (or simply `-cp 'target/lib/*'` since the lucille JAR is also copied there).
-- **Each plugin:** a **shaded (fat) JAR** that bundles the plugin's own dependencies into a single artifact. This avoids classpath conflicts when multiple plugins are used together. Plugins that produce shaded JARs include: lucille-tika, lucille-pinecone, lucille-weaviate, lucille-jlama, lucille-parquet, lucille-ocr, lucille-video, and lucille-api.
+- **Each plugin:** a **shaded (fat) JAR** that bundles the plugin's own dependencies into a single artifact. This avoids classpath conflicts when multiple plugins are used together. Plugins that produce shaded JARs include: lucille-tika, lucille-pinecone, lucille-weaviate, lucille-jlama, lucille-parquet, lucille-ocr, lucille-video, and lucille-api. The shaded JAR (`target/<plugin>-plugin.jar`) is built only when the `plugin-jars` profile is active, e.g. `mvn clean install -Pplugin-jars`; a default build produces only the plugin's thin JAR, which keeps `mvn verify` fast since tests do not use the shaded JARs.
 - **Each example:** a thin JAR plus `target/lib/` containing all runtime dependencies (via `maven-dependency-plugin` copy-dependencies).
 
 ### Thin JAR vs. Shaded JAR
@@ -176,7 +176,7 @@ mvn clean install -pl lucille-plugins/lucille-tika
 | Module | JAR Type | Why |
 |---|---|---|
 | `lucille-core` | Thin JAR + `target/lib/` | Core is always on the classpath alongside its dependencies. No need to shade. |
-| Plugins (tika, pinecone, etc.) | Shaded (fat) JAR | Plugins bundle their heavyweight dependencies to avoid version conflicts with core or other plugins. A single plugin JAR can be dropped onto the classpath without worrying about transitive dependency management. |
+| Plugins (tika, pinecone, etc.) | Shaded (fat) JAR with `-Pplugin-jars` | Plugins bundle their heavyweight dependencies to avoid version conflicts with core or other plugins. A single plugin JAR can be dropped onto the classpath without worrying about transitive dependency management. |
 | Examples | Thin JAR + `target/lib/` | Examples are runnable projects, not libraries. Dependencies are copied for easy classpath setup. |
 
 **When running Lucille from the command line**, the classpath typically looks like:
