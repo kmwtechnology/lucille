@@ -8,6 +8,8 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
@@ -20,6 +22,8 @@ import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -135,6 +139,9 @@ public abstract class Indexer implements Runnable {
   protected final String deleteByFieldValue;
 
   protected final FieldFilter fieldFilter;
+
+  // true when a subclass overrides getIndexerDoc, so getIndexerDocForJson must keep using it
+  private final boolean getIndexerDocOverridden = overridesGetIndexerDoc(getClass());
 
   private Instant lastLog = Instant.now();
 
@@ -529,6 +536,64 @@ public abstract class Indexer implements Runnable {
       indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
     return indexerDoc;
+  }
+
+  /**
+   * Returns the same fields as {@link #getIndexerDoc}, minus {@link Document#CHILDREN_FIELD}, for a destination
+   * client that serializes the map to JSON with Jackson. For a JsonDocument only the top-level map is new: its
+   * values are the document's own JsonNodes rather than a converted copy of the whole document. Callers may add,
+   * remove or replace entries but must not modify the values.
+   *
+   * <p>A value that is or contains a null is converted exactly as getIndexerDoc converts it, because a mapper
+   * may leave out null map values (the OpenSearch and Elasticsearch clients' default mappers do) while it always
+   * writes the nulls inside a JsonNode. The JSON written for the result is therefore the same as for getIndexerDoc.
+   *
+   * <p>The returned map shares state with the Document, so the Document must not be modified until the map has
+   * been serialized. If a subclass overrides getIndexerDoc, this method uses that override for every document.
+   */
+  protected Map<String, Object> getIndexerDocForJson(Document doc) {
+    if (!(doc instanceof JsonDocument) || getIndexerDocOverridden) {
+      Map<String, Object> indexerDoc = getIndexerDoc(doc);
+      indexerDoc.remove(Document.CHILDREN_FIELD);
+      return indexerDoc;
+    }
+
+    ObjectNode data = ((JsonDocument) doc).data;
+    Map<String, Object> indexerDoc = new LinkedHashMap<>();
+    for (Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext(); ) {
+      Map.Entry<String, JsonNode> field = it.next();
+      String name = field.getKey();
+      JsonNode value = field.getValue();
+      if (Document.CHILDREN_FIELD.equals(name) || !fieldFilter.shouldInclude(name)) {
+        continue;
+      }
+      indexerDoc.put(name, containsNull(value) ? JsonDocument.MAPPER.convertValue(value, Object.class) : value);
+    }
+    return indexerDoc;
+  }
+
+  private static boolean overridesGetIndexerDoc(Class<?> clazz) {
+    for (Class<?> c = clazz; c != Indexer.class && c != null; c = c.getSuperclass()) {
+      try {
+        c.getDeclaredMethod("getIndexerDoc", Document.class);
+        return true;
+      } catch (NoSuchMethodException e) {
+        // keep walking up to Indexer
+      }
+    }
+    return false;
+  }
+
+  private static boolean containsNull(JsonNode node) {
+    if (node.isNull()) {
+      return true;
+    }
+    for (JsonNode child : node) {
+      if (containsNull(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static void main(String[] args) throws Exception {
