@@ -31,15 +31,15 @@
   <properties>
     <!-- Lifecycle phase the plugin modules bind maven-shade-plugin to. "none" skips building the
          shaded *-plugin.jar (hundreds of MB for some plugins, unused by tests). Activate the
-         plugin-jars profile to build it: mvn package -Pplugin-jars -->
-    <plugin-jar.phase>none</plugin-jar.phase>
+         shaded-plugin-jars profile to build it: mvn package -Pshaded-plugin-jars -->
+    <shaded-plugin-jar.phase>none</shaded-plugin-jar.phase>
   </properties>
 
   <profiles>
     <profile>
-      <id>plugin-jars</id>
+      <id>shaded-plugin-jars</id>
       <properties>
-        <plugin-jar.phase>package</plugin-jar.phase>
+        <shaded-plugin-jar.phase>package</shaded-plugin-jar.phase>
       </properties>
     </profile>
   </profiles>

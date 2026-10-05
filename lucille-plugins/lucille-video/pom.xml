@@ -42,7 +42,7 @@
           <version>3.4.1</version>
           <executions>
             <execution>
-              <phase>${plugin-jar.phase}</phase>
+              <phase>${shaded-plugin-jar.phase}</phase>
               <goals>
                 <goal>shade</goal>
               </goals>
