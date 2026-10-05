@@ -58,6 +58,10 @@ public class FileConnectorTest {
 
   private static final Logger log = LoggerFactory.getLogger(FileConnectorTest.class);
 
+  // On-disk state database for the tombstone tests. Kept out of the default ./state directory, which
+  // FileConnectorStateManagerTest also uses and may be running concurrently in another surefire fork.
+  private static final File TOMBSTONE_STATE_DIR = new File("temp-tombstone-state");
+
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
 
@@ -175,7 +179,7 @@ public class FileConnectorTest {
 
   @Test
   public void testErrorDirectory() throws Exception {
-    File tempDir = new File("temp");
+    File tempDir = new File("fileConnectorTest-temp");
 
     // copy faulty csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/faulty.csv");
@@ -189,8 +193,8 @@ public class FileConnectorTest {
     connector.execute(publisher);
 
     // verify error directory is made
-    File errorDir = new File("error");
-    File f = new File("error/faulty.csv");
+    File errorDir = new File("fileConnectorTest-error");
+    File f = new File("fileConnectorTest-error/faulty.csv");
 
     try {
       // verify error directory is made
@@ -207,7 +211,7 @@ public class FileConnectorTest {
 
   @Test
   public void testSuccessfulDirectory() throws Exception {
-    File tempDir = new File("temp");
+    File tempDir = new File("fileConnectorTest-temp");
 
     // copy successful csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
@@ -221,8 +225,8 @@ public class FileConnectorTest {
     connector.execute(publisher);
 
     // verify error directory is made
-    File successDir = new File("success");
-    File f = new File("success/defaults.csv");
+    File successDir = new File("fileConnectorTest-success");
+    File f = new File("fileConnectorTest-success/defaults.csv");
 
     try {
       // verify error directory is made
@@ -409,7 +413,6 @@ public class FileConnectorTest {
     File stateDirectory = new File("state");
     File dbFile = new File("state/file-connector.mv.db");
 
-    assertFalse(stateDirectory.exists());
     assertFalse(dbFile.exists());
 
     try {
@@ -437,7 +440,15 @@ public class FileConnectorTest {
       // default full mode republishes all docs on subsequent runs
       assertEquals(18, messenger.getDocsSentForProcessing().size());
     } finally {
-      FileUtils.deleteDirectory(stateDirectory);
+      // ./state is shared with FileConnectorStateManagerTest, which may run concurrently in another fork:
+      // remove only this connector's files, and the directory only if that leaves it empty.
+      File[] ours = stateDirectory.listFiles((dir, name) -> name.startsWith("file-connector."));
+      if (ours != null) {
+        for (File f : ours) {
+          FileUtils.deleteQuietly(f);
+        }
+      }
+      stateDirectory.delete();
     }
   }
 
@@ -644,6 +655,8 @@ public class FileConnectorTest {
       // Config with state and incremental mode with tombstones enabled
       Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
           .withValue("paths", ConfigValueFactory.fromIterable(List.of(tempDir.toURI().toString())))
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(
+              "jdbc:h2:" + new File(TOMBSTONE_STATE_DIR, "file-connector").getAbsolutePath()))
           .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
           .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
 
@@ -751,7 +764,7 @@ public class FileConnectorTest {
       FileUtils.deleteDirectory(tempDir);
 
       // Needed since our db is on disk
-      FileUtils.deleteDirectory(new File("state"));
+      FileUtils.deleteDirectory(TOMBSTONE_STATE_DIR);
     }
   }
 
@@ -774,6 +787,8 @@ public class FileConnectorTest {
       // Config with state and incremental mode with tombstones enabled
       Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
           .withValue("paths", ConfigValueFactory.fromIterable(List.of(tempDir.toURI().toString())))
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(
+              "jdbc:h2:" + new File(TOMBSTONE_STATE_DIR, "file-connector").getAbsolutePath()))
           .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
           .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"))
           .withValue("state.runsBeforeExpiration", ConfigValueFactory.fromAnyRef(2));
@@ -853,7 +868,7 @@ public class FileConnectorTest {
       FileUtils.deleteDirectory(tempDir);
 
       // Needed since our db is on disk
-      FileUtils.deleteDirectory(new File("state"));
+      FileUtils.deleteDirectory(TOMBSTONE_STATE_DIR);
     }
   }
 
