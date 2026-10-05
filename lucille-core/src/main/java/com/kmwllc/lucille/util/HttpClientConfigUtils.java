@@ -25,9 +25,10 @@ import org.apache.hc.core5.util.Timeout;
  *   The server gets no signal and may still complete the request. It applies to every request, including synchronous
  *   delete-by-query, so size it above the slowest expected bulk or delete. Unset by default (no limit).</li>
  *   <li>connectionTimeToLiveMs (Long) : maximum lifetime of a pooled connection, after which it is closed instead of
- *   reused. Set it when the cluster is reached through a load balancer, Kubernetes Service, or multi-address DNS name,
- *   so that long-running clients reconnect and reach nodes added or replaced since they first connected. Unset by
- *   default (connections live until closed).</li>
+ *   reused. Load balancers, Kubernetes Services and multi-address DNS names balance new connections, not requests, so
+ *   this is what lets a long-running client reach nodes added or replaced since it first connected. Expiry is checked
+ *   when a connection is next leased, so it never interrupts a request. Defaults to
+ *   {@value #DEFAULT_CONNECTION_TIME_TO_LIVE_MS}.</li>
  * </ul>
  *
  * <p> The connect timeout default is the one opensearch-java and elasticsearch-java apply to the connection managers
@@ -36,19 +37,18 @@ import org.apache.hc.core5.util.Timeout;
 public class HttpClientConfigUtils {
 
   public static final long DEFAULT_CONNECT_TIMEOUT_MS = 1000;
+  public static final long DEFAULT_CONNECTION_TIME_TO_LIVE_MS = 300_000;
 
   /** Builds the default {@link ConnectionConfig} for a client from the given config block (e.g. "opensearch"). */
   public static ConnectionConfig buildConnectionConfig(Config config, String configKey) {
     ConnectionConfig.Builder builder = ConnectionConfig.custom()
-        .setConnectTimeout(Timeout.ofMilliseconds(getMillis(config, configKey + ".connectTimeoutMs", DEFAULT_CONNECT_TIMEOUT_MS)));
+        .setConnectTimeout(Timeout.ofMilliseconds(getMillis(config, configKey + ".connectTimeoutMs", DEFAULT_CONNECT_TIMEOUT_MS)))
+        .setTimeToLive(TimeValue.ofMilliseconds(
+            getMillis(config, configKey + ".connectionTimeToLiveMs", DEFAULT_CONNECTION_TIME_TO_LIVE_MS)));
 
     String socketTimeoutPath = configKey + ".socketTimeoutMs";
     if (config.hasPath(socketTimeoutPath)) {
       builder.setSocketTimeout(Timeout.ofMilliseconds(getMillis(config, socketTimeoutPath, 0)));
-    }
-    String ttlPath = configKey + ".connectionTimeToLiveMs";
-    if (config.hasPath(ttlPath)) {
-      builder.setTimeToLive(TimeValue.ofMilliseconds(getMillis(config, ttlPath, 0)));
     }
     return builder.build();
   }

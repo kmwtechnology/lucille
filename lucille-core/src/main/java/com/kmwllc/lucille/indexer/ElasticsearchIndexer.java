@@ -61,8 +61,8 @@ import java.util.Optional;
  *   <li>socketTimeoutMs (Long, Optional) : Maximum time to wait for data on an open connection, including a bulk or
  *   delete-by-query response. A timeout is a transport failure, retried when indexer.maxRetries is set. Unset by default
  *   (no limit).</li>
- *   <li>connectionTimeToLiveMs (Long, Optional) : Maximum lifetime of a pooled connection. Set it when the cluster is
- *   behind a load balancer or Kubernetes Service so long-running indexers reach new nodes. Unset by default.</li>
+ *   <li>connectionTimeToLiveMs (Long, Optional) : Maximum lifetime of a pooled connection, so long-running indexers
+ *   behind a load balancer or Kubernetes Service reconnect and reach new nodes. Defaults to 300000 (5 minutes).</li>
  *   <li>childDocumentsField (String, Optional) : Field name to place attached child documents in the
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>

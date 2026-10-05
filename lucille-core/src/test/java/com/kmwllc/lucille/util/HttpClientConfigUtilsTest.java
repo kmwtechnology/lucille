@@ -74,7 +74,7 @@ public class HttpClientConfigUtilsTest {
 
     assertEquals(Timeout.ofMilliseconds(HttpClientConfigUtils.DEFAULT_CONNECT_TIMEOUT_MS), connectionConfig.getConnectTimeout());
     assertNull(connectionConfig.getSocketTimeout());
-    assertNull(connectionConfig.getTimeToLive());
+    assertEquals(TimeValue.ofMilliseconds(300_000), connectionConfig.getTimeToLive());
   }
 
   @Test

@@ -79,7 +79,7 @@ The stage connects to OpenSearch via the same `opensearch` config block used by 
 | `opensearch.acceptInvalidCert` | Boolean | No | Accept invalid TLS certificates. Default: `false`. |
 | `opensearch.connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `1000`. |
 | `opensearch.socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Applies to delete-by-query too, so size it above the slowest expected request. Default: unset (no limit). |
-| `opensearch.connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms. Set it when the cluster is behind a load balancer or Kubernetes Service so long-running clients reach new nodes. Default: unset. |
+| `opensearch.connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Lower it to rebalance faster. Default: `300000` (5 minutes). |
 | `templateName` | String | Required if no `searchTemplate` | Name of a saved search template in the cluster. |
 | `searchTemplate` | String | Required if no `templateName` | Inline template body (not saved to the cluster). |
 | `requiredParamNames` | List\<String\> | No | Document fields required for the template. Missing fields cause a warning and an error field on the document. |
