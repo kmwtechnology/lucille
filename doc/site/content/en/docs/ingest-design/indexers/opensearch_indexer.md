@@ -15,6 +15,9 @@ Config block: `opensearch { ... }`
 | `index` | String | Yes | Target index name. |
 | `update` | Boolean | No | Use the partial update API instead of index (upsert). Default: `false`. |
 | `acceptInvalidCert` | Boolean | No | Accept invalid TLS certificates. Default: `false`. |
+| `connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `1000`. |
+| `socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Applies to delete-by-query too, so size it above the slowest expected request. Default: unset (no limit). |
+| `connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms. Set it when the cluster is behind a load balancer or Kubernetes Service so long-running clients reach new nodes. Default: unset. |
 
 Also supports `indexer.routingField` and `indexer.versionType` (via the generic indexer block).
 

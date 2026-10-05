@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.net.ssl.SSLContext;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
+import org.apache.hc.client5.http.ssl.HostnameVerificationPolicy;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
@@ -162,6 +163,7 @@ public class OpenSearchUtilsTest {
       mockStaticTlsBuilder.when(ClientTlsStrategyBuilder::create).thenReturn(mockTlsBuilder);
       when(mockTlsBuilder.setSslContext(any())).thenReturn(mockTlsBuilder);
       when(mockTlsBuilder.setHostnameVerifier(any())).thenReturn(mockTlsBuilder);
+      when(mockTlsBuilder.setHostVerificationPolicy(any())).thenReturn(mockTlsBuilder);
       when(mockTlsBuilder.build()).thenReturn(mockStrategy);
 
       assertNotNull(OpenSearchUtils.getOpenSearchRestClient(testClientConfig));
@@ -173,8 +175,9 @@ public class OpenSearchUtilsTest {
 
       verify(mockClientBuilder, times(1)).setHttpClientConfigCallback(any());
 
-      // tls strategy - setHostnameVerifier called
+      // tls strategy - setHostnameVerifier called, under the CLIENT policy so JSSE doesn't also check the host name
       verify(mockTlsBuilder, times(1)).setHostnameVerifier(any());
+      verify(mockTlsBuilder, times(1)).setHostVerificationPolicy(HostnameVerificationPolicy.CLIENT);
       verify(mockTlsBuilder, times(1)).build();
     }
   }
