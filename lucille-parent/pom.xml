@@ -68,6 +68,9 @@
     <hadoop.version>3.5.0</hadoop.version>
     <!-- SecureRandom algorithm Solr's test framework expects the JVM to use; overridden by the windows profile -->
     <test.solr.securerandom>NativePRNG</test.solr.securerandom>
+    <!-- Number of JVMs surefire spreads test classes across ("1C" = one per CPU core). Use -Dsurefire.forkCount=1
+         to run a module's tests serially in a single JVM, e.g. when debugging an interaction between tests. -->
+    <surefire.forkCount>1C</surefire.forkCount>
     <!-- Default for the JaCoCo agent line, so @{argLine} still resolves when JaCoCo is skipped -->
     <argLine></argLine>
   </properties>
@@ -223,6 +226,10 @@
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
           <redirectTestOutputToFile>false</redirectTestOutputToFile>
+          <!-- Test classes are handed out to forks one at a time; each fork is reused for many classes. Tests must
+               therefore not share fixed ports or fixed paths (cwd-relative dirs, files) with other test classes. -->
+          <forkCount>${surefire.forkCount}</forkCount>
+          <reuseForks>true</reuseForks>
           <!--ensure consistent timezone for unit tests-->
           <!-- @{argLine} is late-bound so it picks up the agent set by jacoco:prepare-agent -->
           <argLine>@{argLine} -Dtest.solr.allowed.securerandom=${test.solr.securerandom} -Duser.timezone=UTC</argLine>
