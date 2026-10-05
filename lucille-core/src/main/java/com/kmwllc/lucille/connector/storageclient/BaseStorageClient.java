@@ -27,6 +27,7 @@ import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.input.CloseShieldInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -400,17 +401,8 @@ public abstract class BaseStorageClient implements StorageClient {
   private void handleStreamExtensionFiles(Publisher publisher, String fileExtension, TraversalParams params, InputStream in, String fullPathStr)
       throws ConnectorException {
     try {
-      InputStream wrappedNonClosingStream = new InputStream() {
-        @Override
-        public int read() throws IOException {
-          return in.read();
-        }
-
-        // Intentionally a no-op. We don't want to close the archiveInputStream when finished
-        // with this one file.
-        @Override
-        public void close() {}
-      };
+      // Shield the archive / compressor stream from close() calls, but delegate everything else (notably bulk reads).
+      InputStream wrappedNonClosingStream = CloseShieldInputStream.wrap(in);
 
       FileHandler handler = params.handlerForExtension(fileExtension);
       handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);
