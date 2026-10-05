@@ -13,6 +13,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
@@ -26,6 +27,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
   private final Config config;
+  private final Duration pollInterval;
   private final String pipelineName;
 
   public HybridWorkerMessenger(Config config, String pipelineName,
@@ -33,6 +35,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       KafkaConsumer sourceConsumer) {
     this.config = config;
+    this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
@@ -64,7 +67,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    */
   @Override
   public KafkaDocument pollDocToProcess() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords = sourceConsumer.poll(pollInterval);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();

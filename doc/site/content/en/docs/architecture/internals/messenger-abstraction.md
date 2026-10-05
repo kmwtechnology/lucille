@@ -120,7 +120,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
 ```
 
 Key behaviors:
-- **`pollDocToProcess()`** — polls the source topic with `KafkaUtils.POLL_INTERVAL` (2 seconds). Returns at most one record per poll (`MAX_POLL_RECORDS_CONFIG = 1`). Sets Kafka metadata on the returned `KafkaDocument`.
+- **`pollDocToProcess()`** — polls the source topic, blocking for up to `kafka.pollIntervalMs` (default 2000ms). Returns at most one record per poll (`MAX_POLL_RECORDS_CONFIG = 1`). Sets Kafka metadata on the returned `KafkaDocument`.
 - **`commitPendingDocOffsets()`** — calls `sourceConsumer.commitSync()`. Offsets are committed synchronously to minimize reprocessing after crashes.
 - **`sendForIndexing(doc)`** — produces to the dest topic using the document ID as the Kafka key. Calls `.get()` to wait for acknowledgment, then `flush()`.
 - **`sendFailed(doc)`** — produces to the fail topic (dead letter queue).

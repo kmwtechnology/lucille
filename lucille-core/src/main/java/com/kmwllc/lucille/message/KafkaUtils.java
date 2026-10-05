@@ -53,13 +53,35 @@ public class KafkaUtils {
       .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
       .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
           "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic")
-      .optionalNumber("metadataMaxAgeMs")
+      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("admin", new TypeReference<Map<String, Object>>(){}).build();
 
-  public static final Duration POLL_INTERVAL = Duration.ofMillis(2000);
+  /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
+  public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
+  /** The default poll interval; Lucille's messengers use {@link #getPollInterval(Config)} so it can be configured. */
+  public static final Duration POLL_INTERVAL = Duration.ofMillis(DEFAULT_POLL_INTERVAL_MS);
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
+
+  /**
+   * Returns how long a Lucille Kafka consumer poll should block waiting for records: <code>kafka.pollIntervalMs</code>,
+   * or {@link #DEFAULT_POLL_INTERVAL_MS} when unset. An idle Worker, Indexer, or Publisher waits this long per poll,
+   * so it bounds shutdown latency, end-of-run detection, and how late an expired Indexer batch is flushed.
+   *
+   * @param config The Lucille config.
+   * @return The poll timeout.
+   * @throws IllegalArgumentException if <code>kafka.pollIntervalMs</code> is not positive.
+   */
+  public static Duration getPollInterval(Config config) {
+    int pollIntervalMs = config.hasPath("kafka.pollIntervalMs")
+        ? config.getInt("kafka.pollIntervalMs")
+        : DEFAULT_POLL_INTERVAL_MS;
+    if (pollIntervalMs <= 0) {
+      throw new IllegalArgumentException("kafka.pollIntervalMs must be positive, got " + pollIntervalMs);
+    }
+    return Duration.ofMillis(pollIntervalMs);
+  }
 
   private static Properties loadExternalProps(String filename, Config config) {
     try (Reader propertiesReader = FileContentFetcher.getOneTimeReader(filename, StandardCharsets.UTF_8.name(), config)) {
