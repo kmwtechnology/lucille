@@ -26,11 +26,11 @@ import org.slf4j.MDC;
  * shares a destination id with a batch still in flight, or if it is a delete-by-query barrier (which runs alone).
  * Batches are completed in the order they were dispatched.
  *
- * <p> <b>Threading.</b> Only the send ({@code processor.sendWithRetry}) runs on the pool. Every other method — {@link #dispatch},
- * {@link #completeFinishedBatches}, {@link #drain}, and the completion they drive — is called on the single indexer
- * thread. The in-flight state ({@code inFlightBatches}, {@code inFlightIds}) is therefore confined to that thread and
- * needs no synchronization; the {@link Future} returned by the pool provides the happens-before edge for each send's
- * result. Interrupt handling and shutdown draining are refined in later changes.
+ * <p> <b>Threading.</b> Only the send ({@code processor.sendWithRetry}) runs on the pool. Every other method —
+ * {@link #dispatch}, {@link #completeFinishedBatches}, {@link #drain}, and the completion they drive — is called on the
+ * single indexer thread. The in-flight state ({@code inFlightBatches}, {@code inFlightIds}) is therefore confined to
+ * that thread and needs no synchronization; the {@link Future} returned by the pool provides the happens-before edge
+ * for each send's result.
  */
 class ConcurrentDispatcher implements BatchDispatcher {
 
@@ -121,8 +121,9 @@ class ConcurrentDispatcher implements BatchDispatcher {
     }
 
     Map<String, String> mdc = MDC.getCopyOfContextMap();
-    // The task runs on a pool thread, so it must touch only processor.sendWithRetry and the per-thread MDC — never the dispatcher's
-    // in-flight state (inFlightBatches, inFlightIds), which belongs to the indexer thread and is unsynchronized.
+    // The task runs on a pool thread, so it must touch only processor.sendWithRetry and the per-thread MDC — never
+    // the dispatcher's in-flight state (inFlightBatches, inFlightIds), which belongs to the indexer thread and is
+    // unsynchronized.
     Future<SendOutcome> outcome = pool.submit(() -> {
       if (mdc != null) {
         MDC.setContextMap(mdc);
@@ -239,7 +240,7 @@ class ConcurrentDispatcher implements BatchDispatcher {
       } catch (TimeoutException e) {
         keepAlive.run();
       } catch (ExecutionException e) {
-        // batchSender captures its own Throwables, so this only happens if the task wrapper itself failed.
+        // processor.sendWithRetry captures its own Throwables, so this only happens if the task wrapper itself failed.
         return new AwaitedOutcome(new SendOutcome(null, e.getCause(), 0), interrupted);
       }
     }

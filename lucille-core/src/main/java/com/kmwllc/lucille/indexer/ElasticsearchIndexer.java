@@ -435,8 +435,6 @@ public class ElasticsearchIndexer extends Indexer {
         && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
   }
 
-
-
   @Override
   public void closeConnection() {
     if (!bypass && client != null && client._transport() != null) {

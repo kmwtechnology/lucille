@@ -77,13 +77,6 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     return null;
   }
 
-  /**
-   * Polls the consumer so it stays in its consumer group during a long wait, without delivering any records or moving
-   * the position {@link #pollDocToIndex()} continues from. All currently assigned partitions are paused first, so the
-   * poll returns nothing from them; {@link #pollDocToIndex()} resumes them on its next call. A partition newly assigned
-   * during this poll is not yet paused and may return a record, so the consumer seeks back to the first record returned
-   * for each such partition, leaving it to be delivered by a later {@link #pollDocToIndex()}.
-   */
   // Commits offsets on batch completion (not at poll), so it is safe for concurrent batches.
   @Override
   public boolean commitsOnBatchCompletion() {
@@ -96,6 +89,13 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     return destConsumer.assignment();
   }
 
+  /**
+   * Polls the consumer so it stays in its consumer group during a long wait, without delivering any records or moving
+   * the position {@link #pollDocToIndex()} continues from. All currently assigned partitions are paused first, so the
+   * poll returns nothing from them; {@link #pollDocToIndex()} resumes them on its next call. A partition newly assigned
+   * during this poll is not yet paused and may return a record, so the consumer seeks back to the first record returned
+   * for each such partition, leaving it to be delivered by a later {@link #pollDocToIndex()}.
+   */
   @Override
   public void keepAlive() throws Exception {
     destConsumer.pause(destConsumer.assignment());

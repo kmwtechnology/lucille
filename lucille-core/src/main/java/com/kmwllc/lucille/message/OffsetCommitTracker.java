@@ -6,6 +6,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
+import java.util.TreeSet;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -53,9 +55,9 @@ class OffsetCommitTracker {
   private final Map<TopicPartition, Long> generation = new HashMap<>();
   // Per partition, the offsets polled under the current generation and not yet absorbed into the commit frontier. The
   // frontier advances across this set (not by offset+1), so gaps between polled offsets never stall it.
-  private final Map<TopicPartition, java.util.NavigableSet<Long>> polled = new HashMap<>();
+  private final Map<TopicPartition, NavigableSet<Long>> polled = new HashMap<>();
   // Per partition, polled offsets whose batch has completed, not yet absorbed into the frontier.
-  private final Map<TopicPartition, java.util.NavigableSet<Long>> completed = new HashMap<>();
+  private final Map<TopicPartition, NavigableSet<Long>> completed = new HashMap<>();
   // Offsets of completed batches not yet committed successfully; retained and retried if a commit fails. The value is
   // the next offset to read (exclusive upper bound), matching Kafka's committed-offset semantics.
   private final Map<TopicPartition, OffsetAndMetadata> pendingOffsets = new HashMap<>();
@@ -76,7 +78,7 @@ class OffsetCommitTracker {
    */
   long recordPolled(TopicPartition partition, long offset) {
     long gen = generation.computeIfAbsent(partition, p -> 0L);
-    polled.computeIfAbsent(partition, p -> new java.util.TreeSet<>()).add(offset);
+    polled.computeIfAbsent(partition, p -> new TreeSet<>()).add(offset);
     return gen;
   }
 
@@ -108,13 +110,13 @@ class OffsetCommitTracker {
   // that have now completed. The frontier walks the polled sequence rather than offset+1, so a gap between polled
   // offsets (compaction, transaction markers) does not stall it.
   private void recordCompleted(TopicPartition partition, long offset) {
-    java.util.NavigableSet<Long> polledOffsets = polled.get(partition);
+    NavigableSet<Long> polledOffsets = polled.get(partition);
     if (polledOffsets == null || !polledOffsets.contains(offset)) {
       // Not an outstanding polled offset under the current generation (already absorbed, or stale): nothing to do.
       return;
     }
-    completed.computeIfAbsent(partition, p -> new java.util.TreeSet<>()).add(offset);
-    java.util.NavigableSet<Long> done = completed.get(partition);
+    completed.computeIfAbsent(partition, p -> new TreeSet<>()).add(offset);
+    NavigableSet<Long> done = completed.get(partition);
     // Absorb polled offsets, lowest first, while each has completed. Stop at the first polled-but-not-completed offset:
     // the frontier must not pass it.
     long commitOffset = -1;
