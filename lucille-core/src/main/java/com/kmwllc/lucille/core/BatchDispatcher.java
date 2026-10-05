@@ -18,19 +18,20 @@ import java.util.List;
  * dispatcher decouples the two steps so that a concurrent implementation can send several batches (on a pool) before
  * the first one is completed, while the completions still happen one at a time on the indexer thread.
  *
- * <p> The Indexer gives the dispatcher two callbacks when it constructs it, and the dispatcher decides, for each batch
- * it accepts, when to pass the batch through them:
+ * <p> The Indexer gives the dispatcher a {@link BatchProcessor} when it constructs it — the two steps above as a pair of
+ * methods — and the dispatcher decides, for each batch it accepts, when to run each step. The two steps have different
+ * threading contracts, which is the whole reason a concurrent dispatcher exists:
  * <ul>
- *   <li>a <b>batch sender</b> that sends one batch (with retries) and returns its {@link Indexer.SendOutcome}; it never
- *   throws, capturing any Throwable in the outcome instead. It may run off the indexer thread (on a pool).</li>
- *   <li>a <b>batch completer</b> that completes one sent batch. It touches messenger state and must always run on the
- *   indexer thread.</li>
+ *   <li>{@link BatchProcessor#sendWithRetry} sends one batch (with retries) and returns its {@link Indexer.SendOutcome};
+ *   it never throws, capturing any Throwable in the outcome instead. It may run off the indexer thread (on a pool).</li>
+ *   <li>{@link BatchProcessor#completeBatch} completes one sent batch. It touches messenger state and must always run on
+ *   the indexer thread.</li>
  * </ul>
  *
- * <p> The dispatcher owns only this <i>scheduling</i> — which thread a send runs on, and when each batch's completer is
- * invoked. It never inspects or alters what a send or a completion does. Implementations must invoke the completer for
- * batches in the order the batches were dispatched (even if their sends finish out of order), so that a messenger which
- * commits its input on completion never commits past an unfinished batch.
+ * <p> The dispatcher owns only this <i>scheduling</i> — which thread a send runs on, and when each batch is completed.
+ * It never inspects or alters what a send or a completion does. Implementations must complete batches in the order the
+ * batches were dispatched (even if their sends finish out of order), so that a messenger which commits its input on
+ * completion never commits past an unfinished batch.
  */
 interface BatchDispatcher extends AutoCloseable {
 

@@ -15,7 +15,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
@@ -28,7 +27,7 @@ import org.slf4j.MDC;
  * shares a destination id with a batch still in flight, or if it is a delete-by-query barrier (which runs alone).
  * Batches are completed in the order they were dispatched.
  *
- * <p> <b>Threading.</b> Only the send ({@code batchSender}) runs on the pool. Every other method — {@link #dispatch},
+ * <p> <b>Threading.</b> Only the send ({@code processor.sendWithRetry}) runs on the pool. Every other method — {@link #dispatch},
  * {@link #completeFinishedBatches}, {@link #drain}, and the completion they drive — is called on the single indexer
  * thread. The in-flight state ({@code inFlightBatches}, {@code inFlightIds}) is therefore confined to that thread and
  * needs no synchronization; the {@link Future} returned by the pool provides the happens-before edge for each send's
@@ -47,8 +46,7 @@ class ConcurrentDispatcher implements BatchDispatcher {
   private static final AtomicInteger DISPATCHER_INSTANCE_COUNT = new AtomicInteger();
 
   private final int maxConcurrentBatches;
-  private final Function<List<Document>, SendOutcome> batchSender;
-  private final BiConsumer<List<Document>, SendOutcome> batchCompleter;
+  private final BatchProcessor processor;
   private final Function<List<Document>, Set<String>> destinationIdExtractor;
   // Whether a document forces its batch to run alone (a delete-by-query, which can match documents in any batch).
   private final Predicate<Document> isBarrierDocument;
@@ -88,14 +86,12 @@ class ConcurrentDispatcher implements BatchDispatcher {
   }
 
   ConcurrentDispatcher(int maxConcurrentBatches, String runId,
-      Function<List<Document>, SendOutcome> batchSender,
-      BiConsumer<List<Document>, SendOutcome> batchCompleter,
+      BatchProcessor processor,
       Function<List<Document>, Set<String>> destinationIdExtractor,
       Predicate<Document> isBarrierDocument,
       Runnable keepAlive) {
     this.maxConcurrentBatches = maxConcurrentBatches;
-    this.batchSender = batchSender;
-    this.batchCompleter = batchCompleter;
+    this.processor = processor;
     this.destinationIdExtractor = destinationIdExtractor;
     this.isBarrierDocument = isBarrierDocument;
     this.keepAlive = keepAlive;
@@ -126,14 +122,14 @@ class ConcurrentDispatcher implements BatchDispatcher {
     }
 
     Map<String, String> mdc = MDC.getCopyOfContextMap();
-    // The task runs on a pool thread, so it must touch only batchSender and the per-thread MDC — never the dispatcher's
+    // The task runs on a pool thread, so it must touch only processor.sendWithRetry and the per-thread MDC — never the dispatcher's
     // in-flight state (inFlightBatches, inFlightIds), which belongs to the indexer thread and is unsynchronized.
     Future<SendOutcome> outcome = pool.submit(() -> {
       if (mdc != null) {
         MDC.setContextMap(mdc);
       }
       try {
-        return batchSender.apply(batchedDocs);
+        return processor.sendWithRetry(batchedDocs);
       } finally {
         MDC.clear();
       }
@@ -211,7 +207,7 @@ class ConcurrentDispatcher implements BatchDispatcher {
     try {
       AwaitedOutcome awaited = awaitOutcome(oldest.outcome());
       interrupted |= awaited.interrupted();
-      batchCompleter.accept(oldest.docs(), awaited.outcome());
+      processor.completeBatch(oldest.docs(), awaited.outcome());
     } finally {
       if (interrupted) {
         Thread.currentThread().interrupt();

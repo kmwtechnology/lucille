@@ -103,7 +103,7 @@ import sun.misc.Signal;
  *   Values greater than 1 are only accepted by implementations whose {@link #supportsConcurrentSends()} returns true.</li>
  * </ul>
  */
-public abstract class Indexer implements Runnable {
+public abstract class Indexer implements Runnable, BatchProcessor {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int NO_BATCH_SIZE = Integer.MAX_VALUE;
@@ -345,9 +345,11 @@ public abstract class Indexer implements Runnable {
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
 
+    // This Indexer is the dispatcher's BatchProcessor: it supplies the two steps the dispatcher schedules,
+    // sendWithRetry (may run on a pool) and completeBatch (indexer thread, in dispatch order).
     this.dispatcher = maxConcurrentBatches == 1
-        ? new SynchronousDispatcher(this::sendWithRetry, this::completeBatch)
-        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this::sendWithRetry, this::completeBatch,
+        ? new SynchronousDispatcher(this)
+        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this,
             this::destinationIds, this::isDeleteByQuery, this::keepAliveMessenger);
   }
 
@@ -535,7 +537,8 @@ public abstract class Indexer implements Runnable {
    * Sends the batch to the destination, applying the retry policy. Never throws: any Throwable is captured in the
    * returned {@link SendOutcome} so that {@link #completeBatch} can handle it.
    */
-  private SendOutcome sendWithRetry(List<Document> batchedDocs) {
+  @Override
+  public final SendOutcome sendWithRetry(List<Document> batchedDocs) {
     long start = System.nanoTime();
     try {
       // Note: the retry wraps the entire sendToIndex() call. If sendToIndex() partially succeeds
@@ -558,7 +561,8 @@ public abstract class Indexer implements Runnable {
    * Records metrics and sends FAIL / FINISH events for a sent batch, then marks it complete. Always runs on the indexer
    * thread.
    */
-  private void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+  @Override
+  public final void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
     // An Error (OutOfMemoryError, etc.) means the send did not run to a defined conclusion — the batch's documents were
     // not indexed. Two things must happen on that path, and they are deliberately split:
     //  - FAIL events are still sent for every document, so the run's publisher stops tracking them and does not hang
