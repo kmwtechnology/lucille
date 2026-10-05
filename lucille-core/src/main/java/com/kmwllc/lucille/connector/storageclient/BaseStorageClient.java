@@ -242,8 +242,10 @@ public abstract class BaseStorageClient implements StorageClient {
               handleStreamExtensionFiles(publisher, resolvedExtension, params, compressorStream, compressedFileFullPath);
             } else {
               Document doc = fileReference.decompressedFileAsDoc(compressorStream, compressedFileFullPath, params);
-              try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
-                docLogger.info("StorageClient to publish Document {}.", doc.getId());
+              if (docLogger.isInfoEnabled()) {
+                try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+                  docLogger.info("StorageClient to publish Document {}.", doc.getId());
+                }
               }
               publisher.publish(doc);
             }
@@ -295,8 +297,10 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle normal files
       Document doc = fileReference.asDoc(params);
-      try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
-        docLogger.info("StorageClient to publish Document {}.", doc.getId());
+      if (docLogger.isInfoEnabled()) {
+        try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+          docLogger.info("StorageClient to publish Document {}.", doc.getId());
+        }
       }
       publisher.publish(doc);
 
@@ -369,8 +373,10 @@ public abstract class BaseStorageClient implements StorageClient {
               doc.setField(CONTENT, in.readAllBytes());
             }
             try {
-              try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
-                docLogger.info("StorageClient to publish Document {}.", doc.getId());
+              if (docLogger.isInfoEnabled()) {
+                try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+                  docLogger.info("StorageClient to publish Document {}.", doc.getId());
+                }
               }
               publisher.publish(doc);
             } catch (Exception e) {
