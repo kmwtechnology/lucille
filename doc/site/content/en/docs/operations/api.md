@@ -1,6 +1,6 @@
 ---
 title: REST API
-weight: 7
+weight: 8
 date: 2025-06-09
 description: >
   HTTP REST API for managing Lucille configs and triggering runs without the CLI.

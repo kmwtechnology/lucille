@@ -43,6 +43,8 @@ When the Worker produces processed documents to the indexing topic, it again use
 
 **Multiple Indexers do not break ordering.** Even with N Indexers running, each Indexer owns a disjoint set of partitions. All messages for document "D" are on partition Q, and only one Indexer consumes from Q. There is no shared queue where multiple Indexers could pick up different parts of a sequence for the same document.
 
+**Concurrent sends within a single Indexer also do not break ordering.** With `indexer.maxConcurrentBatches` greater than 1, one Indexer sends several batches to the backend at once rather than one at a time. The sequential consumption described above still establishes the order, and the Indexer additionally guarantees that two batches touching the same document ID (or its children) are never in flight simultaneously, and that batches are completed in dispatch order — so overlapping sends do not reorder operations on the same document. See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}) for the mechanism and its guarantees.
+
 ---
 
 ## Ordering in WorkerIndexer Mode

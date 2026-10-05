@@ -1,6 +1,6 @@
 ---
 title: Support Matrix
-weight: 8
+weight: 9
 date: 2025-06-09
 description: Supported Java versions, search backends, Kafka versions, and operating systems.
 ---
