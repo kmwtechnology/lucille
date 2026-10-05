@@ -12,6 +12,8 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import opennlp.tools.sentdetect.SentenceDetector;
 import opennlp.tools.sentdetect.SentenceDetectorME;
 import opennlp.tools.sentdetect.SentenceModel;
@@ -112,6 +114,12 @@ public class ChunkText extends Stage {
   private SentenceDetector sentenceDetector;
   private static final Logger log = LoggerFactory.getLogger(ChunkText.class);
 
+  // split any consecutive line break sequence (\n, \r, \r\n) optionally within one unit of whitespace
+  // regEx from LangChain4J paragraph splitter
+  private static final Pattern PARAGRAPH_PATTERN = Pattern.compile("\\s*(?>\\R)\\s*(?>\\R)\\s*");
+  private static final Pattern LINE_BREAK_PATTERN = Pattern.compile("\\s*(?>\\R)\\s*");
+  private final Pattern customPattern;
+
   public ChunkText(Config config) throws StageException {
     super(config);
     this.source = config.getString("source");
@@ -137,6 +145,11 @@ public class ChunkText extends Stage {
     }
     if (method == ChunkingMethod.CUSTOM && regEx.isEmpty()) {
       throw new StageException("Must provide a non empty regex configuration when using 'custom' method.");
+    }
+    try {
+      this.customPattern = method == ChunkingMethod.CUSTOM ? Pattern.compile(regEx) : null;
+    } catch (PatternSyntaxException e) {
+      throw new StageException("Invalid regex configuration for 'custom' method.", e);
     }
     if (method == ChunkingMethod.FIXED && lengthToSplit == null) {
       throw new StageException("Provide a positive length to split for fixed sized chunking.");
@@ -180,12 +193,10 @@ public class ChunkText extends Stage {
     String[] chunks;
     switch (method) {
       case CUSTOM:
-        chunks = content.split(regEx);
+        chunks = customPattern.split(content);
         break;
       case PARAGRAPH:
-        // split any consecutive line break sequence (\n, \r, \r\n) optionally within one unit of whitespace
-        // regEx from LangChain4J paragraph splitter
-        chunks = content.split("\\s*(?>\\R)\\s*(?>\\R)\\s*");
+        chunks = PARAGRAPH_PATTERN.split(content);
         break;
       case FIXED:
         chunks = splitBySize(content, lengthToSplit);
@@ -242,8 +253,9 @@ public class ChunkText extends Stage {
       for (int j = i; j < Math.min(i + chunksToMerge, chunkLength); j++) {
         sb.append(chunks[j]).append(" ");
       }
-      log.debug("{} {} {}", i, resultIndex, sb.toString());
-      resultChunks[resultIndex] = sb.toString().trim();
+      String merged = sb.toString();
+      log.debug("{} {} {}", i, resultIndex, merged);
+      resultChunks[resultIndex] = merged.trim();
     }
     return resultChunks;
   }
@@ -286,7 +298,7 @@ public class ChunkText extends Stage {
   // replacing all new line characters with white spaces and trim at the end
   private void cleanChunks(String[] chunks) {
     for (int i = 0; i < chunks.length; i++) {
-      chunks[i] = chunks[i].replaceAll("\\s*(?>\\R)\\s*", " ").trim();
+      chunks[i] = LINE_BREAK_PATTERN.matcher(chunks[i]).replaceAll(" ").trim();
     }
   }
 

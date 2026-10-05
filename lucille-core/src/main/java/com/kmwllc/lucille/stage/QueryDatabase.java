@@ -136,13 +136,14 @@ public class QueryDatabase extends Stage {
             throw new StageException("Type " + t + " not recognized");
         }
       }
-      ResultSet result = preparedStatement.executeQuery();
-      // now we need to iterate the results
-      while (result.next()) {
-        // parse result into document
-        // can throw SQL Exception if column cannot be found or resultSet is closed
-        // will not add to document if fieldValue is null or if field value is unsupported type
-        JDBCUtils.parseResultToDoc(doc, result, fieldMapping);
+      try (ResultSet result = preparedStatement.executeQuery()) {
+        // now we need to iterate the results
+        while (result.next()) {
+          // parse result into document
+          // can throw SQL Exception if column cannot be found or resultSet is closed
+          // will not add to document if fieldValue is null or if field value is unsupported type
+          JDBCUtils.parseResultToDoc(doc, result, fieldMapping);
+        }
       }
     } catch (SQLException e) {
       throw new StageException("Error handling SQL statements", e);

@@ -136,6 +136,10 @@ public class DetectLanguage extends Stage {
       throw new StageException("Unable to create new Language Detector", e);
     }
 
+    // only the first maxLength chars are copied; seen tracks the length the full values would have had,
+    // which is what minLength is checked against
+    int limit = Math.max(0, maxLength);
+    long seen = 0;
     StringBuilder builder = new StringBuilder();
     for (String source : sourceFields) {
 
@@ -144,20 +148,25 @@ public class DetectLanguage extends Stage {
       }
 
       for (String value : doc.getStringList(source)) {
-        builder.append(value);
+        // String.valueOf keeps the existing handling of null values, which StringBuilder.append(String) writes as "null"
+        String text = String.valueOf(value);
+        if (builder.length() < limit) {
+          builder.append(text, 0, Math.min(text.length(), limit - builder.length()));
+        }
+        seen += text.length();
 
-        if (builder.length() > maxLength) {
+        if (seen > maxLength) {
           break;
         }
       }
     }
 
-    if (builder.length() < minLength) {
+    if (seen < minLength) {
       return null;
     }
 
     try {
-      detector.append(builder.substring(0, Math.min(builder.length(), maxLength)));
+      detector.append(builder.toString());
       Language result = detector.getProbabilities().get(0);
 
       if (result.prob >= minProbability) {

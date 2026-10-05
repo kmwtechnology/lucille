@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
+import java.util.regex.Pattern;
 
 /**
  * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
@@ -22,6 +23,9 @@ import java.util.Iterator;
 public class NormalizeFieldNames extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage().optionalString("delimiter", "nonAlphanumReplacement").build();
+
+  private static final Pattern SPACE = Pattern.compile(" ");
+  private static final Pattern NON_ALPHANUM = Pattern.compile("[^a-zA-Z0-9_.]");
 
   private final String delimeter;
   private final String nonAlphanumReplacement;
@@ -39,7 +43,8 @@ public class NormalizeFieldNames extends Stage {
         continue;
       }
 
-      String normalizedField = field.replaceAll(" ", delimeter).replaceAll("[^a-zA-Z0-9_.]", nonAlphanumReplacement);
+      String spaced = SPACE.matcher(field).replaceAll(delimeter);
+      String normalizedField = NON_ALPHANUM.matcher(spaced).replaceAll(nonAlphanumReplacement);
       doc.renameField(field, normalizedField, UpdateMode.DEFAULT);
     }
 
