@@ -2,6 +2,8 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -10,8 +12,6 @@ import java.util.Set;
  */
 public class FieldFilter {
 
-  private final List<String> whitelist;
-  private final List<String> blacklist;
   private final Set<String> whitelistSet;
   private final Set<String> blacklistSet;
 
@@ -20,22 +20,27 @@ public class FieldFilter {
    * @param config the config for Lucille
    */
   public FieldFilter(Config config) {
-    this.whitelist = config.hasPath("whitelist") ? List.copyOf(config.getStringList("whitelist")) : List.of();
-    this.blacklist = config.hasPath("blacklist") ? List.copyOf(config.getStringList("blacklist")) : List.of();
-    this.whitelistSet = Set.copyOf(whitelist);
-    this.blacklistSet = Set.copyOf(blacklist);
+    this.whitelistSet = readSet(config, "whitelist");
+    this.blacklistSet = readSet(config, "blacklist");
+  }
+
+  // Insertion-ordered so the list getters keep the configured order.
+  private static Set<String> readSet(Config config, String path) {
+    return config.hasPath(path)
+        ? Collections.unmodifiableSet(new LinkedHashSet<>(config.getStringList(path)))
+        : Set.of();
   }
 
   public List<String> getWhitelist() {
-    return whitelist;
+    return List.copyOf(whitelistSet);
   }
 
   public List<String> getBlacklist() {
-    return blacklist;
+    return List.copyOf(blacklistSet);
   }
 
   public boolean isActive() {
-    return !whitelist.isEmpty() || !blacklist.isEmpty();
+    return !whitelistSet.isEmpty() || !blacklistSet.isEmpty();
   }
 
   /**
@@ -76,9 +81,9 @@ public class FieldFilter {
   }
 
   public boolean shouldInclude(String field) {
-    if (!whitelist.isEmpty() && !blacklist.isEmpty()) {
+    if (!whitelistSet.isEmpty() && !blacklistSet.isEmpty()) {
       return whitelistSet.contains(field) && !blacklistSet.contains(field);
-    } else if (!whitelist.isEmpty()) {
+    } else if (!whitelistSet.isEmpty()) {
       return whitelistSet.contains(field);
     }
     return !blacklistSet.contains(field);
