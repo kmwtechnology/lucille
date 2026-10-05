@@ -24,6 +24,7 @@ import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -44,8 +45,13 @@ import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
 import org.apache.tika.parser.AbstractParser;
+import org.apache.tika.parser.CompositeParser;
 import org.apache.tika.parser.DefaultParser;
 import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.parser.ParserDecorator;
+import org.apache.tika.parser.ocr.TesseractOCRParser;
+import org.apache.tika.parser.pdf.PDFParser;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -603,6 +609,116 @@ public class TextExtractorTest {
     doc3.setField("content", tikaTxtBytes);
     stage.processDocument(doc3);
     assertEquals("Hi There!\n", doc3.getString("text"));
+  }
+
+  @Test
+  public void testOcrDisabledByDefault() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/filepath.conf");
+    Parser parser = stage.createAutoDetectParser();
+
+    assertFalse(containsParser(parser, TesseractOCRParser.class));
+    // PDFParser only renders pages for OCR when some parser supports image/ocr-*; holds whether or not tesseract is installed
+    assertFalse(parser.getSupportedTypes(new ParseContext()).contains(MediaType.image("ocr-png")));
+    assertTrue(containsParser(parser, PDFParser.class));
+  }
+
+  @Test
+  public void testOcrExplicitlyDisabled() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get(ocrConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(false)));
+    Parser parser = stage.createAutoDetectParser();
+
+    assertFalse(containsParser(parser, TesseractOCRParser.class));
+    assertFalse(parser.getSupportedTypes(new ParseContext()).contains(MediaType.image("ocr-png")));
+  }
+
+  @Test
+  public void testOcrEnabled() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get(ocrConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(true)));
+
+    assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+  }
+
+  @Test
+  public void testOcrDisabledStillExtractsPdfText() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/filepath.conf");
+    Document doc = Document.create("doc1");
+    doc.setField("path", "src/test/resources/TextExtractorTest/tika.pdf");
+
+    stage.processDocument(doc);
+    assertTrue(doc.getString("text").contains("Hi There!"));
+  }
+
+  @Test
+  public void testOcrDisabledWithForkingParser() throws Exception {
+    // the OCR-free parser must survive serialization into the forked JVM
+    Stage stage = factory.get("TextExtractorTest/forking.conf");
+    Document doc = Document.create("doc1");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.pdf").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+    assertTrue(doc.getString("text").contains("Hi There!"));
+  }
+
+  @Test
+  public void testEnableOcrWithTikaConfigPathRejected() {
+    Config tikaConfigPathConfig = ConfigFactory.parseResourcesAnySyntax("TextExtractorTest/tika-config.conf");
+
+    for (boolean enableOcr : new boolean[]{true, false}) {
+      Config config = tikaConfigPathConfig.withValue("enableOcr", ConfigValueFactory.fromAnyRef(enableOcr));
+      StageException e = assertThrows(StageException.class, () -> factory.get(config));
+      Throwable cause = e;
+      while (cause.getCause() != null) {
+        cause = cause.getCause();
+      }
+      assertTrue(cause.getMessage().contains("enableOcr"));
+    }
+  }
+
+  @Test
+  public void testTikaConfigPathWithoutEnableOcrUsesConfigAsIs() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/tika-config.conf");
+
+    // tika-config.xml declares only a DefaultParser, so tesseract stays in the parser set as before
+    assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+  }
+
+  @Test
+  public void testGlobalTikaConfigUsedAsIs() throws Exception {
+    System.setProperty("tika.config", "src/test/resources/TextExtractorTest/tika-config.xml");
+    try {
+      // without enableOcr, the global config is used as is, so tesseract stays in its DefaultParser
+      TextExtractor stage = (TextExtractor) factory.get(ocrConfig());
+      assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+
+      for (boolean enableOcr : new boolean[]{true, false}) {
+        Config config = ocrConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(enableOcr));
+        StageException e = assertThrows(StageException.class, () -> factory.get(config));
+        Throwable cause = e;
+        while (cause.getCause() != null) {
+          cause = cause.getCause();
+        }
+        assertTrue(cause.getMessage().contains("global Tika config"));
+      }
+    } finally {
+      System.clearProperty("tika.config");
+    }
+  }
+
+  private static Config ocrConfig() {
+    return ConfigFactory.parseResourcesAnySyntax("TextExtractorTest/filepath.conf");
+  }
+
+  private static boolean containsParser(Parser parser, Class<? extends Parser> parserClass) {
+    if (parserClass.isInstance(parser)) {
+      return true;
+    }
+    if (parser instanceof CompositeParser composite) {
+      return composite.getAllComponentParsers().stream().anyMatch(p -> containsParser(p, parserClass));
+    }
+    if (parser instanceof ParserDecorator decorator) {
+      return containsParser(decorator.getWrappedParser(), parserClass);
+    }
+    return false;
   }
 
   /**
