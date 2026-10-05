@@ -13,6 +13,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
@@ -75,14 +76,29 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     return null;
   }
 
+  /**
+   * Commits the offsets of all indexer batches completed since the last call, using a single commitSync. Maps
+   * queued by the indexer may arrive out of offset order, so the highest offset per partition is kept.
+   *
+   * If the commit fails, the drained offsets are not re-queued; as offsets are cumulative per partition, the
+   * next completed batch supersedes them and the cost is at most some reprocessing after a restart.
+   */
   @Override
   public void commitPendingDocOffsets() throws Exception {
-    Map<TopicPartition, OffsetAndMetadata> batchOffsets = null;
-    while ((batchOffsets = offsets.poll()) != null) {
-      // offsets are committed synchronously to ensure that offsets are successfully committed before the documents are sent to
-      // the destination (typically an indexer). This reduces the number of documents that might be reprocessed and reindexed in the event of HybridWorker crash/restart and/or in the case of consumer group rebalance.
-      sourceConsumer.commitSync(batchOffsets);
+    Map<TopicPartition, OffsetAndMetadata> batchOffsets = offsets.poll();
+    if (batchOffsets == null) {
+      return;
     }
+    Map<TopicPartition, OffsetAndMetadata> merged = new HashMap<>();
+    while (batchOffsets != null) {
+      batchOffsets.forEach((partition, offset) -> merged.merge(partition, offset,
+          (existing, candidate) -> candidate.offset() > existing.offset() ? candidate : existing));
+      batchOffsets = offsets.poll();
+    }
+    // offsets are committed synchronously, and only after the indexer has sent the batch, so a successful commit means
+    // those documents are already in the destination. Doing it synchronously limits how much is reprocessed and
+    // reindexed after a HybridWorker crash/restart or a consumer group rebalance.
+    sourceConsumer.commitSync(merged);
   }
 
   /**
