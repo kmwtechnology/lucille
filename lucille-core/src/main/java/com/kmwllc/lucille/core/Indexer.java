@@ -325,8 +325,12 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   }
 
   // Calls messenger.keepAlive() for the ConcurrentDispatcher while it waits on in-flight batches. Never throws: a
-  // keepAlive failure is logged and the wait continues.
+  // keepAlive failure is logged and the wait continues. The messenger may be null (the constructor allows a null
+  // messenger even with K > 1), in which case there is nothing to keep alive.
   private void keepAliveMessenger() {
+    if (messenger == null) {
+      return;
+    }
     try {
       messenger.keepAlive();
     } catch (Exception e) {
@@ -489,18 +493,20 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       lastLog = Instant.now();
     }
 
+    // Both completeFinishedBatches() and dispatch() can block this thread (committing finished batches' offsets or a
+    // Hybrid-queue put; sending the batch synchronously, or waiting for a free concurrency slot). No document can be
+    // added to the batch during that time, so delay the batch's expiry by the whole blocked span — otherwise the next
+    // add would see an "expired" batch and flush a partly filled one, often as a single-document bulk. This holds even
+    // when there is no new batch to dispatch, since completeFinishedBatches() alone can block.
+    long blockedStartNanos = System.nanoTime();
+
     // Account for any concurrent batches that have finished sending (a no-op for synchronous dispatch).
     dispatcher.completeFinishedBatches();
 
-    if (batchedDocs.isEmpty()) {
-      return;
+    if (!batchedDocs.isEmpty()) {
+      dispatcher.dispatch(batchedDocs);
     }
 
-    // dispatch() blocks while this thread sends the batch (synchronous) or waits for a free slot (concurrent). No
-    // document can be added during that time, so delay the batch's expiry by it; otherwise the next add would see an
-    // expired batch and flush a partly filled one, often as a single-document bulk.
-    long blockedStartNanos = System.nanoTime();
-    dispatcher.dispatch(batchedDocs);
     batch.delayExpirationBy((System.nanoTime() - blockedStartNanos) / 1_000_000);
   }
 
