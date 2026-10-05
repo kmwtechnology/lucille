@@ -22,7 +22,7 @@ import java.util.List;
  * methods — and the dispatcher decides, for each batch it accepts, when to run each step. The two steps have different
  * threading contracts, which is the whole reason a concurrent dispatcher exists:
  * <ul>
- *   <li>{@link BatchProcessor#sendWithRetry} sends one batch (with retries) and returns its {@link Indexer.SendOutcome};
+ *   <li>{@link BatchProcessor#sendWithRetry} sends one batch (with retries) and returns its {@link SendOutcome};
  *   it never throws, capturing any Throwable in the outcome instead. It may run off the indexer thread (on a pool).</li>
  *   <li>{@link BatchProcessor#completeBatch} completes one sent batch. It touches messenger state and must always run on
  *   the indexer thread.</li>

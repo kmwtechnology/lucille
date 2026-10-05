@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.core.Indexer.SendOutcome;
 import java.util.List;
 
 /**

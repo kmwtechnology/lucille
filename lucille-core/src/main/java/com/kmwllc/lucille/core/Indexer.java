@@ -157,35 +157,6 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   // Sends batches to the destination and accounts for them. See BatchDispatcher.
   private final BatchDispatcher dispatcher;
 
-  /**
-   * The outcome of one {@link #sendToIndex(List)} call (with retries): exactly one of failedDocPairs and error is
-   * meaningful. error is non-null when the send threw; otherwise failedDocPairs holds the per-document failures (possibly
-   * empty). elapsedNanos is the time the send took, used for the latency metric.
-   */
-  static final class SendOutcome {
-    private final Set<Pair<Document, Exception>> failedDocPairs;
-    private final Throwable error;
-    private final long elapsedNanos;
-
-    SendOutcome(Set<Pair<Document, Exception>> failedDocPairs, Throwable error, long elapsedNanos) {
-      this.failedDocPairs = failedDocPairs;
-      this.error = error;
-      this.elapsedNanos = elapsedNanos;
-    }
-
-    Set<Pair<Document, Exception>> failedDocPairs() {
-      return failedDocPairs;
-    }
-
-    Throwable error() {
-      return error;
-    }
-
-    long elapsedNanos() {
-      return elapsedNanos;
-    }
-  }
-
   public void terminate() {
     running = false;
     log.debug("terminate");

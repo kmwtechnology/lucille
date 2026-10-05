@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.kmwllc.lucille.core.Indexer.SendOutcome;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import java.util.ArrayDeque;
 import java.util.Deque;
