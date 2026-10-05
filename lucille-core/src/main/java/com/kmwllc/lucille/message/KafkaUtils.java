@@ -160,18 +160,26 @@ public class KafkaUtils {
   }
 
   /**
-   * Fails fast if the document consumer would auto-commit offsets. The indexer commits destination-topic offsets only
-   * once a batch has completed (at-least-once); auto-commit would instead commit at poll time, before the documents are
-   * indexed, so a crash would skip them (at-most-once). The default built here is {@code false}, but a
-   * {@code kafka.consumerPropertyFile} or a {@code kafka.consumer.enable.auto.commit} override could re-enable it, which
-   * must not be allowed to pass silently.
+   * Fails fast unless the document consumer has auto-commit explicitly disabled. The indexer commits destination-topic
+   * offsets only once a batch has completed (at-least-once); auto-commit would instead commit at poll time, before the
+   * documents are indexed, so a crash would skip them (at-most-once).
+   *
+   * <p> It is not enough to reject an explicit {@code true}: kafka-clients defaults {@code enable.auto.commit} to
+   * {@code true} when it is unset, so an absent value is just as unsafe as an explicit {@code true}. The non-property-file
+   * path sets it to {@code false} here, but a {@code kafka.consumerPropertyFile} that omits it (or a
+   * {@code kafka.consumer.enable.auto.commit} override) would otherwise auto-commit at poll. So this requires the
+   * resolved value to be present and {@code false}.
    */
   private static void requireAutoCommitDisabled(Properties consumerProps) {
     Object autoCommit = consumerProps.get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
-    if (autoCommit != null && Boolean.parseBoolean(autoCommit.toString().trim())) {
-      throw new IllegalArgumentException(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + " must be false for the indexer's "
-          + "document consumer: offsets are committed on batch completion, and auto-commit would commit them at poll "
-          + "time (before indexing), which could skip documents on a crash. Remove the override that enables it.");
+    // Absent is unsafe: kafka-clients defaults enable.auto.commit to true. Require it to be present and explicitly false.
+    if (autoCommit == null || Boolean.parseBoolean(autoCommit.toString().trim())) {
+      throw new IllegalArgumentException(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + " must be set to false for the "
+          + "indexer's document consumer: offsets are committed on batch completion, and auto-commit would commit them "
+          + "at poll time (before indexing), which could skip documents on a crash. It is "
+          + (autoCommit == null ? "unset (kafka-clients defaults it to true)" : "set to " + autoCommit)
+          + "; set " + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + "=false (e.g. in kafka.consumerPropertyFile or via "
+          + "kafka.consumer." + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + ").");
     }
   }
 
