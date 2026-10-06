@@ -88,15 +88,17 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    *   time;</li>
    *   <li>the single indexer thread queues (last offset + 1) for each partition in a batch only once that batch has
    *   been handled: sent to the destination, or reported with FAIL events if sending failed;</li>
-   *   <li>one indexer thread queues the maps and one worker thread drains them, so a partition's offsets are queued
-   *   in increasing order.</li>
+   *   <li>batches are marked complete in the order they were formed, and one worker thread drains the queue, so a
+   *   partition's offsets are queued in increasing order.</li>
    * </ol>
    * So a map holding offset N for a partition implies every lower offset was already handled. Taking the max also
    * means a stale lower map can never move a partition's committed offset backwards.
    *
-   * <p>This relies on (3). If indexer batches ever complete out of order (for example, sent concurrently), a higher
-   * offset could be queued while a lower batch is still in flight, and committing it, whether merged or one map at a
-   * time, could skip records that are never indexed. Revisit this method if that ordering changes.
+   * <p>This relies on (3). What matters is the order in which batches are marked complete, not whether their bulk
+   * requests are sent concurrently: completions must follow the order the batches were formed, not the order their
+   * requests return. If a later batch were marked complete before an earlier one, its higher offset could be committed,
+   * whether merged or one map at a time, while the earlier batch is still in flight, and records from it would be
+   * skipped after a restart. Revisit this method if that ordering changes.
    *
    * <p>If the commit fails, the drained offsets are not re-queued; as offsets are cumulative per partition, the
    * next completed batch supersedes them and the cost is at most some reprocessing after a restart.
