@@ -618,14 +618,15 @@ public class TextExtractorTest {
     assertEquals("pdf_docinfo_created", TextExtractor.cleanFieldName("pdf:docinfo.Created", true));
   }
 
-  // with replaceDots off, output must match the original regex-based implementation exactly
+  // names are trimmed and lowercased; each space, "-" and ":" becomes "_", and "." is kept unless replaceDots is set
   @Test
-  public void testCleanFieldNameMatchesRegexImplementation() {
+  public void testCleanFieldNameEdgeCases() {
     List<String> names = List.of("Content-Type", "dc:title", "dc.date", "dc.date.created", " X-TIKA:Parsed-By ",
         "a  b--c::d", "meta:save-date", "Last-Modified", "resourceName", "", " ", "-:.", "ÄÖÜ:Ünïcode-Name");
-    for (String name : names) {
-      String expected = name.trim().toLowerCase().replaceAll(" ", "_").replaceAll("-", "_").replaceAll(":", "_");
-      assertEquals(expected, TextExtractor.cleanFieldName(name, false));
+    List<String> expected = List.of("content_type", "dc_title", "dc.date", "dc.date.created", "x_tika_parsed_by",
+        "a__b__c__d", "meta_save_date", "last_modified", "resourcename", "", "", "__.", "äöü_ünïcode_name");
+    for (int i = 0; i < names.size(); i++) {
+      assertEquals(expected.get(i), TextExtractor.cleanFieldName(names.get(i), false));
     }
   }
 
