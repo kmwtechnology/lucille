@@ -12,7 +12,7 @@ import java.util.Iterator;
 import java.util.regex.Pattern;
 
 /**
- * Normalizes a document's field values by replacing spaces and non-alphanumeric characters with given delimiters.
+ * Normalizes a document's field names by replacing spaces and non-alphanumeric characters with given delimiters.
  * <p>
  * Config Parameters -
  * <ul>

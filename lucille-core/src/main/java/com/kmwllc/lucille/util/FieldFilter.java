@@ -24,17 +24,23 @@ public class FieldFilter {
     this.blacklistSet = readSet(config, "blacklist");
   }
 
-  // Insertion-ordered so the list getters keep the configured order.
+  // Insertion-ordered so the list getters keep the configured order; duplicate entries are dropped.
   private static Set<String> readSet(Config config, String path) {
     return config.hasPath(path)
         ? Collections.unmodifiableSet(new LinkedHashSet<>(config.getStringList(path)))
         : Set.of();
   }
 
+  /**
+   * @return the configured whitelist, in configured order, without duplicates
+   */
   public List<String> getWhitelist() {
     return List.copyOf(whitelistSet);
   }
 
+  /**
+   * @return the configured blacklist, in configured order, without duplicates
+   */
   public List<String> getBlacklist() {
     return List.copyOf(blacklistSet);
   }

@@ -30,10 +30,10 @@ import java.util.List;
  *   <li>source (List&lt;String&gt;) : List of source field names.</li>
  *   <li>languageField (String) : The field you want detected languages to be placed into.</li>
  *   <li>languageConfidenceField (String, Optional) : The field you want the confidence value to be placed into. Defaults to "languageConfidence"</li>
- *   <li>minLength (Integer, Optional) : The min length of Strings to be considered for language detection. Shorter Strings will be
- *   ignored. Defaults to 50.</li>
- *   <li>maxLength (Integer, Optional) : The max length of Strings to be considered for language detection. Longer Strings will be
- *   truncated. Defaults to 10,000.</li>
+ *   <li>minLength (Integer, Optional) : The minimum combined length of the source values. A document with less text is left
+ *   unchanged. Defaults to 50.</li>
+ *   <li>maxLength (Integer, Optional) : The maximum number of characters used for detection, taken from the start of the
+ *   combined source values; the rest is not read. Defaults to 10,000.</li>
  *   <li>minProbability (Double, Optional) : The min probability for a language result to be considered valid. Results below this
  *   threshold will be ignored. Defaults to 0.95.</li>
  *   <li>updateMode (String, Optional) : The methodology by which you want document fields to be updated. See {@link UpdateMode}.</li>
@@ -136,8 +136,8 @@ public class DetectLanguage extends Stage {
       throw new StageException("Unable to create new Language Detector", e);
     }
 
-    // only the first maxLength chars are copied; seen tracks the length the full values would have had,
-    // which is what minLength is checked against
+    // Only the first maxLength characters are copied into the builder. seen counts the full length of every value
+    // read, so minLength is checked against the same total as before values were truncated.
     int limit = Math.max(0, maxLength);
     long seen = 0;
     StringBuilder builder = new StringBuilder();

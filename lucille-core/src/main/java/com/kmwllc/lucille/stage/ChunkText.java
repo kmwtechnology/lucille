@@ -42,7 +42,8 @@ import org.slf4j.LoggerFactory;
  *       <li>custom chunking ("custom") : regex option in config required, used to split content.</li>
  *     </ol>
  *   </li>
- *   <li>regex (String, only for custom chunking) : regEx that will be used to split chunks.</li>
+ *   <li>regex (String, only for custom chunking) : regEx that will be used to split chunks. It is compiled when the stage
+ *   is created, so an invalid pattern fails at startup.</li>
  *   <li>lengthToSplit (Integer, only for fixed chunking) : length of characters of each initial chunk before processing.</li>
  *   <li>preMergeMinChunkLen (Integer, optional) : removes and append chunk to the neighboring chunk if below given number of characters,
  *   defaults appending to next chunk.</li>
@@ -114,9 +115,10 @@ public class ChunkText extends Stage {
   private SentenceDetector sentenceDetector;
   private static final Logger log = LoggerFactory.getLogger(ChunkText.class);
 
-  // split any consecutive line break sequence (\n, \r, \r\n) optionally within one unit of whitespace
+  // paragraph chunking: two consecutive line breaks (\n, \r, \r\n), each optionally surrounded by whitespace.
   // regEx from LangChain4J paragraph splitter
   private static final Pattern PARAGRAPH_PATTERN = Pattern.compile("\\s*(?>\\R)\\s*(?>\\R)\\s*");
+  // cleanChunks: a single line break and its surrounding whitespace, replaced with one space
   private static final Pattern LINE_BREAK_PATTERN = Pattern.compile("\\s*(?>\\R)\\s*");
   private final Pattern customPattern;
 
