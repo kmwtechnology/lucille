@@ -143,6 +143,8 @@ Two things to size for:
 
 Distributed mode has the analogous fan-out across *processes*: each standalone indexer process contributes its own K. Local mode runs a single indexer, so K is the whole story.
 
+See [Indexing Fan-Out]({{< relref "indexing-fan-out" >}}) for diagrams of each mode — local, hybrid, and fully distributed — showing how these levers multiply.
+
 ## Delivery semantics (Kafka, distributed mode)
 
 In distributed mode, the standalone Kafka indexer commits destination-topic offsets **on batch completion** — after a batch's documents have been indexed and their events emitted — rather than at poll time. This makes delivery **at-least-once**: a crash or consumer-group rebalance never silently drops in-flight documents. Documents that were polled but not yet committed are **re-delivered** (and re-indexed) after a restart. Re-indexing is safe because search-engine upserts are idempotent.

@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-weight: 10
+weight: 11
 date: 2024-10-15
 description: A guide to some common issues and their resolution.
 ---
