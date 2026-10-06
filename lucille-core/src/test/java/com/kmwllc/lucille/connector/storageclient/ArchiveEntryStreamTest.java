@@ -17,7 +17,6 @@ import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -88,7 +87,7 @@ public class ArchiveEntryStreamTest {
         "fileOptions", Map.of("handleArchivedFiles", true, "handleCompressedFiles", true)));
     LocalStorageClient client = new LocalStorageClient();
     client.init();
-    client.traverse(publisher, new TraversalParams(config, URI.create(dir.toString()), ""));
+    client.traverse(publisher, new TraversalParams(config, dir.toUri(), ""));
     client.shutdown();
   }
 
