@@ -48,17 +48,17 @@ lever that overlaps sends here, since there is a single indexer and no partition
 flowchart LR
     subgraph JVM["Runner JVM (local mode)"]
         direction TB
-        PUB["publisher<br/>(connector output)"]
+        PUB["Publisher<br/>(connector output)"]
 
-        SRCQ(["source queue<br/>(in-memory)"])
+        SRCQ(["Source queue<br/>(in-memory)"])
 
-        W0["worker thread 0"]
-        W1["worker thread 1"]
-        W2["worker thread 2"]
+        W0["Worker thread 0"]
+        W1["Worker thread 1"]
+        W2["Worker thread 2"]
 
-        DESTQ(["dest queue<br/>(in-memory)"])
+        DESTQ(["Dest queue<br/>(in-memory)"])
 
-        IDX["indexer A<br/>maxConcurrentBatches = 4"]
+        IDX["Indexer A<br/>maxConcurrentBatches = 4"]
 
         PUB --> SRCQ
         SRCQ --> W0
@@ -95,13 +95,13 @@ each indexer at `maxConcurrentBatches: 2`. Total in flight from the JVM:
 ```mermaid
 flowchart LR
     subgraph SRC["Source topic (2 partitions)"]
-        P0["partition 0"]
-        P1["partition 1"]
+        P0["Partition 0"]
+        P1["Partition 1"]
     end
 
     subgraph JVM["WorkerIndexer JVM (worker.threads = 2)"]
-        W0["worker A<br/>(Kafka consumer)"] -->|in-JVM queue| I0["indexer A<br/>maxConcurrentBatches = 2"]
-        W1["worker B<br/>(Kafka consumer)"] -->|in-JVM queue| I1["indexer B<br/>maxConcurrentBatches = 2"]
+        W0["Worker A<br/>(Kafka consumer)"] -->|in-JVM queue| I0["Indexer A<br/>maxConcurrentBatches = 2"]
+        W1["Worker B<br/>(Kafka consumer)"] -->|in-JVM queue| I1["Indexer B<br/>maxConcurrentBatches = 2"]
     end
 
     I0 --> R0a["Bulk Request A1"] --> DEST
@@ -131,24 +131,24 @@ add headroom to scale *out* later (up to 8 threads) without repartitioning.
 ```mermaid
 flowchart LR
     subgraph SRC["Source topic (8 partitions)"]
-        P0["partition 0"]
-        P1["partition 1"]
-        P2["partition 2"]
-        P3["partition 3"]
-        P4["partition 4"]
-        P5["partition 5"]
-        P6["partition 6"]
-        P7["partition 7"]
+        P0["Partition 0"]
+        P1["Partition 1"]
+        P2["Partition 2"]
+        P3["Partition 3"]
+        P4["Partition 4"]
+        P5["Partition 5"]
+        P6["Partition 6"]
+        P7["Partition 7"]
     end
 
     subgraph JVMA["WorkerIndexer JVM 1 (worker.threads = 2)"]
-        WA0["worker A"] --> IA0["indexer A<br/>K = 3"]
-        WA1["worker B"] --> IA1["indexer B<br/>K = 3"]
+        WA0["Worker A"] --> IA0["Indexer A<br/>K = 3"]
+        WA1["Worker B"] --> IA1["Indexer B<br/>K = 3"]
     end
 
     subgraph JVMB["WorkerIndexer JVM 2 (worker.threads = 2)"]
-        WB0["worker C"] --> IB0["indexer C<br/>K = 3"]
-        WB1["worker D"] --> IB1["indexer D<br/>K = 3"]
+        WB0["Worker C"] --> IB0["Indexer C<br/>K = 3"]
+        WB1["Worker D"] --> IB1["Indexer D<br/>K = 3"]
     end
 
     IA0 --> RA01["Bulk Request A1"] --> DEST
@@ -198,17 +198,17 @@ same situation that the delete-by-query constraint forces.
 ```mermaid
 flowchart LR
     subgraph WORKERS["Worker processes"]
-        WP0["worker process 0"]
-        WP1["worker process 1"]
-        WP2["worker process 2"]
+        WP0["Worker process 0"]
+        WP1["Worker process 1"]
+        WP2["Worker process 2"]
     end
 
     subgraph DT["Destination topic (1 partition)"]
-        DP0["partition 0"]
+        DP0["Partition 0"]
     end
 
     subgraph IP["Indexer process (standalone)"]
-        IDX["indexer A<br/>maxConcurrentBatches = 4"]
+        IDX["Indexer A<br/>maxConcurrentBatches = 4"]
     end
 
     DEST[("Destination<br/>OpenSearch / Elasticsearch / Solr")]
@@ -235,21 +235,21 @@ overlaps its own sends with `maxConcurrentBatches`. Total in flight:
 ```mermaid
 flowchart LR
     subgraph WORKERS["Worker processes"]
-        WP0["worker process 0"]
-        WP1["worker process 1"]
+        WP0["Worker process 0"]
+        WP1["Worker process 1"]
     end
 
     subgraph DT["Destination topic (2 partitions)"]
-        DP0["partition 0"]
-        DP1["partition 1"]
+        DP0["Partition 0"]
+        DP1["Partition 1"]
     end
 
     subgraph IP0["Indexer process A"]
-        IDX0["indexer A<br/>maxConcurrentBatches = 4"]
+        IDX0["Indexer A<br/>maxConcurrentBatches = 4"]
     end
 
     subgraph IP1["Indexer process B"]
-        IDX1["indexer B<br/>maxConcurrentBatches = 4"]
+        IDX1["Indexer B<br/>maxConcurrentBatches = 4"]
     end
 
     DEST[("Destination<br/>OpenSearch / Elasticsearch / Solr")]
