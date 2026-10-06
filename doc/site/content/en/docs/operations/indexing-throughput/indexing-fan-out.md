@@ -30,7 +30,8 @@ destination's write capacity.
 The scenarios below cover each deployment mode: **local** (one JVM, in-memory
 queues, a single indexer), **hybrid** (`WorkerIndexer` threads reading a source
 topic), and **fully distributed** (separate worker and indexer processes connected
-through a destination topic).
+through a destination topic). In every diagram the **destination cluster** is the
+search backend - a multi-node OpenSearch, Elasticsearch, or Solr cluster.
 
 ## Local mode
 
@@ -70,7 +71,7 @@ flowchart LR
         DESTQ --> IDX
     end
 
-    DEST[("Destination")]
+    DEST[("Destination cluster")]
 
     IDX --> RA1["Bulk Request A1"] --> DEST
     IDX --> RA2["Bulk Request A2"] --> DEST
@@ -110,7 +111,7 @@ flowchart LR
     I1 --> R1a["Bulk Request B1"] --> DEST
     I1 --> R1b["Bulk Request B2"] --> DEST
 
-    DEST[("Destination")]
+    DEST[("Destination cluster")]
 
     P0 -->|assigned to| W0
     P1 -->|assigned to| W1
@@ -169,7 +170,7 @@ flowchart LR
     IB1 --> RB12["Bulk Request D2"] --> DEST
     IB1 --> RB13["Bulk Request D3"] --> DEST
 
-    DEST[("Destination")]
+    DEST[("Destination cluster")]
 
     P0 --> WA0
     P1 --> WA0
@@ -213,7 +214,7 @@ flowchart LR
         IDX["Indexer A"]
     end
 
-    DEST[("Destination")]
+    DEST[("Destination cluster")]
 
     WP0 --> DP0
     WP1 --> DP0
@@ -254,7 +255,7 @@ flowchart LR
         IDX1["Indexer B"]
     end
 
-    DEST[("Destination")]
+    DEST[("Destination cluster")]
 
     WP0 --> DP0
     WP1 --> DP1
