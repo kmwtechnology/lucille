@@ -338,7 +338,7 @@ public class OpenSearchIndexer extends Indexer {
       Document doc = entry.getValue();
 
       // removing fields in the blacklist or not in the whitelist in configurations
-      Map<String, Object> indexerDoc = getIndexerDocForJson(doc);
+      Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
       uploadedDocuments.put(docId, doc);
 
@@ -434,8 +434,8 @@ public class OpenSearchIndexer extends Indexer {
     List<Document> children = doc.getChildren();
 
     for (Document child : children) {
-      // calling getIndexerDocForJson applies black/whitelist and drops nested children, which we don't support
-      childDocMaps.add(getIndexerDocForJson(child));
+      // calling getRawIndexerDoc applies black/whitelist and drops nested children, which we don't support
+      childDocMaps.add(getRawIndexerDoc(child));
     }
     indexerDoc.put(childDocumentsField, childDocMaps);
   }

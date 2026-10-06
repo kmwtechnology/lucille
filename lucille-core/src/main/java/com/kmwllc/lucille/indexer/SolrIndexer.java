@@ -332,7 +332,7 @@ public class SolrIndexer extends Indexer {
   private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
       throws IndexerException {
     // removes fields specified by fieldFilter config, including id
-    Map<String, Object> map = getIndexerDoc(doc);
+    Map<String, Object> map = getConvertedIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
 
     for (String key : map.keySet()) {
@@ -372,7 +372,7 @@ public class SolrIndexer extends Indexer {
     }
     for (Document child : children) {
       // remove key:value pair mappings if they appear in blacklist
-      Map<String, Object> map = getIndexerDoc(child);
+      Map<String, Object> map = getConvertedIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();
       for (String key : map.keySet()) {

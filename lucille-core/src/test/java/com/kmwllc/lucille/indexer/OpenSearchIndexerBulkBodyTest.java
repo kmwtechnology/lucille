@@ -209,39 +209,6 @@ public class OpenSearchIndexerBulkBodyTest {
         + "{\"doc\":" + SCALARS_BODY + "}\n", bulkBody(config("opensearch.update: true"), doc));
   }
 
-  @Test
-  public void testGetIndexerDocOverrideAppliesToJsonDocument() throws Exception {
-    Document doc = Document.create("doc1");
-    doc.setField("str", "s");
-    doc.setField("nullField", (String) null);
-
-    TestMessenger messenger = new TestMessenger();
-    OpenSearchIndexer indexer = new AddingIndexer(config(""), messenger, mockClient);
-    messenger.sendForIndexing(doc);
-    indexer.run(1);
-
-    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
-    verify(mockClient, times(1)).bulk(captor.capture());
-    assertEquals("{\"index\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
-        + "{\"id\":\"doc1\",\"str\":\"s\",\"added\":\"x\"}\n",
-        toNdJson(captor.getValue(), new JacksonJsonpMapper()));
-  }
-
-  public static class AddingIndexer extends OpenSearchIndexer {
-    public static final Spec SPEC = OpenSearchIndexer.SPEC;
-
-    public AddingIndexer(Config config, TestMessenger messenger, OpenSearchClient client) {
-      super(config, messenger, "testing", client);
-    }
-
-    @Override
-    protected Map<String, Object> getIndexerDoc(Document doc) {
-      Map<String, Object> map = super.getIndexerDoc(doc);
-      map.put("added", "x");
-      return map;
-    }
-  }
-
   // nullField is absent: the client's JacksonJsonpMapper leaves out null map values, at any depth, while
   // nulls inside arrays are written
   private static final String SCALARS_BODY = "{\"id\":\"doc1\",\"str\":\"s\",\"int\":1,\"long\":1234567890123,"

@@ -14,7 +14,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 
 - **Message consumption loop** — Polls the indexing queue, accumulates documents into batches, and flushes on batch size or timeout. You never write this loop.
 - **Config validation** — Validates both the generic `indexer` config block (batchSize, field filtering, deletion markers, retry settings) and your implementation-specific config block (e.g., `solr`, `opensearch`) using your `SPEC`.
-- **Field filtering** — Applies whitelist/blacklist filtering before documents reach `sendToIndex()`. Use `getIndexerDoc(doc)` to get the filtered field map.
+- **Field filtering** — Applies whitelist/blacklist filtering before documents reach `sendToIndex()`. Use `getConvertedIndexerDoc(doc)` to get the filtered field map as plain Java values, or `getRawIndexerDoc(doc)` when your client serializes it to JSON with Jackson.
 - **Batching** — Configurable batch size and timeout, with support for per-document index routing via `indexOverrideField`.
 - **Retry with backoff** — When `indexer.maxRetries` is configured, retries failed batches with exponential backoff and jitter. Your `sendToIndex()` returns per-document failures; the base class decides whether to retry based on status codes.
 - **Event accounting** — Sends FINISH or FAIL events for each document so the Runner can track run completion.
@@ -104,7 +104,8 @@ public class ExampleIndexer extends Indexer {
   @Override
   protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     // Send the batch using your destination client.
-    // Use getIndexerDoc(doc) to get the filtered field map.
+    // Use getConvertedIndexerDoc(doc) for the filtered field map as plain Java values,
+    // or getRawIndexerDoc(doc) if your client serializes it to JSON with Jackson.
     // Use getDocIdOverride(doc) if idOverrideField may be configured.
     // Return any failed docs as Pair<Document, Exception>; empty set if all succeeded.
     return Set.of();
