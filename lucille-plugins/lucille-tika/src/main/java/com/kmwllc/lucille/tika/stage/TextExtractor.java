@@ -203,6 +203,17 @@ public class TextExtractor extends Stage {
     this.fileFetcher = FileContentFetcher.create(config);
   }
 
+  // A supplied Tika config decides whether OCR runs; otherwise enableOcr does.
+  private String describeOcrSetting() {
+    if (tikaConfigPath != null) {
+      return "as configured by tikaConfigPath";
+    }
+    if (globalTikaConfig != null) {
+      return "as configured by " + globalTikaConfig;
+    }
+    return enableOcr ? "enabled" : "disabled";
+  }
+
   @Override
   public void start() throws StageException {
     // Only try to initialize storage clients for later use if a file path is specified
@@ -216,9 +227,7 @@ public class TextExtractor extends Stage {
 
     // we use an auto detect parser whether we are forking or not; ForkParser serializes it into the child JVMs
     AutoDetectParser autoParser = createAutoDetectParser();
-    log.info("TextExtractor OCR: {}; tesseract binary on PATH: {}",
-        tikaConfigPath != null ? "as configured by tikaConfigPath"
-            : globalTikaConfig != null ? "as configured by " + globalTikaConfig : (enableOcr ? "enabled" : "disabled"),
+    log.info("TextExtractor OCR: {}; tesseract binary on PATH: {}", describeOcrSetting(),
         tesseractDetected() ? "detected" : "not detected");
 
     if (forkEnabled) {
