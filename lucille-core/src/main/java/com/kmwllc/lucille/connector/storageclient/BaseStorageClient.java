@@ -8,6 +8,7 @@ import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
+import com.kmwllc.lucille.connector.StatePathTooLongException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
@@ -307,6 +308,8 @@ public abstract class BaseStorageClient implements StorageClient {
       afterProcessingFile(fullPath, params);
     } catch (UnsupportedOperationException e) {
       throw new UnsupportedOperationException("Encountered unsupported operation", e);
+    } catch (StatePathTooLongException e) {
+      throw e;
     } catch (Exception e) {
       try {
         errorProcessingFile(fullPath, params);
