@@ -77,10 +77,28 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   }
 
   /**
-   * Commits the offsets of all indexer batches completed since the last call, using a single commitSync. Maps
-   * queued by the indexer may arrive out of offset order, so the highest offset per partition is kept.
+   * Commits the offsets of all indexer batches completed since the last call, using a single commitSync that keeps
+   * only the highest offset per partition.
    *
-   * If the commit fails, the drained offsets are not re-queued; as offsets are cumulative per partition, the
+   * <p>A committed offset is a cumulative watermark: committing N means records 0..N-1 of that partition are done.
+   * Committing the highest drained offset therefore has the same effect as committing each drained map in turn, which
+   * is what this method did before, and it is safe for the same reasons. Within a WorkerIndexer:
+   * <ol>
+   *   <li>the source consumer reads one record per poll, in offset order, and this worker processes them one at a
+   *   time;</li>
+   *   <li>the single indexer thread queues (last offset + 1) for each partition in a batch only once that batch has
+   *   been handled: sent to the destination, or reported with FAIL events if sending failed;</li>
+   *   <li>one indexer thread queues the maps and one worker thread drains them, so a partition's offsets are queued
+   *   in increasing order.</li>
+   * </ol>
+   * So a map holding offset N for a partition implies every lower offset was already handled. Taking the max also
+   * means a stale lower map can never move a partition's committed offset backwards.
+   *
+   * <p>This relies on (3). If indexer batches ever complete out of order (for example, sent concurrently), a higher
+   * offset could be queued while a lower batch is still in flight, and committing it, whether merged or one map at a
+   * time, could skip records that are never indexed. Revisit this method if that ordering changes.
+   *
+   * <p>If the commit fails, the drained offsets are not re-queued; as offsets are cumulative per partition, the
    * next completed batch supersedes them and the cost is at most some reprocessing after a restart.
    */
   @Override
@@ -89,16 +107,16 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     if (batchOffsets == null) {
       return;
     }
-    Map<TopicPartition, OffsetAndMetadata> merged = new HashMap<>();
+    Map<TopicPartition, OffsetAndMetadata> highestOffsets = new HashMap<>();
     while (batchOffsets != null) {
-      batchOffsets.forEach((partition, offset) -> merged.merge(partition, offset,
+      batchOffsets.forEach((partition, offset) -> highestOffsets.merge(partition, offset,
           (existing, candidate) -> candidate.offset() > existing.offset() ? candidate : existing));
       batchOffsets = offsets.poll();
     }
     // offsets are committed synchronously, and only after the indexer has sent the batch, so a successful commit means
     // those documents are already in the destination. Doing it synchronously limits how much is reprocessed and
     // reindexed after a HybridWorker crash/restart or a consumer group rebalance.
-    sourceConsumer.commitSync(merged);
+    sourceConsumer.commitSync(highestOffsets);
   }
 
   /**
