@@ -58,7 +58,7 @@ flowchart LR
 
         DESTQ(["Dest queue<br/>(in-memory)"])
 
-        IDX["Indexer A<br/>maxConcurrentBatches = 4"]
+        IDX["Indexer A<br/>K = 4"]
 
         PUB --> SRCQ
         SRCQ --> W0
@@ -72,10 +72,10 @@ flowchart LR
 
     DEST[("Destination<br/>OpenSearch / Elasticsearch / Solr")]
 
-    IDX -->|"Bulk Request A1"| DEST
-    IDX -->|"Bulk Request A2"| DEST
-    IDX -->|"Bulk Request A3"| DEST
-    IDX -->|"Bulk Request A4"| DEST
+    IDX --> RA1["Bulk Request A1"] --> DEST
+    IDX --> RA2["Bulk Request A2"] --> DEST
+    IDX --> RA3["Bulk Request A3"] --> DEST
+    IDX --> RA4["Bulk Request A4"] --> DEST
 ```
 
 ## Hybrid mode
@@ -100,8 +100,8 @@ flowchart LR
     end
 
     subgraph JVM["WorkerIndexer JVM (worker.threads = 2)"]
-        W0["Worker A<br/>(Kafka consumer)"] -->|in-JVM queue| I0["Indexer A<br/>maxConcurrentBatches = 2"]
-        W1["Worker B<br/>(Kafka consumer)"] -->|in-JVM queue| I1["Indexer B<br/>maxConcurrentBatches = 2"]
+        W0["Worker A<br/>(Kafka consumer)"] -->|in-JVM queue| I0["Indexer A<br/>K = 2"]
+        W1["Worker B<br/>(Kafka consumer)"] -->|in-JVM queue| I1["Indexer B<br/>K = 2"]
     end
 
     I0 --> R0a["Bulk Request A1"] --> DEST
@@ -124,9 +124,10 @@ here each worker owns 2 partitions and feeds them to its one paired indexer.
 
 Each arrow from a partition to a worker is a partition assignment; each `Bulk Request`
 box is one in-flight bulk send, labeled with its indexer (A-D) and the request's slot
-within that indexer. Every indexer has K = 3 of them in flight at once. Send concurrency is set by the thread count and K, not the
-partition count: 4 threads x 3 = **12 concurrent bulk requests**. The extra partitions
-add headroom to scale *out* later (up to 8 threads) without repartitioning.
+within that indexer. Every indexer has K = 3 of them in flight at once. Send
+concurrency is set by the thread count and K, not the partition count:
+4 threads x 3 = **12 concurrent bulk requests**. The extra partitions add headroom to
+scale *out* later (up to 8 threads) without repartitioning.
 
 ```mermaid
 flowchart LR
@@ -208,7 +209,7 @@ flowchart LR
     end
 
     subgraph IP["Indexer process (standalone)"]
-        IDX["Indexer A<br/>maxConcurrentBatches = 4"]
+        IDX["Indexer A<br/>K = 4"]
     end
 
     DEST[("Destination<br/>OpenSearch / Elasticsearch / Solr")]
@@ -219,10 +220,10 @@ flowchart LR
 
     DP0 -->|assigned to| IDX
 
-    IDX -->|"Bulk Request A1"| DEST
-    IDX -->|"Bulk Request A2"| DEST
-    IDX -->|"Bulk Request A3"| DEST
-    IDX -->|"Bulk Request A4"| DEST
+    IDX --> RA1["Bulk Request A1"] --> DEST
+    IDX --> RA2["Bulk Request A2"] --> DEST
+    IDX --> RA3["Bulk Request A3"] --> DEST
+    IDX --> RA4["Bulk Request A4"] --> DEST
 ```
 
 ### Case 2: 2-partition destination topic, two indexer processes with concurrent sends
@@ -245,30 +246,30 @@ flowchart LR
     end
 
     subgraph IP0["Indexer process A"]
-        IDX0["Indexer A<br/>maxConcurrentBatches = 4"]
+        IDX0["Indexer A<br/>K = 4"]
     end
 
     subgraph IP1["Indexer process B"]
-        IDX1["Indexer B<br/>maxConcurrentBatches = 4"]
+        IDX1["Indexer B<br/>K = 4"]
     end
 
     DEST[("Destination<br/>OpenSearch / Elasticsearch / Solr")]
 
     WP0 --> DP0
+    WP1 --> DP1
     WP0 --> DP1
     WP1 --> DP0
-    WP1 --> DP1
 
     DP0 -->|assigned to| IDX0
     DP1 -->|assigned to| IDX1
 
-    IDX0 -->|"Bulk Request A1"| DEST
-    IDX0 -->|"Bulk Request A2"| DEST
-    IDX0 -->|"Bulk Request A3"| DEST
-    IDX0 -->|"Bulk Request A4"| DEST
+    IDX0 --> RA1["Bulk Request A1"] --> DEST
+    IDX0 --> RA2["Bulk Request A2"] --> DEST
+    IDX0 --> RA3["Bulk Request A3"] --> DEST
+    IDX0 --> RA4["Bulk Request A4"] --> DEST
 
-    IDX1 -->|"Bulk Request B1"| DEST
-    IDX1 -->|"Bulk Request B2"| DEST
-    IDX1 -->|"Bulk Request B3"| DEST
-    IDX1 -->|"Bulk Request B4"| DEST
+    IDX1 --> RB1["Bulk Request B1"] --> DEST
+    IDX1 --> RB2["Bulk Request B2"] --> DEST
+    IDX1 --> RB3["Bulk Request B3"] --> DEST
+    IDX1 --> RB4["Bulk Request B4"] --> DEST
 ```
