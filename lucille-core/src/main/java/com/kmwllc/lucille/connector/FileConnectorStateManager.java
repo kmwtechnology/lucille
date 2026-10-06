@@ -64,8 +64,8 @@ public class FileConnectorStateManager {
   private final int runsBeforeExpiration;
   private final int pathLength;
 
-  // The largest VARCHAR primary key MySQL/InnoDB allows with utf8mb4 (3072-byte index limit / 4 bytes per character),
-  // so the default still creates a table there.
+  // Works with the embedded H2 database Lucille ships with (and uses when no connectionString is set), and is the
+  // largest VARCHAR primary key MySQL/InnoDB allows with utf8mb4 (3072-byte index limit / 4 bytes per character).
   static final int DEFAULT_PATH_LENGTH = 768;
 
   private Instant traversalInstant;
