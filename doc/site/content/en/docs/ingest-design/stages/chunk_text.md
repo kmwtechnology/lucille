@@ -1,6 +1,6 @@
 ---
 title: ChunkText
-weight: 3
+weight: 150
 date: 2025-06-09
 description: Split a long text field into smaller overlapping chunks for embedding and RAG pipelines. Each chunk becomes a child document.
 ---

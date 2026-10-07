@@ -139,8 +139,9 @@ public class TextExtractor extends Stage {
   private Integer textContentLimit;
   private Long parseTimeout;
   private final boolean enableOcr;
-  // global Tika config honoured by Tika's default constructors, if any
-  private final String globalTikaConfig;
+  // where the global Tika config honoured by Tika's default constructors comes from (e.g. "tika.config system
+  // property"), or null if there is none; a description for messages, not the config itself
+  private final String globalTikaConfigSource;
   private boolean forkEnabled;
   private int forkPoolSize;
   private List<String> forkJvmArgs;
@@ -166,7 +167,7 @@ public class TextExtractor extends Stage {
     fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
     metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
     enableOcr = ConfigUtils.getOrDefault(config, "enableOcr", false);
-    globalTikaConfig = tikaConfigPath == null ? globalTikaConfig() : null;
+    globalTikaConfigSource = tikaConfigPath == null ? detectGlobalTikaConfigSource() : null;
 
     forkEnabled = ConfigUtils.getOrDefault(config, "fork.enabled", false);
     forkPoolSize = ConfigUtils.getOrDefault(config, "fork.poolSize", 5);
@@ -193,8 +194,8 @@ public class TextExtractor extends Stage {
       throw new StageException("enableOcr cannot be combined with tikaConfigPath; control OCR in the Tika config instead, "
           + "e.g. by excluding " + TesseractOCRParser.class.getName() + " from the DefaultParser");
     }
-    if (globalTikaConfig != null && config.hasPath("enableOcr")) {
-      throw new StageException("enableOcr cannot be combined with a global Tika config (" + globalTikaConfig
+    if (globalTikaConfigSource != null && config.hasPath("enableOcr")) {
+      throw new StageException("enableOcr cannot be combined with a global Tika config (" + globalTikaConfigSource
           + "); control OCR in the Tika config instead, e.g. by excluding " + TesseractOCRParser.class.getName()
           + " from the DefaultParser");
     }
@@ -208,8 +209,8 @@ public class TextExtractor extends Stage {
     if (tikaConfigPath != null) {
       return "as configured by tikaConfigPath";
     }
-    if (globalTikaConfig != null) {
-      return "as configured by " + globalTikaConfig;
+    if (globalTikaConfigSource != null) {
+      return "as configured by " + globalTikaConfigSource;
     }
     return enableOcr ? "enabled" : "disabled";
   }
@@ -259,7 +260,7 @@ public class TextExtractor extends Stage {
       if (tikaConfigPath != null) {
         return new AutoDetectParser(new TikaConfig(new File(tikaConfigPath)));
       }
-      if (enableOcr || globalTikaConfig != null) {
+      if (enableOcr || globalTikaConfigSource != null) {
         // Tika's default constructor loads the global Tika config when one is set
         return new AutoDetectParser();
       }
@@ -273,7 +274,7 @@ public class TextExtractor extends Stage {
    * Returns a description of the global Tika config that Tika's default constructors would load (the "tika.config"
    * system property, then the TIKA_CONFIG environment variable), or null if neither is set.
    */
-  private static String globalTikaConfig() {
+  private static String detectGlobalTikaConfigSource() {
     String property = System.getProperty("tika.config");
     if (property != null) {
       return "tika.config system property";
