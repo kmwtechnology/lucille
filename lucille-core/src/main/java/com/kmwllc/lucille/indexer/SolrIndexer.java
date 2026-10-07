@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>url (List&lt;String&gt;, Optional) : One or more Solr base URLs (e.g., https://localhost:8983).</li>
+ *   <li>url (String or List&lt;String&gt;, Optional) : One or more Solr base URLs (e.g., https://localhost:8983).</li>
  *   <li>useCloudClient (Boolean, Optional) : Use the SolrCloud client. Defaults to false.</li>
  *   <li>zkHosts (List&lt;String&gt;, Optional) : ZooKeeper connection strings when using SolrCloud.</li>
  *   <li>zkChroot (String, Optional) : ZooKeeper chroot used with SolrCloud.</li>
@@ -52,7 +52,7 @@ import org.slf4j.LoggerFactory;
 public class SolrIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
-      .optionalList("url", new TypeReference<List<String>>() {})
+      .optionalStringOrList("url")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
       .optionalString("defaultCollection", "userName", "password", "zkChroot")
       .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)

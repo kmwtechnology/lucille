@@ -53,7 +53,8 @@ import java.util.Optional;
  * Config Parameters -
  * <ul>
  *   <li>index (String, Required) : Target Elasticsearch index name.</li>
- *   <li>url (String, Required) : Elasticsearch HTTP endpoint (e.g., https://localhost:9200).</li>
+ *   <li>url (String or List&lt;String&gt;, Required) : Elasticsearch HTTP endpoint (e.g., https://localhost:9200), or a list of
+ *   endpoints for the same cluster. With a list, the client round-robins requests across the hosts and fails over between them.</li>
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying Elasticsearch HTTP client. Defaults to false.</li>
@@ -72,7 +73,8 @@ import java.util.Optional;
 public class ElasticsearchIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
-      .requiredString("index", "url")
+      .requiredString("index")
+      .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalString("parentName", "childDocumentsField")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();

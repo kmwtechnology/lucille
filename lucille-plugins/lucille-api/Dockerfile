@@ -3,7 +3,7 @@
 #
 # To build an image using this Dockerfile you must first:
 #   clone the lucille repo
-#   run "mvn clean install" from the top-level lucille repo
+#   run "mvn clean install -Pshaded-plugin-jars" from the top-level lucille repo (the profile builds target/lucille-api-plugin.jar)
 #
 # Once you have completed the build process locally, you should cd into the top level of the lucille-api module
 # and run the following command to build the image:
