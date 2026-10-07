@@ -14,6 +14,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 
 public class KafkaWorkerMessenger implements WorkerMessenger {
@@ -23,10 +24,12 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final Config config;
+  private final Duration pollInterval;
   private final String pipelineName;
 
   public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
+    this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
@@ -43,7 +46,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    */
   @Override
   public Document pollDocToProcess() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords = sourceConsumer.poll(pollInterval);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
