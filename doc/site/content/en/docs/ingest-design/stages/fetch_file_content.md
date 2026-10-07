@@ -11,5 +11,6 @@ Loads the content of a file path (from local filesystem or cloud storage) into a
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `pathField` | String | Yes | Field containing the file path or URI. |
-| `destField` | String | No | Destination byte array field. Default: `file_content`. |
+| `filePathField` | String | No | Field containing the file path or URI. Default: `file_path`. |
+| `fileContentField` | String | No | Destination byte array field. Default: `file_content`. |
+| `maxSizeBytes` | Long | No | Maximum file size to load; must be positive and at most 2147483638. Larger files cause a StageException. Default: unlimited. |
