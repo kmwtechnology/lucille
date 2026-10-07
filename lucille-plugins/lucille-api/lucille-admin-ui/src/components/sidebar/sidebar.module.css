@@ -48,37 +48,21 @@
 }
 
 /* Navigation items */
-.sectionToggle {
-  @apply flex items-center justify-between w-full text-left rounded-md px-3 py-3 text-sm font-medium
-    text-muted-foreground hover:bg-primary-50 hover:text-primary-600;
-}
-
-.sectionToggleInner {
-  @apply flex items-center gap-3;
-}
-
-.chevron {
-  @apply h-4 w-4 transition-transform duration-200;
-}
-
-.chevronExpanded {
-  @apply rotate-180;
-}
-
-.childrenWrapper {
-  @apply ml-6 space-y-1;
-}
-
 .navLink {
   @apply flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium
     text-muted-foreground hover:bg-primary-50 hover:text-primary-600;
 }
 
-.navLinkChild {
-  @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium
-    text-muted-foreground hover:bg-primary-50 hover:text-primary-600;
-}
-
 .navLinkActive {
   @apply bg-primary-50 text-primary-700;
+}
+
+/* External documentation link: styled as a conventional link, not a nav button */
+.docsLink {
+  @apply flex items-center gap-3 px-3 py-3 text-sm font-medium text-primary-600
+    hover:underline underline-offset-4;
+}
+
+.externalIcon {
+  @apply h-3.5 w-3.5 shrink-0;
 }

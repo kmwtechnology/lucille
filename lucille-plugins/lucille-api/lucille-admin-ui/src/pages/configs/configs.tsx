@@ -24,7 +24,35 @@ function CreateConfigLink() {
   )
 }
 
+function names(items: Array<{ name?: unknown }> | undefined, fallbackPrefix: string): string[] {
+  return (items ?? []).map((item, i) =>
+    typeof item.name === "string" && item.name ? item.name : `${fallbackPrefix} ${i + 1}`,
+  )
+}
+
+function NameRow({ label, values }: { label: string; values: string[] }) {
+  return (
+    <div className={styles.nameRow}>
+      <span className={styles.nameLabel}>{label}</span>
+      {values.length === 0 ? (
+        <span className={styles.nameEmpty}>None</span>
+      ) : (
+        <div className={styles.nameTags}>
+          {values.map((name, i) => (
+            <span key={`${name}-${i}`} className={styles.nameTag} title={name}>
+              {name}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ConfigCard({ id, config }: { id: string; config: ConfigObject }) {
+  const connectorNames = names(config.connectors, "connector")
+  const pipelineNames = names(config.pipelines, "pipeline")
+
   return (
     <Card className={styles.configCard}>
       <CardHeader className={styles.configHeader}>
@@ -37,6 +65,10 @@ function ConfigCard({ id, config }: { id: string; config: ConfigObject }) {
       </CardHeader>
       <CardContent className={styles.configContent}>
         <ConfigChips config={config} />
+        <div className={styles.nameList}>
+          <NameRow label="Connectors" values={connectorNames} />
+          <NameRow label="Pipelines" values={pipelineNames} />
+        </div>
       </CardContent>
       <CardFooter>
         <ViewLink to={`/configs/detail?id=${encodeURIComponent(id)}`} label="View" />

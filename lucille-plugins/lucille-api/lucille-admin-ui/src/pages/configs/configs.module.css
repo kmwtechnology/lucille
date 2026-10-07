@@ -46,3 +46,28 @@
 .configContent {
   @apply flex-1;
 }
+
+/* Connector / pipeline name lists */
+.nameList {
+  @apply mt-3 space-y-2;
+}
+
+.nameRow {
+  @apply flex flex-col gap-1;
+}
+
+.nameLabel {
+  @apply text-xs font-medium text-muted-foreground;
+}
+
+.nameTags {
+  @apply flex flex-wrap gap-1;
+}
+
+.nameTag {
+  @apply inline-flex max-w-full truncate rounded px-1.5 py-0.5 text-xs font-mono bg-primary-50 text-primary-700;
+}
+
+.nameEmpty {
+  @apply text-xs text-muted-foreground;
+}

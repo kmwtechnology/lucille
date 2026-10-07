@@ -1,16 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button/button"
-import { Activity, BookOpen, ChevronDown, Database, Home, Layers, Play, Settings, Menu, X, Zap } from "lucide-react"
+import { BookOpen, Database, ExternalLink, Home, Play, Settings, Menu, X } from "lucide-react"
 import { useState, useEffect } from "react"
 import styles from "./sidebar.module.css"
 
 export default function Sidebar() {
   const { pathname } = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    documentation: true
-  })
 
   // Close sidebar when route changes on mobile
   useEffect(() => {
@@ -28,69 +25,33 @@ export default function Sidebar() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }))
-  }
+  const DOCS_URL = "https://kmwtechnology-lucille.mintlify.app"
 
   const links = [
     { href: "/", label: "Dashboard", icon: Home },
     { href: "/configs", label: "Configurations", icon: Settings },
     { href: "/runs", label: "Runs", icon: Play },
-    {
-      href: "#",
-      label: "Documentation",
-      icon: BookOpen,
-      children: [
-        { href: "/configs/connectors", label: "Connectors", icon: Zap },
-        { href: "/configs/stages", label: "Pipeline Stages", icon: Layers },
-        { href: "/configs/indexers", label: "Indexers", icon: Activity },
-      ]
-    }
+    { href: DOCS_URL, label: "Documentation", icon: BookOpen, external: true },
   ] as const
 
   const renderNavItems = (items: typeof links, isMobile = false) => {
     return items.map((link) => {
       const Icon = link.icon
-      const hasChildren = "children" in link && link.children && link.children.length > 0
-      const isExpanded = expandedSections[link.label.toLowerCase()] ?? true
 
-      if (hasChildren) {
+      if ("external" in link && link.external) {
         return (
-          <div key={link.label} className="space-y-1">
-            <button
-              onClick={() => toggleSection(link.label.toLowerCase())}
-              className={styles.sectionToggle}
-            >
-              <div className={styles.sectionToggleInner}>
-                <Icon className="h-5 w-5" />
-                <span>{link.label}</span>
-              </div>
-              <ChevronDown
-                className={cn(styles.chevron, isExpanded && styles.chevronExpanded)}
-              />
-            </button>
-            {isExpanded && (
-              <div className={styles.childrenWrapper}>
-                {"children" in link && link.children?.map((child) => (
-                  <NavLink
-                    key={child.href}
-                    to={child.href}
-                    end
-                    className={({ isActive }) =>
-                      cn(styles.navLinkChild, isActive && styles.navLinkActive)
-                    }
-                    onClick={() => isMobile && setSidebarOpen(false)}
-                  >
-                    <child.icon className="h-4 w-4" />
-                    {child.label}
-                  </NavLink>
-                ))}
-              </div>
-            )}
-          </div>
+          <a
+            key={link.href}
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.docsLink}
+            onClick={() => isMobile && setSidebarOpen(false)}
+          >
+            <Icon className="h-5 w-5" />
+            <span>{link.label}</span>
+            <ExternalLink className={styles.externalIcon} aria-hidden="true" />
+          </a>
         )
       }
 

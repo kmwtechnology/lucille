@@ -12,19 +12,13 @@ import styles from "./config-create.module.css"
 export default function ConfigCreate() {
   const navigate = useNavigate()
   const { state, submit } = useCreateConfig()
-  const [text, setText] = useState("")
+  const [text, setText] = useState(CONFIG_TEMPLATE)
   const [parseError, setParseError] = useState<string | null>(null)
 
   const submitting = state.status === "submitting"
-  const isEmpty = text.trim() === ""
 
   const handleSubmit = async () => {
     setParseError(null)
-
-    if (isEmpty) {
-      setParseError("Enter a configuration before posting.")
-      return
-    }
 
     let parsed: unknown
     try {
@@ -65,7 +59,6 @@ export default function ConfigCreate() {
             className={styles.editor}
             spellCheck={false}
             value={text}
-            placeholder={CONFIG_TEMPLATE}
             onChange={(e) => setText(e.target.value)}
             disabled={submitting}
           />
@@ -78,7 +71,7 @@ export default function ConfigCreate() {
           )}
 
           <div className={styles.formActions}>
-            <Button variant="default" onClick={handleSubmit} disabled={submitting || isEmpty}>
+            <Button variant="default" onClick={handleSubmit} disabled={submitting}>
               <Save className="mr-2 h-4 w-4" />
               {submitting ? "Posting..." : "Post Configuration"}
             </Button>
