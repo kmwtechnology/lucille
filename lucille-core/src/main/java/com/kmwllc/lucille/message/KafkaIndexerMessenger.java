@@ -35,7 +35,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
     this.deserializationErrorHandler =
-        new DeserializationErrorHandler(config, destConsumer, this::sendEvent);
+        new DeserializationErrorHandler(config, destConsumer);
   }
 
   /**

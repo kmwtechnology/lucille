@@ -38,7 +38,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
     this.deserializationErrorHandler =
-        new DeserializationErrorHandler(config, sourceConsumer, this::sendEvent);
+        new DeserializationErrorHandler(config, sourceConsumer);
   }
 
   /**

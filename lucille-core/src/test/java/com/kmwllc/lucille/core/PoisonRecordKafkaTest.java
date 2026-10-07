@@ -127,6 +127,18 @@ public class PoisonRecordKafkaTest {
     assertEquals("nothing should be sent to " + failTopic, 0, records.size());
   }
 
+  /**
+   * Asserts no FAIL event reaches the run's event topic. A poison record carries no run id, and a long-lived consumer
+   * may serve several runs, so attributing an event to any run could corrupt an uninvolved run's accounting.
+   */
+  private static void assertNoFailEvents(Config config, String pipelineName) throws Exception {
+    String eventTopic = KafkaUtils.getEventTopicName(config, pipelineName, "run1");
+    for (ConsumerRecord<String, byte[]> record : readFor(eventTopic, Duration.ofSeconds(5))) {
+      Event event = Event.fromJsonString(new String(record.value(), StandardCharsets.UTF_8));
+      assertFalse("no FAIL event should be sent, but got " + event, event.getType() == Event.Type.FAIL);
+    }
+  }
+
   private static Config buildConfig(String pipelineName, String groupId, String extraKafka) {
     return ConfigFactory.parseString(String.format(
         "kafka {\n"
@@ -220,14 +232,6 @@ public class PoisonRecordKafkaTest {
     return records;
   }
 
-  private static List<Event> readEvents(String topic, int expected) throws Exception {
-    List<Event> events = new ArrayList<>();
-    for (ConsumerRecord<String, byte[]> record : readAll(topic, expected)) {
-      events.add(Event.fromJsonString(new String(record.value(), StandardCharsets.UTF_8)));
-    }
-    return events;
-  }
-
   private static long committedOffset(Config config, String groupId, String topic) throws Exception {
     Properties adminProps = new Properties();
     adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
@@ -241,8 +245,8 @@ public class PoisonRecordKafkaTest {
   }
 
   /**
-   * Default (fail) mode: the poll throws for the poison record instead of skipping it, and a FAIL event
-   * naming the record is sent, keyed by its document id and attributed to the run of the last good document.
+   * Default (fail) mode: the poll throws for the poison record instead of skipping it. Its location is logged at
+   * ERROR and no FAIL event is sent, since the record's run id cannot be known.
    */
   @Test(timeout = 120000)
   public void testFailModeStopsAtPoisonRecord() throws Exception {
@@ -267,13 +271,7 @@ public class PoisonRecordKafkaTest {
 
     assertLocationLogged(KafkaUtils.getSourceTopicName(pipelineName, config), 1L, "poison2");
     assertFailTopicEmpty(pipelineName);
-
-    List<Event> events = readEvents(KafkaUtils.getEventTopicName(config, pipelineName, "run1"), 2);
-    assertEquals(2, events.size());
-    for (Event event : events) {
-      assertEquals("poison2", event.getDocumentId());
-      assertEquals(Event.Type.FAIL, event.getType());
-    }
+    assertNoFailEvents(config, pipelineName);
   }
 
   /**
@@ -305,7 +303,7 @@ public class PoisonRecordKafkaTest {
   }
 
   /**
-   * Skip mode with a real Worker: the poison record's location is logged at ERROR and a FAIL event is sent, but
+   * Skip mode with a real Worker: the poison record's location is logged at ERROR, no FAIL event is sent, and
    * nothing is copied to the fail topic. The documents on either side of it are processed, the committed offset
    * moves past all three records, and the worker keeps running.
    */
@@ -333,11 +331,7 @@ public class PoisonRecordKafkaTest {
 
     assertFailTopicEmpty(pipelineName);
     assertLocationLogged(sourceTopic, 1L, "poison2");
-
-    List<Event> events = readEvents(KafkaUtils.getEventTopicName(config, pipelineName, "run1"), 1);
-    assertEquals(1, events.size());
-    assertEquals("poison2", events.get(0).getDocumentId());
-    assertEquals(Event.Type.FAIL, events.get(0).getType());
+    assertNoFailEvents(config, pipelineName);
   }
 
   /**
@@ -406,6 +400,44 @@ public class PoisonRecordKafkaTest {
 
     assertFailTopicEmpty(pipelineName);
     assertLocationLogged(sourceTopic, 1L, "poison2");
+  }
+
+  /**
+   * maxConsecutiveDeserializationErrors: -1 means unlimited: skip mode never escalates, even past the default
+   * limit of 10 poison records in a row.
+   */
+  @Test(timeout = 120000)
+  public void testSkipModeUnlimitedNeverEscalates() throws Exception {
+    String pipelineName = "poison_unlimited";
+    Config config = buildConfig(pipelineName, "poison_unlimited_group",
+        "onDeserializationError: skip\n  maxConsecutiveDeserializationErrors: -1");
+    List<String> ids = new ArrayList<>();
+    ids.add("doc0");
+    for (int i = 1; i <= 12; i++) {
+      ids.add("poison" + i);
+    }
+    ids.add("doc13");
+    produce(KafkaUtils.getSourceTopicName(pipelineName, config), ids.toArray(new String[0]));
+
+    KafkaWorkerMessenger messenger = new KafkaWorkerMessenger(config, pipelineName);
+    try {
+      assertEquals("doc0", pollUntilDoc(messenger::pollDocToProcess).getId());
+      assertEquals("doc13", pollUntilDoc(messenger::pollDocToProcess).getId());
+    } finally {
+      messenger.close();
+    }
+    assertNoFailEvents(config, pipelineName);
+  }
+
+  @Test
+  public void testInvalidMaxConsecutiveRejected() {
+    for (String value : List.of("0", "-2", "-100")) {
+      Config config = buildConfig("poison_invalid_max", "poison_invalid_max_group",
+          "onDeserializationError: skip\n  maxConsecutiveDeserializationErrors: " + value);
+      IllegalArgumentException e = assertThrows("value " + value + " should be rejected",
+          IllegalArgumentException.class, () -> new KafkaWorkerMessenger(config, "poison_invalid_max"));
+      assertTrue(e.getMessage(), e.getMessage().contains("maxConsecutiveDeserializationErrors"));
+    }
   }
 
   @Test

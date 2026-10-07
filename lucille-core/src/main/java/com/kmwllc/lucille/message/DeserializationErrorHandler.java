@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.message;
 
-import com.kmwllc.lucille.core.Event;
-import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -21,20 +19,22 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Behavior is controlled by {@code kafka.onDeserializationError}:
  * <ul>
- *   <li>{@code fail} (default): log the record's topic, partition, offset and key at ERROR, send a FAIL
- *   event for it, and rethrow so the consumer stops. Restarting will hit the same record again.</li>
- *   <li>{@code skip}: log the same location at ERROR, send a FAIL event, and seek past the record. If
+ *   <li>{@code fail} (default): log the record's topic, partition, offset and key at ERROR and rethrow so the
+ *   consumer stops. Restarting will hit the same record again.</li>
+ *   <li>{@code skip}: log the same location at ERROR and seek past the record. If
  *   {@code kafka.maxConsecutiveDeserializationErrors} (default 10) poison records arrive in a row on one
- *   partition, the cause is assumed to be systemic and the handler escalates to {@code fail}.</li>
+ *   partition, the cause is assumed to be systemic and the handler escalates to {@code fail}. A value of
+ *   {@code -1} means unlimited: skip mode never escalates. Any other value below 1 is rejected.</li>
  * </ul>
  *
  * <p>The record is never copied to the pipeline's fail topic, which holds only deserializable Documents.
  * It remains in the topic it was read from at the logged offset (subject to that topic's retention), so
- * recovery means re-reading that offset.
+ * recovery means re-reading that offset. The ERROR log is the only signal.
  *
- * <p>The FAIL event is keyed by the record key (the document id). A record that cannot be parsed carries
- * no run id, so the event is sent with the run id of the last document successfully polled by this
- * consumer; if there is none and no fixed {@code kafka.eventTopic} is configured, no event is sent.
+ * <p>No FAIL event is sent. A record that cannot be parsed carries no run id, and a long-lived consumer may
+ * serve several runs at once, so any run id chosen for the event could belong to an uninvolved run and corrupt
+ * its accounting. The tradeoff: a skipped poison record produces no terminal event for its run, so in a batch
+ * run that run's pending count never reaches zero and the run waits out its timeout.
  */
 class DeserializationErrorHandler {
 
@@ -43,27 +43,15 @@ class DeserializationErrorHandler {
   static final String MODE_FAIL = "fail";
   static final String MODE_SKIP = "skip";
   static final int DEFAULT_MAX_CONSECUTIVE = 10;
+  static final int UNLIMITED = -1;
 
-  private final Config config;
   private final Consumer<?, ?> consumer;
-  private final MessageSender eventSender;
   private final boolean skip;
   private final int maxConsecutive;
   private final Map<TopicPartition, Integer> consecutiveFailures = new HashMap<>();
 
-  private String lastRunId;
-
-  /**
-   * Sends an Event to the event topic. Lets each messenger keep using its own event producer.
-   */
-  interface MessageSender {
-    void send(Event event) throws Exception;
-  }
-
-  DeserializationErrorHandler(Config config, Consumer<?, ?> consumer, MessageSender eventSender) {
-    this.config = config;
+  DeserializationErrorHandler(Config config, Consumer<?, ?> consumer) {
     this.consumer = consumer;
-    this.eventSender = eventSender;
 
     String mode = config.hasPath("kafka.onDeserializationError")
         ? config.getString("kafka.onDeserializationError") : MODE_FAIL;
@@ -72,19 +60,20 @@ class DeserializationErrorHandler {
           + MODE_SKIP + "\" but was \"" + mode + "\"");
     }
     this.skip = MODE_SKIP.equals(mode);
+
     this.maxConsecutive = config.hasPath("kafka.maxConsecutiveDeserializationErrors")
         ? config.getInt("kafka.maxConsecutiveDeserializationErrors") : DEFAULT_MAX_CONSECUTIVE;
+    if (maxConsecutive < 1 && maxConsecutive != UNLIMITED) {
+      throw new IllegalArgumentException("kafka.maxConsecutiveDeserializationErrors must be at least 1, or "
+          + UNLIMITED + " for unlimited, but was " + maxConsecutive);
+    }
   }
 
   /**
-   * Records that a document was successfully deserialized, resetting the consecutive-failure count for its
-   * partition and remembering its run id for later FAIL events.
+   * Records that a record was successfully deserialized, resetting the consecutive-failure count for its partition.
    */
-  void recordSuccess(ConsumerRecord<String, KafkaDocument> record) {
+  void recordSuccess(ConsumerRecord<?, ?> record) {
     consecutiveFailures.remove(new TopicPartition(record.topic(), record.partition()));
-    if (record.value() != null && record.value().getRunId() != null) {
-      lastRunId = record.value().getRunId();
-    }
   }
 
   /**
@@ -93,43 +82,27 @@ class DeserializationErrorHandler {
    */
   void handle(RecordDeserializationException e) throws RecordDeserializationException {
     TopicPartition tp = e.topicPartition();
-    String key = bufferToString(e.keyBuffer());
     String location = "topic=" + tp.topic() + ", partition=" + tp.partition() + ", offset=" + e.offset()
-        + ", key=" + key;
-    String docId = key != null ? key : tp + "@" + e.offset();
+        + ", key=" + bufferToString(e.keyBuffer());
 
     int consecutive = consecutiveFailures.merge(tp, 1, Integer::sum);
-    boolean escalate = skip && consecutive >= maxConsecutive;
+    boolean escalate = skip && maxConsecutive != UNLIMITED && consecutive >= maxConsecutive;
 
-    if (!skip || escalate) {
-      if (escalate) {
-        log.error("Could not deserialize record ({}). This is the {}th consecutive undeserializable record on "
-            + "this partition, which exceeds kafka.maxConsecutiveDeserializationErrors; stopping the consumer.",
-            location, consecutive, e);
-      } else {
-        log.error("Could not deserialize record ({}); stopping the consumer. The record will be redelivered on "
-            + "restart; set kafka.onDeserializationError: skip to skip it and continue.", location, e);
-      }
-      sendFailEvent(docId, "Could not deserialize record (" + location + ")");
+    if (!skip) {
+      log.error("Could not deserialize record ({}); stopping the consumer. The record will be redelivered on "
+          + "restart; set kafka.onDeserializationError: skip to skip it and continue.", location, e);
+      throw e;
+    }
+    if (escalate) {
+      log.error("Could not deserialize record ({}). This is the {}th consecutive undeserializable record on "
+          + "this partition, which reaches kafka.maxConsecutiveDeserializationErrors; stopping the consumer.",
+          location, consecutive, e);
       throw e;
     }
 
     log.error("Could not deserialize record ({}); skipping it. It remains in the topic at that offset, "
         + "subject to the topic's retention.", location, e);
-    sendFailEvent(docId, "Could not deserialize record (" + location + "); skipped");
     consumer.seek(tp, e.offset() + 1);
-  }
-
-  private void sendFailEvent(String docId, String message) {
-    if (lastRunId == null && !config.hasPath("kafka.eventTopic")) {
-      log.warn("No FAIL event sent for undeserializable record {}: its run id is unknown.", docId);
-      return;
-    }
-    try {
-      eventSender.send(new Event(docId, lastRunId, message, Event.Type.FAIL));
-    } catch (Exception ex) {
-      log.error("Failed to send FAIL event for undeserializable record {}", docId, ex);
-    }
   }
 
   private static String bufferToString(ByteBuffer buffer) {
