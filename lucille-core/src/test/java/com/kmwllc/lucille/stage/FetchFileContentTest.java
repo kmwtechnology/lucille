@@ -180,19 +180,20 @@ public class FetchFileContentTest {
     byte[] data = new byte[10];
     Config config = ConfigFactory.parseMap(Map.of("maxSizeBytes", 10));
 
-    Document under = docWithPath();
-    stageWithStream(ConfigFactory.parseMap(Map.of("maxSizeBytes", 11)), new ByteArrayInputStream(data)).processDocument(under);
-    assertEquals(10, under.getBytes("file_content").length);
+    Document underLimitDoc = docWithPath();
+    stageWithStream(ConfigFactory.parseMap(Map.of("maxSizeBytes", 11)), new ByteArrayInputStream(data))
+        .processDocument(underLimitDoc);
+    assertEquals(10, underLimitDoc.getBytes("file_content").length);
 
-    Document at = docWithPath();
-    stageWithStream(config, new ByteArrayInputStream(data)).processDocument(at);
-    assertEquals(10, at.getBytes("file_content").length);
+    Document atLimitDoc = docWithPath();
+    stageWithStream(config, new ByteArrayInputStream(data)).processDocument(atLimitDoc);
+    assertEquals(10, atLimitDoc.getBytes("file_content").length);
 
     TrackingStream in = new TrackingStream(new byte[11], false);
-    Document over = docWithPath();
+    Document overLimitDoc = docWithPath();
     Stage stage = stageWithStream(config, in);
-    assertThrows(StageException.class, () -> stage.processDocument(over));
-    assertFalse(over.has("file_content"));
+    assertThrows(StageException.class, () -> stage.processDocument(overLimitDoc));
+    assertFalse(overLimitDoc.has("file_content"));
     assertTrue(in.closed.get());
   }
 
