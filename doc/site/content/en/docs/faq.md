@@ -155,7 +155,7 @@ Yes. Start one or more Worker (or WorkerIndexer) processes pointed at a Kafka so
 
 **What plugins are available?**
 
-Optional extension modules are available as separate Maven dependencies: `lucille-tika` (text extraction from 1000+ file formats), `lucille-ocr` (Tesseract OCR), `lucille-entity-extraction` (OpenNLP NER), `lucille-jlama` (local LLM embeddings with no external API), `lucille-parquet` (Parquet file support), `lucille-pinecone` (Pinecone indexer), `lucille-weaviate` (Weaviate indexer), `lucille-video` (video frame extraction), and `lucille-api` (REST API for run triggering). Each is a separate Maven module that does not bloat the core JAR. Plugin stages are documented in [All Stages]({{< relref "docs/ingest-design/stages/all-stages" >}}); plugin connectors and indexers are documented in the [Connectors]({{< relref "docs/ingest-design/connectors" >}}) and [Indexers]({{< relref "docs/ingest-design/indexers" >}}) sections.
+Optional extension modules are available as separate Maven dependencies: `lucille-tika` (text extraction from 1000+ file formats), `lucille-ocr` (Tesseract OCR), `lucille-entity-extraction` (OpenNLP NER), `lucille-jlama` (local LLM embeddings with no external API), `lucille-parquet` (Parquet file support), `lucille-pinecone` (Pinecone indexer), `lucille-weaviate` (Weaviate indexer), `lucille-video` (video frame extraction), and `lucille-api` (REST API for run triggering). Each is a separate Maven module that does not bloat the core JAR. Plugin stages are documented in the [Stages]({{< relref "docs/ingest-design/stages" >}}) section; plugin connectors and indexers are documented in the [Connectors]({{< relref "docs/ingest-design/connectors" >}}) and [Indexers]({{< relref "docs/ingest-design/indexers" >}}) sections.
 
 **When should a component go in `lucille-core` vs. a plugin?**
 
@@ -193,7 +193,7 @@ For Solr, a commit is required to make documents visible. Issue a commit with `o
 
 **How do I inspect what documents look like mid-pipeline, or replay a pipeline run without re-running enrichment?**
 
-The `Print` stage logs documents as JSON at any point in the pipeline and can write them to a JSONL file. Combined with a `NopIndexer`, this lets you capture fully-enriched documents to disk without indexing anything. You can then replay that file using `FileConnector` with the JSON handler and an empty pipeline, sending the already-processed documents directly to a live search backend. This is useful for iterating on indexer configuration or field mappings without repeating expensive enrichment steps (OCR, embeddings, database lookups). See the Print stage entry in [All Stages]({{< relref "docs/ingest-design/stages/all-stages" >}}) for the full pattern.
+The `Print` stage logs documents as JSON at any point in the pipeline and can write them to a JSONL file. Combined with a `NopIndexer`, this lets you capture fully-enriched documents to disk without indexing anything. You can then replay that file using `FileConnector` with the JSON handler and an empty pipeline, sending the already-processed documents directly to a live search backend. This is useful for iterating on indexer configuration or field mappings without repeating expensive enrichment steps (OCR, embeddings, database lookups). See the [Print]({{< relref "docs/ingest-design/stages/print" >}}) stage for the full pattern.
 
 **A Stage is initializing a large model for every document instead of once per thread.**
 
