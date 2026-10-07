@@ -1,11 +1,14 @@
 #!/bin/bash
 
-# Directory paths
+# Generates the stage/connector/indexer JSON docs that lucille-api serves.
+
 PROJECT_ROOT=$(pwd)
 TARGET_DIR="$PROJECT_ROOT/lucille-core/target"
 LIB_DIR="$TARGET_DIR/lib"
 CLASSES_DIR="$TARGET_DIR/classes"
+SOURCE_DIR="$PROJECT_ROOT/lucille-core/src/main/java"
 OUTPUT_DIR="$PROJECT_ROOT/lucille-plugins/lucille-api/target/classes"
+ARGS_FILE="$PROJECT_ROOT/lucille-plugins/lucille-api/target/jsondoclet.args"
 
 # Ensure output directory exists
 mkdir -p "$OUTPUT_DIR"
@@ -24,40 +27,32 @@ for JAR in "$LIB_DIR"/*.jar; do
   CLASSPATH="$CLASSPATH:$JAR"
 done
 
-# Run javadoc with the JsonDoclet
-# stages
-javadoc \
-  -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "$CLASSPATH" \
-  -classpath "$CLASSPATH" \
-  -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java" \
-  -subpackages com.kmwllc.lucille.stage \
-  -o "stage-javadocs.json" \
-  -d "$OUTPUT_DIR"
+# javadoc.exe needs Windows paths and ';' separators. cygpath -m gives C:/... paths
+JAVADOC_ARGS_FILE="$ARGS_FILE"
+if command -v cygpath > /dev/null 2>&1; then
+  CLASSPATH=$(cygpath -mp "$CLASSPATH")
+  SOURCE_DIR=$(cygpath -m "$SOURCE_DIR")
+  OUTPUT_DIR=$(cygpath -m "$OUTPUT_DIR")
+  JAVADOC_ARGS_FILE=$(cygpath -m "$ARGS_FILE")
+fi
 
-# connectors
-javadoc \
-  -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "$CLASSPATH" \
-  -classpath "$CLASSPATH" \
-  -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java" \
-  -subpackages com.kmwllc.lucille.connector \
-  -o "connector-javadocs.json" \
-  -d "$OUTPUT_DIR"
+# Shared options go in an @argfile. The classpath is too long for the Windows command line.
+cat > "$ARGS_FILE" <<EOF
+-doclet com.kmwllc.lucille.doclet.JsonDoclet
+-docletpath "$CLASSPATH"
+-classpath "$CLASSPATH"
+-sourcepath "$SOURCE_DIR"
+-d "$OUTPUT_DIR"
+EOF
 
-# indexers
-javadoc \
-  -doclet com.kmwllc.lucille.doclet.JsonDoclet \
-  -docletpath "$CLASSPATH" \
-  -classpath "$CLASSPATH" \
-  -sourcepath "$PROJECT_ROOT/lucille-core/src/main/java" \
-  -subpackages com.kmwllc.lucille.indexer \
-  -o "indexer-javadocs.json" \
-  -d "$OUTPUT_DIR"
+# Track failures across all three runs so a broken stage/connector doc doesn't get masked by a later success
+STATUS=0
 
+javadoc @"$JAVADOC_ARGS_FILE" -subpackages com.kmwllc.lucille.stage -o "stage-javadocs.json" || STATUS=1
+javadoc @"$JAVADOC_ARGS_FILE" -subpackages com.kmwllc.lucille.connector -o "connector-javadocs.json" || STATUS=1
+javadoc @"$JAVADOC_ARGS_FILE" -subpackages com.kmwllc.lucille.indexer -o "indexer-javadocs.json" || STATUS=1
 
-# Check if the command was successful
-if [ $? -eq 0 ]; then
+if [ $STATUS -eq 0 ]; then
   echo "Documentation successfully generated"
 else
   echo "Failed to generate documentation"

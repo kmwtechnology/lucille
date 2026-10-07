@@ -175,7 +175,7 @@ public class FileConnector extends AbstractConnector {
 
     for (String path : paths) {
       try {
-        URI newStorageURI = new URI(path);
+        URI newStorageURI = TraversalParams.parsePathOrURI(path);
         storageURIs.add(newStorageURI);
         log.debug("FileConnector to use path {} with scheme {}", path, newStorageURI.getScheme());
       } catch (URISyntaxException e) {

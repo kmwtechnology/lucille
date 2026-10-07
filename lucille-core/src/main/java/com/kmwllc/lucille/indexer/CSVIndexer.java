@@ -53,6 +53,14 @@ public class CSVIndexer extends Indexer {
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
     super(config, messenger, bypass, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
+      // the writer has already opened the output file; close it so the file isn't left locked
+      if (writer != null) {
+        try {
+          writer.close();
+        } catch (IOException e) {
+          log.warn("Error occurred when closing csv indexer writer.", e);
+        }
+      }
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
     }
