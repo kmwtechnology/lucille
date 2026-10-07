@@ -202,7 +202,7 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <phase>package</phase>
+                        <phase>${shaded-plugin-jar.phase}</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
