@@ -54,6 +54,11 @@ import com.typesafe.config.ConfigValueFactory;
 
 public class FileConnectorTest {
 
+  // per-class directory names, so test classes running in parallel forks never share one
+  private static final String TEMP_DIR = "fileConnectorTest-temp";
+  private static final String ERROR_DIR = "fileConnectorTest-error";
+  private static final String SUCCESS_DIR = "fileConnectorTest-success";
+
   private static final Logger log = LoggerFactory.getLogger(FileConnectorTest.class);
 
   // On-disk H2 state database for the state tests. Kept out of the default ./state directory, which
@@ -179,7 +184,7 @@ public class FileConnectorTest {
 
   @Test
   public void testErrorDirectory() throws Exception {
-    File tempDir = new File("fileConnectorTest-temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy faulty csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/faulty.csv");
@@ -193,8 +198,8 @@ public class FileConnectorTest {
     connector.execute(publisher);
 
     // verify error directory is made
-    File errorDir = new File("fileConnectorTest-error");
-    File f = new File("fileConnectorTest-error/faulty.csv");
+    File errorDir = new File(ERROR_DIR);
+    File f = new File(ERROR_DIR + "/faulty.csv");
 
     try {
       // verify error directory is made
@@ -211,7 +216,7 @@ public class FileConnectorTest {
 
   @Test
   public void testSuccessfulDirectory() throws Exception {
-    File tempDir = new File("fileConnectorTest-temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy successful csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
@@ -225,8 +230,8 @@ public class FileConnectorTest {
     connector.execute(publisher);
 
     // verify error directory is made
-    File successDir = new File("fileConnectorTest-success");
-    File f = new File("fileConnectorTest-success/defaults.csv");
+    File successDir = new File(SUCCESS_DIR);
+    File f = new File(SUCCESS_DIR + "/defaults.csv");
 
     try {
       // verify error directory is made

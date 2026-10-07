@@ -18,10 +18,15 @@ import static org.junit.Assert.assertTrue;
 
 public class CSVConnectorTest {
 
+  // per-class directory names, so test classes running in parallel forks never share one
+  private static final String TEMP_DIR = "csvConnectorTest-temp";
+  private static final String ERROR_DIR = "csvConnectorTest-error";
+  private static final String SUCCESS_DIR = "csvConnectorTest-success";
+
   @Before
   public void setUp() {
     // create a temporary directory to hold copies of the csv
-    File tempDir = new File("csvConnectorTest-temp");
+    File tempDir = new File(TEMP_DIR);
     tempDir.mkdirs();
   }
 
@@ -106,7 +111,7 @@ public class CSVConnectorTest {
 
   @Test
   public void testErrorDirectory() throws Exception {
-    File tempDir = new File("csvConnectorTest-temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy faulty csv into temp directory
     File copy = new File("src/test/resources/CSVConnectorTest/faulty.csv");
@@ -120,8 +125,8 @@ public class CSVConnectorTest {
     assertThrows(ConnectorException.class, () -> connector.execute(publisher));
 
     // verify error directory is made
-    File errorDir = new File("csvConnectorTest-error");
-    File f = new File("csvConnectorTest-error/faulty.csv");
+    File errorDir = new File(ERROR_DIR);
+    File f = new File(ERROR_DIR + "/faulty.csv");
 
     try {
       // verify error directory is made
@@ -137,7 +142,7 @@ public class CSVConnectorTest {
 
   @Test
   public void testSuccessfulDirectory() throws Exception {
-    File tempDir = new File("csvConnectorTest-temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy successful csv into temp directory
     File copy = new File("src/test/resources/CSVConnectorTest/defaults.csv");
@@ -151,8 +156,8 @@ public class CSVConnectorTest {
     connector.execute(publisher);
 
     // verify error directory is made
-    File successDir = new File("csvConnectorTest-success");
-    File f = new File("csvConnectorTest-success/defaults.csv");
+    File successDir = new File(SUCCESS_DIR);
+    File f = new File(SUCCESS_DIR + "/defaults.csv");
 
     try {
       // verify error directory is made
@@ -187,7 +192,7 @@ public class CSVConnectorTest {
 
   @After
   public void tearDown() {
-    File tempDir = new File("csvConnectorTest-temp");
+    File tempDir = new File(TEMP_DIR);
     tempDir.delete();
   }
 }

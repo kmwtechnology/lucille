@@ -30,6 +30,11 @@ import com.typesafe.config.ConfigFactory;
 
 public class LocalStorageClientTest {
 
+  // per-class directory names, so test classes running in parallel forks never share one
+  private static final String TEMP_DIR = "localStorageClientTest-temp";
+  private static final String ERROR_DIR = "localStorageClientTest-error";
+  private static final String SUCCESS_DIR = "localStorageClientTest-success";
+
   @Test
   public void testPublishValidFiles() throws Exception {
     TestMessenger messenger = new TestMessenger();
@@ -286,28 +291,28 @@ public class LocalStorageClientTest {
 
   @Test
   public void testMoveProcessedFiles() throws Exception{
-    File tempDir = new File("localStorageClientTest-temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy successful csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
-        "fileOptions", Map.of("moveToAfterProcessing", "localStorageClientTest-success")
+        "fileOptions", Map.of("moveToAfterProcessing", SUCCESS_DIR)
     ));
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(connectorConfig, URI.create("localStorageClientTest-temp/defaults.csv"), "");
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create(TEMP_DIR + "/defaults.csv"), "");
 
     localStorageClient.init();
 
     localStorageClient.traverse(publisher, params);
 
     // verify error directory is made
-    File successDir = new File("localStorageClientTest-success");
-    File f = new File("localStorageClientTest-success/defaults.csv");
+    File successDir = new File(SUCCESS_DIR);
+    File f = new File(SUCCESS_DIR + "/defaults.csv");
 
     try {
       // verify error directory is made
@@ -327,28 +332,28 @@ public class LocalStorageClientTest {
   // path in the Config will work for moveToAfter error / processing.
   @Test
   public void testMoveProcessedFilesAbsolutePath() throws Exception {
-    File tempDir = new File("localStorageClientTest-temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy successful csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
-        "fileOptions", Map.of("moveToAfterProcessing", Paths.get("localStorageClientTest-success").toAbsolutePath().toString())
+        "fileOptions", Map.of("moveToAfterProcessing", Paths.get(SUCCESS_DIR).toAbsolutePath().toString())
     ));
 
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(connectorConfig, URI.create("localStorageClientTest-temp/defaults.csv"), "");
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create(TEMP_DIR + "/defaults.csv"), "");
 
     localStorageClient.init();
 
     localStorageClient.traverse(publisher, params);
 
     // verify error directory is made
-    File successDir = new File("localStorageClientTest-success");
-    File f = new File("localStorageClientTest-success/defaults.csv");
+    File successDir = new File(SUCCESS_DIR);
+    File f = new File(SUCCESS_DIR + "/defaults.csv");
 
     try {
       // verify error directory is made
@@ -366,14 +371,14 @@ public class LocalStorageClientTest {
 
   @Test
   public void testMoveErrorFiles() throws Exception{
-    File tempDir = new File("localStorageClientTest-temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy faulty csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/faulty.csv");
     org.apache.commons.io.FileUtils.copyFileToDirectory(copy, tempDir);
 
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
-        "fileOptions", Map.of("moveToErrorFolder", "localStorageClientTest-error"),
+        "fileOptions", Map.of("moveToErrorFolder", ERROR_DIR),
         "fileHandlers", Map.of("csv", Map.of())
     ));
 
@@ -381,14 +386,14 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     // localStorageClient that handles csv files
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(connectorConfig, URI.create("localStorageClientTest-temp/faulty.csv"), "");
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create(TEMP_DIR + "/faulty.csv"), "");
 
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
 
     // verify error directory is made
-    File errorDir = new File("localStorageClientTest-error");
-    File f = new File("localStorageClientTest-error/faulty.csv");
+    File errorDir = new File(ERROR_DIR);
+    File f = new File(ERROR_DIR + "/faulty.csv");
 
     try {
       // verify error directory is made
