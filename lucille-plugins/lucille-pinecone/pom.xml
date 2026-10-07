@@ -50,7 +50,7 @@
         <version>3.4.1</version>
         <executions>
           <execution>
-            <phase>package</phase>
+            <phase>${shaded-plugin-jar.phase}</phase>
             <goals>
               <goal>shade</goal>
             </goals>

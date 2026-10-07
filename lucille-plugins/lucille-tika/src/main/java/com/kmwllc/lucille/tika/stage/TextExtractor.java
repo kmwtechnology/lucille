@@ -69,6 +69,12 @@ import org.xml.sax.SAXException;
  * blacklist (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
  * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
  * multi-valued field.
+ * replaceDotsInMetadataNames (Boolean, Optional) : if true, "." in metadata names is replaced with "_", as spaces, "-" and ":"
+ * always are. Defaults to false. Recommended when indexing into OpenSearch or Elasticsearch, which treat a dotted field
+ * name as an object path: Tika emits keys such as "dc.date" and "dc.date.created", whose dotted field names cannot both be
+ * mapped, so the document is rejected. Applies to metadata names only, not to metadataPrefix. When enabled, whitelist and
+ * blacklist entries must use the replaced form (e.g. "dc_date"; dotted entries never match and are logged as a warning), and a dotted key that collapses onto an existing name (e.g. "dc.date" and "dc_date") has its values added
+ * to the same multi-valued field.
  * fork.enabled (Boolean, Optional) : Whether parsing should be run in a child JVM via the <code>ForkParser</code>.
  * This adds overhead to each document but isolates OOM crashes from the parent. Defaults to false.
  * fork.poolSize (Integer, Optional) : number of child JVM processes kept alive in the pool. Defaults to 5.
@@ -112,6 +118,7 @@ public class TextExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix", "fieldNamesField")
+      .optionalBoolean("replaceDotsInMetadataNames")
       .optionalList("whitelist", new TypeReference<List<String>>() {})
       .optionalList("blacklist", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeout")
@@ -136,6 +143,7 @@ public class TextExtractor extends Stage {
   private String byteArrayField;
   private String metadataPrefix;
   private String fieldNamesField;
+  private boolean replaceDotsInMetadataNames;
   private Integer textContentLimit;
   private Long parseTimeout;
   private final boolean enableOcr;
@@ -165,6 +173,7 @@ public class TextExtractor extends Stage {
     textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
     fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
+    replaceDotsInMetadataNames = config.hasPath("replaceDotsInMetadataNames") && config.getBoolean("replaceDotsInMetadataNames");
     metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
     enableOcr = ConfigUtils.getOrDefault(config, "enableOcr", false);
     globalTikaConfigSource = tikaConfigPath == null ? detectGlobalTikaConfigSource() : null;
@@ -183,6 +192,13 @@ public class TextExtractor extends Stage {
     forkServerPulseMillis = ConfigUtils.getOrDefault(config, "fork.serverPulseMillis", 1000L);
 
     this.fieldFilter = new FieldFilter(config);
+    if (replaceDotsInMetadataNames) {
+      for (String listName : List.of("whitelist", "blacklist")) {
+        if (config.hasPath(listName) && config.getStringList(listName).stream().anyMatch(n -> n.contains("."))) {
+          log.warn("replaceDotsInMetadataNames is enabled but {} contains a dotted name, which will never match; use \"_\" instead of \".\"", listName);
+        }
+      }
+    }
 
     if (filePathField != null && byteArrayField != null) {
       throw new StageException("Provided both a filePathField and byteArrayField to the TextExtractor stage");
@@ -372,14 +388,12 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Cleans the name of metadata field names to be in line with general standards for documents
+   * Cleans the name of metadata field names to be in line with general standards for documents: trims, lowercases, and
+   * replaces spaces, "-" and ":" (and "." when replaceDots is true) with "_".
    */
-  private static String cleanFieldName(String name) {
-    String cleanName = name.trim().toLowerCase();
-    cleanName = cleanName.replaceAll(" ", "_");
-    cleanName = cleanName.replaceAll("-", "_");
-    cleanName = cleanName.replaceAll(":", "_");
-    return cleanName;
+  static String cleanFieldName(String name, boolean replaceDots) {
+    String cleanName = name.trim().toLowerCase().replace(' ', '_').replace('-', '_').replace(':', '_');
+    return replaceDots ? cleanName.replace('.', '_') : cleanName;
   }
 
   /**
@@ -418,7 +432,7 @@ public class TextExtractor extends Stage {
     String newMetadataPrefix = metadataPrefix.isEmpty() ? "" : metadataPrefix + "_";
     for (String name : metadata.names()) {
       // clean the field name first.
-      String cleanName = cleanFieldName(name);
+      String cleanName = cleanFieldName(name, replaceDotsInMetadataNames);
       if (fieldFilter.shouldInclude(cleanName)) {
         String prefixedName = newMetadataPrefix + cleanName;
         for (String value : metadata.getValues(name)) {

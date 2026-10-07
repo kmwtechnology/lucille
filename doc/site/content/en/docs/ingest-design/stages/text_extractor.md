@@ -28,3 +28,5 @@ Extracts text from over 1,000 file formats — PDF, Microsoft Office documents, 
   dest: "extracted_text"
 }
 ```
+
+Extracted Tika metadata is written to fields named `<metadataPrefix>_<name>`, where the name is lowercased and spaces, `-` and `:` become `_`. Tika also emits dotted names such as `dc.date` and `dc.date.created`; OpenSearch and Elasticsearch read a dotted field name as an object path and reject documents carrying both. When indexing into either, set `replaceDotsInMetadataNames: true` to replace `.` with `_` as well (off by default, so existing field names are unchanged). It applies to metadata names only, not to `metadataPrefix`. With it on, `whitelist`/`blacklist` entries must use the replaced form (dotted entries never match; a warning is logged), and names that become equal (e.g. `dc.date` and `dc_date`) are merged into one multi-valued field.

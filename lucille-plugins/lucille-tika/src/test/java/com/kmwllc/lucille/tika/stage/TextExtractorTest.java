@@ -624,7 +624,7 @@ public class TextExtractorTest {
 
   @Test
   public void testOcrExplicitlyDisabled() throws Exception {
-    TextExtractor stage = (TextExtractor) factory.get(ocrConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(false)));
+    TextExtractor stage = (TextExtractor) factory.get(baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(false)));
     Parser parser = stage.createAutoDetectParser();
 
     assertFalse(containsParser(parser, TesseractOCRParser.class));
@@ -633,7 +633,7 @@ public class TextExtractorTest {
 
   @Test
   public void testOcrEnabled() throws Exception {
-    TextExtractor stage = (TextExtractor) factory.get(ocrConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(true)));
+    TextExtractor stage = (TextExtractor) factory.get(baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(true)));
 
     assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
   }
@@ -687,11 +687,11 @@ public class TextExtractorTest {
     System.setProperty("tika.config", "src/test/resources/TextExtractorTest/tika-config.xml");
     try {
       // without enableOcr, the global config is used as is, so tesseract stays in its DefaultParser
-      TextExtractor stage = (TextExtractor) factory.get(ocrConfig());
+      TextExtractor stage = (TextExtractor) factory.get(baseConfig());
       assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
 
       for (boolean enableOcr : new boolean[]{true, false}) {
-        Config config = ocrConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(enableOcr));
+        Config config = baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(enableOcr));
         StageException e = assertThrows(StageException.class, () -> factory.get(config));
         Throwable cause = e;
         while (cause.getCause() != null) {
@@ -704,7 +704,8 @@ public class TextExtractorTest {
     }
   }
 
-  private static Config ocrConfig() {
+  // the base filepath.conf as a Config, for tests that add settings to it with withValue
+  private static Config baseConfig() {
     return ConfigFactory.parseResourcesAnySyntax("TextExtractorTest/filepath.conf");
   }
 
@@ -719,6 +720,71 @@ public class TextExtractorTest {
       return containsParser(decorator.getWrappedParser(), parserClass);
     }
     return false;
+  }
+
+  @Test
+  public void testCleanFieldName() {
+    assertEquals("content_type", TextExtractor.cleanFieldName("Content-Type", false));
+    assertEquals("dc_title", TextExtractor.cleanFieldName("dc:title", false));
+    assertEquals("last_modified_by", TextExtractor.cleanFieldName("  Last Modified-By ", false));
+    assertEquals("x_tika_parsed_by", TextExtractor.cleanFieldName("X-TIKA:Parsed-By", false));
+    // dots are kept unless replaceDots is set
+    assertEquals("dc.date.created", TextExtractor.cleanFieldName("dc.date.created", false));
+    assertEquals("dc_date_created", TextExtractor.cleanFieldName("dc.date.created", true));
+    assertEquals("dc_title", TextExtractor.cleanFieldName("DC:Title", true));
+    assertEquals("pdf_docinfo_created", TextExtractor.cleanFieldName("pdf:docinfo.Created", true));
+  }
+
+  // names are trimmed and lowercased; each space, "-" and ":" becomes "_", and "." is kept unless replaceDots is set
+  @Test
+  public void testCleanFieldNameEdgeCases() {
+    List<String> names = List.of("Content-Type", "dc:title", "dc.date", "dc.date.created", " X-TIKA:Parsed-By ",
+        "a  b--c::d", "meta:save-date", "Last-Modified", "resourceName", "", " ", "-:.", "ÄÖÜ:Ünïcode-Name");
+    List<String> expected = List.of("content_type", "dc_title", "dc.date", "dc.date.created", "x_tika_parsed_by",
+        "a__b__c__d", "meta_save_date", "last_modified", "resourcename", "", "", "__.", "äöü_ünïcode_name");
+    for (int i = 0; i < names.size(); i++) {
+      assertEquals(expected.get(i), TextExtractor.cleanFieldName(names.get(i), false));
+    }
+  }
+
+  // dotted metadata names such as "dc.date" and "dc.date.created" cannot both be mapped by OpenSearch/Elasticsearch;
+  // with replaceDotsInMetadataNames on, no extracted field name should contain "."
+  @Test
+  public void testReplaceDotsInMetadataNames() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get(Map.of("byteArrayField", "byte_array",
+        "replaceDotsInMetadataNames", true, "fieldNamesField", "tika_property_names"));
+
+    Document doc = Document.create("doc1");
+    Metadata metadata = new Metadata();
+    metadata.add("dc.date", "2024-01-01");
+    metadata.add("dc.date.created", "2024-01-02");
+    metadata.add("dc_date", "2024-01-03");
+    stage.parseInputStream(metadata, doc, new ByteArrayInputStream("hello".getBytes()));
+
+    for (String field : doc.getFieldNames()) {
+      assertFalse(field, field.contains("."));
+    }
+    assertEquals("2024-01-02", doc.getString("tika_dc_date_created"));
+    // "dc.date" and "dc_date" collapse onto the same field; both values are kept
+    assertEquals(Set.of("2024-01-01", "2024-01-03"), Set.copyOf(doc.getStringList("tika_dc_date")));
+    for (String name : doc.getStringList("tika_property_names")) {
+      assertFalse(name, name.contains("."));
+    }
+  }
+
+  // without the option, dotted names are written unchanged, as before
+  @Test
+  public void testDotsKeptByDefault() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get(Map.of("byteArrayField", "byte_array"));
+
+    Document doc = Document.create("doc1");
+    Metadata metadata = new Metadata();
+    metadata.add("dc.date", "2024-01-01");
+    metadata.add("dc.date.created", "2024-01-02");
+    stage.parseInputStream(metadata, doc, new ByteArrayInputStream("hello".getBytes()));
+
+    assertEquals("2024-01-01", doc.getString("tika_dc.date"));
+    assertEquals("2024-01-02", doc.getString("tika_dc.date.created"));
   }
 
   /**
