@@ -323,6 +323,7 @@ public class FileConnectorStateManagerTest {
     File stateDirectory = new File("state");
     File dbFile = new File("state/connector.mv.db");
 
+    assertFalse(stateDirectory.isDirectory());
     assertFalse(dbFile.isFile());
     Config emptyConfig = ConfigFactory.empty();
 
@@ -336,15 +337,8 @@ public class FileConnectorStateManagerTest {
     } finally {
       stateMgr.shutdown();
 
-      // ./state is shared with FileConnectorTest, which may run concurrently in another fork:
-      // remove only this connector's files, and the directory only if that leaves it empty.
-      File[] ours = stateDirectory.listFiles((dir, name) -> name.startsWith("connector."));
-      if (ours != null) {
-        for (File f : ours) {
-          FileUtils.deleteQuietly(f);
-        }
-      }
-      stateDirectory.delete();
+      // This is the only test that uses the default ./state location; others set state.connectionString.
+      FileUtils.deleteDirectory(stateDirectory);
     }
   }
 
