@@ -103,6 +103,16 @@ public class SpecBuilder {
     return this;
   }
 
+  public SpecBuilder requiredStringOrList(String... requiredFieldNames) {
+    Arrays.stream(requiredFieldNames).forEach(fieldName -> properties.add(new StringOrListProperty(fieldName, true)));
+    return this;
+  }
+
+  public SpecBuilder optionalStringOrList(String... optionalFieldNames) {
+    Arrays.stream(optionalFieldNames).forEach(fieldName -> properties.add(new StringOrListProperty(fieldName, false)));
+    return this;
+  }
+
   public SpecBuilder requiredNumber(String... requiredNumberFieldNames) {
     Arrays.stream(requiredNumberFieldNames).forEach(fieldName -> properties.add(new NumberProperty(fieldName, true)));
     return this;
