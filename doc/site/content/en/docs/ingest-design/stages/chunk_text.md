@@ -28,7 +28,7 @@ The `ChunkText` Stage splits a long text field into smaller, optionally overlapp
 | `source` | String | **Yes** | Field containing the text to chunk. |
 | `dest` | String | No | Field name for chunk content in child docs. Default: `text`. |
 | `chunkingMethod` | String | No | Chunking strategy. Default: `sentence`. See below. |
-| `regex` | String | Required for `custom` | Regex pattern to split on. |
+| `regex` | String | Required for `custom` | Java regex to split on. Compiled when the stage starts, so an invalid pattern fails at startup. |
 | `lengthToSplit` | Integer | Required for `fixed` | Number of characters per chunk. |
 | `chunksToMerge` | Integer | No | How many initial chunks to merge into one final chunk. Default: `1` (no merging). |
 | `chunksToOverlap` | Integer | No | Number of chunks from the previous final chunk to prepend to the current one. |
