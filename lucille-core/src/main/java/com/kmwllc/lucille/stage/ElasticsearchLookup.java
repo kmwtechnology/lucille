@@ -27,7 +27,7 @@ import java.util.List;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>elasticsearch.url(String, required) : the Elasticsearch endpoint URL.</li>
+ *   <li>elasticsearch.url (String or List&lt;String&gt;, required) : the Elasticsearch endpoint URL, or a list of endpoint URLs for the same cluster.</li>
  *   <li>elasticsearch.index (String, required) : the name of the index to query.</li>
  *   <li>elasticsearch.acceptInvalidCert (Boolean, optional) : allow self‑signed or invalid SSL certificates.</li>
  *   <li>elasticsearch.useCompression (Boolean, optional) : whether to use compression in the underlying Elasticsearch HTTP client. Defaults to false.</li>

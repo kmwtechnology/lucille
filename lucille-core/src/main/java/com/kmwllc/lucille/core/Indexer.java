@@ -397,8 +397,10 @@ public abstract class Indexer implements Runnable {
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
     } else {
-      try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
-        docLogger.info("Indexer polled doc {}, added to batch.", doc.getId());
+      if (docLogger.isInfoEnabled()) {
+        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
+          docLogger.info("Indexer polled doc {}, added to batch.", doc.getId());
+        }
       }
       sendToIndexWithAccounting(batch.add(doc));
     }
@@ -454,8 +456,10 @@ public abstract class Indexer implements Runnable {
       try {
         messenger.sendEvents(succeededDocs, "SUCCEEDED", Event.Type.FINISH);
         for (Document d : succeededDocs) {
-          try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
-            docLogger.info("Sent success message for doc {}.", d.getId());
+          if (docLogger.isInfoEnabled()) {
+            try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+              docLogger.info("Sent success message for doc {}.", d.getId());
+            }
           }
         }
       } catch (Exception e) {
