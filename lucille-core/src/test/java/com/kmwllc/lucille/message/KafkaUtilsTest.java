@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -237,5 +238,13 @@ public class KafkaUtilsTest {
     // A consumerPropertyFile that explicitly sets enable.auto.commit=false is accepted.
     Config disabledInFile = ConfigFactory.load("KafkaUtilsTest/consumer-conf/external.conf");
     KafkaUtils.createDocumentConsumer(disabledInFile, "test-client").close();
+  }
+
+  @Test
+  public void testGetPollInterval() {
+    assertEquals(Duration.ofMillis(2000), KafkaUtils.getPollInterval(ConfigFactory.empty()));
+    assertEquals(Duration.ofMillis(150), KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 150")));
+    assertThrows(IllegalArgumentException.class,
+        () -> KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 0")));
   }
 }

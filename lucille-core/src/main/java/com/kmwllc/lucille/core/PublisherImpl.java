@@ -313,8 +313,12 @@ public class PublisherImpl implements Publisher {
   @Override
   public void handleEvent(Event event) {
     String docId = event.getDocumentId();
-    MDC.put(Document.ID_FIELD, docId);
-    docLogger.info("Publisher is handling an event ({}) for doc {}.", event.getType(), docId);
+    // the MDC entry only decorates this info-level line, so skip the put/remove when it is disabled
+    boolean docLogEnabled = docLogger.isInfoEnabled();
+    if (docLogEnabled) {
+      MDC.put(Document.ID_FIELD, docId);
+      docLogger.info("Publisher is handling an event ({}) for doc {}.", event.getType(), docId);
+    }
 
     if (event.isCreate()) {
 
@@ -369,7 +373,9 @@ public class PublisherImpl implements Publisher {
       }
     }
 
-    MDC.remove(Document.ID_FIELD);
+    if (docLogEnabled) {
+      MDC.remove(Document.ID_FIELD);
+    }
   }
 
   @Override

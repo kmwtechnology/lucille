@@ -466,6 +466,16 @@ This is the maximum time between Kafka `poll()` calls before the consumer is evi
 
 **Set this higher than your slowest expected document processing time.** If you have stages that call slow external APIs or process very large documents, increase this value.
 
+### pollIntervalMs
+
+```hocon
+kafka {
+  pollIntervalMs: 2000  # default
+}
+```
+
+How long a Worker, Indexer, or Publisher blocks in each Kafka `poll()` when no records are available. A poll returns as soon as a record arrives, so this does not limit throughput under load. It does set how long an idle component waits: the Publisher needs one empty poll to detect the end of a run, shutdown waits for in-flight polls to return, and an expired Indexer batch is flushed only when a poll returns. Lowering it shortens those waits, but an idle Worker calls `commitSync()` after every empty poll, so a very low value increases commit traffic to the brokers.
+
 ### maxRequestSize
 
 ```hocon

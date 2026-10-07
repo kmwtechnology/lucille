@@ -27,8 +27,11 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
+
   // Tracks destination-topic offsets and commits them on batch completion (at-least-once). See OffsetCommitTracker.
   private final OffsetCommitTracker offsetCommitTracker;
+
+  private final Duration pollInterval;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
     this(config, pipelineName, KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-indexer-" + pipelineName));
@@ -43,6 +46,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
         offsetCommitTracker.rebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
+    this.pollInterval = KafkaUtils.getPollInterval(config);
   }
 
   /**
@@ -57,7 +61,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       destConsumer.resume(paused);
     }
 
-    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(pollInterval);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       // Offsets are not committed here. Committing at poll, before the document is indexed, is at-most-once: a crash

@@ -27,7 +27,7 @@ import com.typesafe.config.Config;
  *
  * <p> The database should/will have the following Columns:
  *   <ul>
- *     <li>name (VARCHAR PRIMARY KEY): The full path (for cloud, the full URI) to the file. Defaults to a length of 200.
+ *     <li>name (VARCHAR PRIMARY KEY): The full path (for cloud, the full URI) to the file. Defaults to a length of 768 (state.pathLength).
  *       <ul>
  *         <li>Names are case-sensitive - it is very important to keep the paths consistent in your Config when using state.</li>
  *       </ul>
@@ -64,6 +64,10 @@ public class FileConnectorStateManager {
   private final int runsBeforeExpiration;
   private final int pathLength;
 
+  // Works with the embedded H2 database Lucille ships with (and uses when no connectionString is set), and is the
+  // largest VARCHAR primary key MySQL/InnoDB allows with utf8mb4 (3072-byte index limit / 4 bytes per character).
+  static final int DEFAULT_PATH_LENGTH = 768;
+
   private Instant traversalInstant;
 
   // Used for the whole-table operations. Kept separate from the per-thread connections because it has to outlive them.
@@ -90,7 +94,7 @@ public class FileConnectorStateManager {
     if (this.runsBeforeExpiration < 1) {
       throw new IllegalArgumentException("state.runsBeforeExpiration must be >= 1");
     }
-    this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", 200);
+    this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", DEFAULT_PATH_LENGTH);
   }
 
   /**

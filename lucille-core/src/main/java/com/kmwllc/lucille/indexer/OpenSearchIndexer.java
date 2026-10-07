@@ -44,7 +44,8 @@ import org.slf4j.LoggerFactory;
  * Config Parameters -
  * <ul>
  *   <li>index (String, Required) : Target OpenSearch index name.</li>
- *   <li>url (String, Required) : OpenSearch HTTP endpoint (e.g., https://localhost:9200).</li>
+ *   <li>url (String or List&lt;String&gt;, Required) : OpenSearch HTTP endpoint (e.g., https://localhost:9200), or a list of
+ *   endpoints for the same cluster. With a list, the client round-robins requests across the hosts and fails over between them.</li>
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying OpenSearch HTTP client. Defaults to false.</li>
@@ -58,7 +59,8 @@ import org.slf4j.LoggerFactory;
 public class OpenSearchIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
-      .requiredString("index", "url")
+      .requiredString("index")
+      .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalString("childDocumentsField").build();
