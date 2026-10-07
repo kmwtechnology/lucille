@@ -21,53 +21,74 @@
   @apply justify-start bg-primary-600 hover:bg-primary-700 text-xs sm:text-sm py-2 h-auto;
 }
 
-/* Config grid */
-.configGrid {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
+/* Table */
+.tableWrap {
+  @apply overflow-x-auto rounded-md border border-primary-100 bg-white;
 }
 
-/* Config card */
-.configCard {
-  @apply border-primary-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full;
+.table {
+  @apply w-full border-collapse text-sm;
 }
 
-.configHeader {
-  @apply pb-2 space-y-1;
+.th {
+  @apply text-left font-semibold text-primary-800 px-4 py-2.5 border-b border-primary-100
+    bg-primary-50/50 whitespace-nowrap;
 }
 
-.configTitle {
-  @apply flex items-center gap-2 text-base sm:text-lg;
+.row {
+  @apply border-b border-primary-100 last:border-0 cursor-pointer hover:bg-primary-50 transition-colors align-top;
 }
 
-.configId {
-  @apply truncate font-mono text-sm text-primary-700;
+.row td {
+  @apply px-4 py-3;
 }
 
-.configContent {
-  @apply flex-1;
+.idCell {
+  @apply align-top;
 }
 
-/* Connector / pipeline name lists */
-.nameList {
-  @apply mt-3 space-y-2;
+.idWrap {
+  @apply inline-flex items-center gap-1.5 text-primary-700;
 }
 
-.nameRow {
-  @apply flex flex-col gap-1;
+.idIcon {
+  @apply h-3.5 w-3.5 flex-shrink-0;
 }
 
-.nameLabel {
-  @apply text-xs font-medium text-muted-foreground;
+.rowId {
+  @apply font-mono text-xs text-primary-700 break-all underline underline-offset-2;
 }
 
-.nameTags {
+.indexerCell {
+  @apply whitespace-nowrap text-primary-800;
+}
+
+/* Name tags */
+.tags {
   @apply flex flex-wrap gap-1;
 }
 
-.nameTag {
+.tag {
   @apply inline-flex max-w-full truncate rounded px-1.5 py-0.5 text-xs font-mono bg-primary-50 text-primary-700;
 }
 
-.nameEmpty {
+.cellEmpty {
   @apply text-xs text-muted-foreground;
+}
+
+/* Row actions */
+.actionTd {
+  @apply whitespace-nowrap align-middle;
+}
+
+.actions {
+  @apply flex items-center gap-2;
+}
+
+.actionCell {
+  @apply flex items-center gap-2;
+}
+
+.actionError {
+  @apply text-xs text-red-600;
 }

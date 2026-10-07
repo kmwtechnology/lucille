@@ -1,12 +1,6 @@
+import { useNavigate } from "react-router-dom"
 import { Link } from "@/components/ui/link/link"
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card/card"
-import { Play } from "lucide-react"
+import { Link as LinkIcon, Play } from "lucide-react"
 import { useFetch } from "@/hooks/use-fetch"
 import { formatDuration, formatInstant } from "@/lib/utils"
 import type { Run } from "@/types/api"
@@ -14,7 +8,8 @@ import { RunStatusBadge } from "@/components/run-status/run-status"
 import { LoadingText } from "@/components/loading-text/loading-text"
 import { ErrorState } from "@/components/error-state/error-state"
 import { EmptyState } from "@/components/empty-state/empty-state"
-import { ViewLink } from "@/components/view-link/view-link"
+import { Pagination } from "@/components/pagination/pagination"
+import { usePagination } from "@/hooks/use-pagination"
 import styles from "./runs.module.css"
 
 function startTimeMs(run: Run): number {
@@ -29,56 +24,51 @@ function StartRunLink() {
   )
 }
 
-function RunCard({ run }: { run: Run }) {
+function RunRow({ run }: { run: Run }) {
+  const navigate = useNavigate()
+  const to = `/runs/detail?id=${encodeURIComponent(run.runId)}`
+
   return (
-    <Card className={styles.runCard}>
-      <CardHeader className={styles.runHeader}>
-        <CardTitle className={styles.runTitle}>
-          <Play className="h-5 w-5 text-primary-600 flex-shrink-0" />
-          <span className={styles.runId} title={run.runId}>
+    <tr
+      className={styles.row}
+      onClick={() => navigate(to)}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") navigate(to)
+      }}
+    >
+      <td className={styles.idCell}>
+        <span className={styles.idWrap}>
+          <LinkIcon className={styles.idIcon} aria-hidden="true" />
+          <span className={styles.rowId} title={run.runId}>
             {run.runId}
           </span>
-        </CardTitle>
+        </span>
+      </td>
+      <td>
         <RunStatusBadge run={run} />
-      </CardHeader>
-      <CardContent className={styles.runContent}>
-        <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>Config</span>
-          <Link
-            variant="link"
-            size="sm"
-            className={styles.configLink}
-            to={`/configs/detail?id=${encodeURIComponent(run.configId)}`}
-          >
-            {run.configId}
-          </Link>
-        </div>
-        <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>Started</span>
-          <span className={styles.detailValue}>{formatInstant(run.startTime)}</span>
-        </div>
-        <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>Duration</span>
-          <span className={styles.detailValue}>
-            {run.done ? formatDuration(run.startTime, run.endTime) : "In progress"}
-          </span>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <ViewLink to={`/runs/detail?id=${encodeURIComponent(run.runId)}`} label="View" />
-      </CardFooter>
-    </Card>
+      </td>
+      <td className={styles.idCell}>
+        <span className={styles.configId} title={run.configId}>
+          {run.configId}
+        </span>
+      </td>
+      <td className={styles.nowrap}>{formatInstant(run.startTime)}</td>
+      <td className={styles.nowrap}>
+        {run.done ? formatDuration(run.startTime, run.endTime) : "In progress"}
+      </td>
+    </tr>
   )
 }
 
 export default function Runs() {
-  // Poll so in-progress runs update live.
   const runs = useFetch<Run[]>("/v1/run", 3000)
 
   const sorted =
     runs.status === "success"
       ? [...runs.data].sort((a, b) => startTimeMs(b) - startTimeMs(a))
       : []
+  const pagination = usePagination(sorted, 10)
 
   return (
     <div className={styles.page}>
@@ -102,11 +92,27 @@ export default function Runs() {
           action={<StartRunLink />}
         />
       ) : (
-        <div className={styles.runGrid}>
-          {sorted.map((run) => (
-            <RunCard key={run.runId} run={run} />
-          ))}
-        </div>
+        <>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th className={styles.th}>Run ID</th>
+                  <th className={styles.th}>Status</th>
+                  <th className={styles.th}>Config</th>
+                  <th className={styles.th}>Started</th>
+                  <th className={styles.th}>Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagination.pageItems.map((run) => (
+                  <RunRow key={run.runId} run={run} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination state={pagination} label="runs" />
+        </>
       )}
     </div>
   )

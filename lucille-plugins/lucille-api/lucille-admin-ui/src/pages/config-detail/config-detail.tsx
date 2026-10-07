@@ -1,21 +1,48 @@
 import { useState } from "react"
-import { Navigate, useSearchParams } from "react-router-dom"
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card/card"
-import { Activity, ChevronDown, Layers, Settings, Zap } from "lucide-react"
+import { Activity, ChevronDown, Layers, Play, Settings, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useFetch } from "@/hooks/use-fetch"
+import { useStartRun } from "@/hooks/use-start-run"
 import type { ConfigObject } from "@/types/api"
+import { Button } from "@/components/ui/button/button"
 import { BackLink } from "@/components/back-link/back-link"
 import { CopyButton } from "@/components/copy-button/copy-button"
 import { ConfigChips, shortClassName } from "@/components/config-summary/config-summary"
 import { LoadingText } from "@/components/loading-text/loading-text"
 import { ErrorState } from "@/components/error-state/error-state"
 import styles from "./config-detail.module.css"
+
+function StartRunButton({ configId }: { configId: string }) {
+  const navigate = useNavigate()
+  const { state, submit } = useStartRun()
+  const submitting = state.status === "submitting"
+
+  const handleStart = async () => {
+    const runId = await submit(configId)
+    if (runId) {
+      navigate(`/runs/detail?id=${encodeURIComponent(runId)}`)
+    }
+  }
+
+  return (
+    <>
+      <Button variant="default" size="sm" onClick={handleStart} disabled={submitting}>
+        <Play className="mr-2 h-4 w-4" />
+        {submitting ? "Starting..." : "Start Run"}
+      </Button>
+      {state.status === "error" && (
+        <span className={styles.startError}>{state.error}</span>
+      )}
+    </>
+  )
+}
 
 function ConnectorsCard({ config }: { config: ConfigObject }) {
   const connectors = config.connectors ?? []
@@ -228,6 +255,9 @@ function ConfigDetailView({ id }: { id: string }) {
               <Settings className="h-6 w-6 text-primary-600 flex-shrink-0" />
               <h1 className={styles.configId} title={id}>{id}</h1>
               <CopyButton value={id} label="Copy configuration ID" />
+              <div className={styles.headerActions}>
+                <StartRunButton configId={id} />
+              </div>
             </div>
             <ConfigChips config={config.data} />
           </div>

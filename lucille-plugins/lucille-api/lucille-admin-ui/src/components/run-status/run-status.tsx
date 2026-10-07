@@ -1,12 +1,6 @@
 import type { Run } from "@/types/api"
+import type { RunStatus, RunTone } from "./run-status.types"
 import styles from "./run-status.module.css"
-
-export type RunTone = "running" | "success" | "failure"
-
-export interface RunStatus {
-  label: string
-  tone: RunTone
-}
 
 /**
  * Derive a display status from a run. A run that isn't done is "Running".
@@ -25,7 +19,6 @@ export function runStatus(run: Run): RunStatus {
       ? { label: "Succeeded", tone: "success" }
       : { label: "Failed", tone: "failure" }
   }
-  // Done but no result recorded — treat as failure to be safe.
   return { label: "Failed", tone: "failure" }
 }
 

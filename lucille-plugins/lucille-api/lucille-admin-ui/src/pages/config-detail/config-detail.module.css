@@ -11,7 +11,15 @@
 }
 
 .titleRow {
-  @apply flex items-center gap-2;
+  @apply flex items-center gap-2 flex-wrap;
+}
+
+.headerActions {
+  @apply ml-auto flex items-center gap-2;
+}
+
+.startError {
+  @apply text-sm text-red-600;
 }
 
 .configId {

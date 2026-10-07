@@ -6,29 +6,24 @@ import { Card, CardContent } from "@/components/ui/card/card"
 import { Save, Settings } from "lucide-react"
 import { BackLink } from "@/components/back-link/back-link"
 import { useCreateConfig } from "@/hooks/use-create-config"
-import { CONFIG_TEMPLATE } from "@/lib/constants"
+import { validateConfigText } from "@/lib/validate-config"
 import styles from "./config-create.module.css"
 
 export default function ConfigCreate() {
   const navigate = useNavigate()
   const { state, submit } = useCreateConfig()
-  const [text, setText] = useState(CONFIG_TEMPLATE)
-  const [parseError, setParseError] = useState<string | null>(null)
+  const [text, setText] = useState("")
+  const [touched, setTouched] = useState(false)
 
   const submitting = state.status === "submitting"
+  const validation = validateConfigText(text)
 
   const handleSubmit = async () => {
-    setParseError(null)
-
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(text)
-    } catch (err) {
-      setParseError(err instanceof Error ? err.message : "Invalid JSON")
+    if (!validation.valid) {
+      setTouched(true)
       return
     }
-
-    const configId = await submit(parsed)
+    const configId = await submit(text)
     if (configId) {
       navigate(`/configs/detail?id=${encodeURIComponent(configId)}`)
     }
@@ -44,34 +39,39 @@ export default function ConfigCreate() {
           <h1 className={styles.title}>Create Configuration</h1>
         </div>
         <p className={styles.subtext}>
-          Enter your Lucille configuration as JSON. It will be validated and saved with a
-          generated ID.
+          Enter your Lucille configuration as HOCON (or JSON). It will be validated and saved
+          with a generated ID.
         </p>
       </div>
 
       <Card className={styles.card}>
         <CardContent className={styles.formContent}>
-          <label htmlFor="config-json" className={styles.formLabel}>
-            Configuration (JSON)
+          <label htmlFor="config-hocon" className={styles.formLabel}>
+            Configuration
           </label>
           <textarea
-            id="config-json"
+            id="config-hocon"
             className={styles.editor}
             spellCheck={false}
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onBlur={() => setTouched(true)}
             disabled={submitting}
           />
 
-          {parseError && (
-            <div className={styles.formError}>Invalid JSON: {parseError}</div>
+          {touched && !validation.valid && (
+            <div className={styles.formError}>{validation.message}</div>
           )}
           {state.status === "error" && (
             <div className={styles.formError}>{state.error}</div>
           )}
 
           <div className={styles.formActions}>
-            <Button variant="default" onClick={handleSubmit} disabled={submitting}>
+            <Button
+              variant="default"
+              onClick={handleSubmit}
+              disabled={submitting || !validation.valid}
+            >
               <Save className="mr-2 h-4 w-4" />
               {submitting ? "Posting..." : "Post Configuration"}
             </Button>

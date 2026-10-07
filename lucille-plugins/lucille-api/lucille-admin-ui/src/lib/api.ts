@@ -16,20 +16,25 @@ async function healthCheck(path: string): Promise<boolean> {
 }
 
 /**
- * POST a Lucille config as a JSON object to /v1/config.
+ * POST a Lucille config to /v1/config as a raw HOCON string.
+ *
+ * The body is sent as-is with Content-Type application/hocon, so HOCON features
+ * (comments, ${?ENV} substitutions, unquoted keys) are preserved and parsed by
+ * the server. JSON is also valid HOCON, so plain JSON still works.
  *
  * On success the API returns JSON `{ configId }`. On failure it returns a
  * plain-text body (e.g. "Invalid configuration provided: ..."), so errors are
  * read as text to preserve the useful message.
  *
+ * @param body the raw HOCON (or JSON) configuration text
  * @returns the created config's UUID
  * @throws Error with the server's message on a non-2xx response
  */
-async function postConfig(config: unknown): Promise<string> {
+async function postConfig(body: string): Promise<string> {
   const res = await fetch(`${API_BASE}/v1/config`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(config),
+    headers: { "Content-Type": "application/hocon" },
+    body,
   })
 
   if (!res.ok) {
@@ -73,4 +78,22 @@ async function startRun(configId: string): Promise<string> {
   return data.runId
 }
 
-export const api = { get, healthCheck, postConfig, startRun }
+/**
+ * Delete a config via DELETE /v1/config/{configId}.
+ *
+ * Returns 200 on success, 404 if the id is unknown (surfaced as an error here).
+ *
+ * @throws Error with the server's message on a non-2xx response
+ */
+async function deleteConfig(configId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/v1/config/${encodeURIComponent(configId)}`, {
+    method: "DELETE",
+  })
+
+  if (!res.ok) {
+    const message = (await res.text()) || `${res.status} ${res.statusText}`
+    throw new Error(message)
+  }
+}
+
+export const api = { get, healthCheck, postConfig, startRun, deleteConfig }

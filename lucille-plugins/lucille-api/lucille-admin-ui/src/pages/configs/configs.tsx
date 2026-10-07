@@ -1,19 +1,18 @@
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Link } from "@/components/ui/link/link"
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card/card"
-import { Settings } from "lucide-react"
+import { Button } from "@/components/ui/button/button"
+import { Link as LinkIcon, Play, Settings, Trash2 } from "lucide-react"
 import { useFetch } from "@/hooks/use-fetch"
+import { useStartRun } from "@/hooks/use-start-run"
+import { useDeleteConfig } from "@/hooks/use-delete-config"
 import type { ConfigMap, ConfigObject } from "@/types/api"
-import { ConfigChips } from "@/components/config-summary/config-summary"
+import { indexerLabel } from "@/components/config-summary/config-summary"
 import { LoadingText } from "@/components/loading-text/loading-text"
 import { ErrorState } from "@/components/error-state/error-state"
 import { EmptyState } from "@/components/empty-state/empty-state"
-import { ViewLink } from "@/components/view-link/view-link"
+import { Pagination } from "@/components/pagination/pagination"
+import { usePagination } from "@/hooks/use-pagination"
 import styles from "./configs.module.css"
 
 function CreateConfigLink() {
@@ -30,55 +29,127 @@ function names(items: Array<{ name?: unknown }> | undefined, fallbackPrefix: str
   )
 }
 
-function NameRow({ label, values }: { label: string; values: string[] }) {
+function NameTags({ values }: { values: string[] }) {
+  if (values.length === 0) {
+    return <span className={styles.cellEmpty}>None</span>
+  }
   return (
-    <div className={styles.nameRow}>
-      <span className={styles.nameLabel}>{label}</span>
-      {values.length === 0 ? (
-        <span className={styles.nameEmpty}>None</span>
-      ) : (
-        <div className={styles.nameTags}>
-          {values.map((name, i) => (
-            <span key={`${name}-${i}`} className={styles.nameTag} title={name}>
-              {name}
-            </span>
-          ))}
-        </div>
+    <div className={styles.tags}>
+      {values.map((name, i) => (
+        <span key={`${name}-${i}`} className={styles.tag} title={name}>
+          {name}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function RowStartRunButton({ configId }: { configId: string }) {
+  const navigate = useNavigate()
+  const { state, submit } = useStartRun()
+  const submitting = state.status === "submitting"
+
+  const handleStart = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const runId = await submit(configId)
+    if (runId) {
+      navigate(`/runs/detail?id=${encodeURIComponent(runId)}`)
+    }
+  }
+
+  return (
+    <div className={styles.actionCell}>
+      <Button variant="default" size="sm" onClick={handleStart} disabled={submitting}>
+        <Play className="mr-1.5 h-3.5 w-3.5" />
+        {submitting ? "Starting..." : "Start Run"}
+      </Button>
+      {state.status === "error" && (
+        <span className={styles.actionError} title={state.error}>
+          Failed
+        </span>
       )}
     </div>
   )
 }
 
-function ConfigCard({ id, config }: { id: string; config: ConfigObject }) {
-  const connectorNames = names(config.connectors, "connector")
-  const pipelineNames = names(config.pipelines, "pipeline")
+function RowDeleteButton({ configId, onDeleted }: { configId: string; onDeleted: () => void }) {
+  const { state, remove } = useDeleteConfig()
+  const deleting = state.status === "deleting"
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const confirmed = window.confirm(`Delete configuration ${configId}? This cannot be undone.`)
+    if (!confirmed) return
+    const ok = await remove(configId)
+    if (ok) onDeleted()
+  }
 
   return (
-    <Card className={styles.configCard}>
-      <CardHeader className={styles.configHeader}>
-        <CardTitle className={styles.configTitle}>
-          <Settings className="h-5 w-5 text-primary-600 flex-shrink-0" />
-          <span className={styles.configId} title={id}>
+    <div className={styles.actionCell}>
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={handleDelete}
+        disabled={deleting}
+        aria-label={`Delete configuration ${configId}`}
+      >
+        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+        {deleting ? "Deleting..." : "Delete"}
+      </Button>
+      {state.status === "error" && (
+        <span className={styles.actionError} title={state.error}>
+          Failed
+        </span>
+      )}
+    </div>
+  )
+}
+
+function ConfigRow({ id, config, onDeleted }: { id: string; config: ConfigObject; onDeleted: () => void }) {
+  const navigate = useNavigate()
+  const to = `/configs/detail?id=${encodeURIComponent(id)}`
+
+  return (
+    <tr
+      className={styles.row}
+      onClick={() => navigate(to)}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") navigate(to)
+      }}
+    >
+      <td className={styles.idCell}>
+        <span className={styles.idWrap}>
+          <LinkIcon className={styles.idIcon} aria-hidden="true" />
+          <span className={styles.rowId} title={id}>
             {id}
           </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className={styles.configContent}>
-        <ConfigChips config={config} />
-        <div className={styles.nameList}>
-          <NameRow label="Connectors" values={connectorNames} />
-          <NameRow label="Pipelines" values={pipelineNames} />
+        </span>
+      </td>
+      <td>
+        <NameTags values={names(config.connectors, "connector")} />
+      </td>
+      <td>
+        <NameTags values={names(config.pipelines, "pipeline")} />
+      </td>
+      <td className={styles.indexerCell}>{indexerLabel(config)}</td>
+      <td className={styles.actionTd} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.actions}>
+          <RowStartRunButton configId={id} />
+          <RowDeleteButton configId={id} onDeleted={onDeleted} />
         </div>
-      </CardContent>
-      <CardFooter>
-        <ViewLink to={`/configs/detail?id=${encodeURIComponent(id)}`} label="View" />
-      </CardFooter>
-    </Card>
+      </td>
+    </tr>
   )
 }
 
 export default function Configs() {
-  const configs = useFetch<ConfigMap>("/v1/config")
+  const [reloadKey, setReloadKey] = useState(0)
+  const configs = useFetch<ConfigMap>("/v1/config", undefined, reloadKey)
+  const entries = configs.status === "success" ? Object.entries(configs.data) : []
+  const pagination = usePagination(entries, 10)
+
+  const refresh = () => setReloadKey((k) => k + 1)
 
   return (
     <div className={styles.page}>
@@ -96,7 +167,7 @@ export default function Configs() {
         <LoadingText />
       ) : configs.status === "error" ? (
         <ErrorState title="An error has occurred" subtext="Unable to load configuration data" />
-      ) : Object.keys(configs.data).length === 0 ? (
+      ) : entries.length === 0 ? (
         <EmptyState
           icon={Settings}
           title="No configurations yet"
@@ -104,11 +175,27 @@ export default function Configs() {
           action={<CreateConfigLink />}
         />
       ) : (
-        <div className={styles.configGrid}>
-          {Object.entries(configs.data).map(([id, config]) => (
-            <ConfigCard key={id} id={id} config={config} />
-          ))}
-        </div>
+        <>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th className={styles.th}>Config ID</th>
+                  <th className={styles.th}>Connectors</th>
+                  <th className={styles.th}>Pipelines</th>
+                  <th className={styles.th}>Indexer</th>
+                  <th className={styles.th}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagination.pageItems.map(([id, config]) => (
+                  <ConfigRow key={id} id={id} config={config} onDeleted={refresh} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination state={pagination} label="configs" />
+        </>
       )}
     </div>
   )

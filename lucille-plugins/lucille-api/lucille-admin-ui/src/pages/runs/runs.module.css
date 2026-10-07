@@ -21,43 +21,48 @@
   @apply justify-start bg-primary-600 hover:bg-primary-700 text-xs sm:text-sm py-2 h-auto;
 }
 
-/* Run grid */
-.runGrid {
-  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
+/* Table */
+.tableWrap {
+  @apply overflow-x-auto rounded-md border border-primary-100 bg-white;
 }
 
-.runCard {
-  @apply border-primary-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full;
+.table {
+  @apply w-full border-collapse text-sm;
 }
 
-.runHeader {
-  @apply pb-2 flex flex-row items-center justify-between gap-2 space-y-0;
+.th {
+  @apply text-left font-semibold text-primary-800 px-4 py-2.5 border-b border-primary-100
+    bg-primary-50/50 whitespace-nowrap;
 }
 
-.runTitle {
-  @apply flex items-center gap-2 text-base sm:text-lg min-w-0;
+.row {
+  @apply border-b border-primary-100 last:border-0 cursor-pointer hover:bg-primary-50 transition-colors;
 }
 
-.runId {
-  @apply truncate font-mono text-sm text-primary-700;
+.row td {
+  @apply px-4 py-3;
 }
 
-.runContent {
-  @apply flex-1 space-y-2;
+.idCell {
+  @apply max-w-[16rem];
 }
 
-.detailRow {
-  @apply flex justify-between items-center gap-2;
+.idWrap {
+  @apply inline-flex items-center gap-1.5 text-primary-700 min-w-0;
 }
 
-.detailLabel {
-  @apply text-xs sm:text-sm text-muted-foreground flex-shrink-0;
+.idIcon {
+  @apply h-3.5 w-3.5 flex-shrink-0;
 }
 
-.detailValue {
-  @apply font-medium text-xs sm:text-sm text-right;
+.rowId {
+  @apply font-mono text-xs text-primary-700 truncate underline underline-offset-2;
 }
 
-.configLink {
-  @apply truncate font-mono text-xs text-primary-600 hover:text-primary-700 p-0 h-auto;
+.configId {
+  @apply font-mono text-xs text-primary-700 truncate block;
+}
+
+.nowrap {
+  @apply whitespace-nowrap text-primary-800;
 }

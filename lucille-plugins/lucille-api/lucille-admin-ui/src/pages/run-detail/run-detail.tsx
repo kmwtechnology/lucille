@@ -108,7 +108,6 @@ function StartRun() {
 }
 
 function RunView({ id }: { id: string }) {
-  // Poll so an in-progress run updates live (and duration keeps ticking).
   const run = useFetch<Run>(`/v1/run/${encodeURIComponent(id)}`, 3000)
 
   return (

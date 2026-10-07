@@ -7,7 +7,7 @@ export type FetchState<T> =
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ""
 
-export function useFetch<T>(path: string, interval?: number): FetchState<T> {
+export function useFetch<T>(path: string, interval?: number, reloadKey?: number): FetchState<T> {
   const [state, setState] = useState<FetchState<T>>({ status: "loading" })
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export function useFetch<T>(path: string, interval?: number): FetchState<T> {
       controller.abort()
       if (id) clearInterval(id)
     }
-  }, [path, interval])
+  }, [path, interval, reloadKey])
 
   return state
 }

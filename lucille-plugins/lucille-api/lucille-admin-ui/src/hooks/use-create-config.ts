@@ -9,9 +9,7 @@ export type CreateConfigState =
 
 export interface UseCreateConfig {
   state: CreateConfigState
-  /** POST the given config object. Returns the new configId, or null on failure. */
-  submit: (config: unknown) => Promise<string | null>
-  /** Reset back to the idle state (e.g. to clear a previous error). */
+  submit: (body: string) => Promise<string | null>
   reset: () => void
 }
 
@@ -22,10 +20,10 @@ export interface UseCreateConfig {
 export function useCreateConfig(): UseCreateConfig {
   const [state, setState] = useState<CreateConfigState>({ status: "idle" })
 
-  async function submit(config: unknown): Promise<string | null> {
+  async function submit(body: string): Promise<string | null> {
     setState({ status: "submitting" })
     try {
-      const configId = await api.postConfig(config)
+      const configId = await api.postConfig(body)
       setState({ status: "success", configId })
       return configId
     } catch (err) {

@@ -9,7 +9,6 @@ export type StartRunState =
 
 export interface UseStartRun {
   state: StartRunState
-  /** POST a run for the given configId. Returns the new runId, or null on failure. */
   submit: (configId: string) => Promise<string | null>
   reset: () => void
 }
