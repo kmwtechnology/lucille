@@ -18,6 +18,8 @@ import org.apache.solr.client.solrj.io.Tuple;
 import org.junit.Test;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
@@ -160,6 +162,28 @@ public class SolrUtilsTest {
       assertTrue(httpClientWithFalseCloud instanceof HttpJdkSolrClient);
       assertTrue(cloudClient instanceof CloudSolrClient);
       assertTrue(cloudClientWithChroot instanceof CloudSolrClient);
+    }
+  }
+
+  @Test
+  public void testUrlMayBeStringOrList() {
+    Config single = ConfigFactory.parseString("solr { url: \"http://a:8983/solr\" }");
+    Config multiple = ConfigFactory.parseString("solr { url: [\"http://a:8983/solr\", \"http://b:8983/solr\"] }");
+    Config empty = ConfigFactory.parseString("solr { url: [] }");
+
+    for (Spec spec : List.of(SolrUtils.SOLR_PARENT_SPEC, SolrIndexer.SPEC)) {
+      spec.validate(single.getConfig("solr"), "solr");
+      spec.validate(multiple.getConfig("solr"), "solr");
+      assertThrows(IllegalArgumentException.class, () -> spec.validate(empty.getConfig("solr"), "solr"));
+    }
+  }
+
+  @Test
+  public void testCloudClientFromSingleUrl() throws IOException {
+    Config config = ConfigFactory.parseString("solr { useCloudClient: true, url: \"http://localhost:8983/solr\" }");
+
+    try (SolrClient client = SolrUtils.getSolrClient(config)) {
+      assertTrue(client instanceof CloudSolrClient);
     }
   }
 

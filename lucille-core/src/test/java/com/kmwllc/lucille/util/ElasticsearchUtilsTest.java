@@ -17,6 +17,7 @@ import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import co.elastic.clients.transport.rest5_client.low_level.Rest5ClientBuilder;
 
 import java.util.HashMap;
+import java.util.List;
 import javax.net.ssl.SSLContext;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.ssl.SSLContextBuilder;
@@ -71,6 +72,42 @@ public class ElasticsearchUtilsTest {
   }
 
   @Test
+  public void testGetElasticsearchUrls() {
+    Config single = ConfigFactory.parseMap(Map.of("elasticsearch.url", "http://a:9200"));
+    Config multiple = ConfigFactory.parseMap(Map.of("elasticsearch.url", List.of("http://a:9200", "http://b:9200")));
+
+    assertEquals(List.of("http://a:9200"), ElasticsearchUtils.getElasticsearchUrls(single));
+    assertEquals(List.of("http://a:9200", "http://b:9200"), ElasticsearchUtils.getElasticsearchUrls(multiple));
+    assertEquals("http://a:9200", ElasticsearchUtils.getElasticsearchUrl(multiple));
+  }
+
+  @Test
+  public void testGetElasticsearchOfficialClientMultipleHosts() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("elasticsearch.url",
+        List.of("http://user:pass@es-0:9200", "http://user:pass@es-1:9201")));
+    Rest5Client rest5Client = mock(Rest5Client.class);
+
+    try (MockedStatic<Rest5Client> mockRest5Client = mockStatic(Rest5Client.class)) {
+      Rest5ClientBuilder builder = mock(Rest5ClientBuilder.class);
+
+      ArgumentCaptor<HttpHost[]> hostCaptor = ArgumentCaptor.forClass(HttpHost[].class);
+      mockRest5Client.when(() -> Rest5Client.builder(hostCaptor.capture())).thenReturn(builder);
+      when(builder.setHttpClient(any())).thenReturn(builder);
+      when(builder.setCompressionEnabled(false)).thenReturn(builder);
+      when(builder.build()).thenReturn(rest5Client);
+
+      assertNotNull(ElasticsearchUtils.getElasticsearchOfficialClient(config));
+
+      List<HttpHost> hosts = List.of(hostCaptor.getValue());
+      assertEquals(2, hosts.size());
+      assertEquals("es-0", hosts.get(0).getHostName());
+      assertEquals(9200, hosts.get(0).getPort());
+      assertEquals("es-1", hosts.get(1).getHostName());
+      assertEquals(9201, hosts.get(1).getPort());
+    }
+  }
+
+  @Test
   public void testGetElasticsearchIndex() {
     Map<String, Object> m = new HashMap<>();
     m.put("elasticsearch.index", "foo");
@@ -85,11 +122,8 @@ public class ElasticsearchUtilsTest {
 
   @Test
   public void testGetElasticsearchOfficialClient() throws Exception {
-    Config config = mock(Config.class);
-    String url = "http://user:pass@localhost:9200";
+    Config config = ConfigFactory.parseMap(Map.of("elasticsearch.url", "http://user:pass@localhost:9200"));
     Rest5Client rest5Client = mock(Rest5Client.class);
-    when(ElasticsearchUtils.getElasticsearchUrl(config)).thenReturn(url);
-    when(ElasticsearchUtils.getAllowInvalidCert(config)).thenReturn(false);
 
     try (MockedStatic<Rest5Client> mockRest5Client = mockStatic(Rest5Client.class);
         MockedStatic<SSLContextBuilder> mockSSLContextBuilder = mockStatic(SSLContextBuilder.class)) {
@@ -125,12 +159,10 @@ public class ElasticsearchUtilsTest {
 
   @Test
   public void testGetElasticsearchOfficialClientAllowCert() throws Exception {
-    Config config = mock(Config.class);
-    when (config.getString("elasticsearch.acceptInvalidCert")).thenReturn("true");
-    String url = "http://user:pass@localhost:9200";
+    Config config = ConfigFactory.parseMap(Map.of(
+        "elasticsearch.url", "http://user:pass@localhost:9200",
+        "elasticsearch.acceptInvalidCert", "true"));
     Rest5Client rest5Client = mock(Rest5Client.class);
-    when(ElasticsearchUtils.getElasticsearchUrl(config)).thenReturn(url);
-    when(ElasticsearchUtils.getAllowInvalidCert(config)).thenReturn(true);
 
     try (MockedStatic<Rest5Client> mockRest5Client = mockStatic(Rest5Client.class);
         MockedStatic<SSLContextBuilder> mockSSLContextBuilder = mockStatic(SSLContextBuilder.class)) {
@@ -166,9 +198,7 @@ public class ElasticsearchUtilsTest {
 
   @Test
   public void testGetElasticsearchOfficialClientInvalidUrl() {
-    Config config = mock(Config.class);
-    String invalidUrl = "invalid-url";
-    when(ElasticsearchUtils.getElasticsearchUrl(config)).thenReturn(invalidUrl);
+    Config config = ConfigFactory.parseMap(Map.of("elasticsearch.url", "invalid-url"));
 
     // will throw error if config contains invalid url
     assertThrows(Exception.class, () -> {

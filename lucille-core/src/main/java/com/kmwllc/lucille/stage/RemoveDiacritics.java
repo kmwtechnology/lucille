@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.text.Normalizer;
 import java.util.Iterator;
+import java.util.regex.Pattern;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -25,6 +26,8 @@ public class RemoveDiacritics extends Stage {
       .requiredString("source")
       .optionalString("destination").build();
 
+  private static final Pattern MARKS = Pattern.compile("\\p{M}");
+
   private final String source;
   private final String destination;
 
@@ -40,7 +43,7 @@ public class RemoveDiacritics extends Stage {
       return null;
     }
 
-    String output = Normalizer.normalize(doc.getString(source), Normalizer.Form.NFKD).replaceAll("\\p{M}", "");
+    String output = MARKS.matcher(Normalizer.normalize(doc.getString(source), Normalizer.Form.NFKD)).replaceAll("");
 
     if (destination == null) {
        doc.setField(source, output);

@@ -5,10 +5,8 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.OpenSearchIndexer;
 import com.typesafe.config.Config;
-import java.net.URI;
+import java.util.List;
 import javax.net.ssl.SSLContext;
-import org.apache.hc.client5.http.auth.AuthScope;
-import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
@@ -28,7 +26,8 @@ import org.slf4j.LoggerFactory;
 public class OpenSearchUtils {
 
   public static final Spec OPENSEARCH_PARENT_SPEC = SpecBuilder.parent("opensearch")
-      .requiredString("url", "index")
+      .requiredStringOrList("url")
+      .requiredString("index")
       .optionalBoolean("acceptInvalidCert", "useCompression").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchUtils.class);
@@ -40,34 +39,15 @@ public class OpenSearchUtils {
    * @return the RestHighLevelClient client
    */
   public static OpenSearchClient getOpenSearchRestClient(Config config) throws Exception {
-    // get host uri
-    URI hostUri = URI.create(getOpenSearchUrl(config));
-    String userInfo = hostUri.getUserInfo();
-
-    final var hosts = new HttpHost[]{
-        new HttpHost(hostUri.getScheme(), hostUri.getHost(), hostUri.getPort())
-    };
-
     // code for building an Apache Client is inspired by the following link:
     // https://github.com/opensearch-project/opensearch-java/blob/main/samples/src/main/java/org/opensearch/client/samples/SampleClient.java
     // When comparing to example code, here are differences:
     //  - We gather data from our config rather than providing directly
     //  - We disable TLS/SSL verification only if acceptInvalidCerts is true (from config)
 
+    // the transport round-robins requests across the hosts and fails over between them
     final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-
-    if (userInfo != null) {
-      int pos = userInfo.indexOf(":");
-      String username = userInfo.substring(0, pos);
-      String password = userInfo.substring(pos + 1);
-
-      for (HttpHost host : hosts) {
-        credentialsProvider.setCredentials(
-            new AuthScope(host),
-            new UsernamePasswordCredentials(username, password.toCharArray())
-        );
-      }
-    }
+    final HttpHost[] hosts = HttpHostUtils.toHttpHosts(getOpenSearchUrls(config), credentialsProvider);
 
     // Potentially disable SSL/TLS verification for when testing locally
     boolean allowInvalidCert = getAllowInvalidCert(config);
@@ -110,8 +90,18 @@ public class OpenSearchUtils {
     return new OpenSearchClient(transport);
   }
 
+  /**
+   * @return the first configured OpenSearch URL. Use {@link #getOpenSearchUrls(Config)} when several are configured.
+   */
   public static String getOpenSearchUrl(Config config) {
-    return config.getString("opensearch.url"); // not optional, throws exception if not found
+    return getOpenSearchUrls(config).get(0);
+  }
+
+  /**
+   * @return the configured OpenSearch URLs; <code>opensearch.url</code> may be a single String or a list of Strings.
+   */
+  public static List<String> getOpenSearchUrls(Config config) {
+    return ConfigUtils.getStringOrList(config, "opensearch.url"); // not optional, throws exception if not found
   }
 
   public static String getOpenSearchIndex(Config config) {

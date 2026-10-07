@@ -17,6 +17,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.security.KeyStore;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.net.ssl.SSLContext;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
@@ -71,6 +72,54 @@ public class OpenSearchUtilsTest {
     assertThrows(Exception.class,
         () -> OpenSearchUtils.getOpenSearchUrl(emptyConfig)
     );
+  }
+
+  @Test
+  public void testGetOpensearchUrls() {
+    Config single = ConfigFactory.parseMap(Map.of("opensearch.url", "http://a:9200"));
+    Config multiple = ConfigFactory.parseMap(Map.of("opensearch.url", List.of("http://a:9200", "http://b:9200")));
+
+    assertEquals(List.of("http://a:9200"), OpenSearchUtils.getOpenSearchUrls(single));
+    assertEquals(List.of("http://a:9200", "http://b:9200"), OpenSearchUtils.getOpenSearchUrls(multiple));
+    assertEquals("http://a:9200", OpenSearchUtils.getOpenSearchUrl(multiple));
+  }
+
+  @Test
+  public void testGetOpensearchOfficialClientMultipleHosts() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("opensearch.url",
+        List.of("https://user:pass@os-0:9200", "https://user:pass@os-1:9201", "https://user:pass@os-2:9202")));
+
+    try (MockedStatic<ApacheHttpClient5TransportBuilder> mockStaticTransportBuilder = mockStatic(ApacheHttpClient5TransportBuilder.class)) {
+      ApacheHttpClient5TransportBuilder mockClientBuilder = mock(ApacheHttpClient5TransportBuilder.class);
+      ArgumentCaptor<HttpHost[]> hostCaptor = ArgumentCaptor.forClass(HttpHost[].class);
+
+      mockStaticTransportBuilder.when(() -> ApacheHttpClient5TransportBuilder.builder(hostCaptor.capture())).thenReturn(mockClientBuilder);
+      when(mockClientBuilder.setMapper(any())).thenReturn(mockClientBuilder);
+      when(mockClientBuilder.setHttpClientConfigCallback(any())).thenReturn(mockClientBuilder);
+      when(mockClientBuilder.setCompressionEnabled(false)).thenReturn(mockClientBuilder);
+
+      assertNotNull(OpenSearchUtils.getOpenSearchRestClient(config));
+
+      List<HttpHost> hosts = List.of(hostCaptor.getValue());
+      assertEquals(3, hosts.size());
+      for (int i = 0; i < 3; i++) {
+        assertEquals("os-" + i, hosts.get(i).getHostName());
+        assertEquals(9200 + i, hosts.get(i).getPort());
+        assertEquals("https", hosts.get(i).getSchemeName());
+      }
+    }
+  }
+
+  @Test
+  public void testOpensearchParentSpecAcceptsUrlList() {
+    Config single = ConfigFactory.parseString("opensearch { url: \"http://a:9200\", index: i }");
+    Config multiple = ConfigFactory.parseString("opensearch { url: [\"http://a:9200\", \"http://b:9200\"], index: i }");
+    Config empty = ConfigFactory.parseString("opensearch { url: [], index: i }");
+
+    OpenSearchUtils.OPENSEARCH_PARENT_SPEC.validate(single.getConfig("opensearch"), "opensearch");
+    OpenSearchUtils.OPENSEARCH_PARENT_SPEC.validate(multiple.getConfig("opensearch"), "opensearch");
+    assertThrows(IllegalArgumentException.class,
+        () -> OpenSearchUtils.OPENSEARCH_PARENT_SPEC.validate(empty.getConfig("opensearch"), "opensearch"));
   }
 
   @Test
