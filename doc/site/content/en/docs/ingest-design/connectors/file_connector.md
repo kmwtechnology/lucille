@@ -270,7 +270,7 @@ state {
   jdbcPassword: ""
   tableName: "file_state"          # Defaults to the connector name
   performDeletions: true
-  pathLength: 200                  # Max length of the file path column
+  pathLength: 768                  # Max length of the file path column; a longer path fails the run
   runsBeforeExpiration: 1          # Consecutive absent runs before tombstone (default: 1)
 }
 ```
