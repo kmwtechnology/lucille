@@ -7,15 +7,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordDeserializationException;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,13 +21,16 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Behavior is controlled by {@code kafka.onDeserializationError}:
  * <ul>
- *   <li>{@code fail} (default): log the record's topic/partition/offset/key at ERROR, send a FAIL
+ *   <li>{@code fail} (default): log the record's topic, partition, offset and key at ERROR, send a FAIL
  *   event for it, and rethrow so the consumer stops. Restarting will hit the same record again.</li>
- *   <li>{@code skip}: log at ERROR, copy the raw bytes to the pipeline's fail topic (when a dead letter
- *   topic is enabled), send a FAIL event, and seek past the record. If
+ *   <li>{@code skip}: log the same location at ERROR, send a FAIL event, and seek past the record. If
  *   {@code kafka.maxConsecutiveDeserializationErrors} (default 10) poison records arrive in a row on one
  *   partition, the cause is assumed to be systemic and the handler escalates to {@code fail}.</li>
  * </ul>
+ *
+ * <p>The record is never copied to the pipeline's fail topic, which holds only deserializable Documents.
+ * It remains in the topic it was read from at the logged offset (subject to that topic's retention), so
+ * recovery means re-reading that offset.
  *
  * <p>The FAIL event is keyed by the record key (the document id). A record that cannot be parsed carries
  * no run id, so the event is sent with the run id of the last document successfully polled by this
@@ -47,15 +45,12 @@ class DeserializationErrorHandler {
   static final int DEFAULT_MAX_CONSECUTIVE = 10;
 
   private final Config config;
-  private final String pipelineName;
   private final Consumer<?, ?> consumer;
   private final MessageSender eventSender;
-  private final boolean deadLetter;
   private final boolean skip;
   private final int maxConsecutive;
   private final Map<TopicPartition, Integer> consecutiveFailures = new HashMap<>();
 
-  private KafkaProducer<String, byte[]> deadLetterProducer;
   private String lastRunId;
 
   /**
@@ -65,16 +60,10 @@ class DeserializationErrorHandler {
     void send(Event event) throws Exception;
   }
 
-  /**
-   * @param deadLetter whether skipped records should be copied to the pipeline's fail topic
-   */
-  DeserializationErrorHandler(Config config, String pipelineName, Consumer<?, ?> consumer,
-      MessageSender eventSender, boolean deadLetter) {
+  DeserializationErrorHandler(Config config, Consumer<?, ?> consumer, MessageSender eventSender) {
     this.config = config;
-    this.pipelineName = pipelineName;
     this.consumer = consumer;
     this.eventSender = eventSender;
-    this.deadLetter = deadLetter;
 
     String mode = config.hasPath("kafka.onDeserializationError")
         ? config.getString("kafka.onDeserializationError") : MODE_FAIL;
@@ -105,47 +94,30 @@ class DeserializationErrorHandler {
   void handle(RecordDeserializationException e) throws RecordDeserializationException {
     TopicPartition tp = e.topicPartition();
     String key = bufferToString(e.keyBuffer());
-    String location = tp + "@" + e.offset();
-    String docId = key != null ? key : location;
+    String location = "topic=" + tp.topic() + ", partition=" + tp.partition() + ", offset=" + e.offset()
+        + ", key=" + key;
+    String docId = key != null ? key : tp + "@" + e.offset();
 
     int consecutive = consecutiveFailures.merge(tp, 1, Integer::sum);
     boolean escalate = skip && consecutive >= maxConsecutive;
 
     if (!skip || escalate) {
       if (escalate) {
-        log.error("Could not deserialize record {} (key {}). This is the {}th consecutive undeserializable record on "
+        log.error("Could not deserialize record ({}). This is the {}th consecutive undeserializable record on "
             + "this partition, which exceeds kafka.maxConsecutiveDeserializationErrors; stopping the consumer.",
-            location, key, consecutive, e);
+            location, consecutive, e);
       } else {
-        log.error("Could not deserialize record {} (key {}); stopping the consumer. The record will be redelivered "
-            + "on restart; set kafka.onDeserializationError: skip to dead-letter it and continue.", location, key, e);
+        log.error("Could not deserialize record ({}); stopping the consumer. The record will be redelivered on "
+            + "restart; set kafka.onDeserializationError: skip to skip it and continue.", location, e);
       }
-      sendFailEvent(docId, "Could not deserialize record " + location);
+      sendFailEvent(docId, "Could not deserialize record (" + location + ")");
       throw e;
     }
 
-    log.error("Could not deserialize record {} (key {}); skipping it.", location, key, e);
-    if (deadLetter) {
-      sendToDeadLetter(e, key);
-    }
-    sendFailEvent(docId, "Could not deserialize record " + location + "; skipped");
+    log.error("Could not deserialize record ({}); skipping it. It remains in the topic at that offset, "
+        + "subject to the topic's retention.", location, e);
+    sendFailEvent(docId, "Could not deserialize record (" + location + "); skipped");
     consumer.seek(tp, e.offset() + 1);
-  }
-
-  private void sendToDeadLetter(RecordDeserializationException e, String key) {
-    String failTopic = KafkaUtils.getFailTopicName(pipelineName);
-    try {
-      if (deadLetterProducer == null) {
-        Properties props = KafkaUtils.createProducerProps(config);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
-        deadLetterProducer = new KafkaProducer<>(props);
-      }
-      ProducerRecord<String, byte[]> record =
-          new ProducerRecord<>(failTopic, null, key, bufferToBytes(e.valueBuffer()), e.headers());
-      deadLetterProducer.send(record).get();
-    } catch (Exception ex) {
-      log.error("Failed to send undeserializable record {}@{} to {}", e.topicPartition(), e.offset(), failTopic, ex);
-    }
   }
 
   private void sendFailEvent(String docId, String message) {
@@ -160,24 +132,13 @@ class DeserializationErrorHandler {
     }
   }
 
-  void close() {
-    if (deadLetterProducer != null) {
-      deadLetterProducer.close();
-    }
-  }
-
-  private static byte[] bufferToBytes(ByteBuffer buffer) {
+  private static String bufferToString(ByteBuffer buffer) {
     if (buffer == null) {
       return null;
     }
     ByteBuffer copy = buffer.duplicate();
     byte[] bytes = new byte[copy.remaining()];
     copy.get(bytes);
-    return bytes;
-  }
-
-  private static String bufferToString(ByteBuffer buffer) {
-    byte[] bytes = bufferToBytes(buffer);
-    return bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
+    return new String(bytes, StandardCharsets.UTF_8);
   }
 }

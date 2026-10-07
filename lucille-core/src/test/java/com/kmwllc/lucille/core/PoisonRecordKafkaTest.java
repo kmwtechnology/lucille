@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -14,6 +13,7 @@ import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.message.KafkaWorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessenger;
+import com.kmwllc.lucille.util.StoringAppender;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.nio.charset.StandardCharsets;
@@ -22,7 +22,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -39,7 +44,9 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -74,6 +81,50 @@ public class PoisonRecordKafkaTest {
     if (embeddedKafka != null) {
       embeddedKafka.destroy();
     }
+  }
+
+  // Captures ERROR-level messages from DeserializationErrorHandler, which is where the poison record's location is
+  // logged. The location log is the operator's only pointer to the record, since it is not copied anywhere.
+  private final List<String> errorLogs = new CopyOnWriteArrayList<>();
+  private StoringAppender appender;
+  private Logger handlerLogger;
+
+  @Before
+  public void captureHandlerLogs() {
+    appender = new StoringAppender() {
+      @Override
+      public void append(LogEvent event) {
+        if (event.getLevel() == Level.ERROR) {
+          errorLogs.add(event.getMessage().getFormattedMessage());
+        }
+      }
+    };
+    appender.start();
+    handlerLogger = (Logger) LogManager.getLogger("com.kmwllc.lucille.message.DeserializationErrorHandler");
+    handlerLogger.addAppender(appender);
+  }
+
+  @After
+  public void releaseHandlerLogs() {
+    handlerLogger.removeAppender(appender);
+    appender.stop();
+  }
+
+  /** Asserts an ERROR was logged naming the poison record's topic, partition, offset and key. */
+  private void assertLocationLogged(String topic, long offset, String key) {
+    String expected = "topic=" + topic + ", partition=0, offset=" + offset + ", key=" + key;
+    assertTrue("expected an ERROR log containing \"" + expected + "\" but got " + errorLogs,
+        errorLogs.stream().anyMatch(m -> m.contains(expected)));
+  }
+
+  /**
+   * Asserts the pipeline's fail topic stays empty: it holds only deserializable Documents, so an undeserializable
+   * record must never be copied there.
+   */
+  private static void assertFailTopicEmpty(String pipelineName) {
+    String failTopic = KafkaUtils.getFailTopicName(pipelineName);
+    List<ConsumerRecord<String, byte[]>> records = readFor(failTopic, Duration.ofSeconds(5));
+    assertEquals("nothing should be sent to " + failTopic, 0, records.size());
   }
 
   private static Config buildConfig(String pipelineName, String groupId, String extraKafka) {
@@ -142,6 +193,15 @@ public class PoisonRecordKafkaTest {
   }
 
   private static List<ConsumerRecord<String, byte[]>> readAll(String topic, int expected) {
+    return read(topic, expected, Duration.ofSeconds(30));
+  }
+
+  /** Reads everything that arrives on the topic within the given window. */
+  private static List<ConsumerRecord<String, byte[]>> readFor(String topic, Duration window) {
+    return read(topic, Integer.MAX_VALUE, window);
+  }
+
+  private static List<ConsumerRecord<String, byte[]>> read(String topic, int expected, Duration window) {
     Map<String, Object> consumerProps =
         KafkaTestUtils.consumerProps(embeddedKafka, topic + "_inspector", false);
     consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -152,7 +212,7 @@ public class PoisonRecordKafkaTest {
       TopicPartition tp = new TopicPartition(topic, 0);
       inspector.assign(List.of(tp));
       inspector.seekToBeginning(List.of(tp));
-      long deadline = System.currentTimeMillis() + 30000;
+      long deadline = System.currentTimeMillis() + window.toMillis();
       while (records.size() < expected && System.currentTimeMillis() < deadline) {
         inspector.poll(Duration.ofMillis(500)).forEach(records::add);
       }
@@ -205,6 +265,9 @@ public class PoisonRecordKafkaTest {
       messenger.close();
     }
 
+    assertLocationLogged(KafkaUtils.getSourceTopicName(pipelineName, config), 1L, "poison2");
+    assertFailTopicEmpty(pipelineName);
+
     List<Event> events = readEvents(KafkaUtils.getEventTopicName(config, pipelineName, "run1"), 2);
     assertEquals(2, events.size());
     for (Event event : events) {
@@ -242,12 +305,12 @@ public class PoisonRecordKafkaTest {
   }
 
   /**
-   * Skip mode with a real Worker: the poison record is copied verbatim to the fail topic, a FAIL event is
-   * sent, the documents on either side of it are processed, the committed offset moves past all three
-   * records, and the worker keeps running.
+   * Skip mode with a real Worker: the poison record's location is logged at ERROR and a FAIL event is sent, but
+   * nothing is copied to the fail topic. The documents on either side of it are processed, the committed offset
+   * moves past all three records, and the worker keeps running.
    */
   @Test(timeout = 180000)
-  public void testSkipModeDeadLettersAndContinues() throws Exception {
+  public void testSkipModeLogsAndContinues() throws Exception {
     String pipelineName = "poison_skip";
     String groupId = "poison_skip_group";
     Config config = buildConfig(pipelineName, groupId, "onDeserializationError: skip");
@@ -268,10 +331,8 @@ public class PoisonRecordKafkaTest {
 
     assertEquals(3L, committedOffset(config, groupId, sourceTopic));
 
-    List<ConsumerRecord<String, byte[]>> failed = readAll(KafkaUtils.getFailTopicName(pipelineName), 1);
-    assertEquals(1, failed.size());
-    assertEquals("poison2", failed.get(0).key());
-    assertArrayEquals(POISON, failed.get(0).value());
+    assertFailTopicEmpty(pipelineName);
+    assertLocationLogged(sourceTopic, 1L, "poison2");
 
     List<Event> events = readEvents(KafkaUtils.getEventTopicName(config, pipelineName, "run1"), 1);
     assertEquals(1, events.size());
@@ -322,17 +383,17 @@ public class PoisonRecordKafkaTest {
     }
 
     assertTrue(committedOffset(config, groupId, destTopic) >= 2L);
-    List<ConsumerRecord<String, byte[]>> failed = readAll(KafkaUtils.getFailTopicName(pipelineName), 1);
-    assertEquals(1, failed.size());
-    assertArrayEquals(POISON, failed.get(0).value());
+    assertFailTopicEmpty(pipelineName);
+    assertLocationLogged(destTopic, 1L, "poison2");
   }
 
-  /** Skip mode on the hybrid worker's consumer: the poison record is dead-lettered and skipped. */
+  /** Skip mode on the hybrid worker's consumer: the poison record's location is logged and the record skipped. */
   @Test(timeout = 120000)
   public void testSkipModeOnHybridWorkerMessenger() throws Exception {
     String pipelineName = "poison_hybrid";
     Config config = buildConfig(pipelineName, "poison_hybrid_group", "onDeserializationError: skip");
-    produce(KafkaUtils.getSourceTopicName(pipelineName, config), "doc1", "poison2", "doc3");
+    String sourceTopic = KafkaUtils.getSourceTopicName(pipelineName, config);
+    produce(sourceTopic, "doc1", "poison2", "doc3");
 
     HybridWorkerMessenger messenger = new HybridWorkerMessenger(config, pipelineName,
         new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>());
@@ -343,10 +404,8 @@ public class PoisonRecordKafkaTest {
       messenger.close();
     }
 
-    List<ConsumerRecord<String, byte[]>> failed = readAll(KafkaUtils.getFailTopicName(pipelineName), 1);
-    assertEquals(1, failed.size());
-    assertEquals("poison2", failed.get(0).key());
-    assertArrayEquals(POISON, failed.get(0).value());
+    assertFailTopicEmpty(pipelineName);
+    assertLocationLogged(sourceTopic, 1L, "poison2");
   }
 
   @Test

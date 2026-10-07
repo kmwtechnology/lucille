@@ -41,7 +41,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.sourceConsumer = sourceConsumer;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.deserializationErrorHandler =
-        new DeserializationErrorHandler(config, pipelineName, sourceConsumer, this::sendEvent, true);
+        new DeserializationErrorHandler(config, sourceConsumer, this::sendEvent);
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName,
@@ -138,7 +138,6 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();
     }
-    deserializationErrorHandler.close();
   }
 
 }

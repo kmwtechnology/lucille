@@ -35,7 +35,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
     this.deserializationErrorHandler =
-        new DeserializationErrorHandler(config, pipelineName, destConsumer, this::sendEvent, true);
+        new DeserializationErrorHandler(config, destConsumer, this::sendEvent);
   }
 
   /**
@@ -122,7 +122,6 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   @Override
   public void close() throws Exception {
     destConsumer.close();
-    deserializationErrorHandler.close();
   }
 
   @Override
