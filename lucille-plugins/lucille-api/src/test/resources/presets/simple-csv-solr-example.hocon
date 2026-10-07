@@ -1,0 +1,29 @@
+# For this config, we are just verifying the API is able to load it as a "preset config" appropriately.
+connectors: [
+  {
+    class: "com.kmwllc.lucille.connector.FileConnector",
+    paths: ["conf/songs.csv"],
+    name: "connector1",
+    pipeline: "pipeline1"
+    fileHandlers: {
+      csv: { }
+    }
+  }
+]
+
+pipelines: [
+  {
+    name: "pipeline1",
+    stages: []
+  }
+]
+
+indexer {
+  type: "Solr"
+}
+
+solr {
+  useCloudClient: true
+  defaultCollection: "quickstart"
+  url: ["http://localhost:8983/solr"]
+}

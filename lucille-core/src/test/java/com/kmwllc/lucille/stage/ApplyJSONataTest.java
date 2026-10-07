@@ -46,7 +46,7 @@ public class ApplyJSONataTest {
     validStage.processDocument(doc);
     assertEquals(2, doc.getFieldNames().size());
     assertEquals("abc123", doc.getId());
-    assertEquals(List.of("id", "foo"), doc.getStringList("keys"));
+    assertEquals(List.of("foo", "id"), doc.getStringList("keys"));
   }
 
   // Expression: "foo" (which just returns, again, "foo")
@@ -125,7 +125,7 @@ public class ApplyJSONataTest {
     assertEquals("[0,1,2]", doc.getJson("dest").toString());
   }
 
-  // **NOTE**: For the following three tests, each one hasa different type for "source" - a raw object, a JSON object,
+  // **NOTE**: For the following three tests, each one has a different type for "source" - a raw object, a JSON object,
   // and a JSON array. The expression used is just $string(), which can be easily applied to all of these.
   @Test
   public void testSourceValue() throws StageException {
@@ -212,5 +212,43 @@ public class ApplyJSONataTest {
     // should no longer have "field".
     assertFalse(doc.has("field"));
     assertEquals("{\"a\":\"b\"}", doc.getJson("value").toString());
+  }
+
+  @Test
+  public void testExceptionDuringTransformation() throws StageException {
+    Stage stage = factory.get("ApplyJSONataTest/badEvaluation.conf");
+    // Expression: $invalidFunction(field)
+    Document doc = Document.create("doc1");
+
+    doc.setField("source", mapper.createObjectNode()
+        .set("value", mapper.createObjectNode()
+            .put("a", "b")));
+
+    // should not throw an exception, but should log a warning and not make any changes to the document.
+    stage.processDocument(doc);
+
+    assertEquals("doc1", doc.getId());
+    assertNull(doc.getJson("destination"));
+  }
+
+  @Test
+  public void testApplyReservedFields() throws StageException {
+    // We have updated the reserved fields to use underscores instead (ex. ___chlidren vs .children), because if not handled correctly,
+    //  it would break this use case where we want to use the ___children field with nested funtionality.
+
+    Stage stage = factory.get("ApplyJSONataTest/reservedFields.conf");
+    // Expression: $[0].enabled ? $[0].enabled : false
+    Document child0 = Document.create("child0");
+    child0.setField("enabled", true);
+    Document child1 = Document.create("child1");
+    child1.setField("enabled", false);
+    Document doc = Document.create("doc1");
+    doc.addChild(child0);
+    doc.addChild(child1);
+
+    stage.processDocument(doc);
+
+    assertEquals(true, child0.getBoolean("enabled"));
+    assertEquals(true, doc.getBoolean("isEnabled"));
   }
 }

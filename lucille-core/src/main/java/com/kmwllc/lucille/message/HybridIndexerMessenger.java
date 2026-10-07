@@ -4,21 +4,25 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.TopicPartition;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class HybridIndexerMessenger implements IndexerMessenger {
+
+  private static final Logger log = LoggerFactory.getLogger(HybridIndexerMessenger.class);
 
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
@@ -61,7 +65,6 @@ public class HybridIndexerMessenger implements IndexerMessenger {
       String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
       RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
           new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-      kafkaEventProducer.flush(); // TODO
     }
   }
 
@@ -73,6 +76,45 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     if (kafkaEventProducer != null) {
       Event event = new Event(document, message, type);
       sendEvent(event);
+    }
+  }
+
+  @Override
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+    if (documents.isEmpty()) {
+      return;
+    }
+
+    if (idSet != null) {
+      for (Document document : documents) {
+        idSet.add(document.getId());
+      }
+    }
+
+    if (kafkaEventProducer == null) {
+      return;
+    }
+
+    AtomicReference<Exception> sendException = new AtomicReference<>();
+
+    for (Document document : documents) {
+      Event event = new Event(document, message, type);
+      String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
+      kafkaEventProducer.send(
+          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()),
+          (metadata, exception) -> {
+            if (exception != null) {
+              log.error("Failed to send event for doc: {}", event.getDocumentId(), exception);
+              sendException.compareAndSet(null, exception);
+            }
+          });
+    }
+
+    kafkaEventProducer.flush();
+
+    Exception e = sendException.get();
+    if (e != null) {
+      throw new Exception("Failed to send one or more events", e);
     }
   }
 

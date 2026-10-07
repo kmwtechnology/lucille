@@ -5,6 +5,7 @@ import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.FileConnector.S3_ANONYMOUS;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
@@ -15,6 +16,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -42,11 +44,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.Test;
+import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -94,6 +101,12 @@ public class S3StorageClientTest {
     // valid: accessKeyID + secretAccesKey
     new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ACCESS_KEY_ID, "accessKey", S3_SECRET_ACCESS_KEY, "secretKey")));
 
+    // valid: anonymous only
+    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true)));
+
+    // valid: anonymous + region
+    new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true, S3_REGION, "us-east-1")));
+
     // invalid: region + accessKeyId without secretAccessKey
     assertThrows(IllegalArgumentException.class,
         () -> new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey"))));
@@ -101,6 +114,11 @@ public class S3StorageClientTest {
     // invalid: region + secretAccessKey without accessKeyId
     assertThrows(IllegalArgumentException.class,
         () -> new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_SECRET_ACCESS_KEY, "secretKey"))));
+
+    // invalid: anonymous + accessKeyId + secretAccessKey
+    assertThrows(IllegalArgumentException.class,
+        () -> new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true, S3_ACCESS_KEY_ID, "accessKey",
+            S3_SECRET_ACCESS_KEY, "secretKey"))));
   }
 
   @Test
@@ -118,6 +136,7 @@ public class S3StorageClientTest {
     ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
     ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
     when(responseWithinStream.contents()).thenReturn(getMockedS3Objects());
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
 
     when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
@@ -179,6 +198,7 @@ public class S3StorageClientTest {
     ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
     ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
     when(responseWithinStream.contents()).thenReturn(getMockedS3ObjectsWithDirectory());
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
 
     when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
@@ -222,6 +242,7 @@ public class S3StorageClientTest {
 
     obj1 = S3Object.builder().key("obj1").lastModified(Instant.ofEpochMilli(1L)).size(1L).build();
     when(responseWithinStream.contents()).thenReturn(List.of(obj1));
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
 
     when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
@@ -258,6 +279,7 @@ public class S3StorageClientTest {
     ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
     ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
     when(responseWithinStream.contents()).thenReturn(getMockedS3JsonObjects());
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
 
     when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
@@ -307,6 +329,7 @@ public class S3StorageClientTest {
     ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
     ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
     when(responseWithinStream.contents()).thenReturn(getMockedS3ObjectsWithCompressionAndArchive());
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
 
     when(mockClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(response);
@@ -447,6 +470,7 @@ public class S3StorageClientTest {
 
     ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
     when(responseWithinStream.contents()).thenReturn(getMockedNestedS3Objects());
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
 
     ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
@@ -521,6 +545,7 @@ public class S3StorageClientTest {
 
     ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
     when(responseWithinStream.contents()).thenReturn(getMockedNestedS3Objects());
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
 
     ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
@@ -591,6 +616,7 @@ public class S3StorageClientTest {
     ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
     ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
     when(responseWithinStream.contents()).thenReturn(getMockedS3ObjectsWithCutoff());
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
     when(response.stream()).thenReturn(Stream.of(responseWithinStream));
 
     when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
@@ -599,6 +625,86 @@ public class S3StorageClientTest {
     s3StorageClient.traverse(publisher, params);
     // 3 documents, each set with "Instant.now()" as modified time, are the ones returned
     assertEquals(3, publisher.numPublished());
+  }
+
+  @Test
+  public void testPathsToSkip() throws Exception {
+    /*
+      s3://bucket/
+      ├── file1.txt              (published)
+      └── subdir/
+          └── ...                (skipped)
+    */
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of("pathsToSkip", List.of("s3://bucket/subdir/"))
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipNoTrailingSlash() throws Exception {
+    /*
+      s3://bucket/
+      ├── file1.txt              (published)
+      └── subdir/
+          └── ...                (skipped)
+    */
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of("pathsToSkip", List.of("s3://bucket/subdir"))
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testIsAnonymousDefaultsToUsEast1() throws Exception {
+    S3ClientBuilder builder = mock(S3ClientBuilder.class, Answers.RETURNS_SELF);
+
+    try (MockedStatic<S3Client> mockedS3Client = mockStatic(S3Client.class)) {
+      mockedS3Client.when(S3Client::builder).thenReturn(builder);
+      new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true))).init();
+    }
+
+    // anonymous requests still need a region, and the default chain cannot supply one
+    verify(builder, times(1)).region(Region.US_EAST_1);
+    verify(builder, times(1)).credentialsProvider(isA(AnonymousCredentialsProvider.class));
+  }
+
+  private void pathsToSkipTesting(Config connectorConfig) throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
+        S3_SECRET_ACCESS_KEY, "secretKey"));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "");
+
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+
+    S3Object rootFile = S3Object.builder().key("file1.txt").lastModified(Instant.now()).size(10L).build();
+    ListObjectsV2Response rootResponse = mock(ListObjectsV2Response.class);
+    when(rootResponse.contents()).thenReturn(List.of(rootFile));
+    when(rootResponse.commonPrefixes()).thenReturn(List.of(CommonPrefix.builder().prefix("subdir/").build()));
+
+    ListObjectsV2Iterable rootIterable = mock(ListObjectsV2Iterable.class);
+    when(rootIterable.stream()).thenReturn(Stream.of(rootResponse));
+
+    when(mockClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(rootIterable);
+
+    s3StorageClient.initializeForTesting();
+    s3StorageClient.traverse(publisher, params);
+
+    // Only file1.txt published — subdir/ was skipped entirely
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
+    assertEquals("s3://bucket/file1.txt", messenger.getDocsSentForProcessing().get(0).getString(FILE_PATH));
+
+    // Capture the actual request(s) made and verify none used the skipped prefix
+    ArgumentCaptor<ListObjectsV2Request> captor = ArgumentCaptor.forClass(ListObjectsV2Request.class);
+    verify(mockClient, times(1)).listObjectsV2Paginator(captor.capture());
+    assertEquals(1, captor.getAllValues().size());
+    assertTrue(captor.getAllValues().stream().noneMatch(req -> "subdir/".equals(req.prefix())));
   }
 
   private List<S3Object> getMockedS3Objects() throws Exception {

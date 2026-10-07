@@ -40,6 +40,18 @@ public class LucilleAPIConfiguration extends Configuration {
   public SwaggerBundleConfiguration swaggerBundleConfiguration;
 
   /**
+   * Whether to prevent concurrent runs of the same <code>configId</code>.
+   */
+  @Valid
+  private boolean preventConcurrentRuns = false;
+
+  /**
+   * Defining a preset directory containing configs to be preloaded. Optional, so may be null.
+   */
+  @Valid
+  private PresetConfigConfiguration presetConfigConfiguration;
+
+  /**
    * Returns the Swagger/OpenAPI configuration.
    * @return the SwaggerBundleConfiguration
    */
@@ -75,4 +87,38 @@ public class LucilleAPIConfiguration extends Configuration {
     this.authConfig = authConfig;
   }
 
+  /**
+   * Whether to prevent concurrent runs of the same <code>configId</code>.
+   * @return whether to prevent concurrent runs of the same <code>configId</code>.
+   */
+  @JsonProperty("preventConcurrentRuns")
+  public boolean isPreventConcurrentRuns() {
+    return preventConcurrentRuns;
+  }
+
+  /**
+   * Sets whether to prevent concurrent runs of the same <code>configId</code>.
+   * @param preventConcurrentRuns whether to prevent concurrent runs of the same <code>configId</code>.
+   */
+  @JsonProperty("preventConcurrentRuns")
+  public void setPreventConcurrentRuns(boolean preventConcurrentRuns) {
+    this.preventConcurrentRuns = preventConcurrentRuns;
+  }
+
+  /**
+   * Returns the PresetConfigConfiguration. This is optional configuration, so it may be null.
+   * @return the PresetConfigConfiguration, which may be null.
+   */
+  @JsonProperty("presetConfig")
+  public PresetConfigConfiguration getPresetConfigConfiguration() {
+    return this.presetConfigConfiguration;
+  }
+
+  /**
+   * Sets the PresetConfigConfiguration.
+   */
+  @JsonProperty("presetConfig")
+  public void setPresetConfigConfiguration(PresetConfigConfiguration presetConfigConfiguration) {
+    this.presetConfigConfiguration = presetConfigConfiguration;
+  }
 }

@@ -1,4 +1,4 @@
-# This is the DropWizard configuration file. For now we are not configuring anything, but we may want
+# This is the DropWizard configuration file. For now, we are not configuring anything, but we may want
 # to in prod. https://www.dropwizard.io/en/stable/manual/configuration.html#man-configuration
 server:
   type: default
@@ -9,7 +9,6 @@ logging:
 auth:
   type: "basicAuth"
   enabled: false
-  password: "password"
 swagger:
   resourcePackage: "com.kmwllc.lucille.endpoints"
   title: Lucille API
@@ -17,8 +16,3 @@ swagger:
   version: 0.0.1
   contact: info@kmwllc.com
   license: Apache 2.0
-  securityDefinitions:
-    basicAuth:
-      type: "basic"
-  security:
-    - basicAuth: []      

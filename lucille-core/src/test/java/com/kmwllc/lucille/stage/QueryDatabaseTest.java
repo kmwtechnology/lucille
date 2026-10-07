@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,10 +19,7 @@ import com.kmwllc.lucille.core.StageException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.TimeZone;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import java.time.Instant;
 import java.util.Arrays;
 import org.junit.Rule;
 import org.junit.Test;
@@ -42,12 +40,10 @@ public class QueryDatabaseTest {
   StageFactory factory = StageFactory.of(QueryDatabase.class);
 
   @Rule
-  public final DBTestHelper dbHelper = new DBTestHelper("org.h2.Driver", "jdbc:h2:mem:test", "",
-      "", "db-test-start.sql", "db-test-end.sql");
+  public final DBTestHelper dbHelper = new DBTestHelper("db-test-start.sql");
 
   @Test
   public void testSingleKeyField() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Stage stage = factory.get("QueryDatabaseTest/animal.conf");
 
     Document d = Document.create("id");
@@ -58,12 +54,10 @@ public class QueryDatabaseTest {
     assertEquals("Blaze", d.getString("output1"));
 
     stage.stop();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testMultivaluedKeyField() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Stage stage = factory.get("QueryDatabaseTest/meal.conf");
 
     Document d = Document.create("id");
@@ -75,12 +69,35 @@ public class QueryDatabaseTest {
     assertEquals("lunch", d.getString("output1"));
 
     stage.stop();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
+  public void testAllInputTypes() throws Exception {
+    Stage stage = factory.get("QueryDatabaseTest/inputtypes.conf");
+
+    // Ensure that all possible input types for our prepared statements are functional
+    Document d = Document.create("id");
+    d.setField("string", "Test VARCHAR");
+    d.setField("int", 2147483647);
+    d.setField("long", 9223372036854775807L);
+    d.setField("double", 3.14159265359);
+    d.setField("bool", true);
+    d.setField("date", Instant.parse("2024-07-30T12:00:00Z"));
+
+    stage.processDocument(d);
+    assertEquals("Test VARCHAR", d.getString("varchar_col"));
+    assertEquals((Integer) 2147483647, d.getInt("integer_col"));
+    assertEquals((Long) 9223372036854775807L, d.getLong("bigint_col"));
+    assertEquals((Double) 3.14159265359, d.getDouble("double_col"));
+    assertEquals(true, d.getBoolean("boolean_col"));
+    assertEquals(Date.valueOf("2024-07-30"), d.getDate("date_col"));
+
+    stage.stop();
+  }
+
+
+  @Test
   public void testMultipleResults() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Stage stage = factory.get("QueryDatabaseTest/data.conf");
 
     Document d = Document.create("id");
@@ -97,12 +114,10 @@ public class QueryDatabaseTest {
     assertEquals("{\"id\":\"id\",\"fish\":2,\"output1\":[\"12\",\"tiger\"],\"output2\":[2,2]}", d.toString());
 
     stage.stop();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testWrongNumberOfReplacements() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Stage stage = factory.get("QueryDatabaseTest/mismatch.conf");
 
     Document d = Document.create("id");
@@ -115,13 +130,11 @@ public class QueryDatabaseTest {
       fail("Above statement expected to throw error due to invalid value");
     } catch (StageException e) {
       stage.stop();
-      assertEquals(1, dbHelper.checkNumConnections());
     }
   }
 
   @Test
-  public void testGetLegalProperties() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
+  public void testSpec() throws Exception {
     Stage stage = factory.get("QueryDatabaseTest/animal.conf");
     assertEquals(
         Set.of(
@@ -130,19 +143,14 @@ public class QueryDatabaseTest {
             "driver",
             "jdbcUser",
             "keyFields",
-            "name",
             "jdbcPassword",
-            "conditions",
-            "class",
             "sql",
             "connectionRetries",
             "connectionRetryPause",
-            "conditionPolicy",
             "fieldMapping"),
-        stage.getLegalProperties());
+        stage.getNonDefaultLegalProperties());
 
     stage.stop();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
@@ -187,7 +195,6 @@ public class QueryDatabaseTest {
 
   @Test
   public void testTypes() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Stage stage = factory.get("QueryDatabaseTest/types.conf");
 
     Document d1 = Document.create("id");
@@ -307,44 +314,32 @@ public class QueryDatabaseTest {
     assertArrayEquals(expectedLongVarbinaryBytes, longVarbinaryColBytes);
 
     stage.stop();
-    assertEquals(1, dbHelper.checkNumConnections());
   }
 
   @Test
   public void testUnsupportedTypeTime() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Stage stage = factory.get("QueryDatabaseTest/time_type.conf");
 
     Document d = Document.create("id");
     d.setField("get_row", 1);
-    // JDBCUtils should log warning
-    assertEquals("no Error found", getUnsupportedMsg(stage, d));;
-
+    // JDBCUtils should log warning for the unsupported TIME column
+    stage.processDocument(d);
     stage.stop();
-    assertEquals(1, dbHelper.checkNumConnections());
+
+    assertFalse(d.has("time_col"));
+    assertTrue(d.has("integer_col"));
+    assertEquals(7, (int) d.getInt("integer_col"));
   }
 
   @Test
   public void testUnsupportedTypeTimeWTimezone() throws Exception {
-    assertEquals(1, dbHelper.checkNumConnections());
     Stage stage = factory.get("QueryDatabaseTest/time_w_timezone_type.conf");
 
     Document d = Document.create("id");
     d.setField("get_row", 1);
     // JDBCUtils should log warning
-    assertEquals("no Error found", getUnsupportedMsg(stage, d));
-
+    stage.processDocument(d);
     stage.stop();
-    assertEquals(1, dbHelper.checkNumConnections());
-  }
-
-  private String getUnsupportedMsg(Stage stage, Document d) {
-    try {
-      stage.processDocument(d);
-    } catch (StageException e) {
-      return e.getMessage();
-    }
-    return "no Error found";
   }
 
   @Test

@@ -1,69 +1,108 @@
 name: distributed-lucille
+
+# We use the lucille-core image to create our Runner, Worker, and Indexer.
+# However, we only build the image once, instead of per-service.
+#
+# working_dir overrides the image's default WORKDIR (/lucille) back to `/`, matching where
+# the old per-role Dockerfiles ran from. main.conf's FileConnector paths are relative
+# ("conf/source.csv") and get resolved (and recorded in indexed docs) against the process's
+# cwd, so this keeps VerifyIngestResult's hardcoded "file:///conf/source.csv" assertions valid.
+x-lucille-core: &lucille-core
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  image: lucille-core:distributed-example
+  working_dir: /
+  volumes:
+    - ./conf:/conf:ro
+  networks:
+    - lucille-net
+
 services:
-  kafka: 
-    build: 
-      context: .
-      dockerfile: ./kafka/Dockerfile
+  kafka:
+    image: apache/kafka:4.2.0
     container_name: kafka
-    depends_on: 
-      - zookeeper
     ports:
       - 9092:9092
-    networks: 
+    networks:
+      - lucille-net
+    volumes:
+      - ./kafka/server.properties:/mnt/shared/config/server.properties
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server=kafka:9092", "--list"]
+
+  solr:
+    image: solr:10.0.0
+    container_name: solr
+    ports:
+      - 8983:8983
+      - 9983:9983
+    command: ["--host", "solr"]
+    networks:
       - lucille-net
     healthcheck:
-      test: ["CMD", "kafka_2.13-3.7.0/bin/kafka-topics.sh", "--bootstrap-server=kafka:9092", "--list"]
-  zookeeper: 
-    build: 
-      context: .
-      dockerfile: ./zookeeper/Dockerfile
-    container_name: zookeeper
-    ports:
-      - 2181:2181
-    networks: 
-      - lucille-net
-  runner:
-    build:
-      context: .
-      dockerfile: ./runner/Dockerfile
+      test: ["CMD", "curl", "-f", "http://localhost:8983/api/node/health"]
+
+  # One-shot init container: creates the Solr collection the Indexer writes to.
+  # Kept separate from the lucille-core image so lucille-core doesn't need curl baked in.
+  solr-init:
+    image: curlimages/curl:8.11.1
     depends_on:
-      kafka:
+      solr:
         condition: service_healthy
-      indexer:
-        condition: service_healthy
-    networks: 
+    networks:
       - lucille-net
+    command:
+      - "http://solr:8983/solr/admin/collections?action=CREATE&name=quickstart&numShards=1&collection.configName=_default"
+
   worker:
-    build:
-      context: .
-      dockerfile: ./worker/Dockerfile
+    <<: *lucille-core
     depends_on:
       kafka:
         condition: service_healthy
-    networks: 
-      - lucille-net
-  indexer: 
-    build:
-      context: .
-      dockerfile: ./indexer/Dockerfile
+    environment:
+      LUCILLE_CONF: /conf/main.conf
+      LUCILLE_ROLE: worker
+      LUCILLE_PIPELINE: simple_pipeline
+
+  indexer:
+    <<: *lucille-core
     depends_on:
       kafka:
         condition: service_healthy
       solr:
         condition: service_healthy
-    networks: 
-      - lucille-net
-  solr:
+      solr-init:
+        condition: service_completed_successfully
+    environment:
+      LUCILLE_CONF: /conf/main.conf
+      LUCILLE_ROLE: indexer
+      LUCILLE_PIPELINE: simple_pipeline
+
+  runner:
+    <<: *lucille-core
+    depends_on:
+      kafka:
+        condition: service_healthy
+      # waiting for the Indexer to start. It's okay to queue Documents on Kafka if the Indexer
+      # is not yet consuming documents.
+      indexer:
+        condition: service_started
+    environment:
+      LUCILLE_CONF: /conf/main.conf
+      LUCILLE_OPTS: -distributed
+
+  # A custom container for the purpose of verifying the results of the distributed run.
+  # (Runs VerifyIngestResult against the results.)
+  verifier:
     build:
       context: .
-      dockerfile: ./solr/Dockerfile
-    container_name: solr
-    ports:
-      - 8983:8983
-      - 9983:9983
+      dockerfile: ./runner/Dockerfile
+    depends_on:
+      runner:
+        condition: service_completed_successfully
     networks:
       - lucille-net
-    healthcheck:
-      test: ["CMD", "/solr-9.5.0/bin/solr", "status"]
+
 networks:
   lucille-net:

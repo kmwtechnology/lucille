@@ -7,13 +7,38 @@
     <parent>
       <groupId>com.kmwllc</groupId>
       <artifactId>lucille-plugins</artifactId>
-      <version>0.8.0-SNAPSHOT</version>
+      <version>0.13.0-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>lucille-api</artifactId>
     <packaging>jar</packaging>
     <name>Lucille Plugins: Lucille API</name>
+
+    <properties>
+      <!-- Dropwizard 5.0.2 drags in Jetty 12.1.9, which has CVEs in jetty-security/jetty-server.
+           Pin the whole Jetty 12.1.x set to 12.1.13 via the Jetty BOMs (modules must share one version). -->
+      <jetty.version>12.1.13</jetty.version>
+    </properties>
+
+    <dependencyManagement>
+      <dependencies>
+        <dependency>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>jetty-bom</artifactId>
+          <version>${jetty.version}</version>
+          <type>pom</type>
+          <scope>import</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.eclipse.jetty.ee10</groupId>
+          <artifactId>jetty-ee10-bom</artifactId>
+          <version>${jetty.version}</version>
+          <type>pom</type>
+          <scope>import</scope>
+        </dependency>
+      </dependencies>
+    </dependencyManagement>
 
     <dependencies>
       <dependency>
@@ -72,7 +97,8 @@
      <dependency>
         <groupId>io.dropwizard.modules</groupId>
         <artifactId>dropwizard-testing-junit4</artifactId>
-        <version>${dropwizard-core.version}</version>
+        <!--    TODO: See comment in parent pom    -->
+        <version>5.0.0</version>
         <scope>test</scope>
         <exclusions>
             <exclusion>
@@ -117,21 +143,40 @@
 
       <dependency>
         <groupId>org.mockito</groupId>
-        <artifactId>mockito-inline</artifactId>
-        <version>4.11.0</version>
+        <artifactId>mockito-core</artifactId>
+        <version>5.11.0</version>
         <scope>test</scope>
       </dependency>
 
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
-        <version>1.5.25</version>
+        <version>1.6.3</version>
       </dependency>
 
       <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-access</artifactId>
-        <version>1.5.25</version>
+        <version>1.6.3</version>
+      </dependency>
+
+      <!--  Jetty related CVEs fixed in 12.1.13 (previously pinned to 12.1.10) -->
+      <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-server</artifactId>
+        <version>${jetty.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-security</artifactId>
+        <version>${jetty.version}</version>
+      </dependency>
+
+      <!--  Floor for freemarker: dropwizard-swagger pulls 2.3.34 via dropwizard-views-freemarker (CVE-2026-84939) -->
+      <dependency>
+        <groupId>org.freemarker</groupId>
+        <artifactId>freemarker</artifactId>
+        <version>2.3.35</version>
       </dependency>
     </dependencies>
 

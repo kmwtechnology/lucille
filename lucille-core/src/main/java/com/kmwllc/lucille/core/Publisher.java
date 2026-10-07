@@ -23,6 +23,12 @@ public interface Publisher {
    *
    * IMPORTANT: After calling publish, code should not update the Document or read values from it since at this point
    * it may have been picked up by a worker thread.
+   *
+   * Exceptions thrown by this method represent framework-level failures (e.g. the messaging
+   * infrastructure is unavailable) and should be treated as unrecoverable. Connectors must not
+   * catch and swallow these exceptions. Doing so may leave the run in an inconsistent state.
+   * Connectors that need to handle per-document errors (e.g. failures constructing the Document
+   * before calling publish) should do so before this method is called.
    */
   void publish(Document document) throws Exception;
 
@@ -33,10 +39,19 @@ public interface Publisher {
   long numPublished();
 
   /**
-   * Returns the number of documents for which we are still awaiting a terminal event.
+   * Returns the number of times publish() was called and completed without error.
+   * This may be higher than numPublished() if the Publisher is in "collapsing mode" where consecutive Documents
+   * with the same ID are collapsed into a single Document. numPublished() would count 1 for each output of the collapsing process
+   * while numReceived() would count 1 for each input.
+   */
+  long numReceived();
+
+  /**
+   * Returns the number of distinct document IDs for which we are still awaiting a terminal event.
    *
-   * This number includes documents published via publish() as well as child documents generated
-   * during pipeline execution.
+   * This count includes documents published via publish() as well as child documents generated
+   * during pipeline execution. If the same document ID is published multiple times (e.g. in
+   * streaming mode), it is counted once here, not once per occurrence.
    */
   long numPending();
 

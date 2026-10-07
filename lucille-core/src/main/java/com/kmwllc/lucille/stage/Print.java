@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.FileUtils;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
@@ -25,7 +26,8 @@ import java.util.List;
  * <ul>
  *   <li>shouldLog (Boolean, Optional) : Whether to log the document in JSON format at INFO level. Defaults to true.</li>
  *   <li>outputFile (String, Optional) : A file to append the documents to (will be created if it doesn't already exist).</li>
- *   <li>excludeFields (List&lt;String&gt;, Optional) : A list of fields to exclude from the output.</li>
+ *   <li>whitelist (List&lt;String&gt;, Optional) : A list of the only fields to include in the output.</li>
+ *   <li>blacklist (List&lt;String&gt;, Optional) : A list of fields to exclude from the output.</li>
  *   <li>overwriteFile (Boolean, Optional) : Whether the output file's contents should be overwritten if they already exist. Defaults to true.</li>
  *   <li>appendThreadName (Boolean, Optional) : Whether the current thread's name should be appended to the outputFile's filename, keeping the results from individual threads separate. Has no effect if no outputFile is provided. Defaults to true.</li>
  * </ul>
@@ -37,7 +39,9 @@ public class Print extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalBoolean("shouldLog", "overwriteFile", "appendThreadName")
       .optionalString("outputFile")
-      .optionalList("excludeFields", new TypeReference<List<String>>(){}).build();
+      .optionalList("whitelist", new TypeReference<List<String>>() {})
+      .optionalList("blacklist", new TypeReference<List<String>>() {})
+      .build();
 
   private static final Logger log = LoggerFactory.getLogger(Print.class);
 
@@ -45,18 +49,21 @@ public class Print extends Stage {
   private final boolean shouldLog;
   private final boolean overwriteFile;
   private final boolean appendThreadName;
-  private final List<String> excludeFields;
+
+  private final FieldFilter fieldFilter;
 
   private BufferedWriter writer;
 
-  public Print(Config config) {
+  public Print(Config config) throws StageException {
     super(config);
 
     this.outputFilePath = config.hasPath("outputFile") ? config.getString("outputFile") : null;
     this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
-    this.excludeFields = config.hasPath("excludeFields") ? config.getStringList("excludeFields") : null;
     this.overwriteFile = config.hasPath("overwriteFile") ? config.getBoolean("overwriteFile") : true;
     this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", true);
+
+    this.fieldFilter = new FieldFilter(config);
+
 
     // if appendThreadName is *explicitly* set to true in the config, but no output file, warn it has no effect.
     if ((config.hasPath("appendThreadName") && config.getBoolean("appendThreadName")) && outputFilePath == null) {
@@ -85,15 +92,8 @@ public class Print extends Stage {
       }
     }
 
-    if (excludeFields != null) {
-      doc = doc.deepCopy();
-      for (String field : excludeFields) {
-        if (Document.RUNID_FIELD.equals(field)) {
-          doc.clearRunId();
-        } else {
-          doc.removeField(field);
-        }
-      }
+    if (fieldFilter.isActive()) {
+      doc = fieldFilter.getFilteredDocument(doc);
     }
 
     if (shouldLog) {

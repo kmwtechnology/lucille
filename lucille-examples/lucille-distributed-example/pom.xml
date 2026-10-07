@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-examples</artifactId>
-    <version>0.8.0-SNAPSHOT</version>
+    <version>0.13.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -51,12 +51,7 @@
               </execution>
             </executions>
             <configuration>
-              <executable>docker</executable>
-              <arguments>
-                <argument>compose</argument>
-                <argument>up</argument>
-                <argument>--abort-on-container-exit</argument>
-              </arguments>
+              <executable>${project.basedir}/scripts/run-nightly.sh</executable>
             </configuration>
           </plugin>
         </plugins>

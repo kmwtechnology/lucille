@@ -64,12 +64,14 @@ public class KafkaTest {
     // in "kafka local mode" Workers, Indexers, the Connector/Publisher will run in separate threads,
     // but they will communicate via Kafka (here we use an embedded kafka cluster)
     String brokers = embeddedKafka.getBrokersAsString();
+    // also has arbitrary properties for consumer / producer to ensure no errors
+    // related to "other parent" validation
     Config base = ConfigFactory.load("KafkaTest/twoConnectors.conf");
     Config config = ConfigFactory.empty()
         .withValue("kafka.bootstrapServers", ConfigValueFactory.fromAnyRef(brokers))
         .withFallback(base);
     RunResult result =
-        Runner.run(config, Runner.RunType.KAFKA_LOCAL);
+        Runner.run(config, Runner.RunType.EXTERNAL);
     assertTrue(result.getStatus());
 
     // connector1 will feed 3 documents to pipeline1, so there should be 3 messages in each of

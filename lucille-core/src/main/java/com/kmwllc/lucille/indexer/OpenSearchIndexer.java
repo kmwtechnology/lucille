@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.indexer;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -11,7 +13,6 @@ import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -23,8 +24,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.client.opensearch.OpenSearchClient;
-import org.opensearch.client.opensearch._types.BulkIndexByScrollFailure;
+import org.opensearch.client.opensearch._types.BulkByScrollFailure;
 import org.opensearch.client.opensearch._types.FieldValue;
+import org.opensearch.client.opensearch._types.OpenSearchException;
 import org.opensearch.client.opensearch._types.VersionType;
 import org.opensearch.client.opensearch._types.query_dsl.BoolQuery;
 import org.opensearch.client.opensearch.core.BulkRequest;
@@ -37,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Indexes documents to OpenSearch using the Java client.
+ * Additional parameters are made available by the {@link com.kmwllc.lucille.core.Indexer} abstract class.
  * <p>
  * Config Parameters -
  * <ul>
@@ -44,6 +47,10 @@ import org.slf4j.LoggerFactory;
  *   <li>url (String, Required) : OpenSearch HTTP endpoint (e.g., https://localhost:9200).</li>
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
+ *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying OpenSearch HTTP client. Defaults to false.</li>
+ *   <li>childDocumentsField (String, Optional) : Field name under which attached child documents are nested in the
+ *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
+ *   as type "nested" in the index mapping.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
  *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
  * </ul>
@@ -52,7 +59,8 @@ public class OpenSearchIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index", "url")
-      .optionalBoolean("update", "acceptInvalidCert").build();
+      .optionalBoolean("update", "acceptInvalidCert", "useCompression")
+      .optionalString("childDocumentsField").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
@@ -62,9 +70,12 @@ public class OpenSearchIndexer extends Indexer {
   private final String routingField;
 
   private final VersionType versionType;
+  private final String versionField;
 
   //flag for using partial update API when sending documents to opensearch
   private final boolean update;
+
+  private final String childDocumentsField;
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
       String metricsPrefix,String localRunId, OpenSearchClient client) {
@@ -76,6 +87,13 @@ public class OpenSearchIndexer extends Indexer {
     this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
     this.versionType =
         config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
+    this.childDocumentsField = ConfigUtils.getOrDefault(config, "opensearch.childDocumentsField", null);
+    this.versionField = config.hasPath("indexer.versionField") ? config.getString("indexer.versionField") : null;
+
+    // validate config indexer.versionType that must be set if config indexer.versionField is set
+    if (this.versionField != null && this.versionType == null) {
+      throw new IllegalArgumentException("indexer.versionType must be set if indexer.versionField is set");
+    }
   }
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
@@ -129,7 +147,7 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     // skip indexing if there is no indexer client
     if (bypass) {
       return Set.of();
@@ -144,11 +162,11 @@ public class OpenSearchIndexer extends Indexer {
     // else if document is marked for deletion ONLY, then only add to idsToDelete
     // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
     for (Document doc : documents) {
-      String id = doc.getId();
+      // use doc id override if specified, otherwise delete will try to delete wrong id
+      String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
 
       // if an index override field has been specified, use its value as the index to send to opensearch,
-      String indexOverride = getIndexOverride(doc);
-      final String indexToSend = indexOverride != null ? indexOverride : index;
+      final String indexToSend = Optional.ofNullable(getIndexOverride(doc)).orElse(index);
 
       Pair<String, String> indexAndId = Pair.of(indexToSend, id);
 
@@ -160,6 +178,8 @@ public class OpenSearchIndexer extends Indexer {
         if (!isMarkedForDeletionByField(doc)) {
           idsToDelete.add(indexAndId);
         } else {
+          //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
+          // deletion, so we need to do doc.getString(deleteByFieldField).
           Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
           if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
             termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
@@ -169,7 +189,7 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = uploadDocuments(documentsToUpload.values());
+    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload);
     deleteById(new ArrayList<>(idsToDelete));
     deleteByQuery(termsToDeleteByQuery);
 
@@ -191,7 +211,15 @@ public class OpenSearchIndexer extends Indexer {
       );
     }
 
-    BulkResponse response = client.bulk(br.build());
+    BulkResponse response;
+    try {
+      response = client.bulk(br.build());
+    } catch (OpenSearchException e) {
+      throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+    }
+
     if (response.errors()) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
@@ -271,18 +299,32 @@ public class OpenSearchIndexer extends Indexer {
           .index(entry.getKey())
           .query(q -> q.bool(boolQuery.build()))
           .build();
-      DeleteByQueryResponse response = client.deleteByQuery(deleteByQueryRequest);
+
+      DeleteByQueryResponse response;
+      try {
+        response = client.deleteByQuery(deleteByQueryRequest);
+      } catch (OpenSearchException e) {
+        throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
+      } catch (IOException e) {
+        throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+      }
 
       if (!response.failures().isEmpty()) {
-        for (BulkIndexByScrollFailure failure : response.failures()) {
-          log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+        for (BulkByScrollFailure failure : response.failures()) {
+          if (failure.cause() == null) {
+            log.debug("Error while deleting by query, cause was null");
+          } else {
+            log.debug("Error while deleting by query: {}, because of: {}", failure.cause().reason(), failure.cause());
+          }
+
         }
         throw new IndexerException("encountered errors while deleting by query");
       }
     }
   }
 
-  private Set<Pair<Document, String>> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Pair<Document, Exception>> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IOException, IndexerException {
+
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }
@@ -290,36 +332,35 @@ public class OpenSearchIndexer extends Indexer {
     Map<String, Document> uploadedDocuments = new HashMap<>();
     BulkRequest.Builder br = new BulkRequest.Builder();
 
-    for (Document doc : documentsToUpload) {
+    for (Map.Entry<Pair<String, String>, Document> entry : documentsToUpload.entrySet()) {
+      String indexToSend = entry.getKey().getLeft();
+      String docId = entry.getKey().getRight();
+      Document doc = entry.getValue();
 
-      // if an index override field has been specified, use its value as the index to send to opensearch,
-      String indexOverride = getIndexOverride(doc);
-      final String indexToSend = indexOverride != null ? indexOverride : index;
-
-      // removing the fields mentioned in the ignoreFields setting in configurations
+      // removing fields in the blacklist or not in the whitelist in configurations
       Map<String, Object> indexerDoc = getIndexerDoc(doc);
 
       // remove children documents field from indexer doc (processed from doc by addChildren method call below)
       indexerDoc.remove(Document.CHILDREN_FIELD);
 
-      // if a doc id override value exists, make sure it is used instead of pre-existing doc id
-      String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
       uploadedDocuments.put(docId, doc);
 
-      // This condition below avoids adding id if ignoreFields contains it and edge cases:
-      // - Case 1: id and idOverride in ignoreFields -> idOverride used by Indexer, both removed from Document (tested in testIgnoreFieldsWithOverride)
-      // - Case 2: id in ignoreFields, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testIgnoreFieldsWithOverride2)
-      // - Case 3: id in ignoreFields, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
-      // - Case 4: ignoreFields null, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
-      // - Case 5: ignoreFields null, idOverride null -> document id remains and used by Indexer (Default case & tested)
-      if (ignoreFields == null || !ignoreFields.contains(Document.ID_FIELD)) {
+      // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
+      // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
+      // - Case 2: id is filtered, idOverride exists -> idOverride used by Indexer, only id field removed from Document (tested in testBlacklistWithOverride2)
+      // - Case 3: id is filtered, idOverride null -> id used by Indexer, id also removed from Document (tested in testRouting)
+      // - Case 4: both unfiltered, idOverride exists -> idOverride used by Indexer, id and idOverride field exist in Document (tested in testOverride)
+      // - Case 5: both unfiltered, idOverride null -> document id remains and used by Indexer (Default case & tested)
+      if (fieldFilter.shouldInclude(Document.ID_FIELD)) {
         indexerDoc.put(Document.ID_FIELD, docId);
       }
 
-      // handle special operations required to add children documents
-      addChildren(doc, indexerDoc);
+      if (doc.hasChildren()) {
+        addChildren(doc, indexerDoc);
+      }
+
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
-          ? ((KafkaDocument) doc).getOffset()
+          ? getVersionNum(doc)
           : null;
 
       if (update) {
@@ -349,9 +390,18 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = new HashSet<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
-    BulkResponse response = client.bulk(br.build());
+    BulkResponse response;
+    try {
+      response = client.bulk(br.build());
+    } catch (OpenSearchException e) {
+      // HTTP-level error with a known status code — wrap so the base Indexer can apply retry policy
+      throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
+    } catch (IOException e) {
+      // Transport-level failure (connection refused, timeout, etc.) — no status code available
+      throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+    }
 
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
@@ -360,7 +410,12 @@ public class OpenSearchIndexer extends Indexer {
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (uploadedDocuments.containsKey(item.id())) {
             Document failedDoc = uploadedDocuments.get(item.id());
-            failedDocs.add(Pair.of(failedDoc, item.error().reason()));
+            // item.status() is always an HTTP status code. The OpenSearch bulk API defines the per-item
+            // status field as the HTTP status of that individual operation (e.g. 200, 201, 400, 409, 429,
+            // 503). This is consistent across all OpenSearch client libraries and confirmed by the
+            // OpenSearch REST API documentation and source — there are no documented non-HTTP values.
+            failedDocs.add(Pair.of(failedDoc, new IndexerRetryableException(item.status(),
+                "OpenSearch bulk item error (status " + item.status() + "): " + item.error().reason(), null)));
           } else {
             throw new IndexerException(item.error().reason());
           }
@@ -371,24 +426,24 @@ public class OpenSearchIndexer extends Indexer {
     return failedDocs;
   }
 
+  /** Only call on documents that have children. */
   private void addChildren(Document doc, Map<String, Object> indexerDoc) {
-    List<Document> children = doc.getChildren();
-    if (children == null || children.isEmpty()) {
+    if (childDocumentsField == null) {
+      log.warn("Document {} has children but opensearch.childDocumentsField is not configured. They will not be indexed.", doc.getId());
       return;
     }
+
+    List<Map<String, Object>> childDocMaps = new ArrayList<>();
+    List<Document> children = doc.getChildren();
+
     for (Document child : children) {
-      Map<String, Object> map = child.asMap();
-      Map<String, Object> indexerChildDoc = new HashMap<>();
-      for (String key : map.keySet()) {
-        // we don't support children that contain nested children
-        if (Document.CHILDREN_FIELD.equals(key)) {
-          continue;
-        }
-        Object value = map.get(key);
-        indexerChildDoc.put(key, value);
-      }
-      // TODO: Do nothing for now, add support for child docs like SolrIndexer does in future (_childDocuments_)
+      // calling getIndexerDoc allows us to apply black/whitelist
+      Map<String, Object> childDocMap = getIndexerDoc(child);
+      // we don't support children that contain nested children
+      childDocMap.remove(Document.CHILDREN_FIELD);
+      childDocMaps.add(childDocMap);
     }
+    indexerDoc.put(childDocumentsField, childDocMaps);
   }
 
   private boolean isMarkedForDeletion(Document doc) {
@@ -403,5 +458,15 @@ public class OpenSearchIndexer extends Indexer {
         && doc.has(deleteByFieldField)
         && deleteByFieldValue != null
         && doc.has(deleteByFieldValue);
+  }
+
+  private Long getVersionNum(Document doc) {
+    if (versionField != null && doc.has(versionField)) {
+      return doc.getLong(versionField);
+    }
+    if (doc instanceof KafkaDocument) {
+      return ((KafkaDocument) doc).getOffset();
+    }
+    return null;
   }
 }

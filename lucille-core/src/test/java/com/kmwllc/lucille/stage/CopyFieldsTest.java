@@ -131,10 +131,31 @@ public class CopyFieldsTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testCopyFieldsReserved() throws StageException {
+    // We have updated the reserved fields to use underscores instead (ex. ___chlidren vs .children), because if not handled correctly,
+    //  it would break this use case where we want to use the ___children field with nested funtionality.
+
+    Stage stage = factory.get("CopyFieldsTest/reservedFields.conf");
+    Document child0 = Document.create("child0");
+    child0.setField("enabled", true);
+    Document child1 = Document.create("child1");
+    child1.setField("enabled", false);
+    Document doc = Document.create("doc1");
+    doc.addChild(child0);
+    doc.addChild(child1);
+
+    stage.processDocument(doc);
+
+    assertEquals(2, doc.getJsonList("nodes").size());
+    assertEquals(doc.getChildren().get(0).getId(), doc.getJsonList("nodes").get(0).get("id").textValue());
+    assertEquals(doc.getChildren().get(1).getId(), doc.getJsonList("nodes").get(1).get("id").textValue());
+  }
+
+  @Test
+  public void testSpec() throws StageException {
     Stage stage = factory.get("CopyFieldsTest/replace.conf");
     assertEquals(
-        Set.of("class", "conditionPolicy", "conditions", "fieldMapping", "isNested", "name", "updateMode"),
-        stage.getLegalProperties());
+        Set.of("fieldMapping", "isNested", "updateMode"),
+        stage.getNonDefaultLegalProperties());
   }
 }

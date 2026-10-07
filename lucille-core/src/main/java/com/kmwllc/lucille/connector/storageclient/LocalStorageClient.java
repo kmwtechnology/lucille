@@ -31,10 +31,6 @@ public class LocalStorageClient extends BaseStorageClient {
     super(ConfigFactory.empty());
   }
 
-  // Config options do not matter for LocalStorageClient
-  @Override
-  protected void validateOptions(Config config) { }
-
   @Override
   protected void initializeStorageClient() throws IOException { }
 
@@ -43,7 +39,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
-    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params, stateMgr));
+    Files.walkFileTree(toPath(params.getURI()), new LocalFileVisitor(publisher, params, stateMgr));
   }
 
   @Override
@@ -53,12 +49,27 @@ public class LocalStorageClient extends BaseStorageClient {
     return new FileInputStream(file);
   }
 
-  private String getStartingDirectory(TraversalParams params) { return params.getURI().getPath(); }
+  private static Path toPath(URI uri) {
+    return uri.isAbsolute() ? Paths.get(uri) : Paths.get(uri.getPath());
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p> Resolves both paths to an absolute, normalized form so a relative path and an absolute path to the same
+   * directory are recognized as the same. Does not resolve symlinks.
+   */
+  @Override
+  public boolean containsPath(URI parent, URI child) {
+    Path parentPath = toPath(parent).toAbsolutePath().normalize();
+    Path childPath = toPath(child).toAbsolutePath().normalize();
+
+    return childPath.startsWith(parentPath);
+  }
 
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
-    Path pathForFile = Paths.get(filePath.getPath());
-    Path pathForFolder = Paths.get(folder.getPath());
+    Path pathForFile = toPath(filePath);
+    Path pathForFolder = toPath(folder);
 
     // ensure target folder exists, creating it if it doesn't
     if (!Files.exists(pathForFolder)) {
@@ -85,8 +96,17 @@ public class LocalStorageClient extends BaseStorageClient {
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-      // We don't care about preVisiting a directory
-      return FileVisitResult.CONTINUE;
+      URI dirURI = dir.toAbsolutePath().normalize().toUri();
+
+      if (isSkippedDirectory(dirURI, params)) {
+        return FileVisitResult.SKIP_SUBTREE;
+      } else {
+        return FileVisitResult.CONTINUE;
+      }
+    }
+
+    private static String ensureTrailingSlash(String s) {
+      return s.endsWith("/") ? s : s + "/";
     }
 
     @Override

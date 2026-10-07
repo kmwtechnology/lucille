@@ -1,18 +1,23 @@
 package com.kmwllc.lucille.core;
 
 
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.kmwllc.lucille.util.LogUtils;
 import com.opencsv.CSVReader;
 import java.io.File;
 import java.io.FileReader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.time.StopWatch;
@@ -36,7 +41,7 @@ public class RunnerManagerTest {
     // Ensure no lucille run is running at the start of the test
     assertFalse(runnerManager.isRunning(runId));
 
-    String configId = runnerManager.createConfig(config);
+    String configId = runnerManager.createConfig(config).getConfigId();
 
     // Kick off a lucille run and ensure it is not skipped
     RunDetails details = runnerManager.runWithConfig(runId, configId);
@@ -64,7 +69,7 @@ public class RunnerManagerTest {
   public void testWaitForRunCompletion() throws Exception {
     RunnerManager runnerManager = RunnerManager.getInstance();
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
-    String configId = runnerManager.createConfig(config);
+    String configId = runnerManager.createConfig(config).getConfigId();
     String runId = Runner.generateRunId();
 
     // Ensure lucille is not running first
@@ -87,12 +92,43 @@ public class RunnerManagerTest {
     log.info("Test execution time: {} ms", durationMillis);
   }
 
+  @Test
+  public void testConfigLocking() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
+    String configId = runnerManager.createConfig(config).getConfigId();
+
+    String runId1 = Runner.generateRunId();
+    String runId2 = Runner.generateRunId();
+
+    // starts a run with this config. it is locked from concurrent runs.
+    // this test has some vulnerability to a potential race condition / transient failure,
+    // but the risk of this *should* be low...
+    runnerManager.runWithConfig(runId1, configId, true);
+
+    assertTrue(runnerManager.isRunning(runId1));
+
+    // regardless of the lock param, the run should be prevented.
+    assertThrows(RunnerManagerException.class, () -> runnerManager.runWithConfig(runId2, configId, false));
+    assertThrows(RunnerManagerException.class, () -> runnerManager.runWithConfig(runId2, configId, true));
+
+    runnerManager.waitForRunCompletion(runId1);
+    assertFalse(runnerManager.isRunning(runId1));
+
+    // once complete, we should be able to start the second run with the config.
+    // also, note that we are able to use runId2, which we *attempted* to earlier.
+    runnerManager.runWithConfig(runId2, configId, true);
+    assertTrue(runnerManager.isRunning(runId2));
+    runnerManager.waitForRunCompletion(runId2);
+    // don't want to leave the run lingering after this test
+    assertFalse(runnerManager.isRunning(runId2));
+  }
 
   @Test
   public void testSimultaneousRuns() throws Exception {
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     RunnerManager runnerManager = RunnerManager.getInstance();
-    String configId = runnerManager.createConfig(config);
+    String configId = runnerManager.createConfig(config).getConfigId();
     List<String> runIds = new ArrayList();
     List<CompletableFuture<Void>> futures = new ArrayList<>();
 
@@ -135,6 +171,18 @@ public class RunnerManagerTest {
   }
 
   @Test
+  public void testCreateConfigWithKey() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
+    String configUUID = UUID.randomUUID().toString();
+
+    runnerManager.createConfigWithKey(config, configUUID);
+
+    // collisions cause exceptions to be thrown
+    assertThrows(RunnerManagerException.class, () -> runnerManager.createConfigWithKey(config, configUUID));
+  }
+
+  @Test
   public void testNonTrivialSimultaneousRuns() throws Exception {
     File outputFile1 = new File("output1.csv");
     File outputFile2 = new File("output2.csv");
@@ -151,7 +199,7 @@ public class RunnerManagerTest {
 
       for (int i = 1; i <= 3; i++) {
         Config currentConfig = ConfigFactory.load("RunnerManagerTest/imdb-" + i + ".conf");
-        String configId = runnerManager.createConfig(currentConfig);
+        String configId = runnerManager.createConfig(currentConfig).getConfigId();
         String runId = "imdb-run-" + i;
 
         CompletableFuture<Void> futureImdb = CompletableFuture.runAsync(() -> {
@@ -195,6 +243,126 @@ public class RunnerManagerTest {
       outputFile2.delete();
       outputFile3.delete();
     }
+  }
+
+  @Test
+  public void testRunDetailsLimit() throws Exception {
+    try {
+      RunnerManager.limitHistoriesForTesting(3);
+      RunnerManager runnerManager = RunnerManager.getInstance();
+      Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
+      String noopId = runnerManager.createConfig(noopConfig).getConfigId();
+
+      Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
+      String badId = runnerManager.createConfig(badConfig).getConfigId();
+
+      // these three are run serially, so we know the order in which
+      // they ought to be removed from the history.
+      runnerManager.runWithConfig("run-1", noopId);
+      runnerManager.waitForRunCompletion("run-1");
+
+      runnerManager.runWithConfig("run-2", noopId);
+      runnerManager.waitForRunCompletion("run-2");
+
+      // still gets stored
+      runnerManager.runWithConfig("run-3", badId);
+      runnerManager.waitForRunCompletion("run-3");
+
+      assertEquals(3, runnerManager.getRunDetails().size());
+
+      runnerManager.runWithConfig("run-4", noopId);
+      runnerManager.waitForRunCompletion("run-4");
+
+      assertEquals(3, runnerManager.getRunDetails().size());
+      assertNull(runnerManager.getRunDetails("run-1"));
+
+      // errored run still creates / clears history
+      runnerManager.runWithConfig("run-5", badId);
+      runnerManager.waitForRunCompletion("run-5");
+
+      assertEquals(3, runnerManager.getRunDetails().size());
+      assertNull(runnerManager.getRunDetails("run-2"));
+    } finally {
+      RunnerManager.resetMaxHistoriesForTesting();
+    }
+  }
+
+  @Test
+  public void testDeleteConfig() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config");
+
+    assertTrue(runnerManager.deleteConfig("test-config"));
+    assertFalse(runnerManager.deleteConfig("test-config"));
+
+    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config-2");
+    assertFalse(runnerManager.deleteConfig("test-config"));
+    assertTrue(runnerManager.deleteConfig("test-config-2"));
+  }
+
+  @Test
+  public void testConfigLimit() throws Exception {
+    try {
+      RunnerManager.limitHistoriesForTesting(3);
+      RunnerManager runnerManager = RunnerManager.getInstance();
+
+      String id1 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+      String id2 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+      String id3 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+
+      assertEquals(3, runnerManager.getConfigKeys().size());
+
+      // we should be prevented from making a config bringing us beyond the limit
+      assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(ConfigFactory.empty()).getConfigId());
+
+      assertEquals(3, runnerManager.getConfigKeys().size());
+
+      assertTrue(runnerManager.getConfigKeys().contains(id1));
+      assertTrue(runnerManager.getConfigKeys().contains(id2));
+      assertTrue(runnerManager.getConfigKeys().contains(id3));
+
+      // we shoudl be able to delete a config and then add another.
+      runnerManager.deleteConfig(id1);
+      String id4 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+
+      assertFalse(runnerManager.getConfigKeys().contains(id1));
+      assertTrue(runnerManager.getConfigKeys().contains(id2));
+      assertTrue(runnerManager.getConfigKeys().contains(id3));
+      assertTrue(runnerManager.getConfigKeys().contains(id4));
+    } finally {
+      RunnerManager.resetMaxHistoriesForTesting();
+    }
+  }
+
+  // This is the responsibility of the Runner, but it is
+  // important we ensure the RunnerManager (used by the API) does result in
+  // metrics being cleaned up, preventing unbounded heap usage.
+  @Test
+  public void testMetricsCleanup() throws Exception {
+    SharedMetricRegistries.clear();
+    assertEquals(0, SharedMetricRegistries.names().size());
+
+    // adding a dummy metric to flex that all metrics starting
+    // with the run id get removed.
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("run-1.dummy.metric");
+    SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG).counter("run-2.dummy.metric");
+
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
+    String noopConfigId = runnerManager.createConfig(noopConfig).getConfigId();
+
+    runnerManager.runWithConfig("run-1", noopConfigId);
+    runnerManager.runWithConfig("run-2", noopConfigId);
+
+    runnerManager.waitForRunCompletion("run-1");
+    runnerManager.waitForRunCompletion("run-2");
+
+    MetricRegistry metricRegistry = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+
+    // Two indexer related metric names remain - these are created while validating the config.
+    assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-1")));
+    assertFalse(metricRegistry.getNames().stream().anyMatch(name -> name.startsWith("run-2")));
+    assertEquals(2, metricRegistry.getNames().size());
   }
 
   private void validateRun1Reader(CSVReader run1Reader) {

@@ -21,6 +21,7 @@ import java.util.List;
 
 /**
  * Stores documents in a CSV file by writing selected fields as rows.
+ * Additional parameters are made available by the {@link com.kmwllc.lucille.core.Indexer} abstract class.
  * <p>
  * Config Parameters -
  * <ul>
@@ -52,9 +53,21 @@ public class CSVIndexer extends Indexer {
   public CSVIndexer(Config config, IndexerMessenger messenger, ICSVWriter writer, boolean bypass, String metricsPrefix, String localRunId) {
     super(config, messenger, bypass, metricsPrefix, localRunId);
     if (this.indexOverrideField != null) {
+      // the writer has already opened the output file; close it so the file isn't left locked
+      if (writer != null) {
+        try {
+          writer.close();
+        } catch (IOException e) {
+          log.warn("Error occurred when closing csv indexer writer.", e);
+        }
+      }
       throw new IllegalArgumentException(
           "Cannot create CSVIndexer. Config setting 'indexer.indexOverrideField' is not supported by CSVIndexer.");
     }
+    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
+      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be written as regular rows.");
+    }
+    
     this.writer = writer;
     this.columns = config.getStringList("csv.columns");
     this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
@@ -120,7 +133,7 @@ public class CSVIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     for (Document doc : documents) {
       writer.writeNext(getLine(doc), true);
     }

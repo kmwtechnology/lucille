@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -14,10 +16,14 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.function.UnaryOperator;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.LineIterator;
 import org.slf4j.Logger;
@@ -36,8 +42,10 @@ public class JsonFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .optionalString("docIdFormat", "idField")
-      .optionalList("idFields", new TypeReference<List<String>>() {
-      }).build();
+      .optionalList("idFields", new TypeReference<List<String>>() {})
+      .optionalList("blacklist", new TypeReference<List<String>>() {})
+      .optionalList("whitelist", new TypeReference<List<String>>() {})
+      .build();
 
   private static final Logger log = LoggerFactory.getLogger(JsonFileHandler.class);
 
@@ -45,6 +53,7 @@ public class JsonFileHandler extends BaseFileHandler {
   private final List<String> idFields;
   private final String docIdFormat;
   private final ObjectMapper mapper = new ObjectMapper();
+  private final FieldFilter fieldFilter;
 
   public JsonFileHandler(Config config) {
     super(config);
@@ -58,6 +67,39 @@ public class JsonFileHandler extends BaseFileHandler {
     this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
 
     this.idUpdater = (id) -> docIdPrefix + id;
+
+    this.fieldFilter = new FieldFilter(config);
+
+    if (!fieldFilter.getBlacklist().isEmpty()) {
+      Collection<String> intersection = CollectionUtils.intersection(this.idFields, fieldFilter.getBlacklist());
+      if (!intersection.isEmpty()) {
+        throw new IllegalArgumentException(
+            "blacklist cannot contain idFields. Conflicting fields: " + intersection
+        );
+      }
+    }
+
+    if (!fieldFilter.getWhitelist().isEmpty()) {
+      Collection<String> missing = CollectionUtils.subtract(this.idFields, fieldFilter.getWhitelist());
+      if (!missing.isEmpty()) {
+        throw new IllegalArgumentException(
+            "whitelist must contain all idFields. Missing fields: " + missing
+        );
+      }
+    }
+
+    if (idFields.isEmpty()) {
+      if (fieldFilter.getBlacklist().contains(Document.ID_FIELD)) {
+        throw new IllegalArgumentException(
+            "blacklist cannot contain \"" + Document.ID_FIELD + "\" when no idFields are configured."
+        );
+      }
+      if (!fieldFilter.getWhitelist().isEmpty() && !fieldFilter.getWhitelist().contains(Document.ID_FIELD)) {
+        throw new IllegalArgumentException(
+            "whitelist must contain \"" + Document.ID_FIELD + "\" when no idFields are configured."
+        );
+      }
+    }
   }
 
   @Override
@@ -108,9 +150,20 @@ public class JsonFileHandler extends BaseFileHandler {
         }
         try {
           if (idFields.isEmpty()) {
-            return Document.createFromJson(line, idUpdater);
+            return JsonDocument.fromJsonString(line, idUpdater, fieldFilter);
           } else {
             ObjectNode node = (ObjectNode) mapper.readTree(line);
+            if (fieldFilter.isActive()) {
+              Set<String> discardedFields = new HashSet<>();
+              Iterator<String> iter = node.fieldNames();
+              while (iter.hasNext()) {
+                String fieldName = iter.next();
+                if (!fieldFilter.shouldInclude(fieldName)) {
+                  discardedFields.add(fieldName);
+                }
+              }
+              node.remove(discardedFields);
+            }
             List<String> parts = new ArrayList<>(idFields.size());
 
             for (String fieldName : idFields) {

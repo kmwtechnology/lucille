@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
+import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -60,9 +61,11 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * Validate that the given config is sufficient to construct an instance of this StorageClient.
+   * Catches cases in which a config option being set requires the presence or absence of another option(s), which is not covered by
+   * the Spec.
    * @throws IllegalArgumentException If the configuration is not sufficient for this StorageClient.
    */
-  protected abstract void validateOptions(Config config);
+  protected void validateOptions(Config config) { }
 
   // Wrapping around init, shutdown, and traverse to manage "initialized" before / after doing the actual operations in a
   // StorageClient-specific way.
@@ -110,6 +113,60 @@ public abstract class BaseStorageClient implements StorageClient {
 
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
 
+  /**
+   * {@inheritDoc}
+   * <p> Compares the URIs by path segment, so <code>s3://bucket/data</code> contains <code>s3://bucket/data/2024</code>.
+   * A URI with an empty path is the root of its bucket or container, and contains everything in it.
+   * <p> Object storage prefixes are raw strings rather than path segments, so overlaps that do not fall on a segment
+   * boundary are missed, implementations may override to catch them.
+   */
+  @Override
+  public boolean containsPath(URI parent, URI child) {
+    URI normalizedParent = parent.normalize();
+    URI normalizedChild = child.normalize();
+
+    if (!Objects.equals(normalizedParent.getScheme(), normalizedChild.getScheme())
+        || !Objects.equals(normalizedParent.getAuthority(), normalizedChild.getAuthority())) {
+      return false;
+    }
+
+    return isUnder(normalizedChild.getPath(), normalizedParent.getPath());
+  }
+
+  // Returns whether the child path is the parent path, or sits underneath it, treating both as '/'-delimited.
+  private static boolean isUnder(String childPath, String parentPath) {
+    String parent = stripTrailingSlash(parentPath);
+    String child = stripTrailingSlash(childPath);
+
+    // an empty path is the root of a bucket / container, which contains everything in it
+    return parent.isEmpty() || child.equals(parent) || child.startsWith(parent + "/");
+  }
+
+  private static String stripTrailingSlash(String path) {
+    if (path == null || path.isEmpty()) {
+      return "";
+    }
+
+    return path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+  }
+
+  /**
+   * Returns whether the provided URI, which represents a directory in some storage provider, is a directory
+   * that should be skipped and not traversed at all, based on the <code>pathsToSkip</code> in <code>params</code>.
+   * @param directoryURI A URI representing a directory (or the notion of a directory) in a storage provider.
+   * @param params Parameters for a traversal.
+   * @return Whether the directory at the provided URI ought to be skipped.
+   */
+  protected boolean isSkippedDirectory(URI directoryURI, TraversalParams params) {
+    String normalized = ensureTrailingSlash(directoryURI.toString());
+    return params.getPathsToSkip().stream()
+        .anyMatch(skipDir -> ensureTrailingSlash(skipDir.toString()).equals(normalized));
+  }
+
+  private static String ensureTrailingSlash(String s) {
+    return s.endsWith("/") ? s : s + "/";
+  }
+
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
     if (!isInitialized()) {
@@ -137,11 +194,27 @@ public abstract class BaseStorageClient implements StorageClient {
 
       Instant lastPublished = stateMgr == null ? null : stateMgr.getLastPublished(fullPath.toString());
 
-      // Skip the file if it's not valid (a directory), params exclude it, or pre-processing fails.
+      // Skip files that aren't valid (e.g. directories)
+      if (!fileReference.isValidFile()) {
+        return;
+      }
+
+      // Skip files that don't pass the filter options
+      if (!params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)) {
+        // If this is a previously-published archive or compressed file, its entries won't be traversed
+        // this run. Mark all entries as encountered so they are not incorrectly marked as tombstones
+        if (stateMgr != null && lastPublished != null) {
+          if ((params.getHandleArchivedFiles() && isSupportedArchiveFileType(fullPath.toString()))
+              || (params.getHandleCompressedFiles() && isSupportedCompressedFileType(fullPath.toString()))) {
+            stateMgr.markAllEntriesEncountered(fullPath + ARCHIVE_FILE_SEPARATOR);
+          }
+        }
+        return;
+      }
+
+      // Skip the file if pre-processing fails.
       // (preprocessing is currently a NO-OP unless a subclass overrides it)
-      if (!fileReference.isValidFile()
-          || !params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)
-          || !beforeProcessingFile(fullPath)) {
+      if (!beforeProcessingFile(fullPath)) {
         return;
       }
 
@@ -165,7 +238,7 @@ public abstract class BaseStorageClient implements StorageClient {
             }
 
             // if file is a supported file type that should be handled by a file handler
-            if (params.supportedFileExtension(resolvedExtension)) {
+            if (params.supportsFileExtension(resolvedExtension)) {
               handleStreamExtensionFiles(publisher, resolvedExtension, params, compressorStream, compressedFileFullPath);
             } else {
               Document doc = fileReference.decompressedFileAsDoc(compressorStream, compressedFileFullPath, params);
@@ -206,7 +279,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // handle file types using fileHandler if needed to the end
-      if (params.supportedFileExtension(fileExtension)) {
+      if (params.supportsFileExtension(fileExtension)) {
         // Get a stream for the file content, so we don't have to load it all at once.
         InputStream contentStream = fileReference.getContentStream(params);
         // get the right FileHandler and publish based on content
@@ -281,7 +354,7 @@ public abstract class BaseStorageClient implements StorageClient {
         // checking validity only for the entries
         if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), archiveLastPublished)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
-          if (params.supportedFileExtension(entryExtension)) {
+          if (params.supportsFileExtension(entryExtension)) {
             handleStreamExtensionFiles(publisher, entryExtension, params, in, entryFullPathStr);
           } else {
             // handle entry to be published as a normal document

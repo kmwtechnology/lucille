@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
@@ -11,7 +13,10 @@ import org.slf4j.LoggerFactory;
 
 public class ZKRetryCounter implements RetryCounter {
 
-  private static final Logger log = LoggerFactory.getLogger(ZKRetryCounter.class);
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
+      .requiredString("connectString").build();
+
+  private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
   private final CuratorFramework curatorFramework;
   private final int maxRetries;
 
@@ -35,7 +40,7 @@ public class ZKRetryCounter implements RetryCounter {
       retryCount = counter.getCount();
       counter.setCount(++retryCount);
     } catch (Exception e) {
-      log.error("Couldn't access retry counter for doc " + document.getId(), e);
+      docLogger.error("Couldn't access retry counter for doc {}", document.getId(), e);
     }
     // if we weren't able to access the retry counter we optimistically assume the document
     // has not exceeded the max
@@ -48,7 +53,7 @@ public class ZKRetryCounter implements RetryCounter {
     try {
       curatorFramework.delete().quietly().deletingChildrenIfNeeded().forPath(counterPath);
     } catch (Exception e) {
-      log.error("Couldn't delete retry counter for doc " + document.getId(), e);
+      docLogger.error("Couldn't delete retry counter for doc {}", document.getId(), e);
     }
   }
 

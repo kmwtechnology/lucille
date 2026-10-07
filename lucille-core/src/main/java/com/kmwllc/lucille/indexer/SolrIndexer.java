@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
+import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -22,9 +23,10 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudHttp2SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
@@ -33,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Indexes documents to Solr using SolrJ.
+ * Additional parameters are made available by the {@link com.kmwllc.lucille.core.Indexer} abstract class.
  * <p>
  * Config Parameters -
  * <ul>
@@ -91,7 +94,7 @@ public class SolrIndexer extends Indexer {
     if (bypass) {
       return true;
     }
-    if (solrClient instanceof Http2SolrClient) {
+    if (solrClient instanceof HttpJdkSolrClient) {
       try {
         SolrPingResponse resp = solrClient.ping();
         int status = resp.getStatus();
@@ -145,7 +148,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, String>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     if (bypass) {
       log.debug("sendToSolr bypassed for documents: " + documents);
       return Set.of();
@@ -215,7 +218,7 @@ public class SolrIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, String>> failedDocs = new HashSet<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     for (String collection : solrDocRequestsByCollection.keySet()) {
       List<SolrInputDocument> collectionDocs = solrDocRequestsByCollection.get(collection).getAddUpdateDocs();
@@ -228,7 +231,7 @@ public class SolrIndexer extends Indexer {
           String docId = d.getFieldValue(Document.ID_FIELD).toString();
 
           if (docsUploaded.containsKey(docId)) {
-            failedDocs.add(Pair.of(docsUploaded.get(docId), e.getMessage()));
+            failedDocs.add(Pair.of(docsUploaded.get(docId), e));
           } else {
             throw e;
           }
@@ -242,58 +245,81 @@ public class SolrIndexer extends Indexer {
   }
 
   private void sendAddUpdateBatch(String collection, List<SolrInputDocument> solrDocs)
-      throws SolrServerException, IOException {
+      throws IndexerException {
     if (solrDocs.isEmpty()) {
       return;
     }
-    if (collection == null) {
-      solrClient.add(solrDocs);
-    } else {
-      solrClient.add(collection, solrDocs);
+    try {
+      if (collection == null) {
+        solrClient.add(solrDocs);
+      } else {
+        solrClient.add(collection, solrDocs);
+      }
+    } catch (SolrException e) {
+      // Decide error message based on http status code from SolrException
+      throw toRetryableException(e);
+    } catch (SolrServerException | IOException e) {
+      // Communication / transport failure with no http status code available
+      throw new IndexerRetryableException("Error communicating with Solr", e);
     }
   }
 
   private void sendDeletionBatch(String collection, SolrDocRequests requests)
-      throws SolrServerException, IOException {
+      throws IndexerException {
     if (requests.getDeleteIds().isEmpty() && requests.getValuesToDeleteByField().isEmpty()) {
       return;
     }
 
-    if (requests.getValuesToDeleteByField().isEmpty()) {
-      // All of the deletes are by ID. Simply delete by ID.
-      List<String> deletionIds = requests.getDeleteIds();
-      if (collection == null) {
-        solrClient.deleteById(deletionIds);
+    try {
+      if (requests.getValuesToDeleteByField().isEmpty()) {
+        // All of the deletes are by ID. Simply delete by ID.
+        List<String> deletionIds = requests.getDeleteIds();
+        if (collection == null) {
+          solrClient.deleteById(deletionIds);
+        } else {
+          solrClient.deleteById(collection, deletionIds);
+        }
       } else {
-        solrClient.deleteById(collection, deletionIds);
-      }
-    } else {
-      // At least some of the deletes are by field. Perform the deletes with a single request using
-      // terms queries.
-      List<String> termsQueries = new ArrayList<>();
-      if (!requests.getDeleteIds().isEmpty()) {
-        termsQueries.add(
-            String.format("(+{!terms f='id' v='%s'})", String.join(",", requests.getDeleteIds())));
-      }
+        // At least some of the deletes are by field. Perform the deletes with a single request using
+        // terms queries.
+        List<String> termsQueries = new ArrayList<>();
+        if (!requests.getDeleteIds().isEmpty()) {
+          termsQueries.add(
+              String.format("(+{!terms f='id' v='%s'})", String.join(",", requests.getDeleteIds())));
+        }
 
-      requests
-          .getValuesToDeleteByField()
-          .entrySet()
-          .forEach(
-              entry ->
-                  termsQueries.add(
-                      String.format(
-                          "(+{!terms f='%s' v='%s'})",
-                          entry.getKey(), String.join(",", entry.getValue()))));
+        requests
+            .getValuesToDeleteByField()
+            .entrySet()
+            .forEach(
+                entry ->
+                    termsQueries.add(
+                        String.format(
+                            "(+{!terms f='%s' v='%s'})",
+                            entry.getKey(), String.join(",", entry.getValue()))));
 
-      String queryToDelete = String.join(" OR ", termsQueries);
+        String queryToDelete = String.join(" OR ", termsQueries);
 
-      if (collection == null) {
-        solrClient.deleteByQuery(queryToDelete);
-      } else {
-        solrClient.deleteByQuery(collection, queryToDelete);
+        if (collection == null) {
+          solrClient.deleteByQuery(queryToDelete);
+        } else {
+          solrClient.deleteByQuery(collection, queryToDelete);
+        }
       }
+    } catch (SolrException e) {
+      throw toRetryableException(e);
+    } catch (SolrServerException | IOException e) {
+      throw new IndexerRetryableException("Error communicating with Solr", e);
     }
+  }
+
+  private static IndexerRetryableException toRetryableException(SolrException e) {
+    int code = e.code();
+    if (code > 0) {
+      return new IndexerRetryableException(code, "Solr returned HTTP " + code, e);
+    }
+    // SolrException can carry an ErrorCode.UNKNOWN, which is a 0 and not a real http response
+    return new IndexerRetryableException("Solr error with no HTTP status code", e);
   }
 
   private boolean isDeletion(Document doc) {
@@ -305,7 +331,7 @@ public class SolrIndexer extends Indexer {
 
   private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
       throws IndexerException {
-    // removes fields from ignoredFields config, including id
+    // removes fields specified by fieldFilter config, including id
     Map<String, Object> map = getIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
 
@@ -345,7 +371,7 @@ public class SolrIndexer extends Indexer {
       return;
     }
     for (Document child : children) {
-      // remove key:value pair mappings if they appear in ignoreFields
+      // remove key:value pair mappings if they appear in blacklist
       Map<String, Object> map = getIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();

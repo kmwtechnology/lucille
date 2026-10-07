@@ -53,18 +53,10 @@ public class SplitFieldValuesTest {
 
   
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("SplitFieldValuesTest/config.conf");
     assertEquals(
-        Set.of(
-            "inputField",
-            "delimiter",
-            "trimWhitespace",
-            "name",
-            "conditions",
-            "class",
-            "outputField",
-            "conditionPolicy"),
-        stage.getLegalProperties());
+        Set.of("inputField", "delimiter", "trimWhitespace", "outputField"),
+        stage.getNonDefaultLegalProperties());
   }
 }

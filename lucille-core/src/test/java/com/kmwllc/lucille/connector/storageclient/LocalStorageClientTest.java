@@ -2,17 +2,11 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
-import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.Publisher;
-import com.kmwllc.lucille.core.PublisherImpl;
-import com.kmwllc.lucille.message.TestMessenger;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import java.io.File;
 import java.io.InputStream;
 import java.net.URI;
@@ -22,8 +16,17 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
 import org.junit.Assert;
 import org.junit.Test;
+
+import com.kmwllc.lucille.connector.FileConnector;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.message.TestMessenger;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 
 public class LocalStorageClientTest {
 
@@ -38,7 +41,7 @@ public class LocalStorageClientTest {
     localStorageClient.traverse(publisher, params);
 
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
-        "subdir1"+File.separatorChar+"e.json", "subdir1"+File.separatorChar+"e.json.gz", "subdir1"+File.separatorChar+"e.yaml", "subdir1"+File.separatorChar+"f.jsonl"};
+        "subdir1/e.json", "subdir1/e.json.gz", "subdir1/e.yaml", "subdir1/f.jsonl"};
     int docCount = 0;
     for (Document doc : messenger.getDocsSentForProcessing()) {
       String docId = doc.getId();
@@ -157,10 +160,10 @@ public class LocalStorageClientTest {
     assertEquals("Awesome Wood Mug", doc5.getString("name"));
 
     Document doc6 = docs.stream().filter(d -> d.has(FILE_PATH) &&
-        d.getString(FILE_PATH).endsWith("subdir1"+File.separatorChar+"e.json.gz")).findAny().orElseThrow();
+        d.getString(FILE_PATH).endsWith("subdir1/e.json.gz")).findAny().orElseThrow();
 
     Document doc7 = docs.stream().filter(d ->
-        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir1"+File.separatorChar+"e.yaml")).findAny().orElseThrow();
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir1/e.yaml")).findAny().orElseThrow();
 
     Document doc8 = docs.stream().filter(d -> d.getId().equals("f1")).findAny().orElseThrow();
     assertEquals("Awesome Night Mug", doc8.getString("name"));
@@ -422,7 +425,7 @@ public class LocalStorageClientTest {
     Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create(defaultAbsolutePath.toString()), "file_");
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), TraversalParams.parsePathOrURI(defaultAbsolutePath.toString()), "file_");
     localStorageClient.init();
     localStorageClient.traverse(publisher, params);
 
@@ -432,8 +435,9 @@ public class LocalStorageClientTest {
   @Test
   public void testCutoff() throws Exception {
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
-        // Only including files modified in the last 10 hours
-        "filterOptions", Map.of("lastModifiedCutoff", "10h")
+        // cutoff behavior should match under incremental mode.
+        // only including files modified in the last 10 hours
+        "filterOptions", Map.of("lastModifiedCutoff", "10h", "publishMode", "incremental")
     ));
 
     File oldFile = new File("src/test/resources/StorageClientTest/modifiedDateFiles/old.txt");
@@ -455,5 +459,132 @@ public class LocalStorageClientTest {
     localStorageClient.traverse(publisher, params);
     // only "new file" should be published - others are BEFORE the cutoff.
     assertEquals(1, publisher.numPublished());
+  }
+
+  @Test
+  public void testPathsToSkip() throws Exception {
+    String subdir1Uri = URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1/").toString();
+
+    if (!subdir1Uri.endsWith("/")) {
+      subdir1Uri += "/";
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Uri),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipNoTrailingSlash() throws Exception {
+    String subdir1Uri = URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toString();
+
+    if (subdir1Uri.endsWith("/")) {
+      subdir1Uri = subdir1Uri.substring(0, subdir1Uri.length() - 1);
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Uri.toString()),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipRelative() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toString();
+
+    if (!subdir1Path.endsWith("/")) {
+      subdir1Path += "/";
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipRelativeNoTrailingSlash() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toString();
+
+    if (subdir1Path.endsWith("/")) {
+      subdir1Path = subdir1Path.substring(0, subdir1Path.length() - 1);
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipAbsolute() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toAbsolutePath().toString();
+
+    if (!subdir1Path.endsWith("/")) {
+      subdir1Path += "/";
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipAbsoluteNoTrailingSlash() throws Exception {
+    String subdir1Path = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault/subdir1").toAbsolutePath().toString();
+
+    if (subdir1Path.endsWith("/")) {
+      subdir1Path = subdir1Path.substring(0, subdir1Path.length() - 1);
+    }
+
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of(
+            "pathsToSkip", List.of(subdir1Path),
+            "excludes", List.of(".*\\.DS_Store$")
+        )
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  // pathsToSkip entries must be absolute URIs. A file:// URI for subdir1 skips it entirely,
+  // leaving only the 4 root-level json files.
+  private void pathsToSkipTesting(Config connectorConfig) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    TraversalParams params = new TraversalParams(connectorConfig,
+        URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault"), "");
+    localStorageClient.init();
+    localStorageClient.traverse(publisher, params);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(4, docs.size());
+    assertTrue(docs.stream().noneMatch(d -> d.getString(FileConnector.FILE_PATH).contains("subdir1")));
+
+    localStorageClient.shutdown();
   }
 }

@@ -489,6 +489,75 @@ public class GoogleStorageClientTest {
     storageClient.shutdown();
   }
 
+
+  @Test
+  public void testPathsToSkip() throws Exception {
+    /*
+      gs://bucket/
+      ├── root-file.txt          (published)
+      └── subdir/
+          └── skip-file.txt      (skipped)
+    */
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
+    TestMessenger messenger = new TestMessenger();
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of("pathsToSkip", List.of("gs://bucket/subdir/"))
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("gs://bucket/"), "");
+
+    BlobId rootFileId = BlobId.of("bucket", "root-file.txt");
+    storage.create(BlobInfo.newBuilder(rootFileId).build(), "hello".getBytes());
+
+    BlobId skipFileId = BlobId.of("bucket", "subdir/skip-file.txt");
+    storage.create(BlobInfo.newBuilder(skipFileId).build(), "skipped".getBytes());
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+    googleStorageClient.traverse(publisher, params);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(1, docs.size());
+    assertEquals("gs://bucket/root-file.txt", docs.get(0).getString(FILE_PATH));
+
+    googleStorageClient.shutdown();
+  }
+
+  @Test
+  public void testPathsToSkipNoTrailingSlash() throws Exception {
+    /*
+      gs://bucket/
+      ├── root-file.txt          (published)
+      └── subdir/
+          └── skip-file.txt      (skipped)
+    */
+    Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath"));
+    TestMessenger messenger = new TestMessenger();
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of("pathsToSkip", List.of("gs://bucket/subdir"))
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("gs://bucket/"), "");
+
+    BlobId rootFileId = BlobId.of("bucket", "root-file.txt");
+    storage.create(BlobInfo.newBuilder(rootFileId).build(), "hello".getBytes());
+
+    BlobId skipFileId = BlobId.of("bucket", "subdir/skip-file.txt");
+    storage.create(BlobInfo.newBuilder(skipFileId).build(), "skipped".getBytes());
+
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+    googleStorageClient.traverse(publisher, params);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(1, docs.size());
+    assertEquals("gs://bucket/root-file.txt", docs.get(0).getString(FILE_PATH));
+
+    googleStorageClient.shutdown();
+  }
+
   // ** NOTE: There is not a test for the lastModifiedCutoff here. Unfortunately, there doesn't appear to be an easy way
   // to create objects with a certain modification time (including trying to do so via Mockito). If this somehow changes
   // in the future it would be worth a revisit. **

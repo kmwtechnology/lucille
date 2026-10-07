@@ -1,18 +1,18 @@
 package com.kmwllc.lucille.endpoints;
 
+import com.kmwllc.lucille.core.CreateConfigResult;
+import com.kmwllc.lucille.core.RunnerManagerException;
+import com.kmwllc.lucille.objects.RunRequest;
+import jakarta.ws.rs.DELETE;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.kmwllc.lucille.AuthHandler;
 import com.kmwllc.lucille.core.RunDetails;
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import io.dropwizard.auth.Auth;
-import io.dropwizard.auth.PrincipalImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -53,50 +53,59 @@ public class LucilleResource {
   private final RunnerManager runnerManager;
 
   /**
-   * Auth handler for authenticating requests.
+   * Whether concurrent runs of the same <code>configId</code> should be prevented.
    */
-  private final AuthHandler authHandler;
+  private final boolean preventConcurrentRuns;
+
+  /**
+   * Constructs a new LucilleResource that does not prevent concurrent runs and has no preset configs.
+   * @param runnerManager the runner manager instance
+   */
+  public LucilleResource(RunnerManager runnerManager) {
+    this(runnerManager, false, Map.of());
+  }
 
   /**
    * Constructs a new LucilleResource.
    * @param runnerManager the runner manager instance
-   * @param authHandler the authentication handler
+   * @param preventConcurrentRuns whether to prevent runs of the same config.
+   * @param presetConfigs A non-null mapping of names to configs that should be added to the runner manager.
    */
-  public LucilleResource(RunnerManager runnerManager, AuthHandler authHandler) {
+  public LucilleResource(RunnerManager runnerManager, boolean preventConcurrentRuns, Map<String, Config> presetConfigs) {
     this.runnerManager = runnerManager;
-    this.authHandler = authHandler;
+    this.preventConcurrentRuns = preventConcurrentRuns;
+
+    try {
+      for (Map.Entry<String, Config> entry : presetConfigs.entrySet()) {
+        runnerManager.createConfigWithKey(entry.getValue(), entry.getKey());
+      }
+    } catch (RunnerManagerException e) {
+      // if we breach the config limit just from presets, warn the user
+      throw new IllegalStateException("Config limit has been reached while loading presets.", e);
+    }
   }
 
   /**
    * Creates a new Lucille config, which can be used later by its referenced UUID.
-   * @param user the authenticated user (optional)
-   * @param configBody the config as a key-value map
+   * @param configBody the config as a string
    * @return HTTP 200 with config ID, or error if invalid
    */
   @POST
   @Tag(name = "Config")
   @Path("/config")
-  @Consumes(MediaType.APPLICATION_JSON)
+  @Consumes({MediaType.APPLICATION_JSON, "application/hocon"})
   @Operation(summary = "Create a new Lucille config to be run later",
       description = "Creates a new Lucille config, which can be used later by its referenced uuid.")
-  public Response createConfig(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
-      @RequestBody(description = "Run configuration as a key-value map", required = true,
-          content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
+  public Response createConfig(@RequestBody(description = "Run configuration as a HOCON string", required = true,
+          content = @Content(mediaType = "application/hocon", schema = @Schema(
               type = "object",
-              example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) Map<String, Object> configBody) {
-
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse; // Return if authentication fails
-    }
+              example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
 
     try {
-      Config config = ConfigFactory.parseMap(configBody);
-      String configId = runnerManager.createConfig(config);
-      log.info("a lucille config has been created. Config ID: " + configId);
-      Map<String, Object> ret = new HashMap<>();
-      ret.put("configId", configId);
-      return Response.ok(ret).build();
+      Config config = ConfigFactory.parseString(configBody);
+      CreateConfigResult result = runnerManager.createConfig(config);
+      log.info("a lucille config has been created. Config ID: " + result.getConfigId());
+      return Response.ok(result).build();
     } catch (Exception e) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("Invalid configuration provided: " + e.getMessage()).build();
@@ -105,7 +114,6 @@ public class LucilleResource {
 
   /**
    * Retrieves all Lucille configurations.
-   * @param user the authenticated user (optional)
    * @return HTTP 200 with all configs, or error if unauthorized
    */
   @GET
@@ -114,11 +122,7 @@ public class LucilleResource {
   @Operation(summary = "Get all Lucille configs",
       description = "Retrieves all Lucille configurations.",
       security = @SecurityRequirement(name = "basicAuth"))
-  public Response getAllConfigs(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user) {
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse; // Return if authentication fails
-    }
+  public Response getAllConfigs() {
     Map<String, Object> ret = new HashMap<>();
     for (String configId : runnerManager.getConfigKeys  ()) {
       ret.put(configId, runnerManager.getConfig(configId).root().unwrapped());
@@ -128,7 +132,6 @@ public class LucilleResource {
 
   /**
    * Retrieves a specific Lucille configuration by its ID.
-   * @param user the authenticated user (optional)
    * @param configId the UUID of the configuration to retrieve
    * @return HTTP 200 with config details, 404 if not found, or error if unauthorized
    */
@@ -138,14 +141,8 @@ public class LucilleResource {
   @Operation(summary = "Get a specific Lucille config",
       description = "Retrieves a specific Lucille configuration by its ID.",
       security = @SecurityRequirement(name = "basicAuth"))
-  public Response getConfig(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
-      @Parameter(description = "The UUID of the configuration to retrieve.", required = false,
+  public Response getConfig(@Parameter(description = "The UUID of the configuration to retrieve.", required = false,
           example = "fca83cb6-c2c2-4cbf-93ef-41c08d5d4b58") @PathParam("configId") String configId) {
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse; // Return if authentication fails
-    }
-
     try {
       Config config = runnerManager.getConfig(configId);
       if (config == null) {
@@ -159,10 +156,36 @@ public class LucilleResource {
     }
   }
 
+  @DELETE
+  @Tag(name = "Config", description = "Delete a Lucille configuration.")
+  @Path("/config/{configId}")
+  @Operation(
+      summary = "Delete a Lucille config.",
+      description = "Delete a specific Lucille configuration by its ID.",
+      security = @SecurityRequirement(name = "basicAuth")
+  )
+  public Response deleteConfig(
+      @Parameter(
+          description = "The UUID of the configuration to delete.",
+          required = true,
+          example = "fca83cb6-c2c2-4cbf-93ef-41c08d5d4b58"
+      )
+      @PathParam("configId")
+      String configId
+  ) {
+    boolean success = runnerManager.deleteConfig(configId);
+
+    if (success) {
+      return Response.ok().build();
+    } else {
+      return ResponseUtils.buildErrorResponse(Response.Status.NOT_FOUND,
+          "Configuration with ID " + configId + " not found.");
+    }
+  }
+
   /**
    * Starts a new Lucille run with the specified configuration.
-   * @param user the authenticated user (optional)
-   * @param requestBody request body containing the configuration ID
+   * @param runRequest request body containing the configuration ID
    * @return HTTP 200 with run details, or error if invalid or unauthorized
    */
   @POST
@@ -170,27 +193,21 @@ public class LucilleResource {
   @Path("/run")
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(summary = "Start a new Lucille run",
-      description = "Triggers a new Lucille run with the specified configuration if none is currently running.")
-  public Response startRun(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
-      @RequestBody(description = "Request body containing the configuration ID.", required = true,
+      description = "Triggers a new Lucille run with the specified configuration.")
+  public Response startRun(@RequestBody(description = "Request body containing the configuration ID", required = true,
           content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
               type = "object",
-              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\"}"))) Map<String, String> requestBody) {
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse; // Return if authentication fails
-    }
-
+              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\"}"))) RunRequest runRequest) {
     try {
+      String configId = runRequest.getConfigId();
       // Extract configId from the request body
-      String configId = requestBody.get("configId");
       if (configId == null || configId.isBlank()) {
         return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
             "configId is required in the request body.");
       }
 
       String runId = Runner.generateRunId();
-      RunDetails details = runnerManager.runWithConfig(runId, configId);
+      RunDetails details = runnerManager.runWithConfig(runId, configId, preventConcurrentRuns);
       log.debug("Lucille run has been triggered. Run ID: " + runId);
       log.debug("details: {}", details);
       return Response.ok(details).build();
@@ -203,7 +220,6 @@ public class LucilleResource {
 
   /**
    * Retrieves a list of all Lucille runs.
-   * @param user the authenticated user (optional)
    * @return HTTP 200 with all run details, or error if unauthorized
    */
   @GET
@@ -211,18 +227,12 @@ public class LucilleResource {
   @Path("/run")
   @Operation(summary = "Get all runs", description = "Retrieves a list of all Lucille runs.",
       security = @SecurityRequirement(name = "basicAuth"))
-  public Response getAllRuns(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user) {
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse;
-    }
-
+  public Response getAllRuns() {
     return Response.ok(runnerManager.getRunDetails()).build();
   }
 
   /**
    * Retrieves the details of a specific Lucille run by its run ID.
-   * @param user the authenticated user (optional)
    * @param runId the ID of the run to retrieve
    * @return HTTP 200 with run details, 400 if not found, or error if unauthorized
    */
@@ -232,14 +242,8 @@ public class LucilleResource {
   @Operation(summary = "Get a specific run",
       description = "Retrieves the details of a specific Lucille run by its run ID.",
       security = @SecurityRequirement(name = "basicAuth"))
-  public Response getRunById(@Parameter(hidden = true) @Auth Optional<PrincipalImpl> user,
-      @Parameter(description = "The ID of the run to retrieve.", required = true,
+  public Response getRunById(@Parameter(description = "The ID of the run to retrieve.", required = true,
           example = "550e8400-e29b-41d4-a716-446655440000") @PathParam("runId") String runId) {
-    Response authResponse = authHandler.authenticate(user);
-    if (authResponse != null) {
-      return authResponse;
-    }
-
     RunDetails details = runnerManager.getRunDetails(runId);
     if (details == null) {
 
@@ -249,5 +253,4 @@ public class LucilleResource {
 
     return Response.ok(details).build();
   }
-
 }

@@ -128,11 +128,13 @@ public class CSVIndexerTest {
 
     CSVIndexer indexer = new CSVIndexer(config, messenger, false, "testing");
     assertTrue(indexer.validateConnection());
+    indexer.closeConnection();
 
     // no include header
     config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/config.conf");
     indexer = new CSVIndexer(config, messenger, false, "testing");
     assertTrue(indexer.validateConnection());
+    indexer.closeConnection();
   }
 
   // Ensures the CSVIndexer is willing to create directories for output files.
@@ -149,7 +151,7 @@ public class CSVIndexerTest {
 
       TestMessenger messenger = new TestMessenger();
       Config config = ConfigFactory.parseResourcesAnySyntax("CSVIndexerTest/missingParentConfig.conf");
-      new CSVIndexer(config, messenger, false, "testing");
+      new CSVIndexer(config, messenger, false, "testing").closeConnection();
 
       assertTrue(parentDirFile.exists());
     } finally {

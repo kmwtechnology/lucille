@@ -4,3 +4,25 @@ Add styles or override variables from the theme here.
 
 */
 
+// Sets the background color of the navbar
+$td-navbar-bg-color: #77bcfc;
+
+.td-version-selector .btn {
+    background-color: #77bcfc;
+    color: black;
+    font-weight: bold;
+  }
+
+.td-version-selector .dropdown-item:hover,
+.td-version-selector .dropdown-item:active {
+    background-color: $td-navbar-bg-color;
+    color: white;
+  }
+
+@media (min-width: 992px) {
+  .td-content > .pageinfo {
+    max-width: 80%;
+    margin-left: 0;
+  }
+}
+

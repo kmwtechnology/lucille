@@ -2,8 +2,10 @@ package com.kmwllc.lucille.core;
 
 import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
+import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Slf4jReporter;
+import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.*;
@@ -16,9 +18,11 @@ import com.typesafe.config.ConfigValue;
 import java.util.Map.Entry;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.time.StopWatch;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
@@ -58,6 +62,24 @@ import sun.misc.Signal;
  */
 public class Runner {
 
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
+      .optionalString("metricsLoggingLevel")
+      .optionalNumber("connectorTimeout").build();
+
+  // package access for ConfigValidationTest
+  /**
+   * Config Keys & Specs for the "other parents" in a Lucille Config validated here.
+   * If a new "other" parent is added here, it should be added here along with its Spec.
+   */
+  static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
+      Pair.of("publisher", PublisherImpl.SPEC),
+      Pair.of("log", LogUtils.SPEC),
+      Pair.of("runner", Runner.SPEC),
+      Pair.of("kafka", KafkaUtils.SPEC),
+      Pair.of("zookeeper", ZKRetryCounter.SPEC),
+      Pair.of("worker", Worker.SPEC)
+  );
+
   public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
 
   public static final long DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT = 3000;
@@ -67,8 +89,8 @@ public class Runner {
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory queues
     TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after the run
-    KAFKA_LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via Kafka
-    KAFKA_DISTRIBUTED // assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
+    EXTERNAL, // launch Worker(s) and Indexer as threads; have all components communicate via Kafka
+    DISTRIBUTED// assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
   }
 
   // no need to instantiate Runner; all methods currently static
@@ -154,11 +176,11 @@ public class Runner {
    * no args: pipelines workers and indexers will be executed in separate threads within the same JVM; communication
    * between components will take place in memory and Kafka will not be used
    * <p>
-   * -useKafka: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
+   * -distributed: connectors will be run, sending documents and receiving events via Kafka. Pipeline workers
    * and indexers will not be run. The assumption is that these have been deployed as separate processes.
    * <p>
-   * -local: modifies -useKafka so that workers and indexers are started as separate threads within the same JVM;
-   * kafka is still used for communication between them.
+   * -external: modified local mode where workers and indexers are started as separate threads within the same JVM and kafka is
+   * used for communication between them.
    * <p>
    * -render: prints out the effective/actual config in the exact form it will be seen by Lucille during the run
    */
@@ -168,11 +190,19 @@ public class Runner {
     // during the run
     state = new RunnerState();
 
+    Option distributedOpt = Option.builder("distributed").hasArg(false)
+    .desc("Uses Kafka for inter-component communication and doesn't execute pipelines locally.")
+    .build();
+
+    Option external = Option.builder("external").hasArg(false)
+        .desc("Modified local mode where workers and indexers are separate threads within the JVM communicating "
+            + "through kafka")
+        .build();
+
+    OptionGroup distributedType = new OptionGroup().addOption(distributedOpt).addOption(external);
+
     Options cliOptions = new Options()
-        .addOption(Option.builder("usekafka").hasArg(false)
-            .desc("Use Kafka for inter-component communication and don't execute pipelines locally.").build())
-        .addOption(Option.builder("local").hasArg(false)
-            .desc("Modifies useKafka mode to execute pipelines locally").build())
+        .addOptionGroup(distributedType)
         .addOption(Option.builder("validate").hasArg(false)
             .desc("Validate the configuration and exit").build())
         .addOption(Option.builder("render").hasArg(false)
@@ -182,16 +212,16 @@ public class Runner {
     try {
       args = Arrays.stream(args).map(String::toLowerCase).toArray(String[]::new);
       cli = new DefaultParser().parse(cliOptions, args);
-    } catch (UnrecognizedOptionException | MissingOptionException e) {
-      try (StringWriter writer = new StringWriter();
-          PrintWriter printer = new PrintWriter(writer)) {
 
-        String header = "Run a sequence of connectors";
-        new HelpFormatter().printHelp(printer, 256, "Runner", header, cliOptions,
-            2, 10, "", true);
-        log.info(writer.toString());
+      if (!cli.getArgList().isEmpty()) {
+        printHelp(cliOptions, "Unrecognized argument(s): " + cli.getArgList());
+        SystemHelper.exit(1);
+        return;
       }
+    } catch (UnrecognizedOptionException | MissingOptionException | AlreadySelectedException e) {
+      printHelp(cliOptions, e.getMessage());
       SystemHelper.exit(1);
+      return;
     }
 
     Config config = ConfigFactory.load();
@@ -217,10 +247,10 @@ public class Runner {
       SystemHelper.exit(0);
     });
 
-    RunType runType = getRunType(cli.hasOption("usekafka"), cli.hasOption("local"));
+    RunType runType = getRunType(cli.hasOption("distributed"), cli.hasOption("external"));
 
     // Kick off the run with a log of the result
-    RunResult result = runWithResultLog(config, runType);
+    RunResult result = runAndLogResult(config, runType, true);
 
     if (result.getStatus()) {
       SystemHelper.exit(0);
@@ -388,34 +418,17 @@ public class Runner {
   private static List<Exception> validateOtherParents(Config rootConfig) {
     List<Exception> exceptions = new ArrayList<>();
 
-    Config configPropertyConfig = ConfigFactory.parseResourcesAnySyntax("validConfigProperties.conf");
+    for (Pair<String, Spec> parentAndSpec : PARENTS_AND_SPECS) {
+      String parentName = parentAndSpec.getLeft();
 
-    // calling entrySet on the root() means it returns the keys - publisher, log, etc... and not entries
-    // for paths to each of the individual values.
-    for (Entry<String, ConfigValue> entry : configPropertyConfig.root().entrySet()) {
-      String optionalParentName = entry.getKey();
-
-      // from this config, we can get required / optional properties
-      if (!rootConfig.hasPath(optionalParentName)) {
+      if (!rootConfig.hasPath(parentName)) {
         continue;
       }
 
-      Config parentPropertyConfig = configPropertyConfig.getConfig(optionalParentName);
-
-      SpecBuilder specBuilder = SpecBuilder.withoutDefaults();
-
-      if (parentPropertyConfig.hasPath("optionalProperties")) {
-        List<String> optionalProperties = parentPropertyConfig.getStringList("optionalProperties");
-        specBuilder.withOptionalProperties(optionalProperties.toArray(new String[0]));
-      }
-
-      if (parentPropertyConfig.hasPath("requiredProperties")) {
-        List<String> requiredProperties = parentPropertyConfig.getStringList("requiredProperties");
-        specBuilder.withRequiredProperties(requiredProperties.toArray(new String[0]));
-      }
-
       try {
-        specBuilder.build().validate(rootConfig.getConfig(optionalParentName), optionalParentName);
+        Spec spec = parentAndSpec.getRight();
+        Config parentConfig = rootConfig.getConfig(parentName);
+        spec.validate(parentConfig, parentName);
       } catch (IllegalArgumentException e) {
         exceptions.add(e);
       }
@@ -433,51 +446,21 @@ public class Runner {
   }
 
   /**
-   * Derives the RunType for the new run from the 'useKafka' and 'local' parameters.
+   * Derives the RunType for the new run from the 'distributed' and 'external' parameters.
    */
-  static RunType getRunType(boolean useKafka, boolean local) {
-    if (useKafka) {
-      if (local) {
-        return RunType.KAFKA_LOCAL;
-      } else {
-        return RunType.KAFKA_DISTRIBUTED;
-      }
+  static RunType getRunType(boolean distributed, boolean external) {
+    if (distributed) {
+      return RunType.DISTRIBUTED;
+    } else if (external) {
+      return RunType.EXTERNAL;
     } else {
       return RunType.LOCAL;
     }
   }
 
-  public static RunResult runWithResultLog(Config config, RunType runType) throws Exception {
-    return runWithResultLog(config, runType, null);
-  }
-
   /**
-   * Kicks off a new Lucille run and logs information about the run to the console after completion.
-   */
-  public static RunResult runWithResultLog(Config config, RunType runType, String runId)
-      throws Exception {
-    StopWatch stopWatch = new StopWatch();
-    stopWatch.start();
-    RunResult result;
-
-    try {
-      result = run(config, runType, runId);
-
-      // log detailed metrics
-      Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
-          .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
-      // log run summary
-      log.info(result.toString());
-      return result;
-    } finally {
-      stopWatch.stop();
-      log.info(String.format("Run took %.2f secs.",
-          (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
-    }
-  }
-
-  /**
-   * Non managed Run with internal generated runId
+   * Non managed Run with internal generated runId.
+   * <b>Note</b> that this method will not cleanup metrics.
    *
    * @param config
    * @param type
@@ -489,7 +472,54 @@ public class Runner {
   }
 
   /**
+   * Creates a run with a randomly generated Run ID and log the RunResult upon completion + the time taken for the run.
+   * Optionally, logs additional metrics about the run (based on <code>logMetrics</code>).
+   * <br> This method <b>will</b> clean up the run's metrics.
+   */
+  public static RunResult runAndLogResult(Config config, RunType runType, boolean logMetrics) throws Exception {
+    return runAndLogResult(config, runType, generateRunId(), logMetrics);
+  }
+
+  /**
+   * Kicks off a new Lucille run with the provided <code>runId</code> and logs the RunResult upon completion +
+   * the time taken for the run. Optionally logs additional metrics about the run (based on <code>logMetrics</code>).
+   * <br> The provided <code>runId</code> must not be <code>null</code>.
+   * <br> This method <b>will</b> clean up the run's metrics.
+   */
+  public static RunResult runAndLogResult(Config config, RunType runType, String runId, boolean logMetrics)
+      throws Exception {
+    if (runId == null) {
+      throw new IllegalArgumentException("Cannot specify null runId.");
+    }
+
+    StopWatch stopWatch = new StopWatch();
+    stopWatch.start();
+    RunResult result;
+
+    try {
+      result = run(config, runType, runId);
+
+      if (logMetrics) {
+        Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
+            .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
+      }
+
+      // log run summary
+      log.info(result.toString());
+      return result;
+    } finally {
+      stopWatch.stop();
+      log.info(String.format("Run took %.2f secs.",
+          (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
+
+      SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG)
+          .removeMatching(MetricFilter.startsWith(runId));
+    }
+  }
+
+  /**
    * Generates a run ID if not supplied and performs an end-to-end run of the designated type.
+   * <b>Note</b> that this method will not cleanup metrics.
    *
    * @param config
    * @param type
@@ -520,7 +550,7 @@ public class Runner {
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
 
-    boolean startWorkerAndIndexer = !type.equals(RunType.KAFKA_DISTRIBUTED);
+    boolean startWorkerAndIndexer = !type.equals(RunType.DISTRIBUTED);
     boolean bypassSolr = type.equals(RunType.TEST);
 
     Map<String, TestMessenger> history = type.equals(RunType.TEST) ? new HashMap<>() : null;
@@ -542,7 +572,7 @@ public class Runner {
         workerMessengerFactory = WorkerMessengerFactory.getConstantFactory(messenger);
         indexerMessengerFactory = IndexerMessengerFactory.getConstantFactory(messenger);
         publisherMessengerFactory = PublisherMessengerFactory.getConstantFactory(messenger);
-      } else { // RunType.KAFKA_LOCAL.equals(type) || RunType.KAFKA_DISTRIBUTED.equals(type)
+      } else { // RunType.EXTERNAL.equals(type) || RunType.DISTRIBUTED.equals(type)
         workerMessengerFactory = WorkerMessengerFactory.getKafkaFactory(config, connector.getPipelineName());
         indexerMessengerFactory = IndexerMessengerFactory.getKafkaFactory(config, connector.getPipelineName());
         publisherMessengerFactory = PublisherMessengerFactory.getKafkaFactory(config);
@@ -806,5 +836,24 @@ public class Runner {
       log.error("Error obtaining metrics logging level", e);
     }
     return Slf4jReporter.LoggingLevel.DEBUG;
+  }
+
+  /**
+   * Prints CLI help text
+   */
+  private static void printHelp(Options cliOptions, String message) {
+    if (message != null) {
+      log.warn(message);
+    }
+
+    try (StringWriter writer = new StringWriter();
+        PrintWriter printer = new PrintWriter(writer)) {
+      String header = "Run a sequence of connectors";
+      new HelpFormatter().printHelp(printer, 256, "Runner", header, cliOptions,
+          2, 10, "", true);
+      log.info(writer.toString());
+    } catch (IOException e) {
+      log.debug("Unexpected IOException", e);
+    }
   }
 }

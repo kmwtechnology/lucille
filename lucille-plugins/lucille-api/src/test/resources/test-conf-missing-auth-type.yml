@@ -1,0 +1,16 @@
+server:
+  type: default
+  requestLog:
+    type: external
+logging:
+  type: external
+auth:
+  password: "password"
+
+swagger:
+  resourcePackage: "com.kmwllc.lucille.endpoints"
+  title: Lucille API
+  description: Lucille API
+  version: 0.0.1
+  contact: info@kmwllc.com
+  license: Apache 2.0

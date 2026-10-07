@@ -2,7 +2,6 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
 
-import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
@@ -29,17 +28,10 @@ import org.slf4j.LoggerFactory;
 public class GoogleStorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(GoogleStorageClient.class);
-  private Storage storage;
+  protected Storage storage;
 
   public GoogleStorageClient(Config googleCloudOptions) {
     super(googleCloudOptions);
-  }
-
-  @Override
-  protected void validateOptions(Config config) {
-    if (!config.hasPath(GOOGLE_SERVICE_KEY)) {
-      throw new IllegalArgumentException("Missing " + GOOGLE_SERVICE_KEY + " in Config for GoogleStorageClient.");
-    }
   }
 
   @Override
@@ -65,16 +57,32 @@ public class GoogleStorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
-    Page<Blob> page = storage.list(getBucketOrContainerName(params), BlobListOption.prefix(getStartingDirectory(params)),
-        BlobListOption.pageSize(maxNumOfPages));
-    do {
-      page.streamAll()
-          .forEachOrdered(blob -> {
+    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+  }
+
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
+    storage.list(getBucketOrContainerName(params),
+            BlobListOption.prefix(prefix),
+            BlobListOption.currentDirectory(),
+            BlobListOption.pageSize(maxNumOfPages))
+        .streamAll()
+        .forEachOrdered(blob -> {
+          if (blob.isDirectory()) {
+            URI dirUri = uriForDirectory(blob.getName(), params);
+
+            if (!isSkippedDirectory(dirUri, params)) {
+              traversePrefix(publisher, params, stateMgr, blob.getName());
+            }
+          } else {
             GoogleFileReference fileRef = new GoogleFileReference(blob, params);
             processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-          });
-      page = page.hasNextPage() ? page.getNextPage() : null;
-    } while (page != null);
+          }
+        });
+  }
+
+  private URI uriForDirectory(String prefix, TraversalParams params) {
+    URI paramsUri = params.getURI();
+    return URI.create(paramsUri.getScheme() + "://" + paramsUri.getAuthority() + "/" + prefix);
   }
 
   @Override

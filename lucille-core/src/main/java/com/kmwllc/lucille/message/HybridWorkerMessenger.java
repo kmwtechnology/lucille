@@ -106,7 +106,6 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
     RecordMetadata result = kafkaEventProducer.send(
         new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaEventProducer.flush();
   }
 
   @Override

@@ -37,6 +37,13 @@ public interface IndexerMessenger {
   void sendEvent(Document document, String message, Event.Type type) throws Exception;
 
   /**
+   * Sends Events of the given type and message for a batch of Documents. Implementations may
+   * send the events asynchronously and flush at the end, providing better throughput than
+   * calling sendEvent() individually for each document.
+   */
+  void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception;
+
+  /**
    * Close any connections opened by this IndexerMessenger.
    */
   void close() throws Exception;

@@ -1,0 +1,56 @@
+<!-- Detect whether this page is an archived (older release) or pre-release (snapshot of main) doc set, and show the matching banner. -->
+{{- $latest_version_url := .Site.Params.url_latest_version }}
+{{- $current_version := replace .Site.Params.version "v" "" | markdownify }}
+{{- $isArchived := .Site.Params.archived_version | default false }}
+{{- $isPreRelease := false }}
+{{- range .Site.Params.versions }}
+{{- if ne .version $.Site.Params.version }}
+{{- if hasPrefix $.RelPermalink (urls.Parse .url).Path }}
+{{- if eq .version "pre-release" }}
+{{- $isPreRelease = true }}
+{{- else }}
+{{- $isArchived = true }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if or $isArchived $isPreRelease }}
+
+<style>
+  .version-banner {
+    padding: 1.5rem;
+    margin: 2rem 0;
+    max-width: 80%;
+    border-style: solid;
+    border-color: #f0ad4e;
+    background-color: #faf5b6;
+    border-radius: 0.25rem;
+  }
+  .version-banner h3 {
+    margin-top: 0;
+    margin-bottom: 0.6em;
+    font-size: 1.25em;
+  }
+  .version-banner p {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+</style>
+<div class="version-banner">
+  {{- if $isPreRelease }}
+  <h3>You are viewing a snapshot of the in-development Lucille documentation.</h3>
+  <p>
+    This pre-release version reflects the current state of <code>main</code> and may contain unreleased changes.
+    <br>
+    For the stable release, see the <a href="{{ $latest_version_url | safeURL }}">latest version</a>.
+  </p>
+  {{- else }}
+  <h3>You are viewing documentation for an older version of Lucille.</h3>
+  <p>
+    This is a static snapshot.
+    <br>
+    For up-to-date information, see the <a href="{{ $latest_version_url | safeURL }}">latest version</a>.
+  </p>
+  {{- end }}
+</div>
+{{- end }}

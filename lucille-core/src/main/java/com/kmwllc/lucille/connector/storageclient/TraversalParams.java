@@ -10,6 +10,8 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -44,8 +46,10 @@ public class TraversalParams {
   // FilterOptions
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
+  private final List<URI> pathsToSkip;
   private final Duration lastModifiedCutoff;
   private final Duration lastPublishedCutoff;
+  private final PublishMode publishMode;
 
   // FileHandlers
   private final Map<String, FileHandler> fileHandlers;
@@ -62,7 +66,7 @@ public class TraversalParams {
 
     try {
       if (fileOptions.hasPath(FileConnector.MOVE_TO_AFTER_PROCESSING)) {
-        this.moveToAfterProcessing = new URI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
+        this.moveToAfterProcessing = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
       } else {
         this.moveToAfterProcessing = null;
       }
@@ -72,7 +76,7 @@ public class TraversalParams {
 
     try {
       if (fileOptions.hasPath(FileConnector.MOVE_TO_ERROR_FOLDER)) {
-        this.moveToErrorFolder = new URI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
+        this.moveToErrorFolder = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
       } else {
         this.moveToErrorFolder = null;
       }
@@ -90,6 +94,15 @@ public class TraversalParams {
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
 
+    List<String> pathsToSkipStrings = filterOptions.hasPath("pathsToSkip") ?
+        filterOptions.getStringList("pathsToSkip") : Collections.emptyList();
+    this.pathsToSkip = pathsToSkipStrings.stream()
+        .map(TraversalParams::makePathToSkipURI)
+        .collect(Collectors.toList());
+
+    this.publishMode = filterOptions.hasPath("publishMode") ? PublishMode.fromString(filterOptions.getString("publishMode")) : PublishMode.FULL;
+
+
     this.lastModifiedCutoff = filterOptions.hasPath("lastModifiedCutoff") ? filterOptions.getDuration("lastModifiedCutoff") : null;
     this.lastPublishedCutoff = filterOptions.hasPath("lastPublishedCutoff") ? filterOptions.getDuration("lastPublishedCutoff") : null;
 
@@ -103,10 +116,31 @@ public class TraversalParams {
    * and the last time it was modified.
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
-    return patternsAllowFile(fileName) && cutoffsAllowFile(fileLastModified, fileLastPublished);
+    // file must pass include/exclude path patterns, if specified, to even be a publishing candidate
+    if (!applyPatternFilters(fileName)) {
+      return false;
+    }
+
+    // apply lastModified filter regardless of mode
+    if (!applyLastModifiedFilter(fileLastModified)) {
+      return false;
+    }
+
+    // if path is valid and publishMode is "full", publish file
+    if (publishMode == PublishMode.FULL) {
+      return true;
+    }
+
+    // incremental support: do not publish if file already published and not modified since
+    if (!modifiedSinceLastPublish(fileLastModified, fileLastPublished)) {
+      return false;
+    }
+
+    // incremental support: if lastPublishedCutoff is specified, require it to pass
+    return applyLastPublishedFilter(fileLastPublished);
   }
 
-  public boolean supportedFileExtension(String fileExtension) {
+  public boolean supportsFileExtension(String fileExtension) {
     return fileHandlers.containsKey(fileExtension);
   }
 
@@ -117,16 +151,12 @@ public class TraversalParams {
   /**
    * Returns whether a file with the given name should be processed, based on the includes/excludes patterns.
    */
-  private boolean patternsAllowFile(String fileName) {
+  private boolean applyPatternFilters(String fileName) {
     return excludes.stream().noneMatch(pattern -> pattern.matcher(fileName).matches())
         && (includes.isEmpty() || includes.stream().anyMatch(pattern -> pattern.matcher(fileName).matches()));
   }
 
-  /**
-   * Returns whether the given lastModified and lastPublished instants comply with lastModifiedCutoff / lastPublishedCutoff,
-   * if they are specified.
-   */
-  private boolean cutoffsAllowFile(Instant fileLastModified, Instant fileLastPublished) {
+  private boolean applyLastModifiedFilter(Instant fileLastModified) {
     // If lastModifiedCutoff is specified, return false if it is violated
     if (lastModifiedCutoff != null) {
       Instant cutoffPoint = Instant.now().minus(lastModifiedCutoff);
@@ -136,7 +166,10 @@ public class TraversalParams {
         return false;
       }
     }
+    return true;
+  }
 
+  private boolean applyLastPublishedFilter(Instant fileLastPublished) {
     // If lastPublishedCutoff is specified, and we found a lastPublished Instant for the file, return false if it is violated
     if (lastPublishedCutoff != null && fileLastPublished != null) {
       Instant cutoffPoint = Instant.now().minus(lastPublishedCutoff);
@@ -148,6 +181,10 @@ public class TraversalParams {
     }
 
     return true;
+  }
+
+  private boolean modifiedSinceLastPublish(Instant fileLastModified, Instant fileLastPublished) {
+    return fileLastPublished == null || fileLastModified.isAfter(fileLastPublished);
   }
 
   public URI getURI() {
@@ -177,4 +214,79 @@ public class TraversalParams {
   public URI getMoveToErrorFolder() {
     return moveToErrorFolder;
   }
+
+  public List<URI> getPathsToSkip() {
+    return pathsToSkip;
+  }
+
+  /**
+   * Creates a normalized URI for a path to skip.
+   * <p>
+   * Valid, absolute URIs are used as-is. As a convenience and a fallback, local
+   * file system paths may be provided without a scheme - either absolute or relative - and are
+   * converted to an absolute {@code file://} URI.
+   * <p>
+   * Throws an IllegalArgumentException in the event of an invalid URI / path.
+   */
+  private static URI makePathToSkipURI(String s) {
+    try {
+      URI uri = new URI(s);
+
+      // a single-letter scheme is a Windows drive letter ("C:/data"), handled as a local path below
+      if (uri.isAbsolute() && uri.getScheme().length() > 1) {
+        return uri.normalize();
+      }
+    } catch (URISyntaxException e) {
+      // Fall back, seeing if we can treat the entry as a local file system path.
+    }
+
+    // non-absolute URI, or invalid syntax: fall back to local file path.
+    try {
+      return Paths.get(s).toAbsolutePath().normalize().toUri();
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Error with path in pathsToSkip: '" + s + "'.", e);
+    }
+  }
+
+  /**
+   * Parses a configured path or URI into a URI.
+   * <p>
+   * Strings that are valid URIs are used as-is. Local file system paths that are not valid URIs, such as Windows paths
+   * ("C:\data", "C:/data", "\\server\share"), are converted to an absolute {@code file://} URI.
+   * <p>
+   * Throws a URISyntaxException if the string is neither a valid URI nor a local file system path.
+   */
+  public static URI parsePathOrURI(String s) throws URISyntaxException {
+    try {
+      URI uri = new URI(s);
+
+      if (uri.getScheme() == null || uri.getScheme().length() > 1) {
+        return uri;
+      }
+    } catch (URISyntaxException e) {
+      if (s.contains("://")) {
+        throw e;
+      }
+    }
+
+    try {
+      return Paths.get(s).toUri();
+    } catch (InvalidPathException e) {
+      throw new URISyntaxException(s, e.getReason());
+    }
+  }
+
+  public enum PublishMode {
+    INCREMENTAL, FULL;
+
+    @Override
+    public String toString() {
+      return this.name().toLowerCase();
+    }
+
+    public static PublishMode fromString(String name) {
+        return PublishMode.valueOf(name.toUpperCase());
+    }    
+  }
+
 }
