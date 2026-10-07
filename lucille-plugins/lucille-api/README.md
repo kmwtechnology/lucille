@@ -3,7 +3,7 @@
 ## Running the API
 
 1. Navigate into the `lucille-api` module
-2. Run `mvn clean install` to generate the api jar
+2. Run `mvn clean install -Pshaded-plugin-jars` to generate the runnable `target/lucille-api-plugin.jar` (the shaded jar is only built with the `shaded-plugin-jars` profile)
 
 The API can be run locally or in a Docker container:
 

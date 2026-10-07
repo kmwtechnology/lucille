@@ -6,12 +6,12 @@ import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
 import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
+import java.util.List;
 import java.util.Map;
-import org.apache.hc.client5.http.auth.AuthScope;
-import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
@@ -19,35 +19,23 @@ import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBu
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 
-import java.net.URI;
-
 /**
  * Utility methods for communicating with Elasticsearch.
  */
 public class ElasticsearchUtils {
 
   public static Spec ELASTICSEARCH_PARENT_SPEC = SpecBuilder.parent("elasticsearch")
-      .requiredString("index", "url")
+      .requiredString("index")
+      .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalNumber("connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
       .optionalString("parentName")
       .optionalParent("join", new TypeReference<Map<String, String>>(){}).build();
 
   public static ElasticsearchClient getElasticsearchOfficialClient(Config config) throws Exception {
-    URI hostUri = URI.create(getElasticsearchUrl(config));
-
-    HttpHost host = new HttpHost(hostUri.getScheme(), hostUri.getHost(), hostUri.getPort());
-
-    // get user info from URI if present and setup BasicAuth credentials if needed
+    // get user info from each URL if present and setup BasicAuth credentials if needed
     final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-    String userInfo = hostUri.getUserInfo();
-    if (userInfo != null) {
-      int pos = userInfo.indexOf(":");
-      String username = userInfo.substring(0, pos);
-      String password = userInfo.substring(pos + 1);
-      credentialsProvider.setCredentials(new AuthScope(host),
-          new UsernamePasswordCredentials(username, password.toCharArray()));
-    }
+    final HttpHost[] hosts = HttpHostUtils.toHttpHosts(getElasticsearchUrls(config), credentialsProvider);
 
     // Potentially disable SSL/TLS verification for when testing locally
     TlsStrategy tlsStrategy = HttpClientConfigUtils.buildTlsStrategy(getAllowInvalidCert(config));
@@ -63,7 +51,7 @@ public class ElasticsearchUtils {
         .build();
 
     boolean useCompression = config.hasPath("elasticsearch.useCompression") && config.getBoolean("elasticsearch.useCompression");
-    Rest5Client rest5Client = Rest5Client.builder(host)
+    Rest5Client rest5Client = Rest5Client.builder(hosts)
         .setHttpClient(httpClient)
         .setCompressionEnabled(useCompression)
         .build();
@@ -72,8 +60,18 @@ public class ElasticsearchUtils {
     return new ElasticsearchClient(transport);
   }
 
+  /**
+   * @return the first configured Elasticsearch URL. Use {@link #getElasticsearchUrls(Config)} when several are configured.
+   */
   public static String getElasticsearchUrl(Config config) {
-    return config.getString("elasticsearch.url"); // not optional, throws exception if not found
+    return getElasticsearchUrls(config).get(0);
+  }
+
+  /**
+   * @return the configured Elasticsearch URLs; <code>elasticsearch.url</code> may be a single String or a list of Strings.
+   */
+  public static List<String> getElasticsearchUrls(Config config) {
+    return ConfigUtils.getStringOrList(config, "elasticsearch.url"); // not optional, throws exception if not found
   }
 
   public static String getElasticsearchIndex(Config config) {
