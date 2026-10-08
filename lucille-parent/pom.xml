@@ -232,7 +232,9 @@
           <reuseForks>true</reuseForks>
           <!--ensure consistent timezone for unit tests-->
           <!-- @{argLine} is late-bound so it picks up the agent set by jacoco:prepare-agent -->
-          <argLine>@{argLine} -Dtest.solr.allowed.securerandom=${test.solr.securerandom} -Duser.timezone=UTC</argLine>
+          <!-- surefire.forkNumber: surefire replaces ${surefire.forkNumber} with each fork's number (1..forkCount) but
+               does not set it in the fork; passing it here lets log4j2-test.xml give each fork its own log files. -->
+          <argLine>@{argLine} -Dtest.solr.allowed.securerandom=${test.solr.securerandom} -Duser.timezone=UTC -Dsurefire.forkNumber=${surefire.forkNumber}</argLine>
         </configuration>
         <!-- Keep the JUnit 4 provider explicit rather than auto-detected: all tests are JUnit 4; the few that
              import junit-jupiter-api only use its assertions. -->
