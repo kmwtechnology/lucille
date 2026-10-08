@@ -35,8 +35,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.MockedStatic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +54,18 @@ import com.typesafe.config.ConfigValueFactory;
 
 public class FileConnectorTest {
 
+  // per-class directory names, so test classes running in parallel forks never share one
+  private static final String TEMP_DIR = "fileConnectorTest-temp";
+  private static final String ERROR_DIR = "fileConnectorTest-error";
+  private static final String SUCCESS_DIR = "fileConnectorTest-success";
+
   private static final Logger log = LoggerFactory.getLogger(FileConnectorTest.class);
+
+  // On-disk H2 state database for the state tests. Kept out of the default ./state directory, which
+  // FileConnectorStateManagerTest uses to test that default and may be running in another surefire fork.
+  private static final File STATE_DIR = new File("fileConnectorTest-state");
+  private static final String STATE_CONNECTION_STRING =
+      "jdbc:h2:" + new File(STATE_DIR, "file-connector").getAbsolutePath();
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
@@ -175,7 +184,7 @@ public class FileConnectorTest {
 
   @Test
   public void testErrorDirectory() throws Exception {
-    File tempDir = new File("temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy faulty csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/faulty.csv");
@@ -189,8 +198,8 @@ public class FileConnectorTest {
     connector.execute(publisher);
 
     // verify error directory is made
-    File errorDir = new File("error");
-    File f = new File("error/faulty.csv");
+    File errorDir = new File(ERROR_DIR);
+    File f = new File(ERROR_DIR + "/faulty.csv");
 
     try {
       // verify error directory is made
@@ -207,7 +216,7 @@ public class FileConnectorTest {
 
   @Test
   public void testSuccessfulDirectory() throws Exception {
-    File tempDir = new File("temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy successful csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
@@ -221,8 +230,8 @@ public class FileConnectorTest {
     connector.execute(publisher);
 
     // verify error directory is made
-    File successDir = new File("success");
-    File f = new File("success/defaults.csv");
+    File successDir = new File(SUCCESS_DIR);
+    File f = new File(SUCCESS_DIR + "/defaults.csv");
 
     try {
       // verify error directory is made
@@ -402,18 +411,17 @@ public class FileConnectorTest {
 
   // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
 
-  // Testing when the state configuration is empty.
+  // Testing with an embedded H2 database that the connector creates on first use. Only the location is set
+  // here; the default ./state location is covered by FileConnectorStateManagerTest.testEmbeddedCreationEmptyConfig.
   @Test
-  @Execution(ExecutionMode.SAME_THREAD)
   public void testTraversalWithStateEmbedded() throws Exception {
-    File stateDirectory = new File("state");
-    File dbFile = new File("state/file-connector.mv.db");
+    File dbFile = new File(STATE_DIR, "file-connector.mv.db");
 
-    assertFalse(stateDirectory.exists());
     assertFalse(dbFile.exists());
 
     try {
-      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
+      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING));
       TestMessenger messenger = new TestMessenger();
       Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
       Connector conn = new FileConnector(config);
@@ -423,7 +431,7 @@ public class FileConnectorTest {
       conn.close();
 
       // now the database file should exist.
-      assertTrue(stateDirectory.isDirectory());
+      assertTrue(STATE_DIR.isDirectory());
       assertTrue(dbFile.isFile());
 
       assertEquals(18, messenger.getDocsSentForProcessing().size());
@@ -437,7 +445,7 @@ public class FileConnectorTest {
       // default full mode republishes all docs on subsequent runs
       assertEquals(18, messenger.getDocsSentForProcessing().size());
     } finally {
-      FileUtils.deleteDirectory(stateDirectory);
+      FileUtils.deleteDirectory(STATE_DIR);
     }
   }
 
@@ -644,6 +652,7 @@ public class FileConnectorTest {
       // Config with state and incremental mode with tombstones enabled
       Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
           .withValue("paths", ConfigValueFactory.fromIterable(List.of(tempDir.toURI().toString())))
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
           .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
           .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
 
@@ -751,7 +760,7 @@ public class FileConnectorTest {
       FileUtils.deleteDirectory(tempDir);
 
       // Needed since our db is on disk
-      FileUtils.deleteDirectory(new File("state"));
+      FileUtils.deleteDirectory(STATE_DIR);
     }
   }
 
@@ -774,6 +783,7 @@ public class FileConnectorTest {
       // Config with state and incremental mode with tombstones enabled
       Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
           .withValue("paths", ConfigValueFactory.fromIterable(List.of(tempDir.toURI().toString())))
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
           .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
           .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"))
           .withValue("state.runsBeforeExpiration", ConfigValueFactory.fromAnyRef(2));
@@ -853,7 +863,7 @@ public class FileConnectorTest {
       FileUtils.deleteDirectory(tempDir);
 
       // Needed since our db is on disk
-      FileUtils.deleteDirectory(new File("state"));
+      FileUtils.deleteDirectory(STATE_DIR);
     }
   }
 

@@ -319,7 +319,10 @@ public class FileConnectorStateManagerTest {
     assertEquals(18, messenger2.getDocsSentForProcessing().size());
   }
 
-  // empty state configuration should mean we create a database for the user.
+  // Empty state configuration should mean we create a database for the user, at the hardcoded default
+  // jdbc:h2:./state/<connectorName>. This test must keep using the bare state/ directory, or it no longer tests that
+  // default. In turn, no other test may write to state/: this one asserts the directory is absent beforehand, so a
+  // test in a parallel fork that touched it would make this one flaky. Other tests set state.connectionString instead.
   @Test
   public void testEmbeddedCreationEmptyConfig() throws Exception {
     File stateDirectory = new File("state");
