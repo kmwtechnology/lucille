@@ -2,26 +2,27 @@
 <Configuration>
     <!-- Surefire runs test classes in parallel forks that share this working directory. Each fork writes its own
          log files, and console lines are prefixed with the fork number, taken from the surefire.forkNumber system
-         property (1..forkCount). Outside surefire, e.g. in an IDE, it falls back to 0. -->
+         property (1..forkCount). Outside surefire, e.g. in an IDE, it falls back to 0. createOnDemand keeps a fork
+         from creating files it never writes to. -->
     <Appenders>
         <Console name="console" target="SYSTEM_OUT">
             <PatternLayout pattern="[fork ${sys:surefire.forkNumber:-0}] %d{yy/MM/dd HH:mm:ss} %X{run_id} %X{id} %p %c{1}: %m%n" />
         </Console>
-        <RollingFile name="file" fileName="./log/com.kmwllc.lucille-${sys:surefire.forkNumber:-0}.log" filePattern="./log/com.kmwllc.lucille-${sys:surefire.forkNumber:-0}-%i.log">
+        <RollingFile name="file" createOnDemand="true" fileName="./log/com.kmwllc.lucille-${sys:surefire.forkNumber:-0}.log" filePattern="./log/com.kmwllc.lucille-${sys:surefire.forkNumber:-0}-%i.log">
             <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %X{run_id} %X{id} %p %c{1}: %m%n" />
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 MB" />
             </Policies>
             <DefaultRolloverStrategy max="20" />
         </RollingFile>
-        <RollingFile name="heartbeat" fileName="./log/heartbeat-${sys:surefire.forkNumber:-0}.log" filePattern="./log/heartbeat-${sys:surefire.forkNumber:-0}-%i.log" immediateFlush="true">
+        <RollingFile name="heartbeat" createOnDemand="true" fileName="./log/heartbeat-${sys:surefire.forkNumber:-0}.log" filePattern="./log/heartbeat-${sys:surefire.forkNumber:-0}-%i.log" immediateFlush="true">
             <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %X{run_id} %X{id} %p %c{1}: %m%n" />
             <Policies>
                 <SizeBasedTriggeringPolicy size="5 KB" />
             </Policies>
             <DefaultRolloverStrategy max="4" />
         </RollingFile>
-        <RollingFile name="file-json" fileName="./log/com.kmwllc.lucille-json-${sys:surefire.forkNumber:-0}.log" filePattern="./log/com.kmwllc.lucille-json-${sys:surefire.forkNumber:-0}-%i.log">
+        <RollingFile name="file-json" createOnDemand="true" fileName="./log/com.kmwllc.lucille-json-${sys:surefire.forkNumber:-0}.log" filePattern="./log/com.kmwllc.lucille-json-${sys:surefire.forkNumber:-0}-%i.log">
             <JsonTemplateLayout eventTemplateUri="classpath:EcsLayout.json"/>
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 KB" />
