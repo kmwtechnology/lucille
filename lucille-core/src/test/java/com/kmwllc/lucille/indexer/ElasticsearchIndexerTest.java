@@ -19,6 +19,7 @@ import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.elasticsearch.core.bulk.UpdateOperation;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
@@ -155,7 +156,7 @@ public class ElasticsearchIndexerTest {
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
 
-    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
 
     // parent should still be indexed as appropriate (parent_field: parentValue)
     assertEquals("parentValue", indexed.get("parent_field"));
@@ -192,7 +193,7 @@ public class ElasticsearchIndexerTest {
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
 
-    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
     List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
 
     assertEquals(1, children.size());
@@ -223,7 +224,7 @@ public class ElasticsearchIndexerTest {
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
 
-    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
     List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
 
     assertEquals(1, children.size());
@@ -611,7 +612,7 @@ public class ElasticsearchIndexerTest {
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
 
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), indexRequest.id());
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -644,7 +645,7 @@ public class ElasticsearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -677,7 +678,7 @@ public class ElasticsearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -716,7 +717,7 @@ public class ElasticsearchIndexerTest {
     // note that id has also been deleted from the document, but the id is still passed to the ElasticSearch Index
     // to id documents.
     assertEquals("routing1", indexRequest.routing());
-    assertEquals(Map.of("field1", "value1"), indexRequest.document());
+    assertEquals(Map.of("field1", "value1"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -769,7 +770,7 @@ public class ElasticsearchIndexerTest {
     assertEquals("doc1", indexRequest.id());
     assertEquals(Long.valueOf(100), indexRequest.version());
     assertEquals(VersionType.ExternalGte, indexRequest.versionType());
-    assertEquals(Map.of("id", "doc1", "field1", "value1"), indexRequest.document());
+    assertEquals(Map.of("id", "doc1", "field1", "value1"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -817,7 +818,7 @@ public class ElasticsearchIndexerTest {
 
     // add doc id to expected
     expected.put("id", doc.getId());
-    assertEquals(expected, indexRequest.document());
+    assertEquals(expected, asSent(indexRequest.document()));
   }
 
   @Test
@@ -924,7 +925,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that ignoreField1, ignoreField2, and id has been removed
-    assertEquals(Map.of("normalField", "normalValue"), indexRequest.document());
+    assertEquals(Map.of("normalField", "normalValue"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -950,7 +951,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that normalField and id have been removed
-    assertEquals(Map.of("includeField1", "value1", "includeField2", "value2"), indexRequest.document());
+    assertEquals(Map.of("includeField1", "value1", "includeField2", "value2"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -976,7 +977,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that ignoreField1, normalField, and id have been removed
-    assertEquals(Map.of("includeField2", "value2"), indexRequest.document());
+    assertEquals(Map.of("includeField2", "value2"), asSent(indexRequest.document()));
   }
 
   /**
@@ -1008,7 +1009,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id and other_id has been removed
-    assertEquals(Map.of("normalField", "normalValue"), indexRequest.document());
+    assertEquals(Map.of("normalField", "normalValue"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -1033,7 +1034,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id and other_id have been removed
-    assertEquals(Map.of("normalField", "normalValue"), indexRequest.document());
+    assertEquals(Map.of("normalField", "normalValue"), asSent(indexRequest.document()));
   }
 
   /**
@@ -1063,7 +1064,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id has been removed and that other_id field remains
-    assertEquals(Map.of("other_id", "otherId", "normalField", "normalValue"), indexRequest.document());
+    assertEquals(Map.of("other_id", "otherId", "normalField", "normalValue"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -1088,7 +1089,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id and normalField have been removed and that other_id field remains
-    assertEquals(Map.of("other_id", "otherId"), indexRequest.document());
+    assertEquals(Map.of("other_id", "otherId"), asSent(indexRequest.document()));
   }
 
   /**
@@ -1117,7 +1118,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id has been overwritten and that other_id field remains
-    assertEquals(Map.of("id", "otherId", "other_id", "otherId"), indexRequest.document());
+    assertEquals(Map.of("id", "otherId", "other_id", "otherId"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -1373,5 +1374,13 @@ public class ElasticsearchIndexerTest {
     public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
+  }
+
+  /**
+   * Converts the document handed to the client into plain Java values. The indexer may pass the document's own
+   * JsonNodes as map values, which the client serializes the same way as the converted values.
+   */
+  private static Map<String, Object> asSent(Object document) {
+    return new ObjectMapper().convertValue(document, new TypeReference<Map<String, Object>>() {});
   }
 }

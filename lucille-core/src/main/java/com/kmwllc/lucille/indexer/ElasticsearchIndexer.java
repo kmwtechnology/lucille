@@ -321,10 +321,7 @@ public class ElasticsearchIndexer extends Indexer {
       joinData.populateJoinData(doc);
 
       // removing fields in the blacklist or not in the whitelist in configurations
-      Map<String, Object> indexerDoc = getIndexerDoc(doc);
-
-      // remove children documents field from indexer doc (processed from doc by addChildren method call below)
-      indexerDoc.remove(Document.CHILDREN_FIELD);
+      Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
@@ -458,11 +455,8 @@ public class ElasticsearchIndexer extends Indexer {
     List<Document> children = doc.getChildren();
 
     for (Document child : children) {
-      // calling getIndexerDoc allows us to apply black/whitelist
-      Map<String, Object> childDocMap = getIndexerDoc(child);
-      // we don't support children that contain nested children
-      childDocMap.remove(Document.CHILDREN_FIELD);
-      childDocMaps.add(childDocMap);
+      // calling getRawIndexerDoc applies black/whitelist and drops nested children, which we don't support
+      childDocMaps.add(getRawIndexerDoc(child));
     }
     indexerDoc.put(childDocumentsField, childDocMaps);
   }

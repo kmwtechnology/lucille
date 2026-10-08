@@ -47,6 +47,7 @@ import org.opensearch.client.opensearch.core.bulk.UpdateOperation;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.endpoints.BooleanResponse;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
@@ -162,7 +163,7 @@ public class OpenSearchIndexerTest {
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
 
-    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
 
     // parent should still be indexed as appropriate (parent_field: parentValue)
     assertEquals("parentValue", indexed.get("parent_field"));
@@ -199,7 +200,7 @@ public class OpenSearchIndexerTest {
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
 
-    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
     List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
 
     assertEquals(1, children.size());
@@ -230,7 +231,7 @@ public class OpenSearchIndexerTest {
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
 
-    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
     List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
 
     assertEquals(1, children.size());
@@ -729,7 +730,7 @@ public class OpenSearchIndexerTest {
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
 
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), indexRequest.id());
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -762,7 +763,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -795,7 +796,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -827,7 +828,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals("doc1", indexRequest.id());
 
@@ -883,7 +884,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals("doc1", indexRequest.id());
     assertEquals(Long.valueOf(12345L), indexRequest.version());
@@ -945,7 +946,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     Long expectedVersion = Long.valueOf(100);
     assertEquals("doc1", indexRequest.id());
@@ -1062,7 +1063,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that ignoreField1, ignoreField2 and id has been removed
     assertEquals(Map.of("normalField", "normalValue"), map);
@@ -1091,7 +1092,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that normalField and id have been removed
     assertFalse(map.containsKey("normalField"));
@@ -1122,7 +1123,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that ignoreField1, normalField, and id have been removed
     assertFalse(map.containsKey("ignoreField1"));
@@ -1161,7 +1162,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id and other_id has been removed
     assertEquals(Map.of("normalField", "normalValue"), map);
@@ -1189,7 +1190,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id and other_id has been removed
     assertEquals(Map.of("whitelistField", "whitelistValue"), map);
@@ -1222,7 +1223,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id has been removed and that other_id field remains
     assertEquals(Map.of("other_id", "otherId", "normalField", "normalValue"), map);
@@ -1250,7 +1251,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id has been removed and that other_id field remains
     assertEquals(Map.of("other_id", "otherId"), map);
@@ -1281,7 +1282,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id has been overwritten and other_id remains
     assertEquals(Map.of("id", "otherId", "other_id", "otherId"), map);
@@ -1821,5 +1822,12 @@ public class OpenSearchIndexerTest {
           503, "Simulated 503 Service Unavailable", new IOException("backend unavailable"));
     }
   }
-}
 
+  /**
+   * Converts the document handed to the client into plain Java values. The indexer may pass the document's own
+   * JsonNodes as map values, which the client serializes the same way as the converted values.
+   */
+  private static Map<String, Object> asSent(Object document) {
+    return new ObjectMapper().convertValue(document, new TypeReference<Map<String, Object>>() {});
+  }
+}
