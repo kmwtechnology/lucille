@@ -44,12 +44,10 @@ public class IndexerDocTest {
   }
 
   @Test
-  public void testConvertedDocKeepsChildrenUnlessFiltered() throws Exception {
-    Map<String, Object> map = indexer("").getConvertedIndexerDoc(parentWithChild());
-    assertTrue(map.get(Document.CHILDREN_FIELD) instanceof List);
-
-    map = indexer("blacklist: [\"" + Document.CHILDREN_FIELD + "\"]").getConvertedIndexerDoc(parentWithChild());
-    assertFalse(map.containsKey(Document.CHILDREN_FIELD));
+  public void testConvertedDocAlwaysOmitsChildren() throws Exception {
+    assertFalse(indexer("").getConvertedIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
+    assertFalse(indexer("whitelist: [\"id\", \"" + Document.CHILDREN_FIELD + "\"]")
+        .getConvertedIndexerDoc(parentWithChild()).containsKey(Document.CHILDREN_FIELD));
   }
 
   @Test
@@ -112,7 +110,7 @@ public class IndexerDocTest {
   }
 
   @Test
-  public void testRawDocForNonJsonDocumentIsConvertedDocWithoutChildren() throws Exception {
+  public void testRawDocForNonJsonDocumentIsConvertedDoc() throws Exception {
     Document doc = new HashMapDocument("doc1");
     doc.setField("str", "s");
     doc.setField("int", 1);
@@ -123,8 +121,9 @@ public class IndexerDocTest {
     Indexer indexer = indexer("blacklist: [\"int\"]");
 
     Map<String, Object> expected = indexer.getConvertedIndexerDoc(doc);
-    expected.remove(Document.CHILDREN_FIELD);
     Map<String, Object> raw = indexer.getRawIndexerDoc(doc);
+
+    assertFalse(raw.containsKey(Document.CHILDREN_FIELD));
 
     assertEquals(expected.keySet(), raw.keySet());
     for (String field : expected.keySet()) {

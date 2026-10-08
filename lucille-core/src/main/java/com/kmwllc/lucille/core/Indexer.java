@@ -532,15 +532,17 @@ public abstract class Indexer implements Runnable {
   }
 
   /**
-   * Returns the document's fields, with the field filter applied, converted to plain Java values (Strings, numbers,
-   * booleans, Lists, Maps, byte arrays) by {@link Document#asMap()}. The whole document is converted, including
-   * {@link Document#CHILDREN_FIELD}, so the map is a full copy that callers may modify freely.
+   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD},
+   * converted to plain Java values (Strings, numbers, booleans, Lists, Maps, byte arrays) by {@link Document#asMap()}.
+   * The map is a full copy that callers may modify freely. Children are never included; an indexer that sends them
+   * reads them from {@link Document#getChildren()}.
    *
    * <p>Use this for a destination client that needs plain Java values, such as Solr's. For a client that serializes
    * the map to JSON with Jackson, {@link #getRawIndexerDoc} avoids the conversion.
    */
   protected final Map<String, Object> getConvertedIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
+    indexerDoc.remove(Document.CHILDREN_FIELD);
     if (fieldFilter.isActive()) {
       indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
@@ -553,19 +555,17 @@ public abstract class Indexer implements Runnable {
    * Only the top-level map is new: its values are the document's own JsonNodes, not converted copies, so nothing is
    * converted that the client will serialize again anyway.
    *
-   * <p>The JSON written for the result is the same as for {@link #getConvertedIndexerDoc} without children. To keep it
+   * <p>The JSON written for the result is the same as for {@link #getConvertedIndexerDoc}. To keep it
    * so, a value that is or contains a null is converted as getConvertedIndexerDoc converts it, because a mapper may
    * leave out null map values (the OpenSearch and Elasticsearch clients' mappers do) but always writes the nulls inside
-   * a JsonNode. A Document that is not backed by JSON gets getConvertedIndexerDoc's result without children.
+   * a JsonNode. A Document that is not backed by JSON gets getConvertedIndexerDoc's result.
    *
    * <p>The map shares state with the Document. Callers may add, remove or replace entries but must not modify the
    * values, and the Document must not be modified until the map has been serialized.
    */
   protected Map<String, Object> getRawIndexerDoc(Document doc) {
     if (!(doc instanceof JsonDocument)) {
-      Map<String, Object> indexerDoc = getConvertedIndexerDoc(doc);
-      indexerDoc.remove(Document.CHILDREN_FIELD);
-      return indexerDoc;
+      return getConvertedIndexerDoc(doc);
     }
 
     ObjectNode data = ((JsonDocument) doc).data;

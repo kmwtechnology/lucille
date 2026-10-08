@@ -336,11 +336,6 @@ public class SolrIndexer extends Indexer {
     SolrInputDocument solrDoc = new SolrInputDocument();
 
     for (String key : map.keySet()) {
-
-      if (Document.CHILDREN_FIELD.equals(key)) {
-        continue;
-      }
-      
       if (idOverride != null && Document.ID_FIELD.equals(key)) {
         solrDoc.setField(Document.ID_FIELD, idOverride);
         continue;
@@ -375,11 +370,8 @@ public class SolrIndexer extends Indexer {
       Map<String, Object> map = getConvertedIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();
+      // getConvertedIndexerDoc omits CHILDREN_FIELD, so children nested inside a child are not sent
       for (String key : map.keySet()) {
-        // we don't support children that contain nested children
-        if (Document.CHILDREN_FIELD.equals(key)) {
-          continue;
-        }
         Object value = map.get(key);
         if (value instanceof Map) {
           throw new IndexerException(
