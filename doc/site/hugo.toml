@@ -212,3 +212,21 @@ enable = false
   [[module.imports]]
     path = "github.com/google/docsy/dependencies"
     disable = false
+
+# Pin Mermaid to a v10 release. In v11 the layout engine governs edge shape and the
+# classic `flowchart.curve` setting no longer bends edges (mermaid-js/mermaid#6193),
+# so edges render as sharp right angles. v10 honors curve: basis (smooth splines, as
+# GitHub/IntelliJ render).
+#
+# Reconsider this pin when either of these happens:
+#   1. A later v10 patch is released - bump the pinned version to pick up fixes
+#      while staying on the v10 line that honors `flowchart.curve`.
+#   2. A v11+ release starts honoring `flowchart.curve` again (watch
+#      mermaid-js/mermaid#6193) - at that point the pin can be removed entirely and
+#      Mermaid allowed to float to the latest, with curve: basis still set below.
+# Verify curved edges still render on the fan-out page after any change here.
+[params.mermaid]
+enable = true
+version = "10.9.3"
+[params.mermaid.flowchart]
+curve = "basis"

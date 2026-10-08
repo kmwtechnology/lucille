@@ -21,7 +21,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Collections;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
@@ -1820,6 +1823,120 @@ public class OpenSearchIndexerTest {
       throw new IndexerRetryableException(
           503, "Simulated 503 Service Unavailable", new IOException("backend unavailable"));
     }
+  }
+
+  // How long a concurrent-send test waits for the expected overlap before declaring a timeout.
+  private static final long CONCURRENCY_WAIT_SECONDS = 2;
+
+  /**
+   * Verifies concurrent bulk sends through the real OpenSearchIndexer.sendToIndex path (only the final client.bulk call
+   * is mocked). The stub makes each bulk call block until a second one is also inside the client, proving: two real
+   * bulks run concurrently, the limit maxConcurrentBatches is respected, the doc2 batch finishes sending before doc0,
+   * and yet batches still complete — events emitted, batchComplete called — in dispatch order.
+   */
+  @Test
+  public void testConcurrentBatches() throws Exception {
+    int maxConcurrentBatches = 2;
+    AtomicInteger inClient = new AtomicInteger();
+    AtomicInteger maxInClient = new AtomicInteger();
+    CountDownLatch overlapping = new CountDownLatch(2);
+    CountDownLatch doc2BatchSent = new CountDownLatch(1);
+    List<String> sendFinishOrder = Collections.synchronizedList(new ArrayList<>());
+    List<String> timeouts = Collections.synchronizedList(new ArrayList<>());
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenAnswer(invocation -> {
+      blockingSend(lowestDocId(invocation.getArgument(0)), inClient, maxInClient, overlapping, doc2BatchSent,
+          sendFinishOrder, timeouts);
+      return response;
+    });
+    List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
+    TestMessenger messenger = new TestMessenger() {
+      @Override
+      public void batchComplete(List<Document> batch) throws Exception {
+        completedBatches.add(batch.get(0).getId());
+        super.batchComplete(batch);
+      }
+    };
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
+        .withValue("indexer.maxConcurrentBatches", ConfigValueFactory.fromAnyRef(maxConcurrentBatches));
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    for (int i = 0; i < 6; i++) {
+      messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
+    }
+    long start = System.nanoTime();
+    indexer.run(6);
+    long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+    assertEquals("Sends timed out waiting for a concurrent send after " + elapsedMs + " ms", List.of(), timeouts);
+    assertTrue("Expected at least 2 sends in flight at once, saw " + maxInClient.get(), maxInClient.get() >= 2);
+    assertTrue("Saw " + maxInClient.get() + " sends in flight, above the limit of " + maxConcurrentBatches,
+        maxInClient.get() <= maxConcurrentBatches);
+    // The doc2 batch really did finish sending before the doc0 batch.
+    assertEquals(List.of("doc2", "doc0"), sendFinishOrder.subList(0, 2));
+    assertEquals(3, sendFinishOrder.size());
+    // Despite out-of-order send finishes, completion events are emitted in dispatch (document) order.
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(6, events.size());
+    for (int i = 0; i < 6; i++) {
+      assertEquals("doc" + i, events.get(i).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i).getType());
+    }
+    // batchComplete also runs in dispatch order (doc0's batch, then doc2's, then doc4's).
+    assertEquals(List.of("doc0", "doc2", "doc4"), completedBatches);
+  }
+
+  // Body of a stubbed client.bulk call for testConcurrentBatches, identifying the batch by its lowest doc id. Blocks
+  // until a second send is also inside the client (proving overlap), and makes the doc0 batch wait for the doc2 batch
+  // to finish first (proving out-of-order send completion).
+  private static void blockingSend(String batch, AtomicInteger inClient, AtomicInteger maxInClient,
+      CountDownLatch overlapping, CountDownLatch doc2BatchSent, List<String> sendFinishOrder, List<String> timeouts)
+      throws InterruptedException {
+    maxInClient.accumulateAndGet(inClient.incrementAndGet(), Math::max);
+    overlapping.countDown();
+    if (!overlapping.await(CONCURRENCY_WAIT_SECONDS, TimeUnit.SECONDS)) {
+      timeouts.add(batch + " batch: no other send entered the client");
+    }
+    if ("doc0".equals(batch) && !doc2BatchSent.await(CONCURRENCY_WAIT_SECONDS, TimeUnit.SECONDS)) {
+      timeouts.add("doc0 batch: doc2 batch never finished first");
+    }
+    sendFinishOrder.add(batch);
+    inClient.decrementAndGet();
+    if ("doc2".equals(batch)) {
+      doc2BatchSent.countDown();
+    }
+  }
+
+  // The lowest document id among a bulk request's operations, used to name the batch in testConcurrentBatches.
+  private static String lowestDocId(BulkRequest request) {
+    return request.operations().stream().map(op -> op.index().id()).sorted().findFirst().orElseThrow();
+  }
+
+  /**
+   * With maxConcurrentBatches unset, every send runs on the indexer thread itself and never overlaps another.
+   */
+  @Test
+  public void testSerialBatchesByDefault() throws Exception {
+    AtomicInteger inClient = new AtomicInteger();
+    AtomicInteger maxInClient = new AtomicInteger();
+    java.util.Set<Thread> sendThreads = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenAnswer(invocation -> {
+      sendThreads.add(Thread.currentThread());
+      maxInClient.accumulateAndGet(inClient.incrementAndGet(), Math::max);
+      Thread.sleep(20);
+      inClient.decrementAndGet();
+      return response;
+    });
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    for (int i = 0; i < 6; i++) {
+      messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
+    }
+    indexer.run(6);
+    assertEquals("every send runs on the indexer thread, so none overlaps", 1, maxInClient.get());
+    assertEquals(java.util.Set.of(Thread.currentThread()), sendThreads);
   }
 }
 

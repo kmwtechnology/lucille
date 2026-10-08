@@ -10,12 +10,14 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class KafkaIndexerMessenger implements IndexerMessenger {
@@ -25,13 +27,23 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
+
+  // Tracks destination-topic offsets and commits them on batch completion (at-least-once). See OffsetCommitTracker.
+  private final OffsetCommitTracker offsetCommitTracker;
+
   private final Duration pollInterval;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
+    this(config, pipelineName, KafkaUtils.createDocumentConsumer(config, "com.kmwllc.lucille-indexer-" + pipelineName));
+  }
+
+  // For tests: allows a MockConsumer (or other test double) to be supplied in place of the real Kafka consumer.
+  KafkaIndexerMessenger(Config config, String pipelineName, Consumer<String, KafkaDocument> destConsumer) {
     this.pipelineName = pipelineName;
-    String kafkaClientId = "com.kmwllc.lucille-indexer-" + pipelineName;
-    this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
-    this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
+    this.destConsumer = destConsumer;
+    this.offsetCommitTracker = new OffsetCommitTracker(destConsumer);
+    this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)),
+        offsetCommitTracker.rebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
@@ -42,18 +54,62 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    */
   @Override
   public Document pollDocToIndex() throws Exception {
+    // Undo any pause applied by keepAlive() so this poll can deliver records again. paused() reports only partitions
+    // still assigned, so partitions revoked since the pause are simply dropped from the set.
+    Set<TopicPartition> paused = destConsumer.paused();
+    if (!paused.isEmpty()) {
+      destConsumer.resume(paused);
+    }
+
     ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(pollInterval);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
-      // offsets are committed synchronously to ensure that offsets are successfully committed and to reduce the likelihood of duplicate events being sent to the event topic.
-      // This reduces the number of documents that might be reindexed in the event of an indexer crash/restart or in the case of a consumer group reblance.
-      destConsumer.commitSync();
+      // Offsets are not committed here. Committing at poll, before the document is indexed, is at-most-once: a crash
+      // after the commit but before indexing would skip the document entirely. Instead the offset is committed in
+      // batchComplete, once the document has been indexed and its events emitted (at-least-once).
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
+      // Record the polled offset under the partition's current assignment generation, and stamp that generation on the
+      // document, so when the batch later completes we can tell whether the partition has since been revoked and
+      // reassigned (making the completion stale) rather than relying on an offset watermark that a re-poll would defeat.
+      long generation = offsetCommitTracker.recordPolled(
+          new TopicPartition(record.topic(), record.partition()), record.offset());
+      doc.setDeliveryGeneration(generation);
       return doc;
     }
     return null;
+  }
+
+  // Commits offsets on batch completion (not at poll), so it is safe for concurrent batches.
+  @Override
+  public boolean commitsOnBatchCompletion() {
+    return true;
+  }
+
+  // The destination-topic partitions currently assigned to this consumer. Package-private for tests that drive real
+  // rebalances and need to observe when the assignment has settled.
+  Set<TopicPartition> assignment() {
+    return destConsumer.assignment();
+  }
+
+  /**
+   * Polls the consumer so it stays in its consumer group during a long wait, without delivering any records or moving
+   * the position {@link #pollDocToIndex()} continues from. All currently assigned partitions are paused first, so the
+   * poll returns nothing from them; {@link #pollDocToIndex()} resumes them on its next call. A partition newly assigned
+   * during this poll is not yet paused and may return a record, so the consumer seeks back to the first record returned
+   * for each such partition, leaving it to be delivered by a later {@link #pollDocToIndex()}.
+   */
+  @Override
+  public void keepAlive() throws Exception {
+    destConsumer.pause(destConsumer.assignment());
+    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(Duration.ZERO);
+    for (TopicPartition partition : consumerRecords.partitions()) {
+      List<ConsumerRecord<String, KafkaDocument>> records = consumerRecords.records(partition);
+      if (!records.isEmpty()) {
+        destConsumer.seek(partition, records.get(0).offset());
+      }
+    }
   }
 
   @Override
@@ -111,11 +167,22 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
 
   @Override
   public void close() throws Exception {
+    // Commit offsets of batches completed but not yet committed, so a clean shutdown does not force their re-delivery.
+    offsetCommitTracker.commitOnClose();
     destConsumer.close();
   }
 
+  /**
+   * Commits the destination-topic offsets of a completed batch, on batch completion rather than at poll (at-least-once
+   * delivery). The offset bookkeeping, including rebalance safety and failed-commit retry, lives in
+   * {@link OffsetCommitTracker}.
+   */
   @Override
   public void batchComplete(List<Document> batch) throws Exception {
+    if (batch.isEmpty()) {
+      return;
+    }
+    offsetCommitTracker.batchCompleted(batch);
   }
 
 }

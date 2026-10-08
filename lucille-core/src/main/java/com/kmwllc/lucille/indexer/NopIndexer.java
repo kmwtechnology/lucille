@@ -33,6 +33,13 @@ public class NopIndexer extends Indexer {
   @Override
   protected String getIndexerConfigKey() { return null; }
 
+  // NopIndexer does nothing on send and holds no client, so concurrent sends are trivially safe (used in tests and
+  // benchmarks of the concurrency machinery itself).
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
+
   @Override
   public boolean validateConnection() {
     return true;

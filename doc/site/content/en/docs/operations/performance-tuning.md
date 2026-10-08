@@ -312,6 +312,12 @@ indexer {
 
 A higher timeout allows more documents to accumulate (better throughput) but increases the time between a document being processed and appearing in the index.
 
+### Concurrent Bulk Sends
+
+Batch size amortizes per-request overhead but does not overlap the time the indexer spends waiting for the destination to respond — the indexer still sends one bulk request at a time. When the Indexer is the bottleneck and the search backend has spare capacity, `indexer.maxConcurrentBatches` lets a single indexer keep several bulk requests in flight at once. This is often the highest-leverage indexing optimization once batch size is tuned, and in some cases (a single-partition topic, or a delete-by-query workload) it is the only way to add send parallelism at all.
+
+See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}) for a full treatment: choosing `maxConcurrentBatches`, its ordering and delivery guarantees, how it compares to adding more consumers, the delete-by-query/single-partition case, and hybrid/distributed fan-out.
+
 ### Recommended Starting Points
 
 | Scenario | batchSize | batchTimeout |

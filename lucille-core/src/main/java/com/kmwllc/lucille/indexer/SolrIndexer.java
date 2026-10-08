@@ -85,6 +85,13 @@ public class SolrIndexer extends Indexer {
   @Override
   protected String getIndexerConfigKey() { return "solr"; }
 
+  // SolrJ's Http2SolrClient and CloudHttp2SolrClient are thread-safe and intended to be shared, so concurrent sends
+  // through the single shared client are safe.
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
+
   private static SolrClient getSolrClient(Config config, boolean bypass) {
     return bypass ? null : SolrUtils.getSolrClient(config);
   }
@@ -181,19 +188,12 @@ public class SolrIndexer extends Indexer {
         // immediately so the add/update
         // of the document is processed before this delete.
 
-        if (solrDocRequests.containsIdForAddUpdate(solrId)
-            || (deleteByFieldField != null
-            && doc.has(deleteByFieldField)
-            && deleteByFieldValue != null
-            && doc.has(deleteByFieldValue))) {
+        if (solrDocRequests.containsIdForAddUpdate(solrId) || hasDeleteByFieldValues(doc)) {
           sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
           solrDocRequests.resetAddUpdates();
         }
 
-        if (deleteByFieldField != null
-            && doc.has(deleteByFieldField)
-            && deleteByFieldValue != null
-            && doc.has(deleteByFieldValue)) {
+        if (hasDeleteByFieldValues(doc)) {
           solrDocRequests.addDeleteByFieldValue(
               doc.getString(deleteByFieldField), doc.getString(deleteByFieldValue));
         } else {

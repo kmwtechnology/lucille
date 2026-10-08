@@ -62,6 +62,7 @@ public class OpenSearchIndexer extends Indexer {
       .requiredString("index")
       .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalString("childDocumentsField").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
@@ -109,6 +110,13 @@ public class OpenSearchIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "opensearch"; }
+
+  // The OpenSearch Java client is thread-safe over a shared connection pool, so concurrent sends through the single
+  // shared client are safe. The pool is sized for the configured concurrency by AsyncConnectionPoolUtils.
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
 
   private static OpenSearchClient getClient(Config config, boolean bypass) throws IndexerException {
     try {
@@ -177,7 +185,7 @@ public class OpenSearchIndexer extends Indexer {
         documentsToUpload.put(indexAndId, doc);
       } else {
         documentsToUpload.remove(indexAndId);
-        if (!isMarkedForDeletionByField(doc)) {
+        if (!hasDeleteByFieldValues(doc)) {
           idsToDelete.add(indexAndId);
         } else {
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
@@ -453,13 +461,6 @@ public class OpenSearchIndexer extends Indexer {
         && deletionMarkerFieldValue != null
         && doc.hasNonNull(deletionMarkerField)
         && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
-  }
-
-  private boolean isMarkedForDeletionByField(Document doc) {
-    return deleteByFieldField != null
-        && doc.has(deleteByFieldField)
-        && deleteByFieldValue != null
-        && doc.has(deleteByFieldValue);
   }
 
   private Long getVersionNum(Document doc) {

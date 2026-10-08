@@ -66,4 +66,13 @@ public class MultiBatch implements Batch {
   public int getCapacity() {
     return capacity;
   }
+
+  @Override
+  public void delayExpirationBy(long millis) {
+    // Delay the deadline of every per-index sub-batch, so a rarely-touched index's batch is not expired by time the
+    // indexer spent sending other indexes' batches.
+    for (Batch batch : batches.values()) {
+      batch.delayExpirationBy(millis);
+    }
+  }
 }

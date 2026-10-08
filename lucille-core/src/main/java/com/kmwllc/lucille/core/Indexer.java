@@ -20,13 +20,13 @@ import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,9 +98,12 @@ import sun.misc.Signal;
  *   An empty list is rejected as invalid configuration. Only allowed when maxRetries is also set.</li>
  *   <li>indexer.versionType (String, Optional) : The type of versioning to use for indexing documents. Specific indexer implementations may support different version types. The default version type is implementation-specific.</li>
  *   <li>indexer.versionField (String, Optional) : The field name to use for versioning. This field must be present in the document and must be of a type that supports versioning with that specific indexer implementation (e.g., numeric, string).</li>
+ *   <li>indexer.maxConcurrentBatches (Integer, Optional) : Maximum number of batches that may be in flight to the destination
+ *   at once. Defaults to {@value #DEFAULT_MAX_CONCURRENT_BATCHES}, which sends each batch synchronously on the indexer thread.
+ *   Values greater than 1 are only accepted by implementations whose {@link #supportsConcurrentSends()} returns true.</li>
  * </ul>
  */
-public abstract class Indexer implements Runnable {
+public abstract class Indexer implements Runnable, BatchProcessor {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
   public static final int NO_BATCH_SIZE = Integer.MAX_VALUE;
@@ -110,6 +113,7 @@ public abstract class Indexer implements Runnable {
   public static final long DEFAULT_RETRY_MAX_WAIT_DURATION_MS = 30000;
   public static final double DEFAULT_RETRY_RANDOMIZATION_FACTOR = 0.5;
   public static final List<Integer> DEFAULT_RETRYABLE_STATUS_CODES = List.of(429, 503, IndexerRetryableException.UNKNOWN_STATUS_CODE);
+  public static final int DEFAULT_MAX_CONCURRENT_BATCHES = 1;
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
@@ -122,7 +126,6 @@ public abstract class Indexer implements Runnable {
 
   private final int logSeconds;
 
-  private final StopWatch stopWatch;
   private final Meter meter;
   private final Histogram histogram;
 
@@ -147,6 +150,12 @@ public abstract class Indexer implements Runnable {
   private final Retry retry;
   // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
   private final List<Integer> retryableStatusCodes;
+
+  // The maximum number of batches that may be in flight at once. 1 (the default) means synchronous sends.
+  private final int maxConcurrentBatches;
+
+  // Sends batches to the destination and accounts for them. See BatchDispatcher.
+  private final BatchDispatcher dispatcher;
 
   public void terminate() {
     running = false;
@@ -225,7 +234,6 @@ public abstract class Indexer implements Runnable {
 
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
-    this.stopWatch = new StopWatch();
     this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
     this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
     this.localRunId = localRunId;
@@ -292,8 +300,81 @@ public abstract class Indexer implements Runnable {
       });
     }
 
+    this.maxConcurrentBatches = getMaxConcurrentBatches(config);
+    if (maxConcurrentBatches < 1) {
+      throw new IllegalArgumentException("indexer.maxConcurrentBatches must be at least 1.");
+    }
+    if (maxConcurrentBatches > 1 && !supportsConcurrentSends()) {
+      throw new IllegalArgumentException(getClass().getName() + " does not support concurrent sends; "
+          + "indexer.maxConcurrentBatches must be 1 or unset.");
+    }
+    if (maxConcurrentBatches > 1 && messenger != null && !messenger.commitsOnBatchCompletion()) {
+      throw new IllegalArgumentException(messenger.getClass().getName() + " does not support concurrent batches "
+          + "(it must commit its input on batch completion, not at poll); indexer.maxConcurrentBatches must be 1 or unset.");
+    }
+
     // Validate the "indexer" entry and the specific implementation entry (using the spec) in the Config, if present.
     validateIndexerConfigs(config);
+
+    // This Indexer is the dispatcher's BatchProcessor: it supplies the two steps the dispatcher schedules,
+    // sendWithRetry (may run on a pool) and completeBatch (indexer thread, in dispatch order).
+    this.dispatcher = maxConcurrentBatches == 1
+        ? new SynchronousDispatcher(this)
+        : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this,
+            this::destinationIds, this::isDeleteByQuery, this::keepAliveMessenger);
+  }
+
+  // Calls messenger.keepAlive() for the ConcurrentDispatcher while it waits on in-flight batches. Never throws: a
+  // keepAlive failure is logged and the wait continues. The messenger may be null (the constructor allows a null
+  // messenger even with K > 1), in which case there is nothing to keep alive.
+  private void keepAliveMessenger() {
+    if (messenger == null) {
+      return;
+    }
+    try {
+      messenger.keepAlive();
+    } catch (Exception e) {
+      log.warn("Error in messenger keepAlive while waiting for an in-flight batch.", e);
+    }
+  }
+
+  // For tests: whether the concurrent send pool (if any) has fully terminated. True when sending synchronously, as
+  // there is no pool to terminate.
+  boolean sendPoolTerminated() {
+    return !(dispatcher instanceof ConcurrentDispatcher concurrent) || concurrent.sendPoolTerminated();
+  }
+
+  /**
+   * Returns the configured indexer.maxConcurrentBatches, or {@value #DEFAULT_MAX_CONCURRENT_BATCHES} when it is not set.
+   */
+  public static int getMaxConcurrentBatches(Config config) {
+    // getInt, unlike ConfigUtils.getOrDefault, converts a string value such as an environment substitution.
+    return config.hasPath("indexer.maxConcurrentBatches")
+        ? config.getInt("indexer.maxConcurrentBatches") : DEFAULT_MAX_CONCURRENT_BATCHES;
+  }
+
+  /**
+   * Whether this Indexer's {@link #sendToIndex(List)} may be called from several threads at once. Implementations that
+   * return true accept indexer.maxConcurrentBatches greater than 1 and so may have several sends in flight.
+   *
+   * <p> This is the premise the whole concurrent-send feature rests on. An implementation holds a single destination
+   * client (created once in its constructor) and reuses it for every send; when sends run concurrently, that one client
+   * is called from several threads at once. Returning true therefore asserts that the destination client is safe for
+   * concurrent use. The Solr, OpenSearch, and Elasticsearch Java clients are documented as thread-safe; clients that are
+   * not (or whose thread-safety is unknown) must leave this false. A thread-safe client must also allow enough
+   * concurrent connections to carry the configured concurrency — see {@link com.kmwllc.lucille.util.AsyncConnectionPoolUtils}.
+   *
+   * <p> This is a distinct check from the messenger's {@code commitsOnBatchCompletion()}: this one is about the
+   * destination <i>client</i>'s thread-safety, that one is about the messenger's <i>commit discipline</i>. Both must
+   * hold for indexer.maxConcurrentBatches greater than 1 to be enabled.
+   *
+   * <p> Called from the Indexer constructor, so it must not depend on subclass state.
+   *
+   * @return true if this Indexer's sendToIndex (and its destination client) is safe to call concurrently; false (the
+   *     default) otherwise.
+   */
+  protected boolean supportsConcurrentSends() {
+    return false;
   }
 
   /**
@@ -331,6 +412,7 @@ public abstract class Indexer implements Runnable {
   public abstract void closeConnection();
 
   private void close() {
+    dispatcher.close();
     if (messenger != null) {
       try {
         messenger.close();
@@ -354,6 +436,7 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
+      dispatcher.drain();
     } finally {
       MDC.popByKey(RUNID_FIELD);
       close();
@@ -371,6 +454,7 @@ public abstract class Indexer implements Runnable {
         checkForDoc();
       }
       sendToIndexWithAccounting(batch.flush()); // handle final batch
+      dispatcher.drain();
     } finally {
       close();
     }
@@ -411,25 +495,67 @@ public abstract class Indexer implements Runnable {
       lastLog = Instant.now();
     }
 
-    if (batchedDocs.isEmpty()) {
-      return;
+    // Both completeFinishedBatches() and dispatch() can block this thread (committing finished batches' offsets or a
+    // Hybrid-queue put; sending the batch synchronously, or waiting for a free concurrency slot). No document can be
+    // added to the batch during that time, so delay the batch's expiry by the whole blocked span — otherwise the next
+    // add would see an "expired" batch and flush a partly filled one, often as a single-document bulk. This holds even
+    // when there is no new batch to dispatch, since completeFinishedBatches() alone can block.
+    long blockedStartNanos = System.nanoTime();
+
+    // Account for any concurrent batches that have finished sending (a no-op for synchronous dispatch).
+    dispatcher.completeFinishedBatches();
+
+    if (!batchedDocs.isEmpty()) {
+      dispatcher.dispatch(batchedDocs);
     }
 
+    batch.delayExpirationBy((System.nanoTime() - blockedStartNanos) / 1_000_000);
+  }
+
+  /**
+   * Sends the batch to the destination, applying the retry policy. Never throws: any Throwable is captured in the
+   * returned {@link SendOutcome} so that {@link #completeBatch} can handle it.
+   */
+  @Override
+  public final SendOutcome sendWithRetry(List<Document> batchedDocs) {
+    long start = System.nanoTime();
     try {
-      stopWatch.reset();
-      stopWatch.start();
       // Note: the retry wraps the entire sendToIndex() call. If sendToIndex() partially succeeds
       // (e.g. some documents indexed before a subsequent delete-by-query fails), a retry will
       // re-execute the entire method. This is considered safe because search engine upserts are idempotent —
       // re-indexing an already-indexed document produces the same result.
       // When retries are configured, retryOnResult triggers a retry if any per-document failure has a
       // retryable status code. When retries are exhausted, the last result is returned directly —
-      // preserving per-document detail for the FAIL event path below.
+      // preserving per-document detail for the FAIL event path in completeBatch.
       Set<Pair<Document, Exception>> failedDocPairs = retry != null
           ? Retry.decorateCheckedSupplier(retry, () -> sendToIndex(batchedDocs)).get()
           : sendToIndex(batchedDocs);
-      stopWatch.stop();
-      histogram.update(stopWatch.getNanoTime() / batchedDocs.size());
+      return new SendOutcome(failedDocPairs, null, System.nanoTime() - start);
+    } catch (Throwable t) {
+      return new SendOutcome(null, t, System.nanoTime() - start);
+    }
+  }
+
+  /**
+   * Records metrics and sends FAIL / FINISH events for a sent batch, then marks it complete. Always runs on the indexer
+   * thread.
+   */
+  @Override
+  public final void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+    // An Error (OutOfMemoryError, etc.) means the send did not run to a defined conclusion — the batch's documents were
+    // not indexed. Two things must happen on that path, and they are deliberately split:
+    //  - FAIL events are still sent for every document, so the run's publisher stops tracking them and does not hang
+    //    waiting for completions that will never come. (This is the Exception path's behavior too.)
+    //  - batchComplete is NOT called, so a commit-on-completion messenger (Kafka/Hybrid) does not commit offsets for
+    //    documents that were never indexed; they stay uncommitted and are re-delivered on restart rather than lost.
+    //    (markComplete is set false below.)
+    boolean markComplete = true;
+    try {
+      if (outcome.error() != null) {
+        throw outcome.error();
+      }
+      Set<Pair<Document, Exception>> failedDocPairs = outcome.failedDocPairs();
+      histogram.update(outcome.elapsedNanos() / batchedDocs.size());
       meter.mark(batchedDocs.size());
 
       if (!failedDocPairs.isEmpty()) {
@@ -461,24 +587,29 @@ public abstract class Indexer implements Runnable {
         log.error("Error sending completion events for docs {}. RUN WILL HANG.", docIds, e);
       }
     } catch (Throwable t) {
-      // Rethrow Errors (OutOfMemoryError, etc.) — they should never be swallowed
+      // Either way, nothing (or essentially nothing) was indexed, so every document is treated as failed: send a FAIL
+      // event for each so the publisher stops tracking it and the run can terminate rather than hang.
+      String message = t.getMessage();
+      log.error("Error sending documents to index: {}", message, t);
+      for (Document d : batchedDocs) {
+        sendFailEvent(d, message);
+      }
+      // An Error (OutOfMemoryError, etc.) must never be swallowed, and must not mark the batch complete — the documents
+      // were not indexed, so committing their offsets would lose them. FAIL events were still sent just above, so the
+      // run does not hang; the uncommitted offsets let a Kafka/Hybrid messenger re-deliver the batch on restart.
       if (t instanceof Error) {
+        markComplete = false;
         throw (Error) t;
       }
-      Exception e = (t instanceof Exception) ? (Exception) t : new RuntimeException(t);
-      // If an Exception is thrown, there was some larger error causing nothing (or essentially nothing) to be indexed.
-      // So everything is considered to have failed - we won't even look at failedDocs.
-      log.error("Error sending documents to index: {}", e.getMessage(), e);
-
-      for (Document d : batchedDocs) {
-        sendFailEvent(d, e.getMessage());
-      }
     } finally {
-      // We always mark batches as completed, regardless of whether the whole batch failed, some docs failed, etc.
-      try {
-        messenger.batchComplete(batchedDocs);
-      } catch (Exception e) {
-        log.error("Error marking batch complete.", e);
+      // Mark the batch complete for a normal outcome or a (handled) Exception, where the batch ran to a defined
+      // conclusion and its documents are accounted for as succeeded or failed. Skip it only for an Error (see above).
+      if (markComplete) {
+        try {
+          messenger.batchComplete(batchedDocs);
+        } catch (Exception e) {
+          log.error("Error marking batch complete.", e);
+        }
       }
     }
   }
@@ -525,6 +656,58 @@ public abstract class Indexer implements Runnable {
       return doc.getString(indexOverrideField);
     }
     return null;
+  }
+
+  /**
+   * The ids a batch writes at the destination: for each document, the id it is written under (its idOverrideField value,
+   * or its document id) and, recursively, the ids of its children, which are written under their own document ids. The
+   * ConcurrentDispatcher uses this to keep two batches that would write the same id from being in flight together, so
+   * that writes and deletes of the same document are applied in order.
+   */
+  private Set<String> destinationIds(List<Document> batchedDocs) {
+    Set<String> ids = new HashSet<>();
+    for (Document doc : batchedDocs) {
+      String idOverride = getDocIdOverride(doc);
+      ids.add(idOverride != null ? idOverride : doc.getId());
+      addChildIds(doc, ids);
+    }
+    return ids;
+  }
+
+  private static void addChildIds(Document doc, Set<String> ids) {
+    if (!doc.hasChildren()) {
+      return;
+    }
+    for (Document child : doc.getChildren()) {
+      ids.add(child.getId());
+      addChildIds(child, ids);
+    }
+  }
+
+  /**
+   * Whether the document is a delete-by-query request, which can match documents in any batch and so forces its batch
+   * to be sent alone when maxConcurrentBatches is greater than 1. Mirrors the delete-by-query detection in the Solr,
+   * OpenSearch, and Elasticsearch indexers.
+   */
+  private boolean isDeleteByQuery(Document doc) {
+    return deletionMarkerField != null
+        && deletionMarkerFieldValue != null
+        && doc.hasNonNull(deletionMarkerField)
+        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue)
+        && hasDeleteByFieldValues(doc);
+  }
+
+  /**
+   * Whether the document carries the delete-by-query fields (the configured deleteByFieldField naming the field to
+   * query, and deleteByFieldValue naming the field holding the value). Shared by the Solr, OpenSearch, and Elasticsearch
+   * indexers, which call it on a document already known to be marked for deletion to decide between delete-by-query and
+   * delete-by-id. Returns false unless both fields are configured and present.
+   */
+  protected boolean hasDeleteByFieldValues(Document doc) {
+    return deleteByFieldField != null
+        && doc.has(deleteByFieldField)
+        && deleteByFieldValue != null
+        && doc.has(deleteByFieldValue);
   }
 
   protected Map<String, Object> getIndexerDoc(Document doc) {
@@ -579,7 +762,7 @@ public abstract class Indexer implements Runnable {
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
             "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
         .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
-            "retryMaxWaitDurationMs", "retryRandomizationFactor")
+            "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
         .optionalList("blacklist", new TypeReference<List<String>>(){})

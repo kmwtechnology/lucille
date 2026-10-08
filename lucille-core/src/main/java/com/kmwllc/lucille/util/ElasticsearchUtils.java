@@ -16,7 +16,6 @@ import javax.net.ssl.SSLContext;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
-import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.core5.http.HttpHost;
@@ -33,6 +32,7 @@ public class ElasticsearchUtils {
       .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalString("parentName")
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>(){}).build();
 
   public static ElasticsearchClient getElasticsearchOfficialClient(Config config) throws Exception {
@@ -65,9 +65,7 @@ public class ElasticsearchUtils {
     // org.elasticsearch.client.RestClient (HttpClient 4) is no longer bundled.
     CloseableHttpAsyncClient httpClient = HttpAsyncClients.custom()
         .setDefaultCredentialsProvider(credentialsProvider)
-        .setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
-            .setTlsStrategy(tlsStrategy)
-            .build())
+        .setConnectionManager(AsyncConnectionPoolUtils.buildConnectionManager(config, "elasticsearch", tlsStrategy))
         .build();
 
     boolean useCompression = config.hasPath("elasticsearch.useCompression") && config.getBoolean("elasticsearch.useCompression");

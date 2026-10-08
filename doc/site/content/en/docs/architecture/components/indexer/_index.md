@@ -15,6 +15,8 @@ Indexers do not send documents one at a time. They accumulate documents into bat
 
 A batch is flushed when either of two conditions is met: the batch reaches a configured size, or a timeout expires since the last flush. The timeout ensures documents are not left waiting indefinitely in low-volume scenarios.
 
+By default an Indexer keeps one bulk request in flight at a time. It can also send multiple batches concurrently — overlapping the time spent waiting on the destination — while preserving same-document ordering and completing batches in dispatch order. This is a significant aspect of how Lucille reaches high indexing throughput; the mechanism, its guarantees, and how to tune it are covered in [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
+
 ## Single Indexer Per Run
 
 Only one Indexer can be defined in a Lucille run. All pipelines feed to the same Indexer. This simplifies the system — there is one destination, one set of batching parameters, one connection to manage — and reflects the common reality that a search ingestion project writes to a single search backend.
@@ -40,3 +42,5 @@ Search engine bulk APIs can return mixed results: some documents accepted, other
 For how to configure indexers — generic parameters, field filtering, deletion mechanics, and backend-specific settings — see [Indexers]({{< relref "docs/ingest-design/indexers" >}}) in the Ingest Designer Guide.
 
 For how to build a custom Indexer, see [Developing Indexers]({{< relref "docs/developer-guide/developing-indexers" >}}).
+
+For raising indexing throughput — batch tuning, concurrent bulk sends (`indexer.maxConcurrentBatches`), scaling consumers vs. concurrent batches, and delivery semantics — see [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
