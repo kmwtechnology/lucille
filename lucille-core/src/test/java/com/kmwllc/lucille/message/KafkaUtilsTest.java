@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -197,5 +198,13 @@ public class KafkaUtilsTest {
     // "LIST" is the only invalid type for an arbitrary property... see comment in KafkaUtils
     Config listPropConfig = ConfigFactory.load("KafkaUtilsTest/list-arbitrary.conf");
     assertThrows(IllegalArgumentException.class, () -> KafkaUtils.createProducerProps(listPropConfig));
+  }
+
+  @Test
+  public void testGetPollInterval() {
+    assertEquals(Duration.ofMillis(2000), KafkaUtils.getPollInterval(ConfigFactory.empty()));
+    assertEquals(Duration.ofMillis(150), KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 150")));
+    assertThrows(IllegalArgumentException.class,
+        () -> KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 0")));
   }
 }

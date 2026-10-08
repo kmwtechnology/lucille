@@ -14,6 +14,7 @@ import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -28,6 +29,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
   private final Config config;
+  private final Duration pollInterval;
   private final String pipelineName;
   private final DeserializationErrorHandler deserializationErrorHandler;
 
@@ -36,6 +38,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       KafkaConsumer sourceConsumer) {
     this.config = config;
+    this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
@@ -71,7 +74,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   public KafkaDocument pollDocToProcess() throws Exception {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     try {
-      consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
+      consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
       // rethrows unless configured to skip. The skipped offset is committed along with the next document
       // indexed from this partition; until then, a restart redelivers (and skips) it again.

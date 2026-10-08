@@ -14,6 +14,7 @@ import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,6 +27,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final String pipelineName;
   private final Config config;
   private final DeserializationErrorHandler deserializationErrorHandler;
+  private final Duration pollInterval;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
     this.pipelineName = pipelineName;
@@ -36,6 +38,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.config = config;
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, destConsumer);
+    this.pollInterval = KafkaUtils.getPollInterval(config);
   }
 
   /**
@@ -45,7 +48,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   public Document pollDocToIndex() throws Exception {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     try {
-      consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+      consumerRecords = destConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
       // rethrows unless configured to skip; commit the position past the skipped record
       deserializationErrorHandler.handle(e);
