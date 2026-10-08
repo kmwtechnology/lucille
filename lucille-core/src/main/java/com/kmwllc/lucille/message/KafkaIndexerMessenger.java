@@ -13,6 +13,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -24,6 +25,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
+  private final Duration pollInterval;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
     this.pipelineName = pipelineName;
@@ -32,6 +34,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
+    this.pollInterval = KafkaUtils.getPollInterval(config);
   }
 
   /**
@@ -39,7 +42,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    */
   @Override
   public Document pollDocToIndex() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(pollInterval);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       // offsets are committed synchronously to ensure that offsets are successfully committed and to reduce the likelihood of duplicate events being sent to the event topic.
