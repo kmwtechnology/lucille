@@ -55,13 +55,13 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
       // rethrows unless configured to skip; the Worker commits the advanced position when we return null
-      deserializationErrorHandler.handle(e);
+      deserializationErrorHandler.handleOrRethrow(e);
       return null;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
-      deserializationErrorHandler.recordSuccess(record);
+      deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
       return doc;

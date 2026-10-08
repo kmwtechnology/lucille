@@ -70,17 +70,22 @@ class DeserializationErrorHandler {
   }
 
   /**
-   * Records that a record was successfully deserialized, resetting the consecutive-failure count for its partition.
+   * Called for each record that was polled and deserialized successfully; resets its partition's count of consecutive
+   * undeserializable records.
    */
-  void recordSuccess(ConsumerRecord<?, ?> record) {
+  void onSuccessfulPoll(ConsumerRecord<?, ?> record) {
     consecutiveFailures.remove(new TopicPartition(record.topic(), record.partition()));
   }
 
   /**
-   * Handles a poison record. Returns normally if the record was skipped and the consumer has been positioned
-   * after it; otherwise rethrows {@code e}.
+   * Handles a {@link RecordDeserializationException} from a poison record, either by skipping the record or by
+   * rethrowing the exception.
+   *
+   * <p>In skip mode, logs the record's location, positions the consumer after it and returns normally. Rethrows
+   * {@code e} in fail mode, and also in skip mode once the partition reaches
+   * {@code kafka.maxConsecutiveDeserializationErrors} consecutive undeserializable records.
    */
-  void handle(RecordDeserializationException e) throws RecordDeserializationException {
+  void handleOrRethrow(RecordDeserializationException e) throws RecordDeserializationException {
     TopicPartition tp = e.topicPartition();
     String location = "topic=" + tp.topic() + ", partition=" + tp.partition() + ", offset=" + e.offset()
         + ", key=" + bufferToString(e.keyBuffer());

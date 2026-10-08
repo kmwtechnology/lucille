@@ -51,7 +51,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       consumerRecords = destConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
       // rethrows unless configured to skip; commit the position past the skipped record
-      deserializationErrorHandler.handle(e);
+      deserializationErrorHandler.handleOrRethrow(e);
       destConsumer.commitSync();
       return null;
     }
@@ -61,7 +61,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       // This reduces the number of documents that might be reindexed in the event of an indexer crash/restart or in the case of a consumer group reblance.
       destConsumer.commitSync();
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
-      deserializationErrorHandler.recordSuccess(record);
+      deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
       return doc;
