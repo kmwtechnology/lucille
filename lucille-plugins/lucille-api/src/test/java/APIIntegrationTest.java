@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import java.util.Base64;
 import java.util.Map;
+import org.glassfish.jersey.client.ClientProperties;
 import org.junit.ClassRule;
 import org.junit.Test;
 
@@ -23,7 +24,7 @@ public class APIIntegrationTest {
   public static final DropwizardAppRule<LucilleAPIConfiguration> RULE = new DropwizardAppRule<>(
       APIApplication.class, ResourceHelpers.resourceFilePath("test-conf.yml"));
 
-  private final Client client = RULE.client();
+  private final Client client = RULE.client().property(ClientProperties.READ_TIMEOUT, 30_000);
   private final String url = String.format("http://localhost:%d/", RULE.getLocalPort());
   private final String authHeader =
       "Basic " + Base64.getEncoder().encodeToString("admin:password".getBytes());
