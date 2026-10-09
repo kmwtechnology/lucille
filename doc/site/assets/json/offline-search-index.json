@@ -1,19 +1,53 @@
 {{- $.Scratch.Add "offline-search-index" slice -}}
-{{- $section := .Section -}}
+{{- $docsSection := .Section -}}
 {{- range where .Site.AllPages ".Params.exclude_search" "!=" true -}}
-{{- if eq .Section $section -}}
+{{- if eq .Section $docsSection -}}
+
+{{- /* Rendered content minus code blocks */ -}}
+{{- $body := .Content | replaceRE "(?s)<pre.*?</pre>" " " | plainify | htmlUnescape -}}
+
+{{- /* Text of the code blocks. plainify collapses the newlines inside <pre> to spaces, so this field is a single line */ -}}
+{{- $codeParts := slice -}}
+{{- range findRE "(?s)<pre.*?</pre>" .Content -}}
+  {{- $codeParts = $codeParts | append (plainify . | htmlUnescape) -}}
+{{- end -}}
+{{- $code := delimit $codeParts " " -}}
+
+{{- /* Space-split forms of camelCase/PascalCase terms, deduped, so a query for "batch size"
+       can reach batchSize. lunr's tokenizer treats batchSize as one token, so without this
+       the query only matches via wildcard */ -}}
+{{- $identifierParts := slice -}}
+{{- range findRE "[A-Za-z][A-Za-z0-9]*[a-z0-9][A-Z][A-Za-z0-9]*" (printf "%s %s" $body $code) -}}
+  {{- $identifierParts = $identifierParts | append . -}}
+{{- end -}}
+{{- $identifiers := delimit (uniq $identifierParts) " "
+      | replaceRE "([A-Z]+)([A-Z][a-z])" "$1 $2"
+      | replaceRE "([a-z0-9])([A-Z])" "$1 $2" -}}
+
+{{- /* Section titles, nearest first. Stops before the home page and the root */ -}}
+{{- $docsSectionRoot := printf "/%s/" $docsSection -}}
+{{- $sectionParts := slice -}}
+{{- $p := .Parent -}}
+{{- range seq 5 -}}
+  {{- if and $p (not $p.IsHome) (ne $p.RelPermalink $docsSectionRoot) -}}
+    {{- $sectionParts = $sectionParts | append $p.Title -}}
+    {{- $p = $p.Parent -}}
+  {{- end -}}
+{{- end -}}
+{{- $section := delimit $sectionParts " " -}}
+
 {{- /* We have to apply `htmlUnescape` again after `truncate` because `truncate` applies `html.EscapeString` if the argument is not HTML. */ -}}
-{{- /* Individual taxonomies can be added in the next line by add '"taxonomy-name" (.Params.taxonomy-name | default "")' to the dict (as seen for categories and tags). */ -}}
 {{- $.Scratch.Add
     "offline-search-index"
     (dict
         "ref" .RelPermalink
         "title" .Title
-        "categories" (.Params.categories | default "")
-        "tags" (.Params.tags | default "")
         "description" (.Description | default "")
-        "body" (.Plain | htmlUnescape)
-        "excerpt" ((.Description | default .Plain) | htmlUnescape | truncate (.Site.Params.offlineSearchSummaryLength | default 70) | htmlUnescape)
+        "identifiers" $identifiers
+        "section" $section
+        "body" $body
+        "code" $code
+        "excerpt" ((.Description | default $body) | truncate (.Site.Params.offlineSearchSummaryLength | default 70) | htmlUnescape)
     )
 -}}
 {{- end -}}

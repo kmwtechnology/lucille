@@ -1,5 +1,12 @@
 server:
   type: default
+  # ephemeral ports, so test classes running concurrently (surefire forks, other builds) don't collide
+  applicationConnectors:
+    - type: http
+      port: 0
+  adminConnectors:
+    - type: http
+      port: 0
   requestLog:
     type: external
 logging:

@@ -180,7 +180,7 @@ git tag --list
 mvn clean install
 ```
 
-This compiles all modules and produces build artifacts under each module's `target/` folder. After the build:
+This compiles all modules and produces build artifacts under each module's `target/` folder. Modules and test classes are built and tested in parallel by default; to run serially, or to tell which test JVM produced a line of output, see [Controlling Test Parallelism]({{< relref "docs/developer-guide/testing#controlling-test-parallelism" >}}). After the build:
 
 - `lucille-core/target/lucille-core-{version}.jar` — the core framework JAR
 - `lucille-core/target/lib/` — all runtime dependencies

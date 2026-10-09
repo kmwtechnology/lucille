@@ -8,6 +8,8 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
@@ -20,6 +22,8 @@ import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,6 +32,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -382,6 +387,11 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
+    } catch (RecordDeserializationException e) {
+      // already logged with the record's location by the messenger
+      log.error("Indexer stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+      terminate();
+      return;
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
@@ -527,12 +537,67 @@ public abstract class Indexer implements Runnable {
     return null;
   }
 
-  protected Map<String, Object> getIndexerDoc(Document doc) {
+  /**
+   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD},
+   * converted to plain Java values (Strings, numbers, booleans, Lists, Maps, byte arrays) by {@link Document#asMap()}.
+   * The map is a full copy that callers may modify freely. Children are never included; an indexer that sends them
+   * reads them from {@link Document#getChildren()}.
+   *
+   * <p>Use this for a destination client that needs plain Java values, such as Solr's. For a client that serializes
+   * the map to JSON with Jackson, {@link #getRawIndexerDoc} avoids the conversion.
+   */
+  protected final Map<String, Object> getConvertedIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
+    indexerDoc.remove(Document.CHILDREN_FIELD);
     if (fieldFilter.isActive()) {
       indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
     return indexerDoc;
+  }
+
+  /**
+   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD}, for a
+   * destination client that serializes the map to JSON with Jackson, such as the OpenSearch and Elasticsearch clients.
+   * Only the top-level map is new: its values are the document's own JsonNodes, not converted copies, so nothing is
+   * converted that the client will serialize again anyway.
+   *
+   * <p>The JSON written for the result is the same as for {@link #getConvertedIndexerDoc}. To keep it
+   * so, a value that is or contains a null is converted as getConvertedIndexerDoc converts it, because a mapper may
+   * leave out null map values (the OpenSearch and Elasticsearch clients' mappers do) but always writes the nulls inside
+   * a JsonNode. A Document that is not backed by JSON gets getConvertedIndexerDoc's result.
+   *
+   * <p>The map shares state with the Document. Callers may add, remove or replace entries but must not modify the
+   * values, and the Document must not be modified until the map has been serialized.
+   */
+  protected Map<String, Object> getRawIndexerDoc(Document doc) {
+    if (!(doc instanceof JsonDocument)) {
+      return getConvertedIndexerDoc(doc);
+    }
+
+    ObjectNode data = ((JsonDocument) doc).data;
+    Map<String, Object> indexerDoc = new LinkedHashMap<>();
+    for (Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext(); ) {
+      Map.Entry<String, JsonNode> field = it.next();
+      String name = field.getKey();
+      JsonNode value = field.getValue();
+      if (Document.CHILDREN_FIELD.equals(name) || !fieldFilter.shouldInclude(name)) {
+        continue;
+      }
+      indexerDoc.put(name, containsNull(value) ? JsonDocument.MAPPER.convertValue(value, Object.class) : value);
+    }
+    return indexerDoc;
+  }
+
+  private static boolean containsNull(JsonNode node) {
+    if (node.isNull()) {
+      return true;
+    }
+    for (JsonNode child : node) {
+      if (containsNull(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static void main(String[] args) throws Exception {

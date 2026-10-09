@@ -52,8 +52,9 @@ public class KafkaUtils {
       .requiredString("bootstrapServers", "consumerGroupId")
       .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
       .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
-          "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic")
-      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs")
+          "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
+          "onDeserializationError")
+      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("admin", new TypeReference<Map<String, Object>>(){}).build();
