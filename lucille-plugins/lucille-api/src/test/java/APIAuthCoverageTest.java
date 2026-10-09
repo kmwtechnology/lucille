@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.glassfish.jersey.client.ClientProperties;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.model.Resource;
 import org.glassfish.jersey.server.model.ResourceMethod;
@@ -46,7 +47,7 @@ public class APIAuthCoverageTest {
   private static final String CREDENTIALS =
       "Basic " + Base64.getEncoder().encodeToString("admin:password".getBytes());
 
-  private final Client client = RULE.client();
+  private final Client client = RULE.client().property(ClientProperties.READ_TIMEOUT, 30_000);
   private final String url = String.format("http://localhost:%d", RULE.getLocalPort());
 
   private record Endpoint(String httpMethod, String path) {}
