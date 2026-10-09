@@ -58,6 +58,12 @@ import java.util.Optional;
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying Elasticsearch HTTP client. Defaults to false.</li>
+ *   <li>connectTimeoutMs (Long, Optional) : Maximum time to establish a connection. Defaults to 1000.</li>
+ *   <li>socketTimeoutMs (Long, Optional) : Maximum time to wait for data on an open connection, including a bulk or
+ *   delete-by-query response. A timeout is a transport failure, retried when indexer.maxRetries is set. Defaults to
+ *   30000; raise it for long deletes, or set it to -1 for no limit.</li>
+ *   <li>connectionTimeToLiveMs (Long, Optional) : Maximum lifetime of a pooled connection, so long-running indexers
+ *   behind a load balancer or Kubernetes Service reconnect and reach new nodes. Defaults to 300000 (5 minutes).</li>
  *   <li>childDocumentsField (String, Optional) : Field name to place attached child documents in the
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
@@ -76,6 +82,7 @@ public class ElasticsearchIndexer extends Indexer {
       .requiredString("index")
       .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
+      .optionalNumber("connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
       .optionalString("parentName", "childDocumentsField")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 

@@ -36,7 +36,9 @@ import org.slf4j.LoggerFactory;
  *   {@link com.kmwllc.lucille.util.OpenSearchUtils}, so clusters requiring authentication or TLS are supported: embed credentials
  *   in the url (e.g. {@code https://username:password@host:9200}) and set {@code acceptInvalidCert: true} to skip certificate
  *   validation when needed. The url may also be a list of urls for the same cluster. You also have the option to
- *   <code>enableCompression</code>, if desired.</li>
+ *   <code>enableCompression</code>, if desired, and to set <code>connectTimeoutMs</code>,
+ *   <code>socketTimeoutMs</code> and <code>connectionTimeToLiveMs</code> (see
+ *   {@link com.kmwllc.lucille.util.HttpClientConfigUtils}).</li>
  *   <li>templateName (String, Optional) : The name / id of a saved search template in your Opensearch cluster that you want to use. If not specified,
  *   you must specify a searchTemplate to use for the Stage instead.</li>
  *   <li>searchTemplate (String, Optional): The query template you want to use. The parameter names you define should match field names

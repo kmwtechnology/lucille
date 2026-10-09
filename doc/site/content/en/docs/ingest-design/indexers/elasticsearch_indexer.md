@@ -17,6 +17,9 @@ Supports all OpenSearch parameters, plus parent-child join support:
 | `index` | String | Yes | Target index name. |
 | `update` | Boolean | No | Use partial update API. Default: `false`. |
 | `acceptInvalidCert` | Boolean | No | Accept invalid TLS certs. Default: `false`. |
+| `connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `1000`. |
+| `socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Applies to delete-by-query too, so raise it above the slowest expected request, or set `-1` for no limit. Default: `30000`. |
+| `connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Lower it to rebalance faster. Default: `300000` (5 minutes). |
 | `parentName` | String | No | Parent relation name for join field mappings. |
 
 **Join field support** (for parent-child mappings):
