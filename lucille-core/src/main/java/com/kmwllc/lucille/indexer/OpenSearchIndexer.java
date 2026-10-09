@@ -51,8 +51,8 @@ import org.slf4j.LoggerFactory;
  *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying OpenSearch HTTP client. Defaults to false.</li>
  *   <li>connectTimeoutMs (Long, Optional) : Maximum time to establish a connection. Defaults to 1000.</li>
  *   <li>socketTimeoutMs (Long, Optional) : Maximum time to wait for data on an open connection, including a bulk or
- *   delete-by-query response. A timeout is a transport failure, retried when indexer.maxRetries is set. Unset by default
- *   (no limit).</li>
+ *   delete-by-query response. A timeout is a transport failure, retried when indexer.maxRetries is set. Defaults to
+ *   30000; raise it for long deletes, or set it to -1 for no limit.</li>
  *   <li>connectionTimeToLiveMs (Long, Optional) : Maximum lifetime of a pooled connection, so long-running indexers
  *   behind a load balancer or Kubernetes Service reconnect and reach new nodes. Defaults to 300000 (5 minutes).</li>
  *   <li>childDocumentsField (String, Optional) : Field name under which attached child documents are nested in the

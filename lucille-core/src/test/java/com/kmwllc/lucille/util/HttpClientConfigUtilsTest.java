@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.util;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -73,8 +72,15 @@ public class HttpClientConfigUtilsTest {
     ConnectionConfig connectionConfig = HttpClientConfigUtils.buildConnectionConfig(ConfigFactory.empty(), "opensearch");
 
     assertEquals(Timeout.ofMilliseconds(HttpClientConfigUtils.DEFAULT_CONNECT_TIMEOUT_MS), connectionConfig.getConnectTimeout());
-    assertNull(connectionConfig.getSocketTimeout());
+    assertEquals(Timeout.ofMilliseconds(30_000), connectionConfig.getSocketTimeout());
     assertEquals(TimeValue.ofMilliseconds(300_000), connectionConfig.getTimeToLive());
+  }
+
+  @Test
+  public void testSocketTimeoutMinusOneDisablesIt() {
+    Config config = ConfigFactory.parseMap(Map.of("opensearch.socketTimeoutMs", -1));
+
+    assertEquals(Timeout.DISABLED, HttpClientConfigUtils.buildConnectionConfig(config, "opensearch").getSocketTimeout());
   }
 
   @Test
@@ -93,14 +99,19 @@ public class HttpClientConfigUtilsTest {
 
   @Test
   public void testRejectsNonPositiveValues() {
-    for (String key : new String[] {"connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs"}) {
-      for (int value : new int[] {0, -1}) {
+    Map<String, int[]> invalid = Map.of(
+        "connectTimeoutMs", new int[] {0, -1},
+        "connectionTimeToLiveMs", new int[] {0, -1},
+        // -1 is allowed for the socket timeout, where it disables the timeout
+        "socketTimeoutMs", new int[] {0, -2});
+    invalid.forEach((key, values) -> {
+      for (int value : values) {
         Config config = ConfigFactory.parseMap(Map.of("opensearch." + key, value));
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
             () -> HttpClientConfigUtils.buildConnectionConfig(config, "opensearch"));
         assertTrue(e.getMessage().contains("opensearch." + key));
       }
-    }
+    });
   }
 
   // httpclient5 5.6.4 made JSSE check the host name under the default verification policy, bypassing the no-op verifier.
