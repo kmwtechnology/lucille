@@ -32,6 +32,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -386,6 +387,11 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
+    } catch (RecordDeserializationException e) {
+      // already logged with the record's location by the messenger
+      log.error("Indexer stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+      terminate();
+      return;
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
