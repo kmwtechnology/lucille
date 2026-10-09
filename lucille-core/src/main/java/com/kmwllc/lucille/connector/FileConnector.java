@@ -84,7 +84,9 @@ import com.typesafe.config.Config;
  *   <li>s3.anonymous (Boolean, Optional) : Send unsigned requests, for public buckets that need no
  *   credentials. Cannot be combined with accessKeyId/secretAccessKey. When set and no region is given,
  *   region defaults to us-east-1, S3's global endpoint. Defaults to false.</li>
- *   <li>s3.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>s3.maxNumOfPages (Int, Optional) : Maximum number of keys requested per S3 LIST call. Defaults to 1000, which is also
+ *   the most S3 will return per call; larger values have no further effect. Without filterOptions.pathsToSkip, every key under the
+ *   path is listed in one paginated listing, so files may be published in a different order than a directory-by-directory walk.</li>
  *   <li>azure.connectionString (String, Optional) : Azure connection string.</li>
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
  *   <li>azure.accountKey (String, Optional) : Azure account key.</li>

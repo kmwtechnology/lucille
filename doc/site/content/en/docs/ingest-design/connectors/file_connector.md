@@ -13,7 +13,7 @@ The `FileConnector` traverses a file system and publishes a Lucille Document for
 
 ## Cloud Storage Configuration
 
-When traversing cloud storage, provide authentication under the appropriate top-level config block alongside your connector config. Each provider also accepts an optional `maxNumOfPages` to limit how many file listings are loaded into memory per request.
+When traversing cloud storage, provide authentication under the appropriate top-level config block alongside your connector config. Each provider also accepts an optional `maxNumOfPages`, the number of file listings requested per page (default 100; 1000 for S3, which is also the most S3 returns per request).
 
 **Azure**
 
@@ -45,9 +45,10 @@ s3 {
   accessKeyId: "AKIA..."
   secretAccessKey: "..."
   region: "us-east-1"
-  maxNumOfPages: 100
 }
 ```
+
+When no `pathsToSkip` filter is set, S3 paths are listed in one flat listing rather than directory by directory, so files are published in S3 key order.
 
 For S3 paths, percent-encode special characters in `paths` (e.g., `s3://bucket/folder%20with%20spaces`).
 

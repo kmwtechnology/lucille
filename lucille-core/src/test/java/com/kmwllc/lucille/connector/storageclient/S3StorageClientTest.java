@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -40,8 +41,11 @@ import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.mockito.Answers;
@@ -705,6 +709,130 @@ public class S3StorageClientTest {
     verify(mockClient, times(1)).listObjectsV2Paginator(captor.capture());
     assertEquals(1, captor.getAllValues().size());
     assertTrue(captor.getAllValues().stream().noneMatch(req -> "subdir/".equals(req.prefix())));
+    // pruning needs the delimited listing
+    assertEquals("/", captor.getValue().delimiter());
+  }
+
+  @Test
+  public void testMaxKeysDefaultsTo1000() throws Exception {
+    List<ListObjectsV2Request> requests = captureListRequests(ConfigFactory.empty());
+    assertTrue(requests.stream().allMatch(req -> req.maxKeys() == 1000));
+  }
+
+  @Test
+  public void testMaxKeysExplicitValue() throws Exception {
+    List<ListObjectsV2Request> requests = captureListRequests(ConfigFactory.parseMap(Map.of("maxNumOfPages", 250)));
+    assertTrue(requests.stream().allMatch(req -> req.maxKeys() == 250));
+  }
+
+  @Test
+  public void testFlatListingWithoutPathsToSkip() throws Exception {
+    List<ListObjectsV2Request> requests = captureListRequests(ConfigFactory.empty());
+    // one listing only: the common prefix in the response is not recursed into
+    assertEquals(1, requests.size());
+    assertNull(requests.get(0).delimiter());
+    assertEquals("", requests.get(0).prefix());
+  }
+
+  @Test
+  public void testFlatAndDelimitedListingPublishSameFiles() throws Exception {
+    List<String> keys = List.of("root.txt", "a/", "a/one.txt", "a/b/", "a/b/two.txt", "a//double.txt", "/leading.txt",
+        "dir/x.txt", "dir2/y.txt", "dirfile.txt");
+    // a pathsToSkip entry that matches nothing forces the delimited traversal without pruning anything
+    Config delimited = ConfigFactory.parseMap(Map.of("filterOptions", Map.of("pathsToSkip", List.of("s3://bucket/nothere/"))));
+
+    for (String start : List.of("s3://bucket", "s3://bucket/", "s3://bucket/a", "s3://bucket/a/", "s3://bucket/a/b/",
+        "s3://bucket/dir", "s3://bucket/dir/")) {
+      Set<String> flatPaths = publishedPathsFromFakeBucket(keys, start, ConfigFactory.empty());
+      Set<String> delimitedPaths = publishedPathsFromFakeBucket(keys, start, delimited);
+      assertEquals(start, delimitedPaths, flatPaths);
+    }
+
+    assertEquals(Set.of("s3://bucket/root.txt", "s3://bucket/a/one.txt", "s3://bucket/a/b/two.txt", "s3://bucket/a//double.txt",
+        "s3://bucket//leading.txt", "s3://bucket/dir/x.txt", "s3://bucket/dir2/y.txt", "s3://bucket/dirfile.txt"),
+        publishedPathsFromFakeBucket(keys, "s3://bucket/", ConfigFactory.empty()));
+    // the starting path is used as a raw key prefix, so a directory without a trailing slash also matches siblings
+    // that share its name as a string prefix, in both listing modes
+    assertEquals(Set.of("s3://bucket/dir/x.txt", "s3://bucket/dir2/y.txt", "s3://bucket/dirfile.txt"),
+        publishedPathsFromFakeBucket(keys, "s3://bucket/dir", ConfigFactory.empty()));
+    assertEquals(Set.of("s3://bucket/dir/x.txt"), publishedPathsFromFakeBucket(keys, "s3://bucket/dir/", ConfigFactory.empty()));
+  }
+
+  private List<ListObjectsV2Request> captureListRequests(Config extraCloudOptions) throws Exception {
+    Config cloudOptions = extraCloudOptions.withFallback(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1")));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("s3://bucket/"), "");
+
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    ListObjectsV2Response response = mock(ListObjectsV2Response.class);
+    when(response.contents()).thenReturn(List.of());
+    when(response.commonPrefixes()).thenReturn(List.of(CommonPrefix.builder().prefix("subdir/").build()));
+    ListObjectsV2Iterable iterable = mock(ListObjectsV2Iterable.class);
+    // a recursive listing of "subdir/" gets an empty page
+    when(iterable.stream()).thenReturn(Stream.of(response), Stream.empty());
+    when(mockClient.listObjectsV2Paginator(any(ListObjectsV2Request.class))).thenReturn(iterable);
+
+    s3StorageClient.initializeForTesting();
+    s3StorageClient.traverse(publisher, params);
+
+    ArgumentCaptor<ListObjectsV2Request> captor = ArgumentCaptor.forClass(ListObjectsV2Request.class);
+    verify(mockClient, atLeastOnce()).listObjectsV2Paginator(captor.capture());
+    return captor.getAllValues();
+  }
+
+  // Traverses a fake bucket that applies S3's prefix and delimiter rules to the given keys.
+  private Set<String> publishedPathsFromFakeBucket(List<String> keys, String start, Config connectorConfig) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    Config fullConnectorConfig = connectorConfig.withFallback(
+        ConfigFactory.parseMap(Map.of("fileOptions", Map.of(GET_FILE_CONTENT, false))));
+
+    S3StorageClient s3StorageClient = new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1")));
+    TraversalParams params = new TraversalParams(fullConnectorConfig, URI.create(start), "");
+
+    S3Client mockClient = mock(S3Client.class);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    when(mockClient.listObjectsV2Paginator(any(ListObjectsV2Request.class)))
+        .thenAnswer(inv -> new ListObjectsV2Iterable(mockClient, inv.getArgument(0)));
+    when(mockClient.listObjectsV2(any(ListObjectsV2Request.class)))
+        .thenAnswer(inv -> fakeListObjectsV2(keys, inv.getArgument(0)));
+
+    s3StorageClient.initializeForTesting();
+    s3StorageClient.traverse(publisher, params);
+
+    Set<String> paths = new HashSet<>();
+    messenger.getDocsSentForProcessing().forEach(doc -> paths.add(doc.getString(FILE_PATH)));
+    assertEquals("duplicate publication from " + start, paths.size(), messenger.getDocsSentForProcessing().size());
+    return paths;
+  }
+
+  private static ListObjectsV2Response fakeListObjectsV2(List<String> keys, ListObjectsV2Request request) {
+    String prefix = request.prefix() == null ? "" : request.prefix();
+    String delimiter = request.delimiter();
+    List<S3Object> contents = new ArrayList<>();
+    Set<String> commonPrefixes = new TreeSet<>();
+
+    for (String key : keys) {
+      if (!key.startsWith(prefix)) {
+        continue;
+      }
+      int idx = delimiter == null ? -1 : key.indexOf(delimiter, prefix.length());
+      if (idx >= 0) {
+        commonPrefixes.add(key.substring(0, idx + delimiter.length()));
+      } else {
+        contents.add(S3Object.builder().key(key).lastModified(Instant.now()).size(1L).build());
+      }
+    }
+
+    return ListObjectsV2Response.builder()
+        .contents(contents)
+        .commonPrefixes(commonPrefixes.stream().map(p -> CommonPrefix.builder().prefix(p).build()).toList())
+        .isTruncated(false)
+        .build();
   }
 
   private List<S3Object> getMockedS3Objects() throws Exception {

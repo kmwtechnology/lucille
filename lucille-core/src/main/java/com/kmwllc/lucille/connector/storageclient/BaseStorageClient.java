@@ -54,11 +54,19 @@ public abstract class BaseStorageClient implements StorageClient {
    * IllegalArgumentException if they are invalid for the specific implementation.
    */
   public BaseStorageClient(Config config) {
+    this(config, 100);
+  }
+
+  /**
+   * Creates a base implementation of a Storage client from the given config, using the given page size when the config
+   * does not set "maxNumOfPages".
+   */
+  protected BaseStorageClient(Config config, int defaultMaxNumOfPages) {
     validateOptions(config);
     this.config = config;
 
     // only matters for traversals
-    this.maxNumOfPages = config.hasPath(MAX_NUM_OF_PAGES) ? config.getInt(MAX_NUM_OF_PAGES) : 100;
+    this.maxNumOfPages = config.hasPath(MAX_NUM_OF_PAGES) ? config.getInt(MAX_NUM_OF_PAGES) : defaultMaxNumOfPages;
   }
 
   /**

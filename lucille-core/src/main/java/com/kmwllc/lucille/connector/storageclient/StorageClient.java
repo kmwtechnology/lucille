@@ -132,7 +132,7 @@ public interface StorageClient {
    * "region" : s3 storage region
    * "anonymous" : send unsigned requests, for public buckets that need no credentials. Cannot be combined with
    * accessKeyId / secretAccessKey. Defaults the region to us-east-1 when no region is given. Optional, defaults to false.
-   * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   * "maxNumOfPages" : number of keys requested in a single LIST request. Optional, defaults to 1000 (S3's per-request maximum)
    *
    * <br> azure:
    * "connectionString" : azure connection string
