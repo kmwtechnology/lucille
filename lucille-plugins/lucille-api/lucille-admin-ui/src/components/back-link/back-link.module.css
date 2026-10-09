@@ -1,0 +1,5 @@
+@reference "../../index.css";
+
+.backLink {
+  @apply inline-flex items-center text-primary-600 hover:text-primary-700 hover:bg-primary-50 text-sm mb-4 px-2 py-1;
+}

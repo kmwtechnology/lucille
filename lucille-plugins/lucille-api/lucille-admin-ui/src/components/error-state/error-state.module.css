@@ -1,0 +1,9 @@
+@reference "../../index.css";
+
+.errorTitle {
+  @apply text-2xl font-bold text-red-700;
+}
+
+.errorSubtext {
+  @apply text-sm text-red-600;
+}

@@ -1,0 +1,9 @@
+@reference "../../index.css";
+
+.summaryRow {
+  @apply flex flex-wrap gap-2;
+}
+
+.summaryChip {
+  @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-primary-50 text-primary-700;
+}
