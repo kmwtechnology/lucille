@@ -1015,6 +1015,36 @@ public class FileConnectorTest {
     assertEquals(documentIds(sequentialDocs), documentIds(concurrentDocs));
   }
 
+  // Verifies that with fewer threads than paths, the queued paths are still traversed, and a thread reused for a second
+  // path can open state again.
+  @Test
+  public void testConcurrentTraversalWithMaxThreads() throws Exception {
+    Config baseConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf");
+
+    List<Document> sequentialDocs = publishedDocuments(baseConfig
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:sequentialRun")));
+
+    // two paths on one thread
+    List<Document> cappedDocs = publishedDocuments(baseConfig
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(1))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:cappedRun")));
+
+    assertFalse(cappedDocs.isEmpty());
+    assertEquals(sequentialDocs.size(), cappedDocs.size());
+    assertEquals(documentIds(sequentialDocs), documentIds(cappedDocs));
+  }
+
+  @Test
+  public void testInvalidMaxThreads() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(0));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage().contains("maxThreads"));
+  }
+
   // Verifies that a failed traversal does not stop the others, and that the resulting exception names the failed path.
   @Test
   public void testConcurrentTraversalContinuesAfterFailure() throws Exception {
