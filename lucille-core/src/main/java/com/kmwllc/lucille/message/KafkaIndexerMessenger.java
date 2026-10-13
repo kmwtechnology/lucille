@@ -11,6 +11,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +32,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   // Tracks destination-topic offsets and commits them on batch completion (at-least-once). See OffsetCommitTracker.
   private final OffsetCommitTracker offsetCommitTracker;
 
+  private final DeserializationErrorHandler deserializationErrorHandler;
   private final Duration pollInterval;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
@@ -46,6 +48,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
         offsetCommitTracker.rebalanceListener());
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
+    this.deserializationErrorHandler =
+        new DeserializationErrorHandler(config, destConsumer);
     this.pollInterval = KafkaUtils.getPollInterval(config);
   }
 
@@ -61,13 +65,22 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       destConsumer.resume(paused);
     }
 
-    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(pollInterval);
+    ConsumerRecords<String, KafkaDocument> consumerRecords;
+    try {
+      consumerRecords = destConsumer.poll(pollInterval);
+    } catch (RecordDeserializationException e) {
+      // rethrows unless configured to skip; commit the position past the skipped record
+      deserializationErrorHandler.handleOrRethrow(e);
+      destConsumer.commitSync();
+      return null;
+    }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       // Offsets are not committed here. Committing at poll, before the document is indexed, is at-most-once: a crash
       // after the commit but before indexing would skip the document entirely. Instead the offset is committed in
       // batchComplete, once the document has been indexed and its events emitted (at-least-once).
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
+      deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
       // Record the polled offset under the partition's current assignment generation, and stamp that generation on the
