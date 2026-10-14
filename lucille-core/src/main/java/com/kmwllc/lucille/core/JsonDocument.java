@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.util.FieldFilter;
 import java.sql.Timestamp;
@@ -19,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -443,10 +445,25 @@ public class JsonDocument implements Document {
     }
 
     JsonNode node = getSingleNode(name);
+    if (node.isNull()) {
+      return null;
+    }
+    return parseInstantOrNull(node.asText());
+  }
 
-    String dateStr = node.asText();
-    Instant dateInstant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateStr));
-    return node.isNull() ? null : dateInstant;
+  // Parses an ISO-8601 instant, returning null (rather than throwing) for a null or unparseable value. This keeps the
+  // date getters lenient like the numeric getters (getInt/getDouble return 0 for unconvertible values rather than
+  // throwing), so a malformed date field cannot throw out of an accessor into a caller that does not expect it.
+  private static Instant parseInstantOrNull(String dateStr) {
+    if (dateStr == null) {
+      return null;
+    }
+    try {
+      return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateStr));
+    } catch (DateTimeException e) {
+      log.error("Error parsing instant from value \"{}\"", dateStr, e);
+      return null;
+    }
   }
 
   @Override
@@ -478,9 +495,7 @@ public class JsonDocument implements Document {
     ArrayNode array = data.withArray(name);
     List<Instant> result = new ArrayList<>();
     for (JsonNode node : array) {
-      String instantStr = node.asText();
-      Instant instant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(instantStr));
-      result.add(node.isNull() ? null : instant);
+      result.add(node.isNull() ? null : parseInstantOrNull(node.asText()));
     }
     return result;
   }
@@ -579,7 +594,14 @@ public class JsonDocument implements Document {
   }
 
   private JsonNode getSingleNode(String name) {
-    return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
+    if (!isMultiValued(name)) {
+      return data.get(name);
+    }
+    // Multi-valued: return the first element. An empty array has no first element (withArray(name).get(0) would be
+    // Java null and NPE the callers' node.isNull() check), so treat it as a null value — the same result the typed
+    // accessors give for an explicit null.
+    JsonNode first = data.withArray(name).get(0);
+    return first == null ? NullNode.getInstance() : first;
   }
 
   @Override
