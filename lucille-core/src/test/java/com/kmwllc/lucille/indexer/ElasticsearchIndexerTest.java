@@ -61,6 +61,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -392,6 +393,47 @@ public class ElasticsearchIndexerTest {
     List<Event> events = messenger.getSentEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testSameIdAddDeleteAddInOneBatch() throws Exception {
+    // add, delete, then re-add the SAME id in one batch. ElasticsearchIndexer collapses a batch per id (last write
+    // wins): each operation removes the id from the opposite set, so an id ends up in either the upload set or the
+    // delete set, never both. The final operation here is the re-add, so the id resolves to a single upload (carrying
+    // the latest version) and no delete — the correct final state. Mirrors SolrIndexerTest.testSolrIndexerAddDeleteAdd,
+    // but asserts the collapsed result rather than Solr's in-order replay, since the two reach the correct final state
+    // by different means.
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+
+    Document add1 = Document.create("doc1", "test_run");
+    add1.setField("version", "1");
+    Document delete = Document.create("doc1", "test_run");
+    delete.setField("deleted", "true");
+    Document add2 = Document.create("doc1", "test_run");
+    add2.setField("version", "2");
+
+    messenger.sendForIndexing(add1);
+    messenger.sendForIndexing(delete);
+    messenger.sendForIndexing(add2);
+
+    indexer.run(3);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    // The collapse leaves a single upload for the id and no delete, so one bulk request with one index operation.
+    verify(mockClient, times(1)).bulk(captor.capture());
+    verify(mockClient, never()).deleteByQuery(any(DeleteByQueryRequest.class));
+
+    List<BulkOperation> operations = captor.getValue().operations();
+    assertEquals(1, operations.size());
+    IndexOperation<?> indexRequest = operations.get(0).index();
+    assertNotNull("the id must resolve to an upload, not a delete, since the last operation was a re-add", indexRequest);
+    assertEquals("doc1", indexRequest.id());
+    // The surviving upload is the second add (version 2), not the first.
+    Map<String, Object> indexed = asSent(indexRequest.document());
+    assertEquals("2", indexed.get("version"));
   }
 
   @Test

@@ -204,6 +204,49 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
+  public void testAlternatingSameIdOperationsStaySerializedInOrder() throws Exception {
+    // An alternating add/delete/add/delete sequence for the SAME destination id must never overlap and must complete in
+    // submission order, even at K > 1 — otherwise a delete could race the add before or after it and leave the wrong
+    // final state. The four operations are separate single-document batches with distinct document ids (so the harness
+    // can block and track each one) but the same destination id via idOverrideField, so the dispatcher's id-overlap
+    // gate is what serializes them. (The ControlledIndexer send is a stub; what is under test is the dispatcher
+    // ordering guarantee that makes a real add/delete sequence safe, not the backend's add-vs-delete semantics.)
+    RecordingMessenger messenger = new RecordingMessenger();
+    // Window of 4, so capacity never limits concurrency here — only the shared destination id does.
+    indexer = new ControlledIndexer(config(4, Map.of("indexer.idOverrideField", "destId")), messenger);
+
+    List<String> ops = List.of("add1", "delete1", "add2", "delete2");
+    for (String op : ops) {
+      Document doc = Document.create(op);
+      doc.setField("destId", "sharedId");
+      indexer.messenger().queueDoc(doc);
+    }
+    indexer.blockSendsFor(ops.toArray(new String[0]));
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    // Each operation becomes runnable only once the previous one is released and completes: at every step exactly one
+    // is in flight, the next is blocked by the shared-id overlap gate, and completion happens in submission order.
+    for (int i = 0; i < ops.size(); i++) {
+      String current = ops.get(i);
+      awaitUntil(() -> indexer.hasStartedSend(current));
+      if (i + 1 < ops.size()) {
+        String next = ops.get(i + 1);
+        awaitNextBatchBlocked();
+        assertFalse(next + " must wait: it writes the same destination id as the in-flight " + current,
+            indexer.hasStartedSend(next));
+      }
+      indexer.releaseSends(current);
+      int completedSoFar = i + 1;
+      awaitUntil(() -> messenger.completedBatches().size() == completedSoFar);
+    }
+
+    // Never more than one same-id operation in flight at a time, and all completed in submission order.
+    assertEquals(1, indexer.peakConcurrentSends());
+    assertEquals(ops, messenger.completedBatches());
+  }
+
+  @Test
   public void testDeleteByQueryBatchRunsAlone() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // Window of 3, so only the delete-by-query barrier — not capacity — can hold batches back.
