@@ -63,6 +63,18 @@ public interface IndexerMessenger {
   }
 
   /**
+   * Registers a hook the messenger runs, on the indexer thread, when it learns a partition is about to be revoked in a
+   * consumer-group rebalance — before the partition is handed off. The Indexer registers an action here that flushes
+   * its open batch and drains in-flight batches, so their offsets are committed before the handoff and a <i>clean</i>
+   * rebalance does not re-deliver them (re-delivery is then limited to crashes, where the hook never runs). The hook
+   * owns the batch and dispatcher, which are confined to the indexer thread; a messenger must therefore only invoke it
+   * from that thread (a Kafka messenger's rebalance callback runs re-entrantly inside poll(), on the indexer thread).
+   * The default does nothing — only a messenger backed by a rebalancing consumer needs it.
+   */
+  default void setPreRevocationHook(Runnable hook) {
+  }
+
+  /**
    * Whether this messenger commits (or acknowledges) its input on {@link #batchComplete(List)} rather than at poll —
    * the property that makes it safe to run an Indexer with indexer.maxConcurrentBatches greater than 1. With
    * concurrency, documents are polled while earlier batches are still being sent, so a messenger that commits its input

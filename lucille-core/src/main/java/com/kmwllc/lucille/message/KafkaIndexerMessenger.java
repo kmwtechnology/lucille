@@ -100,6 +100,13 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     return true;
   }
 
+  // Registers the Indexer's flush-and-drain action, run from the OffsetCommitTracker's revocation callback (on the
+  // indexer thread, inside poll()) before offsets are committed and the partition is handed off.
+  @Override
+  public void setPreRevocationHook(Runnable hook) {
+    offsetCommitTracker.setPreRevocationHook(hook);
+  }
+
   // The destination-topic partitions currently assigned to this consumer. Package-private for tests that drive real
   // rebalances and need to observe when the assignment has settled.
   Set<TopicPartition> assignment() {

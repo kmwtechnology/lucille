@@ -12,6 +12,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,6 +28,7 @@ import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -190,7 +192,93 @@ public class KafkaConcurrentIndexerEndToEndTest {
         new TopicPartition(KafkaUtils.getDestTopicName(pipeline), 0)));
   }
 
+  /**
+   * A consumer-group rebalance while documents sit in the indexer's open batch must not make the indexer send them
+   * twice. Lucille's documented config puts the worker, indexer, and publisher in one consumer group, so every component
+   * that joins revokes the indexer's partitions. With commit-on-completion, documents polled but not yet completed are
+   * re-read from the committed offset after the rebalance and land in the batch a second time, so each is indexed (and
+   * emits FINISH) twice. Committing at poll, as before, never re-delivered on a rebalance.
+   */
+  @Test
+  public void testRebalanceDoesNotResendBatchedDocuments() throws Exception {
+    String pipeline = newPipeline(1);
+    // A batch that neither fills nor expires, so every polled document is still in the open batch at the rebalance.
+    Config config = config(pipeline, 1, Map.of("indexer.batchSize", 1000, "indexer.batchTimeout", 600000,
+        "kafka.pollIntervalMs", 100));
+    int total = 5;
+    List<String> ids = produce(config, pipeline, 0, total, "run");
+    TopicPartition partition = new TopicPartition(KafkaUtils.getDestTopicName(pipeline), 0);
+
+    AtomicInteger polled = new AtomicInteger();
+    AtomicInteger pollsSinceRejoin = new AtomicInteger();
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
+      @Override
+      public Document pollDocToIndex() throws Exception {
+        Document doc = super.pollDocToIndex();
+        if (doc != null) {
+          polled.incrementAndGet();
+        }
+        // Runs on the indexer thread, which owns the consumer, so reading the assignment here is safe.
+        if (assignment().contains(partition)) {
+          pollsSinceRejoin.incrementAndGet();
+        } else {
+          pollsSinceRejoin.set(0);
+        }
+        return doc;
+      }
+    };
+    RecordingIndexer indexer = new RecordingIndexer(config, messenger);
+    Thread thread = new Thread(indexer);
+    thread.start();
+    try {
+      waitFor(() -> polled.get() == total);
+
+      // Another member joins the indexer's consumer group, forcing a rebalance, then leaves (a second rebalance). It
+      // pauses whatever it is assigned and never commits, so it consumes nothing.
+      try (KafkaConsumer<String, String> joiner = groupMember(config)) {
+        AtomicInteger assignments = new AtomicInteger();
+        joiner.subscribe(List.of(partition.topic()), new ConsumerRebalanceListener() {
+          @Override
+          public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
+          }
+
+          @Override
+          public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
+            joiner.pause(partitions);
+            assignments.incrementAndGet();
+          }
+        });
+        long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+        while (assignments.get() == 0 && System.currentTimeMillis() < deadline) {
+          joiner.poll(Duration.ofMillis(100));
+        }
+        assertTrue("joiner never completed a rebalance", assignments.get() > 0);
+      }
+
+      // Let the indexer take the partition back and settle; a re-delivery of these few records takes milliseconds.
+      pollsSinceRejoin.set(0);
+      waitFor(() -> pollsSinceRejoin.get() >= 20);
+      Thread.sleep(2000);
+    } finally {
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
+    }
+
+    // The final flush on terminate sent the open batch: each document exactly once.
+    assertEquals(ids, indexer.sent);
+  }
+
   // --- helpers ---
+
+  private static KafkaConsumer<String, String> groupMember(Config config) {
+    Properties props = new Properties();
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.consumerGroupId"));
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    return new KafkaConsumer<>(props);
+  }
 
   private KafkaIndexerMessenger messenger(Config config, String pipeline) {
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
@@ -266,6 +354,38 @@ public class KafkaConcurrentIndexerEndToEndTest {
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
     return new KafkaConsumer<>(props);
+  }
+
+  // An indexer that records the id of every document it sends, in send order.
+  public static class RecordingIndexer extends Indexer {
+
+    public static final Spec SPEC = SpecBuilder.indexer().build();
+
+    final List<String> sent = Collections.synchronizedList(new ArrayList<>());
+
+    RecordingIndexer(Config config, IndexerMessenger messenger) {
+      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+    }
+
+    @Override
+    protected String getIndexerConfigKey() {
+      return null;
+    }
+
+    @Override
+    public boolean validateConnection() {
+      return true;
+    }
+
+    @Override
+    public void closeConnection() {
+    }
+
+    @Override
+    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
+      documents.forEach(doc -> sent.add(doc.getId()));
+      return Collections.emptySet();
+    }
   }
 
   // An indexer that sends batches concurrently, each send taking a random few milliseconds (a stand-in for a slow

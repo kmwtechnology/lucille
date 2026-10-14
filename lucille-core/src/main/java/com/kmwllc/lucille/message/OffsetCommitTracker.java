@@ -49,6 +49,11 @@ class OffsetCommitTracker {
 
   private final Consumer<?, ?> consumer;
 
+  // Run at the start of onPartitionsRevoked, before offsets are committed: the Indexer flushes its open batch and
+  // drains in-flight batches so their offsets reach pendingOffsets and are committed before the partition is handed
+  // off. Null until the Indexer registers it (and when there is no Indexer, e.g. in some tests).
+  private Runnable preRevocationHook;
+
   // Per partition, the current assignment generation. Bumped each time the partition is revoked or lost, so documents
   // polled before a rebalance carry an older generation than ones polled after, letting batchCompleted reject the
   // stale ones. (Starts at 0 on first poll of a partition.)
@@ -69,6 +74,16 @@ class OffsetCommitTracker {
   /** The rebalance listener to register with the consumer's subscription, so revocations are handled here. */
   ConsumerRebalanceListener rebalanceListener() {
     return new RebalanceListener();
+  }
+
+  /**
+   * Registers a hook run at the start of {@link RebalanceListener#onPartitionsRevoked} — before offsets are committed —
+   * so the Indexer can flush its open batch and drain in-flight batches, letting their offsets be committed before the
+   * partition is handed off. Without it, a clean rebalance re-delivers the documents still in the open batch or in
+   * flight. See {@link IndexerMessenger#setPreRevocationHook}.
+   */
+  void setPreRevocationHook(Runnable hook) {
+    this.preRevocationHook = hook;
   }
 
   /**
@@ -164,6 +179,16 @@ class OffsetCommitTracker {
 
     @Override
     public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
+      // Flush the open batch and drain in-flight batches first (on the indexer thread, which this callback runs on, so
+      // it owns the batch/dispatcher). That completes every polled-but-unfinished document — emitting its events and
+      // advancing its offset into pendingOffsets below — while the partition is still owned, so the commit below hands
+      // off a frontier past them. Without this, those documents are re-delivered after the rebalance and indexed (and
+      // FINISHed) again. It runs before generation is bumped in dropAssignmentState, so the just-completed documents
+      // still match the current generation and commit rather than being rejected as stale.
+      if (preRevocationHook != null) {
+        preRevocationHook.run();
+      }
+
       // The partitions are still owned during this callback, so offsets of batches already completed can still be
       // committed before they are handed off.
       Map<TopicPartition, OffsetAndMetadata> toCommit = new HashMap<>();

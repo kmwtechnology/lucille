@@ -327,6 +327,39 @@ public abstract class Indexer implements Runnable, BatchProcessor {
         ? new SynchronousDispatcher(this)
         : new ConcurrentDispatcher(maxConcurrentBatches, localRunId, this,
             this::destinationIds, this::isDeleteByQuery, this::keepAliveMessenger);
+
+    // When a partition is about to be revoked in a rebalance, flush the open batch and drain in-flight batches so their
+    // offsets are committed before the handoff — otherwise a clean rebalance re-delivers the documents still in the
+    // open batch or in flight (duplicate indexing and FINISH events). The messenger invokes this on the indexer thread
+    // (its rebalance callback runs re-entrantly inside poll()), so it is safe to touch the batch and dispatcher here.
+    if (messenger != null) {
+      messenger.setPreRevocationHook(this::flushAndDrain);
+    }
+  }
+
+  // True only while flushAndDrain() runs inside the messenger's partition-revocation callback. During that window the
+  // dispatcher's drain must not call keepAlive, because the callback is itself re-entrant inside the consumer's poll()
+  // and keepAlive would poll the consumer again — an illegal re-entrant poll. Touched only on the indexer thread (both
+  // flushAndDrain and keepAliveMessenger run there), so it needs no synchronization.
+  private boolean drainingForRevocation = false;
+
+  // Flushes the open batch and drains every in-flight batch, so all polled-but-not-yet-completed documents complete
+  // (events emitted, offsets committed) now rather than being re-delivered after a rebalance. Runs on the indexer
+  // thread, from the messenger's partition-revocation callback. Never throws: a failure here must not break the
+  // rebalance callback, and uncommitted work simply falls back to re-delivery.
+  private void flushAndDrain() {
+    drainingForRevocation = true;
+    try {
+      List<Document> remaining = batch.flush();
+      if (!remaining.isEmpty()) {
+        dispatcher.dispatch(remaining);
+      }
+      dispatcher.drain();
+    } catch (Throwable t) {
+      log.error("Error flushing and draining on partition revocation; affected documents may be re-delivered.", t);
+    } finally {
+      drainingForRevocation = false;
+    }
   }
 
   // Calls messenger.keepAlive() for the ConcurrentDispatcher while it waits on in-flight batches. Never throws: a
@@ -334,6 +367,12 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   // messenger even with K > 1), in which case there is nothing to keep alive.
   private void keepAliveMessenger() {
     if (messenger == null) {
+      return;
+    }
+    // Skip keepAlive while draining inside a revocation callback: we are already inside the consumer's poll(), so a
+    // keepAlive poll here would be an illegal re-entrant poll. The consumer is being actively polled, so there is no
+    // group-liveness concern during this window.
+    if (drainingForRevocation) {
       return;
     }
     try {
