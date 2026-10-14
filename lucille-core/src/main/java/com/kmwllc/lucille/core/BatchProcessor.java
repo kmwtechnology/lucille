@@ -3,17 +3,18 @@ package com.kmwllc.lucille.core;
 import java.util.List;
 
 /**
- * The two steps of indexing a batch, supplied to a {@link BatchDispatcher} by the {@link Indexer} that owns it (the
- * Indexer implements this interface). The dispatcher schedules these — it never varies what they do — and they carry
- * different threading contracts, which is the whole reason a concurrent dispatcher exists: {@link #sendWithRetry} may
- * run off the indexer thread (on a pool), while {@link #completeBatch} must run on the indexer thread, in dispatch
- * order.
+ * Provides the two operations that index a batch: sending it to the destination, then completing it (events and offsets).
+ * A {@link BatchDispatcher} is constructed with a BatchProcessor and schedules these two methods, without ever varying
+ * what they do. The split exists because the two steps have different thread-safety requirements — {@link #sendWithRetry}
+ * may run off the indexer thread, while {@link #completeBatch} must run on it, in dispatch order — which is what lets a
+ * concurrent dispatcher overlap sends while keeping completion ordered.
  */
 interface BatchProcessor {
 
   /**
-   * Sends one batch to the destination, applying the retry policy, and returns the outcome. Never throws: any Throwable
-   * is captured in the returned {@link SendOutcome}. May run off the indexer thread.
+   * Sends one batch to the destination, applying the retry policy, and returns the outcome. May run off the indexer
+   * thread (e.g. on a send pool), so it must be safe to call from several threads at once. Never throws: any Throwable
+   * is captured in the returned {@link SendOutcome}.
    *
    * @param batchedDocs the documents to send.
    * @return the outcome of the send attempt.

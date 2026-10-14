@@ -168,7 +168,10 @@ public class KafkaUtils {
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    *               - kafka.documentDeserializer - The deserializer class to use when deserializing documents. Defaults to KafkaDocumentDeserializer.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
-   * @return A Kafka consumer for events. The provided Consumer will *not* be configured to commit offsets automatically. The caller is responsible for committing offsets after processing documents.
+   * @return A Kafka consumer for documents. Auto-commit must be disabled: offsets are committed by the caller once a
+   *         batch has completed (at-least-once), not automatically at poll time. This method validates that
+   *         {@code enable.auto.commit} resolves to {@code false} and throws {@link IllegalArgumentException} if it is
+   *         enabled or left unset (kafka-clients defaults it to {@code true}). See {@link #requireAutoCommitDisabled}.
    */
   public static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Config config, String clientId) {
     Properties consumerProps = createConsumerProps(config, clientId);

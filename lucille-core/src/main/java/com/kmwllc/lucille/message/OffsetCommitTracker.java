@@ -193,17 +193,17 @@ class OffsetCommitTracker {
     public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
     }
 
-    // Bumps each partition's assignment generation and drops its outstanding polled/completed offsets. Any batch still
-    // in flight from the old generation will be rejected when it completes (its stamped generation no longer matches),
-    // and a re-poll under the new generation starts fresh. Pending (already-computed) commit offsets are left in place
-    // so onPartitionsRevoked can still flush them before the handoff.
+    // Bumps each partition's assignment generation and drops all of its outstanding state: polled, completed, and
+    // pending commit offsets. Any batch still in flight from the old generation will be rejected when it completes (its
+    // stamped generation no longer matches), and a re-poll under the new generation starts fresh. The pending commit
+    // offset is dropped here too; on the revoke path onPartitionsRevoked has already flushed it (while the partition was
+    // still owned) before calling this, and on the lost path nothing was committed and keeping it could rewind the new
+    // owner.
     private void dropAssignmentState(Collection<TopicPartition> partitions) {
       for (TopicPartition partition : partitions) {
         generation.merge(partition, 1L, Long::sum);
         polled.remove(partition);
         completed.remove(partition);
-        // Drop any uncommitted pending offset too: onPartitionsRevoked already flushed it above (while the partition
-        // was still owned); on the lost path nothing was committed, and keeping it could rewind the new owner.
         pendingOffsets.remove(partition);
       }
     }
