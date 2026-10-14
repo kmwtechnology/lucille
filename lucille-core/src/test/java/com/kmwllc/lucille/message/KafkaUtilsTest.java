@@ -209,27 +209,33 @@ public class KafkaUtilsTest {
   }
 
   @Test
-  public void testShouldStampSourceProvenance() {
-    // Neither the fail-topic feature nor retry tracking is configured: no document can reach the fail topic, so
-    // provenance should not be stamped on every document.
-    assertFalse(KafkaUtils.shouldStampSourceProvenance(ConfigFactory.empty()));
+  public void testWorkerFailTopicEnabled() {
+    // Neither the fail-topic feature nor retry tracking is configured: no document can reach the fail topic.
+    assertFalse(KafkaUtils.workerFailTopicEnabled(ConfigFactory.empty()));
 
-    // The pipeline-processing failure path is enabled, so failed documents are routed to the fail topic and need
-    // provenance.
-    assertTrue(KafkaUtils.shouldStampSourceProvenance(
+    // The pipeline-processing failure path is enabled, so failed documents are routed to the fail topic.
+    assertTrue(KafkaUtils.workerFailTopicEnabled(
         ConfigFactory.parseString("worker.sendFailedDocsToTopic: true")));
 
-    // sendFailedDocsToTopic is explicitly off: still no stamping.
-    assertFalse(KafkaUtils.shouldStampSourceProvenance(
+    // sendFailedDocsToTopic is explicitly off: disabled.
+    assertFalse(KafkaUtils.workerFailTopicEnabled(
         ConfigFactory.parseString("worker.sendFailedDocsToTopic: false")));
 
-    // Retry tracking is on; the retry-exceeded path always routes to the fail topic, so provenance is needed even
-    // without sendFailedDocsToTopic.
-    assertTrue(KafkaUtils.shouldStampSourceProvenance(
+    // Retry tracking is on; the retry-exceeded path always routes to the fail topic.
+    assertTrue(KafkaUtils.workerFailTopicEnabled(
         ConfigFactory.parseString("worker.maxRetries: 2")));
 
     // Both configured.
-    assertTrue(KafkaUtils.shouldStampSourceProvenance(
+    assertTrue(KafkaUtils.workerFailTopicEnabled(
         ConfigFactory.parseString("worker { sendFailedDocsToTopic: true, maxRetries: 2 }")));
+  }
+
+  @Test
+  public void testIndexerFailTopicEnabled() {
+    assertFalse(KafkaUtils.indexerFailTopicEnabled(ConfigFactory.empty()));
+    assertTrue(KafkaUtils.indexerFailTopicEnabled(
+        ConfigFactory.parseString("indexer.sendFailedDocsToTopic: true")));
+    assertFalse(KafkaUtils.indexerFailTopicEnabled(
+        ConfigFactory.parseString("indexer.sendFailedDocsToTopic: false")));
   }
 }

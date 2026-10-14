@@ -35,7 +35,11 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     String kafkaClientId = "com.kmwllc.lucille-indexer-" + pipelineName;
     this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
-    this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
+    // The document producer is used only to write to the fail topic (sendFailed). Create it only when the fail topic
+    // is enabled; otherwise an Indexer not using the fail topic would need Kafka producer config it has no reason to
+    // supply. Mirrors how createEventProducer returns null when events are disabled.
+    this.kafkaDocumentProducer = KafkaUtils.indexerFailTopicEnabled(config)
+        ? KafkaUtils.createDocumentProducer(config) : null;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
     this.deserializationErrorHandler =
@@ -134,6 +138,11 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
 
   @Override
   public void sendFailed(Document document) throws Exception {
+    if (kafkaDocumentProducer == null) {
+      // Should not happen: the Indexer only calls sendFailed when indexer.sendFailedDocsToTopic is enabled, which is
+      // exactly when the producer is created. Fail loudly on a misconfiguration rather than NPE.
+      throw new IllegalStateException("sendFailed called but indexer.sendFailedDocsToTopic is not enabled");
+    }
     ProducerRecord<String, Document> producerRecord =
         new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
     // send(...).get() blocks until the broker acks, so the fail-topic write is durable before we return.
