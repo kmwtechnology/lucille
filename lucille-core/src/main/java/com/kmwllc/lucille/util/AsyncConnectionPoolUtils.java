@@ -8,7 +8,8 @@ import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 
 /**
  * Builds the pooled async HTTP connection manager shared by the OpenSearch and Elasticsearch clients, sized so that
- * concurrent indexer sends (indexer.maxConcurrentBatches) never queue for a connection.
+ * concurrent indexer sends (indexer.maxConcurrentBatches) never queue for a connection, and carrying the client's
+ * default connection config (connect/socket timeouts and time-to-live) from {@link HttpClientConfigUtils}.
  *
  * <p> Two optional settings are read from the client's config block (e.g. <code>opensearch</code> or
  * <code>elasticsearch</code>):
@@ -25,7 +26,10 @@ public class AsyncConnectionPoolUtils {
   public static final int DEFAULT_MAX_CONNECTIONS_PER_ROUTE = 5;
   public static final int DEFAULT_MAX_CONNECTIONS_TOTAL = 25;
 
-  /** Builds a connection manager for the given client config block, sized for concurrent sends. */
+  /**
+   * Builds a connection manager for the given client config block, sized for concurrent sends and carrying the client's
+   * default connection config (connect/socket timeouts and connection time-to-live from {@link HttpClientConfigUtils}).
+   */
   public static PoolingAsyncClientConnectionManager buildConnectionManager(Config config, String configKey,
       TlsStrategy tlsStrategy) {
     int perRoute = getMaxConnectionsPerRoute(config, configKey);
@@ -34,6 +38,7 @@ public class AsyncConnectionPoolUtils {
         .setTlsStrategy(tlsStrategy)
         .setMaxConnPerRoute(perRoute)
         .setMaxConnTotal(total)
+        .setDefaultConnectionConfig(HttpClientConfigUtils.buildConnectionConfig(config, configKey))
         .build();
   }
 
