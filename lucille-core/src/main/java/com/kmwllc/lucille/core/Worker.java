@@ -4,11 +4,14 @@ import static com.kmwllc.lucille.core.Document.ID_FIELD;
 import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
 import com.codahale.metrics.*;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -20,10 +23,16 @@ import java.util.concurrent.atomic.AtomicReference;
 
 class Worker implements Runnable {
 
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
+      .optionalString("pipeline")
+      .optionalNumber("threads", "maxProcessingSecs", "maxRetries")
+      .optionalBoolean("exitOnTimeout", "enableHeartbeat").build();
+
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
   private static final Logger log = LoggerFactory.getLogger(Worker.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
+  private static final Logger failedDocLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.FailedDocuments");
 
   private final WorkerMessenger messenger;
   private final String localRunId;
@@ -84,6 +93,11 @@ class Worker implements Runnable {
         if (localRunId == null && doc != null) {
           MDC.put(RUNID_FIELD, doc.getRunId());
         }
+      } catch (RecordDeserializationException e) {
+        // already logged with the record's location by the messenger; fall through to the cleanup below
+        log.error("Worker stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+        terminate();
+        break;
       } catch (Exception e) {
         log.info("interrupted " + e);
         terminate();
@@ -101,6 +115,7 @@ class Worker implements Runnable {
         if (trackRetries && counter.add(doc)) {
           try {
             docLogger.error("Document FAILED: retry count exceeded for {}. Sending to dead letter queue.", doc.getId());
+            failedDocLogger.atError().setMessage(() -> doc.toString()).log();
             stampFailureMetadata(doc, "Retry count exceeded", "worker");
             messenger.sendFailed(doc);
           } catch (Exception e) {
@@ -146,6 +161,7 @@ class Worker implements Runnable {
           context.stop();
         } catch (Exception e) {
           docLogger.error("Document FAILED during pipeline processing: {}", doc.getId(), e);
+          failedDocLogger.atError().setMessage(() -> doc.toString()).log();
           try {
             messenger.sendEvent(doc, null, Event.Type.FAIL);
           } catch (Exception e2) {

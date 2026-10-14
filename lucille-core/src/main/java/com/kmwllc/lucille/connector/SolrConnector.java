@@ -9,10 +9,10 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.RequestWriter;
+import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.util.NamedList;
@@ -76,7 +76,7 @@ public class SolrConnector extends AbstractConnector {
     this.postActions = ConfigUtils.getOrDefault(config, "postActions", new ArrayList<>());
     this.actionFormat = config.hasPath("useXml") && config.getBoolean("useXml") ? "text/xml" : "text/json";
 
-    this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update", null);
+    this.request = new GenericSolrRequest(SolrRequest.METHOD.POST, "/update");
     this.solrParams = new HashMap<>();
 
     // These parameters should only be set when a pipeline is also supplied

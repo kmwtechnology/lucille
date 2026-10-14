@@ -27,12 +27,13 @@ import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 
-@JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children", "skipped"})
+@JsonIgnoreProperties(value = {"fieldNames", "runId", "dropped", "id", "children", "skipped", "byteSize"})
 public class HashMapDocument implements Document, Serializable {
 
   static final long serialVersionUID = 1L;
 
-  protected static final ObjectMapper MAPPER = new ObjectMapper();
+  // shares JsonDocument's read constraints so large byte[] fields parse; see JsonDocument.createDocumentMapper()
+  protected static final ObjectMapper MAPPER = JsonDocument.createDocumentMapper();
 
   private static final Function<Object, Integer> TO_INT =
       value -> {
@@ -610,6 +611,12 @@ public class HashMapDocument implements Document, Serializable {
     // however, updates made to an object inside the map (for example, changing the contents of an array value) will
     // be evident when that same object is retrieved from the original document
     return (Map<String, Object>)data.getData().clone();
+  }
+
+  @Override
+  public long getByteSize() {
+    byte[] bytes = this.toString().getBytes();
+    return bytes.length;
   }
 
   @Override

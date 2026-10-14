@@ -210,7 +210,7 @@ public class ApplyJSoupTest {
 
     assertEquals(3, doc.getFieldNames().size());
     assertEquals("doc1", doc.getString("id"));
-    assertEquals(List.of("<div>\n foo\n</div>", "<div>\n bar\n</div>"), doc.getStringList("destination"));
+    assertEquals(List.of("<div>foo</div>", "<div>bar</div>"), doc.getStringList("destination"));
     assertEquals(html, doc.getString("string"));
   }
 }

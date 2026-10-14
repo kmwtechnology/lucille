@@ -47,6 +47,7 @@ import org.opensearch.client.opensearch.core.bulk.UpdateOperation;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.endpoints.BooleanResponse;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
@@ -117,9 +118,9 @@ public class OpenSearchIndexerTest {
     }
   }
 
-  // Unsupported, but shouldn't cause any errors.
+  // When childDocumentsField is not configured, children are not indexed with a warning and indexing still succeeds.
   @Test
-  public void testIndexerWithChildDocs() throws Exception {
+  public void testIndexerWithChildDocsNoChildField() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf");
 
@@ -137,6 +138,109 @@ public class OpenSearchIndexerTest {
     indexer.run(2);
 
     Assert.assertEquals(2, messenger.getSentEvents().size());
+  }
+
+  @Test
+  public void testChildDocumentsIndexed() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/childDocuments.conf");
+
+    Document child1 = Document.create("child1");
+    child1.setField("child_field", "value1");
+
+    Document child2 = Document.create("child2");
+    child2.setField("child_field", "value2");
+
+    Document parent = Document.create("parent1");
+    parent.setField("parent_field", "parentValue");
+    parent.addChild(child1);
+    parent.addChild(child2);
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(parent);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
+
+    // parent should still be indexed as appropriate (parent_field: parentValue)
+    assertEquals("parentValue", indexed.get("parent_field"));
+    // sanity checking we aren't using our children field to index
+    assertFalse(indexed.containsKey(Document.CHILDREN_FIELD));
+
+    List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
+    assertEquals(2, children.size());
+    assertEquals("value1", children.get(0).get("child_field"));
+    assertEquals("value2", children.get(1).get("child_field"));
+
+    assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(Event.Type.FINISH, messenger.getSentEvents().get(0).getType());
+  }
+
+  @Test
+  public void testChildDocumentsFieldFilterApplied() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    // blacklist.conf blacklists "id", "ignoreField1", and "ignoreField2"
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/blacklist.conf")
+        .withValue("opensearch.childDocumentsField", ConfigValueFactory.fromAnyRef("children"));
+
+    Document child = Document.create("child1");
+    child.setField("ignoreField1", "shouldBeRemoved");
+    child.setField("normalField", "shouldBeKept");
+
+    Document parent = Document.create("doc1");
+    parent.addChild(child);
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(parent);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
+    List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
+
+    assertEquals(1, children.size());
+    assertFalse(children.get(0).containsKey("id"));
+    assertFalse(children.get(0).containsKey("ignoreField1"));
+    assertEquals("shouldBeKept", children.get(0).get("normalField"));
+  }
+
+  @Test
+  public void testChildDocumentsGrandchildrenStripped() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/childDocuments.conf");
+
+    Document grandchild = Document.create("grandchild1");
+    grandchild.setField("grandchild_field", "gcValue");
+
+    Document child = Document.create("child1");
+    child.setField("child_field", "childValue");
+    child.addChild(grandchild);
+
+    Document parent = Document.create("parent1");
+    parent.addChild(child);
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(parent);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
+    List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
+
+    assertEquals(1, children.size());
+    assertEquals("childValue", children.get(0).get("child_field"));
+
+    // the child document should not have its own child - either through our children field
+    // or through the specified "childDocumentsField".
+    assertFalse(children.get(0).containsKey("children"));
+    assertFalse(children.get(0).containsKey(Document.CHILDREN_FIELD));
   }
 
   @Test
@@ -626,7 +730,7 @@ public class OpenSearchIndexerTest {
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
 
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), indexRequest.id());
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -659,7 +763,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -692,7 +796,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -724,7 +828,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals("doc1", indexRequest.id());
 
@@ -761,6 +865,67 @@ public class OpenSearchIndexerTest {
   }
 
   @Test
+  public void testDocumentVersioningWithVersionField() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
+        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("field1", "value1");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+    Map<String, Object> map = asSent(indexRequest.document());
+
+    assertEquals("doc1", indexRequest.id());
+    assertEquals(Long.valueOf(12345L), indexRequest.version());
+    assertEquals(VersionType.ExternalGte, indexRequest.versionType());
+    assertEquals(Map.of("id", "doc1", "my_version_field", 12345L, "field1", "value1"), map);
+  }
+
+  @Test
+  public void testDocumentVersioningWithVersionFieldMissingInDoc() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
+        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
+
+    Document doc = Document.create("doc1");
+    doc.setField("field1", "value1");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+    ArgumentCaptor<BulkRequest> bulkRequestArgumentCaptor = ArgumentCaptor.forClass(BulkRequest.class);
+
+    verify(mockClient, times(1)).bulk(bulkRequestArgumentCaptor.capture());
+
+    BulkRequest br = bulkRequestArgumentCaptor.getValue();
+    List<BulkOperation> requests = br.operations();
+    IndexOperation indexRequest = requests.get(0).index();
+
+    assertEquals("doc1", indexRequest.id());
+    // Should be null because field is missing and it's not a KafkaDocument
+    assertEquals(null, indexRequest.version());
+  }
+
+  @Test
+  public void testConstructorWithVersionFieldAndNoVersionType() {
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"));
+    TestMessenger messenger = new TestMessenger();
+    assertThrows(IllegalArgumentException.class, () -> new OpenSearchIndexer(config, messenger, "testing", mockClient));
+  }
+
+  @Test
   public void testDocumentVersioning() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("OpenSearchIndexerTest/versioning.conf");
@@ -781,7 +946,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     Long expectedVersion = Long.valueOf(100);
     assertEquals("doc1", indexRequest.id());
@@ -898,7 +1063,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that ignoreField1, ignoreField2 and id has been removed
     assertEquals(Map.of("normalField", "normalValue"), map);
@@ -927,7 +1092,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that normalField and id have been removed
     assertFalse(map.containsKey("normalField"));
@@ -958,7 +1123,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that ignoreField1, normalField, and id have been removed
     assertFalse(map.containsKey("ignoreField1"));
@@ -997,7 +1162,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id and other_id has been removed
     assertEquals(Map.of("normalField", "normalValue"), map);
@@ -1025,7 +1190,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id and other_id has been removed
     assertEquals(Map.of("whitelistField", "whitelistValue"), map);
@@ -1058,7 +1223,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id has been removed and that other_id field remains
     assertEquals(Map.of("other_id", "otherId", "normalField", "normalValue"), map);
@@ -1086,7 +1251,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id has been removed and that other_id field remains
     assertEquals(Map.of("other_id", "otherId"), map);
@@ -1117,7 +1282,7 @@ public class OpenSearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     // check that id has been overwritten and other_id remains
     assertEquals(Map.of("id", "otherId", "other_id", "otherId"), map);
@@ -1657,5 +1822,12 @@ public class OpenSearchIndexerTest {
           503, "Simulated 503 Service Unavailable", new IOException("backend unavailable"));
     }
   }
-}
 
+  /**
+   * Converts the document handed to the client into plain Java values. The indexer may pass the document's own
+   * JsonNodes as map values, which the client serializes the same way as the converted values.
+   */
+  private static Map<String, Object> asSent(Object document) {
+    return new ObjectMapper().convertValue(document, new TypeReference<Map<String, Object>>() {});
+  }
+}

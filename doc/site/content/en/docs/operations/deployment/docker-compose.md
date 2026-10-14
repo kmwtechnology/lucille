@@ -44,7 +44,7 @@ services:
       kafka:   { condition: service_healthy }
       indexer: { condition: service_healthy }  # Ensures Indexer + backend are ready
     entrypoint: java -Dconfig.file=/conf/config.conf -cp '/target/lib/*'
-                     com.kmwllc.lucille.core.Runner -usekafka
+                     com.kmwllc.lucille.core.Runner -distributed
 ```
 
 Key design points from the example:

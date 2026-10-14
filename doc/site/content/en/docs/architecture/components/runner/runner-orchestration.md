@@ -106,8 +106,8 @@ private static ConnectorResult runConnectorWithComponents(...) {
 public enum RunType {
     LOCAL,             // Workers + Indexer as threads; in-memory queues
     TEST,              // Same as LOCAL but bypass indexer backend; record message history
-    KAFKA_LOCAL,       // Workers + Indexer as threads; Kafka for messaging
-    KAFKA_DISTRIBUTED  // No local Workers/Indexer; Kafka messaging; assume external processes
+    EXTERNAL,          // Workers + Indexer as threads; Kafka for messaging
+    DISTRIBUTED        // No local Workers/Indexer; Kafka messaging; assume external processes
 }
 ```
 
@@ -115,12 +115,12 @@ public enum RunType {
 |---------|----------------------|------------------------|----------------|
 | `LOCAL` | Yes | No | `LocalMessenger` |
 | `TEST` | Yes | Yes | `TestMessenger` |
-| `KAFKA_LOCAL` | Yes | No | `KafkaWorkerMessenger` / `KafkaIndexerMessenger` |
-| `KAFKA_DISTRIBUTED` | No | No | `KafkaWorkerMessenger` / `KafkaIndexerMessenger` |
+| `EXTERNAL` | Yes | No | `KafkaWorkerMessenger` / `KafkaIndexerMessenger` |
+| `DISTRIBUTED` | No | No | `KafkaWorkerMessenger` / `KafkaIndexerMessenger` |
 
 The key decision:
 ```java
-boolean startWorkerAndIndexer = !type.equals(RunType.KAFKA_DISTRIBUTED);
+boolean startWorkerAndIndexer = !type.equals(RunType.DISTRIBUTED);
 boolean bypassSolr = type.equals(RunType.TEST);
 ```
 
@@ -225,11 +225,19 @@ Each connector gets its own WorkerPool, Indexer, and Publisher. Components from 
 ## The `main()` Method and CLI Options
 
 ```java
+Option distributedOpt = Option.builder("distributed").hasArg(false)
+    .desc("Uses Kafka for inter-component communication and doesn't execute pipelines locally.")
+    .build();
+
+Option external = Option.builder("external").hasArg(false)
+    .desc("Modified local mode where workers and indexers are separate threads within the JVM communicating "
+        + "through kafka")
+    .build();
+
+OptionGroup distributedType = new OptionGroup().addOption(distributedOpt).addOption(external);
+
 Options cliOptions = new Options()
-    .addOption(Option.builder("usekafka").hasArg(false)
-        .desc("Use Kafka for inter-component communication").build())
-    .addOption(Option.builder("local").hasArg(false)
-        .desc("Modifies useKafka mode to execute pipelines locally").build())
+    .addOptionGroup(distributedType)
     .addOption(Option.builder("validate").hasArg(false)
         .desc("Validate the configuration and exit").build())
     .addOption(Option.builder("render").hasArg(false)
@@ -239,12 +247,14 @@ Options cliOptions = new Options()
 | Flag | Effect |
 |------|--------|
 | (none) | `RunType.LOCAL` — full local execution with in-memory queues |
-| `-usekafka` | `RunType.KAFKA_DISTRIBUTED` — only run connectors, assume external workers/indexers |
-| `-usekafka -local` | `RunType.KAFKA_LOCAL` — local workers/indexers but communicate via Kafka |
+| `-distributed` | `RunType.DISTRIBUTED` — only run connectors, assume external workers/indexers |
+| `-external` | `RunType.EXTERNAL` — local workers/indexers but communicate via Kafka |
 | `-validate` | Validate config and exit (no execution) |
 | `-render` | Print resolved config as JSON and exit |
 
-The `-validate` and `-render` flags can be combined. All args are lowercased before parsing.
+The `-validate` and `-render` flags can be combined. `-distributed` and `-external` cannot as they are mutually exclusive, supplying both is rejected. 
+
+Anything the parser doesn't recognize (unknown flags or leftover positional arguments) cause the Runner to log the usage text and exit 1 rather than starting a run.
 
 ## Thread Model (Local Mode)
 

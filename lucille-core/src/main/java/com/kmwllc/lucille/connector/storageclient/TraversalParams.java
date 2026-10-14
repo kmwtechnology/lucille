@@ -10,6 +10,8 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
@@ -44,6 +46,7 @@ public class TraversalParams {
   // FilterOptions
   private final List<Pattern> excludes;
   private final List<Pattern> includes;
+  private final List<URI> pathsToSkip;
   private final Duration lastModifiedCutoff;
   private final Duration lastPublishedCutoff;
   private final PublishMode publishMode;
@@ -63,7 +66,7 @@ public class TraversalParams {
 
     try {
       if (fileOptions.hasPath(FileConnector.MOVE_TO_AFTER_PROCESSING)) {
-        this.moveToAfterProcessing = new URI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
+        this.moveToAfterProcessing = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
       } else {
         this.moveToAfterProcessing = null;
       }
@@ -73,7 +76,7 @@ public class TraversalParams {
 
     try {
       if (fileOptions.hasPath(FileConnector.MOVE_TO_ERROR_FOLDER)) {
-        this.moveToErrorFolder = new URI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
+        this.moveToErrorFolder = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
       } else {
         this.moveToErrorFolder = null;
       }
@@ -90,6 +93,12 @@ public class TraversalParams {
     List<String> excludeRegex = filterOptions.hasPath("excludes") ?
         filterOptions.getStringList("excludes") : Collections.emptyList();
     this.excludes = excludeRegex.stream().map(Pattern::compile).collect(Collectors.toList());
+
+    List<String> pathsToSkipStrings = filterOptions.hasPath("pathsToSkip") ?
+        filterOptions.getStringList("pathsToSkip") : Collections.emptyList();
+    this.pathsToSkip = pathsToSkipStrings.stream()
+        .map(TraversalParams::makePathToSkipURI)
+        .collect(Collectors.toList());
 
     this.publishMode = filterOptions.hasPath("publishMode") ? PublishMode.fromString(filterOptions.getString("publishMode")) : PublishMode.FULL;
 
@@ -204,6 +213,67 @@ public class TraversalParams {
 
   public URI getMoveToErrorFolder() {
     return moveToErrorFolder;
+  }
+
+  public List<URI> getPathsToSkip() {
+    return pathsToSkip;
+  }
+
+  /**
+   * Creates a normalized URI for a path to skip.
+   * <p>
+   * Valid, absolute URIs are used as-is. As a convenience and a fallback, local
+   * file system paths may be provided without a scheme - either absolute or relative - and are
+   * converted to an absolute {@code file://} URI.
+   * <p>
+   * Throws an IllegalArgumentException in the event of an invalid URI / path.
+   */
+  private static URI makePathToSkipURI(String s) {
+    try {
+      URI uri = new URI(s);
+
+      // a single-letter scheme is a Windows drive letter ("C:/data"), handled as a local path below
+      if (uri.isAbsolute() && uri.getScheme().length() > 1) {
+        return uri.normalize();
+      }
+    } catch (URISyntaxException e) {
+      // Fall back, seeing if we can treat the entry as a local file system path.
+    }
+
+    // non-absolute URI, or invalid syntax: fall back to local file path.
+    try {
+      return Paths.get(s).toAbsolutePath().normalize().toUri();
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Error with path in pathsToSkip: '" + s + "'.", e);
+    }
+  }
+
+  /**
+   * Parses a configured path or URI into a URI.
+   * <p>
+   * Strings that are valid URIs are used as-is. Local file system paths that are not valid URIs, such as Windows paths
+   * ("C:\data", "C:/data", "\\server\share"), are converted to an absolute {@code file://} URI.
+   * <p>
+   * Throws a URISyntaxException if the string is neither a valid URI nor a local file system path.
+   */
+  public static URI parsePathOrURI(String s) throws URISyntaxException {
+    try {
+      URI uri = new URI(s);
+
+      if (uri.getScheme() == null || uri.getScheme().length() > 1) {
+        return uri;
+      }
+    } catch (URISyntaxException e) {
+      if (s.contains("://")) {
+        throw e;
+      }
+    }
+
+    try {
+      return Paths.get(s).toUri();
+    } catch (InvalidPathException e) {
+      throw new URISyntaxException(s, e.getReason());
+    }
   }
 
   public enum PublishMode {

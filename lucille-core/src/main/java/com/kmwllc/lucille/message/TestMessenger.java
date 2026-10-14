@@ -89,6 +89,13 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+    for (Document document : documents) {
+      sendEvent(document, message, type);
+    }
+  }
+
+  @Override
   public void close() {
     messenger.close();
   }

@@ -96,7 +96,7 @@ Re-run with the fix and confirm the failure count drops to zero in the run summa
 
 **Fix:**
 
-* Ensure Java 17+ is installed and on `PATH`.
+* Ensure Java 21+ is installed and on `PATH`.
 * Ensure `JAVA_HOME` points to a JDK (not a JRE).
 
 ```bash

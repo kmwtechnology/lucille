@@ -104,7 +104,7 @@ Conditions are configured by the user in the stage's config block. Here's what t
 
 There are legitimate exceptions. Some stages return early from `processDocument()` when a required source field is absent or empty — for example, `FetchUri` returns immediately if the URL field is missing or blank, `DetectLanguage` returns early if the accumulated text is shorter than a minimum length, and `ParseJson` returns early if its source field doesn't exist. These are cases where the stage's logic fundamentally cannot proceed and the check is more nuanced than a simple field-existence condition (e.g., checking `isEmpty()`, or evaluating a computed threshold). When you do return early, do so silently — don't throw a `StageException` for ordinary data variation.
 
-For the full conditions reference and all other control flow options — skipping, dropping, error handling, child documents, and connector sequencing — see [Control Flow]({{< relref "docs/reference/control-flow" >}}).
+For the full conditions reference and all other control flow options — skipping, dropping, error handling, child documents, and connector sequencing — see [Control Flow]({{< relref "docs/ingest-design/control-flow" >}}).
 
 ## Stage Scope: One Stage or Several?
 

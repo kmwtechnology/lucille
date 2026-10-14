@@ -8,6 +8,7 @@ import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
+import com.kmwllc.lucille.connector.StatePathTooLongException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
@@ -18,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
+import java.util.Objects;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
@@ -26,6 +28,7 @@ import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.input.CloseShieldInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -60,9 +63,11 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * Validate that the given config is sufficient to construct an instance of this StorageClient.
+   * Catches cases in which a config option being set requires the presence or absence of another option(s), which is not covered by
+   * the Spec.
    * @throws IllegalArgumentException If the configuration is not sufficient for this StorageClient.
    */
-  protected abstract void validateOptions(Config config);
+  protected void validateOptions(Config config) { }
 
   // Wrapping around init, shutdown, and traverse to manage "initialized" before / after doing the actual operations in a
   // StorageClient-specific way.
@@ -109,6 +114,60 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
+
+  /**
+   * {@inheritDoc}
+   * <p> Compares the URIs by path segment, so <code>s3://bucket/data</code> contains <code>s3://bucket/data/2024</code>.
+   * A URI with an empty path is the root of its bucket or container, and contains everything in it.
+   * <p> Object storage prefixes are raw strings rather than path segments, so overlaps that do not fall on a segment
+   * boundary are missed, implementations may override to catch them.
+   */
+  @Override
+  public boolean containsPath(URI parent, URI child) {
+    URI normalizedParent = parent.normalize();
+    URI normalizedChild = child.normalize();
+
+    if (!Objects.equals(normalizedParent.getScheme(), normalizedChild.getScheme())
+        || !Objects.equals(normalizedParent.getAuthority(), normalizedChild.getAuthority())) {
+      return false;
+    }
+
+    return isUnder(normalizedChild.getPath(), normalizedParent.getPath());
+  }
+
+  // Returns whether the child path is the parent path, or sits underneath it, treating both as '/'-delimited.
+  private static boolean isUnder(String childPath, String parentPath) {
+    String parent = stripTrailingSlash(parentPath);
+    String child = stripTrailingSlash(childPath);
+
+    // an empty path is the root of a bucket / container, which contains everything in it
+    return parent.isEmpty() || child.equals(parent) || child.startsWith(parent + "/");
+  }
+
+  private static String stripTrailingSlash(String path) {
+    if (path == null || path.isEmpty()) {
+      return "";
+    }
+
+    return path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+  }
+
+  /**
+   * Returns whether the provided URI, which represents a directory in some storage provider, is a directory
+   * that should be skipped and not traversed at all, based on the <code>pathsToSkip</code> in <code>params</code>.
+   * @param directoryURI A URI representing a directory (or the notion of a directory) in a storage provider.
+   * @param params Parameters for a traversal.
+   * @return Whether the directory at the provided URI ought to be skipped.
+   */
+  protected boolean isSkippedDirectory(URI directoryURI, TraversalParams params) {
+    String normalized = ensureTrailingSlash(directoryURI.toString());
+    return params.getPathsToSkip().stream()
+        .anyMatch(skipDir -> ensureTrailingSlash(skipDir.toString()).equals(normalized));
+  }
+
+  private static String ensureTrailingSlash(String s) {
+    return s.endsWith("/") ? s : s + "/";
+  }
 
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
@@ -185,8 +244,10 @@ public abstract class BaseStorageClient implements StorageClient {
               handleStreamExtensionFiles(publisher, resolvedExtension, params, compressorStream, compressedFileFullPath);
             } else {
               Document doc = fileReference.decompressedFileAsDoc(compressorStream, compressedFileFullPath, params);
-              try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
-                docLogger.info("StorageClient to publish Document {}.", doc.getId());
+              if (docLogger.isInfoEnabled()) {
+                try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+                  docLogger.info("StorageClient to publish Document {}.", doc.getId());
+                }
               }
               publisher.publish(doc);
             }
@@ -238,8 +299,10 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle normal files
       Document doc = fileReference.asDoc(params);
-      try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
-        docLogger.info("StorageClient to publish Document {}.", doc.getId());
+      if (docLogger.isInfoEnabled()) {
+        try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+          docLogger.info("StorageClient to publish Document {}.", doc.getId());
+        }
       }
       publisher.publish(doc);
 
@@ -250,6 +313,8 @@ public abstract class BaseStorageClient implements StorageClient {
       afterProcessingFile(fullPath, params);
     } catch (UnsupportedOperationException e) {
       throw new UnsupportedOperationException("Encountered unsupported operation", e);
+    } catch (StatePathTooLongException e) {
+      throw e;
     } catch (Exception e) {
       try {
         errorProcessingFile(fullPath, params);
@@ -312,8 +377,10 @@ public abstract class BaseStorageClient implements StorageClient {
               doc.setField(CONTENT, in.readAllBytes());
             }
             try {
-              try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
-                docLogger.info("StorageClient to publish Document {}.", doc.getId());
+              if (docLogger.isInfoEnabled()) {
+                try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+                  docLogger.info("StorageClient to publish Document {}.", doc.getId());
+                }
               }
               publisher.publish(doc);
             } catch (Exception e) {
@@ -343,17 +410,8 @@ public abstract class BaseStorageClient implements StorageClient {
   private void handleStreamExtensionFiles(Publisher publisher, String fileExtension, TraversalParams params, InputStream in, String fullPathStr)
       throws ConnectorException {
     try {
-      InputStream wrappedNonClosingStream = new InputStream() {
-        @Override
-        public int read() throws IOException {
-          return in.read();
-        }
-
-        // Intentionally a no-op. We don't want to close the archiveInputStream when finished
-        // with this one file.
-        @Override
-        public void close() {}
-      };
+      // Shield the archive / compressor stream from close() calls, but delegate everything else (notably bulk reads).
+      InputStream wrappedNonClosingStream = CloseShieldInputStream.wrap(in);
 
       FileHandler handler = params.handlerForExtension(fileExtension);
       handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);

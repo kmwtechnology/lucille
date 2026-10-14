@@ -15,7 +15,7 @@ For scheduled batch ingests, package Lucille as a container and run it as a `Cro
 
 **Minimal Dockerfile:**
 ```dockerfile
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 

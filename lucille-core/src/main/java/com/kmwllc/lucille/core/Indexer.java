@@ -8,6 +8,8 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
@@ -20,7 +22,8 @@ import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
-import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +32,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -65,7 +69,10 @@ import sun.misc.Signal;
  *   <li>indexer.whitelist (List&lt;String&gt;, Optional) : Only include these fields from the document when sending to the
  *   destination.</li>
  *   <li>indexer.batchSize (Integer, Optional) : Number of documents to accumulate before sending to the destination. Defaults to
- *   {@value #DEFAULT_BATCH_SIZE}.</li>
+ *   {@value #DEFAULT_BATCH_SIZE} or {@value #NO_BATCH_SIZE} if batchByteSize is set. If both are set, batches are flushed when
+ *   either limit is reached.</li>
+ *   <li>indexer.batchByteSize (Long, Optional) : Total size of documents accumulated before sending to the destination. Defaults to
+ *   {@value #NO_BATCH_SIZE_BYTES}.</li>
  *   <li>indexer.batchTimeout (Integer, Optional) : the number of milliseconds (since the previous add or flush) beyond which the batch
  *   will be considered as expired. Defaults to {@value #DEFAULT_BATCH_TIMEOUT}.</li>
  *   <li>indexer.deletionMarkerField (String, Optional) : Field that, when set to indexer.deletionMarkerFieldValue, marks a document
@@ -94,11 +101,15 @@ import sun.misc.Signal;
  *   failures, will not be retried. Include the sentinel value {@code -1} to also retry failures where no HTTP status code
  *   is available (e.g. network timeouts). When this parameter is omitted, the default {@code [429, 503, -1]} is used.
  *   An empty list is rejected as invalid configuration. Only allowed when maxRetries is also set.</li>
+ *   <li>indexer.versionType (String, Optional) : The type of versioning to use for indexing documents. Specific indexer implementations may support different version types. The default version type is implementation-specific.</li>
+ *   <li>indexer.versionField (String, Optional) : The field name to use for versioning. This field must be present in the document and must be of a type that supports versioning with that specific indexer implementation (e.g., numeric, string).</li>
  * </ul>
  */
 public abstract class Indexer implements Runnable {
 
   public static final int DEFAULT_BATCH_SIZE = 100;
+  public static final int NO_BATCH_SIZE = Integer.MAX_VALUE;
+  public static final long NO_BATCH_SIZE_BYTES = Long.MAX_VALUE;
   public static final int DEFAULT_BATCH_TIMEOUT = 100;
   public static final int DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS = 1000;
   public static final long DEFAULT_RETRY_MAX_WAIT_DURATION_MS = 30000;
@@ -107,6 +118,7 @@ public abstract class Indexer implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(Indexer.class);
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
+  private static final Logger failedDocLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.FailedDocuments");
 
   private final IndexerMessenger messenger;
   private final Batch batch;
@@ -186,18 +198,27 @@ public abstract class Indexer implements Runnable {
         config.hasPath("indexer.deleteByFieldValue")
             ? config.getString("indexer.deleteByFieldValue")
             : null;
-    int batchSize =
-        config.hasPath("indexer.batchSize")
-            ? config.getInt("indexer.batchSize")
-            : DEFAULT_BATCH_SIZE;
+
+    int batchSize;
+    long batchByteSize;
+
+    if (config.hasPath("indexer.batchSize") || config.hasPath("indexer.batchByteSize")) {
+      // when only one is set, the other is disabled so the configured one governs
+      batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : NO_BATCH_SIZE;
+      batchByteSize = config.hasPath("indexer.batchByteSize") ? config.getLong("indexer.batchByteSize") : NO_BATCH_SIZE_BYTES;
+    } else {
+      batchSize = DEFAULT_BATCH_SIZE;
+      batchByteSize = NO_BATCH_SIZE_BYTES;
+    }
+
     int batchTimeout =
         config.hasPath("indexer.batchTimeout")
             ? config.getInt("indexer.batchTimeout")
             : DEFAULT_BATCH_TIMEOUT;
     this.batch =
         (indexOverrideField == null)
-            ? new SingleBatch(batchSize, batchTimeout)
-            : new MultiBatch(batchSize, batchTimeout, indexOverrideField);
+            ? new SingleBatch(batchSize, batchByteSize, batchTimeout)
+            : new MultiBatch(batchSize, batchByteSize, batchTimeout, indexOverrideField);
     // validate config deletionFields that must be present together
     if ((deleteByFieldField != null && deleteByFieldValue == null)
         || (deleteByFieldField == null && deleteByFieldValue != null)) {
@@ -373,6 +394,11 @@ public abstract class Indexer implements Runnable {
       // blocking poll with a timeout which we assume to be in the range of
       // several milliseconds to several seconds
       doc = messenger.pollDocToIndex();
+    } catch (RecordDeserializationException e) {
+      // already logged with the record's location by the messenger
+      log.error("Indexer stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+      terminate();
+      return;
     } catch (Exception e) {
       log.info("Indexer interrupted ", e);
       terminate();
@@ -382,8 +408,10 @@ public abstract class Indexer implements Runnable {
     if (doc == null) {
       sendToIndexWithAccounting(batch.flushIfExpired());
     } else {
-      try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
-        docLogger.info("Indexer polled doc {}, added to batch.", doc.getId());
+      if (docLogger.isInfoEnabled()) {
+        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
+          docLogger.info("Indexer polled doc {}, added to batch.", doc.getId());
+        }
       }
       sendToIndexWithAccounting(batch.add(doc));
     }
@@ -432,25 +460,22 @@ public abstract class Indexer implements Runnable {
 
       Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
 
-      for (Document d : batchedDocs) {
-        if (failedDocs.contains(d)) {
-          continue;
-        }
+      List<Document> succeededDocs = batchedDocs.stream()
+          .filter(d -> !failedDocs.contains(d))
+          .collect(Collectors.toList());
 
-        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
-          if (d.getRunId() != null) {
-            MDC.pushByKey(RUNID_FIELD, d.getRunId());
-          }
-
-          messenger.sendEvent(d, "SUCCEEDED", Event.Type.FINISH);
-          docLogger.info("Sent success message for doc {}.", d.getId());
-        } catch (Exception e) {
-          docLogger.error("Error sending completion event for doc {}. RUN WILL HANG.", d.getId(), e);
-        } finally {
-          if (d.getRunId() != null) {
-            MDC.popByKey(RUNID_FIELD);
+      try {
+        messenger.sendEvents(succeededDocs, "SUCCEEDED", Event.Type.FINISH);
+        for (Document d : succeededDocs) {
+          if (docLogger.isInfoEnabled()) {
+            try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
+              docLogger.info("Sent success message for doc {}.", d.getId());
+            }
           }
         }
+      } catch (Exception e) {
+        List<String> docIds = succeededDocs.stream().map(Document::getId).collect(Collectors.toList());
+        log.error("Error sending completion events for docs {}. RUN WILL HANG.", docIds, e);
       }
     } catch (Throwable t) {
       // Rethrow Errors (OutOfMemoryError, etc.) — they should never be swallowed
@@ -487,6 +512,7 @@ public abstract class Indexer implements Runnable {
       }
       messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
       docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
+      failedDocLogger.atError().setMessage(() -> d.toString()).log();
 
       if (sendFailedDocsToTopic) {
         try {
@@ -531,12 +557,67 @@ public abstract class Indexer implements Runnable {
     return null;
   }
 
-  protected Map<String, Object> getIndexerDoc(Document doc) {
+  /**
+   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD},
+   * converted to plain Java values (Strings, numbers, booleans, Lists, Maps, byte arrays) by {@link Document#asMap()}.
+   * The map is a full copy that callers may modify freely. Children are never included; an indexer that sends them
+   * reads them from {@link Document#getChildren()}.
+   *
+   * <p>Use this for a destination client that needs plain Java values, such as Solr's. For a client that serializes
+   * the map to JSON with Jackson, {@link #getRawIndexerDoc} avoids the conversion.
+   */
+  protected final Map<String, Object> getConvertedIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
+    indexerDoc.remove(Document.CHILDREN_FIELD);
     if (fieldFilter.isActive()) {
       indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
     return indexerDoc;
+  }
+
+  /**
+   * Returns the document's fields, with the field filter applied and without {@link Document#CHILDREN_FIELD}, for a
+   * destination client that serializes the map to JSON with Jackson, such as the OpenSearch and Elasticsearch clients.
+   * Only the top-level map is new: its values are the document's own JsonNodes, not converted copies, so nothing is
+   * converted that the client will serialize again anyway.
+   *
+   * <p>The JSON written for the result is the same as for {@link #getConvertedIndexerDoc}. To keep it
+   * so, a value that is or contains a null is converted as getConvertedIndexerDoc converts it, because a mapper may
+   * leave out null map values (the OpenSearch and Elasticsearch clients' mappers do) but always writes the nulls inside
+   * a JsonNode. A Document that is not backed by JSON gets getConvertedIndexerDoc's result.
+   *
+   * <p>The map shares state with the Document. Callers may add, remove or replace entries but must not modify the
+   * values, and the Document must not be modified until the map has been serialized.
+   */
+  protected Map<String, Object> getRawIndexerDoc(Document doc) {
+    if (!(doc instanceof JsonDocument)) {
+      return getConvertedIndexerDoc(doc);
+    }
+
+    ObjectNode data = ((JsonDocument) doc).data;
+    Map<String, Object> indexerDoc = new LinkedHashMap<>();
+    for (Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext(); ) {
+      Map.Entry<String, JsonNode> field = it.next();
+      String name = field.getKey();
+      JsonNode value = field.getValue();
+      if (Document.CHILDREN_FIELD.equals(name) || !fieldFilter.shouldInclude(name)) {
+        continue;
+      }
+      indexerDoc.put(name, containsNull(value) ? JsonDocument.MAPPER.convertValue(value, Object.class) : value);
+    }
+    return indexerDoc;
+  }
+
+  private static boolean containsNull(JsonNode node) {
+    if (node.isNull()) {
+      return true;
+    }
+    for (JsonNode child : node) {
+      if (containsNull(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static void main(String[] args) throws Exception {
@@ -581,8 +662,8 @@ public abstract class Indexer implements Runnable {
     Config indexerConfig = config.getConfig("indexer");
     SpecBuilder.withoutDefaults()
         .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
-            "deleteByFieldField", "deleteByFieldValue", "versionType", "routingField")
-        .optionalNumber("batchSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
+            "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
+        .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor")
         .optionalBoolean("sendEnabled", "sendFailedDocsToTopic")
         .optionalList("whitelist", new TypeReference<List<String>>(){})

@@ -35,6 +35,7 @@ The `Publisher` passed to `execute()` is your interface to the rest of the Lucil
 - **Thread-safe** — `publish()` can be called from multiple threads concurrently. If your data source supports parallel reads (e.g., fetching pages from an API, reading from multiple partitions), you can spawn threads inside `execute()` and have each one call `publisher.publish(doc)` independently. No synchronization on your part is needed.
 - **Backpressure** — When `publisher.maxPendingDocs` is configured, `publish()` blocks automatically if the number of in-flight documents exceeds the threshold. This prevents a fast connector from overwhelming the pipeline. You don't need to implement throttling yourself.
 - **Do not reuse documents after publishing** — Once you call `publisher.publish(doc)`, the document may be picked up by a worker thread immediately. Do not read from or write to the document after publishing it.
+- **Do not catch exceptions from `publish()`** — Exceptions thrown by `publish()` represent framework-level failures (e.g., the messaging infrastructure is unavailable) and are non-recoverable. Catching and swallowing them leaves the run in an inconsistent state — the Publisher's tracking will wait indefinitely for a terminal event that can never arrive. If you need to handle per-document errors (e.g., a malformed source record that cannot be converted into a Document), do so *before* calling `publish()`. See [Kafka Integration — Producer Behavior]({{< relref "docs/architecture/internals/kafka-integration#producer-behavior" >}}) for the full rationale.
 - **Multi-threaded cleanup** — If your connector uses multiple publishing threads, each thread should call `publisher.preClose()` when it is done publishing. This releases per-thread resources inside the publisher. Single-threaded connectors do not need to call `preClose()`.
 - **Collapsing mode** — If your connector sets `collapse: true` in its config, the publisher combines consecutive documents with the same ID into a single document with multi-valued fields. This is useful when your source emits multiple rows per logical record (e.g., a denormalized SQL join). Call `publisher.flush()` at the end of `execute()` if you use collapsing mode, to ensure the last held document is published.
 
@@ -48,7 +49,7 @@ Your constructor must call `super(config)` — this triggers SPEC validation and
 
 **What's in `config`:** The `Config` passed to your Connector constructor contains only the properties defined inside your connector's config block — the `{ ... }` element from the `connectors` list. It does not contain the full Lucille config. You read your parameters directly: `config.getString("sourceUri")`. Your SPEC should declare only the properties that belong to your connector.
 
-See [Control Flow: Pre- and Post-Connector Actions]({{< relref "docs/reference/control-flow" >}}) for the full lifecycle contract, including what happens when each method throws.
+See [Control Flow: Pre- and Post-Connector Actions]({{< relref "docs/ingest-design/control-flow" >}}) for the full lifecycle contract, including what happens when each method throws.
 
 ---
 
@@ -86,7 +87,7 @@ public class CreateCollectionConnector extends AbstractConnector {
 
 This connector runs before any publishing connector in the same config. If it throws, the run aborts. Use `close()` for resource cleanup and `postExecute()` for success-only teardown, just as with any other connector.
 
-See [Control Flow: Setup-Only Connectors]({{< relref "docs/reference/control-flow#setup-only-connectors-no-pipeline" >}}) for the config-level view of this pattern.
+See [Control Flow: Setup-Only Connectors]({{< relref "docs/ingest-design/control-flow#setup-only-connectors-no-pipeline" >}}) for the config-level view of this pattern.
 
 ---
 

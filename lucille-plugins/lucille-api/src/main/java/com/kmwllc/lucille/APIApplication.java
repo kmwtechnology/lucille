@@ -3,9 +3,11 @@ package com.kmwllc.lucille;
 import com.typesafe.config.Config;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.kmwllc.lucille.auth.BasicAuthenticator;
+import com.kmwllc.lucille.auth.RequireAuthDynamicFeature;
 import com.kmwllc.lucille.config.AuthConfiguration.AuthType;
 import com.kmwllc.lucille.config.LucilleAPIConfiguration;
 import com.kmwllc.lucille.core.RunnerManager;
@@ -14,7 +16,6 @@ import com.kmwllc.lucille.endpoints.LivenessResource;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import com.kmwllc.lucille.endpoints.ReadinessResource;
 import com.kmwllc.lucille.endpoints.SystemStatsResource;
-import io.dropwizard.auth.AuthDynamicFeature;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.PrincipalImpl;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
@@ -43,6 +44,14 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
    * Logger for the Lucille API application.
    */
   public static final Logger log = LoggerFactory.getLogger(APIApplication.class);
+
+  /**
+   * Packages whose resources are reachable without authentication. These hold the resources that serve the
+   * Swagger UI and the OpenAPI document, which are declared outside this codebase and so cannot be annotated
+   * with {@link com.kmwllc.lucille.auth.AuthNotRequired}.
+   */
+  private static final Set<String> AUTH_EXEMPT_PACKAGES =
+      Set.of("io.federecio.dropwizard.swagger", "io.swagger.v3.jaxrs2");
 
   /**
    * Default constructor for APIApplication.
@@ -88,10 +97,11 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
   }
 
   /**
-   * Starts the Lucille API server, configures authentication, and registers resources. Throws Exception on unsupported auth type, aborting startup.
+   * Starts the Lucille API server, configures authentication, and registers resources.
    * @param config the Lucille API configuration
    * @param env the Dropwizard environment
-   * @throws Exception if authentication type is unsupported (startup abort) or other startup failures
+   * @throws IllegalArgumentException if authentication is enabled and AuthType is not basicAuth
+   * @throws Exception for other startup failures
    */
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
@@ -104,16 +114,18 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
     // Enable Basic Auth only if it's enabled in the configuration
     if (authEnabled) {
-      if (config.getAuthConfig().getType().equals(AuthType.BASIC_AUTH)) {
-        env.jersey()
-            .register(new AuthDynamicFeature(new BasicCredentialAuthFilter.Builder<PrincipalImpl>()
-                .setAuthenticator(new BasicAuthenticator(config.getAuthConfig().getPassword()))
-                .buildAuthFilter()));
-        env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
-        log.info("Basic authentication has been enabled.");
-      } else {
-        throw new Exception("Unsupported auth type configured for the Lucille Admin API.");
+      AuthType authType = config.getAuthConfig().getType();
+
+      if (AuthType.NO_AUTH.equals(authType)) {
+        throw new IllegalArgumentException("auth.type must be set to basicAuth when auth.enabled is true.");
       }
+
+      env.jersey()
+          .register(new RequireAuthDynamicFeature(new BasicCredentialAuthFilter.Builder<PrincipalImpl>()
+              .setAuthenticator(new BasicAuthenticator(config.getAuthConfig().getPassword()))
+              .buildAuthFilter(), AUTH_EXEMPT_PACKAGES));
+      env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
+      log.info("Basic authentication has been enabled.");
     } else {
       log.info("Authentication is disabled.");
     }
@@ -129,15 +141,13 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     Map<String, Config> presetConfigs = presetConfigHandler.fetchConfigs();
 
     // Register our 3 Resources
-    AuthHandler authHandler = new AuthHandler(authEnabled);
-    env.jersey().register(new LucilleResource(runnerManager, authHandler, config.isPreventConcurrentRuns(), presetConfigs));
+    env.jersey().register(new LucilleResource(runnerManager, config.isPreventConcurrentRuns(), presetConfigs));
     env.jersey().register(new LivenessResource());
     env.jersey().register(new ReadinessResource());
-    env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
 
     // Register SystemStatsResource
     env.jersey().register(new SystemStatsResource());
-    env.jersey().register(new ConfigInfo(authHandler));
+    env.jersey().register(new ConfigInfo());
   }
 
   /**

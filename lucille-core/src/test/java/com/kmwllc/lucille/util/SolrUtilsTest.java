@@ -13,11 +13,13 @@ import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.io.Tuple;
 import org.junit.Test;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.indexer.SolrIndexer;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
@@ -36,7 +38,7 @@ public class SolrUtilsTest {
   @Test
   public void getHttpClientAndSetCheckPeerNameTest() throws Exception {
     Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:SolrUtilsTest/auth.conf"));
-    Http2SolrClient client = SolrUtils.getHttpClientAndSetCheckPeerName(config);
+    HttpJdkSolrClient client = SolrUtils.getHttpClientAndSetCheckPeerName(config);
     // would like to inspect the solr client to confirm credentials are configured, but can’t do that so just checking it’s non-null
     assertNotNull(client);
     client.close();
@@ -156,10 +158,32 @@ public class SolrUtilsTest {
         SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);
         SolrClient cloudClientWithChroot = SolrUtils.getSolrClient(cloudConfigWithZkChroot)
     ) {
-      assertTrue(httpClient instanceof Http2SolrClient);
-      assertTrue(httpClientWithFalseCloud instanceof Http2SolrClient);
+      assertTrue(httpClient instanceof HttpJdkSolrClient);
+      assertTrue(httpClientWithFalseCloud instanceof HttpJdkSolrClient);
       assertTrue(cloudClient instanceof CloudSolrClient);
       assertTrue(cloudClientWithChroot instanceof CloudSolrClient);
+    }
+  }
+
+  @Test
+  public void testUrlMayBeStringOrList() {
+    Config single = ConfigFactory.parseString("solr { url: \"http://a:8983/solr\" }");
+    Config multiple = ConfigFactory.parseString("solr { url: [\"http://a:8983/solr\", \"http://b:8983/solr\"] }");
+    Config empty = ConfigFactory.parseString("solr { url: [] }");
+
+    for (Spec spec : List.of(SolrUtils.SOLR_PARENT_SPEC, SolrIndexer.SPEC)) {
+      spec.validate(single.getConfig("solr"), "solr");
+      spec.validate(multiple.getConfig("solr"), "solr");
+      assertThrows(IllegalArgumentException.class, () -> spec.validate(empty.getConfig("solr"), "solr"));
+    }
+  }
+
+  @Test
+  public void testCloudClientFromSingleUrl() throws IOException {
+    Config config = ConfigFactory.parseString("solr { useCloudClient: true, url: \"http://localhost:8983/solr\" }");
+
+    try (SolrClient client = SolrUtils.getSolrClient(config)) {
+      assertTrue(client instanceof CloudSolrClient);
     }
   }
 

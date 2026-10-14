@@ -260,8 +260,8 @@ public class ApplyFileHandlersTest {
     URI googleCsvURI = URI.create("gs://bucket/test.csv");
     URI googleJsonlURI = URI.create("gs://bucket/test.jsonl");
 
-    URI localCsvURI = URI.create(testCsvPath.toString());
-    URI localJsonlURI = URI.create(testJsonlPath.toString());
+    URI localCsvURI = testCsvPath.toUri();
+    URI localJsonlURI = testJsonlPath.toUri();
 
     // for mocking - the "cloud files" will have the same contents as the test files
     InputStream csvInputStream = new FileInputStream(testCsvPath.toString());

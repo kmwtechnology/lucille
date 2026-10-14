@@ -2,7 +2,9 @@ package com.kmwllc.lucille.core;
 
 import com.dashjoin.jsonata.Jsonata;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -28,13 +31,41 @@ import java.util.function.UnaryOperator;
  */
 public class JsonDocument implements Document {
 
-  protected static final ObjectMapper MAPPER = new ObjectMapper();
+  protected static final ObjectMapper MAPPER = createDocumentMapper();
   private static final TypeReference<Map<String, Object>> TYPE = new TypeReference<Map<String, Object>>() {
   };
   private static final Logger log = LoggerFactory.getLogger(JsonDocument.class);
 
   @JsonValue
   protected ObjectNode data;
+
+  /**
+   * Creates the ObjectMapper used to parse JSON into Documents.
+   *
+   * The mapper is used in several places: it backs {@link #MAPPER} (and therefore {@link #fromJsonString},
+   * which {@link Document#createFromJson} dispatches to and which JsonFileHandler calls for each line of
+   * a JSON-Lines file), {@link HashMapDocument}'s mapper, {@link KafkaDocument}'s ConsumerRecord
+   * constructor, and KafkaDocumentDeserializer. Every path that turns JSON text into a Document goes
+   * through the constraints configured here.
+   *
+   * Jackson's default StreamReadConstraints cap any single JSON string value at 20,000,000 chars
+   * (StreamReadConstraints.DEFAULT_MAX_STRING_LEN). A Document's byte[] field is serialized as one
+   * base64 string of 4 * ceil(n / 3) chars, so any byte[] larger than 15,000,000 bytes (about 14.3 MiB;
+   * a 15 MiB array encodes to 20,971,520 chars) is written without complaint by KafkaDocumentSerializer,
+   * accepted by the broker, and then rejected with a StreamConstraintsException by every consumer that
+   * tries to read it back. The constraint exists to bound untrusted input, but a Kafka record is already
+   * bounded by the producer's max.request.size (kafka.maxRequestSize) and the broker's
+   * message.max.bytes, so a lower limit here only adds a hidden consumer-side cliff below limits the
+   * user has already sized. On the non-Kafka paths the caller has already materialized the whole JSON
+   * String in memory before the mapper sees it, so the cap could only reject the input after that
+   * allocation, not prevent it. maxStringLength is therefore raised to Integer.MAX_VALUE; all other
+   * constraints keep their defaults.
+   */
+  public static ObjectMapper createDocumentMapper() {
+    return new ObjectMapper(JsonFactory.builder()
+        .streamReadConstraints(StreamReadConstraints.builder().maxStringLength(Integer.MAX_VALUE).build())
+        .build());
+  }
 
   /**
    * A copy constructor for {@link Document} that deep copies the ObjectNode and verifies the
@@ -843,6 +874,80 @@ public class JsonDocument implements Document {
   @Override
   public Map<String, Object> asMap() {
     return MAPPER.convertValue(data, TYPE);
+  }
+
+  @Override
+  public long getByteSize() {
+    return estimateJsonSize(data);
+  }
+
+  private static long estimateJsonSize(JsonNode node) {
+    switch (node.getNodeType()) {
+      case OBJECT: {
+        long size = 2; // braces
+        boolean first = true;
+        for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
+          Map.Entry<String, JsonNode> entry = it.next();
+          if (!first) {
+            size += 1; // comma between entries
+          }
+          first = false;
+          // quoted key plus the colon separator
+          size += utf8Length(entry.getKey()) + 3;
+          size += estimateJsonSize(entry.getValue());
+        }
+        return size;
+      }
+      case ARRAY: {
+        long size = 2; // brackets
+        boolean first = true;
+        for (JsonNode element : node) {
+          if (!first) {
+            size += 1; // comma between elements
+          }
+          first = false;
+          size += estimateJsonSize(element);
+        }
+        return size;
+      }
+      case STRING:
+        return utf8Length(node.textValue()) + 2; // content plus quotes
+      case NUMBER:
+        return node.asText().length();
+      case BOOLEAN:
+        return node.booleanValue() ? 4 : 5; // true / false
+      case NULL:
+      case MISSING:
+        return 4; // null
+      default:
+        // any other type, just fall back to serialization
+        return node.toString().getBytes(StandardCharsets.UTF_8).length;
+    }
+  }
+
+  /**
+   * Returns the number of bytes the given String requires when encoded as UTF-8. This iterates the
+   * String directly and sums the per-character byte count.
+   *
+   * @param s the String to measure.
+   * @return the UTF-8 encoded length of the String in bytes.
+   */
+  private static int utf8Length(String s) {
+    int bytes = 0;
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c <= 0x7F) {
+        bytes += 1;
+      } else if (c <= 0x7FF) {
+        bytes += 2;
+      } else if (Character.isHighSurrogate(c) && i + 1 < s.length() && Character.isLowSurrogate(s.charAt(i + 1))) {
+        bytes += 4; // a surrogate pair encodes a single 4-byte code point
+        i++; // skip the low surrogate we just consumed
+      } else {
+        bytes += 3;
+      }
+    }
+    return bytes;
   }
 
   @Override

@@ -151,6 +151,8 @@ Stage stage = factory.get("CopyFieldsTest/config.conf");
 
 **Mocking:** Mockito is used for mocking external dependencies (HTTP clients, Kafka consumers, Solr clients). The core Lucille components are generally not mocked — test mode provides the full system running in-memory.
 
+**Parallel test JVMs:** Surefire runs test classes in several JVMs at once (`forkCount=1C` in the parent pom). Static state lives in one JVM, so it is safe; anything outside the JVM is shared. Write files under a directory named for the test class (for example `FileConnectorTest/` or `target/FileConnectorTest/`) rather than a generic `temp/` or `state/` in the working directory, and bind test servers to port `0` rather than a fixed port. To rule out a collision while debugging, run serially with `-Dsurefire.forkCount=1`.
+
 ---
 
 ## Deviations from Google Java Style
@@ -186,4 +188,4 @@ this.destField = ConfigUtils.getOrDefault(config, "destField", "output");  // op
 
 **No Lombok.** The project does not use Lombok or other annotation processors for boilerplate reduction. All getters, constructors, and builders are written explicitly.
 
-**Java 17 features:** The project targets Java 17 and uses features like text blocks, `var` (sparingly), `List.of()`, `Map.of()`, and pattern matching in `instanceof` where appropriate.
+**Java 21 features:** The project targets Java 21 and uses features like text blocks, `var` (sparingly), `List.of()`, `Map.of()`, and pattern matching in `instanceof` where appropriate.

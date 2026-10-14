@@ -151,11 +151,11 @@ public class ChunkingXMLHandler implements ContentHandler {
     currentPath.pop();
   }
 
-  private void internalPublishDocument(Document doc) {
+  private void internalPublishDocument(Document doc) throws SAXException {
     try {
       publisher.publish(doc);
     } catch (Exception e) {
-      log.error("Document was unable to be published", e);
+      throw new SAXException("Failed to publish document: " + doc.getId(), e);
     }
   }
 

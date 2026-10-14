@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URI;
@@ -21,12 +22,14 @@ import java.time.Instant;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
 
 import com.kmwllc.lucille.connector.jdbc.DBTestHelper;
 import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -49,6 +52,12 @@ public class FileConnectorStateManagerTest {
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
+
+  // The publish time is taken right after start, and can equal it on a coarse clock.
+  private static void assertPublishedDuringTest(Instant start, Instant published) {
+    assertFalse("published " + published + " is before start " + start, published.isBefore(start.minusMillis(1)));
+    assertFalse("published " + published + " is in the future", published.isAfter(Instant.now().plusMillis(1)));
+  }
 
   @Test
   public void testStateManagerRootDirectory() throws Exception {
@@ -76,17 +85,14 @@ public class FileConnectorStateManagerTest {
         ResultSet secretRS = RunScript.execute(connection, new StringReader(secretsQuery))) {
 
       assertTrue(helloRS.next());
-      Timestamp helloTimestamp = helloRS.getTimestamp("last_published");
       // the timestamp should be after the start of the test
-      assertTrue(helloTimestamp.after(Timestamp.from(start)));
+      assertPublishedDuringTest(start, helloRS.getTimestamp("last_published").toInstant());
 
       assertTrue(infoRS.next());
-      Timestamp infoTimestamp = infoRS.getTimestamp("last_published");
-      assertTrue(infoTimestamp.after(Timestamp.from(start)));
+      assertPublishedDuringTest(start, infoRS.getTimestamp("last_published").toInstant());
 
       assertTrue(secretRS.next());
-      Timestamp secretTimestamp = secretRS.getTimestamp("last_published");
-      assertTrue(secretTimestamp.after(Timestamp.from(start)));
+      assertPublishedDuringTest(start, secretRS.getTimestamp("last_published").toInstant());
     }
 
     manager.shutdown();
@@ -104,14 +110,9 @@ public class FileConnectorStateManagerTest {
       manager.successfullyPublishedFile(filePath);
     }
 
-    Instant helloLastPublished = manager.getLastPublished(helloFile);
-    assertTrue(helloLastPublished.isAfter(start) && helloLastPublished.isBefore(Instant.now()));
-
-    Instant infoLastPublished = manager.getLastPublished(infoFile);
-    assertTrue(infoLastPublished.isAfter(start) && infoLastPublished.isBefore(Instant.now()));
-
-    Instant secretsLastPublished = manager.getLastPublished(secretsFile);
-    assertTrue(secretsLastPublished.isAfter(start) && secretsLastPublished.isBefore(Instant.now()));
+    assertPublishedDuringTest(start, manager.getLastPublished(helloFile));
+    assertPublishedDuringTest(start, manager.getLastPublished(infoFile));
+    assertPublishedDuringTest(start, manager.getLastPublished(secretsFile));
 
     manager.shutdown();
   }
@@ -136,8 +137,7 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader("SELECT * FROM file WHERE name = '/newdir/info.txt'"))) {
 
       assertTrue(infoRS.next());
-      Instant newInstant = infoRS.getObject("last_published", Instant.class);
-      assertTrue(newInstant.isBefore(Instant.now()) && newInstant.isAfter(start));
+      assertPublishedDuringTest(start, infoRS.getObject("last_published", Instant.class));
     }
 
     manager.shutdown();
@@ -155,6 +155,7 @@ public class FileConnectorStateManagerTest {
     manager.markFileEncountered("/files/info.txt");
     manager.markFileEncountered("/files/subdir/secrets.txt");
 
+    manager.incrementRunsNotEncountered();
     manager.shutdown();
     assertEquals(1, dbHelper.countConnections());
 
@@ -175,6 +176,7 @@ public class FileConnectorStateManagerTest {
     manager.markFileEncountered("/hello.txt");
 
     // traversal complete
+    manager.incrementRunsNotEncountered();
     manager.shutdown();
     assertEquals(1, dbHelper.countConnections());
 
@@ -217,16 +219,14 @@ public class FileConnectorStateManagerTest {
         ResultSet infoRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/info.txt'"));
         ResultSet secretRS = RunScript.execute(connection, new StringReader(baseQuery + "'s3://lucille-bucket/files/subdir/secrets.txt'"))) {
       assertTrue(helloRS.next());
-      Instant helloInstant = helloRS.getObject("last_published", Instant.class);
-      assertTrue(helloInstant.isBefore(Instant.now()) && helloInstant.isAfter(start));
+      assertPublishedDuringTest(start, helloRS.getObject("last_published", Instant.class));
 
       assertTrue(infoRS.next());
-      Instant infoInstant = infoRS.getObject("last_published", Instant.class);
-      assertTrue(infoInstant.isBefore(Instant.now()) && infoInstant.isAfter(start));
+      assertPublishedDuringTest(start, infoRS.getObject("last_published", Instant.class));
 
       assertTrue(secretRS.next());
-      Instant secretInstant = secretRS.getObject("last_published", Instant.class);
-      assertTrue(secretInstant.isBefore(Instant.now()) && secretInstant.isAfter(start));     }
+      assertPublishedDuringTest(start, secretRS.getObject("last_published", Instant.class));
+    }
 
     manager.shutdown();
   }
@@ -298,7 +298,7 @@ public class FileConnectorStateManagerTest {
 
       assertTrue(aJSONResults.next());
       publishedTimestamp = aJSONResults.getTimestamp("last_published");
-      assertTrue(publishedTimestamp.after(Timestamp.from(start)));
+      assertPublishedDuringTest(start, publishedTimestamp.toInstant());
 
       assertTrue(subdirCSVResults.next());
       assertEquals(publishedTimestamp, subdirCSVResults.getTimestamp("last_published"));
@@ -319,7 +319,10 @@ public class FileConnectorStateManagerTest {
     assertEquals(18, messenger2.getDocsSentForProcessing().size());
   }
 
-  // empty state configuration should mean we create a database for the user.
+  // Empty state configuration should mean we create a database for the user, at the hardcoded default
+  // jdbc:h2:./state/<connectorName>. This test must keep using the bare state/ directory, or it no longer tests that
+  // default. In turn, no other test may write to state/: this one asserts the directory is absent beforehand, so a
+  // test in a parallel fork that touched it would make this one flaky. Other tests set state.connectionString instead.
   @Test
   public void testEmbeddedCreationEmptyConfig() throws Exception {
     File stateDirectory = new File("state");
@@ -353,9 +356,9 @@ public class FileConnectorStateManagerTest {
     String archivePrefix = "file:///tmp/archive.zip!";
     try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
         Statement stmt = connection.createStatement()) {
-      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "entry1.txt', NULL, FALSE)");
-      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "subdir/entry2.txt', NULL, FALSE)");
-      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('file:///tmp/other.zip!entry.txt', NULL, FALSE)");
+      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "entry1.txt', NULL, FALSE, 0)");
+      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + archivePrefix + "subdir/entry2.txt', NULL, FALSE, 0)");
+      stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('file:///tmp/other.zip!entry.txt', NULL, FALSE, 0)");
     }
 
     manager.markAllEntriesEncountered(archivePrefix);
@@ -479,6 +482,105 @@ public class FileConnectorStateManagerTest {
   }
 
   @Test
+  public void testRunsNotEncounteredIncrementsOnMiss() throws Exception {
+    // performDeletions=false so secrets isn't removed once its counter reaches the default runsBeforeExpiration
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    // encounter hello and info, but leave secrets unvisited
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet secretsRS = RunScript.execute(connection, new StringReader(secretsQuery));
+        ResultSet helloRS = RunScript.execute(connection, new StringReader(helloQuery))) {
+
+      assertTrue(secretsRS.next());
+      assertEquals(1, secretsRS.getInt("runs_not_encountered"));
+
+      assertTrue(helloRS.next());
+      assertEquals(0, helloRS.getInt("runs_not_encountered"));
+    }
+    manager.shutdown();
+  }
+
+  @Test
+  public void testRunsNotEncounteredResetsOnReencounter() throws Exception {
+    // performDeletions=false so secrets persists after its first missed run, letting us re-encounter it
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    // first run: miss secrets so its counter reaches 1
+    manager.init();
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+    manager.shutdown();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet rs = RunScript.execute(connection, new StringReader(secretsQuery))) {
+      assertTrue(rs.next());
+      assertEquals(1, rs.getInt("runs_not_encountered"));
+    }
+
+    // second run: re-encounter secrets, counter should reset to 0
+    manager.init();
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.markFileEncountered(secretsFile);
+    manager.incrementRunsNotEncountered();
+    manager.shutdown();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet rs = RunScript.execute(connection, new StringReader(secretsQuery))) {
+      assertTrue(rs.next());
+      assertEquals(0, rs.getInt("runs_not_encountered"));
+    }
+  }
+
+  @Test
+  public void testRunsBeforeExpirationBelowOneThrows() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/zeroRunsBeforeExpiration.conf");
+    assertThrows(IllegalArgumentException.class, () -> { new FileConnectorStateManager(config, null); });
+  }
+
+  @Test
+  public void testDeletionDeferredByRunsBeforeExpiration() throws Exception {
+    // runsBeforeExpiration=2: secrets should survive 1 missed run but be deleted after 2
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/runsBeforeExpiration.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    // first run: miss secrets
+    manager.init();
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+    manager.shutdown();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet rs = RunScript.execute(connection, new StringReader(secretsQuery))) {
+      assertTrue(rs.next());
+      assertEquals(1, rs.getInt("runs_not_encountered"));
+    }
+
+    // second run: miss secrets again; counter reaches runsBeforeExpiration, should be deleted
+    manager.init();
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+    manager.shutdown();
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        ResultSet rs = RunScript.execute(connection, new StringReader(secretsQuery))) {
+      assertFalse(rs.next());
+    }
+  }
+
+  @Test
   public void testListExpiredFiles() throws Exception {
     // Directly tests listExpiredFiles()
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
@@ -488,6 +590,7 @@ public class FileConnectorStateManagerTest {
     // Mark hello and info as encountered; leave secrets unvisited (encountered = false).
     manager.markFileEncountered(helloFile);
     manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
 
     List<URI> expired = manager.listExpiredFiles();
     assertEquals(1, expired.size());
@@ -496,4 +599,68 @@ public class FileConnectorStateManagerTest {
     manager.shutdown();
   }
 
+  @Test
+  public void testListExpiredFilesRespectsMultipleRunsBeforeExpiration() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/runsBeforeExpiration.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    manager.markFileEncountered(helloFile);
+    manager.markFileEncountered(infoFile);
+    manager.incrementRunsNotEncountered();
+
+    assertEquals(0, manager.listExpiredFiles().size());
+    manager.incrementRunsNotEncountered();
+
+    assertEquals(1, manager.listExpiredFiles().size());
+    assertTrue(manager.listExpiredFiles().contains(URI.create(secretsFile)));
+
+    manager.shutdown();
+  }
+
+  @Test
+  public void testDefaultPathLengthFitsLongPaths() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    String longPath = "s3://lucille-bucket/" + "a".repeat(FileConnectorStateManager.DEFAULT_PATH_LENGTH - 20);
+    manager.markFileEncountered(longPath);
+    manager.successfullyPublishedFile(longPath);
+    assertNotNull(manager.getLastPublished(longPath));
+
+    manager.shutdown();
+  }
+
+  @Test
+  public void testPathLongerThanColumnThrows() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf")
+        .withValue("pathLength", ConfigValueFactory.fromAnyRef(20));
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    String path = "s3://lucille-bucket/files/info.txt";
+    try {
+      StatePathTooLongException e = assertThrows(StatePathTooLongException.class, () -> manager.markFileEncountered(path));
+      assertTrue(e.getMessage().contains(path));
+      assertTrue(e.getMessage().contains("state.pathLength"));
+    } finally {
+      manager.shutdown();
+    }
+  }
+
+  @Test
+  public void testTraversalFailsWhenPathLongerThanColumn() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("state.pathLength", ConfigValueFactory.fromAnyRef(20));
+    Publisher publisher = new PublisherImpl(config, new TestMessenger(), "run", "pipeline1");
+
+    Connector conn = new FileConnector(config);
+    try {
+      ConnectorException e = assertThrows(ConnectorException.class, () -> conn.execute(publisher));
+      assertTrue(ExceptionUtils.indexOfThrowable(e, StatePathTooLongException.class) >= 0);
+    } finally {
+      conn.close();
+    }
+  }
 }

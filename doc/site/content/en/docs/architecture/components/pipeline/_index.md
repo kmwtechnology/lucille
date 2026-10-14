@@ -43,4 +43,4 @@ Multiple pipelines can be defined in a single run, each serving different connec
 
 ## Practical Guide
 
-For how to define pipelines in configuration — syntax, connecting connectors, conditions, reuse patterns, and examples — see [Defining Pipelines]({{< relref "docs/reference/defining-pipelines" >}}) in the Ingest Designer Guide.
+For how to define pipelines in configuration — syntax, connecting connectors, conditions, reuse patterns, and examples — see [Defining Pipelines]({{< relref "docs/ingest-design/defining-pipelines" >}}) in the Ingest Designer Guide.

@@ -11,7 +11,6 @@ import com.opencsv.CSVReader;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import org.ahocorasick.trie.PayloadEmit;
-import org.ahocorasick.trie.PayloadToken;
 import org.ahocorasick.trie.PayloadTrie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -201,10 +200,8 @@ public class ExtractEntities extends Stage {
       // Parse the matches and then convert the PayloadEmits into a List of Strings, representing the payloads for
       // each match which occurred in the input string.
       Collection<PayloadEmit<String>> results = new ArrayList<>();
-      Collection<PayloadToken<String>> tokens = new ArrayList<>();
       for (String value : doc.getStringList(sourceField)) {
         results.addAll(dictTrie.parseText(value));
-        tokens.addAll(dictTrie.tokenize(value));
       }
 
       List<String> payloads;

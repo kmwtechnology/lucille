@@ -66,6 +66,6 @@ public class SpecBuilderTest {
     assertTrue(combinedSpec.getLegalProperties().contains("field3"));
     assertTrue(combinedSpec.getLegalProperties().contains("field4"));
 
-    assertEquals(9, combinedSpec.getLegalProperties().size());
+    assertEquals(10, combinedSpec.getLegalProperties().size());
   }
 }

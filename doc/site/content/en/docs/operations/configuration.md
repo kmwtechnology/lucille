@@ -6,7 +6,7 @@ description: >
   Environment variable substitution, config composition patterns, containerized deployment, distributed mode config, and pre-run validation.
 ---
 
-This page covers the operational patterns for working with Lucille's configuration system — how to use environment variable substitution, how to compose configs from reusable files, how to deploy configs in containers, and how to validate configs before running. For the architectural rationale behind Lucille's choice of HOCON and the Typesafe Config library, see [Architecture: Config]({{< relref "docs/architecture/components/Config" >}}).
+This page covers the operational patterns for working with Lucille's configuration system — how to use environment variable substitution, how to compose configs from reusable files, how to deploy configs in containers, and how to validate configs before running. For the architectural rationale behind Lucille's choice of HOCON and the Typesafe Config library, see [Architecture: Config]({{< relref "docs/architecture/components/config" >}}).
 
 ---
 
@@ -112,7 +112,7 @@ This decomposition means:
 The [lucille-file-to-file-example](https://github.com/kmwtechnology/lucille/tree/main/lucille-examples/lucille-file-to-file-example) includes a Dockerfile that demonstrates the standard pattern for running Lucille in a container:
 
 ```dockerfile
-FROM eclipse-temurin:17
+FROM eclipse-temurin:21
 COPY target/ /target/
 COPY conf/ /conf/
 ENV CONF=""

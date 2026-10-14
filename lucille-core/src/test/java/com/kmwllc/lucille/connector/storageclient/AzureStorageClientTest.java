@@ -26,6 +26,7 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
+import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.specialized.BlobInputStream;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.kmwllc.lucille.core.Document;
@@ -100,7 +101,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStream());
-    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobsByHierarchy(any(), any(), any())).thenReturn(pagedIterable);
 
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
     azureStorageClient.setServiceClientForTesting(mockServiceClient);
@@ -165,7 +166,7 @@ public class AzureStorageClientTest {
         .setContentLength(1L));
 
     when(pagedIterable.stream()).thenReturn(Stream.of(blobItem1));
-    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobsByHierarchy(any(), any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
@@ -198,19 +199,23 @@ public class AzureStorageClientTest {
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("https://storagename.blob.core.windows.net/folder/"), "prefix-");
 
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
-    PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
-    when(pagedIterable.stream()).thenReturn(getBlobItemStreamWithDirectory());
-    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+
+    // Root level: blob1 (file), blob2 (virtual directory), blob3 (file, excluded), blob4 (file, excluded)
+    PagedIterable<BlobItem> rootIterable = mock(PagedIterable.class);
+    when(rootIterable.stream()).thenReturn(getBlobItemStreamWithDirectory());
+    // blob2 is a virtual directory; with hierarchical traversal it triggers recursion — return empty
+    PagedIterable<BlobItem> emptyIterable = mock(PagedIterable.class);
+    when(emptyIterable.stream()).thenReturn(Stream.of());
+    when(mockClient.listBlobsByHierarchy(any(), any(), any()))
+        .thenReturn(rootIterable)
+        .thenReturn(emptyIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
     azureStorageClient.setServiceClientForTesting(mockServiceClient);
 
     when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
-        .thenReturn(new byte[]{1, 2, 3, 4}) // blob1
-        .thenReturn(new byte[]{5, 6, 7, 8}) // blob2
-        .thenReturn(new byte[]{9, 10, 11, 12}) // blob3
-        .thenReturn(new byte[]{13, 14, 15, 16}); // blob4
+        .thenReturn(new byte[]{1, 2, 3, 4}); // blob1 only (blob3, blob4 excluded; blob2 is a directory)
 
     azureStorageClient.initializeForTesting();
     azureStorageClient.traverse(publisher, params);
@@ -242,7 +247,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getJsonBlobItemStream());
-    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobsByHierarchy(any(), any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
@@ -290,7 +295,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getCompressedAndArchivedBlobStream());
-    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobsByHierarchy(any(), any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
@@ -410,7 +415,7 @@ public class AzureStorageClientTest {
     when(pagedIterable.stream()).thenReturn(getBlobItemStream());
 
     BlobContainerClient mockContainerClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
-    when(mockContainerClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+    when(mockContainerClient.listBlobsByHierarchy(any(), any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockContainerClient);
@@ -479,7 +484,7 @@ public class AzureStorageClientTest {
     when(pagedIterable.stream()).thenReturn(getBlobItemStream());
 
     BlobContainerClient mockContainerClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
-    when(mockContainerClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+    when(mockContainerClient.listBlobsByHierarchy(any(), any(), any())).thenReturn(pagedIterable);
 
     BlobContainerClient mockProcessedContainerClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
 
@@ -573,7 +578,7 @@ public class AzureStorageClientTest {
     BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
     PagedIterable<BlobItem> pagedIterable = mock(PagedIterable.class);
     when(pagedIterable.stream()).thenReturn(getBlobItemStreamWithCutoff());
-    when(mockClient.listBlobs(any(), any())).thenReturn(pagedIterable);
+    when(mockClient.listBlobsByHierarchy(any(), any(), any())).thenReturn(pagedIterable);
 
     BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
     when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
@@ -752,6 +757,87 @@ public class AzureStorageClientTest {
         .setContentLength(3L));
 
     return Stream.of(blobItem1, blobItem2, blobItem3);
+  }
+
+  @Test
+  public void testPathsToSkip() throws Exception {
+    /*
+      https://storagename.blob.core.windows.net/folder/
+      ├── blob1                  (published)
+      └── subdir/
+          └── ...                (skipped)
+    */
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions",
+        Map.of("pathsToSkip", List.of("https://storagename.blob.core.windows.net/folder/subdir/"))
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  @Test
+  public void testPathsToSkipNoTrailingSlash() throws Exception {
+    /*
+      https://storagename.blob.core.windows.net/folder/
+      ├── blob1                  (published)
+      └── subdir/
+          └── ...                (skipped)
+    */
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of("pathsToSkip",
+            List.of("https://storagename.blob.core.windows.net/folder/subdir"))
+    ));
+
+    pathsToSkipTesting(connectorConfig);
+  }
+
+  private void pathsToSkipTesting(Config connectorConfig) throws Exception {
+    Config cloudOptions = ConfigFactory.parseMap(Map.of("connectionString", "connectionString"));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    AzureStorageClient azureStorageClient = new AzureStorageClient(cloudOptions);
+    TraversalParams params = new TraversalParams(connectorConfig,
+        URI.create("https://storagename.blob.core.windows.net/folder/"), "");
+
+    BlobItem blob1 = new BlobItem();
+    blob1.setName("blob1");
+    blob1.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1), ZoneId.of("UTC")))
+        .setContentLength(1L));
+
+    BlobItem subdirBlob = new BlobItem();
+    subdirBlob.setName("subdir/");
+    subdirBlob.setIsPrefix(true);
+    subdirBlob.setProperties(new BlobItemProperties()
+        .setCreationTime(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
+        .setLastModified(OffsetDateTime.ofInstant(Instant.ofEpochMilli(2), ZoneId.of("UTC")))
+        .setContentLength(0L));
+
+    BlobContainerClient mockClient = mock(BlobContainerClient.class, RETURNS_DEEP_STUBS);
+    PagedIterable<BlobItem> rootIterable = mock(PagedIterable.class);
+    when(rootIterable.stream()).thenReturn(Stream.of(blob1, subdirBlob));
+    when(mockClient.listBlobsByHierarchy(any(), any(), any())).thenReturn(rootIterable);
+
+    BlobServiceClient mockServiceClient = mock(BlobServiceClient.class);
+    when(mockServiceClient.getBlobContainerClient(any())).thenReturn(mockClient);
+    azureStorageClient.setServiceClientForTesting(mockServiceClient);
+    when(mockClient.getBlobClient(anyString()).downloadContent().toBytes())
+        .thenReturn(new byte[]{1, 2, 3, 4});
+
+    azureStorageClient.initializeForTesting();
+    azureStorageClient.traverse(publisher, params);
+
+    List<Document> documents = messenger.getDocsSentForProcessing();
+    assertEquals(1, documents.size());
+    assertEquals("https://storagename.blob.core.windows.net/folder/blob1",
+        documents.get(0).getString(FILE_PATH));
+
+    // Verify that listBlobsByHierarchy was never called with "subdir/" as prefix
+    ArgumentCaptor<ListBlobsOptions> captor = ArgumentCaptor.forClass(ListBlobsOptions.class);
+    verify(mockClient, times(1)).listBlobsByHierarchy(any(), captor.capture(), any());
+    assertTrue(captor.getAllValues().stream().noneMatch(opt -> "subdir/".equals(opt.getPrefix())));
   }
 
   private List<BlobInputStream> buildMockStreamList(String folderPath) throws Exception {

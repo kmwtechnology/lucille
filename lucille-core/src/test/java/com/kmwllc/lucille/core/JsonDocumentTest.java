@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.typesafe.config.ConfigFactory;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -52,6 +53,25 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   public Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
+  }
+
+  @Test
+  public void testGetByteSizeEstimate() throws DocumentException, JsonProcessingException {
+    // a document exercising every node type the estimator switches on:
+    // string, number (int + double), boolean, null, nested array, and nested object
+    String json = "{\"id\":\"id1\",\"name\":\"a string value\",\"count\":42,\"ratio\":3.14,"
+        + "\"flag\":true,\"missing\":null,\"tags\":[\"x\",\"y\",\"z\"],"
+        + "\"nested\":{\"inner\":\"value\",\"n\":7}}";
+    JsonDocument doc = (JsonDocument) createDocumentFromJson(json);
+
+    long estimate = doc.getByteSize();
+    long actual = doc.toString().getBytes(StandardCharsets.UTF_8).length;
+
+    // the estimate accounts for braces, brackets, commas, quotes, and colons, so for compact JSON
+    // it should land within a small tolerance of the real serialized size
+    assertTrue("estimate should be positive", estimate > 0);
+    assertTrue("estimate (" + estimate + ") should be within 10% of actual (" + actual + ")",
+        Math.abs(estimate - actual) <= actual * 0.10);
   }
 
   @Test

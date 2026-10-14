@@ -2,9 +2,12 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -468,5 +471,57 @@ public class CSVFileHandlerTest {
 
     // an exception is thrown but caught, so just an error is logged
     docs.next();
+  }
+
+  /**
+   * Test that a publish failure in processFileAndPublish() throws FileHandlerException (unrecoverable),
+   * while an iterator failure (bad record) is logged and skipped, allowing subsequent documents
+   * to be published.
+   *
+   * This verifies the separation of concerns in BaseFileHandler's processing loop: iterator
+   * errors are per-record problems (skip and continue), while publish errors are framework-level
+   * failures (abort immediately).
+   */
+  @Test
+  public void testPublishFailureThrowsWhileIteratorFailureIsSkipped() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of()));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    CSVFileHandler spyCsvHandler = (CSVFileHandler) spy(FileHandler.create("csv", config));
+    String filePath = "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv";
+    File file = new File(filePath);
+    FileInputStream stream = new FileInputStream(file);
+
+    // Mock an iterator where: doc1 succeeds, doc2 throws from next() (iterator failure),
+    // doc3 succeeds, doc4 triggers a publish failure
+    Iterator<Document> docs = mock(Iterator.class);
+    when(docs.hasNext()).thenReturn(true, true, true, true, false);
+    when(docs.next())
+        .thenReturn(Document.create("doc1"))
+        .thenThrow(new RuntimeException("Bad record"))
+        .thenReturn(Document.create("doc3"))
+        .thenReturn(Document.create("doc4"));
+    doReturn(docs).when(spyCsvHandler).processFile(any(), any());
+
+    // Make the publisher throw on the 3rd publish call (doc4 — after doc1 and doc3 succeed)
+    Publisher spyPublisher = spy(publisher);
+    doCallRealMethod()
+        .doCallRealMethod()
+        .doThrow(new Exception("Simulated Kafka failure"))
+        .when(spyPublisher).publish(any(Document.class));
+
+    // processFileAndPublish should throw FileHandlerException due to the publish failure
+    FileHandlerException thrown = assertThrows(FileHandlerException.class, () ->
+        spyCsvHandler.processFileAndPublish(spyPublisher, stream, filePath));
+
+    assertTrue(thrown.getMessage().contains("Error publishing file"));
+    assertTrue(thrown.getCause().getMessage().contains("Simulated Kafka failure"));
+
+    // doc1 and doc3 were published successfully (doc2 was an iterator failure, skipped)
+    List<Document> published = messenger.getDocsSentForProcessing();
+    assertEquals(2, published.size());
+    assertEquals("doc1", published.get(0).getId());
+    assertEquals("doc3", published.get(1).getId());
   }
 }
