@@ -430,6 +430,77 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
+  public void testThrowingIdExtractorFailsBatchWithoutStalling() throws Exception {
+    // The concurrent dispatcher calls the id extractor (Indexer::destinationIds) before a batch is sent. If it throws —
+    // e.g. a malformed idOverrideField value — the throw must not escape and kill the indexer thread with the batch's
+    // documents never completed (which would hang the run on missing events). Instead the batch must FAIL cleanly, the
+    // same as a thrown send, so the run terminates. (This guard is specific to the concurrent dispatcher, which is the
+    // only path that invokes the id extractor; the synchronous K=1 path does not call it.)
+    RecordingMessenger messenger = new RecordingMessenger();
+    ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
+    indexer = controlled;
+    controlled.failIdExtraction("badDoc");
+    messenger.queueDoc(Document.create("badDoc"));
+
+    // The run must terminate (not hang) and must not throw: a bad field value is a document-level failure.
+    controlled.run(1);
+
+    assertEquals("the batch must FAIL rather than stall the run",
+        List.of("FAIL:badDoc"), messenger.sentEvents());
+    // The batch reached a defined conclusion (its document FAILed), so it is marked complete — a commit-on-completion
+    // messenger commits its offset, so the unprocessable document is not re-delivered to fail again forever.
+    assertEquals("the FAILed batch must still be marked complete", List.of("badDoc"), messenger.completedBatches());
+    assertTrue("the send pool must be shut down", controlled.sendPoolTerminated());
+  }
+
+  @Test
+  public void testThrowingIdExtractorStillCompletesEarlierBatchesInOrder() throws Exception {
+    // A batch whose id extraction throws must not jump ahead of batches already in flight: completion stays in dispatch
+    // order. doc1 is dispatched and held in flight; doc2's id extraction then throws. doc1 must complete (FINISH)
+    // before doc2 is FAILed.
+    RecordingMessenger messenger = new RecordingMessenger();
+    indexer = new ControlledIndexer(config(2), messenger);
+    indexer.blockSendsFor("doc1");
+    indexer.failIdExtraction("doc2");
+    queueDocsAndStartIndexer("doc1", "doc2");
+
+    // doc1's send is in flight; the indexer thread then blocks in dispatch() handling doc2 (its failing extraction
+    // drains the in-flight doc1 first, and doc1 is still held).
+    awaitUntil(() -> indexer.hasStartedSend("doc1"));
+    awaitNextBatchBlocked();
+    // doc2 must not have been FAILed yet: it waits for the earlier doc1 to complete first.
+    assertEquals(List.of(), messenger.sentEvents());
+
+    // Releasing doc1 lets it finish and complete, then doc2 FAILs — in dispatch order.
+    indexer.releaseSends("doc1");
+    awaitUntil(() -> messenger.sentEvents().size() == 2);
+    assertEquals(List.of("FINISH:doc1", "FAIL:doc2"), messenger.sentEvents());
+    // Both batches are marked complete, in dispatch order: doc1 after its successful send, doc2 after its FAIL.
+    assertEquals(List.of("doc1", "doc2"), messenger.completedBatches());
+  }
+
+  @Test
+  public void testThrowingBarrierCheckFailsBatchWithoutStalling() throws Exception {
+    // The dispatcher also calls the barrier predicate (Indexer::isDeleteByQuery) before a batch is sent, and it too can
+    // throw on a malformed field value. Like a throwing id extractor, it must not escape and stall the run: the batch
+    // must FAIL cleanly. The deletion-marker config and fields make isDeleteByQuery evaluate through to the (throwing)
+    // hasDeleteByFieldValues check.
+    RecordingMessenger messenger = new RecordingMessenger();
+    ControlledIndexer controlled = new ControlledIndexer(config(2, deleteByQuerySettings()), messenger);
+    indexer = controlled;
+    controlled.failBarrierCheck("badDoc");
+    messenger.queueDoc(deleteByIdDoc("badDoc"));
+
+    // The run must terminate (not hang) and must not throw.
+    controlled.run(1);
+
+    assertEquals("the batch must FAIL rather than stall the run",
+        List.of("FAIL:badDoc"), messenger.sentEvents());
+    assertEquals("the FAILed batch must still be marked complete", List.of("badDoc"), messenger.completedBatches());
+    assertTrue("the send pool must be shut down", controlled.sendPoolTerminated());
+  }
+
+  @Test
   public void testErrorWithOtherSendsInFlightStopsPoolPromptly() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     ControlledIndexer controlled = new ControlledIndexer(config(2), messenger);
@@ -659,6 +730,12 @@ public class IndexerConcurrencyTest {
     private final Map<String, AtomicInteger> retryableFailures = new ConcurrentHashMap<>();
     // Per document id, the total number of send attempts made (to assert that retries actually occurred).
     private final Map<String, AtomicInteger> sendAttempts = new ConcurrentHashMap<>();
+    // Document ids for which id extraction (getDocIdOverride, reached via the dispatcher's destinationIdExtractor)
+    // should throw, simulating a malformed field value that makes the extractor fail before the batch is sent.
+    private final Set<String> idExtractionFailures = ConcurrentHashMap.newKeySet();
+    // Document ids for which the barrier check (hasDeleteByFieldValues, reached via the dispatcher's isBarrierDocument
+    // predicate) should throw, simulating a malformed field value that makes the predicate fail before the batch is sent.
+    private final Set<String> barrierCheckFailures = ConcurrentHashMap.newKeySet();
 
     ControlledIndexer(Config config, RecordingMessenger messenger) {
       super(config, messenger, false, "IndexerConcurrencyTest", "IndexerConcurrencyTest");
@@ -702,6 +779,43 @@ public class IndexerConcurrencyTest {
     /** Makes sendToIndex report the given document id as a per-document failure (returned, not thrown). */
     void failDocument(String docId) {
       failedDocIds.add(docId);
+    }
+
+    /**
+     * Makes id extraction throw for the given document id. The dispatcher calls the id extractor
+     * ({@code Indexer::destinationIds}, which calls {@link #getDocIdOverride}) before a batch is sent, so this simulates
+     * a malformed field value that makes that callback throw, and lets a test assert the batch still FAILs cleanly
+     * rather than stalling the run.
+     */
+    void failIdExtraction(String docId) {
+      idExtractionFailures.add(docId);
+    }
+
+    @Override
+    protected String getDocIdOverride(Document doc) {
+      if (idExtractionFailures.contains(doc.getId())) {
+        throw new IllegalArgumentException("simulated id extraction failure for " + doc.getId());
+      }
+      return super.getDocIdOverride(doc);
+    }
+
+    /**
+     * Makes the barrier check throw for the given document id. The dispatcher calls the barrier predicate
+     * ({@code Indexer::isDeleteByQuery}, which calls {@link #hasDeleteByFieldValues}) before a batch is sent, so this
+     * simulates a malformed field value that makes that callback throw, and lets a test assert the batch still FAILs
+     * cleanly rather than stalling the run. (The test must supply deletion-marker config/fields so isDeleteByQuery
+     * evaluates through to hasDeleteByFieldValues.)
+     */
+    void failBarrierCheck(String docId) {
+      barrierCheckFailures.add(docId);
+    }
+
+    @Override
+    protected boolean hasDeleteByFieldValues(Document doc) {
+      if (barrierCheckFailures.contains(doc.getId())) {
+        throw new IllegalArgumentException("simulated barrier check failure for " + doc.getId());
+      }
+      return super.hasDeleteByFieldValues(doc);
     }
 
     /** Makes the next {@code count} send attempts for the given document id throw a retryable exception, then succeed. */

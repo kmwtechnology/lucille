@@ -109,9 +109,24 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   @Override
   public void dispatch(List<Document> batchedDocs) {
-    Set<String> ids = destinationIdExtractor.apply(batchedDocs);
-    // A barrier batch (one containing a delete-by-query, which can match documents in any batch) must run alone.
-    boolean barrier = batchedDocs.stream().anyMatch(isBarrierDocument);
+    Set<String> ids;
+    boolean barrier;
+    try {
+      ids = destinationIdExtractor.apply(batchedDocs);
+      // A barrier batch (one containing a delete-by-query, which can match documents in any batch) must run alone.
+      barrier = batchedDocs.stream().anyMatch(isBarrierDocument);
+    } catch (Exception e) {
+      // The id extractor and barrier predicate inspect a document's fields (for example its idOverrideField), so a
+      // malformed value can make them throw. They run on the indexer thread before the batch is submitted or recorded
+      // in flight, so an escaping throw would kill the run loop with this batch's documents never completed, hanging
+      // the run on events that never arrive. There is no way to prove these callbacks cannot throw at compile time
+      // (unchecked exceptions are outside the type system), so the throw is contained here: the batch is failed the
+      // same way a thrown send is, routed through completeBatch so FAIL events are emitted and the run proceeds. The
+      // batches already in flight are drained first, so completion still happens in dispatch order.
+      drain();
+      processor.completeBatch(batchedDocs, new SendOutcome(null, e, 0));
+      return;
+    }
     // Wait until this batch may run alongside those in flight: a barrier waits for nothing to be in flight; otherwise
     // there must be a free slot and no in-flight batch may write any id this batch writes (so writes and deletes of the
     // same document stay in order).
