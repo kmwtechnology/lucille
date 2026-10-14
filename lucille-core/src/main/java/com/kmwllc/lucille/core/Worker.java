@@ -225,10 +225,7 @@ class Worker implements Runnable {
   }
 
   private void stampFailureMetadata(Document doc, String reason, String component) {
-    doc.setField(Document.FAILURE_REASON_FIELD, reason);
-    doc.setField(Document.FAILURE_COMPONENT_FIELD, component);
-    doc.setField(Document.FAILURE_TIME_FIELD, Instant.now());
-    doc.setField(Document.FAILURE_PIPELINE_FIELD, pipelineName);
+    doc.setFailureMetadata(reason, component, Instant.now(), pipelineName);
   }
 
   public AtomicReference<Instant> getPreviousPollInstant() {

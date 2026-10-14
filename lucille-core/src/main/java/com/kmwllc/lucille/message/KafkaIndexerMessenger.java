@@ -136,8 +136,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   public void sendFailed(Document document) throws Exception {
     ProducerRecord<String, Document> producerRecord =
         new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
+    // send(...).get() blocks until the broker acks, so the fail-topic write is durable before we return.
     kafkaDocumentProducer.send(producerRecord).get();
-    kafkaDocumentProducer.flush();
   }
 
   @Override

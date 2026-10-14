@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Implementation of the messenger APIs used by Indexers, Publishers, and Workers, suitable for
@@ -25,6 +26,7 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   private final BlockingQueue<Event> pipelineEvents = new LinkedBlockingQueue<>();
   private final BlockingQueue<Document> pipelineSource;
   private final BlockingQueue<Document> pipelineDest;
+  private final AtomicBoolean warnedAboutSendFailed = new AtomicBoolean(false);
 
   public LocalMessenger() {
     this.pipelineSource = new LinkedBlockingQueue<>();
@@ -67,9 +69,20 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
     pipelineDest.put(document);
   }
 
+  /**
+   * In local mode there is no fail topic (that is a Kafka/Hybrid concept), so failed documents cannot be
+   * republished anywhere. This is a no-op by design; the FAIL event and the FailedDocuments log remain the
+   * signal for failures in local mode. We log a single warning the first time this is invoked so that an
+   * operator who enabled {@code sendFailedDocsToTopic} in local mode is not left thinking docs are being
+   * routed to a fail topic.
+   */
   @Override
   public void sendFailed(Document document) throws Exception {
-
+    if (warnedAboutSendFailed.compareAndSet(false, true)) {
+      log.warn("sendFailed was called in local mode, where there is no fail topic; failed documents are not "
+          + "republished. The FAIL event and FailedDocuments log are the only failure signals in local mode. "
+          + "The 'sendFailedDocsToTopic' option only takes effect in Kafka/Hybrid modes.");
+    }
   }
 
   @Override

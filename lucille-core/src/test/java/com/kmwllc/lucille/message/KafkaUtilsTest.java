@@ -207,4 +207,29 @@ public class KafkaUtilsTest {
     assertThrows(IllegalArgumentException.class,
         () -> KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 0")));
   }
+
+  @Test
+  public void testShouldStampSourceProvenance() {
+    // Neither the fail-topic feature nor retry tracking is configured: no document can reach the fail topic, so
+    // provenance should not be stamped on every document.
+    assertFalse(KafkaUtils.shouldStampSourceProvenance(ConfigFactory.empty()));
+
+    // The pipeline-processing failure path is enabled, so failed documents are routed to the fail topic and need
+    // provenance.
+    assertTrue(KafkaUtils.shouldStampSourceProvenance(
+        ConfigFactory.parseString("worker.sendFailedDocsToTopic: true")));
+
+    // sendFailedDocsToTopic is explicitly off: still no stamping.
+    assertFalse(KafkaUtils.shouldStampSourceProvenance(
+        ConfigFactory.parseString("worker.sendFailedDocsToTopic: false")));
+
+    // Retry tracking is on; the retry-exceeded path always routes to the fail topic, so provenance is needed even
+    // without sendFailedDocsToTopic.
+    assertTrue(KafkaUtils.shouldStampSourceProvenance(
+        ConfigFactory.parseString("worker.maxRetries: 2")));
+
+    // Both configured.
+    assertTrue(KafkaUtils.shouldStampSourceProvenance(
+        ConfigFactory.parseString("worker { sendFailedDocsToTopic: true, maxRetries: 2 }")));
+  }
 }

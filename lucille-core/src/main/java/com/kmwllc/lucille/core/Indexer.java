@@ -516,10 +516,7 @@ public abstract class Indexer implements Runnable {
 
       if (sendFailedDocsToTopic) {
         try {
-          d.setField(Document.FAILURE_REASON_FIELD, reason);
-          d.setField(Document.FAILURE_COMPONENT_FIELD, "indexer");
-          d.setField(Document.FAILURE_TIME_FIELD, Instant.now());
-          d.setField(Document.FAILURE_PIPELINE_FIELD, pipelineName);
+          d.setFailureMetadata(reason, "indexer", Instant.now(), pipelineName);
           messenger.sendFailed(d);
         } catch (Exception failEx) {
           docLogger.error("Failed to send doc to failure topic: {}", d.getId(), failEx);
@@ -569,6 +566,9 @@ public abstract class Indexer implements Runnable {
   protected final Map<String, Object> getConvertedIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
     indexerDoc.remove(Document.CHILDREN_FIELD);
+    // Lucille-internal bookkeeping fields (source provenance, failure metadata) travel with the document but must
+    // never be written to the search index.
+    indexerDoc.keySet().removeAll(Document.INDEXING_EXCLUDED_FIELDS);
     if (fieldFilter.isActive()) {
       indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
@@ -600,7 +600,10 @@ public abstract class Indexer implements Runnable {
       Map.Entry<String, JsonNode> field = it.next();
       String name = field.getKey();
       JsonNode value = field.getValue();
-      if (Document.CHILDREN_FIELD.equals(name) || !fieldFilter.shouldInclude(name)) {
+      // Skip CHILDREN_FIELD and Lucille-internal bookkeeping fields (source provenance, failure metadata), which must
+      // never be written to the search index, as well as anything excluded by the field filter.
+      if (Document.CHILDREN_FIELD.equals(name) || Document.INDEXING_EXCLUDED_FIELDS.contains(name)
+          || !fieldFilter.shouldInclude(name)) {
         continue;
       }
       indexerDoc.put(name, containsNull(value) ? JsonDocument.MAPPER.convertValue(value, Object.class) : value);

@@ -299,6 +299,21 @@ public class KafkaUtils {
     return pipelineName + "_fail";
   }
 
+  /**
+   * Whether a worker messenger should stamp source-provenance fields (___source_topic/partition/offset) on documents
+   * it polls from the source topic. Provenance is only useful on documents that may later be routed to the fail topic,
+   * so it is stamped only when the fail topic can receive documents: either because the pipeline-processing failure
+   * path is enabled ({@code worker.sendFailedDocsToTopic}), or because retry tracking is on ({@code worker.maxRetries}),
+   * whose retry-exceeded path always routes to the fail topic. When neither is configured, no document can reach the
+   * fail topic, so provenance is not stamped and the extra fields are not added to every document.
+   */
+  public static boolean shouldStampSourceProvenance(Config config) {
+    boolean sendFailedDocsToTopic = config.hasPath("worker.sendFailedDocsToTopic")
+        && config.getBoolean("worker.sendFailedDocsToTopic");
+    boolean retriesTracked = config.hasPath("worker.maxRetries");
+    return sendFailedDocsToTopic || retriesTracked;
+  }
+
   public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) throws Exception {
     if (consumerRecords.count() > 1) {
       throw new Exception("Kafka poll returned more than 1 message but this shouldn't happen");

@@ -180,6 +180,39 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testSourceAndFailureFieldsAreReserved() {
+    // The source-provenance and failure-metadata fields are reserved, so setField must reject them; they are only
+    // settable through the dedicated setSourceMetadata / setFailureMetadata methods.
+    Document document = createDocument("123");
+    for (String field : Document.INDEXING_EXCLUDED_FIELDS) {
+      assertTrue(field + " should be a reserved field", RESERVED_FIELDS.contains(field));
+      assertThrows(IllegalArgumentException.class, () -> document.setField(field, "x"));
+    }
+  }
+
+  @Test
+  public void testSetSourceMetadata() {
+    Document document = createDocument("123");
+    document.setSourceMetadata("topicA", 3, 123L);
+
+    assertEquals("topicA", document.getString(Document.SOURCE_TOPIC_FIELD));
+    assertEquals((Integer) 3, document.getInt(Document.SOURCE_PARTITION_FIELD));
+    assertEquals((Long) 123L, document.getLong(Document.SOURCE_OFFSET_FIELD));
+  }
+
+  @Test
+  public void testSetFailureMetadata() {
+    Document document = createDocument("123");
+    Instant now = Instant.ofEpochSecond(10000);
+    document.setFailureMetadata("boom", "worker", now, "pipeline1");
+
+    assertEquals("boom", document.getString(Document.FAILURE_REASON_FIELD));
+    assertEquals("worker", document.getString(Document.FAILURE_COMPONENT_FIELD));
+    assertEquals(now, document.getInstant(Document.FAILURE_TIME_FIELD));
+    assertEquals("pipeline1", document.getString(Document.FAILURE_PIPELINE_FIELD));
+  }
+
+  @Test
   public void testRemoveField() throws DocumentException, JsonProcessingException {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
