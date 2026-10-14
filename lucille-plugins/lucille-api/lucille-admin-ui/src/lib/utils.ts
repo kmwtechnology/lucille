@@ -1,6 +1,8 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+export type ApiInstant = string | number | null | undefined
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
@@ -12,26 +14,31 @@ export function formatBytes(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
 }
-
-/** Format an ISO-8601 instant as a locale date-time string, or a dash when absent. */
-export function formatInstant(iso: string | null | undefined): string {
-  if (!iso) return "—"
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleString()
+/**
+ * Normalize an API instant to epoch milliseconds, or NaN when absent/invalid.
+ */
+function toEpochMs(value: ApiInstant): number {
+  if (value === null || value === undefined || value === "") return Number.NaN
+  if (typeof value === "number") return value * 1000
+  const asNumber = Number(value)
+  if (!Number.isNaN(asNumber) && value.trim() !== "") return asNumber * 1000
+  return new Date(value).getTime()
 }
 
-/**
- * Human-readable duration between two ISO-8601 instants. When `end` is absent,
- * measures from `start` to now (useful for in-progress runs).
- */
+/** Format an API instant as a locale date-time string, or a dash when absent. */
+export function formatInstant(value: ApiInstant): string {
+  const ms = toEpochMs(value)
+  if (Number.isNaN(ms)) return value ? String(value) : "—"
+  return new Date(ms).toLocaleString()
+}
+
 export function formatDuration(
-  start: string | null | undefined,
-  end: string | null | undefined,
+  start: ApiInstant,
+  end: ApiInstant,
 ): string {
-  if (!start) return "—"
-  const startMs = new Date(start).getTime()
-  const endMs = end ? new Date(end).getTime() : Date.now()
+  if (start === null || start === undefined || start === "") return "—"
+  const startMs = toEpochMs(start)
+  const endMs = end === null || end === undefined || end === "" ? Date.now() : toEpochMs(end)
   if (Number.isNaN(startMs) || Number.isNaN(endMs)) return "—"
 
   const totalSeconds = Math.max(0, Math.round((endMs - startMs) / 1000))

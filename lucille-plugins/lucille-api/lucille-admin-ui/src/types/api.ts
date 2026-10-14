@@ -9,15 +9,17 @@ export interface RunResult {
 }
 
 /**
- * A Lucille run (RunDetails). Times are ISO-8601 strings. `endTime` and
+ * A Lucille run (RunDetails). Times are sent by the API as numeric epoch
+ * *seconds* (Jackson's default `Instant` serialization), though ISO-8601
+ * strings are also tolerated by the formatting helpers. `endTime` and
  * `runResult` are null until the run finishes. `hasThrowable` is true when the
  * run errored.
  */
 export interface Run {
   runId: string
   configId: string
-  startTime: string | null
-  endTime: string | null
+  startTime: string | number | null
+  endTime: string | number | null
   runResult: RunResult | null
   runType: string | null
   done: boolean
