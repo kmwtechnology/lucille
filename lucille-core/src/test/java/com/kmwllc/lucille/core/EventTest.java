@@ -153,6 +153,106 @@ public class EventTest {
   }
 
   @Test
+  public void testMaxValuesPerFieldEqualToSizeKeepsAll() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.addToField("tags", "a");
+    doc.addToField("tags", "b");
+
+    // cap equal to the number of values: nothing is truncated (boundary of value.size() <= max)
+    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("tags"), 2));
+    ObjectNode fields = event.getDocumentFields();
+    assertTrue(fields.get("tags").isArray());
+    assertEquals(2, fields.get("tags").size());
+    assertEquals("a", fields.get("tags").get(0).asText());
+    assertEquals("b", fields.get("tags").get(1).asText());
+  }
+
+  @Test
+  public void testMaxValuesPerFieldZeroYieldsEmptyArray() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.addToField("tags", "a");
+    doc.addToField("tags", "b");
+
+    // a cap of 0 truncates every value out, leaving an empty array (not null; the field is still present)
+    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("tags"), 0));
+    ObjectNode fields = event.getDocumentFields();
+    assertTrue(fields.has("tags"));
+    assertTrue(fields.get("tags").isArray());
+    assertEquals(0, fields.get("tags").size());
+  }
+
+  @Test
+  public void testMaxValuesPerFieldDoesNotAffectSingleValuedField() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.setField("single", "only");
+
+    // a single-valued (scalar) field is never truncated regardless of the cap; it stays a scalar
+    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("single"), 1));
+    ObjectNode fields = event.getDocumentFields();
+    assertFalse(fields.get("single").isArray());
+    assertEquals("only", fields.get("single").asText());
+  }
+
+  @Test
+  public void testEnrichmentPreservesNonStringValueTypes() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.setField("count", 42);
+    doc.setField("ratio", 3.5);
+    doc.setField("flag", true);
+
+    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("count", "ratio", "flag"), null));
+    ObjectNode fields = event.getDocumentFields();
+
+    // raw JsonNode copy preserves the JSON type of each value, not just its string form
+    assertTrue(fields.get("count").isInt());
+    assertEquals(42, fields.get("count").asInt());
+    assertTrue(fields.get("ratio").isNumber());
+    assertEquals(3.5, fields.get("ratio").asDouble(), 0.0);
+    assertTrue(fields.get("flag").isBoolean());
+    assertTrue(fields.get("flag").asBoolean());
+
+    // and the types survive a JSON round-trip through the event topic
+    Event roundTripped = Event.fromJsonString(event.toString());
+    ObjectNode rtFields = roundTripped.getDocumentFields();
+    assertTrue(rtFields.get("count").isInt());
+    assertTrue(rtFields.get("flag").isBoolean());
+  }
+
+  @Test
+  public void testEnrichmentDeepCopiesSoLaterDocumentMutationDoesNotLeak() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.addToField("tags", "a");
+    doc.addToField("tags", "b");
+
+    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("tags"), null));
+    ObjectNode fields = event.getDocumentFields();
+    assertEquals(2, fields.get("tags").size());
+
+    // mutating the source document after the event is built must not alter the event's captured copy
+    doc.addToField("tags", "c");
+
+    assertEquals("event must hold a deep copy independent of the live document",
+        2, event.getDocumentFields().get("tags").size());
+  }
+
+  @Test
+  public void testMaxValuesPerFieldParsedFromConfig() {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "kafka.event.includeFields", List.of("tags"),
+        "kafka.event.maxValuesPerField", 1));
+    EventFieldConfig fieldConfig = EventFieldConfig.fromConfig(config);
+
+    Document doc = Document.create("id1", "runId1");
+    doc.addToField("tags", "a");
+    doc.addToField("tags", "b");
+
+    // confirms fromConfig actually reads maxValuesPerField (not just the test helper constructing it)
+    ObjectNode fields = fieldConfig.extract(doc);
+    assertEquals(1, fields.get("tags").size());
+    assertEquals("a", fields.get("tags").get(0).asText());
+  }
+
+  @Test
   public void testFromConfigDisabledWhenAbsentOrEmpty() {
     assertTrue(EventFieldConfig.fromConfig(ConfigFactory.empty()).isEmpty());
     assertTrue(EventFieldConfig.fromConfig(null).isEmpty());
