@@ -6,13 +6,9 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.OpenSearchIndexer;
 import com.typesafe.config.Config;
 import java.util.List;
-import javax.net.ssl.SSLContext;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
-import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
-import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
-import org.apache.hc.core5.ssl.SSLContextBuilder;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
@@ -28,7 +24,8 @@ public class OpenSearchUtils {
       .requiredStringOrList("url")
       .requiredString("index")
       .optionalBoolean("acceptInvalidCert", "useCompression")
-      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal").build();
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal",
+          "connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchUtils.class);
 
@@ -50,26 +47,7 @@ public class OpenSearchUtils {
     final HttpHost[] hosts = HttpHostUtils.toHttpHosts(getOpenSearchUrls(config), credentialsProvider);
 
     // Potentially disable SSL/TLS verification for when testing locally
-    boolean allowInvalidCert = getAllowInvalidCert(config);
-    TlsStrategy tlsStrategy;
-    SSLContext sslContext;
-
-    if (allowInvalidCert) {
-      sslContext = SSLContextBuilder.create()
-          .loadTrustMaterial(null, (chains, authType) -> true)
-          .build();
-
-      tlsStrategy = ClientTlsStrategyBuilder.create()
-          .setSslContext(sslContext)
-          .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-          .build();
-    } else {
-      sslContext = SSLContextBuilder.create()
-          .build();
-      tlsStrategy = ClientTlsStrategyBuilder.create()
-          .setSslContext(sslContext)
-          .build();
-    }
+    TlsStrategy tlsStrategy = HttpClientConfigUtils.buildTlsStrategy(getAllowInvalidCert(config));
 
     boolean useCompression = config.hasPath("opensearch.useCompression") && config.getBoolean("opensearch.useCompression");
     final var transport = ApacheHttpClient5TransportBuilder
