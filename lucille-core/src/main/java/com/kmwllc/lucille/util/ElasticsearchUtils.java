@@ -12,16 +12,12 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.util.List;
 import java.util.Map;
-import javax.net.ssl.SSLContext;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
-import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
-import org.apache.hc.client5.http.ssl.NoopHostnameVerifier;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
-import org.apache.hc.core5.ssl.SSLContextBuilder;
 
 /**
  * Utility methods for communicating with Elasticsearch.
@@ -32,6 +28,7 @@ public class ElasticsearchUtils {
       .requiredString("index")
       .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
+      .optionalNumber("connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
       .optionalString("parentName")
       .optionalParent("join", new TypeReference<Map<String, String>>(){}).build();
 
@@ -41,25 +38,7 @@ public class ElasticsearchUtils {
     final HttpHost[] hosts = HttpHostUtils.toHttpHosts(getElasticsearchUrls(config), credentialsProvider);
 
     // Potentially disable SSL/TLS verification for when testing locally
-    boolean allowInvalidCert = getAllowInvalidCert(config);
-    SSLContext sslContext;
-    TlsStrategy tlsStrategy;
-
-    if (allowInvalidCert) {
-      sslContext = SSLContextBuilder.create()
-          .loadTrustMaterial(null, (chains, authType) -> true)
-          .build();
-      tlsStrategy = ClientTlsStrategyBuilder.create()
-          .setSslContext(sslContext)
-          .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-          .build();
-    } else {
-      sslContext = SSLContextBuilder.create()
-          .build();
-      tlsStrategy = ClientTlsStrategyBuilder.create()
-          .setSslContext(sslContext)
-          .build();
-    }
+    TlsStrategy tlsStrategy = HttpClientConfigUtils.buildTlsStrategy(getAllowInvalidCert(config));
 
     // elasticsearch-java 9.x uses the Apache HttpClient 5 based Rest5Client transport; the legacy
     // org.elasticsearch.client.RestClient (HttpClient 4) is no longer bundled.
@@ -67,6 +46,7 @@ public class ElasticsearchUtils {
         .setDefaultCredentialsProvider(credentialsProvider)
         .setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
             .setTlsStrategy(tlsStrategy)
+            .setDefaultConnectionConfig(HttpClientConfigUtils.buildConnectionConfig(config, "elasticsearch"))
             .build())
         .build();
 

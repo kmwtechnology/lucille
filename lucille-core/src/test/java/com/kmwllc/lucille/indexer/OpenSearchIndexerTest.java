@@ -1638,6 +1638,64 @@ public class OpenSearchIndexerTest {
   }
 
   /**
+   * A server that stalls longer than opensearch.socketTimeoutMs must fail the bulk with a retryable transport error, so
+   * the retry goes out on a fresh connection instead of waiting out the stall.
+   */
+  @Test
+  public void testSocketTimeoutIsRetried() throws Exception {
+    AtomicInteger requestCount = new AtomicInteger(0);
+    HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+    java.util.concurrent.ExecutorService serverExecutor = java.util.concurrent.Executors.newCachedThreadPool();
+    server.setExecutor(serverExecutor);
+
+    String bulkSuccessBody = "{\"took\":1,\"errors\":false,\"items\":"
+        + "[{\"index\":{\"_index\":\"lucille-default\",\"_id\":\"doc1\","
+        + "\"result\":\"created\",\"status\":201}}]}";
+    byte[] bulkSuccessBytes = bulkSuccessBody.getBytes(StandardCharsets.UTF_8);
+
+    server.createContext("/", exchange -> {
+      if (requestCount.incrementAndGet() == 1) {
+        // First request: stall past the socket timeout
+        try {
+          Thread.sleep(5000);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+      }
+      exchange.getResponseHeaders().set("Content-Type", "application/json");
+      exchange.sendResponseHeaders(200, bulkSuccessBytes.length);
+      try (OutputStream os = exchange.getResponseBody()) {
+        os.write(bulkSuccessBytes);
+      }
+      exchange.close();
+    });
+    server.start();
+
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf")
+        .withValue("opensearch.url", ConfigValueFactory.fromAnyRef("http://localhost:" + server.getAddress().getPort()))
+        .withValue("opensearch.socketTimeoutMs", ConfigValueFactory.fromAnyRef(300));
+    TestMessenger messenger = new TestMessenger();
+    Document doc = Document.create("doc1");
+
+    long start = System.nanoTime();
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, false, "testing", "run1");
+    try {
+      messenger.sendForIndexing(doc);
+      indexer.run(1);
+    } finally {
+      indexer.closeConnection();
+      server.stop(0);
+      serverExecutor.shutdownNow();
+    }
+    long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+
+    assertEquals(2, requestCount.get()); // the stalled request and its retry
+    assertTrue("indexing waited out the stall: " + elapsedMs + " ms", elapsedMs < 4000);
+    assertEquals(1, messenger.getSentEvents().size());
+    assertEquals(Event.Type.FINISH, messenger.getSentEvents().get(0).getType());
+  }
+
+  /**
    * Tests that unknown-status-code failures (e.g. network timeouts) are NOT retried when the user
    * explicitly specifies retryableStatusCodes without including -1.
    * Config uses retryableStatusCodes: [429] — no -1, so IOException-based failures should not retry.
