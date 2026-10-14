@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying OpenSearch HTTP client. Defaults to false.</li>
- *   <li>connectTimeoutMs (Long, Optional) : Maximum time to establish a connection. Defaults to 1000.</li>
+ *   <li>connectTimeoutMs (Long, Optional) : Maximum time to establish a connection. Defaults to 5000.</li>
  *   <li>socketTimeoutMs (Long, Optional) : Maximum time to wait for data on an open connection, including a bulk or
  *   delete-by-query response. A timeout is a transport failure, retried when indexer.maxRetries is set. Defaults to
  *   30000; raise it for long deletes, or set it to -1 for no limit.</li>

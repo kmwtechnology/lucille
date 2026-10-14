@@ -86,13 +86,13 @@ public class HttpClientConfigUtilsTest {
   @Test
   public void testConfiguredValues() {
     Config config = ConfigFactory.parseMap(Map.of(
-        "elasticsearch.connectTimeoutMs", 5000,
+        "elasticsearch.connectTimeoutMs", 10000,
         "elasticsearch.socketTimeoutMs", "120000",
         "elasticsearch.connectionTimeToLiveMs", 60000));
 
     ConnectionConfig connectionConfig = HttpClientConfigUtils.buildConnectionConfig(config, "elasticsearch");
 
-    assertEquals(Timeout.ofMilliseconds(5000), connectionConfig.getConnectTimeout());
+    assertEquals(Timeout.ofMilliseconds(10000), connectionConfig.getConnectTimeout());
     assertEquals(Timeout.ofMilliseconds(120000), connectionConfig.getSocketTimeout());
     assertEquals(TimeValue.ofMilliseconds(60000), connectionConfig.getTimeToLive());
   }

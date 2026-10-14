@@ -32,13 +32,14 @@ import org.apache.hc.core5.util.Timeout;
  *   {@value #DEFAULT_CONNECTION_TIME_TO_LIVE_MS}.</li>
  * </ul>
  *
- * <p> The connect timeout default is the one opensearch-java and elasticsearch-java apply to the connection managers
- * they build themselves, which Lucille replaces with its own. The socket timeout default is opensearch-java's; without
- * one, a stalled request would wait indefinitely.
+ * <p> The connect timeout default is longer than the 1s opensearch-java and elasticsearch-java apply to the connection
+ * managers they build themselves, which Lucille replaces with its own: connecting includes the TLS handshake, which can
+ * exceed 1s across regions, and connectionTimeToLiveMs makes the client reconnect throughout a run, not just at startup.
+ * The socket timeout default is opensearch-java's; without one, a stalled request would wait indefinitely.
  */
 public class HttpClientConfigUtils {
 
-  public static final long DEFAULT_CONNECT_TIMEOUT_MS = 1000;
+  public static final long DEFAULT_CONNECT_TIMEOUT_MS = 5000;
   public static final long DEFAULT_CONNECTION_TIME_TO_LIVE_MS = 300_000;
   public static final long DEFAULT_SOCKET_TIMEOUT_MS = 30_000;
   /** The socketTimeoutMs value that disables the socket timeout. */
