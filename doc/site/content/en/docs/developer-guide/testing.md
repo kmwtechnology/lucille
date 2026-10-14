@@ -184,6 +184,39 @@ lucille-core/target/jacoco-ut/index.html
 
 This summarizes test coverage across packages and classes, showing covered and missed lines and branches.
 
+## Controlling Test Parallelism
+
+By default the build runs test classes in parallel (one JVM fork per CPU core) and builds Lucille's modules in
+parallel. Two independent settings change this per run:
+
+- `-Dsurefire.forkCount=<N|NC>` — test forks within a module. Use `1` to run a module's tests serially in a single JVM
+  (useful when debugging an interaction between tests, or to get un-interleaved console output); `2`, `0.5C`, etc. to
+  tune.
+- `-T<N|NC>` — Maven reactor threads: how many modules Maven builds at once. The reactor is the set of Lucille modules
+  built together; the plugin and example modules all depend on `lucille-core`, so `lucille-core` builds first and the
+  modules that depend on it build in parallel once it finishes.
+
+Fully serial build (slowest, most deterministic output):
+
+```bash
+mvn clean install -T1 -Dsurefire.forkCount=1
+```
+
+### Identifying which fork produced output
+
+When tests run in parallel forks, output from different test classes interleaves, so you need a way to tell which fork
+a line came from. Surefire numbers each fork (`1`..`forkCount`), and the build passes that number to the forked JVM as
+the `surefire.forkNumber` system property.
+
+- **Console:** each log line starts with its fork number, e.g. `[fork 2] ...`, so you can follow a single fork's output
+  through the interleaved stream (and `grep` for one fork).
+- **Log files:** each fork writes its own files under `log/`, named with the fork number (e.g.
+  `log/com.kmwllc.lucille-1.log`, `log/com.kmwllc.lucille-2.log`, `log/heartbeat-1.log`), rather than all forks sharing
+  one file. Open the file matching the fork number from the console line for that test.
+
+With `-Dsurefire.forkCount=1` there is a single fork, so output is not interleaved and the fork number is always `1`.
+Tests run outside Maven, for example from an IDE, have no fork number and use `0`.
+
 ## Testing Guidelines
 
 - **One test class per component:** `MyStageTest` for `MyStage`, `MyConnectorTest` for `MyConnector`, etc. Group related assertions into focused test methods with descriptive names.

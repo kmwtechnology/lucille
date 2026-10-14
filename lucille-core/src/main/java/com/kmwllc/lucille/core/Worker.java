@@ -11,6 +11,7 @@ import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -87,6 +88,11 @@ class Worker implements Runnable {
         if (localRunId == null && doc != null) {
           MDC.put(RUNID_FIELD, doc.getRunId());
         }
+      } catch (RecordDeserializationException e) {
+        // already logged with the record's location by the messenger; fall through to the cleanup below
+        log.error("Worker stopping: could not deserialize record {}@{}", e.topicPartition(), e.offset());
+        terminate();
+        break;
       } catch (Exception e) {
         log.info("interrupted " + e);
         terminate();

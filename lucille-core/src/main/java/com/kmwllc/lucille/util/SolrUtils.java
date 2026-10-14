@@ -2,6 +2,7 @@ package com.kmwllc.lucille.util;
 
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.io.IOException;
@@ -25,7 +26,7 @@ import org.slf4j.LoggerFactory;
 public class SolrUtils {
 
   public static final Spec SOLR_PARENT_SPEC = SpecBuilder.parent("solr")
-      .requiredList("url", new TypeReference<List<String>>() {})
+      .requiredStringOrList("url")
       .optionalString("zkChroot", "defaultCollection", "userName", "password")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
       .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
@@ -65,7 +66,7 @@ public class SolrUtils {
 
       cloudBuilder = new CloudHttp2SolrClient.Builder(config.getStringList("solr.zkHosts"), zkChroot);
     } else {
-      cloudBuilder = new CloudHttp2SolrClient.Builder(config.getStringList("solr.url"));
+      cloudBuilder = new CloudHttp2SolrClient.Builder(ConfigUtils.getStringOrList(config, "solr.url"));
     }
     if (config.hasPath("solr.defaultCollection")) {
       cloudBuilder.withDefaultCollection(config.getString("solr.defaultCollection"));

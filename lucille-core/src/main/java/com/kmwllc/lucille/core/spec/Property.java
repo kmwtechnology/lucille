@@ -73,7 +73,7 @@ public abstract class Property {
    * the name of the type, and may have either <code>typeReference</code> or <code>child</code>.
    *
    * <p> <code>type</code> is one of <code>STRING</code>, <code>NUMBER</code>, <code>BOOLEAN</code>, <code>LIST</code>,
-   * or <code>OBJECT</code>. (Or, temporarily, <code>ANY</code>.)
+   * <code>STRING_OR_LIST</code>, or <code>OBJECT</code>.
    *
    * <p> If this property is a List or an Object, the returned node will contain <i>either</i> <code>typeReference</code> or <code>child</code>.
    *

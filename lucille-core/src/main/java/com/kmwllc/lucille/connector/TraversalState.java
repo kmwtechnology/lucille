@@ -23,6 +23,9 @@ class TraversalState {
 
   private static final Logger log = LoggerFactory.getLogger(TraversalState.class);
 
+  // Standard SQLState for "string data, right truncation", used by H2, PostgreSQL, MySQL (strict mode) and SQL Server.
+  private static final String VALUE_TOO_LONG = "22001";
+
   private final String tableName;
   private final Instant traversalInstant;
 
@@ -68,6 +71,11 @@ class TraversalState {
         insertNewFileStatement.executeUpdate();
       }
     } catch (SQLException e) {
+      if (VALUE_TOO_LONG.equals(e.getSQLState())) {
+        throw new StatePathTooLongException("Path (" + fullPathStr.length() + " characters) is longer than the name "
+            + "column of state table " + tableName + ": " + fullPathStr + ". Raise state.pathLength for new tables, or "
+            + "widen the column of an existing one.", e);
+      }
       log.warn("Error marking file encountered in state database.", e);
     }
   }

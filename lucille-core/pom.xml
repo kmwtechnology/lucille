@@ -845,6 +845,16 @@
              access to any test utility classes in lucille-core -->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <finalName>lucille</finalName>
+          <archive>
+            <manifest>
+              <mainClass>com.kmwllc.lucille.core.Runner</mainClass>
+              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+            </manifest>
+          </archive>
+        </configuration>
         <executions>
           <execution>
             <goals>
@@ -858,22 +868,7 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <configuration>
-          <finalName>lucille</finalName>
-          <archive>
-            <manifest>
-              <mainClass>com.kmwllc.lucille.core.Runner</mainClass>
-              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
-            </manifest>
-          </archive>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>3.2.5</version>
         <executions>
           <execution>
             <goals>

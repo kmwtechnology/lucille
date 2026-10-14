@@ -39,7 +39,7 @@ public class LocalStorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
-    Files.walkFileTree(Paths.get(getStartingDirectory(params)), new LocalFileVisitor(publisher, params, stateMgr));
+    Files.walkFileTree(toPath(params.getURI()), new LocalFileVisitor(publisher, params, stateMgr));
   }
 
   @Override
@@ -49,7 +49,9 @@ public class LocalStorageClient extends BaseStorageClient {
     return new FileInputStream(file);
   }
 
-  private String getStartingDirectory(TraversalParams params) { return params.getURI().getPath(); }
+  private static Path toPath(URI uri) {
+    return uri.isAbsolute() ? Paths.get(uri) : Paths.get(uri.getPath());
+  }
 
   /**
    * {@inheritDoc}
@@ -58,16 +60,16 @@ public class LocalStorageClient extends BaseStorageClient {
    */
   @Override
   public boolean containsPath(URI parent, URI child) {
-    Path parentPath = Paths.get(parent.getPath()).toAbsolutePath().normalize();
-    Path childPath = Paths.get(child.getPath()).toAbsolutePath().normalize();
+    Path parentPath = toPath(parent).toAbsolutePath().normalize();
+    Path childPath = toPath(child).toAbsolutePath().normalize();
 
     return childPath.startsWith(parentPath);
   }
 
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
-    Path pathForFile = Paths.get(filePath.getPath());
-    Path pathForFolder = Paths.get(folder.getPath());
+    Path pathForFile = toPath(filePath);
+    Path pathForFolder = toPath(folder);
 
     // ensure target folder exists, creating it if it doesn't
     if (!Files.exists(pathForFolder)) {

@@ -11,9 +11,11 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -24,6 +26,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.tika.config.TikaConfig;
+import org.apache.tika.exception.TikaConfigException;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.fork.ForkParser;
 import org.apache.tika.io.TikaInputStream;
@@ -32,6 +35,7 @@ import org.apache.tika.metadata.TikaCoreProperties;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
+import org.apache.tika.parser.ocr.TesseractOCRParser;
 import org.apache.tika.sax.BodyContentHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +51,17 @@ import org.xml.sax.SAXException;
  * filePathField (String, Optional) : name of field from which file path can be extracted, if filePathField
  * and byteArrayField both not provided, stage will do nothing
  * byteArrayField (String, Optional) : name of field from which byte array data can be extracted
- * tikaConfigPath (String, Optional) : path to tika config, if not provided will default to empty AutoDetectParser
+ * tikaConfigPath (String, Optional) : path to tika config, used as is. If not provided will default to empty
+ * AutoDetectParser, without OCR unless enableOcr is true.
+ * enableOcr (Boolean, Optional) : whether to OCR images and image-only PDF pages with Tika's TesseractOCRParser, which
+ * runs the external "tesseract" binary. Defaults to false: the parser is built without TesseractOCRParser, so
+ * images yield metadata only, and PDF pages are not rendered for OCR because PDFParser's default AUTO OCR strategy
+ * finds no parser for them. Before this option existed, OCR ran implicitly whenever a tesseract binary was on the PATH;
+ * set enableOcr to true to keep that behaviour. Cannot be combined with tikaConfigPath (the stage fails to construct):
+ * when using a Tika config, control OCR in that config instead, e.g. with a
+ * &lt;parser-exclude class="org.apache.tika.parser.ocr.TesseractOCRParser"/&gt; under the DefaultParser.
+ * A global Tika config (the "tika.config" system property or the TIKA_CONFIG environment variable) is treated the
+ * same way when tikaConfigPath is not set: it is used as is, and enableOcr cannot be combined with it.
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
  * parseTimeout (Long, Optional) : timeout for parsing in milliseconds.
@@ -55,6 +69,12 @@ import org.xml.sax.SAXException;
  * blacklist (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
  * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
  * multi-valued field.
+ * replaceDotsInMetadataNames (Boolean, Optional) : if true, "." in metadata names is replaced with "_", as spaces, "-" and ":"
+ * always are. Defaults to false. Recommended when indexing into OpenSearch or Elasticsearch, which treat a dotted field
+ * name as an object path: Tika emits keys such as "dc.date" and "dc.date.created", whose dotted field names cannot both be
+ * mapped, so the document is rejected. Applies to metadata names only, not to metadataPrefix. When enabled, whitelist and
+ * blacklist entries must use the replaced form (e.g. "dc_date"; dotted entries never match and are logged as a warning), and a dotted key that collapses onto an existing name (e.g. "dc.date" and "dc_date") has its values added
+ * to the same multi-valued field.
  * fork.enabled (Boolean, Optional) : Whether parsing should be run in a child JVM via the <code>ForkParser</code>.
  * This adds overhead to each document but isolates OOM crashes from the parent. Defaults to false.
  * fork.poolSize (Integer, Optional) : number of child JVM processes kept alive in the pool. Defaults to 5.
@@ -98,12 +118,20 @@ public class TextExtractor extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("textField", "filePathField", "byteArrayField", "tikaConfigPath", "metadataPrefix", "fieldNamesField")
+      .optionalBoolean("replaceDotsInMetadataNames")
       .optionalList("whitelist", new TypeReference<List<String>>() {})
       .optionalList("blacklist", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeout")
+      .optionalBoolean("enableOcr")
       .optionalParent(FORK_SPEC, FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .optionalParent("metadataFields", new TypeReference<Map<String, Object>>() {})
       .include(FileContentFetcher.SPEC).build();
+
+  // Default Tika config minus the Tesseract parser. With no parser able to OCR, PDFParser also skips rendering pages for OCR.
+  private static final String NO_OCR_TIKA_CONFIG = "<properties><parsers>"
+      + "<parser class=\"org.apache.tika.parser.DefaultParser\">"
+      + "<parser-exclude class=\"" + TesseractOCRParser.class.getName() + "\"/>"
+      + "</parser></parsers></properties>";
 
   private static final List<String> DEFAULT_FORK_JVM_ARGS =
       Arrays.asList("java", "-Djava.awt.headless=true");
@@ -115,8 +143,13 @@ public class TextExtractor extends Stage {
   private String byteArrayField;
   private String metadataPrefix;
   private String fieldNamesField;
+  private boolean replaceDotsInMetadataNames;
   private Integer textContentLimit;
   private Long parseTimeout;
+  private final boolean enableOcr;
+  // where the global Tika config honoured by Tika's default constructors comes from (e.g. "tika.config system
+  // property"), or null if there is none; a description for messages, not the config itself
+  private final String globalTikaConfigSource;
   private boolean forkEnabled;
   private int forkPoolSize;
   private List<String> forkJvmArgs;
@@ -140,7 +173,10 @@ public class TextExtractor extends Stage {
     textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
     parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
     fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
+    replaceDotsInMetadataNames = config.hasPath("replaceDotsInMetadataNames") && config.getBoolean("replaceDotsInMetadataNames");
     metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
+    enableOcr = ConfigUtils.getOrDefault(config, "enableOcr", false);
+    globalTikaConfigSource = tikaConfigPath == null ? detectGlobalTikaConfigSource() : null;
 
     forkEnabled = ConfigUtils.getOrDefault(config, "fork.enabled", false);
     forkPoolSize = ConfigUtils.getOrDefault(config, "fork.poolSize", 5);
@@ -156,6 +192,13 @@ public class TextExtractor extends Stage {
     forkServerPulseMillis = ConfigUtils.getOrDefault(config, "fork.serverPulseMillis", 1000L);
 
     this.fieldFilter = new FieldFilter(config);
+    if (replaceDotsInMetadataNames) {
+      for (String listName : List.of("whitelist", "blacklist")) {
+        if (config.hasPath(listName) && config.getStringList(listName).stream().anyMatch(n -> n.contains("."))) {
+          log.warn("replaceDotsInMetadataNames is enabled but {} contains a dotted name, which will never match; use \"_\" instead of \".\"", listName);
+        }
+      }
+    }
 
     if (filePathField != null && byteArrayField != null) {
       throw new StageException("Provided both a filePathField and byteArrayField to the TextExtractor stage");
@@ -163,9 +206,29 @@ public class TextExtractor extends Stage {
     if (filePathField == null && byteArrayField == null) {
       throw new StageException("Provided neither a filePathField nor byteArrayField to the TextExtractor stage");
     }
+    if (tikaConfigPath != null && config.hasPath("enableOcr")) {
+      throw new StageException("enableOcr cannot be combined with tikaConfigPath; control OCR in the Tika config instead, "
+          + "e.g. by excluding " + TesseractOCRParser.class.getName() + " from the DefaultParser");
+    }
+    if (globalTikaConfigSource != null && config.hasPath("enableOcr")) {
+      throw new StageException("enableOcr cannot be combined with a global Tika config (" + globalTikaConfigSource
+          + "); control OCR in the Tika config instead, e.g. by excluding " + TesseractOCRParser.class.getName()
+          + " from the DefaultParser");
+    }
     parseCtx = new ParseContext();
 
     this.fileFetcher = FileContentFetcher.create(config);
+  }
+
+  // A supplied Tika config decides whether OCR runs; otherwise enableOcr does.
+  private String describeOcrSetting() {
+    if (tikaConfigPath != null) {
+      return "as configured by tikaConfigPath";
+    }
+    if (globalTikaConfigSource != null) {
+      return "as configured by " + globalTikaConfigSource;
+    }
+    return enableOcr ? "enabled" : "disabled";
   }
 
   @Override
@@ -179,19 +242,10 @@ public class TextExtractor extends Stage {
       }
     }
 
-    // we use an auto detect parser whether we are forking or not
-    AutoDetectParser autoParser;
-    if (this.tikaConfigPath == null) {
-      autoParser = new AutoDetectParser();
-    } else {
-      try {
-        File f = new File(this.tikaConfigPath);
-        TikaConfig tc = new TikaConfig(f);
-        autoParser = new AutoDetectParser(tc);
-      } catch (Exception e) {
-        throw new StageException("Error starting TextExtractor stage.", e);
-      }
-    }
+    // we use an auto detect parser whether we are forking or not; ForkParser serializes it into the child JVMs
+    AutoDetectParser autoParser = createAutoDetectParser();
+    log.info("TextExtractor OCR: {}; tesseract binary on PATH: {}", describeOcrSetting(),
+        tesseractDetected() ? "detected" : "not detected");
 
     if (forkEnabled) {
       forkParser = new ForkParser(TextExtractor.class.getClassLoader(), autoParser);
@@ -210,6 +264,45 @@ public class TextExtractor extends Stage {
         // single thread executor rather than using a thread pool.
         executorService = Executors.newSingleThreadExecutor();
       }
+    }
+  }
+
+  /**
+   * Builds the {@link AutoDetectParser} used for parsing: from tikaConfigPath or a global Tika config when set, otherwise
+   * Tika's defaults, with {@link TesseractOCRParser} excluded unless enableOcr is true.
+   */
+  AutoDetectParser createAutoDetectParser() throws StageException {
+    try {
+      if (tikaConfigPath != null) {
+        return new AutoDetectParser(new TikaConfig(new File(tikaConfigPath)));
+      }
+      if (enableOcr || globalTikaConfigSource != null) {
+        // Tika's default constructor loads the global Tika config when one is set
+        return new AutoDetectParser();
+      }
+      return new AutoDetectParser(new TikaConfig(new ByteArrayInputStream(NO_OCR_TIKA_CONFIG.getBytes(StandardCharsets.UTF_8))));
+    } catch (Exception e) {
+      throw new StageException("Error starting TextExtractor stage.", e);
+    }
+  }
+
+  /**
+   * Returns a description of the global Tika config that Tika's default constructors would load (the "tika.config"
+   * system property, then the TIKA_CONFIG environment variable), or null if neither is set.
+   */
+  private static String detectGlobalTikaConfigSource() {
+    String property = System.getProperty("tika.config");
+    if (property != null) {
+      return "tika.config system property";
+    }
+    return System.getenv("TIKA_CONFIG") != null ? "TIKA_CONFIG environment variable" : null;
+  }
+
+  private static boolean tesseractDetected() {
+    try {
+      return new TesseractOCRParser().hasTesseract();
+    } catch (TikaConfigException e) {
+      return false;
     }
   }
 
@@ -295,14 +388,12 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Cleans the name of metadata field names to be in line with general standards for documents
+   * Cleans the name of metadata field names to be in line with general standards for documents: trims, lowercases, and
+   * replaces spaces, "-" and ":" (and "." when replaceDots is true) with "_".
    */
-  private static String cleanFieldName(String name) {
-    String cleanName = name.trim().toLowerCase();
-    cleanName = cleanName.replaceAll(" ", "_");
-    cleanName = cleanName.replaceAll("-", "_");
-    cleanName = cleanName.replaceAll(":", "_");
-    return cleanName;
+  static String cleanFieldName(String name, boolean replaceDots) {
+    String cleanName = name.trim().toLowerCase().replace(' ', '_').replace('-', '_').replace(':', '_');
+    return replaceDots ? cleanName.replace('.', '_') : cleanName;
   }
 
   /**
@@ -341,7 +432,7 @@ public class TextExtractor extends Stage {
     String newMetadataPrefix = metadataPrefix.isEmpty() ? "" : metadataPrefix + "_";
     for (String name : metadata.names()) {
       // clean the field name first.
-      String cleanName = cleanFieldName(name);
+      String cleanName = cleanFieldName(name, replaceDotsInMetadataNames);
       if (fieldFilter.shouldInclude(cleanName)) {
         String prefixedName = newMetadataPrefix + cleanName;
         for (String value : metadata.getValues(name)) {

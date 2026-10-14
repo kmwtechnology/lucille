@@ -12,9 +12,11 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 
 public class KafkaWorkerMessenger implements WorkerMessenger {
@@ -24,11 +26,14 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final Config config;
+  private final Duration pollInterval;
   private final String pipelineName;
   private final EventFieldConfig eventFieldConfig;
+  private final DeserializationErrorHandler deserializationErrorHandler;
 
   public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
+    this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
@@ -38,6 +43,8 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
     this.sourceConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.sourceConsumer.subscribe(Collections.singletonList(KafkaUtils.getSourceTopicName(pipelineName, config)));
+    this.deserializationErrorHandler =
+        new DeserializationErrorHandler(config, sourceConsumer);
   }
 
   /**
@@ -46,10 +53,18 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    */
   @Override
   public Document pollDocToProcess() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords = sourceConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords;
+    try {
+      consumerRecords = sourceConsumer.poll(pollInterval);
+    } catch (RecordDeserializationException e) {
+      // rethrows unless configured to skip; the Worker commits the advanced position when we return null
+      deserializationErrorHandler.handleOrRethrow(e);
+      return null;
+    }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
+      deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
       return doc;

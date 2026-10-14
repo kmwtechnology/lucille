@@ -22,7 +22,8 @@ public class HeartbeatTest {
     // and may not recover if a logfile that was written in a previous test gets
     // unexpectedly deleted here. So instead we check that the line count of the heartbeat log
     // increases.
-    File heartbeatLog = new File("log/heartbeat.log");
+    // Each surefire fork writes its own heartbeat log (see log4j2-test.xml).
+    File heartbeatLog = new File("log/heartbeat-" + System.getProperty("surefire.forkNumber", "0") + ".log");
     long previousLineCount = 0;
     if (heartbeatLog.exists()) {
       previousLineCount = Files.lines(heartbeatLog.toPath()).count();

@@ -259,7 +259,7 @@ pipelines: [
 ]
 ```
 
-Requires the `lucille-tika` Maven dependency. See [TextExtractor]({{< relref "docs/ingest-design/stages/all-stages" >}}) in All Stages for setup.
+Requires the `lucille-tika` Maven dependency. See [TextExtractor]({{< relref "docs/ingest-design/stages/text_extractor" >}}) for setup.
 
 ## Filter Options Reference
 

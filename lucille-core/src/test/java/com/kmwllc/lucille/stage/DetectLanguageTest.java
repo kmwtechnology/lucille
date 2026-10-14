@@ -5,9 +5,12 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import org.junit.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public class DetectLanguageTest {
 
@@ -44,6 +47,68 @@ public class DetectLanguageTest {
     assertEquals("ru", doc3.getStringList("language").get(0));
     assertEquals("hi", doc4.getStringList("language").get(0));
     assertEquals("zh-cn", doc5.getStringList("language").get(0));
+  }
+
+  @Test
+  public void testMaxLengthAcrossValuesAndFields() throws Exception {
+    Stage stage = factory.get(Map.of(
+        "source", List.of("input1", "input2"),
+        "languageField", "language",
+        "minLength", 0,
+        "maxLength", 60,
+        "minProbability", 0.85));
+
+    // only the first maxLength chars of the concatenated values are used, so the trailing Spanish text is ignored
+    String english = "This is a sentence in English, and it keeps on going for a while.";
+    String spanish = "Eso oracion esta en espanol. Ojala que podimos verla. Eso oracion esta en espanol. Ojala que podimos verla.";
+    Document doc = Document.create("doc");
+    doc.setField("input1", english.substring(0, 20));
+    doc.addToField("input1", english.substring(20));
+    doc.addToField("input1", spanish);
+    doc.setField("input2", spanish);
+    stage.processDocument(doc);
+    assertEquals("en", doc.getString("language"));
+  }
+
+  @Test
+  public void testMinLengthGreaterThanMaxLength() throws Exception {
+    Stage stage = factory.get(Map.of(
+        "source", List.of("input1", "input2"),
+        "languageField", "language",
+        "minLength", 80,
+        "maxLength", 40,
+        "minProbability", 0.85));
+
+    // minLength counts whole values up to the one that passes maxLength in each field, not the truncated detector input
+    String english = "This is a sentence in English, and it keeps on going for a while.";
+    Document doc = Document.create("doc");
+    doc.setField("input1", english);
+    doc.setField("input2", english);
+    stage.processDocument(doc);
+    assertEquals("en", doc.getString("language"));
+
+    Document shortDoc = Document.create("shortDoc");
+    shortDoc.setField("input1", english);
+    stage.processDocument(shortDoc);
+    assertFalse(shortDoc.has("language"));
+  }
+
+  @Test
+  public void testMinLengthGreaterThanMaxLengthMultiValued() throws Exception {
+    Stage stage = factory.get(Map.of(
+        "source", List.of("input1"),
+        "languageField", "language",
+        "minLength", 80,
+        "maxLength", 40,
+        "minProbability", 0.85));
+
+    // values are 30 chars each; the field stops being read once 60 chars (> maxLength) are seen, so 60 < minLength
+    Document doc = Document.create("doc");
+    doc.setOrAdd("input1", "This is an English sentence...");
+    doc.setOrAdd("input1", "This is an English sentence...");
+    doc.setOrAdd("input1", "This is an English sentence...");
+    stage.processDocument(doc);
+    assertFalse(doc.has("language"));
   }
 
   @Test

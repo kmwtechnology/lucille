@@ -11,9 +11,11 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,6 +28,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final String pipelineName;
   private final Config config;
   private final EventFieldConfig eventFieldConfig;
+  private final DeserializationErrorHandler deserializationErrorHandler;
+  private final Duration pollInterval;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
     this.pipelineName = pipelineName;
@@ -35,6 +39,9 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
+    this.deserializationErrorHandler =
+        new DeserializationErrorHandler(config, destConsumer);
+    this.pollInterval = KafkaUtils.getPollInterval(config);
   }
 
   /**
@@ -42,13 +49,22 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    */
   @Override
   public Document pollDocToIndex() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords;
+    try {
+      consumerRecords = destConsumer.poll(pollInterval);
+    } catch (RecordDeserializationException e) {
+      // rethrows unless configured to skip; commit the position past the skipped record
+      deserializationErrorHandler.handleOrRethrow(e);
+      destConsumer.commitSync();
+      return null;
+    }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       // offsets are committed synchronously to ensure that offsets are successfully committed and to reduce the likelihood of duplicate events being sent to the event topic.
       // This reduces the number of documents that might be reindexed in the event of an indexer crash/restart or in the case of a consumer group reblance.
       destConsumer.commitSync();
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
+      deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
       return doc;

@@ -59,8 +59,10 @@ public abstract class BaseFileHandler implements FileHandler {
         continue;
       }
       if (doc != null) {
-        try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
-          docLogger.info("FileHandler is now publishing Document {}", doc.getId());
+        if (docLogger.isInfoEnabled()) {
+          try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
+            docLogger.info("FileHandler is now publishing Document {}", doc.getId());
+          }
         }
         try {
           publisher.publish(doc);

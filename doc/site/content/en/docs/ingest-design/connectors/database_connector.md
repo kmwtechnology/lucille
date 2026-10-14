@@ -87,7 +87,7 @@ Use `preSQL` and `postSQL` to run setup and teardown logic that must happen befo
 
 For each primary row, every matching row from `otherSQLs` is attached to the Document as a nested child Document, with the secondary query's column names becoming fields on the child. The values are not merged into multi-valued fields on the parent.
 
-To flatten the children into multi-valued fields, add the [`CollapseChildrenDocuments`]({{< relref "docs/ingest-design/stages/all-stages#collapsechildrendocuments" >}}) Stage to the pipeline:
+To flatten the children into multi-valued fields, add the [`CollapseChildrenDocuments`]({{< relref "docs/ingest-design/stages/collapse_children_documents" >}}) Stage to the pipeline:
 
 ```hocon
 {
@@ -139,4 +139,4 @@ For large MySQL tables, set `fetchSize` to avoid loading the entire result set i
 
 ## Integration with QueryDatabase Stage
 
-For per-document database enrichment (joining a lookup table for each document mid-pipeline, rather than reading a source table), use the [`QueryDatabase`]({{< relref "docs/ingest-design/stages/all-stages" >}}) Stage.
+For per-document database enrichment (joining a lookup table for each document mid-pipeline, rather than reading a source table), use the [`QueryDatabase`]({{< relref "docs/ingest-design/stages/query_database" >}}) Stage.
