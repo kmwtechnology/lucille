@@ -42,12 +42,12 @@ public class S3StorageClient extends BaseStorageClient {
   static final Region ANONYMOUS_DEFAULT_REGION = Region.US_EAST_1;
 
   // S3 returns at most 1000 keys per LIST request, whatever larger value is asked for.
-  static final int DEFAULT_MAX_KEYS = 1000;
+  static final int DEFAULT_MAX_RESULTS_PER_PAGE = 1000;
 
   protected S3Client s3;
 
   public S3StorageClient(Config s3CloudOptions) {
-    super(s3CloudOptions, DEFAULT_MAX_KEYS);
+    super(s3CloudOptions, DEFAULT_MAX_RESULTS_PER_PAGE);
   }
 
   @Override
@@ -135,7 +135,7 @@ public class S3StorageClient extends BaseStorageClient {
     return ListObjectsV2Request.builder()
         .bucket(getBucketOrContainerName(params))
         .prefix(prefix)
-        .maxKeys(maxNumOfPages);
+        .maxKeys(maxResultsPerPage);
   }
 
   private void publishContents(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr,

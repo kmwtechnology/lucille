@@ -721,7 +721,20 @@ public class S3StorageClientTest {
 
   @Test
   public void testMaxKeysExplicitValue() throws Exception {
+    List<ListObjectsV2Request> requests = captureListRequests(ConfigFactory.parseMap(Map.of("maxResultsPerPage", 250)));
+    assertTrue(requests.stream().allMatch(req -> req.maxKeys() == 250));
+  }
+
+  @Test
+  public void testMaxKeysDeprecatedMaxNumOfPages() throws Exception {
     List<ListObjectsV2Request> requests = captureListRequests(ConfigFactory.parseMap(Map.of("maxNumOfPages", 250)));
+    assertTrue(requests.stream().allMatch(req -> req.maxKeys() == 250));
+  }
+
+  @Test
+  public void testMaxResultsPerPageWinsOverDeprecatedMaxNumOfPages() throws Exception {
+    List<ListObjectsV2Request> requests = captureListRequests(
+        ConfigFactory.parseMap(Map.of("maxResultsPerPage", 250, "maxNumOfPages", 500)));
     assertTrue(requests.stream().allMatch(req -> req.maxKeys() == 250));
   }
 

@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.storageclient;
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.MAX_NUM_OF_PAGES;
+import static com.kmwllc.lucille.connector.FileConnector.MAX_RESULTS_PER_PAGE;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
@@ -46,7 +47,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
   protected final Config config;
 
-  protected final int maxNumOfPages;
+  protected final int maxResultsPerPage;
   private boolean initialized = false;
 
   /**
@@ -59,14 +60,28 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * Creates a base implementation of a Storage client from the given config, using the given page size when the config
-   * does not set "maxNumOfPages".
+   * sets neither "maxResultsPerPage" nor the deprecated "maxNumOfPages".
    */
-  protected BaseStorageClient(Config config, int defaultMaxNumOfPages) {
+  protected BaseStorageClient(Config config, int defaultMaxResultsPerPage) {
     validateOptions(config);
     this.config = config;
 
     // only matters for traversals
-    this.maxNumOfPages = config.hasPath(MAX_NUM_OF_PAGES) ? config.getInt(MAX_NUM_OF_PAGES) : defaultMaxNumOfPages;
+    this.maxResultsPerPage = getMaxResultsPerPage(config, defaultMaxResultsPerPage);
+  }
+
+  private static int getMaxResultsPerPage(Config config, int defaultMaxResultsPerPage) {
+    if (config.hasPath(MAX_RESULTS_PER_PAGE)) {
+      if (config.hasPath(MAX_NUM_OF_PAGES)) {
+        log.warn("Both {} and deprecated {} are set; using {}.", MAX_RESULTS_PER_PAGE, MAX_NUM_OF_PAGES, MAX_RESULTS_PER_PAGE);
+      }
+      return config.getInt(MAX_RESULTS_PER_PAGE);
+    }
+    if (config.hasPath(MAX_NUM_OF_PAGES)) {
+      log.warn("{} is deprecated; use {} instead.", MAX_NUM_OF_PAGES, MAX_RESULTS_PER_PAGE);
+      return config.getInt(MAX_NUM_OF_PAGES);
+    }
+    return defaultMaxResultsPerPage;
   }
 
   /**

@@ -124,7 +124,8 @@ public interface StorageClient {
    * To build clients for the cloud providers, these arguments must be provided in separate maps:
    * <br> gcp:
    * "pathToServiceKey" : "path/To/Service/Key.json"
-   * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   * "maxResultsPerPage" : number of results returned per listing request (page size). Optional, defaults to 100.
+   * Replaces "maxNumOfPages", which is deprecated but still read when "maxResultsPerPage" is not set.
    *
    * <br> s3:
    * "accessKeyId" : s3 key id. Not needed if secretAccessKey is not specified (using default credentials).
@@ -132,14 +133,14 @@ public interface StorageClient {
    * "region" : s3 storage region
    * "anonymous" : send unsigned requests, for public buckets that need no credentials. Cannot be combined with
    * accessKeyId / secretAccessKey. Defaults the region to us-east-1 when no region is given. Optional, defaults to false.
-   * "maxNumOfPages" : number of keys requested in a single LIST request. Optional, defaults to 1000 (S3's per-request maximum)
+   * "maxResultsPerPage" : number of results returned per LIST request (page size). Optional, defaults to 1000 (S3's per-request maximum)
    *
    * <br> azure:
    * "connectionString" : azure connection string
    * <b>Or</b>
    * "accountName" : azure account name
    * "accountKey" : azure account key
-   * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   * "maxResultsPerPage" : number of results returned per listing request (page size). Optional, defaults to 100
    *
    * @param config The configuration which potentially contains cloud options that you want to use to build storage clients.
    * @return A map of Strings to StorageClients. StorageClients are keyed by their URI scheme (gs, https, s3, file). Always

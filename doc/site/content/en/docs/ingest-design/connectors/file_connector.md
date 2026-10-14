@@ -13,7 +13,7 @@ The `FileConnector` traverses a file system and publishes a Lucille Document for
 
 ## Cloud Storage Configuration
 
-When traversing cloud storage, provide authentication under the appropriate top-level config block alongside your connector config. Each provider also accepts an optional `maxNumOfPages`, the number of file listings requested per page (default 100; 1000 for S3, which is also the most S3 returns per request).
+When traversing cloud storage, provide authentication under the appropriate top-level config block alongside your connector config. Each provider also accepts an optional `maxResultsPerPage`, the page size, or number of results returned per listing request (default 100; 1000 for S3, which is also the most S3 returns per request). The older name `maxNumOfPages` is deprecated but still read when `maxResultsPerPage` is not set.
 
 **Azure**
 
@@ -23,7 +23,7 @@ azure {
   # or:
   accountName: "myaccount"
   accountKey: "mykey"
-  maxNumOfPages: 100
+  maxResultsPerPage: 100
 }
 ```
 
@@ -34,7 +34,7 @@ You must provide either `connectionString`, or both `accountName` and `accountKe
 ```hocon
 gcp {
   pathToServiceKey: "/path/to/service-account.json"
-  maxNumOfPages: 100
+  maxResultsPerPage: 100
 }
 ```
 
