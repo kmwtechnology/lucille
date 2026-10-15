@@ -299,6 +299,32 @@ public class KafkaUtils {
     return pipelineName + "_fail";
   }
 
+  /**
+   * Whether the fail topic ("dead letter queue") can receive documents from a Worker running with the given config.
+   * True when the pipeline-processing failure path is enabled ({@code worker.sendFailedDocsToTopic}) or when retry
+   * tracking is on ({@code worker.maxRetries}), whose retry-exceeded path always routes to the fail topic.
+   *
+   * <p>This gates two things on the worker side: whether the document producer that writes to the fail topic is
+   * created at all (so a Worker that cannot route to the fail topic does not require Kafka producer config such as
+   * {@code kafka.bootstrapServers}), and whether source-provenance fields are stamped on polled documents (they are
+   * only useful on a document that may later reach the fail topic).
+   */
+  public static boolean workerFailTopicEnabled(Config config) {
+    boolean sendFailedDocsToTopic = config.hasPath("worker.sendFailedDocsToTopic")
+        && config.getBoolean("worker.sendFailedDocsToTopic");
+    boolean retriesTracked = config.hasPath("worker.maxRetries");
+    return sendFailedDocsToTopic || retriesTracked;
+  }
+
+  /**
+   * Whether the fail topic can receive documents from an Indexer running with the given config, i.e. whether
+   * {@code indexer.sendFailedDocsToTopic} is enabled. Gates creation of the Indexer's fail-topic document producer so
+   * that an Indexer not using the fail topic does not require Kafka producer config.
+   */
+  public static boolean indexerFailTopicEnabled(Config config) {
+    return config.hasPath("indexer.sendFailedDocsToTopic") && config.getBoolean("indexer.sendFailedDocsToTopic");
+  }
+
   public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) throws Exception {
     if (consumerRecords.count() > 1) {
       throw new Exception("Kafka poll returned more than 1 message but this shouldn't happen");

@@ -153,6 +153,9 @@ public abstract class Indexer implements Runnable {
   // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
   private final List<Integer> retryableStatusCodes;
 
+  private final boolean sendFailedDocsToTopic;
+  private final String pipelineName;
+
   public void terminate() {
     running = false;
     log.debug("terminate");
@@ -236,6 +239,10 @@ public abstract class Indexer implements Runnable {
     this.localRunId = localRunId;
 
     this.fieldFilter = new FieldFilter(config.getConfig("indexer"));
+
+    this.sendFailedDocsToTopic = config.hasPath("indexer.sendFailedDocsToTopic")
+        && config.getBoolean("indexer.sendFailedDocsToTopic");
+    this.pipelineName = metricsPrefix;
 
     if (!config.hasPath("indexer.maxRetries")) {
       if (config.hasPath("indexer.retryWaitDurationMs") || config.hasPath("indexer.retryableStatusCodes")
@@ -495,7 +502,8 @@ public abstract class Indexer implements Runnable {
 
   /**
    * Sends a FAIL event for the given document with the specified reason, setting up MDC context
-   * for structured logging.
+   * for structured logging. When sendFailedDocsToTopic is enabled, also stamps failure metadata
+   * on the document and sends it to the fail topic.
    */
   private void sendFailEvent(Document d, String reason) {
     try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
@@ -505,6 +513,15 @@ public abstract class Indexer implements Runnable {
       messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
       docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
       failedDocLogger.atError().setMessage(() -> d.toString()).log();
+
+      if (sendFailedDocsToTopic) {
+        try {
+          d.setFailureMetadata(reason, "indexer", Instant.now(), pipelineName);
+          messenger.sendFailed(d);
+        } catch (Exception failEx) {
+          docLogger.error("Failed to send doc to failure topic: {}", d.getId(), failEx);
+        }
+      }
     } catch (Exception e) {
       docLogger.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
     } finally {
@@ -549,6 +566,9 @@ public abstract class Indexer implements Runnable {
   protected final Map<String, Object> getConvertedIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
     indexerDoc.remove(Document.CHILDREN_FIELD);
+    // Lucille-internal bookkeeping fields (source provenance, failure metadata) travel with the document but must
+    // never be written to the search index.
+    indexerDoc.keySet().removeAll(Document.INDEXING_EXCLUDED_FIELDS);
     if (fieldFilter.isActive()) {
       indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
     }
@@ -580,7 +600,10 @@ public abstract class Indexer implements Runnable {
       Map.Entry<String, JsonNode> field = it.next();
       String name = field.getKey();
       JsonNode value = field.getValue();
-      if (Document.CHILDREN_FIELD.equals(name) || !fieldFilter.shouldInclude(name)) {
+      // Skip CHILDREN_FIELD and Lucille-internal bookkeeping fields (source provenance, failure metadata), which must
+      // never be written to the search index, as well as anything excluded by the field filter.
+      if (Document.CHILDREN_FIELD.equals(name) || Document.INDEXING_EXCLUDED_FIELDS.contains(name)
+          || !fieldFilter.shouldInclude(name)) {
         continue;
       }
       indexerDoc.put(name, containsNull(value) ? JsonDocument.MAPPER.convertValue(value, Object.class) : value);
@@ -645,7 +668,7 @@ public abstract class Indexer implements Runnable {
             "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
         .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor")
-        .optionalBoolean("sendEnabled")
+        .optionalBoolean("sendEnabled", "sendFailedDocsToTopic")
         .optionalList("whitelist", new TypeReference<List<String>>(){})
         .optionalList("blacklist", new TypeReference<List<String>>(){})
         .optionalList("retryableStatusCodes", new TypeReference<List<Integer>>(){}).build()

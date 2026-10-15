@@ -681,6 +681,32 @@ public class HashMapDocument implements Document, Serializable {
   }
 
   @Override
+  public void setSourceMetadata(String topic, int partition, long offset) {
+    // Written directly (bypassing validateFieldNames) because these are reserved fields. Mirrors how setField stores
+    // the corresponding types for a HashMapDocument.
+    data.putOne(SOURCE_TOPIC_FIELD, topic);
+    data.putOne(SOURCE_PARTITION_FIELD, partition);
+    data.putOne(SOURCE_OFFSET_FIELD, offset);
+  }
+
+  @Override
+  public void setFailureMetadata(String reason, String component, Instant time, String pipeline) {
+    // Written directly (bypassing validateFieldNames) because these are reserved fields. Values are stored exactly as
+    // setField stores the corresponding types for a HashMapDocument (the Instant natively).
+    //
+    // KNOWN LIMITATION: HashMapDocument is deprecated and slated for removal, and it does not fully support the
+    // fail-topic feature. It stores the Instant natively and its mapper cannot serialize a raw Instant, so toString()
+    // on a HashMapDocument carrying failure metadata throws, and such a document cannot be round-tripped through JSON.
+    // In practice the fail topic is a Kafka/Hybrid concept and that path uses JsonDocument/KafkaDocument, which store
+    // the time as an ISO-8601 string and round-trip correctly. We accept this limitation rather than invest in the
+    // deprecated implementation.
+    data.putOne(FAILURE_REASON_FIELD, reason);
+    data.putOne(FAILURE_COMPONENT_FIELD, component);
+    data.putOne(FAILURE_TIME_FIELD, time);
+    data.putOne(FAILURE_PIPELINE_FIELD, pipeline);
+  }
+
+  @Override
   public void removeDuplicateValues(String source, String target) {
     validateFieldNames(source);
 

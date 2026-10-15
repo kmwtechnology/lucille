@@ -45,6 +45,8 @@ class Worker implements Runnable {
 
   private boolean trackRetries = false;
   private RetryCounter counter = null;
+  private final boolean sendFailedDocsToTopic;
+  private final String pipelineName;
   private final String metricsPrefix;
 
   public void terminate() {
@@ -62,6 +64,9 @@ class Worker implements Runnable {
       this.trackRetries = true;
       this.counter = new ZKRetryCounter(config);
     }
+    this.sendFailedDocsToTopic = config.hasPath("worker.sendFailedDocsToTopic")
+        && config.getBoolean("worker.sendFailedDocsToTopic");
+    this.pipelineName = pipelineName;
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
     this.metricsPrefix = metricsPrefix;
@@ -111,6 +116,7 @@ class Worker implements Runnable {
           try {
             docLogger.error("Document FAILED: retry count exceeded for {}. Sending to dead letter queue.", doc.getId());
             failedDocLogger.atError().setMessage(() -> doc.toString()).log();
+            stampFailureMetadata(doc, "Retry count exceeded", "worker");
             messenger.sendFailed(doc);
           } catch (Exception e) {
             docLogger.error("Failed to send doc to failure topic: {}", doc.getId(), e);
@@ -162,6 +168,15 @@ class Worker implements Runnable {
             docLogger.error("Error sending failure event for document: {}", doc.getId(), e2);
           }
 
+          if (sendFailedDocsToTopic) {
+            try {
+              stampFailureMetadata(doc, e.getMessage(), "worker");
+              messenger.sendFailed(doc);
+            } catch (Exception e3) {
+              docLogger.error("Failed to send doc to failure topic: {}", doc.getId(), e3);
+            }
+          }
+
           commitOffsetsAndRemoveCounter(doc);
 
           continue;
@@ -207,6 +222,10 @@ class Worker implements Runnable {
     } catch (Exception commitException) {
       log.error("Error committing updated offsets for pending documents", commitException);
     }
+  }
+
+  private void stampFailureMetadata(Document doc, String reason, String component) {
+    doc.setFailureMetadata(reason, component, Instant.now(), pipelineName);
   }
 
   public AtomicReference<Instant> getPreviousPollInstant() {
