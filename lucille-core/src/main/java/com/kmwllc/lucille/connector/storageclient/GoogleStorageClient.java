@@ -64,7 +64,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     storage.list(getBucketOrContainerName(params),
             BlobListOption.prefix(prefix),
             BlobListOption.currentDirectory(),
-            BlobListOption.pageSize(maxNumOfPages))
+            BlobListOption.pageSize(maxResultsPerPage))
         .streamAll()
         .forEachOrdered(blob -> {
           if (blob.isDirectory()) {

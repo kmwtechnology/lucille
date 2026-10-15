@@ -77,18 +77,20 @@ import com.typesafe.config.Config;
  *   as expired. Must be at least 1. Defaults to 1.</li>
  *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 768. A longer path fails the run.</li>
  *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
- *   <li>gcp.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>gcp.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
  *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
  *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
  *   <li>s3.region (String, Optional) : AWS region for S3.</li>
  *   <li>s3.anonymous (Boolean, Optional) : Send unsigned requests, for public buckets that need no
  *   credentials. Cannot be combined with accessKeyId/secretAccessKey. When set and no region is given,
  *   region defaults to us-east-1, S3's global endpoint. Defaults to false.</li>
- *   <li>s3.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>s3.maxResultsPerPage (Int, Optional) : Maximum number of results returned per S3 LIST call (page size). Defaults to 1000, which is also
+ *   the most S3 will return per call; larger values have no further effect. Without filterOptions.pathsToSkip, every key under the
+ *   path is listed in one paginated listing, so files may be published in a different order than a directory-by-directory walk.</li>
  *   <li>azure.connectionString (String, Optional) : Azure connection string.</li>
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
  *   <li>azure.accountKey (String, Optional) : Azure account key.</li>
- *   <li>azure.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>azure.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
  *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).
  *   Supply a class to override the default handler. Otherwise the built-in handler for csv/json/xml is used. Configure docIdPrefix inside
  *   each handler's config as needed.</li>
@@ -113,7 +115,7 @@ public class FileConnector extends AbstractConnector {
   public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
   public static final String S3_ANONYMOUS = "anonymous";
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
-  public static final String MAX_NUM_OF_PAGES = "maxNumOfPages";
+  public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
 
   // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
@@ -125,14 +127,14 @@ public class FileConnector extends AbstractConnector {
   // parent specs for cloud provider configs
   public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
       .requiredString("pathToServiceKey")
-      .optionalNumber("maxNumOfPages").build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
       .optionalString("accessKeyId", "secretAccessKey", "region")
       .optionalBoolean("anonymous")
-      .optionalNumber("maxNumOfPages").build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
       .optionalString("connectionString", "accountName", "accountKey")
-      .optionalNumber("maxNumOfPages").build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
