@@ -1564,27 +1564,14 @@ public abstract class DocumentTest {
 
     @Test
     public void testGetInstantFromMalformedValue() throws DocumentException, JsonProcessingException {
-      // A value that is not a valid ISO-8601 instant must return null, not throw — matching the lenient numeric getters
-      // (getInt/getDouble return 0 for unconvertible values). A malformed date must not throw out of an accessor.
-      Document d = createDocumentFromJson("{\"id\":\"id\",\"date\":\"not-a-date\"}");
+      // A value that is not a valid ISO-8601 instant is a data error and still throws, so it is not mistaken for a
+      // missing value.
+      Document d = createDocumentFromJson("{\"id\":\"id\",\"date\":\"not-a-date\", \"dates\":[\"2024-03-12T16:09:32Z\",\"not-a-date\"]}");
 
-      assertNull(d.getInstant("date"));
-      assertNull(d.getDate("date"));
-      assertNull(d.getTimestamp("date"));
-    }
-
-    @Test
-    public void testGetInstantListWithNullAndMalformedValues() throws DocumentException, JsonProcessingException {
-      // A list of dates must tolerate null and malformed elements: each yields a null entry rather than throwing, while
-      // valid elements parse normally.
-      Document d = createDocumentFromJson(
-          "{\"id\":\"id\",\"dates\":[\"2024-03-12T16:09:32Z\",null,\"not-a-date\"]}");
-
-      List<Instant> instants = d.getInstantList("dates");
-      assertEquals(3, instants.size());
-      assertEquals(Instant.parse("2024-03-12T16:09:32Z"), instants.get(0));
-      assertNull(instants.get(1));
-      assertNull(instants.get(2));
+      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getInstant("date"));
+      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getDate("date"));
+      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getTimestamp("date"));
+      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getInstantList("dates"));
     }
 
     @Test

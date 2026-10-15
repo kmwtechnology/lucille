@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -448,22 +447,8 @@ public class JsonDocument implements Document {
     if (node.isNull()) {
       return null;
     }
-    return parseInstantOrNull(node.asText());
-  }
 
-  // Parses an ISO-8601 instant, returning null (rather than throwing) for a null or unparseable value. This keeps the
-  // date getters lenient like the numeric getters (getInt/getDouble return 0 for unconvertible values rather than
-  // throwing), so a malformed date field cannot throw out of an accessor into a caller that does not expect it.
-  private static Instant parseInstantOrNull(String dateStr) {
-    if (dateStr == null) {
-      return null;
-    }
-    try {
-      return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateStr));
-    } catch (DateTimeException e) {
-      log.error("Error parsing instant from value \"{}\"", dateStr, e);
-      return null;
-    }
+    return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(node.asText()));
   }
 
   @Override
@@ -495,7 +480,11 @@ public class JsonDocument implements Document {
     ArrayNode array = data.withArray(name);
     List<Instant> result = new ArrayList<>();
     for (JsonNode node : array) {
-      result.add(node.isNull() ? null : parseInstantOrNull(node.asText()));
+      if (node.isNull()) {
+        result.add(null);
+        continue;
+      }
+      result.add(Instant.from(DateTimeFormatter.ISO_INSTANT.parse(node.asText())));
     }
     return result;
   }
