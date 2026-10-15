@@ -52,6 +52,8 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Random;
+import java.util.TreeMap;
 import java.util.List;
 import java.util.Map;
 
@@ -393,6 +395,88 @@ public class ElasticsearchIndexerTest {
     List<Event> events = messenger.getSentEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testSameIdSequencesInOneBatchResolveToLastWrite() throws Exception {
+    // Longer same-id sequences in one batch than the add/delete/add case: the id must resolve to the LAST operation,
+    // whichever kind it is (a delete-final sequence must leave no upload; an add-final one must carry the latest add's
+    // content, never an earlier add's). "aN" is an add carrying version N, "d" is a delete.
+    List<List<String>> sequences = List.of(
+        List.of("a1", "d"),
+        List.of("d", "a1"),
+        List.of("d", "a1", "d"),
+        List.of("a1", "a2", "a3"),
+        List.of("d", "d"),
+        List.of("a1", "d", "a2", "d"),
+        List.of("a1", "d", "a2", "d", "a3"),
+        List.of("d", "a1", "d", "a2", "d", "a3", "d"));
+    for (List<String> sequence : sequences) {
+      List<String> ops = new ArrayList<>();
+      sequence.forEach(op -> ops.add("doc1:" + op));
+      assertBatchResolvesToLastWritePerId(ops);
+    }
+  }
+
+  @Test
+  public void testLongRandomSameIdSequenceInOneBatchResolvesToLastWrite() throws Exception {
+    // A long, seeded-random run of adds and deletes over a few ids, interleaved in one batch. Each id must resolve to its
+    // own last operation, independent of the other ids' operations between them.
+    Random random = new Random(42);
+    String[] ids = {"doc1", "doc2", "doc3"};
+    List<String> ops = new ArrayList<>();
+    for (int version = 1; version <= 40; version++) {
+      String id = ids[random.nextInt(ids.length)];
+      ops.add(id + (random.nextInt(3) == 0 ? ":d" : ":a" + version));
+    }
+    assertBatchResolvesToLastWritePerId(ops);
+  }
+
+  // Sends one document per op ("<id>:a<version>" for an add carrying that version, "<id>:d" for a delete) through a
+  // single batch, then checks that each id was sent exactly once, and as the last operation submitted for it: the
+  // latest add's version, or a delete when the last operation was a delete.
+  private void assertBatchResolvesToLastWritePerId(List<String> ops) throws Exception {
+    Mockito.clearInvocations(mockClient);
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(ops.size()));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+
+    // The model: the final state of each id is its last operation (null means deleted).
+    Map<String, String> expected = new TreeMap<>();
+    for (String op : ops) {
+      String id = op.substring(0, op.indexOf(':'));
+      String kind = op.substring(op.indexOf(':') + 1);
+      Document doc = Document.create(id, "test_run");
+      if (kind.equals("d")) {
+        doc.setField("deleted", "true");
+        expected.put(id, null);
+      } else {
+        doc.setField("version", kind.substring(1));
+        expected.put(id, kind.substring(1));
+      }
+      messenger.sendForIndexing(doc);
+    }
+
+    indexer.run(ops.size());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, Mockito.atLeast(1)).bulk(captor.capture());
+    Map<String, String> actual = new TreeMap<>();
+    int operationCount = 0;
+    for (BulkRequest request : captor.getAllValues()) {
+      for (BulkOperation operation : request.operations()) {
+        operationCount++;
+        if (operation.isIndex()) {
+          actual.put(operation.index().id(), (String) asSent(operation.index().document()).get("version"));
+        } else {
+          assertTrue("only index and delete operations are expected", operation.isDelete());
+          actual.put(operation.delete().id(), null);
+        }
+      }
+    }
+    assertEquals("each id must be sent exactly once for sequence " + ops, expected.size(), operationCount);
+    assertEquals("final state must match the last operation per id for sequence " + ops, expected, actual);
   }
 
   @Test

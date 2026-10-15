@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -67,6 +68,10 @@ public class KafkaConcurrentIndexerEndToEndTest {
   @BeforeClass
   public static void startKafka() {
     embeddedKafka = new EmbeddedKafkaKraftBroker(1, 1);
+    // Speeds up consumer-group startup. With the default 50-partition __consumer_offsets topic, a consumer's first join
+    // retries "not the correct coordinator" for about 2.5s while the broker creates and loads the topic; one partition
+    // makes that near-instant. The initial rebalance delay (default 3s) is dropped so a new group joins immediately.
+    embeddedKafka.brokerProperties(Map.of("group.initial.rebalance.delay.ms", "0", "offsets.topic.num.partitions", "1"));
     embeddedKafka.afterPropertiesSet();
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, embeddedKafka.getBrokersAsString());
@@ -98,7 +103,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     String pipeline = newPipeline(2);
     String runId = "run-" + pipeline;
     Config config = config(pipeline, 3, Map.of(
-        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeout", 20));
+        "kafka.events", true, "indexer.batchSize", 2, "indexer.batchTimeout", 20, "kafka.pollIntervalMs", 25));
     int perPartition = 15;
 
     Set<String> ids = new HashSet<>();
@@ -268,6 +273,100 @@ public class KafkaConcurrentIndexerEndToEndTest {
     assertEquals(ids, indexer.sent);
   }
 
+  /**
+   * Runs several hundred adds and deletes over a handful of destination ids through a real Kafka consumer, a concurrent
+   * indexer and a simulated destination, and checks the destination ends up exactly as the operations, in the order
+   * the indexer received them, imply. Each id's operations must be applied in received order (so a delete can never
+   * overtake the add before it, nor an earlier add land after a later one), every offset must be committed, and every
+   * document must emit FINISH. One partition keeps "the order the indexer received" well defined.
+   */
+  @Test
+  public void testRandomAddDeleteSequenceAcrossManyIds() throws Exception {
+    String pipeline = newPipeline(1);
+    String runId = "run-" + pipeline;
+    Config config = config(pipeline, 4, Map.of("kafka.events", true, "indexer.batchSize", 4,
+        "indexer.batchTimeout", 20, "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 25));
+    int total = 600;
+    String[] destIds = new String[60];
+    for (int i = 0; i < destIds.length; i++) {
+      destIds[i] = "id" + i;
+    }
+    Random random = new Random(11);
+    String topic = KafkaUtils.getDestTopicName(pipeline);
+    if (producer == null) {
+      producer = KafkaUtils.createDocumentProducer(config);
+    }
+    Set<String> ids = new HashSet<>();
+    for (int i = 0; i < total; i++) {
+      String id = "op" + i;
+      Document doc = Document.create(id, runId);
+      doc.setField("destId", destIds[random.nextInt(destIds.length)]);
+      boolean isAdd = random.nextInt(3) != 0;
+      doc.setField("op", isAdd ? "add" : "delete");
+      doc.setField("version", String.valueOf(i));
+      producer.send(new ProducerRecord<>(topic, 0, id, doc));
+      ids.add(id);
+    }
+    producer.flush();
+
+    // The order the indexer receives the documents, which is the order the destination must reflect.
+    List<Document> received = Collections.synchronizedList(new ArrayList<>());
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
+      @Override
+      public Document pollDocToIndex() throws Exception {
+        Document doc = super.pollDocToIndex();
+        if (doc != null) {
+          received.add(doc);
+        }
+        return doc;
+      }
+    };
+    DestinationIndexer indexer = new DestinationIndexer(config, messenger);
+    Map<TopicPartition, Long> expectedCommits = Map.of(new TopicPartition(topic, 0), (long) total);
+    Thread thread = new Thread(indexer);
+    thread.start();
+    try {
+      waitFor(() -> received.size() == total);
+      waitFor(() -> expectedCommits.equals(committed(config)));
+    } finally {
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
+    }
+
+    // The model: replay the operations in received order.
+    Map<String, String> expectedContent = new HashMap<>();
+    Map<String, List<String>> expectedOrder = new HashMap<>();
+    for (Document doc : received) {
+      String destId = doc.getString("destId");
+      if (doc.getString("op").equals("add")) {
+        expectedContent.put(destId, doc.getString("version"));
+      } else {
+        expectedContent.remove(destId);
+      }
+      expectedOrder.computeIfAbsent(destId, k -> new ArrayList<>()).add(doc.getId());
+    }
+    assertEquals(expectedOrder, indexer.appliedOrder());
+    assertEquals(expectedContent, indexer.content());
+    assertTrue("expected overlapping sends, peak was " + indexer.peakConcurrent.get(), indexer.peakConcurrent.get() > 1);
+
+    Set<String> finished = new HashSet<>();
+    try (KafkaConsumer<String, String> events = eventConsumer(config)) {
+      TopicPartition eventPartition = new TopicPartition(KafkaUtils.getEventTopicName(config, pipeline, runId), 0);
+      events.assign(List.of(eventPartition));
+      events.seekToBeginning(List.of(eventPartition));
+      long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+      while (!finished.containsAll(ids) && System.currentTimeMillis() < deadline) {
+        for (ConsumerRecord<String, String> record : events.poll(Duration.ofMillis(50))) {
+          Event event = Event.fromJsonString(record.value());
+          if (event.getType() == Event.Type.FINISH) {
+            finished.add(event.getDocumentId());
+          }
+        }
+      }
+    }
+    assertEquals(ids, finished);
+  }
+
   // --- helpers ---
 
   private static KafkaConsumer<String, String> groupMember(Config config) {
@@ -425,6 +524,78 @@ public class KafkaConcurrentIndexerEndToEndTest {
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(20, 120));
+        return Collections.emptySet();
+      } finally {
+        concurrent.decrementAndGet();
+      }
+    }
+  }
+
+  // A concurrent indexer over a simulated destination: each document carries destId (its destination id, via
+  // idOverrideField), op ("add" or "delete") and version. A send takes a few milliseconds, then applies its documents to
+  // the destination in order, recording per destination id the order operations were applied.
+  public static class DestinationIndexer extends Indexer {
+
+    public static final Spec SPEC = SpecBuilder.indexer().build();
+
+    final AtomicInteger peakConcurrent = new AtomicInteger();
+    private final AtomicInteger concurrent = new AtomicInteger();
+    private final Map<String, String> destination = new HashMap<>();
+    private final Map<String, List<String>> applied = new HashMap<>();
+
+    DestinationIndexer(Config config, IndexerMessenger messenger) {
+      super(config, messenger, false, "KafkaConcurrentIndexerEndToEndTest", "KafkaConcurrentIndexerEndToEndTest");
+    }
+
+    Map<String, String> content() {
+      synchronized (destination) {
+        return new HashMap<>(destination);
+      }
+    }
+
+    Map<String, List<String>> appliedOrder() {
+      synchronized (destination) {
+        Map<String, List<String>> copy = new HashMap<>();
+        applied.forEach((k, v) -> copy.put(k, new ArrayList<>(v)));
+        return copy;
+      }
+    }
+
+    @Override
+    protected boolean supportsConcurrentSends() {
+      return true;
+    }
+
+    @Override
+    protected String getIndexerConfigKey() {
+      return null;
+    }
+
+    @Override
+    public boolean validateConnection() {
+      return true;
+    }
+
+    @Override
+    public void closeConnection() {
+    }
+
+    @Override
+    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+      peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
+      try {
+        Thread.sleep(ThreadLocalRandom.current().nextInt(1, 4));
+        synchronized (destination) {
+          for (Document doc : documents) {
+            String destId = doc.getString("destId");
+            if (doc.getString("op").equals("add")) {
+              destination.put(destId, doc.getString("version"));
+            } else {
+              destination.remove(destId);
+            }
+            applied.computeIfAbsent(destId, k -> new ArrayList<>()).add(doc.getId());
+          }
+        }
         return Collections.emptySet();
       } finally {
         concurrent.decrementAndGet();

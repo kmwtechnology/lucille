@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -217,9 +218,7 @@ public class IndexerConcurrencyTest {
 
     List<String> ops = List.of("add1", "delete1", "add2", "delete2");
     for (String op : ops) {
-      Document doc = Document.create(op);
-      doc.setField("destId", "sharedId");
-      indexer.messenger().queueDoc(doc);
+      indexer.messenger().queueDoc(opDoc(op, "sharedId", op.startsWith("add") ? "add" : "delete", op.substring(op.length() - 1)));
     }
     indexer.blockSendsFor(ops.toArray(new String[0]));
     indexerThread = new Thread(indexer);
@@ -244,6 +243,151 @@ public class IndexerConcurrencyTest {
     // Never more than one same-id operation in flight at a time, and all completed in submission order.
     assertEquals(1, indexer.peakConcurrentSends());
     assertEquals(ops, messenger.completedBatches());
+    // The operations were also applied to the destination in submission order, and since the last one was a delete, the
+    // id ends up absent rather than holding either add's content.
+    assertEquals(ops, indexer.appliedOps("sharedId"));
+    assertEquals(Map.of(), indexer.destinationContent());
+  }
+
+  @Test
+  public void testSameIdEndingInAddLeavesTheLatestAddsContent() throws Exception {
+    // add(v1), delete, add(v2) for one destination id: the destination must end up holding the LAST add's content (v2),
+    // not the first add's (v1) and not nothing. Sends are given delays that would make the earlier operations finish
+    // last if they were allowed to run together, so only the id-overlap gate can produce the right final state.
+    RecordingMessenger messenger = new RecordingMessenger();
+    indexer = new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")), messenger);
+    indexer.messenger().queueDoc(opDoc("add1", "sharedId", "add", "1"));
+    indexer.messenger().queueDoc(opDoc("delete1", "sharedId", "delete", null));
+    indexer.messenger().queueDoc(opDoc("add2", "sharedId", "add", "2"));
+    indexer.setSendDelayMs("add1", 150);
+    indexer.setSendDelayMs("delete1", 75);
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    awaitUntil(() -> messenger.completedBatches().size() == 3);
+    assertEquals(List.of("add1", "delete1", "add2"), indexer.appliedOps("sharedId"));
+    assertEquals(Map.of("sharedId", "2"), indexer.destinationContent());
+    assertEquals(1, indexer.peakConcurrentSends());
+  }
+
+  @Test
+  public void testShortSameIdSequencesIncludingDeleteFirstApplyInOrder() throws Exception {
+    // Short same-id sequences across batches, including ones that begin with a delete of an id that was never added (a
+    // delete can arrive before the document it targets). "aN" is an add carrying version N, "d" is a delete. Each
+    // sequence runs on a fresh indexer, with earlier operations given longer sends so that only the id-overlap gate can
+    // keep them in order. Each id must end in the state of its LAST operation: a delete leaves it absent, an add leaves
+    // that add's version (never an earlier add's).
+    List<List<String>> sequences = List.of(
+        List.of("d", "a1", "d"),
+        List.of("d", "a1"),
+        List.of("a1", "d"),
+        List.of("d", "d"),
+        List.of("a1", "a2"),
+        // Runs of repeated adds and deletes, not just strict alternation.
+        List.of("d", "a1", "a2", "a3", "d", "d", "a4", "d", "d", "d", "a6", "d", "a7"));
+    for (List<String> sequence : sequences) {
+      RecordingMessenger messenger = new RecordingMessenger();
+      ControlledIndexer sequenceIndexer =
+          new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")), messenger);
+      indexer = sequenceIndexer;  // so tearDown releases and terminates it if an assertion fails
+      List<String> docIds = new ArrayList<>();
+      String expectedVersion = null;
+      for (int i = 0; i < sequence.size(); i++) {
+        String op = sequence.get(i);
+        String docId = "op" + i;
+        docIds.add(docId);
+        if (op.equals("d")) {
+          sequenceIndexer.messenger().queueDoc(opDoc(docId, "sharedId", "delete", null));
+          expectedVersion = null;
+        } else {
+          sequenceIndexer.messenger().queueDoc(opDoc(docId, "sharedId", "add", op.substring(1)));
+          expectedVersion = op.substring(1);
+        }
+        sequenceIndexer.setSendDelayMs(docId, (sequence.size() - i) * 8L);
+      }
+      indexerThread = new Thread(sequenceIndexer);
+      indexerThread.start();
+
+      awaitUntil(() -> messenger.completedBatches().size() == sequence.size());
+      assertEquals("applied order for " + sequence, docIds, sequenceIndexer.appliedOps("sharedId"));
+      Map<String, String> expectedContent = expectedVersion == null ? Map.of() : Map.of("sharedId", expectedVersion);
+      assertEquals("final content for " + sequence, expectedContent, sequenceIndexer.destinationContent());
+      assertEquals("same-id ops must never overlap for " + sequence, 1, sequenceIndexer.peakConcurrentSends());
+
+      sequenceIndexer.terminate();
+      indexerThread.join(TIMEOUT_MS);
+    }
+  }
+
+  @Test
+  public void testLongMixedSequencesAcrossIdsApplyInOrderPerId() throws Exception {
+    // A long, seeded-random run of adds and deletes over several destination ids, with a window (3) smaller than the
+    // number of operations and than the number of ids' combined backlog, so unrelated ids overlap freely while each
+    // id's own operations must stay serialized. Earlier operations are given longer sends, so any reordering of
+    // same-id operations would show up in the applied order and the final content.
+    RecordingMessenger messenger = new RecordingMessenger();
+    indexer = new ControlledIndexer(config(3, Map.of("indexer.idOverrideField", "destId")), messenger);
+    String[] destIds = {"x", "y", "z", "w"};
+    int total = 24;
+    Random random = new Random(7);
+    Map<String, List<String>> expectedOrder = new HashMap<>();
+    Map<String, String> expectedContent = new HashMap<>();
+    for (int i = 0; i < total; i++) {
+      String destId = destIds[random.nextInt(destIds.length)];
+      boolean isAdd = random.nextInt(3) != 0;
+      String docId = "op" + i;
+      indexer.messenger().queueDoc(opDoc(docId, destId, isAdd ? "add" : "delete", isAdd ? String.valueOf(i) : null));
+      indexer.setSendDelayMs(docId, (total - i) * 2L);
+      expectedOrder.computeIfAbsent(destId, k -> new ArrayList<>()).add(docId);
+      if (isAdd) {
+        expectedContent.put(destId, String.valueOf(i));
+      } else {
+        expectedContent.remove(destId);
+      }
+    }
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    awaitUntil(() -> messenger.completedBatches().size() == total);
+    for (Map.Entry<String, List<String>> entry : expectedOrder.entrySet()) {
+      assertEquals("operations on " + entry.getKey() + " must be applied in submission order",
+          entry.getValue(), indexer.appliedOps(entry.getKey()));
+    }
+    assertEquals(expectedContent, indexer.destinationContent());
+    // Unrelated ids really did overlap (the test is not trivially serial), yet completion stayed in dispatch order.
+    assertTrue("expected some concurrency across ids", indexer.peakConcurrentSends() > 1);
+    List<String> submission = new ArrayList<>();
+    for (int i = 0; i < total; i++) {
+      submission.add("op" + i);
+    }
+    assertEquals(submission, messenger.completedBatches());
+  }
+
+  @Test
+  public void testDeleteByQueryBarrierSeparatesEarlierAndLaterSameIdWrites() throws Exception {
+    // add(x), add(y), deleteByQuery, add(x again): the delete-by-query is a barrier, so it applies only after the earlier
+    // adds have been applied (clearing them) and before the later add (which therefore survives). The first add is the
+    // slowest, so if the barrier did not wait for it, the add would land after the delete-by-query and wrongly survive.
+    RecordingMessenger messenger = new RecordingMessenger();
+    Map<String, Object> settings = new HashMap<>(deleteByQuerySettings());
+    settings.put("indexer.idOverrideField", "destId");
+    indexer = new ControlledIndexer(config(3, settings), messenger);
+    indexer.messenger().queueDoc(opDoc("addX1", "x", "add", "1"));
+    indexer.messenger().queueDoc(opDoc("addY1", "y", "add", "1"));
+    Document deleteByQuery = deleteByQueryDoc("dbq");
+    deleteByQuery.setField("destId", "q");
+    deleteByQuery.setField("op", "deleteByQuery");
+    indexer.messenger().queueDoc(deleteByQuery);
+    indexer.messenger().queueDoc(opDoc("addX2", "x", "add", "2"));
+    indexer.setSendDelayMs("addX1", 200);
+    indexer.setSendDelayMs("addY1", 100);
+    indexerThread = new Thread(indexer);
+    indexerThread.start();
+
+    awaitUntil(() -> messenger.completedBatches().size() == 4);
+    assertEquals(List.of("addX1", "addY1", "dbq", "addX2"), messenger.completedBatches());
+    assertEquals(List.of("addX1", "addX2"), indexer.appliedOps("x"));
+    assertEquals(Map.of("x", "2"), indexer.destinationContent());
   }
 
   @Test
@@ -649,6 +793,20 @@ public class IndexerConcurrencyTest {
     return ConfigFactory.parseMap(settings);
   }
 
+  /**
+   * An operation document for the ControlledIndexer's simulated destination: written under the destination id destId
+   * (via idOverrideField "destId"), with the given op ("add", "delete") and, for an add, the version it carries.
+   */
+  private static Document opDoc(String docId, String destId, String op, String version) {
+    Document doc = Document.create(docId);
+    doc.setField("destId", destId);
+    doc.setField("op", op);
+    if (version != null) {
+      doc.setField("version", version);
+    }
+    return doc;
+  }
+
   /** A document with the given id that carries one child document with the given child id. */
   private static Document docWithChild(String docId, String childId) {
     Document doc = Document.create(docId);
@@ -765,6 +923,13 @@ public class IndexerConcurrencyTest {
     private final Map<String, CountDownLatch> sendLatches = new ConcurrentHashMap<>();
     // When positive, every send sleeps this many milliseconds (simulating a slow destination).
     private volatile long sendDelayMs = 0;
+    // Per document id, milliseconds its send sleeps (in addition to sendDelayMs), to make sends finish in a chosen order.
+    private final Map<String, Long> perDocSendDelayMs = new ConcurrentHashMap<>();
+    // A simulated destination, written by sendToIndex for documents carrying an "op" field: destination id -> the
+    // "version" of the last add applied to it (absent once deleted). Guarded by itself. See applyToDestination.
+    private final Map<String, String> destination = new HashMap<>();
+    // Per destination id, the ids of the operation documents applied to it, in the order they were applied.
+    private final Map<String, List<String>> appliedByDestId = new HashMap<>();
     // Per document id, a Throwable its send should throw (after any latch is released) instead of succeeding.
     private final Map<String, Throwable> sendFailures = new ConcurrentHashMap<>();
     // Document ids that sendToIndex reports as per-document failures (returned in the failed set, not thrown).
@@ -817,6 +982,49 @@ public class IndexerConcurrencyTest {
     /** Makes every send sleep this many milliseconds, simulating a slow destination. */
     void setSendDelayMs(long sendDelayMs) {
       this.sendDelayMs = sendDelayMs;
+    }
+
+    /** Makes the send of the given document id sleep this many milliseconds once it is released. */
+    void setSendDelayMs(String docId, long delayMs) {
+      perDocSendDelayMs.put(docId, delayMs);
+    }
+
+    /** A snapshot of the simulated destination: destination id to the version of its last applied add (deleted ids absent). */
+    Map<String, String> destinationContent() {
+      synchronized (destination) {
+        return new HashMap<>(destination);
+      }
+    }
+
+    /** The ids of the operation documents applied to the given destination id, in the order they were applied. */
+    List<String> appliedOps(String destId) {
+      synchronized (destination) {
+        return new ArrayList<>(appliedByDestId.getOrDefault(destId, List.of()));
+      }
+    }
+
+    /**
+     * Applies the batch to the simulated destination, in order, the way a real backend would when the send executes. A
+     * document participates only if it has an "op" field: "add" stores its "version" under its destination id, "delete"
+     * removes that id, and "deleteByQuery" clears everything (a delete-by-query can match documents in any batch).
+     */
+    private void applyToDestination(List<Document> documents) {
+      synchronized (destination) {
+        for (Document doc : documents) {
+          if (!doc.has("op")) {
+            continue;
+          }
+          String override = getDocIdOverride(doc);
+          String destId = override != null ? override : doc.getId();
+          switch (doc.getString("op")) {
+            case "add" -> destination.put(destId, doc.getString("version"));
+            case "delete" -> destination.remove(destId);
+            case "deleteByQuery" -> destination.clear();
+            default -> throw new IllegalArgumentException("unknown op for " + doc.getId());
+          }
+          appliedByDestId.computeIfAbsent(destId, k -> new ArrayList<>()).add(doc.getId());
+        }
+      }
     }
 
     /** Makes sendToIndex report the given document id as a per-document failure (returned, not thrown). */
@@ -927,6 +1135,10 @@ public class IndexerConcurrencyTest {
         if (sendDelayMs > 0) {
           Thread.sleep(sendDelayMs);
         }
+        long docDelayMs = perDocSendDelayMs.getOrDefault(docId, 0L);
+        if (docDelayMs > 0) {
+          Thread.sleep(docDelayMs);
+        }
         // Throw a retryable exception for the first N attempts of this document, so the base-class retry policy re-runs
         // the send; the attempt counter proves the retries happened on the send pool.
         AtomicInteger remainingRetryableFailures = retryableFailures.get(docId);
@@ -943,6 +1155,7 @@ public class IndexerConcurrencyTest {
         } else if (failure instanceof Exception exception) {
           throw exception;
         }
+        applyToDestination(documents);
         // Report any configured per-document failures as returned pairs (not thrown), as a real sendToIndex does for
         // documents the destination rejected individually.
         return documents.stream()
