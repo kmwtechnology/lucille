@@ -271,7 +271,7 @@ The `DocLogger` (logger name `com.kmwllc.lucille.core.DocLogger`) is a dedicated
 
 ### Indexer MDC Stack
 
-The Indexer uses `pushByKey`/`popByKey` for run_id because in Kafka distributed mode, documents from different runs might be interleaved:
+The Indexer uses `pushByKey`/`popByKey` for run_id because in distributed mode, documents from different runs might be interleaved:
 
 ```java
 if (d.getRunId() != null) {

@@ -213,7 +213,7 @@ That's the only change. The connector, the pipeline, the stages — everything e
 
 ### 2. Iterate on your pipeline
 
-Add stages, chain transformations, and introduce conditions — all in config. Want to generate an embedding for each book title and store it as a vector field? Add a stage. Want to skip that stage for documents that already have an embedding? Add a condition. Browse the [Stage Reference]({{< relref "docs/ingest-design/stages/all-stages" >}}) for the full library of available transformations.
+Add stages, chain transformations, and introduce conditions — all in config. Want to generate an embedding for each book title and store it as a vector field? Add a stage. Want to skip that stage for documents that already have an embedding? Add a condition. Browse the [Stage Reference]({{< relref "docs/ingest-design/stages" >}}) for the full library of available transformations.
 
 None of this requires a build. Edit the config file, rerun Lucille, see the results. The pipeline is the config.
 
@@ -233,7 +233,7 @@ No other changes needed. The same config, more threads.
 
 **Step 2: distribute across machines.** If one machine isn't enough, switch to distributed mode. Lucille's components — Runner, Workers, and Indexer — run as separate JVM processes and communicate through Kafka. Here's what changes:
 
-- The Runner gets the `-usekafka` flag: `com.kmwllc.lucille.core.Runner -usekafka`
+- The Runner gets the `-distributed` flag: `com.kmwllc.lucille.core.Runner -distributed`
 - Workers and the Indexer are started as separate processes on separate machines (or in separate Kubernetes pods): `com.kmwllc.lucille.core.Worker my-pipeline` and `com.kmwllc.lucille.core.Indexer my-pipeline`
 - A `kafka {}` block with `bootstrapServers` is added to the config
 

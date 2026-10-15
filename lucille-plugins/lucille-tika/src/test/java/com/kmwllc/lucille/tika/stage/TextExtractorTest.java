@@ -1,14 +1,18 @@
 package com.kmwllc.lucille.tika.stage;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,12 +24,16 @@ import com.kmwllc.lucille.util.DefaultFileContentFetcher;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -33,12 +41,20 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.AbstractParser;
+import org.apache.tika.parser.CompositeParser;
 import org.apache.tika.parser.DefaultParser;
 import org.apache.tika.parser.ParseContext;
+import org.apache.tika.parser.Parser;
+import org.apache.tika.parser.ParserDecorator;
+import org.apache.tika.parser.ocr.TesseractOCRParser;
+import org.apache.tika.parser.pdf.PDFParser;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
@@ -282,8 +298,10 @@ public class TextExtractorTest {
       // go through the process of processing the document.
       stage.processDocument(doc);
 
-      // verify that close method is called on the inputStream
-      verify(inputStream, times(1)).close();
+      // verify the fetched inputStream is closed (no leak). The stream is both wrapped in a TikaInputStream and
+      // declared directly in the try-with-resources for exception safety, so close() may be invoked more than once;
+      // close() is idempotent, so we only assert it happens at least once.
+      verify(inputStream, atLeastOnce()).close();
     }
 
   }
@@ -380,6 +398,120 @@ public class TextExtractorTest {
     assertEquals(List.of("tika_content_type"), fieldNames);
   }
 
+  // when metadataFields is set, the referenced document fields' values should be copied into the Metadata
+  // handed to Tika (used, for example, to supply content-type detection hints such as resourceName / Content-Type).
+  @Test
+  public void testMetadataFieldsWiredIn() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("filename", "myfile.csv");
+    doc.setField("content_type", "text/plain");
+
+    Metadata metadata = stage.createMetadataInput(doc);
+
+    // the map values ("filename", "content_type") are document field NAMES; the document's VALUES are wired in
+    // under the configured Tika keys.
+    assertEquals("myfile.csv", metadata.get("resourceName"));
+    assertEquals("text/plain", metadata.get("Content-Type"));
+  }
+
+  // multi-valued document fields should contribute all of their values to the input Metadata
+  @Test
+  public void testMetadataFieldsMultiValued() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("filename", "first.csv");
+    doc.addToField("filename", "second.csv");
+
+    Metadata metadata = stage.createMetadataInput(doc);
+
+    assertArrayEquals(new String[]{"first.csv", "second.csv"}, metadata.getValues("resourceName"));
+  }
+
+  // document fields referenced by metadataFields but absent from the document should be skipped, not error
+  @Test
+  public void testMetadataFieldsMissingDocField() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    doc.setField("filename", "myfile.csv");
+    // note: no "content_type" field on the document
+
+    Metadata metadata = stage.createMetadataInput(doc);
+
+    assertEquals("myfile.csv", metadata.get("resourceName"));
+    assertNull(metadata.get("Content-Type"));
+  }
+
+  // when metadataFields is not configured, the input Metadata should be empty
+  @Test
+  public void testMetadataFieldsNotConfigured() throws StageException {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/filepath.conf");
+
+    Metadata metadata = stage.createMetadataInput(Document.create("doc1"));
+
+    assertEquals(0, metadata.names().length);
+  }
+
+  // end-to-end: the wired-in resourceName hint reaches the parser. Tika does not overwrite resourceName, so the value
+  // we injected round-trips into the extracted metadata, proving the input Metadata built from metadataFields was
+  // actually handed to the parser (this is the hook Tika uses for filename-based content-type detection).
+  @Test
+  public void testMetadataFieldsHintReachesParser() throws StageException, IOException {
+    Stage stage = factory.get("TextExtractorTest/metadatafields.conf");
+
+    Document doc = Document.create("doc1");
+    byte[] fileContent = Files.readAllBytes(new File("src/test/resources/TextExtractorTest/tika.txt").toPath());
+    doc.setField("byte_array", fileContent);
+    doc.setField("filename", "myfile.csv");
+
+    stage.processDocument(doc);
+
+    // the hint round-tripped through Tika's metadata, confirming it was passed to the parser
+    assertEquals("myfile.csv", doc.getString("tika_resourcename"));
+  }
+
+  // processDocument should wrap the file-path content in a TikaInputStream before handing it to the parser, so
+  // container-aware detectors can spool and inspect the content (a plain InputStream limits detection to Mime Magic).
+  @Test
+  public void testFilePathWrappedInTikaInputStream() throws Exception {
+    TextExtractor stage = spy((TextExtractor) factory.get("TextExtractorTest/filepath.conf"));
+    stage.start();
+
+    Document doc = Document.create("doc1");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+
+    ArgumentCaptor<InputStream> streamCaptor = ArgumentCaptor.forClass(InputStream.class);
+    verify(stage).parseInputStream(any(Metadata.class), eq(doc), streamCaptor.capture());
+    assertTrue("stream handed to the parser should be a TikaInputStream, was: " + streamCaptor.getValue().getClass(),
+        streamCaptor.getValue() instanceof TikaInputStream);
+
+    stage.stop();
+  }
+
+  // same as above, for the byteArray path
+  @Test
+  public void testByteArrayWrappedInTikaInputStream() throws Exception {
+    TextExtractor stage = spy((TextExtractor) factory.get("TextExtractorTest/bytearray.conf"));
+    stage.start();
+
+    Document doc = Document.create("doc1");
+    doc.setField("byte_array", Files.readAllBytes(new File("src/test/resources/TextExtractorTest/tika.txt").toPath()));
+
+    stage.processDocument(doc);
+
+    ArgumentCaptor<InputStream> streamCaptor = ArgumentCaptor.forClass(InputStream.class);
+    verify(stage).parseInputStream(any(Metadata.class), eq(doc), streamCaptor.capture());
+    assertTrue("stream handed to the parser should be a TikaInputStream, was: " + streamCaptor.getValue().getClass(),
+        streamCaptor.getValue() instanceof TikaInputStream);
+
+    stage.stop();
+  }
+
   public static class InterruptTrackingParser extends DefaultParser {
 
     private static AtomicBoolean interrupted = new AtomicBoolean(false);
@@ -393,7 +525,10 @@ public class TextExtractorTest {
     public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
         throws TikaException, IOException, SAXException {
       try {
-        Thread.sleep(200);
+        // Block for a long time (10s) to reduce risk of a racy test.
+        // We don't want some race condition where this parse is able to complete causing the test to fail.
+        // Interrupt should cut the sleep short - we do not wait for this entire time.
+        Thread.sleep(10_000);
         super.parse(stream, handler, metadata, context);
       } catch (InterruptedException e) {
         interrupted.set(true);
@@ -405,17 +540,20 @@ public class TextExtractorTest {
   public void testTimeout() throws Exception {
     InterruptTrackingParser.interrupted.set(false);
 
-    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/timeout.conf");
+    Stage stage = factory.get("TextExtractorTest/timeout.conf");
 
     Document doc = Document.create("doc1");
     doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
 
     stage.processDocument(doc);
 
-    // Give it a bit of time for the async task to be interrupted and set the flag
-    Thread.sleep(400);
+    // poll for the parser to be interrupted. give it max ~5 sec. to do so
+    Instant deadline = Instant.now().plus(5, ChronoUnit.SECONDS);
+    while (!InterruptTrackingParser.interrupted.get() && Instant.now().isBefore(deadline)) {
+      Thread.sleep(50);
+    }
 
-    // If timeout works, it should have returned within much less than 1000ms
+    // If timeout works, it should have returned within much less than our 5 sec. max
     // and interrupted should be true (if we interrupt the thread)
     assertTrue("Parser should have been interrupted", InterruptTrackingParser.interrupted.get());
     // Document should not have text (or at least not from the parser)
@@ -435,5 +573,240 @@ public class TextExtractorTest {
     assertFalse("Parser should not have been interrupted", InterruptTrackingParser.interrupted.get());
     // Document should have text after processing without interruption.
     assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
+  }
+
+  @Test
+  public void testForkingParser() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/forking.conf");
+    Document doc = Document.create("doc1");
+
+    // set path as absolute Path
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.txt").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+    assertEquals("Hi There!\n", doc.getString("text"));
+  }
+
+  @Test
+  public void testForkingParserWithMemoryHogParser() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/forking-oom.conf");
+    byte[] tikaTxtBytes = Files.readAllBytes(Paths.get("src/test/resources/TextExtractorTest/tika.txt"));
+    // magic bytes for a zip local file header, routed to MemoryHogParser by tika-config-oom.xml
+    byte[] zipMagicBytes = new byte[]{0x50, 0x4B, 0x03, 0x04};
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("content", tikaTxtBytes);
+    stage.processDocument(doc1);
+    assertEquals("Hi There!\n", doc1.getString("text"));
+
+    Document doc2 = Document.create("doc2");
+    doc2.setField("content", zipMagicBytes);
+    // OOM exception causes a specific doc failure.
+    assertThrows(StageException.class, () -> stage.processDocument(doc2));
+
+    // note that our JVM is still fully operational!
+    Document doc3 = Document.create("doc3");
+    doc3.setField("content", tikaTxtBytes);
+    stage.processDocument(doc3);
+    assertEquals("Hi There!\n", doc3.getString("text"));
+  }
+
+  @Test
+  public void testOcrDisabledByDefault() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/filepath.conf");
+    Parser parser = stage.createAutoDetectParser();
+
+    assertFalse(containsParser(parser, TesseractOCRParser.class));
+    // PDFParser only renders pages for OCR when some parser supports image/ocr-*; holds whether or not tesseract is installed
+    assertFalse(parser.getSupportedTypes(new ParseContext()).contains(MediaType.image("ocr-png")));
+    assertTrue(containsParser(parser, PDFParser.class));
+  }
+
+  @Test
+  public void testOcrExplicitlyDisabled() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get(baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(false)));
+    Parser parser = stage.createAutoDetectParser();
+
+    assertFalse(containsParser(parser, TesseractOCRParser.class));
+    assertFalse(parser.getSupportedTypes(new ParseContext()).contains(MediaType.image("ocr-png")));
+  }
+
+  @Test
+  public void testOcrEnabled() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get(baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(true)));
+
+    assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+  }
+
+  @Test
+  public void testOcrDisabledStillExtractsPdfText() throws Exception {
+    Stage stage = factory.get("TextExtractorTest/filepath.conf");
+    Document doc = Document.create("doc1");
+    doc.setField("path", "src/test/resources/TextExtractorTest/tika.pdf");
+
+    stage.processDocument(doc);
+    assertTrue(doc.getString("text").contains("Hi There!"));
+  }
+
+  @Test
+  public void testOcrDisabledWithForkingParser() throws Exception {
+    // the OCR-free parser must survive serialization into the forked JVM
+    Stage stage = factory.get("TextExtractorTest/forking.conf");
+    Document doc = Document.create("doc1");
+    doc.setField("path", Paths.get("src/test/resources/TextExtractorTest/tika.pdf").toAbsolutePath().toString());
+
+    stage.processDocument(doc);
+    assertTrue(doc.getString("text").contains("Hi There!"));
+  }
+
+  @Test
+  public void testEnableOcrWithTikaConfigPathRejected() {
+    Config tikaConfigPathConfig = ConfigFactory.parseResourcesAnySyntax("TextExtractorTest/tika-config.conf");
+
+    for (boolean enableOcr : new boolean[]{true, false}) {
+      Config config = tikaConfigPathConfig.withValue("enableOcr", ConfigValueFactory.fromAnyRef(enableOcr));
+      StageException e = assertThrows(StageException.class, () -> factory.get(config));
+      Throwable cause = e;
+      while (cause.getCause() != null) {
+        cause = cause.getCause();
+      }
+      assertTrue(cause.getMessage().contains("enableOcr"));
+    }
+  }
+
+  @Test
+  public void testTikaConfigPathWithoutEnableOcrUsesConfigAsIs() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/tika-config.conf");
+
+    // tika-config.xml declares only a DefaultParser, so tesseract stays in the parser set as before
+    assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+  }
+
+  @Test
+  public void testGlobalTikaConfigUsedAsIs() throws Exception {
+    System.setProperty("tika.config", "src/test/resources/TextExtractorTest/tika-config.xml");
+    try {
+      // without enableOcr, the global config is used as is, so tesseract stays in its DefaultParser
+      TextExtractor stage = (TextExtractor) factory.get(baseConfig());
+      assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+
+      for (boolean enableOcr : new boolean[]{true, false}) {
+        Config config = baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(enableOcr));
+        StageException e = assertThrows(StageException.class, () -> factory.get(config));
+        Throwable cause = e;
+        while (cause.getCause() != null) {
+          cause = cause.getCause();
+        }
+        assertTrue(cause.getMessage().contains("global Tika config"));
+      }
+    } finally {
+      System.clearProperty("tika.config");
+    }
+  }
+
+  // the base filepath.conf as a Config, for tests that add settings to it with withValue
+  private static Config baseConfig() {
+    return ConfigFactory.parseResourcesAnySyntax("TextExtractorTest/filepath.conf");
+  }
+
+  private static boolean containsParser(Parser parser, Class<? extends Parser> parserClass) {
+    if (parserClass.isInstance(parser)) {
+      return true;
+    }
+    if (parser instanceof CompositeParser composite) {
+      return composite.getAllComponentParsers().stream().anyMatch(p -> containsParser(p, parserClass));
+    }
+    if (parser instanceof ParserDecorator decorator) {
+      return containsParser(decorator.getWrappedParser(), parserClass);
+    }
+    return false;
+  }
+
+  @Test
+  public void testCleanFieldName() {
+    assertEquals("content_type", TextExtractor.cleanFieldName("Content-Type", false));
+    assertEquals("dc_title", TextExtractor.cleanFieldName("dc:title", false));
+    assertEquals("last_modified_by", TextExtractor.cleanFieldName("  Last Modified-By ", false));
+    assertEquals("x_tika_parsed_by", TextExtractor.cleanFieldName("X-TIKA:Parsed-By", false));
+    // dots are kept unless replaceDots is set
+    assertEquals("dc.date.created", TextExtractor.cleanFieldName("dc.date.created", false));
+    assertEquals("dc_date_created", TextExtractor.cleanFieldName("dc.date.created", true));
+    assertEquals("dc_title", TextExtractor.cleanFieldName("DC:Title", true));
+    assertEquals("pdf_docinfo_created", TextExtractor.cleanFieldName("pdf:docinfo.Created", true));
+  }
+
+  // names are trimmed and lowercased; each space, "-" and ":" becomes "_", and "." is kept unless replaceDots is set
+  @Test
+  public void testCleanFieldNameEdgeCases() {
+    List<String> names = List.of("Content-Type", "dc:title", "dc.date", "dc.date.created", " X-TIKA:Parsed-By ",
+        "a  b--c::d", "meta:save-date", "Last-Modified", "resourceName", "", " ", "-:.", "ÄÖÜ:Ünïcode-Name");
+    List<String> expected = List.of("content_type", "dc_title", "dc.date", "dc.date.created", "x_tika_parsed_by",
+        "a__b__c__d", "meta_save_date", "last_modified", "resourcename", "", "", "__.", "äöü_ünïcode_name");
+    for (int i = 0; i < names.size(); i++) {
+      assertEquals(expected.get(i), TextExtractor.cleanFieldName(names.get(i), false));
+    }
+  }
+
+  // dotted metadata names such as "dc.date" and "dc.date.created" cannot both be mapped by OpenSearch/Elasticsearch;
+  // with replaceDotsInMetadataNames on, no extracted field name should contain "."
+  @Test
+  public void testReplaceDotsInMetadataNames() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get(Map.of("byteArrayField", "byte_array",
+        "replaceDotsInMetadataNames", true, "fieldNamesField", "tika_property_names"));
+
+    Document doc = Document.create("doc1");
+    Metadata metadata = new Metadata();
+    metadata.add("dc.date", "2024-01-01");
+    metadata.add("dc.date.created", "2024-01-02");
+    metadata.add("dc_date", "2024-01-03");
+    stage.parseInputStream(metadata, doc, new ByteArrayInputStream("hello".getBytes()));
+
+    for (String field : doc.getFieldNames()) {
+      assertFalse(field, field.contains("."));
+    }
+    assertEquals("2024-01-02", doc.getString("tika_dc_date_created"));
+    // "dc.date" and "dc_date" collapse onto the same field; both values are kept
+    assertEquals(Set.of("2024-01-01", "2024-01-03"), Set.copyOf(doc.getStringList("tika_dc_date")));
+    for (String name : doc.getStringList("tika_property_names")) {
+      assertFalse(name, name.contains("."));
+    }
+  }
+
+  // without the option, dotted names are written unchanged, as before
+  @Test
+  public void testDotsKeptByDefault() throws Exception {
+    TextExtractor stage = (TextExtractor) factory.get(Map.of("byteArrayField", "byte_array"));
+
+    Document doc = Document.create("doc1");
+    Metadata metadata = new Metadata();
+    metadata.add("dc.date", "2024-01-01");
+    metadata.add("dc.date.created", "2024-01-02");
+    stage.parseInputStream(metadata, doc, new ByteArrayInputStream("hello".getBytes()));
+
+    assertEquals("2024-01-01", doc.getString("tika_dc.date"));
+    assertEquals("2024-01-02", doc.getString("tika_dc.date.created"));
+  }
+
+  /**
+   * Registered (see tika-config-oom.xml) as the parser for application/zip only, so it doesn't
+   * interfere with normal text/plain parsing. Deliberately allocates memory until it dies, so
+   * the resulting OutOfMemoryError doesn't depend on tuning a heap size against any particular
+   * file's actual parse-time memory footprint.
+   */
+  public static class MemoryHogParser extends AbstractParser {
+
+    @Override
+    public Set<MediaType> getSupportedTypes(ParseContext context) {
+      return Collections.singleton(MediaType.application("zip"));
+    }
+
+    @Override
+    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
+        throws TikaException, IOException, SAXException {
+      List<byte[]> chunks = new ArrayList<>();
+      while (true) {
+        chunks.add(new byte[10_000_000]);
+      }
+    }
   }
 }

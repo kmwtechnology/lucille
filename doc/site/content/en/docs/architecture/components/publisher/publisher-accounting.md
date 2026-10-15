@@ -87,7 +87,7 @@ The loop terminates when **all three conditions** are met simultaneously:
 
 Condition 3 is critical. Even if conditions 1 and 2 are met, there might be events still in the queue that would change the pending count (e.g., a `CREATE` event for a child that hasn't been accounted for yet).
 
-The `messenger.pollEvent()` call is a blocking operation with a timeout (typically 50ms for local, 2000ms for Kafka), preventing a busy-wait while still checking termination conditions periodically.
+The `messenger.pollEvent()` call is a blocking operation with a timeout (typically 50ms for local; `kafka.pollIntervalMs`, default 2000ms, for Kafka), preventing a busy-wait while still checking termination conditions periodically.
 
 ## Thread Interaction: `handleEvent()` vs `publish()`
 

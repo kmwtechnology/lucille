@@ -7,6 +7,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.util.LogUtils;
+import java.util.UUID;
 import org.junit.Test;
 import com.kmwllc.lucille.endpoints.SystemStatsResource;
 import jakarta.ws.rs.core.Response;
@@ -32,26 +33,21 @@ public class SystemStatsResourceTest {
 
   @Test
   public void testDropwizardMetricsEndpoint() {
-    try {
-      SharedMetricRegistries.remove(LogUtils.METRICS_REG);
-    } catch (Exception ignored) {}
-
-    MetricRegistry reg = new MetricRegistry();
-    reg.counter("test.counter").inc(3);
-    SharedMetricRegistries.add(LogUtils.METRICS_REG, reg);
+    // Using UUID for the counter name to prevent transient failures due to race conditions
+    MetricRegistry reg = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    String counterName = "test.counter." + UUID.randomUUID();
+    reg.counter(counterName).inc(3);
 
     Response response;
     try {
       response = resource.getDropwizardMetrics();
     } finally {
-      try {
-        SharedMetricRegistries.remove(LogUtils.METRICS_REG);
-      } catch (Exception ignored) {}
+      reg.remove(counterName);
     }
 
     assertEquals(200, response.getStatus());
     JsonNode root = (JsonNode) response.getEntity();
     assertTrue(root.has("counters"));
-    assertEquals(3, root.get("counters").get("test.counter").get("count").asInt());
+    assertEquals(3, root.get("counters").get(counterName).get("count").asInt());
   }
 }

@@ -106,7 +106,7 @@ The specific conditions that produce exit 1:
 
 | Category | Specific condition |
 |---|---|
-| **CLI** | Unrecognized or missing command-line options |
+| **CLI** | Unrecognized or missing command-line options; mutually exclusive options supplied together (`-distributed` with `-external`) |
 | **Validation** | Pre-run config validation fails (invalid connector, pipeline, indexer, or other config) |
 | **Worker startup** | Worker pool fails to start for a pipeline |
 | **Indexer** | Indexer cannot be created from config, or fails to validate its connection to the search backend |

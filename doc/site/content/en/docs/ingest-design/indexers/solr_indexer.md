@@ -11,7 +11,7 @@ Config block: `solr { ... }`
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `url` | List\<String\> | No* | Solr base URLs (e.g., `http://localhost:8983/solr`). |
+| `url` | String or List\<String\> | No* | One or more Solr base URLs (e.g., `http://localhost:8983/solr`). |
 | `useCloudClient` | Boolean | No | Use SolrCloud client. Default: `false`. |
 | `defaultCollection` | String | No | Target Solr collection. |
 | `zkHosts` | List\<String\> | No* | ZooKeeper addresses for SolrCloud (e.g., `["zk1:2181", "zk2:2181"]`). |

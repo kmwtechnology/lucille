@@ -2,9 +2,11 @@ package com.kmwllc.lucille.core.spec;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 public class SpecTest {
@@ -25,6 +27,21 @@ public class SpecTest {
     assertFalse(messageNode.get("required").asBoolean());
     assertEquals("STRING", messageNode.get("type").get("type").asText());
     assertEquals("A message to send.", messageNode.get("description").asText());
+  }
+
+  @Test
+  public void testStringOrListProperty() {
+    Spec spec = SpecBuilder.withoutDefaults().requiredStringOrList("url").build();
+
+    assertEquals("STRING_OR_LIST", spec.toJson().get("fields").get(0).get("type").get("type").asText());
+
+    spec.validate(ConfigFactory.parseString("url: \"http://a:9200\""), "test");
+    spec.validate(ConfigFactory.parseString("url: [\"http://a:9200\", \"http://b:9200\"]"), "test");
+
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.parseString("url: []"), "test"));
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.parseString("url: [{a: 1}]"), "test"));
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.parseString("url: {a: 1}"), "test"));
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(ConfigFactory.parseString("other: 1"), "test"));
   }
 
 }

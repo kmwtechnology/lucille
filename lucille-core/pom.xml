@@ -8,13 +8,17 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.11.0-SNAPSHOT</version>
+    <version>0.13.0-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
   <artifactId>lucille-core</artifactId>
   <packaging>jar</packaging>
   <name>Lucille Core</name>
+
+  <properties>
+    <jetty12.version>12.0.39</jetty12.version>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -33,6 +37,14 @@
       <groupId>jakarta.xml.bind</groupId>
       <artifactId>jakarta.xml.bind-api</artifactId>
       <version>4.0.5</version>
+    </dependency>
+
+    <!-- Pin parsson to 1.1.8 — opensearch-java drags in 1.1.7 transitively, which is vulnerable to
+         SNYK-JAVA-ORGECLIPSEPARSSON-17817925 (unbounded resource allocation). Fixed in 1.1.8. -->
+    <dependency>
+      <groupId>org.eclipse.parsson</groupId>
+      <artifactId>parsson</artifactId>
+      <version>1.1.8</version>
     </dependency>
 
     <!--  Solr (indexer integration) wanted  -->
@@ -71,10 +83,26 @@
       <version>4.2.0</version>
     </dependency>
 
+    <!-- Floor for zstd-jni: kafka-clients pulls 1.5.6-10 (CVE-2026-87823, plus an out-of-bounds
+    read, a use-after-free and an infinite loop), still the case as of Kafka 4.3.1. -->
+    <dependency>
+      <groupId>com.github.luben</groupId>
+      <artifactId>zstd-jni</artifactId>
+      <version>1.5.7-17</version>
+    </dependency>
+
+    <!-- Floor for snappy-java: kafka-clients pulls 1.1.10.7. 1.1.10.8 is the latest release but
+    does not fix CVE-2026-90559, which covers "through 1.1.10.8" and has no fixed release yet. -->
+    <dependency>
+      <groupId>org.xerial.snappy</groupId>
+      <artifactId>snappy-java</artifactId>
+      <version>1.1.10.8</version>
+    </dependency>
+
     <dependency>
         <groupId>at.yawk.lz4</groupId>
         <artifactId>lz4-java</artifactId>
-        <version>1.10.1</version>
+        <version>1.11.1</version>
     </dependency>
 
     <dependency>
@@ -224,25 +252,53 @@
       <version>5.11.2</version>
     </dependency>
 
+    <!-- Floor for the Jetty 12.0.x set: solr-solrj-jetty pulls 12.0.27 (CVE-2026-19203 and
+    CVE-2026-2332 in jetty-http, CVE-2026-12611 in jetty-http2-common, CVE-2026-8384 in
+    jetty-util). jetty-http2-client-transport is the root of that chain, so flooring it lifts the
+    other client modules with it; Jetty modules must all share one version. Declared ahead of the
+    Solr modules below, since Maven breaks the equal-depth tie on declaration order. Not
+    test-scoped so they propagate downstream. -->
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>jetty-http2-client-transport</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+    <!--  Note that http2-common and http2-hpack also arrive via solr-test-framework, which declares
+       them at compile scope, so the transport floor above does not reach them. -->
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>jetty-http2-common</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>jetty-http2-hpack</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-http</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-util</artifactId>
+      <version>${jetty12.version}</version>
+    </dependency>
+
     <!-- Solr modules -->
+    <!-- Must be a runtime (not test) dependency: SolrJ's javabin RequestWriter needs
+         org.apache.solr.client.api.util.ReflectWritable from solr-api to serialize update
+         bodies. Without it in target/lib, updates silently send an empty body. -->
     <dependency>
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-api</artifactId>
       <version>${solr.version}</version>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.solr</groupId>
       <artifactId>solr-solrj-jetty</artifactId>
       <version>${solr.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- Pin jetty-http to 12.0.33 — solr-solrj-jetty drags in 12.0.27 which has a CVE; 12.1.x (used by
-         lucille-api via Dropwizard) is unaffected so the pin lives here rather than in the parent -->
-    <dependency>
-      <groupId>org.eclipse.jetty</groupId>
-      <artifactId>jetty-http</artifactId>
-      <version>12.0.33</version>
       <scope>test</scope>
     </dependency>
 
@@ -497,12 +553,8 @@
       <version>0.8</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>org.xerial.snappy</groupId>
-      <artifactId>snappy-java</artifactId>
-      <version>1.1.10.8</version>
-      <scope>test</scope>
-    </dependency>
+    <!--  Note that snappy-java was part of this list, but is now declared non-test-scoped
+       alongside kafka-clients as a CVE floor. -->
 
     <!--
       ==========================================
@@ -615,7 +667,24 @@
     <dependency>
         <groupId>com.azure</groupId>
         <artifactId>azure-storage-blob</artifactId>
-        <version>12.35.0</version>
+        <version>12.35.1</version>
+    </dependency>
+
+    <!-- Pin reactor-core and reactor-netty for CVEs from azure-storage-blob -->
+    <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-core</artifactId>
+      <version>3.8.7</version>
+    </dependency>
+    <dependency>
+      <groupId>io.projectreactor.netty</groupId>
+      <artifactId>reactor-netty-core</artifactId>
+      <version>1.3.7</version>
+    </dependency>
+    <dependency>
+      <groupId>io.projectreactor.netty</groupId>
+      <artifactId>reactor-netty-http</artifactId>
+      <version>1.3.7</version>
     </dependency>
 
     <dependency>
@@ -665,7 +734,7 @@
     <dependency>
         <groupId>org.jsoup</groupId>
         <artifactId>jsoup</artifactId>
-        <version>1.17.2</version>
+        <version>1.23.2</version>
     </dependency>
 
     <!-- dependency for OpenAiEmbedding Stage -->
@@ -740,41 +809,26 @@
     </dependency>
 
     <!-- GraalVM SDK -->
-    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
        <groupId>org.graalvm.sdk</groupId>
        <artifactId>graal-sdk</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.4</version>
     </dependency>
 
     <!-- GraalVM JavaScript -->
     <dependency>
        <groupId>org.graalvm.js</groupId>
        <artifactId>js</artifactId>
-       <version>24.2.2</version>
+       <version>25.0.4</version>
        <type>pom</type>
     </dependency>
 
     <!-- GraalVM Python -->
-    <!-- Version 25.0.0 is required for Python dependencies, but requires JDK 21 -->
     <dependency>
         <groupId>org.graalvm.python</groupId>
         <artifactId>python-language</artifactId>
-        <version>24.2.2</version>
+        <version>25.0.4</version>
     </dependency>
-
-    <!-- Force upgrade of bouncycastle to patch CVEs from transitive graalvm python dependency -->
-    <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcpkix-jdk18on</artifactId>
-        <version>1.84</version>
-    </dependency>
-    <dependency>
-        <groupId>org.bouncycastle</groupId>
-        <artifactId>bcprov-jdk18on</artifactId>
-        <version>1.84</version>
-    </dependency>
-
     
     <!-- Py4J Python -->
     <dependency>
@@ -791,6 +845,16 @@
              access to any test utility classes in lucille-core -->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <finalName>lucille</finalName>
+          <archive>
+            <manifest>
+              <mainClass>com.kmwllc.lucille.core.Runner</mainClass>
+              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+            </manifest>
+          </archive>
+        </configuration>
         <executions>
           <execution>
             <goals>
@@ -804,22 +868,7 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <configuration>
-          <finalName>lucille</finalName>
-          <archive>
-            <manifest>
-              <mainClass>com.kmwllc.lucille.core.Runner</mainClass>
-              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
-            </manifest>
-          </archive>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>3.2.5</version>
         <executions>
           <execution>
             <goals>

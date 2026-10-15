@@ -10,11 +10,14 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class KafkaIndexerMessenger implements IndexerMessenger {
 
@@ -23,6 +26,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
+  private final DeserializationErrorHandler deserializationErrorHandler;
+  private final Duration pollInterval;
 
   public KafkaIndexerMessenger(Config config, String pipelineName) {
     this.pipelineName = pipelineName;
@@ -31,6 +36,9 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
+    this.deserializationErrorHandler =
+        new DeserializationErrorHandler(config, destConsumer);
+    this.pollInterval = KafkaUtils.getPollInterval(config);
   }
 
   /**
@@ -38,13 +46,22 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    */
   @Override
   public Document pollDocToIndex() throws Exception {
-    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, KafkaDocument> consumerRecords;
+    try {
+      consumerRecords = destConsumer.poll(pollInterval);
+    } catch (RecordDeserializationException e) {
+      // rethrows unless configured to skip; commit the position past the skipped record
+      deserializationErrorHandler.handleOrRethrow(e);
+      destConsumer.commitSync();
+      return null;
+    }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       // offsets are committed synchronously to ensure that offsets are successfully committed and to reduce the likelihood of duplicate events being sent to the event topic.
       // This reduces the number of documents that might be reindexed in the event of an indexer crash/restart or in the case of a consumer group reblance.
       destConsumer.commitSync();
       ConsumerRecord<String, KafkaDocument> record = consumerRecords.iterator().next();
+      deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
       return doc;
@@ -74,7 +91,35 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
     RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
         new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    kafkaEventProducer.flush(); // TODO
+  }
+
+  @Override
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+    if (kafkaEventProducer == null || documents.isEmpty()) {
+      return;
+    }
+
+    AtomicReference<Exception> sendException = new AtomicReference<>();
+
+    for (Document document : documents) {
+      Event event = new Event(document, message, type);
+      String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
+      kafkaEventProducer.send(
+          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()),
+          (metadata, exception) -> {
+            if (exception != null) {
+              log.error("Failed to send event for doc: {}", event.getDocumentId(), exception);
+              sendException.compareAndSet(null, exception);
+            }
+          });
+    }
+
+    kafkaEventProducer.flush();
+
+    Exception e = sendException.get();
+    if (e != null) {
+      throw new Exception("Failed to send one or more events", e);
+    }
   }
 
   @Override

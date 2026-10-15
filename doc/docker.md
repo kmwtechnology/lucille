@@ -8,7 +8,7 @@ The Lucille base Docker image provides a ready-to-run Lucille environment. Downs
 |---|---|---|---|
 | `LUCILLE_CONF` | **Yes** | *(none)* | Path to the Lucille config file inside the container |
 | `JAVA_OPTS` | No | *(empty)* | JVM flags (heap size, GC tuning, etc.) |
-| `LUCILLE_OPTS` | No | *(empty)* | Lucille Runner CLI flags (e.g. `-local`, `-usekafka`) |
+| `LUCILLE_OPTS` | No | *(empty)* | Lucille Runner CLI flags (e.g. `-distributed`, `-external`) |
 
 ## Building the Base Image
 
@@ -76,8 +76,13 @@ Pass Runner CLI flags through the `LUCILLE_OPTS` environment variable:
 # Run in local mode (default when LUCILLE_OPTS is empty)
 docker run --env LUCILLE_CONF=/lucille/conf/my-config.conf lucille:latest
 
-# Run with Kafka
-docker run --env LUCILLE_CONF=/lucille/conf/my-config.conf --env LUCILLE_OPTS="-usekafka" lucille:latest
+# Run in distributed mode: only connectors run here; Workers and Indexers are
+# deployed separately and communicate via Kafka
+docker run --env LUCILLE_CONF=/lucille/conf/my-config.conf --env LUCILLE_OPTS="-distributed" lucille:latest
+
+# Run in external mode: Workers and Indexer are threads in this JVM, but
+# inter-component communication goes through Kafka
+docker run --env LUCILLE_CONF=/lucille/conf/my-config.conf --env LUCILLE_OPTS="-external" lucille:latest
 ```
 
 ## Logging
@@ -105,7 +110,7 @@ COPY certs/ /lucille/certs/
 
 ENV LUCILLE_CONF=/lucille/conf/production.conf
 ENV JAVA_OPTS="-Xms512m"
-ENV LUCILLE_OPTS="-local"
+ENV LUCILLE_OPTS=""
 ```
 
 ```bash

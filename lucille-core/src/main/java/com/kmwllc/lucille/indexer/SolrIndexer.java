@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>url (List&lt;String&gt;, Optional) : One or more Solr base URLs (e.g., https://localhost:8983).</li>
+ *   <li>url (String or List&lt;String&gt;, Optional) : One or more Solr base URLs (e.g., https://localhost:8983).</li>
  *   <li>useCloudClient (Boolean, Optional) : Use the SolrCloud client. Defaults to false.</li>
  *   <li>zkHosts (List&lt;String&gt;, Optional) : ZooKeeper connection strings when using SolrCloud.</li>
  *   <li>zkChroot (String, Optional) : ZooKeeper chroot used with SolrCloud.</li>
@@ -52,7 +52,7 @@ import org.slf4j.LoggerFactory;
 public class SolrIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
-      .optionalList("url", new TypeReference<List<String>>() {})
+      .optionalStringOrList("url")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
       .optionalString("defaultCollection", "userName", "password", "zkChroot")
       .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
@@ -332,15 +332,10 @@ public class SolrIndexer extends Indexer {
   private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
       throws IndexerException {
     // removes fields specified by fieldFilter config, including id
-    Map<String, Object> map = getIndexerDoc(doc);
+    Map<String, Object> map = getConvertedIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
 
     for (String key : map.keySet()) {
-
-      if (Document.CHILDREN_FIELD.equals(key)) {
-        continue;
-      }
-      
       if (idOverride != null && Document.ID_FIELD.equals(key)) {
         solrDoc.setField(Document.ID_FIELD, idOverride);
         continue;
@@ -372,14 +367,11 @@ public class SolrIndexer extends Indexer {
     }
     for (Document child : children) {
       // remove key:value pair mappings if they appear in blacklist
-      Map<String, Object> map = getIndexerDoc(child);
+      Map<String, Object> map = getConvertedIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();
+      // getConvertedIndexerDoc omits CHILDREN_FIELD, so children nested inside a child are not sent
       for (String key : map.keySet()) {
-        // we don't support children that contain nested children
-        if (Document.CHILDREN_FIELD.equals(key)) {
-          continue;
-        }
         Object value = map.get(key);
         if (value instanceof Map) {
           throw new IndexerException(

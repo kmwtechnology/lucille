@@ -117,10 +117,10 @@ All components run as threads in a single JVM. Communication uses in-memory queu
 **Test Mode**
 Same as Local mode, but the search backend is bypassed and all message traffic is recorded by a `TestMessenger` for assertion by test code.
 
-**Kafka-Local Mode**
+**External Mode**
 All components run as threads in a single JVM, but communicate via Kafka topics. Useful for testing Kafka integration without deploying separate processes.
 
-**Kafka-Distributed Mode**
+**Distributed Mode**
 Workers and Indexers run as separate JVM processes. The Runner only launches Connectors and waits for completion via Kafka events. The production scale-out model.
 
 **WorkerIndexer**

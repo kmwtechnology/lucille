@@ -133,7 +133,7 @@ The pipeline name argument tells the Worker which pipeline to run and which Kafk
 
 ## WorkerIndexer
 
-`WorkerIndexer` is a hybrid entry point that pairs one Worker thread with one Indexer in a single JVM. It is useful in Kafka-distributed deployments where you want a single process to handle both pipeline processing and indexing, without the overhead of coordinating separate Worker and Indexer processes.
+`WorkerIndexer` is a hybrid entry point that pairs one Worker thread with one Indexer in a single JVM. It is useful in distributed deployments where you want a single process to handle both pipeline processing and indexing, without the overhead of coordinating separate Worker and Indexer processes.
 
 **How it differs from a standalone Worker:**
 - Consumes documents from Kafka (source topic) — same as a standalone Worker.

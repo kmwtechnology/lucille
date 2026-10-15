@@ -46,6 +46,15 @@ public interface StorageClient {
   void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
 
   /**
+   * Returns whether a traversal of the given parent would also visit the files under the given child, based on this
+   * provider's addressing rules. Does not require this client to be initialized, and does not contact the provider.
+   * @param parent A URI to a path in storage.
+   * @param child A URI to a path in storage, which may or may not sit under the parent.
+   * @return Whether traversing parent would also visit the files under child.
+   */
+  boolean containsPath(URI parent, URI child);
+
+  /**
    * Opens and returns an InputStream for a file's contents, located at the given URI.
    * @param uri A URI to the file whose contents you want to extract.
    * @return An InputStream for the file's contents.
@@ -115,20 +124,22 @@ public interface StorageClient {
    * To build clients for the cloud providers, these arguments must be provided in separate maps:
    * <br> gcp:
    * "pathToServiceKey" : "path/To/Service/Key.json"
-   * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   * "maxResultsPerPage" : number of results returned per listing request (page size). Optional, defaults to 100
    *
    * <br> s3:
    * "accessKeyId" : s3 key id. Not needed if secretAccessKey is not specified (using default credentials).
    * "secretAccessKey" : secret access key. Not needed if accessKeyId is not specified (using default credentials).
    * "region" : s3 storage region
-   * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   * "anonymous" : send unsigned requests, for public buckets that need no credentials. Cannot be combined with
+   * accessKeyId / secretAccessKey. Defaults the region to us-east-1 when no region is given. Optional, defaults to false.
+   * "maxResultsPerPage" : number of results returned per LIST request (page size). Optional, defaults to 1000 (S3's per-request maximum)
    *
    * <br> azure:
    * "connectionString" : azure connection string
    * <b>Or</b>
    * "accountName" : azure account name
    * "accountKey" : azure account key
-   * "maxNumOfPages" : number of references of the files loaded into memory in a single fetch request. Optional, defaults to 100
+   * "maxResultsPerPage" : number of results returned per listing request (page size). Optional, defaults to 100
    *
    * @param config The configuration which potentially contains cloud options that you want to use to build storage clients.
    * @return A map of Strings to StorageClients. StorageClients are keyed by their URI scheme (gs, https, s3, file). Always

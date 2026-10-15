@@ -25,18 +25,6 @@ public class Pipeline {
     return stages;
   }
 
-  public void addStage(Stage stage, String metricsPrefix) throws PipelineException, StageException {
-    stage.initialize(stages.size() + 1, metricsPrefix);
-    if (stages.stream().anyMatch(s -> stage.getName().equals(s.getName()))) {
-      throw new PipelineException("Two stages cannot have the same name: " + stage.getName());
-    }
-    stages.add(stage);
-  }
-
-  public void addStage(Stage stage) throws PipelineException, StageException {
-    addStage(stage, "default");
-  }
-
   public void startStages() throws StageException {
     for (Stage stage : stages) {
       stage.start();
@@ -55,6 +43,11 @@ public class Pipeline {
     }
   }
 
+  /**
+   * Returns a list of exceptions that occurred during initialization and validation of stages
+   * in the config. Validation is performed on every stage config that is provided, whether
+   * or not it is enabled.
+   */
   public static List<Exception> validateStages(Config config, String name)
       throws Exception {
     return validateStages(getPipelineStages(config, name));
@@ -62,7 +55,8 @@ public class Pipeline {
 
   /**
    * Returns a list of exceptions that occurred during initialization and validation of stages
-   * in the given list
+   * in the given list. Validation is performed on every stage config that is provided, whether
+   * or not it is enabled.
    */
   public static List<Exception> validateStages(List<? extends Config> stages) {
     List<Exception> exceptions = new ArrayList<>();
@@ -80,11 +74,17 @@ public class Pipeline {
   /**
    * Instantiates a Pipeline from the designated list of Stage Configs.
    * The Config for each Stage must specify the stage's class.
+   * <br> Configs with <code>enabled: false</code> will not be instantiated or part of the returned Pipeline.
    */
   public static Pipeline fromConfig(List<? extends Config> stages, String metricsPrefix) throws
       Exception {
     Pipeline pipeline = new Pipeline();
     for (Config c : stages) {
+      // skip configs with "enabled: false"
+      if (c.hasPath("enabled") && !c.getBoolean("enabled")) {
+        continue;
+      }
+
       Stage stage = Stage.fromConfig(c);
       pipeline.addStage(stage, metricsPrefix);
     }
@@ -96,6 +96,7 @@ public class Pipeline {
    *
    * The Config is expected to have a "pipeline.&lt;name&gt;.stages" element
    * containing a List of stages and their settings. The list element for each Stage must specify the stage's class.
+   * Stage configs with <code>enabled: false</code> will not be instantiated or part of the returned Pipeline.
    */
   public static Pipeline fromConfig(Config config, String name, String metricsPrefix)
       throws Exception {
@@ -158,4 +159,18 @@ public class Pipeline {
     return result;
   }
 
+  // These "direct" methods are private since "adding" a Stage needs to be a more protected operation, as this class
+  // bears the burden of ensuring the Stage is "enabled".
+  /** Add the given Stage to the pipeline. Package access for unit testing. */
+  void addStage(Stage stage) throws PipelineException, StageException {
+    addStage(stage, "default");
+  }
+
+  private void addStage(Stage stage, String metricsPrefix) throws PipelineException, StageException {
+    stage.initialize(stages.size() + 1, metricsPrefix);
+    if (stages.stream().anyMatch(s -> stage.getName().equals(s.getName()))) {
+      throw new PipelineException("Two stages cannot have the same name: " + stage.getName());
+    }
+    stages.add(stage);
+  }
 }

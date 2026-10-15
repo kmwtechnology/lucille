@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValueType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -53,5 +54,19 @@ public class ConfigUtils {
       headerList.add(new BasicHeader(entry.getKey(), (String) entry.getValue()));
     }
     return headerList.toArray(new Header[0]);
+  }
+
+  /**
+   * Reads a setting that may be either a single String or a list of Strings, always returning a list.
+   *
+   * @param config the config to read from
+   * @param path the setting to read; throws if it is missing or is neither a String nor a list of Strings
+   * @return the value as a list; a single String becomes a one-element list
+   */
+  public static List<String> getStringOrList(Config config, String path) {
+    if (config.getValue(path).valueType() == ConfigValueType.LIST) {
+      return config.getStringList(path);
+    }
+    return List.of(config.getString(path));
   }
 }

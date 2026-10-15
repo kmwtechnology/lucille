@@ -134,7 +134,7 @@ public class QueryDatabaseTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws Exception {
+  public void testSpec() throws Exception {
     Stage stage = factory.get("QueryDatabaseTest/animal.conf");
     assertEquals(
         Set.of(
@@ -143,16 +143,12 @@ public class QueryDatabaseTest {
             "driver",
             "jdbcUser",
             "keyFields",
-            "name",
             "jdbcPassword",
-            "conditions",
-            "class",
             "sql",
             "connectionRetries",
             "connectionRetryPause",
-            "conditionPolicy",
             "fieldMapping"),
-        stage.getLegalProperties());
+        stage.getNonDefaultLegalProperties());
 
     stage.stop();
   }

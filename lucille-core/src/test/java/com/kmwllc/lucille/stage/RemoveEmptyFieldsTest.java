@@ -26,8 +26,8 @@ public class RemoveEmptyFieldsTest {
   }
 
   @Test
-  public void testGetLegalProperties() throws StageException {
+  public void testSpec() throws StageException {
     Stage stage = factory.get("RemoveEmptyFieldsTest/config.conf");
-    assertEquals(Set.of("name", "conditions", "class", "conditionPolicy"), stage.getLegalProperties());
+    assertEquals(Set.of(), stage.getNonDefaultLegalProperties());
   }
 }

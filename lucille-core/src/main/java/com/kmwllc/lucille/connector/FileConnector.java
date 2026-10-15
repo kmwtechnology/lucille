@@ -10,9 +10,17 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
 
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.kmwllc.lucille.util.ThreadNameUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.BaseFileReference;
@@ -45,6 +53,8 @@ import com.typesafe.config.Config;
  * <ul>
  *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
+ *   <li>concurrent (Boolean, Optional) : Traverse each of the paths concurrently, on its own thread. Only applies
+ *   when more than one path is given. Requires that the paths do not overlap. Defaults to false.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
@@ -65,17 +75,22 @@ import com.typesafe.config.Config;
  *   <li>state.performDeletions (Boolean, Optional) : Delete rows for files removed from storage. Defaults to true.</li>
  *   <li>state.runsBeforeExpiration (Int, Optional) : After a file is not encountered for this number of runs, it will be marked
  *   as expired. Must be at least 1. Defaults to 1.</li>
- *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 200.</li>
+ *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 768. A longer path fails the run.</li>
  *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
- *   <li>gcp.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>gcp.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
  *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
  *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
  *   <li>s3.region (String, Optional) : AWS region for S3.</li>
- *   <li>s3.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>s3.anonymous (Boolean, Optional) : Send unsigned requests, for public buckets that need no
+ *   credentials. Cannot be combined with accessKeyId/secretAccessKey. When set and no region is given,
+ *   region defaults to us-east-1, S3's global endpoint. Defaults to false.</li>
+ *   <li>s3.maxResultsPerPage (Int, Optional) : Maximum number of results returned per S3 LIST call (page size). Defaults to 1000, which is also
+ *   the most S3 will return per call; larger values have no further effect. Without filterOptions.pathsToSkip, every key under the
+ *   path is listed in one paginated listing, so files may be published in a different order than a directory-by-directory walk.</li>
  *   <li>azure.connectionString (String, Optional) : Azure connection string.</li>
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
  *   <li>azure.accountKey (String, Optional) : Azure account key.</li>
- *   <li>azure.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>azure.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
  *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).
  *   Supply a class to override the default handler. Otherwise the built-in handler for csv/json/xml is used. Configure docIdPrefix inside
  *   each handler's config as needed.</li>
@@ -98,8 +113,9 @@ public class FileConnector extends AbstractConnector {
   public static final String S3_REGION = "region";
   public static final String S3_ACCESS_KEY_ID = "accessKeyId";
   public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
+  public static final String S3_ANONYMOUS = "anonymous";
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
-  public static final String MAX_NUM_OF_PAGES = "maxNumOfPages";
+  public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
 
   // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
@@ -111,18 +127,20 @@ public class FileConnector extends AbstractConnector {
   // parent specs for cloud provider configs
   public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
       .requiredString("pathToServiceKey")
-      .optionalNumber("maxNumOfPages").build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
       .optionalString("accessKeyId", "secretAccessKey", "region")
-      .optionalNumber("maxNumOfPages").build();
+      .optionalBoolean("anonymous")
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
       .optionalString("connectionString", "accountName", "accountKey")
-      .optionalNumber("maxNumOfPages").build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredList("paths", new TypeReference<List<String>>(){})
+      .optionalBoolean("concurrent")
       .optionalParent(
           SpecBuilder.parent("filterOptions")
               .optionalList("includes", new TypeReference<List<String>>(){})
@@ -147,15 +165,19 @@ public class FileConnector extends AbstractConnector {
 
   private final FileConnectorStateManager stateManager;
 
+  private final boolean concurrent;
+
   public FileConnector(Config config) throws ConnectorException {
     super(config);
+
+    this.concurrent = ConfigUtils.getOrDefault(config, "concurrent", false);
 
     List<String> paths = config.getStringList("paths");
     this.storageURIs = new ArrayList<>();
 
     for (String path : paths) {
       try {
-        URI newStorageURI = new URI(path);
+        URI newStorageURI = TraversalParams.parsePathOrURI(path);
         storageURIs.add(newStorageURI);
         log.debug("FileConnector to use path {} with scheme {}", path, newStorageURI.getScheme());
       } catch (URISyntaxException e) {
@@ -190,6 +212,15 @@ public class FileConnector extends AbstractConnector {
       throw new IllegalArgumentException("FileConnector does not support multiple paths and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
 
+    // A collapsing Publisher is not safe for concurrent publish() calls - it would merge and drop documents silently
+    if (concurrent && requiresCollapsingPublisher()) {
+      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Disable one of them.");
+    }
+
+    if (concurrent) {
+      validateNonOverlappingPaths();
+    }
+
     if (config.hasPath("filterOptions.lastPublishedCutoff") && !config.hasPath("state")) {
       log.warn("filterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
     }
@@ -200,8 +231,18 @@ public class FileConnector extends AbstractConnector {
     initialize();
 
     // discover and publish all valid file candidates
-    for (URI resource : storageURIs) {
-      traverseStoragePath(publisher, resource);
+    try {
+      if (concurrent && storageURIs.size() > 1) {
+        traversePathsConcurrently(publisher);
+      } else {
+        for (URI resource : storageURIs) {
+          traverseStoragePath(publisher, resource);
+        }
+      }
+    } finally {
+      if (stateManager != null) {
+        stateManager.closeStateForThread();
+      }
     }
 
     // bump runs_not_encountered so listExpiredFiles and shutdown's deletion see up-to-date counters
@@ -247,7 +288,7 @@ public class FileConnector extends AbstractConnector {
         publisher.publish(doc);
         publishedTombstoneCount++;
       } catch (Exception e) {
-        log.warn("Error occurred while publishing document tombstone for file: %s".formatted(uri), e);
+        throw new ConnectorException("Error publishing document tombstone for file: " + uri, e);
       }
     }
     log.info("Published {} of {} document tombstones for tracking and index removal", publishedTombstoneCount, expiredFileCount);
@@ -289,9 +330,108 @@ public class FileConnector extends AbstractConnector {
     }
   }
 
+  /**
+   * Traverses each of the storage paths on its own thread. Requires the paths to not overlap, so that concurrent
+   * traversals never touch the same row of the state database.
+   */
+  private void traversePathsConcurrently(Publisher publisher) throws ConnectorException {
+    ThreadFactory threadFactory = new BasicThreadFactory.Builder()
+        .namingPattern(ThreadNameUtils.createName("PathTraversal") + "-%d")
+        .build();
+    ExecutorService executor = Executors.newFixedThreadPool(storageURIs.size(), threadFactory);
+
+    try {
+      List<Future<?>> traversals = new ArrayList<>();
+
+      for (URI resource : storageURIs) {
+        traversals.add(executor.submit(() -> {
+          traverseStoragePathOnThisThread(publisher, resource);
+          return null;
+        }));
+      }
+
+      // Every traversal runs to completion, even after one fails. Aborting the others would leave some of this run's
+      // files unmarked in the state database, and they would then be expired, tombstoned and deleted.
+      ConnectorException failure = null;
+
+      // traversals is in the same order as storageURIs, so the index identifies the path that failed
+      for (int i = 0; i < traversals.size(); i++) {
+        URI resource = storageURIs.get(i);
+
+        try {
+          traversals.get(i).get();
+          log.info("Finished traversing '{}'.", resource);
+        } catch (ExecutionException e) {
+          log.error("Error occurred while traversing '{}', CONTINUING", resource, e.getCause());
+
+          if (failure == null) {
+            failure = new ConnectorException("One or more traversals failed.", e.getCause());
+          } else {
+            failure.addSuppressed(e.getCause());
+          }
+        }
+      }
+
+      if (failure != null) {
+        throw failure;
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new ConnectorException("Interrupted while waiting for traversals to finish.", e);
+    } finally {
+      executor.shutdownNow();
+    }
+  }
+
+  // Gives the calling thread its own TraversalState for the traversal. A JDBC Connection is not thread-safe, so each
+  // traversal thread needs its own.
+  private void traverseStoragePathOnThisThread(Publisher publisher, URI pathToTraverse) throws Exception {
+    if (stateManager == null) {
+      traverseStoragePath(publisher, pathToTraverse);
+      return;
+    }
+
+    stateManager.openStateForThread();
+
+    try {
+      traverseStoragePath(publisher, pathToTraverse);
+    } finally {
+      stateManager.closeStateForThread();
+    }
+  }
+
+  /**
+   * Rejects overlapping paths. Threads traversing overlapping paths would touch the same rows of the state database,
+   * and would publish the files under the shared paths more than once.
+   * <p> A StorageClient can only compare paths within its own storage provider, and cannot detect paths
+   * that reach the same files by another route, such as a symlink or an S3 access point alias.
+   */
+  private void validateNonOverlappingPaths() {
+    for (int i = 0; i < storageURIs.size(); i++) {
+      for (int j = i + 1; j < storageURIs.size(); j++) {
+        URI first = storageURIs.get(i);
+        URI second = storageURIs.get(j);
+        StorageClient client = storageClientMap.get(clientKeyFor(first));
+
+        // paths handled by different storage providers cannot overlap
+        if (client == null || client != storageClientMap.get(clientKeyFor(second))) {
+          continue;
+        }
+
+        if (client.containsPath(first, second) || client.containsPath(second, first)) {
+          throw new IllegalArgumentException("FileConnector cannot traverse overlapping paths concurrently: '"
+              + first + "' and '" + second + "'.");
+        }
+      }
+    }
+  }
+
+  private static String clientKeyFor(URI pathToTraverse) {
+    return pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
+  }
+
   private void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
-    String clientKey = pathToTraverse.getScheme() != null ? pathToTraverse.getScheme() : "file";
-    StorageClient storageClient = storageClientMap.get(clientKey);
+    StorageClient storageClient = storageClientMap.get(clientKeyFor(pathToTraverse));
 
     if (storageClient == null) {
       throw new ConnectorException("No StorageClient was available for (" + pathToTraverse +

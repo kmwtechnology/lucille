@@ -2,6 +2,7 @@ package com.kmwllc.lucille.connector;
 
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -24,6 +25,10 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -54,7 +59,18 @@ import com.typesafe.config.ConfigValueFactory;
 
 public class FileConnectorTest {
 
+  // per-class directory names, so test classes running in parallel forks never share one
+  private static final String TEMP_DIR = "fileConnectorTest-temp";
+  private static final String ERROR_DIR = "fileConnectorTest-error";
+  private static final String SUCCESS_DIR = "fileConnectorTest-success";
+
   private static final Logger log = LoggerFactory.getLogger(FileConnectorTest.class);
+
+  // On-disk H2 state database for the state tests. Kept out of the default ./state directory, which
+  // FileConnectorStateManagerTest uses to test that default and may be running in another surefire fork.
+  private static final File STATE_DIR = new File("fileConnectorTest-state");
+  private static final String STATE_CONNECTION_STRING =
+      "jdbc:h2:" + new File(STATE_DIR, "file-connector").getAbsolutePath();
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
@@ -173,7 +189,7 @@ public class FileConnectorTest {
 
   @Test
   public void testErrorDirectory() throws Exception {
-    File tempDir = new File("temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy faulty csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/faulty.csv");
@@ -187,8 +203,8 @@ public class FileConnectorTest {
     connector.execute(publisher);
 
     // verify error directory is made
-    File errorDir = new File("error");
-    File f = new File("error/faulty.csv");
+    File errorDir = new File(ERROR_DIR);
+    File f = new File(ERROR_DIR + "/faulty.csv");
 
     try {
       // verify error directory is made
@@ -205,7 +221,7 @@ public class FileConnectorTest {
 
   @Test
   public void testSuccessfulDirectory() throws Exception {
-    File tempDir = new File("temp");
+    File tempDir = new File(TEMP_DIR);
 
     // copy successful csv into temp directory
     File copy = new File("src/test/resources/FileConnectorTest/defaults.csv");
@@ -219,8 +235,8 @@ public class FileConnectorTest {
     connector.execute(publisher);
 
     // verify error directory is made
-    File successDir = new File("success");
-    File f = new File("success/defaults.csv");
+    File successDir = new File(SUCCESS_DIR);
+    File f = new File(SUCCESS_DIR + "/defaults.csv");
 
     try {
       // verify error directory is made
@@ -288,7 +304,7 @@ public class FileConnectorTest {
     assertEquals("Small City Mug", doc10.getString("name"));
 
     Document doc11 = documentList.stream().filter(d ->
-        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir"+File.separatorChar+"e.yaml")).findAny().orElseThrow();
+        d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("subdir/e.yaml")).findAny().orElseThrow();
     assertTrue(doc11.getId().startsWith("normal-"));
 
     Document doc12 = documentList.stream().filter(d -> d.getId().equals("csvHandled-default.csv-1")).findAny().orElseThrow();
@@ -400,18 +416,17 @@ public class FileConnectorTest {
 
   // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
 
-  // Testing when the state configuration is empty.
+  // Testing with an embedded H2 database that the connector creates on first use. Only the location is set
+  // here; the default ./state location is covered by FileConnectorStateManagerTest.testEmbeddedCreationEmptyConfig.
   @Test
-  @Execution(ExecutionMode.SAME_THREAD)
   public void testTraversalWithStateEmbedded() throws Exception {
-    File stateDirectory = new File("state");
-    File dbFile = new File("state/file-connector.mv.db");
+    File dbFile = new File(STATE_DIR, "file-connector.mv.db");
 
-    assertFalse(stateDirectory.exists());
     assertFalse(dbFile.exists());
 
     try {
-      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
+      Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING));
       TestMessenger messenger = new TestMessenger();
       Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
       Connector conn = new FileConnector(config);
@@ -421,7 +436,7 @@ public class FileConnectorTest {
       conn.close();
 
       // now the database file should exist.
-      assertTrue(stateDirectory.isDirectory());
+      assertTrue(STATE_DIR.isDirectory());
       assertTrue(dbFile.isFile());
 
       assertEquals(18, messenger.getDocsSentForProcessing().size());
@@ -435,7 +450,7 @@ public class FileConnectorTest {
       // default full mode republishes all docs on subsequent runs
       assertEquals(18, messenger.getDocsSentForProcessing().size());
     } finally {
-      FileUtils.deleteDirectory(stateDirectory);
+      FileUtils.deleteDirectory(STATE_DIR);
     }
   }
 
@@ -701,6 +716,7 @@ public class FileConnectorTest {
       // Config with state and incremental mode with tombstones enabled
       Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
           .withValue("paths", ConfigValueFactory.fromIterable(List.of(tempDir.toURI().toString())))
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
           .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
           .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
 
@@ -722,9 +738,10 @@ public class FileConnectorTest {
 
       // Delete file2, modify file1, leave file3 alone.
       // Set file1's modification time explicitly to a point after the first run's traversalInstant just in case
+      // Minus 1ms so it's safely before the second run's traversalInstant (they can match on Windows' coarser clock)
       Files.delete(file2.toPath());
       Files.writeString(file1.toPath(), "Modified Content 1");
-      Files.setLastModifiedTime(file1.toPath(), FileTime.from(Instant.now()));
+      Files.setLastModifiedTime(file1.toPath(), FileTime.from(Instant.now().minusMillis(1)));
 
       // Second run, should publish modified file1 + tombstone for deleted file2
       TestMessenger messenger2 = new TestMessenger();
@@ -807,7 +824,7 @@ public class FileConnectorTest {
       FileUtils.deleteDirectory(tempDir);
 
       // Needed since our db is on disk
-      FileUtils.deleteDirectory(new File("state"));
+      FileUtils.deleteDirectory(STATE_DIR);
     }
   }
 
@@ -830,6 +847,7 @@ public class FileConnectorTest {
       // Config with state and incremental mode with tombstones enabled
       Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
           .withValue("paths", ConfigValueFactory.fromIterable(List.of(tempDir.toURI().toString())))
+          .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
           .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
           .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"))
           .withValue("state.runsBeforeExpiration", ConfigValueFactory.fromAnyRef(2));
@@ -909,7 +927,7 @@ public class FileConnectorTest {
       FileUtils.deleteDirectory(tempDir);
 
       // Needed since our db is on disk
-      FileUtils.deleteDirectory(new File("state"));
+      FileUtils.deleteDirectory(STATE_DIR);
     }
   }
 
@@ -954,5 +972,207 @@ public class FileConnectorTest {
 
     // 5 docs from example (no file handlers!), 3 from directory 1
     assertEquals(8, documentList.size());
+  }
+
+  // Verifies that a concurrent traversal publishes the same files as a sequential one, and none of them twice.
+  @Test
+  public void testConcurrentTraversal() throws Exception {
+    Config sequentialConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf");
+    Config concurrentConfig = sequentialConfig.withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+
+    List<Document> sequentialDocs = publishedDocuments(sequentialConfig);
+    List<Document> concurrentDocs = publishedDocuments(concurrentConfig);
+
+    // 3 files in each of the 3 directories
+    assertEquals(9, concurrentDocs.size());
+    assertEquals(documentIds(sequentialDocs), documentIds(concurrentDocs));
+    // a file published twice would collapse in the Set above, so check the count separately
+    assertEquals(concurrentDocs.size(), documentIds(concurrentDocs).size());
+  }
+
+  // Verifies that the paths are traversed concurrently. Each traversal waits for the others to start, so this times out
+  // and fails if they ran one after another.
+  @Test
+  public void testConcurrentTraversalsOverlap() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    // the config has three paths, so all three traversals should be in flight at once
+    CountDownLatch allStarted = new CountDownLatch(3);
+
+    try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      StorageClient mockClient = mock(StorageClient.class);
+
+      doAnswer(invocation -> {
+        allStarted.countDown();
+        if (!allStarted.await(5, TimeUnit.SECONDS)) {
+          throw new IllegalStateException("Traversals did not overlap - they ran sequentially.");
+        }
+        return null;
+      }).when(mockClient).traverse(any(), any(), any());
+
+      mockedStorage.when(() -> StorageClient.createClients(any())).thenReturn(Map.of("file", mockClient));
+
+      connector = new FileConnector(config);
+      connector.execute(publisher);
+
+      verify(mockClient, times(3)).traverse(any(), any(), any());
+    }
+  }
+
+  // Verifies that concurrent traversal is rejected alongside collapse, which a Publisher cannot do concurrently.
+  @Test
+  public void testPreventConcurrentAndCollapse() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("collapse", ConfigValueFactory.fromAnyRef(true));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage().contains("collapse"));
+  }
+
+  // Verifies that overlapping paths are rejected for a concurrent traversal, but still allowed for a sequential one.
+  @Test
+  public void testPreventConcurrentOverlappingPaths() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("paths", ConfigValueFactory.fromIterable(List.of(
+            "./src/test/resources/FileConnectorTest/directory1",
+            "./src/test/resources/FileConnectorTest/directory1/nested")));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> new FileConnector(config.withValue("concurrent", ConfigValueFactory.fromAnyRef(true))));
+    assertTrue(e.getMessage().contains("overlapping"));
+
+    // sequential traversals of overlapping paths already worked before concurrency was an option, so they still do
+    assertDoesNotThrow(() -> new FileConnector(config));
+  }
+
+  // Verifies that paths sharing a name prefix, but not a path segment, are not mistaken for overlapping paths.
+  @Test
+  public void testConcurrentPathsSharingNamePrefixAllowed() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("paths", ConfigValueFactory.fromIterable(List.of(
+            "./src/test/resources/FileConnectorTest/directory1",
+            "./src/test/resources/FileConnectorTest/directory1-archive")));
+
+    assertDoesNotThrow(() -> new FileConnector(config));
+  }
+
+  // Verifies that concurrent traversal with no paths is harmless, since it is skipped when there are fewer than two.
+  @Test
+  public void testConcurrentTraversalNoPaths() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("paths", ConfigValueFactory.fromIterable(List.of()));
+
+    assertEquals(0, publishedDocuments(config).size());
+  }
+
+  // Verifies that a concurrent traversal with a state db, where each thread opens its own connection to the one
+  // state table, publishes the same documents as a sequential run.
+  @Test
+  public void testConcurrentTraversalWithState() throws Exception {
+    Config baseConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf");
+
+    // a separate in-memory database for each run, so the second run doesn't see the first run's publish times
+    List<Document> sequentialDocs = publishedDocuments(baseConfig
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:sequentialRun")));
+
+    List<Document> concurrentDocs = publishedDocuments(baseConfig
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:concurrentRun")));
+
+    assertFalse(concurrentDocs.isEmpty());
+    assertEquals(sequentialDocs.size(), concurrentDocs.size());
+    assertEquals(documentIds(sequentialDocs), documentIds(concurrentDocs));
+  }
+
+  // Verifies that a failed traversal does not stop the others, and that the resulting exception names the failed path.
+  @Test
+  public void testConcurrentTraversalContinuesAfterFailure() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    StorageClient mockClient = publishOrFailFor(publisher, "directory2");
+
+    try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      mockedStorage.when(() -> StorageClient.createClients(any())).thenReturn(Map.of("file", mockClient));
+
+      connector = new FileConnector(config);
+      ConnectorException e = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+
+      // directory1 and directory3 both ran to completion, even though directory2 failed
+      assertEquals(Set.of("directory1", "directory3"), documentIds(messenger.getDocsSentForProcessing()));
+      assertTrue(e.getCause().getMessage().contains("directory2"));
+    }
+  }
+
+  // Verifies that when more than one traversal fails, the failures after the first are kept as suppressed exceptions.
+  @Test
+  public void testConcurrentTraversalMultipleFailures() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    StorageClient mockClient = publishOrFailFor(publisher, "directory1", "directory3");
+
+    try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      mockedStorage.when(() -> StorageClient.createClients(any())).thenReturn(Map.of("file", mockClient));
+
+      connector = new FileConnector(config);
+      ConnectorException e = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+
+      assertEquals(Set.of("directory2"), documentIds(messenger.getDocsSentForProcessing()));
+
+      // the paths are waited on in order, so directory1 becomes the cause and directory3 is suppressed onto it
+      assertTrue(e.getCause().getMessage().contains("directory1"));
+      assertEquals(1, e.getSuppressed().length);
+      assertTrue(e.getSuppressed()[0].getMessage().contains("directory3"));
+    }
+  }
+
+  // Returns a mock StorageClient. Traversing a directory in directoriesToFail throws an IOException.
+  // Traversing any other directory publishes a single Document whose id is the directory name.
+  private static StorageClient publishOrFailFor(Publisher publisher, String... directoriesToFail) throws Exception {
+    Set<String> failing = Set.of(directoriesToFail);
+    StorageClient mockClient = mock(StorageClient.class);
+
+    doAnswer(invocation -> {
+      TraversalParams params = invocation.getArgument(1);
+      String directory = Paths.get(params.getURI().getPath()).getFileName().toString();
+
+      if (failing.contains(directory)) {
+        throw new IOException("Traversal of " + directory + " failed.");
+      }
+
+      publisher.publish(Document.create(directory));
+      return null;
+    }).when(mockClient).traverse(any(), any(), any());
+
+    return mockClient;
+  }
+
+  private List<Document> publishedDocuments(Config config) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector conn = new FileConnector(config);
+    try {
+      conn.execute(publisher);
+    } finally {
+      conn.close();
+    }
+
+    return messenger.getDocsSentForProcessing();
+  }
+
+  private static Set<String> documentIds(List<Document> documents) {
+    return documents.stream().map(Document::getId).collect(Collectors.toSet());
   }
 }
