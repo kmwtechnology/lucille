@@ -13,7 +13,7 @@ The `FileConnector` traverses a file system and publishes a Lucille Document for
 
 ## Cloud Storage Configuration
 
-When traversing cloud storage, provide authentication under the appropriate top-level config block alongside your connector config. Each provider also accepts an optional `maxResultsPerPage`, the page size, or number of results returned per listing request (default 100; 1000 for S3, which is also the most S3 returns per request). The older name `maxNumOfPages` is deprecated but still read when `maxResultsPerPage` is not set.
+When traversing cloud storage, provide authentication under the appropriate top-level config block alongside your connector config. Each provider also accepts an optional `maxResultsPerPage`, the page size, or number of results returned per listing request (default 100; 1000 for S3, which is also the most S3 returns per request).
 
 **Azure**
 

@@ -200,15 +200,15 @@ For complex connectors with cloud provider configs, nested specs describe sub-ob
 // FileConnector declares parent specs for each cloud provider
 public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
     .requiredString("pathToServiceKey")
-    .optionalNumber("maxResultsPerPage", "maxNumOfPages").build();
+    .optionalNumber("maxResultsPerPage").build();
 
 public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
     .optionalString("accessKeyId", "secretAccessKey", "region")
-    .optionalNumber("maxResultsPerPage", "maxNumOfPages").build();
+    .optionalNumber("maxResultsPerPage").build();
 
 public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
     .optionalString("connectionString", "accountName", "accountKey")
-    .optionalNumber("maxResultsPerPage", "maxNumOfPages").build();
+    .optionalNumber("maxResultsPerPage").build();
 
 // Used in the connector's SPEC
 public static final Spec SPEC = SpecBuilder.connector()

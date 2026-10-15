@@ -77,8 +77,7 @@ import com.typesafe.config.Config;
  *   as expired. Must be at least 1. Defaults to 1.</li>
  *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 768. A longer path fails the run.</li>
  *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
- *   <li>gcp.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.
- *   Replaces maxNumOfPages, which is deprecated but still read when maxResultsPerPage is not set.</li>
+ *   <li>gcp.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
  *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
  *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
  *   <li>s3.region (String, Optional) : AWS region for S3.</li>
@@ -117,9 +116,6 @@ public class FileConnector extends AbstractConnector {
   public static final String S3_ANONYMOUS = "anonymous";
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
   public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
-  /** @deprecated use {@link #MAX_RESULTS_PER_PAGE}; still read when that key is not set. */
-  @Deprecated
-  public static final String MAX_NUM_OF_PAGES = "maxNumOfPages";
 
   // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
@@ -131,14 +127,14 @@ public class FileConnector extends AbstractConnector {
   // parent specs for cloud provider configs
   public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
       .requiredString("pathToServiceKey")
-      .optionalNumber(MAX_RESULTS_PER_PAGE, MAX_NUM_OF_PAGES).build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
       .optionalString("accessKeyId", "secretAccessKey", "region")
       .optionalBoolean("anonymous")
-      .optionalNumber(MAX_RESULTS_PER_PAGE, MAX_NUM_OF_PAGES).build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
       .optionalString("connectionString", "accountName", "accountKey")
-      .optionalNumber(MAX_RESULTS_PER_PAGE, MAX_NUM_OF_PAGES).build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 

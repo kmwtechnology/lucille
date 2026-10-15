@@ -124,8 +124,7 @@ public interface StorageClient {
    * To build clients for the cloud providers, these arguments must be provided in separate maps:
    * <br> gcp:
    * "pathToServiceKey" : "path/To/Service/Key.json"
-   * "maxResultsPerPage" : number of results returned per listing request (page size). Optional, defaults to 100.
-   * Replaces "maxNumOfPages", which is deprecated but still read when "maxResultsPerPage" is not set.
+   * "maxResultsPerPage" : number of results returned per listing request (page size). Optional, defaults to 100
    *
    * <br> s3:
    * "accessKeyId" : s3 key id. Not needed if secretAccessKey is not specified (using default credentials).

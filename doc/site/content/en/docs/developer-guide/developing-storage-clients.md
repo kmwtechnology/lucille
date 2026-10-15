@@ -269,7 +269,7 @@ Until then, adding a new StorageClient requires modifying the `StorageClient.cre
 
 - **Call `processAndPublishFileIfValid()` for each file** — The base class handles filtering, archive extraction, FileHandler delegation, and state management. Don't bypass it.
 - **Implement a `FileReference` subclass** — Provide the file's full URI, size, modification time, and a method to open its content stream. The base class uses this metadata for filtering and incremental mode.
-- **Use `maxResultsPerPage`** — The base class exposes this config value as the number of results to request per listing call (default: 100, or a provider-specific default passed to the protected `BaseStorageClient(Config, int)` constructor, as `S3StorageClient` does with 1000). The deprecated `maxNumOfPages` is still read when it is not set.
+- **Use `maxResultsPerPage`** — The base class exposes this config value as the number of results to request per listing call (default: 100, or a provider-specific default passed to the protected `BaseStorageClient(Config, int)` constructor, as `S3StorageClient` does with 1000).
 - **Handle `moveFile()` appropriately** — If your storage system doesn't support moves (e.g., a read-only archive), throw `UnsupportedOperationException` and note in your documentation that success/error directories are not supported.
 - **Keep connections open across traversal** — Open the connection in `initializeStorageClient()` and close it in `shutdownStorageClient()`. Don't reconnect per file.
 - **Validate eagerly** — Check credentials and required config in `validateOptions()` so errors surface at startup, not mid-traversal.
