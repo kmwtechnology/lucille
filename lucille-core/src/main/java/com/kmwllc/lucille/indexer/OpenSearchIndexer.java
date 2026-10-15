@@ -457,13 +457,6 @@ public class OpenSearchIndexer extends Indexer {
     indexerDoc.put(childDocumentsField, childDocMaps);
   }
 
-  private boolean isMarkedForDeletion(Document doc) {
-    return deletionMarkerField != null
-        && deletionMarkerFieldValue != null
-        && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
-  }
-
   private Long getVersionNum(Document doc) {
     if (versionField != null && doc.has(versionField)) {
       return doc.getLong(versionField);

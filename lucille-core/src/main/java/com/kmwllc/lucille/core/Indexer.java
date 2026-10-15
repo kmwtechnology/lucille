@@ -786,15 +786,23 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
   /**
    * Whether the document is a delete-by-query request, which can match documents in any batch and so forces its batch
-   * to be sent alone when maxConcurrentBatches is greater than 1. Mirrors the delete-by-query detection in the Solr,
-   * OpenSearch, and Elasticsearch indexers.
+   * to be sent alone when maxConcurrentBatches is greater than 1. A document is a delete-by-query when it
+   * {@link #isMarkedForDeletion} and {@link #hasDeleteByFieldValues}; the subclasses branch on those same two checks.
    */
   private boolean isDeleteByQuery(Document doc) {
+    return isMarkedForDeletion(doc) && hasDeleteByFieldValues(doc);
+  }
+
+  /**
+   * Whether the document is marked for deletion: the configured deletionMarkerField is present and non-null and equals
+   * the configured deletionMarkerFieldValue. Returns false unless both are configured. Shared by the Solr, OpenSearch,
+   * and Elasticsearch indexers, which use it to decide between uploading a document and deleting it.
+   */
+  protected boolean isMarkedForDeletion(Document doc) {
     return deletionMarkerField != null
         && deletionMarkerFieldValue != null
         && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue)
-        && hasDeleteByFieldValues(doc);
+        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
   }
 
   /**

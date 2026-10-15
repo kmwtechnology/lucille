@@ -434,13 +434,6 @@ public class ElasticsearchIndexer extends Indexer {
     return failedDocs;
   }
 
-  private boolean isMarkedForDeletion(Document doc) {
-    return deletionMarkerField != null
-        && deletionMarkerFieldValue != null
-        && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
-  }
-
   @Override
   public void closeConnection() {
     if (!bypass && client != null && client._transport() != null) {
