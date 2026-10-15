@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.kmwllc</groupId>
     <artifactId>lucille-parent</artifactId>
-    <version>0.12.0-SNAPSHOT</version>
+    <version>0.13.0-SNAPSHOT</version>
     <relativePath>../lucille-parent/pom.xml</relativePath>
   </parent>
 
@@ -27,6 +27,22 @@
     <module>lucille-entity-extraction</module>
     <module>lucille-video</module>
   </modules>
+
+  <properties>
+    <!-- Lifecycle phase the plugin modules bind maven-shade-plugin to. "none" skips building the
+         shaded *-plugin.jar (hundreds of MB for some plugins, unused by tests). Activate the
+         shaded-plugin-jars profile to build it: mvn package -Pshaded-plugin-jars -->
+    <shaded-plugin-jar.phase>none</shaded-plugin-jar.phase>
+  </properties>
+
+  <profiles>
+    <profile>
+      <id>shaded-plugin-jars</id>
+      <properties>
+        <shaded-plugin-jar.phase>package</shaded-plugin-jar.phase>
+      </properties>
+    </profile>
+  </profiles>
 
   <dependencies>
 

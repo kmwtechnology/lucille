@@ -4,9 +4,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
@@ -286,5 +288,28 @@ public class TraversalParamsTest {
     URI expected = Paths.get("src/test/resources").toAbsolutePath().normalize().toUri();
     assertEquals(List.of(expected), params.getPathsToSkip());
     assertTrue(params.getPathsToSkip().get(0).isAbsolute());
+  }
+
+  @Test
+  public void testParsePathOrURIKeepsValidURIs() throws Exception {
+    assertEquals(URI.create("s3://bucket/key"), TraversalParams.parsePathOrURI("s3://bucket/key"));
+    assertEquals(URI.create("temp/defaults.csv"), TraversalParams.parsePathOrURI("temp/defaults.csv"));
+  }
+
+  @Test
+  public void testParsePathOrURITreatsDriveLetterAsLocalPath() throws Exception {
+    // a single-letter "scheme" is a Windows drive letter, not a URI scheme
+    assertEquals("file", TraversalParams.parsePathOrURI("C:/data").getScheme());
+    assertEquals("file", TraversalParams.parsePathOrURI("C:\\data").getScheme());
+  }
+
+  @Test
+  public void testParsePathOrURIConvertsInvalidURIToLocalPath() throws Exception {
+    assertEquals(Paths.get("folder with spaces/file.txt").toUri(), TraversalParams.parsePathOrURI("folder with spaces/file.txt"));
+  }
+
+  @Test
+  public void testParsePathOrURIRejectsInvalidURIWithScheme() {
+    assertThrows(URISyntaxException.class, () -> TraversalParams.parsePathOrURI("s3://bucket/with space"));
   }
 }

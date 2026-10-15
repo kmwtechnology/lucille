@@ -273,6 +273,7 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.securityProtocol` | Security protocol (PLAINTEXT, SSL, SASL_SSL, etc.) | No |
 | `kafka.consumerGroupId` | Consumer group for Workers/Indexers | Yes |
 | `kafka.maxPollIntervalSecs` | Max time between polls before rebalance | Yes |
+| `kafka.pollIntervalMs` | How long each consumer poll blocks waiting for records | No (default: 2000) |
 | `kafka.maxRequestSize` | Max message size in bytes | Yes |
 | `kafka.metadataMaxAgeMs` | Metadata cache TTL | No (default: 30000) |
 | `kafka.sourceTopic` | Override source topic name | No |

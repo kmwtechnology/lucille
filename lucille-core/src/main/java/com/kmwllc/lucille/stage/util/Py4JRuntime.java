@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import org.apache.commons.lang3.SystemUtils;
 
 
 public final class Py4JRuntime {
@@ -265,7 +266,10 @@ public final class Py4JRuntime {
     }
 
     Path venvDir = pythonDir.resolve("venv");
-    Path venvPython = venvDir.resolve("bin/python");
+    // venv puts the interpreter in Scripts\python.exe on Windows, bin/python everywhere else
+    Path venvPython = SystemUtils.IS_OS_WINDOWS
+        ? venvDir.resolve("Scripts").resolve("python.exe")
+        : venvDir.resolve("bin").resolve("python");
     venvPythonPath = venvPython.toAbsolutePath().toString();
     if (!Files.exists(venvPython)) {
       log.info("Python venv not found, creating venv in cwd...");

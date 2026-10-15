@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -469,6 +470,9 @@ public class ChunkTextTest {
   public void testInvalidConfigs() {
     assertThrows(StageException.class,
         () -> factory.get("ChunkTextTest/customEmptyRegex.conf"));
+
+    assertThrows(StageException.class,
+        () -> factory.get(Map.of("source", "text", "chunkingMethod", "custom", "regex", "[unclosed")));
 
     assertThrows(StageException.class,
         () -> factory.get("ChunkTextTest/fixedNullSplitLength.conf"));

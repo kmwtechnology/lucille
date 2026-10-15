@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.FileConnector.S3_ANONYMOUS;
 import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
 import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
 
@@ -14,6 +15,7 @@ import java.net.URISyntaxException;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -23,19 +25,29 @@ import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
  * A storage client for S3. Create using a configuration (commonly mapped to <b>s3</b>) which can contain
- * "region" and can contain <b>both</b> "accessKeyId" and "secretAccessKey".
+ * "region" and can contain <b>both</b> "accessKeyId" and "secretAccessKey". Set "anonymous" instead to send
+ * unsigned requests to public buckets. This cannot be combined with "accessKeyId" / "secretAccessKey", and
+ * defaults the region to us-east-1 when no "region" is given.
  */
 public class S3StorageClient extends BaseStorageClient {
 
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
+
+  // us-east-1 acts as S3's global endpoint and redirects to the bucket's real region.
+  static final Region ANONYMOUS_DEFAULT_REGION = Region.US_EAST_1;
+
+  // S3 returns at most 1000 keys per LIST request, whatever larger value is asked for.
+  static final int DEFAULT_MAX_RESULTS_PER_PAGE = 1000;
+
   protected S3Client s3;
 
   public S3StorageClient(Config s3CloudOptions) {
-    super(s3CloudOptions);
+    super(s3CloudOptions, DEFAULT_MAX_RESULTS_PER_PAGE);
   }
 
   @Override
@@ -44,6 +56,15 @@ public class S3StorageClient extends BaseStorageClient {
       throw new IllegalArgumentException("'" + S3_ACCESS_KEY_ID + "' and '" + S3_SECRET_ACCESS_KEY +
           "' must be specified together or omitted together in Config for S3StorageClient.");
     }
+
+    if (isAnonymous(config) && config.hasPath(S3_ACCESS_KEY_ID)) {
+      throw new IllegalArgumentException("'" + S3_ANONYMOUS + "' cannot be combined with '" + S3_ACCESS_KEY_ID
+          + "' / '" + S3_SECRET_ACCESS_KEY + "' in Config for S3StorageClient.");
+    }
+  }
+
+  private static boolean isAnonymous(Config config) {
+    return config.hasPath(S3_ANONYMOUS) && config.getBoolean(S3_ANONYMOUS);
   }
 
   @Override
@@ -52,13 +73,15 @@ public class S3StorageClient extends BaseStorageClient {
       S3ClientBuilder builder = S3Client.builder();
 
       if (config.hasPath(S3_REGION)) {
-        Region configRegion = Region.of(config.getString(S3_REGION));
-        builder = builder.region(configRegion);
+        builder = builder.region(Region.of(config.getString(S3_REGION)));
+      } else if (isAnonymous(config)) {
+        builder = builder.region(ANONYMOUS_DEFAULT_REGION);
       }
 
-      // use StaticCredentialsProvider when access key is provided,
-      // otherwise don't set a credentials provider but instead implicitly use the default credentials provider chain
-      if (config.hasPath(S3_ACCESS_KEY_ID) && config.hasPath(S3_SECRET_ACCESS_KEY)) {
+      // Unsigned requests, for public buckets that need no credentials at all.
+      if (isAnonymous(config)) {
+        builder = builder.credentialsProvider(AnonymousCredentialsProvider.create());
+      } else if (config.hasPath(S3_ACCESS_KEY_ID) && config.hasPath(S3_SECRET_ACCESS_KEY)) {
         AwsBasicCredentials awsCred = AwsBasicCredentials.create(config.getString(S3_ACCESS_KEY_ID), config.getString(S3_SECRET_ACCESS_KEY));
         builder = builder.credentialsProvider(StaticCredentialsProvider.create(awsCred));
       }
@@ -82,22 +105,22 @@ public class S3StorageClient extends BaseStorageClient {
 
   @Override
   protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
-    traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
+    String startingDirectory = getStartingDirectory(params);
+    if (params.getPathsToSkip().isEmpty()) {
+      // nothing to prune, so a single flat listing of every key under the prefix replaces one listing per directory
+      ListObjectsV2Request request = listRequest(params, startingDirectory).build();
+      s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> publishContents(publisher, params, stateMgr, resp));
+    } else {
+      traversePrefix(publisher, params, stateMgr, startingDirectory);
+    }
   }
 
+  // Lists one directory level at a time so that skipped directories are never listed.
   private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
-    ListObjectsV2Request request = ListObjectsV2Request.builder()
-        .bucket(getBucketOrContainerName(params))
-        .prefix(prefix)
-        .delimiter("/")
-        .maxKeys(maxNumOfPages)
-        .build();
+    ListObjectsV2Request request = listRequest(params, prefix).delimiter("/").build();
 
     s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> {
-      resp.contents().forEach(obj -> {
-        S3FileReference fileRef = new S3FileReference(obj, params);
-        processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
-      });
+      publishContents(publisher, params, stateMgr, resp);
 
       resp.commonPrefixes().forEach(cp -> {
         URI prefixUri = uriForDirectory(cp.prefix(), params);
@@ -105,6 +128,21 @@ public class S3StorageClient extends BaseStorageClient {
           traversePrefix(publisher, params, stateMgr, cp.prefix());
         }
       });
+    });
+  }
+
+  private ListObjectsV2Request.Builder listRequest(TraversalParams params, String prefix) {
+    return ListObjectsV2Request.builder()
+        .bucket(getBucketOrContainerName(params))
+        .prefix(prefix)
+        .maxKeys(maxResultsPerPage);
+  }
+
+  private void publishContents(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr,
+      ListObjectsV2Response resp) {
+    resp.contents().forEach(obj -> {
+      S3FileReference fileRef = new S3FileReference(obj, params);
+      processAndPublishFileIfValid(publisher, fileRef, params, stateMgr);
     });
   }
 

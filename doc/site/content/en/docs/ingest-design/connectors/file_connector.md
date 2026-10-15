@@ -13,7 +13,7 @@ The `FileConnector` traverses a file system and publishes a Lucille Document for
 
 ## Cloud Storage Configuration
 
-When traversing cloud storage, provide authentication under the appropriate top-level config block alongside your connector config. Each provider also accepts an optional `maxNumOfPages` to limit how many file listings are loaded into memory per request.
+When traversing cloud storage, provide authentication under the appropriate top-level config block alongside your connector config. Each provider also accepts an optional `maxResultsPerPage`, the page size, or number of results returned per listing request (default 100; 1000 for S3, which is also the most S3 returns per request).
 
 **Azure**
 
@@ -23,7 +23,7 @@ azure {
   # or:
   accountName: "myaccount"
   accountKey: "mykey"
-  maxNumOfPages: 100
+  maxResultsPerPage: 100
 }
 ```
 
@@ -34,7 +34,7 @@ You must provide either `connectionString`, or both `accountName` and `accountKe
 ```hocon
 gcp {
   pathToServiceKey: "/path/to/service-account.json"
-  maxNumOfPages: 100
+  maxResultsPerPage: 100
 }
 ```
 
@@ -45,11 +45,14 @@ s3 {
   accessKeyId: "AKIA..."
   secretAccessKey: "..."
   region: "us-east-1"
-  maxNumOfPages: 100
 }
 ```
 
+When no `pathsToSkip` filter is set, S3 paths are listed in one flat listing rather than directory by directory, so files are published in S3 key order.
+
 For S3 paths, percent-encode special characters in `paths` (e.g., `s3://bucket/folder%20with%20spaces`).
+
+Local paths can be given as `file://` URIs or as plain file system paths, including Windows paths such as `C:/data` or `C:\\data` (backslashes must be escaped in HOCON).
 
 A single connector can traverse multiple paths across providers:
 
@@ -268,7 +271,7 @@ state {
   jdbcPassword: ""
   tableName: "file_state"          # Defaults to the connector name
   performDeletions: true
-  pathLength: 200                  # Max length of the file path column
+  pathLength: 768                  # Max length of the file path column; a longer path fails the run
   runsBeforeExpiration: 1          # Consecutive absent runs before tombstone (default: 1)
 }
 ```
@@ -316,7 +319,7 @@ Every document published by the `FileConnector` carries these fields:
 
 | Field | Type | Description |
 |---|---|---|
-| `file_path` | String | Full path or URI to the file. |
+| `file_path` | String | URI of the file (e.g. `file:///C:/data/a.json`, `s3://bucket/a.json`). Always uses `/` as the separator. |
 | `file_modification_date` | Instant | Last-modified timestamp of the file. |
 | `file_creation_date` | Instant | Creation timestamp of the file (where available). |
 | `file_size_bytes` | Long | File size in bytes. |
