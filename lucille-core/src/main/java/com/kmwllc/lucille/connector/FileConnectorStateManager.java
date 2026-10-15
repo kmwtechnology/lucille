@@ -12,6 +12,7 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +86,11 @@ public class FileConnectorStateManager {
 
   private final String registryKey;
 
+  // Whether this instance currently holds the registry lock. init() and shutdown() can run on different threads
+  // (Runner calls execute() on a ConnectorThread but close() on its own thread), and shutdown() can be called
+  // without a successful init() - so only release a lock this instance actually acquired, and only once.
+  private final AtomicBoolean holdsLock = new AtomicBoolean(false);
+
   /**
    * Creates a FileConnectorStateManager from the given config.
    * @param config Configuration for the FileConnectorStateManager.
@@ -113,6 +119,7 @@ public class FileConnectorStateManager {
    */
   public void init() throws ClassNotFoundException, SQLException {
     LOCK_REGISTRY.acquire(registryKey);
+    holdsLock.set(true);
 
     // An important note: we do *not* release the lock in a "finally" block
     // in the event of an exception here. This is because we expect
@@ -262,7 +269,9 @@ public class FileConnectorStateManager {
 
       closeConnection(jdbcConnection);
     } finally {
-      LOCK_REGISTRY.release(registryKey);
+      if (holdsLock.getAndSet(false)) {
+        LOCK_REGISTRY.release(registryKey);
+      }
     }
   }
   

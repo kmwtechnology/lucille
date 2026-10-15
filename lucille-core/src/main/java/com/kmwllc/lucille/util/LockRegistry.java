@@ -3,13 +3,16 @@ package com.kmwllc.lucille.util;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Maps String keys to fair ReentrantLocks. Keeps reference counts to
+ * Maps String keys to fair, non-reentrant locks. Keeps reference counts to
  * prevent unbounded memory consumption - locks are removed from the map
  * when no longer in use.
+ *
+ * <p> A lock is not owned by the thread that acquired it, so it may be released by a different thread.
+ * This is needed because a Connector's execute() and close() can run on different threads.
  */
 public class LockRegistry {
 
@@ -31,7 +34,7 @@ public class LockRegistry {
           return existing;
         });
 
-    lockInfo.lock.lock();
+    lockInfo.lock.acquireUninterruptibly();
   }
 
   /**
@@ -46,7 +49,7 @@ public class LockRegistry {
         throw new IllegalStateException("No lock for key \"" + key + "\".");
       }
 
-      existing.lock.unlock();
+      existing.lock.release();
 
       return existing.refCount.decrementAndGet() == 0
           ? null
@@ -66,7 +69,8 @@ public class LockRegistry {
    * Values held in the lock map.
    */
   private static final class LockInfo {
-    private final ReentrantLock lock = new ReentrantLock(true);
+    // a single-permit Semaphore rather than a ReentrantLock, so it can be released from any thread
+    private final Semaphore lock = new Semaphore(1, true);
     // we track the number of times this lock is being "referenced"
     // or being locked so that we know when we can safely
     // "cleanup" the locks map and prevent unbounded heap usage

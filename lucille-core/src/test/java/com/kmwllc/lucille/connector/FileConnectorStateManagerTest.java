@@ -629,6 +629,82 @@ public class FileConnectorStateManagerTest {
     manager.shutdown();
   }
 
+  // Runner calls connector.execute() (-> init) on a ConnectorThread, but connector.close() (-> shutdown) on the
+  // thread that started it, so the lock must be releasable from a different thread than the one that acquired it.
+  @Test
+  public void testInitAndShutdownOnDifferentThreads() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    Thread initThread = new Thread(() -> {
+      try {
+        manager.init();
+        manager.markFileEncountered(helloFile);
+        manager.closeStateForThread();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+    initThread.start();
+    initThread.join();
+
+    manager.shutdown();
+
+    // a later run against the same table must not be blocked by a lock that was never released
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    CountDownLatch initCompleted = new CountDownLatch(1);
+
+    Thread t = new Thread(() -> {
+      try {
+        manager2.init();
+        initCompleted.countDown();
+        manager2.shutdown();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+    t.start();
+
+    assertTrue(initCompleted.await(5, TimeUnit.SECONDS));
+    t.join();
+  }
+
+  // FileConnector.close() calls shutdown() even when execute() - and so init() - never ran, e.g. when preExecute fails.
+  // That shutdown() must not release a lock that another manager holds.
+  @Test
+  public void testShutdownWithoutInitDoesNotReleaseOtherLock() throws Exception {
+    final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    FileConnectorStateManager neverInitialized = new FileConnectorStateManager(config, null);
+    neverInitialized.shutdown();
+
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    CountDownLatch initCompleted = new CountDownLatch(1);
+
+    Thread t = new Thread(() -> {
+      try {
+        manager2.init();
+        initCompleted.countDown();
+        manager2.shutdown();
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+    t.start();
+
+    // still blocked by the first manager
+    assertFalse(initCompleted.await(500, TimeUnit.MILLISECONDS));
+
+    manager.shutdown();
+    assertTrue(initCompleted.await(5, TimeUnit.SECONDS));
+    t.join();
+  }
+
   @Test
   public void testBlockConcurrentConnections() throws Exception {
     final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
