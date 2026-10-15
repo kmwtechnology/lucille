@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -214,14 +215,24 @@ class ConcurrentDispatcher implements BatchDispatcher {
   // interruptible blocking calls (e.g. a queue put) that would otherwise throw at once and lose the batch's completion.
   // Any interrupt — whether it was already pending or arrived during the wait — is restored afterwards, so the next
   // poll observes it and the run loop exits. See the note on interrupts in awaitOutcome.
+  //
+  // The batch stays in inFlightBatches/inFlightIds until the wait is over, so it remains visible to the id-overlap and
+  // barrier checks of anything dispatched meanwhile. That can happen: awaitOutcome calls keepAlive, which may poll the
+  // consumer, and a rebalance there runs the revocation hook, which re-enters dispatch() and drain() on this thread.
+  // Such a nested drain completes this batch (it is still the head) before the outer call's wait returns, so after the
+  // wait the head is checked: if it is no longer this batch, the nested call has already completed it.
   private void completeOldest() {
-    InFlightBatch oldest = inFlightBatches.removeFirst();
-    inFlightIds.removeAll(oldest.ids());
+    InFlightBatch oldest = inFlightBatches.peekFirst();
     // Clear and remember any already-pending interrupt, so completion below runs with the flag clear.
     boolean interrupted = Thread.interrupted();
     try {
       AwaitedOutcome awaited = awaitOutcome(oldest.outcome());
       interrupted |= awaited.interrupted();
+      if (inFlightBatches.peekFirst() != oldest) {
+        return;
+      }
+      inFlightBatches.removeFirst();
+      inFlightIds.removeAll(oldest.ids());
       processor.completeBatch(oldest.docs(), awaited.outcome());
     } finally {
       if (interrupted) {
@@ -257,6 +268,10 @@ class ConcurrentDispatcher implements BatchDispatcher {
       } catch (ExecutionException e) {
         // processor.sendWithRetry captures its own Throwables, so this only happens if the task wrapper itself failed.
         return new AwaitedOutcome(new SendOutcome(null, e.getCause(), 0), interrupted);
+      } catch (CancellationException e) {
+        // The send was cancelled before it ran. Nothing here cancels futures, but if one is, the batch must still be
+        // accounted for (FAIL events emitted), or the run would hang waiting for events that never arrive.
+        return new AwaitedOutcome(new SendOutcome(null, e, 0), interrupted);
       }
     }
   }
