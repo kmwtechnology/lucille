@@ -10,11 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +22,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
-  private final KafkaProducer<String, String> kafkaEventProducer;
+  private final KafkaEventSender eventSender;
   private final String pipelineName;
   private final Config config;
 
@@ -46,7 +42,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.idSet = idSet;
-    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.eventSender = new KafkaEventSender(config, pipelineName);
     this.pipelineName = pipelineName;
     this.config = config;
   }
@@ -56,16 +52,16 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     return pipelineDest.poll(LocalMessenger.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }
 
+  /**
+   * Sends the Event without waiting for it to be acknowledged. It is delivered by the next sendEvents() or
+   * batchComplete() call.
+   */
   @Override
   public void sendEvent(Event event) throws Exception {
     if (idSet != null) {
       idSet.add(event.getDocumentId());
     }
-    if (kafkaEventProducer != null) {
-      String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-      RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
-          new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
-    }
+    eventSender.send(event);
   }
 
   @Override
@@ -73,9 +69,8 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     if (idSet != null) {
       idSet.add(document.getId());
     }
-    if (kafkaEventProducer != null) {
-      Event event = new Event(document, message, type);
-      sendEvent(event);
+    if (eventSender.isEnabled()) {
+      eventSender.send(new Event(document, message, type));
     }
   }
 
@@ -91,43 +86,47 @@ public class HybridIndexerMessenger implements IndexerMessenger {
       }
     }
 
-    if (kafkaEventProducer == null) {
+    if (!eventSender.isEnabled()) {
       return;
     }
 
-    AtomicReference<Exception> sendException = new AtomicReference<>();
-
     for (Document document : documents) {
-      Event event = new Event(document, message, type);
-      String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-      kafkaEventProducer.send(
-          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()),
-          (metadata, exception) -> {
-            if (exception != null) {
-              log.error("Failed to send event for doc: {}", event.getDocumentId(), exception);
-              sendException.compareAndSet(null, exception);
-            }
-          });
+      eventSender.send(new Event(document, message, type));
     }
-
-    kafkaEventProducer.flush();
-
-    Exception e = sendException.get();
-    if (e != null) {
-      throw new Exception("Failed to send one or more events", e);
-    }
+    eventSender.flush();
   }
 
   @Override
   public void close() throws Exception {
-    if (kafkaEventProducer != null) {
-      kafkaEventProducer.close();
-    }
+    eventSender.close();
   }
 
   // TODO document assumptions about ordering of documents in batch
   @Override
-  public void batchComplete(List<Document> batch) throws InterruptedException {
+  public void batchComplete(List<Document> batch) throws Exception {
+    // Deliver the batch's events (FAIL events are sent one at a time) before its offsets are queued for commit, so a
+    // committed offset never covers a document whose terminal event is still in the producer. As when sends were
+    // synchronous, a failed event send is reported but does not hold back the offsets.
+    Exception flushFailure = null;
+    try {
+      eventSender.flush();
+    } catch (Exception e) {
+      flushFailure = e;
+    }
+    try {
+      queueOffsets(batch);
+    } catch (InterruptedException e) {
+      if (flushFailure != null) {
+        e.addSuppressed(flushFailure);
+      }
+      throw e;
+    }
+    if (flushFailure != null) {
+      throw flushFailure;
+    }
+  }
+
+  private void queueOffsets(List<Document> batch) throws InterruptedException {
     if (batch.isEmpty()) {
       return;
     }

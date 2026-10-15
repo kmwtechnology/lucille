@@ -24,6 +24,7 @@ public interface WorkerMessenger {
     void sendFailed(Document document) throws Exception;       // Dead letter queue
     void sendEvent(Document document, String message, Event.Type type) throws Exception;
     void sendEvent(Event event) throws Exception;       // Lifecycle events
+    void flushEvents() throws Exception;                // Deliver events sent so far
     void close() throws Exception;
 }
 ```
@@ -80,6 +81,7 @@ Key simplifications in local mode:
 - `commitPendingDocOffsets()` is a no-op (no offsets to commit)
 - `sendFailed()` is a no-op (no dead letter queue)
 - `batchComplete()` is a no-op (no offset feedback needed)
+- `flushEvents()` is a no-op (events are delivered synchronously)
 - `close()` is a no-op (queues are garbage collected)
 
 ## TestMessenger: Recording History
@@ -115,7 +117,7 @@ Reads documents from a Kafka source topic, writes processed documents to a dest 
 public class KafkaWorkerMessenger implements WorkerMessenger {
     private final Consumer<String, KafkaDocument> sourceConsumer;
     private final KafkaProducer<String, Document> kafkaDocumentProducer;
-    private final KafkaProducer<String, String> kafkaEventProducer;
+    private final KafkaEventSender eventSender;  // async event sends, flushed on demand
 }
 ```
 
@@ -124,7 +126,8 @@ Key behaviors:
 - **`commitPendingDocOffsets()`** — calls `sourceConsumer.commitSync()`. Offsets are committed synchronously to minimize reprocessing after crashes.
 - **`sendForIndexing(doc)`** — produces to the dest topic using the document ID as the Kafka key. Calls `.get()` to wait for acknowledgment, then `flush()`.
 - **`sendFailed(doc)`** — produces to the fail topic (dead letter queue).
-- **`sendEvent(event)`** — serializes the event as JSON string and produces to the event topic.
+- **`sendEvent(event)`** — serializes the event as JSON string and produces to the event topic without waiting for the ack.
+- **`flushEvents()`** — waits for every event sent so far. The Worker calls it before handing a parent document on and before committing offsets.
 
 ## KafkaIndexerMessenger: Consume and Commit
 
@@ -133,7 +136,7 @@ Reads processed documents from the dest topic:
 ```java
 public class KafkaIndexerMessenger implements IndexerMessenger {
     private final Consumer<String, KafkaDocument> destConsumer;
-    private final KafkaProducer<String, String> kafkaEventProducer;
+    private final KafkaEventSender eventSender;  // async event sends, flushed on demand
     private final Duration pollInterval;  // kafka.pollIntervalMs, default 2000ms
 }
 ```
@@ -160,7 +163,7 @@ The hybrid mode reads from Kafka but writes to an in-memory queue shared with a 
 ```java
 public class HybridWorkerMessenger implements WorkerMessenger {
     private final Consumer<String, KafkaDocument> sourceConsumer;
-    private final KafkaProducer<String, String> kafkaEventProducer;
+    private final KafkaEventSender eventSender;  // async event sends, flushed on demand
     private final LinkedBlockingQueue<Document> pipelineDest;           // Shared with Indexer
     private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;  // From Indexer
 }
@@ -169,6 +172,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 Key behaviors:
 - **`pollDocToProcess()`** — reads from Kafka (same as `KafkaWorkerMessenger`)
 - **`sendForIndexing(doc)`** — puts on the shared `pipelineDest` queue (in-memory, not Kafka)
+- **`sendEvent(event)` / `flushEvents()`** — as in `KafkaWorkerMessenger`: events are sent without waiting for the ack, and flushed before a parent is handed on and before offsets are committed
 - **`commitPendingDocOffsets()`** — drains the `offsets` queue and commits each batch of offsets to Kafka. These offsets come from the Indexer after it successfully indexes documents.
 
 The offset feedback loop:
@@ -187,18 +191,19 @@ The counterpart to `HybridWorkerMessenger`:
 public class HybridIndexerMessenger implements IndexerMessenger {
     private final LinkedBlockingQueue<Document> pipelineDest;
     private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
-    private final KafkaProducer<String, String> kafkaEventProducer;
+    private final KafkaEventSender eventSender;  // async event sends, flushed on demand
     private final Set idSet;  // Optional: tracks unique indexed doc IDs
 }
 ```
 
 Key behaviors:
 - **`pollDocToIndex()`** — takes from the shared `pipelineDest` queue (50ms timeout)
-- **`sendEvent(event)`** — produces to the Kafka event topic (same as other Kafka messengers). Also adds the doc ID to `idSet` if configured.
-- **`batchComplete(batch)`** — extracts Kafka metadata from each `KafkaDocument` in the batch, builds an offset map, and puts it on the `offsets` queue for the Worker to commit:
+- **`sendEvent(event)`** — produces to the Kafka event topic without waiting for the ack (same as other Kafka messengers). Also adds the doc ID to `idSet` if configured.
+- **`batchComplete(batch)`** — flushes the batch's events, then extracts Kafka metadata from each `KafkaDocument` in the batch, builds an offset map, and puts it on the `offsets` queue for the Worker to commit:
 
 ```java
-public void batchComplete(List<Document> batch) throws InterruptedException {
+// queueOffsets(batch), called after eventSender.flush() — even if the flush fails
+private void queueOffsets(List<Document> batch) throws InterruptedException {
     Map<TopicPartition, OffsetAndMetadata> batchOffsets = new HashMap<>();
     for (Document doc : batch) {
         if (!(doc instanceof KafkaDocument)) continue;

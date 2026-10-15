@@ -3,11 +3,23 @@ package com.kmwllc.lucille.core;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
+import org.mockito.InOrder;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -86,5 +98,97 @@ public class WorkerTest {
       assertEquals(mockFactory2, args.get(pool).get(3));
       assertEquals("foo2", args.get(pool).get(4));
     }
+  }
+
+  /**
+   * Runs one document through a Worker whose pipeline is a single CreateChildrenStage with the given settings, using
+   * the given mock messenger.
+   */
+  private static void runOneDocument(WorkerMessenger messenger, String stageSettings) throws Exception {
+    Config config = ConfigFactory.parseString("pipelines: [{name: \"pipeline1\", stages: [{class: "
+        + "\"com.kmwllc.lucille.stage.CreateChildrenStage\", " + stageSettings + "}]}]");
+    AtomicReference<Worker> worker = new AtomicReference<>();
+    when(messenger.pollDocToProcess()).thenReturn(Document.create("doc1", "run1")).thenAnswer(invocation -> {
+      worker.get().terminate();
+      return null;
+    });
+    worker.set(new Worker(config, messenger, "run1", "pipeline1", "WorkerTest"));
+    worker.get().run();
+  }
+
+  private static Document withId(String id) {
+    return argThat(d -> d != null && id.equals(d.getId()));
+  }
+
+  @Test
+  public void testChildCreateEventsAreFlushedBeforeParentIsHandedOn() throws Exception {
+    WorkerMessenger messenger = mock(WorkerMessenger.class);
+    runOneDocument(messenger, "numChildren: 2");
+
+    // the parent's terminal event comes from the Indexer, possibly through another producer, so the children's
+    // CREATE events must be delivered before the parent is sent for indexing
+    InOrder order = inOrder(messenger);
+    order.verify(messenger).sendEvent(withId("doc1_child1"), isNull(), eq(Event.Type.CREATE));
+    order.verify(messenger).sendEvent(withId("doc1_child2"), isNull(), eq(Event.Type.CREATE));
+    order.verify(messenger).flushEvents();
+    order.verify(messenger).sendForIndexing(withId("doc1"));
+    // and every event is delivered before the document's offset is committed
+    order.verify(messenger).flushEvents();
+    order.verify(messenger).commitPendingDocOffsets();
+  }
+
+  @Test
+  public void testFailEventIsFlushedBeforeOffsetCommit() throws Exception {
+    WorkerMessenger messenger = mock(WorkerMessenger.class);
+    runOneDocument(messenger, "numChildren: 2, failAfter: 1");
+
+    InOrder order = inOrder(messenger);
+    order.verify(messenger).sendEvent(withId("doc1_child1"), isNull(), eq(Event.Type.CREATE));
+    order.verify(messenger).sendEvent(withId("doc1"), isNull(), eq(Event.Type.FAIL));
+    order.verify(messenger).flushEvents();
+    order.verify(messenger).commitPendingDocOffsets();
+    verify(messenger, never()).sendForIndexing(withId("doc1"));
+  }
+
+  @Test
+  public void testDroppedParentEventsAreFlushedBeforeOffsetCommit() throws Exception {
+    WorkerMessenger messenger = mock(WorkerMessenger.class);
+    runOneDocument(messenger, "numChildren: 1, dropParent: true");
+
+    InOrder order = inOrder(messenger);
+    order.verify(messenger).sendEvent(withId("doc1_child1"), isNull(), eq(Event.Type.CREATE));
+    order.verify(messenger).sendEvent(withId("doc1"), isNull(), eq(Event.Type.DROP));
+    order.verify(messenger).flushEvents();
+    order.verify(messenger).commitPendingDocOffsets();
+  }
+
+  @Test
+  public void testFailedChildCreateEventFailsParent() throws Exception {
+    // a CREATE event that could not be delivered must stop the parent from being handed on, as it did when each
+    // event was sent synchronously: otherwise the parent could complete before the Publisher knows about the child
+    WorkerMessenger messenger = mock(WorkerMessenger.class);
+    doThrow(new Exception("simulated event send failure")).doNothing().when(messenger).flushEvents();
+    runOneDocument(messenger, "numChildren: 1");
+
+    verify(messenger, never()).sendForIndexing(withId("doc1"));
+    InOrder order = inOrder(messenger);
+    order.verify(messenger).sendEvent(withId("doc1_child1"), isNull(), eq(Event.Type.CREATE));
+    order.verify(messenger).flushEvents();
+    order.verify(messenger).sendEvent(withId("doc1"), isNull(), eq(Event.Type.FAIL));
+    order.verify(messenger).flushEvents();
+    order.verify(messenger).commitPendingDocOffsets();
+  }
+
+  @Test
+  public void testFailedFlushDoesNotBlockOffsetCommit() throws Exception {
+    // as when sends were synchronous, an undeliverable event is logged and does not hold back the commit
+    WorkerMessenger messenger = mock(WorkerMessenger.class);
+    doThrow(new Exception("simulated event send failure")).when(messenger).flushEvents();
+    runOneDocument(messenger, "numChildren: 1, dropParent: true");
+
+    InOrder order = inOrder(messenger);
+    order.verify(messenger).sendEvent(withId("doc1"), isNull(), eq(Event.Type.DROP));
+    order.verify(messenger).flushEvents();
+    order.verify(messenger).commitPendingDocOffsets();
   }
 }

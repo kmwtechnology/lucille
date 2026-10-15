@@ -54,6 +54,13 @@ public interface WorkerMessenger {
   void sendEvent(Event event) throws Exception;
 
   /**
+   * Blocks until every Event sent so far by this WorkerMessenger has been delivered, so that it reaches the
+   * Publisher before any Event sent afterward by another component. Implementations may send Events
+   * asynchronously; this is where a failure to deliver one is reported, as an exception.
+   */
+  void flushEvents() throws Exception;
+
+  /**
    * Close any connections opened by this WorkerMessenger.
    */
   void close() throws Exception;

@@ -50,6 +50,8 @@ public interface IndexerMessenger {
 
   /**
    * Provides a way to communicate to other components that a batch of documents has been completed.
+   * Implementations that send Events asynchronously deliver the batch's Events here, and report a failure to
+   * deliver one as an exception.
    */
   void batchComplete(List<Document> batch) throws Exception;
 }

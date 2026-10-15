@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import java.util.concurrent.Future;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.Test;
@@ -95,8 +96,14 @@ public class KafkaMessengerTest {
       messenger.sendEvent(event);
       messenger2.sendEvent(event);
       ArgumentCaptor<ProducerRecord> captor = ArgumentCaptor.forClass(ProducerRecord.class);
-      Mockito.verify(mockProducer, Mockito.times(1)).send(captor.capture());
-      Mockito.verify(mockResult, Mockito.times(1)).get();
+      Mockito.verify(mockProducer, Mockito.times(1)).send(captor.capture(), Mockito.any(Callback.class));
+      // the event is handed to the producer without waiting for its ack; flushEvents() is what waits
+      Mockito.verify(mockProducer, Mockito.never()).send(Mockito.any());
+      Mockito.verify(mockResult, Mockito.never()).get();
+      Mockito.verify(mockProducer, Mockito.never()).flush();
+      messenger.flushEvents();
+      messenger2.flushEvents();
+      Mockito.verify(mockProducer, Mockito.times(1)).flush();
 
       assertEquals("foo2_event_id", captor.getValue().topic());
       assertEquals("doc1", captor.getValue().key());
@@ -145,8 +152,14 @@ public class KafkaMessengerTest {
       messenger2.sendEvent(doc, "message", Event.Type.FAIL);
 
       ArgumentCaptor<ProducerRecord> captor = ArgumentCaptor.forClass(ProducerRecord.class);
-      Mockito.verify(mockProducer, Mockito.times(1)).send(captor.capture());
-      Mockito.verify(mockResult, Mockito.times(1)).get();
+      Mockito.verify(mockProducer, Mockito.times(1)).send(captor.capture(), Mockito.any(Callback.class));
+      // the event is handed to the producer without waiting for its ack; flushEvents() is what waits
+      Mockito.verify(mockProducer, Mockito.never()).send(Mockito.any());
+      Mockito.verify(mockResult, Mockito.never()).get();
+      Mockito.verify(mockProducer, Mockito.never()).flush();
+      messenger.flushEvents();
+      messenger2.flushEvents();
+      Mockito.verify(mockProducer, Mockito.times(1)).flush();
 
       assertEquals("foo2_event_id", captor.getValue().topic());
       assertEquals("doc1", captor.getValue().key());

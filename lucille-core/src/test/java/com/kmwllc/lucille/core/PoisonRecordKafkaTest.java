@@ -496,6 +496,11 @@ public class PoisonRecordKafkaTest {
     }
 
     @Override
+    public void flushEvents() throws Exception {
+      delegate.flushEvents();
+    }
+
+    @Override
     public void close() throws Exception {
       closed = true;
       delegate.close();

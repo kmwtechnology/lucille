@@ -140,13 +140,20 @@ class Worker implements Runnable {
             // BEFORE the input/parent document is completed. This prevents a situation where the Runner
             // assumes the run is complete because the parent is complete and the Publisher didn't know
             // about the children. This code assumes the pipeline emits children before parents.
-            if (!doc.getId().equals(result.getId())) {
+            boolean isChild = !doc.getId().equals(result.getId());
+            if (isChild) {
               messenger.sendEvent(result, null, Event.Type.CREATE);
             }
 
             if (result.isDropped()) {
               messenger.sendEvent(result, null, Event.Type.DROP);
             } else {
+              if (!isChild) {
+                // Events may be sent asynchronously. The parent's terminal event will come from the Indexer, which may
+                // use a different producer, so the children's CREATE events must be delivered before the parent is
+                // handed on. A child's own terminal event may still arrive before its CREATE; the Publisher allows that.
+                messenger.flushEvents();
+              }
               // send the completed document to the queue for indexing
               messenger.sendForIndexing(result);
             }
@@ -199,6 +206,13 @@ class Worker implements Runnable {
   }
 
   private void commitOffsetsAndRemoveCounter(Document doc) {
+    // deliver this document's events before its offset is committed. As when events were sent synchronously, a failed
+    // send is logged and does not hold back the commit.
+    try {
+      messenger.flushEvents();
+    } catch (Exception e) {
+      log.error("Error sending events{}. RUN MAY HANG.", doc == null ? "" : " for document " + doc.getId(), e);
+    }
     try {
       messenger.commitPendingDocOffsets();
       if (trackRetries && doc != null) {

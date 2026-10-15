@@ -84,6 +84,11 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   }
 
   @Override
+  public void flushEvents() throws Exception {
+    // sendEvent() delivers synchronously
+  }
+
+  @Override
   public Event pollEvent() throws Exception {
     return pipelineEvents.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
   }

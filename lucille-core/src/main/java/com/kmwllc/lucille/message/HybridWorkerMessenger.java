@@ -6,9 +6,6 @@ import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.*;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
@@ -24,7 +21,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
-  private final KafkaProducer<String, String> kafkaEventProducer;
+  private final KafkaEventSender eventSender;
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
@@ -43,7 +40,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
-    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.eventSender = new KafkaEventSender(config, pipelineName);
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, sourceConsumer);
   }
@@ -150,23 +147,25 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   public void sendFailed(Document document) throws Exception {
   }
 
+  /**
+   * Sends the Event without waiting for it to be acknowledged; see {@link #flushEvents()}.
+   */
   @Override
   public void sendEvent(Event event) throws Exception {
-    if (kafkaEventProducer == null) {
-      return;
-    }
-    String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = kafkaEventProducer.send(
-        new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    eventSender.send(event);
   }
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
-    if (kafkaEventProducer == null) {
+    if (!eventSender.isEnabled()) {
       return;
     }
-    Event event = new Event(document, message, type);
-    sendEvent(event);
+    sendEvent(new Event(document, message, type));
+  }
+
+  @Override
+  public void flushEvents() throws Exception {
+    eventSender.flush();
   }
 
   @Override
@@ -174,9 +173,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     if (sourceConsumer != null) {
       sourceConsumer.close();
     }
-    if (kafkaEventProducer != null) {
-      kafkaEventProducer.close();
-    }
+    eventSender.close();
   }
 
 }
