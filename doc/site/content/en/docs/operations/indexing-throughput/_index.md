@@ -83,7 +83,7 @@ Concurrency is only enabled when it is safe, and the dispatcher upholds ordering
 
 - **The destination client must be thread-safe.** Solr, OpenSearch, Elasticsearch, and the Nop indexer support K > 1; others reject `maxConcurrentBatches > 1` at startup. (A custom indexer opts in by declaring its client thread-safe.)
 - **Same-document ordering is preserved.** The dispatcher never lets two batches that touch the same document — or its children, recursively — be in flight at the same time, so a write and a delete of the same document are still applied in order even though sends overlap. This is the key property that distinguishes concurrent batches from naively threading the send loop.
-- **Delete-by-query runs alone.** A batch containing a delete-by-query is sent only when nothing else is in flight, and nothing is dispatched behind it until it completes (see [Delete-by-query and single-partition topics](#delete-by-query-and-single-partition-topics) below).
+- **Delete-by-query runs alone, within its indexer.** A batch containing a delete-by-query is sent only when nothing else *on that indexer* is in flight, and nothing is dispatched behind it until it completes (see [Delete-by-query and single-partition topics](#delete-by-query-and-single-partition-topics) below).
 - **Completion stays in dispatch order.** Batches finish sending out of order but are completed (events emitted, offsets committed) in the order they were dispatched, so a messenger that commits its input on completion never commits past an unfinished batch.
 
 ### Connection pools (OpenSearch / Elasticsearch)
@@ -118,6 +118,13 @@ A deployment that can add partitions and consumers can reach comparable send thr
 ## Delete-by-query and single-partition topics
 
 This is the case where concurrent bulk sends are not just the cheaper option but the **only way** to overlap sends.
+
+In short:
+
+| Workload | More indexers (threads or processes) | `maxConcurrentBatches` > 1 |
+|---|---|---|
+| Adds, updates, and deletes by id | Safe: operations on a document id route to one partition, so one indexer (see the [`idOverrideField` caveat](#ordering-is-preserved)) | Safe: batches that touch the same id are never in flight together |
+| Delete-by-query | **Not safe:** run a single active indexer | Safe: the delete-by-query runs alone within that indexer |
 
 A delete-by-query deletes whatever matches a *query* at the destination — not a known set of document ids. Within one indexer, the dispatcher makes a delete-by-query batch run alone, so no write on that indexer overlaps it. But that barrier is **per-indexer**; it cannot coordinate across indexers. With more than one partition — and therefore more than one indexer — one indexer could run a delete-by-query while another is concurrently writing a document the query matches, a race nothing prevents. (Document-id keying does not help here: a delete-by-query interacts with documents by query match, not by id, so routing same-id operations to one consumer is irrelevant — the query can match ids that live on other partitions entirely.)
 
