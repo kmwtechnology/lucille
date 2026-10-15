@@ -5,6 +5,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.kmwllc.lucille.message.KafkaPublisherMessenger;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.util.CounterUtils;
 import com.kmwllc.lucille.util.RecordingLinkedBlockingQueue;
@@ -17,9 +18,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -31,6 +34,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.GroupIdNotFoundException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Before;
@@ -520,6 +524,113 @@ public class HybridKafkaTest {
     String eventTopic = KafkaUtils.getEventTopicName(config, "pipeline1", RUN_ID);
 
     assertEquals("test_setting_event_topic", eventTopic);
+  }
+
+  /**
+   * A worker that joins the group while another worker's documents are still in its indexer batch must not cause
+   * them to be processed twice: the first worker waits for its indexer and commits before giving up the partitions.
+   */
+  @Test(timeout = 120000)
+  public void testRebalanceDoesNotReprocessInFlightDocuments() throws Exception {
+    // a batch timeout well above how long the second worker takes to join keeps the first worker's documents
+    // indexed-but-uncommitted (or not yet indexed) when the rebalance starts
+    Config config = loadTestConfig("HybridKafkaTest/noopConfig.conf")
+        .withValue("kafka.sourceTopic", ConfigValueFactory.fromAnyRef("rebalance_topic"))
+        .withValue("kafka.consumerGroupId", ConfigValueFactory.fromAnyRef("rebalance_group"))
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(1000))
+        .withValue("indexer.batchTimeout", ConfigValueFactory.fromAnyRef(3000));
+    String topicName = config.getString("kafka.sourceTopic");
+    embeddedKafka.addTopics(new NewTopic(topicName, 2, (short) 1));
+
+    int numDocs = 20;
+    for (int i = 0; i < numDocs; i++) {
+      Document doc = Document.create("doc" + i);
+      producer.send(new ProducerRecord<>(topicName, i % 2, doc.getId(), doc.toString()));
+    }
+    producer.flush();
+
+    Set<String> idSet = CounterUtils.getThreadSafeSet();
+    RecordingLinkedBlockingQueue<Document> pipelineDest1 = new RecordingLinkedBlockingQueue<>();
+    WorkerIndexer workerIndexer1 = new WorkerIndexer();
+    workerIndexer1.start(config, "pipeline1", pipelineDest1, new LinkedBlockingQueue<>(), true, idSet);
+
+    // wait until the first worker has handed every document to its indexer, none of them committed yet
+    long deadline = System.currentTimeMillis() + 30000;
+    while (pipelineDest1.getHistory().size() < numDocs && System.currentTimeMillis() < deadline) {
+      Thread.sleep(20);
+    }
+    assertEquals(numDocs, pipelineDest1.getHistory().size());
+
+    RecordingLinkedBlockingQueue<Document> pipelineDest2 = new RecordingLinkedBlockingQueue<>();
+    WorkerIndexer workerIndexer2 = new WorkerIndexer();
+    workerIndexer2.start(config, "pipeline1", pipelineDest2, new LinkedBlockingQueue<>(), true, idSet);
+
+    CounterUtils.waitUnique(idSet, numDocs);
+    // the test only means something once the second worker owns a partition the first one gave up
+    awaitEveryMemberAssigned(config, 2);
+    // give the second worker time to read whatever it was going to reprocess
+    Thread.sleep(1000);
+
+    workerIndexer1.stop();
+    workerIndexer2.stop();
+
+    assertEquals("documents reprocessed after the rebalance", 0, pipelineDest2.getHistory().size());
+    assertEquals(numDocs, pipelineDest1.getHistory().size());
+  }
+
+  /** The publisher's consumer of its run's own event topic must not join (and so rebalance) the workers' group. */
+  @Test(timeout = 60000)
+  public void testPublisherEventConsumerStaysOutOfWorkersGroup() throws Exception {
+    Config config = loadTestConfig("HybridKafkaTest/noopConfig.conf")
+        .withValue("kafka.consumerGroupId", ConfigValueFactory.fromAnyRef("publisher_group_check"));
+    String runId = "publisher_group_run";
+    KafkaPublisherMessenger publisherMessenger = new KafkaPublisherMessenger(config);
+    publisherMessenger.initialize(runId, "pipeline1");
+    try {
+      String eventTopic = KafkaUtils.getEventTopicName(config, "pipeline1", runId);
+      Document doc = Document.create("doc1", runId);
+      producer.send(new ProducerRecord<>(eventTopic, doc.getId(),
+          new Event(doc, null, Event.Type.FINISH).toString())).get();
+
+      Event event = null;
+      long deadline = System.currentTimeMillis() + 30000;
+      while (event == null && System.currentTimeMillis() < deadline) {
+        event = publisherMessenger.pollEvent();
+      }
+      assertNotNull("publisher never read its event topic", event);
+      assertEquals("doc1", event.getDocumentId());
+
+      Properties props = new Properties();
+      props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+      try (Admin admin = Admin.create(props)) {
+        ConsumerGroupDescription group = admin.describeConsumerGroups(List.of("publisher_group_check"))
+            .all().get().get("publisher_group_check");
+        assertTrue("publisher joined the workers' group: " + group.members(), group.members().isEmpty());
+      } catch (ExecutionException e) {
+        // a group nobody ever joined may be reported as not found, which is what this test wants
+        assertTrue(e.getCause() instanceof GroupIdNotFoundException);
+      }
+    } finally {
+      publisherMessenger.close();
+    }
+  }
+
+  private static void awaitEveryMemberAssigned(Config config, int numMembers) throws Exception {
+    String groupId = config.getString("kafka.consumerGroupId");
+    Properties props = new Properties();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
+    try (Admin admin = Admin.create(props)) {
+      long deadline = System.currentTimeMillis() + 30000;
+      while (System.currentTimeMillis() < deadline) {
+        ConsumerGroupDescription group = admin.describeConsumerGroups(List.of(groupId)).all().get().get(groupId);
+        if (group.members().size() == numMembers
+            && group.members().stream().noneMatch(m -> m.assignment().topicPartitions().isEmpty())) {
+          return;
+        }
+        Thread.sleep(50);
+      }
+    }
+    fail("consumer group " + groupId + " never had " + numMembers + " members that each owned a partition");
   }
 
   private Document sendDoc(String id, String topic) {

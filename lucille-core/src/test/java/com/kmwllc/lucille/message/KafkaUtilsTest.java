@@ -40,6 +40,33 @@ public class KafkaUtilsTest {
   }
 
   @Test
+  public void testEventConsumerOfPerRunTopicJoinsNoGroup() {
+    Config config = ConfigFactory.load("KafkaUtilsTest/consumer-conf/direct.conf");
+    assertEquals("test", KafkaUtils.createConsumerProps(config, "c").get("group.id"));
+    assertFalse(KafkaUtils.eventConsumerJoinsGroup(config));
+    Properties props = KafkaUtils.createEventConsumerProps(config, "c");
+    assertFalse(props.containsKey("group.id"));
+    assertEquals("false", props.get("enable.auto.commit"));
+
+    // a group id from a property file is dropped the same way
+    Config external = ConfigFactory.load("KafkaUtilsTest/consumer-conf/external.conf");
+    assertFalse(KafkaUtils.createEventConsumerProps(external, "c").containsKey("group.id"));
+  }
+
+  @Test
+  public void testEventConsumerOfFixedTopicKeepsItsGroup() {
+    Config config = ConfigFactory.parseString("kafka.eventTopic: \"events\"")
+        .withFallback(ConfigFactory.load("KafkaUtilsTest/consumer-conf/direct.conf"));
+    assertTrue(KafkaUtils.eventConsumerJoinsGroup(config));
+    Properties props = KafkaUtils.createEventConsumerProps(config, "c");
+    assertEquals("test", props.get("group.id"));
+    assertEquals("true", props.get("enable.auto.commit"));
+
+    Config explicit = ConfigFactory.parseString("kafka.eventConsumerGroupId: \"event-group\"").withFallback(config);
+    assertEquals("event-group", KafkaUtils.createEventConsumerProps(explicit, "c").get("group.id"));
+  }
+
+  @Test
   public void testCreateProducerProps() {
     Config directConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/direct.conf");
     Config externalConfig = ConfigFactory.load("KafkaUtilsTest/producer-conf/external.conf");

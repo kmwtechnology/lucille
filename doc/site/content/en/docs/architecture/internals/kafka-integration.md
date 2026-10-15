@@ -210,7 +210,9 @@ kafkaEventProducer.send(
     new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()));
 ```
 
-The event consumer uses auto-commit for throughput:
+The default per-run event topic is new and read only by its run's Publisher, so the event consumer reads it with `assign()` and no consumer group: it commits nothing and, with the default `auto.offset.reset=earliest`, starts from the beginning. Keeping it out of `kafka.consumerGroupId` matters because group membership spans every topic the group's members subscribe to; a Publisher in the Workers' group would rebalance every Worker each time a run starts or ends.
+
+With a fixed `kafka.eventTopic`, the event consumer subscribes in a group (`kafka.eventConsumerGroupId`, or `kafka.consumerGroupId` when that is unset) and uses auto-commit for throughput, so a new run resumes after the events earlier runs consumed:
 ```java
 consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
 ```
@@ -272,7 +274,9 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.bootstrapServers` | Kafka broker addresses | Yes (unless using property files) |
 | `kafka.securityProtocol` | Security protocol (PLAINTEXT, SSL, SASL_SSL, etc.) | No |
 | `kafka.consumerGroupId` | Consumer group for Workers/Indexers | Yes |
+| `kafka.eventConsumerGroupId` | If set, the Publisher's event consumer joins this group. Otherwise the default per-run event topic is read without a group, so a run starting or ending does not rebalance the Workers, and a fixed `eventTopic` is read in `consumerGroupId` | No |
 | `kafka.maxPollIntervalSecs` | Max time between polls before rebalance | Yes |
+| `kafka.rebalanceDrainTimeoutMs` | How long a hybrid Worker losing partitions in a rebalance waits for its Indexer to finish their in-flight documents before committing; anything unfinished is reprocessed by the next owner. Keep well below `maxPollIntervalSecs` | No (default: 10000) |
 | `kafka.pollIntervalMs` | How long each consumer poll blocks waiting for records | No (default: 2000) |
 | `kafka.maxRequestSize` | Max message size in bytes | Yes |
 | `kafka.metadataMaxAgeMs` | Metadata cache TTL | No (default: 30000) |
@@ -355,8 +359,8 @@ Different components use different commit strategies:
 |-----------|----------|-----------|
 | Worker (source) | `commitSync()` after processing | Minimize reprocessing after crash |
 | Indexer (dest) | `commitSync()` immediately after poll | Acceptable because indexing is idempotent |
-| Publisher (events) | Auto-commit | Throughput; duplicate events are harmless |
-| Hybrid Worker | Deferred commit via offset queue | Only commit after Indexer confirms |
+| Publisher (events) | None for the per-run topic; auto-commit for a fixed `eventTopic` | Throughput; duplicate events are harmless |
+| Hybrid Worker | Deferred commit via offset queue; on partition revocation, waits for the Indexer and commits | Only commit after Indexer confirms |
 
 The Worker's synchronous commit ensures that if a Worker crashes, the document it was processing will be redelivered to another Worker. Without this, the document could be lost (committed but not processed).
 

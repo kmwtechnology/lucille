@@ -34,6 +34,7 @@ public class WorkerIndexer {
   private static final Logger log = LoggerFactory.getLogger(WorkerIndexer.class);
 
   private Indexer indexer;
+  private HybridWorkerMessenger workerMessenger;
   private Thread indexerThread;
   private WorkerThread workerThread;
 
@@ -82,6 +83,7 @@ public class WorkerIndexer {
 
     HybridWorkerMessenger workerMessageManager =
         new HybridWorkerMessenger(config, pipelineName, pipelineDest, offsets);
+    workerMessenger = workerMessageManager;
 
     HybridIndexerMessenger indexerMessageManager =
         new HybridIndexerMessenger(config, pipelineDest, offsets, idSet, pipelineName);
@@ -112,6 +114,11 @@ public class WorkerIndexer {
         indexerThread.join();
       } catch (InterruptedException e) {
         log.error("Interrupted", e);
+      }
+      // the indexer has flushed and reported its final batch; a rebalance before the worker stops (another
+      // WorkerIndexer in the pool leaving the group) must not wait for documents this indexer will never finish
+      if (workerMessenger != null) {
+        workerMessenger.indexerStopping();
       }
     }
 
