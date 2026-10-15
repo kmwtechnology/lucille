@@ -10,6 +10,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.net.URI;
@@ -668,6 +669,40 @@ public class FileConnectorStateManagerTest {
 
     assertTrue(initCompleted.await(5, TimeUnit.SECONDS));
     t.join();
+  }
+
+  // FileConnector.close() calls shutdown() even when init() never ran, e.g. when preExecute fails. With deletions on
+  // (the default), shutdown() must not try to delete through a connection that was never opened.
+  @Test
+  public void testShutdownWithoutInitWithDeletions() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(true));
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.shutdown();
+  }
+
+  // The connection is closed even when the deletion in shutdown() fails.
+  @Test
+  public void testShutdownClosesConnectionWhenDeletionFails() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
+        .withValue("performDeletions", ConfigValueFactory.fromAnyRef(true));
+
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+
+    Connection connection = mock(Connection.class);
+    when(connection.getMetaData()).thenThrow(new SQLException("fake"));
+    when(connection.prepareStatement(anyString())).thenThrow(new SQLException("fake delete failure"));
+
+    try (MockedStatic<DriverManager> mocked = mockStatic(DriverManager.class)) {
+      mocked.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString())).thenReturn(connection);
+
+      // init() connects, then fails - leaving a connection for shutdown() to clean up
+      assertThrows(SQLException.class, manager::init);
+    }
+
+    assertThrows(SQLException.class, manager::shutdown);
+    verify(connection).close();
   }
 
   // FileConnector.close() calls shutdown() even when execute() - and so init() - never ran, e.g. when preExecute fails.

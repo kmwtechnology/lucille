@@ -263,12 +263,15 @@ public class FileConnectorStateManager {
     try {
       closeStateForThread();
 
-      if (performDeletions) {
+      // jdbcConnection is null if init() never ran or failed before connecting - e.g. FileConnector.close() is
+      // still called when preExecute fails
+      if (performDeletions && jdbcConnection != null) {
         deleteExpiredFilesAndResetTable();
       }
-
-      closeConnection(jdbcConnection);
     } finally {
+      // close even if the deletion failed, so the connection isn't leaked
+      closeConnection(jdbcConnection);
+
       if (holdsLock.getAndSet(false)) {
         LOCK_REGISTRY.release(registryKey);
       }
