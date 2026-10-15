@@ -22,6 +22,8 @@ import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -451,11 +453,7 @@ public abstract class Indexer implements Runnable {
         sendFailEvent(pair.getLeft(), pair.getRight().getMessage());
       }
 
-      Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
-
-      List<Document> succeededDocs = batchedDocs.stream()
-          .filter(d -> !failedDocs.contains(d))
-          .collect(Collectors.toList());
+      List<Document> succeededDocs = withoutFailed(batchedDocs, failedDocPairs);
 
       try {
         messenger.sendEvents(succeededDocs, "SUCCEEDED", Event.Type.FINISH);
@@ -491,6 +489,49 @@ public abstract class Indexer implements Runnable {
         log.error("Error marking batch complete.", e);
       }
     }
+  }
+
+  /**
+   * Returns the documents in the batch that do not appear among the failed documents, matching with
+   * {@link Document#equals(Object)} semantics but without hashing whole documents: failed documents are
+   * bucketed by id, and a batch document is compared (by identity, then equals) only against failed
+   * documents that share its id. Equal documents always share an id, since the id is part of their data.
+   */
+  static List<Document> withoutFailed(List<Document> batchedDocs, Set<Pair<Document, Exception>> failedDocPairs) {
+    if (failedDocPairs.isEmpty()) {
+      return new ArrayList<>(batchedDocs);
+    }
+
+    Map<String, List<Document>> failedById = new HashMap<>();
+    for (Pair<Document, Exception> pair : failedDocPairs) {
+      Document failed = pair.getLeft();
+      failedById.computeIfAbsent(failed.getId(), k -> new ArrayList<>(1)).add(failed);
+    }
+
+    List<Document> succeeded = new ArrayList<>(batchedDocs.size());
+    for (Document d : batchedDocs) {
+      if (!isFailed(d, failedById.get(d.getId()))) {
+        succeeded.add(d);
+      }
+    }
+    return succeeded;
+  }
+
+  private static boolean isFailed(Document d, List<Document> failedWithSameId) {
+    if (failedWithSameId == null) {
+      return false;
+    }
+    for (Document failed : failedWithSameId) {
+      if (failed == d) {
+        return true;
+      }
+    }
+    for (Document failed : failedWithSameId) {
+      if (d.equals(failed)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
