@@ -8,9 +8,14 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigUtil;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map.Entry;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
@@ -62,6 +67,10 @@ public class KafkaUtils {
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
+  // keyPath + "." + key for each unknown kafka.producer/consumer/admin key already warned about, so a key is
+  // reported once per JVM rather than once per consumer or producer created.
+  private static final Set<String> WARNED_UNKNOWN_KEYS = ConcurrentHashMap.newKeySet();
+  private static final String CONFIG_PROVIDERS = org.apache.kafka.common.config.AbstractConfig.CONFIG_PROVIDERS_CONFIG;
 
   /**
    * Returns how long a Lucille Kafka consumer poll should block waiting for records: <code>kafka.pollIntervalMs</code>,
@@ -96,34 +105,65 @@ public class KafkaUtils {
    * Merges, into the provided <code>Properties</code>, the key-value pairs that are found in the given <code>config</code>
    * under the provided <code>keyPath</code>. If <code>config</code> has the <code>keyPath</code>, it should map to an object
    * with the arbitrary property mappings.
+   *
+   * <p>Kafka property names contain dots, and HOCON reads an unquoted dotted key (<code>linger.ms: 0</code>) as a nested
+   * object (<code>linger { ms: 0 }</code>), while a quoted key (<code>"linger.ms": 0</code>) stays a single key whose
+   * path expression keeps the quotes. Both forms, and any mix of them, are mapped to the plain dotted property name
+   * the Kafka client expects. Keys that are not defined by the client's config class are logged once at WARN; they
+   * still pass through, because serializers, interceptors, and other plugins may read their own keys.
+   *
    * @param props Kafka properties.
    * @param config Kafka config.
    * @param keyPath A path in the kafka config ("kafka.consumer", for example) that contains additional, arbitrary properties.
-   * @throws IllegalArgumentException In the event the config at <code>keyPath</code> contains a value list
+   * @param knownKeys The property names the Kafka client defines (e.g. {@link ProducerConfig#configNames()}).
+   * @throws IllegalArgumentException if a value is a list, or if two spellings of one key (quoted and unquoted)
+   * have different values.
    */
-  private static void mergeConfigProps(Properties props, Config config, String keyPath) {
+  private static void mergeConfigProps(Properties props, Config config, String keyPath, Set<String> knownKeys) {
     if (!config.hasPath(keyPath)) {
       return;
     }
 
-    Config propsConfig = config.getConfig(keyPath);
-
-    for (Entry<String, ConfigValue> entry : propsConfig.entrySet()) {
-      String propKey = entry.getKey();
+    Map<String, Object> merged = new HashMap<>();
+    // entrySet() flattens nested objects into leaf paths and omits nulls, so each value is a scalar or a list.
+    for (Entry<String, ConfigValue> entry : config.getConfig(keyPath).entrySet()) {
+      String propKey = String.join(".", ConfigUtil.splitPath(entry.getKey()));
       ConfigValue value = entry.getValue();
 
-      // NOTE: we don't prevent ConfigValueType.OBJECT here, for two reasons:
-      // 1. many Kafka properties include ".", like "security.protocol". With HOCON, writing 'security.protocol: "ssl"'
-      //    is equivalent to writing security: { protocol: "ssl" }
-      // 2. the library does not distinguish between using dot notation / an object - even if we were to use "getParent"
-      //    like we do in Spec.validate(), we would struggle to achieve our desired outcome here.
-      // We also do not include ConfigValueType.NULL here, as entrySet excludes them.
       if (value.valueType() == ConfigValueType.LIST) {
         throw new IllegalArgumentException(String.format("Cannot use list for Kafka property (key %s)", propKey));
       }
 
-      props.put(propKey, value.unwrapped());
+      // compare as strings: a substitution or env var yields a String, a literal an Integer, and Kafka parses both
+      Object previous = merged.putIfAbsent(propKey, value.unwrapped());
+      if (previous != null && !String.valueOf(previous).equals(String.valueOf(value.unwrapped()))) {
+        throw new IllegalArgumentException(String.format(
+            "Kafka property %s is set twice under %s with different values (%s and %s); quoted and unquoted "
+                + "spellings of a dotted key name the same property.", propKey, keyPath, previous, value.unwrapped()));
+      }
     }
+
+    for (String unknown : unknownKeys(merged.keySet(), knownKeys)) {
+      if (WARNED_UNKNOWN_KEYS.add(keyPath + "." + unknown)) {
+        log.warn("{}.{} is not a Kafka client config property; it is passed through but has no effect unless a "
+            + "serializer, interceptor, or other plugin reads it.", keyPath, unknown);
+      }
+    }
+
+    props.putAll(merged);
+  }
+
+  /**
+   * Returns, sorted, the keys that are not in <code>known</code>. Config-provider keys
+   * (<code>config.providers.&lt;name&gt;.class</code>, <code>.param.*</code>) are read by Kafka's
+   * <code>AbstractConfig</code> but are not listed in <code>configNames()</code>, so they are never reported.
+   */
+  static List<String> unknownKeys(Collection<String> keys, Set<String> known) {
+    return keys.stream()
+        .filter(key -> !known.contains(key))
+        .filter(key -> !key.equals(CONFIG_PROVIDERS) && !key.startsWith(CONFIG_PROVIDERS + "."))
+        .sorted()
+        .toList();
   }
 
   //access set to public so KafkaConnector can create consumer props from config.
@@ -153,7 +193,7 @@ public class KafkaUtils {
       props.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, ConfigUtils.getOrDefault(config, "kafka.metadataMaxAgeMs", 30000));
     }
 
-    mergeConfigProps(props, config, "kafka.consumer");
+    mergeConfigProps(props, config, "kafka.consumer", ConsumerConfig.configNames());
     return props;
   }
 
@@ -229,7 +269,7 @@ public class KafkaUtils {
       producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     }
 
-    mergeConfigProps(producerProps, config, "kafka.producer");
+    mergeConfigProps(producerProps, config, "kafka.producer", ProducerConfig.configNames());
 
     // The async publish path relies on per-partition ordering to ensure that multiple operations
     // on the same document (create, update, delete in streaming mode) are applied in the correct
@@ -329,7 +369,7 @@ public class KafkaUtils {
       adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     }
 
-    mergeConfigProps(adminProps, config, "kafka.admin");
+    mergeConfigProps(adminProps, config, "kafka.admin", AdminClientConfig.configNames());
 
     try (Admin kafkaAdminClient = Admin.create(adminProps)) {
       NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
