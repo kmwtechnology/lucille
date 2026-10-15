@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -35,6 +36,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.MockedStatic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -446,6 +449,65 @@ public class FileConnectorTest {
       assertEquals(18, messenger.getDocsSentForProcessing().size());
     } finally {
       FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  @Test
+  @Execution(ExecutionMode.SAME_THREAD)
+  public void testConcurrentTraversalsWithState() throws Exception {
+    File stateDirectory = new File("state");
+    File dbFile = new File("state/file-connector.mv.db");
+
+    assertFalse(stateDirectory.exists());
+    assertFalse(dbFile.exists());
+
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
+
+    CountDownLatch tStarted = new CountDownLatch(1);
+    CountDownLatch mainFinished = new CountDownLatch(1);
+
+    Thread t = new Thread(() -> {
+      try {
+        TestMessenger messenger = new TestMessenger();
+        Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+        Connector conn = new FileConnector(config);
+
+        tStarted.countDown();
+
+        conn.execute(publisher);
+
+        if (mainFinished.getCount() == 1) {
+          fail("Connector in Thread T finished executing before mainFinished was decreased...");
+        }
+
+        conn.close();
+        assertEquals(18, messenger.getDocsSentForProcessing().size());
+      } catch (Exception e) {
+        fail("Error in thread: " + e.getMessage());
+      }
+    });
+
+    try {
+      TestMessenger messenger = new TestMessenger();
+      Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+      Connector conn = new FileConnector(config);
+
+      // the stateManager doesn't get initialized until execution begins.
+      conn.execute(publisher);
+
+      // second connector tries to start,
+      // should be blocked until we close this connector
+      t.start();
+      tStarted.await(1, TimeUnit.SECONDS);
+
+      mainFinished.countDown();
+      conn.close();
+
+      assertEquals(18, messenger.getDocsSentForProcessing().size());
+
+      t.join();
+    } finally {
+      FileUtils.deleteDirectory(stateDirectory);
     }
   }
 
@@ -1026,6 +1088,24 @@ public class FileConnectorTest {
     assertEquals(documentIds(sequentialDocs), documentIds(concurrentDocs));
   }
 
+  // Verifies a concurrent traversal with state run the way Runner runs it: execute() on a ConnectorThread and close() on
+  // the calling thread. The state lock taken in execute() must be released by close(), or the next run blocks forever.
+  @Test
+  public void testConcurrentTraversalWithStateExecuteAndCloseOnDifferentThreads() throws Exception {
+    // DB_CLOSE_DELAY=-1 keeps the in-memory database between runs, so the second run sees the first run's state
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
+        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:executeAndCloseThreads;DB_CLOSE_DELAY=-1"));
+
+    List<Document> firstRunDocs = publishedDocumentsExecutingOnOtherThread(config);
+    assertFalse(firstRunDocs.isEmpty());
+
+    // incremental: everything was published within lastPublishedCutoff, so the second run publishes nothing
+    List<Document> secondRunDocs = publishedDocumentsExecutingOnOtherThread(config);
+    assertEquals(0, secondRunDocs.size());
+  }
+
   // Verifies that a failed traversal does not stop the others, and that the resulting exception names the failed path.
   @Test
   public void testConcurrentTraversalContinuesAfterFailure() throws Exception {
@@ -1101,6 +1181,30 @@ public class FileConnectorTest {
     Connector conn = new FileConnector(config);
     try {
       conn.execute(publisher);
+    } finally {
+      conn.close();
+    }
+
+    return messenger.getDocsSentForProcessing();
+  }
+
+  // Like publishedDocuments(), but calls execute() on a separate thread and close() on this one, as Runner does.
+  private List<Document> publishedDocumentsExecutingOnOtherThread(Config config) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector conn = new FileConnector(config);
+    try {
+      Thread connectorThread = new Thread(() -> {
+        try {
+          conn.execute(publisher);
+        } catch (ConnectorException e) {
+          throw new RuntimeException(e);
+        }
+      });
+      connectorThread.start();
+      connectorThread.join(TimeUnit.SECONDS.toMillis(10));
+      assertFalse("execute() did not finish - is the state lock still held?", connectorThread.isAlive());
     } finally {
       conn.close();
     }
