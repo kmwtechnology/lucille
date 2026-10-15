@@ -57,7 +57,9 @@ public class KafkaUtils {
       .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
-      .optionalParent("admin", new TypeReference<Map<String, Object>>(){}).build();
+      .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
+      // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
+      .optionalParent("event", new TypeReference<Map<String, Object>>(){}).build();
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;

@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -26,6 +27,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
+  private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
   private final Duration pollInterval;
 
@@ -36,6 +38,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
+    this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, destConsumer);
     this.pollInterval = KafkaUtils.getPollInterval(config);
@@ -74,7 +77,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     if (kafkaEventProducer == null) {
       return;
     }
-    Event event = new Event(document, message, type);
+    Event event = new Event(document, message, type, eventFieldConfig);
     sendEvent(event);
   }
 
@@ -102,7 +105,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     AtomicReference<Exception> sendException = new AtomicReference<>();
 
     for (Document document : documents) {
-      Event event = new Event(document, message, type);
+      Event event = new Event(document, message, type, eventFieldConfig);
       String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
       kafkaEventProducer.send(
           new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()),
