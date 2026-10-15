@@ -195,7 +195,7 @@ A complete Lucille config has the following top-level structure:
 connectors: [...]     # list of connector definitions (executed in sequence)
 pipelines: [...]      # list of pipeline definitions (referenced by connectors)
 indexer { ... }       # indexer type and general settings
-solr { ... }          # or opensearch { ... } or elastic { ... } — backend-specific settings
+solr { ... }          # or opensearch { ... } or elasticsearch { ... } — backend-specific settings
 worker { ... }        # worker thread count, timeout, retry settings
 kafka { ... }         # Kafka connection info (for distributed mode)
 publisher { ... }     # backpressure settings

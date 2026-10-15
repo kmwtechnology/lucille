@@ -99,6 +99,10 @@ public class KafkaDocumentDeserializer implements Deserializer<Document> {
 
 The deserializer always produces a `KafkaDocument` (even though the return type is `Document`). The Kafka metadata is set separately after deserialization via `setKafkaMetadata()`.
 
+A `byte[]` field is written as a base64 JSON string, about a third larger than the bytes, and after deserialization each
+`getBytes()` call decodes that string into a new array. See
+[Cost of `byte[]` Fields Across Kafka]({{< relref "docs/operations/performance-tuning#cost-of-byte-fields-across-kafka" >}}).
+
 Custom serializers/deserializers can be specified via config:
 ```hocon
 kafka.documentSerializer = "com.example.MySerializer"
@@ -292,6 +296,13 @@ As a convenience, in your Config, you can also include additional properties for
 `kafka.consumer`, `kafka.producer`, and `kafka.admin`, respectively. This allows you to use HOCON's environment variable 
 resolution for your Kafka properties. Additionally, properties declared here _will_ override any values declared in a 
 `consumerPropertyFile`, `producerPropertyFile`, or `adminPropertyFile`.
+
+Write dotted Kafka property names unquoted, e.g. `kafka.producer { compression.type: "zstd" }`. HOCON reads the
+unquoted key as a nested path, which Lucille flattens back to the property name `compression.type`. In this version a
+quoted key (`"compression.type": "zstd"`) is passed through with the quotes as part of the name, which the client does
+not recognize, so the setting has no effect. See
+[Producer Compression]({{< relref "docs/operations/performance-tuning#producer-compression" >}}) for when compression
+is worth enabling.
 
 ## Partitions and Parallelism
 

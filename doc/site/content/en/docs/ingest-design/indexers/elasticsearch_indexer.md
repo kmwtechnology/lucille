@@ -7,7 +7,7 @@ description: Configuration reference for the Elasticsearch Indexer, including jo
 
 `com.kmwllc.lucille.indexer.ElasticsearchIndexer`
 
-Config block: `elastic { ... }`
+Config block: `elasticsearch { ... }`
 
 Supports all OpenSearch parameters, plus parent-child join support:
 
@@ -17,6 +17,7 @@ Supports all OpenSearch parameters, plus parent-child join support:
 | `index` | String | Yes | Target index name. |
 | `update` | Boolean | No | Use partial update API. Default: `false`. |
 | `acceptInvalidCert` | Boolean | No | Accept invalid TLS certs. Default: `false`. |
+| `useCompression` | Boolean | No | Gzip-compress request bodies sent to Elasticsearch. Worth enabling when the cluster is remote or reached over a bandwidth-limited link; on a local cluster it mostly adds CPU. See [Performance Tuning]({{< relref "docs/operations/performance-tuning#indexer-request-compression" >}}). Default: `false`. |
 | `connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `5000`. |
 | `socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Applies to delete-by-query too, so raise it above the slowest expected request, or set `-1` for no limit. Default: `30000`. |
 | `connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Lower it to rebalance faster. Default: `300000` (5 minutes). |
@@ -25,7 +26,7 @@ Supports all OpenSearch parameters, plus parent-child join support:
 **Join field support** (for parent-child mappings):
 
 ```hocon
-elastic {
+elasticsearch {
   url: "http://localhost:9200"
   index: "my-index"
   join: {
@@ -45,7 +46,7 @@ indexer {
 
 ## Join Field Support (Detailed)
 
-Elasticsearch's join field allows parent-child relationships within a single index. The ElasticsearchIndexer supports this via the `elastic.join` config block:
+Elasticsearch's join field allows parent-child relationships within a single index. The ElasticsearchIndexer supports this via the `elasticsearch.join` config block:
 
 | Parameter | Description |
 |---|---|

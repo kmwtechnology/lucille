@@ -15,6 +15,7 @@ Config block: `opensearch { ... }`
 | `index` | String | Yes | Target index name. |
 | `update` | Boolean | No | Use the partial update API instead of index (upsert). Default: `false`. |
 | `acceptInvalidCert` | Boolean | No | Accept invalid TLS certificates. Default: `false`. |
+| `useCompression` | Boolean | No | Gzip-compress request bodies sent to OpenSearch. Worth enabling when the cluster is remote or reached over a bandwidth-limited link; on a local cluster it mostly adds CPU. See [Performance Tuning]({{< relref "docs/operations/performance-tuning#indexer-request-compression" >}}). Default: `false`. |
 | `connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `5000`. |
 | `socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Applies to delete-by-query too, so raise it above the slowest expected request, or set `-1` for no limit. Default: `30000`. |
 | `connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Lower it to rebalance faster. Default: `300000` (5 minutes). |

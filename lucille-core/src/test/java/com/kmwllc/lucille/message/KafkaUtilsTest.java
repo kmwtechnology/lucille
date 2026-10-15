@@ -7,8 +7,10 @@ import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.errors.TopicExistsException;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Test;
 
 import java.util.Properties;
@@ -183,6 +185,23 @@ public class KafkaUtilsTest {
     assertEquals("string", directProps.get("myString"));
     // see the .conf file for an important comment on object notation, if desired...
     assertEquals("none", externalProps.get("security.protocol"));
+  }
+
+  // The forms documented in performance-tuning.md ("Producer Compression") must reach the producer as compression.type.
+  @Test
+  public void testDocumentedCompressionFormsReachProducer() {
+    String base = "kafka { bootstrapServers: \"localhost:9092\", maxRequestSize: 250000000 }\n";
+    String[] documentedForms = {
+        "kafka { producer { compression.type: \"zstd\" } }",
+        "kafka.producer.compression.type: \"zstd\""
+    };
+
+    for (String form : documentedForms) {
+      Properties props = KafkaUtils.createProducerProps(ConfigFactory.parseString(base + form));
+      props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+
+      assertEquals(form, "zstd", new ProducerConfig(props).getString(ProducerConfig.COMPRESSION_TYPE_CONFIG));
+    }
   }
 
   @Test

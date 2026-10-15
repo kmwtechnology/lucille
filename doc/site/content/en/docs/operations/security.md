@@ -346,7 +346,7 @@ docker run \
 | Backend | Authentication | TLS | Config Location |
 |---|---|---|---|
 | OpenSearch | URL userinfo (Basic) | `https://` scheme + `acceptInvalidCert` | `opensearch {}` block |
-| Elasticsearch | URL userinfo (Basic) | `https://` scheme + `acceptInvalidCert` | `elastic {}` block |
+| Elasticsearch | URL userinfo (Basic) | `https://` scheme + `acceptInvalidCert` | `elasticsearch {}` block |
 | Solr | `userName` + `password` | `https://` + keystore/truststore | `solr {}` block |
 | Kafka | `securityProtocol` + property files | SSL/SASL_SSL | `kafka {}` block |
 | Pinecone | `apiKey` | Always HTTPS | `pinecone {}` block |

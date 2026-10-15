@@ -113,8 +113,8 @@ pipelines: [
       # Extract text from PDF bytes using Apache Tika
       {
         class: "com.kmwllc.lucille.tika.stage.TextExtractor"
-        source: "file_content"
-        dest: "extracted_text"
+        byteArrayField: "file_content"
+        textField: "extracted_text"
       },
       # Split long text into smaller chunks (each chunk → child document)
       {
