@@ -2,7 +2,7 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MAX_NUM_OF_PAGES;
+import static com.kmwllc.lucille.connector.FileConnector.MAX_RESULTS_PER_PAGE;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
@@ -46,7 +46,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
   protected final Config config;
 
-  protected final int maxNumOfPages;
+  protected final int maxResultsPerPage;
   private boolean initialized = false;
 
   /**
@@ -54,11 +54,19 @@ public abstract class BaseStorageClient implements StorageClient {
    * IllegalArgumentException if they are invalid for the specific implementation.
    */
   public BaseStorageClient(Config config) {
+    this(config, 100);
+  }
+
+  /**
+   * Creates a base implementation of a Storage client from the given config, using the given page size when the config
+   * does not set "maxResultsPerPage".
+   */
+  protected BaseStorageClient(Config config, int defaultMaxResultsPerPage) {
     validateOptions(config);
     this.config = config;
 
     // only matters for traversals
-    this.maxNumOfPages = config.hasPath(MAX_NUM_OF_PAGES) ? config.getInt(MAX_NUM_OF_PAGES) : 100;
+    this.maxResultsPerPage = config.hasPath(MAX_RESULTS_PER_PAGE) ? config.getInt(MAX_RESULTS_PER_PAGE) : defaultMaxResultsPerPage;
   }
 
   /**
