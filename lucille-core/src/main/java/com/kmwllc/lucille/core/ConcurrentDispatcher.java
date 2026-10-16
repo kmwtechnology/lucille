@@ -61,6 +61,26 @@ class ConcurrentDispatcher implements BatchDispatcher {
   // batch is not dispatched while it shares an id with one in flight. Only touched by the indexer thread.
   private final Set<String> inFlightIds = new HashSet<>();
 
+  // The batch a dispatch() call has committed to sending next but has not yet submitted — it is waiting in the
+  // overlap/capacity loop. It is recorded here so a re-entrant dispatch() or drain() (reached when awaitOutcome calls
+  // keepAlive, which can poll the consumer and run the revocation hook on this thread) submits it before any newer
+  // batch, preserving dispatch order across the re-entrancy. Null when no dispatch() is waiting. Only touched by the
+  // indexer thread.
+  private PendingBatch waitingBatch;
+
+  private static final class PendingBatch {
+    private final List<Document> docs;
+    private final Set<String> ids;
+    private final boolean barrier;
+    private boolean submitted;
+
+    PendingBatch(List<Document> docs, Set<String> ids, boolean barrier) {
+      this.docs = docs;
+      this.ids = ids;
+      this.barrier = barrier;
+    }
+  }
+
   private static final class InFlightBatch {
     private final List<Document> docs;
     private final Set<String> ids;
@@ -110,6 +130,8 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   @Override
   public void dispatch(List<Document> batchedDocs) {
+    // First, so the held batch goes ahead of this one on every path below, including the failure path.
+    admitWaitingBatch();
     Set<String> ids;
     boolean barrier;
     try {
@@ -128,14 +150,51 @@ class ConcurrentDispatcher implements BatchDispatcher {
       processor.completeBatch(batchedDocs, new SendOutcome(null, e, 0));
       return;
     }
-    // Wait until this batch may run alongside those in flight: a barrier waits for nothing to be in flight; otherwise
-    // there must be a free slot and no in-flight batch may write any id this batch writes (so writes and deletes of the
-    // same document stay in order).
-    while (!inFlightBatches.isEmpty()
-        && (barrier || inFlightBatches.size() >= maxConcurrentBatches || overlapsInFlight(ids))) {
-      completeOldest();
+    admit(new PendingBatch(batchedDocs, ids, barrier));
+  }
+
+  // If a dispatch() further down the stack is waiting to submit a batch, this call is re-entrant (reached via
+  // awaitOutcome -> keepAlive -> revocation hook). That batch was polled before anything the re-entrant caller
+  // dispatches, and the caller is about to drain for a partition handoff, so it is admitted now: ahead of any newer
+  // batch, and in time to be completed (and its offsets committed) before the handoff. The outer dispatch() sees it was
+  // submitted and does not submit it again.
+  private void admitWaitingBatch() {
+    if (waitingBatch != null && !waitingBatch.submitted) {
+      admit(waitingBatch);
+    }
+  }
+
+  // Waits until the given batch may run alongside those in flight, then submits it. A barrier waits for nothing to be
+  // in flight; otherwise there must be a free slot and no in-flight batch may write any id this batch writes (so writes
+  // and deletes of the same document stay in order). While it waits it is recorded as waitingBatch, so a re-entrant
+  // dispatch() or drain() admits it first (see admitWaitingBatch). If a re-entrant call submits it in the meantime, this
+  // returns without submitting it again.
+  private void admit(PendingBatch pending) {
+    PendingBatch previousWaiting = waitingBatch;
+    waitingBatch = pending;
+    try {
+      while (!pending.submitted
+          && !inFlightBatches.isEmpty()
+          && (pending.barrier || inFlightBatches.size() >= maxConcurrentBatches || overlapsInFlight(pending.ids))) {
+        completeOldest();
+      }
+      // A re-entrant call may have already submitted this batch while we were in completeOldest above.
+      if (!pending.submitted) {
+        enqueue(pending);
+      }
+    } finally {
+      waitingBatch = previousWaiting;
     }
 
+    // Keep a barrier alone: complete it before anything else is dispatched behind it.
+    if (pending.barrier) {
+      drain();
+    }
+  }
+
+  // Submits a batch's send to the pool and records it in flight. Marks the PendingBatch submitted so neither the outer
+  // dispatch() nor a re-entrant one submits it twice.
+  private void enqueue(PendingBatch pending) {
     Map<String, String> mdc = MDC.getCopyOfContextMap();
     // The task runs on a pool thread, so it must touch only processor.sendWithRetry and the per-thread MDC — never
     // the dispatcher's in-flight state (inFlightBatches, inFlightIds), which belongs to the indexer thread and is
@@ -145,18 +204,14 @@ class ConcurrentDispatcher implements BatchDispatcher {
         MDC.setContextMap(mdc);
       }
       try {
-        return processor.sendWithRetry(batchedDocs);
+        return processor.sendWithRetry(pending.docs);
       } finally {
         MDC.clear();
       }
     });
-    inFlightBatches.addLast(new InFlightBatch(batchedDocs, ids, outcome));
-    inFlightIds.addAll(ids);
-
-    // Keep a barrier alone: complete it before anything else is dispatched behind it.
-    if (barrier) {
-      drain();
-    }
+    inFlightBatches.addLast(new InFlightBatch(pending.docs, pending.ids, outcome));
+    inFlightIds.addAll(pending.ids);
+    pending.submitted = true;
   }
 
   private boolean overlapsInFlight(Set<String> ids) {
@@ -170,6 +225,8 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   @Override
   public void drain() {
+    // A drain must leave nothing unsent, including a batch a dispatch() further down the stack is still holding.
+    admitWaitingBatch();
     while (!inFlightBatches.isEmpty()) {
       completeOldest();
     }

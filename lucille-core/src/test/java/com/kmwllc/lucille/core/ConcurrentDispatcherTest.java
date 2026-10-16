@@ -18,6 +18,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.junit.After;
@@ -30,6 +31,8 @@ import org.junit.Test;
 public class ConcurrentDispatcherTest {
 
   private static final long TIMEOUT_MS = 10000;
+  private static final Function<List<Document>, Set<String>> DEST_IDS =
+      docs -> docs.stream().map(d -> d.getString("destId")).collect(Collectors.toSet());
 
   private ConcurrentDispatcher dispatcher;
   private Thread indexerThread;
@@ -113,6 +116,93 @@ public class ConcurrentDispatcherTest {
 
     assertEquals(List.of("first"), processor.completed);
     assertTrue("the outcome must carry the cancellation", processor.errors.get("first") instanceof CancellationException);
+  }
+
+  @Test
+  public void testReentrantDispatchDoesNotOvertakeBatchHeldByOuterDispatch() throws Exception {
+    // The outer dispatch() of "held" waits because "held" writes the same id as the in-flight "first". While it waits,
+    // keepAlive runs the revocation hook, which dispatches the newer open batch ("newer", same id) and drains. "held" was
+    // polled before "newer", so it must be sent before it; otherwise an add/delete of one document is applied out of
+    // order (and "held" is sent after the partition has been handed off).
+    processor.blockSendsFor("first");
+    AtomicInteger keepAliveCalls = new AtomicInteger();
+    startDispatcherHoldingBatch(keepAliveCalls, DEST_IDS, () -> {
+      dispatcher.dispatch(List.of(doc("newer", "sharedId")));
+      dispatcher.drain();
+    });
+
+    awaitUntil(() -> keepAliveCalls.get() >= 1);
+    processor.release("first");
+    indexerThread.join(TIMEOUT_MS);
+    assertEquals(List.of("first", "held", "newer"), processor.started);
+  }
+
+  @Test
+  public void testReentrantDrainSendsBatchHeldByOuterDispatch() throws Exception {
+    // Same held "held" as above, but the revocation hook only drains: the open batch is empty (as when "held" came from
+    // a timeout flush), so Indexer.flushAndDrain dispatches nothing before draining. The drain must still send and
+    // complete "held" before the hook returns; otherwise "held" is sent after the partition has been handed off, its
+    // offset commit is rejected, and it is re-delivered to the new owner.
+    processor.blockSendsFor("first");
+    AtomicInteger keepAliveCalls = new AtomicInteger();
+    List<String> completedByHook = new ArrayList<>();
+    startDispatcherHoldingBatch(keepAliveCalls, DEST_IDS, () -> {
+      dispatcher.drain();
+      completedByHook.addAll(processor.completed);
+    });
+
+    awaitUntil(() -> keepAliveCalls.get() >= 1);
+    processor.release("first");
+    indexerThread.join(TIMEOUT_MS);
+    assertEquals("the hook's drain must complete held", List.of("first", "held"), completedByHook);
+    assertEquals(List.of("first", "held"), processor.completed);
+  }
+
+  @Test
+  public void testReentrantDispatchThatFailsIdExtractionCompletesAfterHeldBatch() throws Exception {
+    // Same held "held", but the hook's newer batch makes the id extractor throw, so dispatch() fails it without sending
+    // it. That failure is still a completion, and "newer" was polled after "held", so "held" must be sent and completed
+    // first.
+    processor.blockSendsFor("first");
+    AtomicInteger keepAliveCalls = new AtomicInteger();
+    Function<List<Document>, Set<String>> failOnNewer = docs -> {
+      if (docs.get(0).getId().equals("newer")) {
+        throw new IllegalStateException("id extraction failed");
+      }
+      return DEST_IDS.apply(docs);
+    };
+    startDispatcherHoldingBatch(keepAliveCalls, failOnNewer, () -> {
+      dispatcher.dispatch(List.of(doc("newer", "sharedId")));
+      dispatcher.drain();
+    });
+
+    awaitUntil(() -> keepAliveCalls.get() >= 1);
+    processor.release("first");
+    indexerThread.join(TIMEOUT_MS);
+    assertEquals(List.of("first", "held", "newer"), processor.completed);
+    assertTrue(processor.errors.get("newer") instanceof IllegalStateException);
+  }
+
+  // Starts the dispatcher and an indexer thread that dispatches "first" and then "held" (both destination id
+  // "sharedId"), then drains. The dispatch of "held" waits on the in-flight "first", so keepAlive fires while "held" is
+  // held; on its first call it runs reentrant, standing in for the revocation hook. Later calls do nothing, as Indexer
+  // suppresses keepAlive while draining for a revocation.
+  private void startDispatcherHoldingBatch(AtomicInteger keepAliveCalls,
+      Function<List<Document>, Set<String>> idExtractor, Runnable reentrant) {
+    boolean[] hookRan = {false};
+    dispatcher = new ConcurrentDispatcher(3, "run", processor, idExtractor, doc -> false, () -> {
+      keepAliveCalls.incrementAndGet();
+      if (!hookRan[0]) {
+        hookRan[0] = true;
+        reentrant.run();
+      }
+    });
+    indexerThread = new Thread(() -> {
+      dispatcher.dispatch(List.of(doc("first", "sharedId")));
+      dispatcher.dispatch(List.of(doc("held", "sharedId")));
+      dispatcher.drain();
+    });
+    indexerThread.start();
   }
 
   // Starts the dispatcher and an indexer thread that dispatches "first" (destination id "sharedId") and then drains,
