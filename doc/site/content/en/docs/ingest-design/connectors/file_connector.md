@@ -64,6 +64,23 @@ The URI scheme selects the appropriate storage backend automatically. A local fi
 
 ---
 
+## Concurrent Traversal
+
+Multiple `paths` are traversed one after another by default.
+
+| Option | Type | Description |
+|---|---|---|
+| `concurrent` | Boolean | If `true`, traverses the `paths` in parallel. Paths must not overlap. Cannot be combined with `collapse`. |
+| `maxThreads` | Int | Maximum number of threads for concurrent traversal. Defaults to one thread per path. |
+
+```hocon
+paths: ["s3://bucket/a", "s3://bucket/b", "s3://bucket/c", "s3://bucket/d"]
+concurrent: true
+maxThreads: 2
+```
+
+---
+
 ## File Handlers
 
 File Handlers process individual files and extract one or more Lucille Documents from their contents. Without a handler, the `FileConnector` publishes one document per file containing only the file metadata fields. With a handler, a CSV file becomes one document per row, a JSON file becomes one document per object, and so on.
