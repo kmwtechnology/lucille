@@ -6,7 +6,7 @@ import styles from "./config-summary.module.css"
 export function shortClassName(className?: string): string {
   if (!className) return ""
   const parts = className.split(".")
-  return parts[parts.length - 1]
+  return parts[parts.length - 1] ?? className
 }
 
 /** Human-friendly label for a config's indexer (short class name, or fallback). */

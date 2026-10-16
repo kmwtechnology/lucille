@@ -74,8 +74,8 @@ export function validateConfigText(text: string): ConfigValidation {
     return { valid: false, message: "Unterminated string (missing closing quote)." }
   }
 
-  if (stack.length > 0) {
-    const open = stack[stack.length - 1]
+  const open = stack[stack.length - 1]
+  if (open !== undefined) {
     return { valid: false, message: `Unbalanced brackets: missing '${OPEN_TO_CLOSE[open]}'.` }
   }
 

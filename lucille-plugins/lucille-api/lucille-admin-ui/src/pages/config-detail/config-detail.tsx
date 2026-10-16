@@ -149,7 +149,7 @@ function PipelineItem({ pipeline, index }: { pipeline: Pipeline; index: number }
   )
 }
 
-const CONNECTION_KEYS = ["solr", "elastic", "opensearch", "csv"] as const
+const CONNECTION_KEYS = ["solr", "elasticsearch", "opensearch", "csv"] as const
 
 function IndexerCard({ config }: { config: ConfigObject }) {
   const indexer = config.indexer
