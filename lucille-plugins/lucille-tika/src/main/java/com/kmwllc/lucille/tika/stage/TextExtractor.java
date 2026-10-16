@@ -17,10 +17,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -149,11 +150,16 @@ public class TextExtractor extends Stage {
   // Building TikaConfigs from files is expensive, so we cache these configs across the JVM.
   // This is particularly helpful in multi-threaded runs, where each thread has its own instance of
   // TextExtractor but is using the same TikaConfig.
-  // The cache is bounded by MAX_CACHED_CONFIGS. It is a "soft cap" - once it is reached,
-  // no additional TikaConfigs will be cached.
+  // The cache is bounded by MAX_CACHED_CONFIGS; once it is reached, the oldest entry is evicted (FIFO).
   // Canonical paths are used as keys to prevent unwarranted collisions.
   private static final int MAX_CACHED_CONFIGS = 1000;
-  private static final ConcurrentHashMap<String, TikaConfig> TIKA_CONFIG_CACHE = new ConcurrentHashMap<>();
+  private static final Map<String, TikaConfig> TIKA_CONFIG_CACHE = Collections.synchronizedMap(
+      new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, TikaConfig> eldest) {
+          return size() > MAX_CACHED_CONFIGS;
+        }
+      });
 
   private String textField;
   private String filePathField;
@@ -339,15 +345,6 @@ public class TextExtractor extends Stage {
     try {
       // Canonical paths used to prevent errors (if relative paths are used in a distributed environment, for example)
       String key = new File(tikaConfigPath).getCanonicalPath();
-      TikaConfig cached = TIKA_CONFIG_CACHE.get(key);
-      if (cached != null) {
-        return cached;
-      }
-
-      // Currently uses just a soft cap, since the number of unique Tika configs should be relatively low
-      if (TIKA_CONFIG_CACHE.size() >= MAX_CACHED_CONFIGS) {
-        return new TikaConfig(new File(key));
-      }
 
       // computeIfAbsent so concurrent workers requesting the same path build it only once; a failed
       // build propagates out and is never cached.
@@ -512,7 +509,7 @@ public class TextExtractor extends Stage {
         // prevent zombie thread / blocking queued documents
         executorService.shutdownNow();
         executorService = Executors.newSingleThreadExecutor();
-        handleParseTimeout(inputStream);
+        handleParseTimeout();
         // the parse thread may still be writing to bch/metadata, so don't read them.
         return;
       } catch (Exception e) {
@@ -538,10 +535,17 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Hook invoked when a parse attempt times out, after the executor has been discarded and recreated.
-   * No-op by default; subclasses can override it, e.g. to record metrics on the timed-out document.
+   * Hook invoked when a parse attempt times out, after the input stream has been closed and the executor
+   * discarded and recreated. No-op by default; subclasses can override it, e.g. to record timeout metrics.
    */
-  protected void handleParseTimeout(InputStream inputStream) {
+  protected void handleParseTimeout() {
+  }
+
+  /**
+   * Clears the JVM-wide TikaConfig cache. Intended for tests.
+   */
+  static void clearTikaConfigCache() {
+    TIKA_CONFIG_CACHE.clear();
   }
 
   private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch) throws StageException {

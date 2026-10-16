@@ -29,7 +29,6 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -821,10 +820,7 @@ public class TextExtractorTest {
   public void testTikaConfigCaching() throws Exception {
     // Clear the JVM-wide cache so this test doesn't depend on ordering with other tests, and so we
     // don't leave a mock config behind for them afterward.
-    Field cacheField = TextExtractor.class.getDeclaredField("TIKA_CONFIG_CACHE");
-    cacheField.setAccessible(true);
-    Map<?, ?> cache = (Map<?, ?>) cacheField.get(null);
-    cache.clear();
+    TextExtractor.clearTikaConfigCache();
 
     // AutoDetectParser(TikaConfig) reads these four getters off the config, so delegate them to a
     // real default config to let the mock stand in without changing what the stage builds.
@@ -844,7 +840,7 @@ public class TextExtractorTest {
       // The config is built for the first stage and served from the cache for the second.
       assertEquals(1, mockedConstruction.constructed().size());
     } finally {
-      cache.clear();
+      TextExtractor.clearTikaConfigCache();
     }
   }
 
