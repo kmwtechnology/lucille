@@ -660,7 +660,8 @@ public class IndexerConcurrencyTest {
 
     // Releasing doc1 lets it finish and complete, then doc2 FAILs — in dispatch order.
     indexer.releaseSends("doc1");
-    awaitUntil(() -> messenger.sentEvents().size() == 2);
+    // Wait on completions, not events: a batch's events are sent before it is marked complete.
+    awaitUntil(() -> messenger.completedBatches().size() == 2);
     assertEquals(List.of("FINISH:doc1", "FAIL:doc2"), messenger.sentEvents());
     // Both batches are marked complete, in dispatch order: doc1 after its successful send, doc2 after its FAIL.
     assertEquals(List.of("doc1", "doc2"), messenger.completedBatches());
