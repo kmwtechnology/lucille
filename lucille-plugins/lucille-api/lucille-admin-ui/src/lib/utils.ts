@@ -7,6 +7,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Surface the API error body's `message`, never the raw body; fall back to the status line.
+export async function errorMessageFrom(res: Response): Promise<string> {
+  const statusLine = `${res.status} ${res.statusText}`.trim() || "Request failed"
+
+  const isJson = res.headers.get("content-type")?.includes("application/json")
+  if (!isJson) return statusLine
+
+  const body: unknown = await res.json().catch(() => null)
+  if (body && typeof body === "object" && typeof (body as Record<string, unknown>).message === "string") {
+    return (body as { message: string }).message
+  }
+  return statusLine
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 Bytes"
   const k = 1024

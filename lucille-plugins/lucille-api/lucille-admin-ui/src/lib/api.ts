@@ -1,8 +1,10 @@
+import { errorMessageFrom } from "@/lib/utils"
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? ""
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`)
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  if (!res.ok) throw new Error(await errorMessageFrom(res))
   return res.json()
 }
 
@@ -22,9 +24,8 @@ async function healthCheck(path: string): Promise<boolean> {
  * (comments, ${?ENV} substitutions, unquoted keys) are preserved and parsed by
  * the server. JSON is also valid HOCON, so plain JSON still works.
  *
- * On success the API returns JSON `{ configId }`. On failure it returns a
- * plain-text body (e.g. "Invalid configuration provided: ..."), so errors are
- * read as text to preserve the useful message.
+ * On success the API returns JSON `{ configId }`. On failure the server's
+ * error `message` is surfaced (see errorMessageFrom), never the raw body.
  *
  * @param body the raw HOCON (or JSON) configuration text
  * @returns the created config's UUID
@@ -38,8 +39,7 @@ async function postConfig(body: string): Promise<string> {
   })
 
   if (!res.ok) {
-    const message = (await res.text()) || `${res.status} ${res.statusText}`
-    throw new Error(message)
+    throw new Error(await errorMessageFrom(res))
   }
 
   const data: { configId?: string } = await res.json()
@@ -53,8 +53,7 @@ async function postConfig(body: string): Promise<string> {
  * Start a run for an existing config via POST /v1/run.
  *
  * On success the API returns the run details JSON (including `runId`). On
- * failure it returns a plain-text/error body, read as text to preserve the
- * message.
+ * failure the server's error `message` is surfaced, never the raw body.
  *
  * @returns the new run's ID
  * @throws Error with the server's message on a non-2xx response
@@ -67,8 +66,7 @@ async function startRun(configId: string): Promise<string> {
   })
 
   if (!res.ok) {
-    const message = (await res.text()) || `${res.status} ${res.statusText}`
-    throw new Error(message)
+    throw new Error(await errorMessageFrom(res))
   }
 
   const data: { runId?: string } = await res.json()
@@ -91,8 +89,7 @@ async function deleteConfig(configId: string): Promise<void> {
   })
 
   if (!res.ok) {
-    const message = (await res.text()) || `${res.status} ${res.statusText}`
-    throw new Error(message)
+    throw new Error(await errorMessageFrom(res))
   }
 }
 
