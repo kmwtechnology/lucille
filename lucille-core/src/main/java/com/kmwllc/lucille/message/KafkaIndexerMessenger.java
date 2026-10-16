@@ -65,9 +65,11 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     try {
       consumerRecords = destConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
-      // rethrows unless configured to skip; commit the position past the skipped record
+      // Rethrows unless configured to skip. Nothing is committed here: committing the consumer's position would commit
+      // past documents still in the open batch or in flight. The skipped offset is never recorded as polled, so the
+      // commit frontier moves past it once the surrounding documents complete; until then, a restart re-reads (and
+      // skips) it again.
       deserializationErrorHandler.handleOrRethrow(e);
-      destConsumer.commitSync();
       return null;
     }
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
