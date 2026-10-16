@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
@@ -556,8 +557,9 @@ public class TextExtractorTest {
     // If timeout works, it should have returned within much less than our 5 sec. max
     // and interrupted should be true (if we interrupt the thread)
     assertTrue("Parser should have been interrupted", InterruptTrackingParser.interrupted.get());
-    // Document should not have text (or at least not from the parser)
-    assertEquals("Document should have empty text.", "", doc.getString("text"));
+    // On timeout we don't read the shared handler (the parse thread may still be writing to it), so
+    // the text field is left unset rather than populated with partial output.
+    assertFalse("Document should not have text on timeout.", doc.has("text"));
 
     stage.stop();
 
@@ -573,6 +575,29 @@ public class TextExtractorTest {
     assertFalse("Parser should not have been interrupted", InterruptTrackingParser.interrupted.get());
     // Document should have text after processing without interruption.
     assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
+  }
+
+  @Test
+  public void testSkipEmbeddedWithForkThrows() {
+    // DocumentSelector can't cross the fork boundary, so this combination is rejected at construction.
+    Map<String, Object> config = Map.of(
+        "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
+        "byteArrayField", "byte_array",
+        "skipEmbeddedContentTypePrefixes", List.of("image/"),
+        "fork", Map.of("enabled", true));
+    assertThrows(StageException.class, () -> factory.get(config));
+  }
+
+  @Test
+  public void testForkingSizeLimit() throws Exception {
+    // Hitting textContentLimit should be treated as expected truncation, not a document failure,
+    // even in fork mode where the write-limit exception crosses the child-JVM boundary.
+    Stage stage = factory.get("TextExtractorTest/forking-sizelimit.conf");
+    Document doc = Document.create("doc1");
+    byte[] fileContent = Files.readAllBytes(Paths.get("src/test/resources/TextExtractorTest/tika.txt"));
+    doc.setField("byte_array", fileContent);
+    stage.processDocument(doc);
+    assertEquals("Hi ", doc.getString("text"));
   }
 
   @Test
@@ -785,6 +810,38 @@ public class TextExtractorTest {
 
     assertEquals("2024-01-01", doc.getString("tika_dc.date"));
     assertEquals("2024-01-02", doc.getString("tika_dc.date.created"));
+  }
+
+  /**
+   * Sanity check that a TikaConfig is built once per config path and reused across stage instances,
+   * rather than rebuilt for every stage (as would happen with each worker thread in a real run).
+   */
+  @Test
+  public void testTikaConfigCaching() throws Exception {
+    // Clear the JVM-wide cache so this test doesn't depend on ordering with other tests, and so we
+    // don't leave a mock config behind for them afterward.
+    TextExtractor.clearTikaConfigCache();
+
+    // AutoDetectParser(TikaConfig) reads these four getters off the config, so delegate them to a
+    // real default config to let the mock stand in without changing what the stage builds.
+    TikaConfig realConfig = TikaConfig.getDefaultConfig();
+    try (MockedConstruction<TikaConfig> mockedConstruction = mockConstruction(TikaConfig.class,
+        (mock, context) -> {
+          when(mock.getMediaTypeRegistry()).thenReturn(realConfig.getMediaTypeRegistry());
+          when(mock.getParser()).thenReturn(realConfig.getParser());
+          when(mock.getDetector()).thenReturn(realConfig.getDetector());
+          when(mock.getAutoDetectParserConfig()).thenReturn(realConfig.getAutoDetectParserConfig());
+        })) {
+      // Two stages pointing at the same tikaConfigPath, as two worker threads would each be. Each
+      // factory.get(...) calls start(), which is what resolves the config.
+      factory.get("TextExtractorTest/tika-config.conf");
+      factory.get("TextExtractorTest/tika-config.conf");
+
+      // The config is built for the first stage and served from the cache for the second.
+      assertEquals(1, mockedConstruction.constructed().size());
+    } finally {
+      TextExtractor.clearTikaConfigCache();
+    }
   }
 
   /**

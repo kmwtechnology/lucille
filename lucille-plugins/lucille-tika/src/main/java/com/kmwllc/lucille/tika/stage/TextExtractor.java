@@ -17,7 +17,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -28,6 +30,8 @@ import java.util.concurrent.TimeoutException;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaConfigException;
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.extractor.DocumentSelector;
+import org.apache.tika.exception.WriteLimitReachedException;
 import org.apache.tika.fork.ForkParser;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
@@ -62,9 +66,13 @@ import org.xml.sax.SAXException;
  * &lt;parser-exclude class="org.apache.tika.parser.ocr.TesseractOCRParser"/&gt; under the DefaultParser.
  * A global Tika config (the "tika.config" system property or the TIKA_CONFIG environment variable) is treated the
  * same way when tikaConfigPath is not set: it is used as is, and enableOcr cannot be combined with it.
+ * A provided or global config is applied to embedded documents as well as the top-level document.
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
  * parseTimeout (Long, Optional) : timeout for parsing in milliseconds.
+ * skipEmbeddedContentTypePrefixes (List&lt;String&gt;, Optional) : content-type prefixes for which embedded documents are
+ * skipped (not parsed), e.g. ["image/"] to skip embedded images. Defaults to empty (all embedded documents parsed).
+ * Embedded parts with no content type are always parsed.
  * whitelist (List&lt;String&gt;, Optional) : list of metadata names that are to be included in document
  * blacklist (List&lt;String&gt;, Optional) : list of metadata names that are not to be included in document
  * fieldNamesField (String, Optional) : if set, each extracted metadata field's prefixed name is added as a separate value to this
@@ -122,6 +130,7 @@ public class TextExtractor extends Stage {
       .optionalList("whitelist", new TypeReference<List<String>>() {})
       .optionalList("blacklist", new TypeReference<List<String>>() {})
       .optionalNumber("textContentLimit", "parseTimeout")
+      .optionalList("skipEmbeddedContentTypePrefixes", new TypeReference<List<String>>() {})
       .optionalBoolean("enableOcr")
       .optionalParent(FORK_SPEC, FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
       .optionalParent("metadataFields", new TypeReference<Map<String, Object>>() {})
@@ -137,6 +146,21 @@ public class TextExtractor extends Stage {
       Arrays.asList("java", "-Djava.awt.headless=true");
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
+
+  // Building TikaConfigs from files is expensive, so we cache these configs across the JVM.
+  // This is particularly helpful in multi-threaded runs, where each thread has its own instance of
+  // TextExtractor but is using the same TikaConfig.
+  // The cache is bounded by MAX_CACHED_CONFIGS; once it is reached, the oldest entry is evicted (FIFO).
+  // Canonical paths are used as keys to prevent unwarranted collisions.
+  private static final int MAX_CACHED_CONFIGS = 1000;
+  private static final Map<String, TikaConfig> TIKA_CONFIG_CACHE = Collections.synchronizedMap(
+      new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, TikaConfig> eldest) {
+          return size() > MAX_CACHED_CONFIGS;
+        }
+      });
+
   private String textField;
   private String filePathField;
   private String tikaConfigPath;
@@ -161,6 +185,7 @@ public class TextExtractor extends Stage {
   private ExecutorService executorService;
   private final FieldFilter fieldFilter;
   private final Map<String, Object> metadataFields;
+  private final List<String> skipEmbeddedContentTypePrefixes;
 
   public TextExtractor(Config config) throws StageException {
     super(config);
@@ -175,6 +200,9 @@ public class TextExtractor extends Stage {
     fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
     replaceDotsInMetadataNames = config.hasPath("replaceDotsInMetadataNames") && config.getBoolean("replaceDotsInMetadataNames");
     metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
+    skipEmbeddedContentTypePrefixes = config.hasPath("skipEmbeddedContentTypePrefixes")
+        ? config.getStringList("skipEmbeddedContentTypePrefixes")
+        : List.of();
     enableOcr = ConfigUtils.getOrDefault(config, "enableOcr", false);
     globalTikaConfigSource = tikaConfigPath == null ? detectGlobalTikaConfigSource() : null;
 
@@ -205,6 +233,10 @@ public class TextExtractor extends Stage {
     }
     if (filePathField == null && byteArrayField == null) {
       throw new StageException("Provided neither a filePathField nor byteArrayField to the TextExtractor stage");
+    }
+    // DocumentSelector can't cross the fork boundary (not Serializable), so skipping can't be applied there.
+    if (forkEnabled && !skipEmbeddedContentTypePrefixes.isEmpty()) {
+      throw new StageException("skipEmbeddedContentTypePrefixes is not supported when fork.enabled is true.");
     }
     if (tikaConfigPath != null && config.hasPath("enableOcr")) {
       throw new StageException("enableOcr cannot be combined with tikaConfigPath; control OCR in the Tika config instead, "
@@ -243,7 +275,8 @@ public class TextExtractor extends Stage {
     }
 
     // we use an auto detect parser whether we are forking or not; ForkParser serializes it into the child JVMs
-    AutoDetectParser autoParser = createAutoDetectParser();
+    TikaConfig tikaConfig = createTikaConfig();
+    AutoDetectParser autoParser = new AutoDetectParser(tikaConfig);
     log.info("TextExtractor OCR: {}; tesseract binary on PATH: {}", describeOcrSetting(),
         tesseractDetected() ? "detected" : "not detected");
 
@@ -259,6 +292,17 @@ public class TextExtractor extends Stage {
     } else {
       parser = autoParser;
       parseCtx.set(Parser.class, parser);
+      // Without a TikaConfig in the context, Tika builds a fresh one (an expensive operation) for
+      // every embedded document, so we set ours here to reuse it. We don't set it in the fork case
+      // since TikaConfig isn't Serializable and the context is sent to the child JVM.
+      parseCtx.set(TikaConfig.class, tikaConfig);
+      // Skip parsing embedded documents whose content type matches a configured prefix, avoiding
+      // their stream open, detection, and parse entirely. Only set when configured, so the default
+      // (empty) leaves Tika's normal behavior unchanged. Non-fork only, alongside the other context
+      // hints above.
+      if (!skipEmbeddedContentTypePrefixes.isEmpty()) {
+        parseCtx.set(DocumentSelector.class, new EmbeddedContentTypeSelector(skipEmbeddedContentTypePrefixes));
+      }
       if (parseTimeout != null) {
         // each worker is running in a single thread so we only need to run the extraction with a
         // single thread executor rather than using a thread pool.
@@ -268,19 +312,51 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Builds the {@link AutoDetectParser} used for parsing: from tikaConfigPath or a global Tika config when set, otherwise
-   * Tika's defaults, with {@link TesseractOCRParser} excluded unless enableOcr is true.
+   * Builds the {@link AutoDetectParser} used for parsing from {@link #createTikaConfig()}.
    */
   AutoDetectParser createAutoDetectParser() throws StageException {
+    return new AutoDetectParser(createTikaConfig());
+  }
+
+  /**
+   * Returns the {@link TikaConfig} used for parsing: from tikaConfigPath (cached, see {@link #getTikaConfig()}) or a
+   * global Tika config when set, otherwise Tika's defaults, with {@link TesseractOCRParser} excluded unless enableOcr is true.
+   */
+  private TikaConfig createTikaConfig() throws StageException {
+    if (tikaConfigPath != null) {
+      return getTikaConfig();
+    }
     try {
-      if (tikaConfigPath != null) {
-        return new AutoDetectParser(new TikaConfig(new File(tikaConfigPath)));
-      }
       if (enableOcr || globalTikaConfigSource != null) {
-        // Tika's default constructor loads the global Tika config when one is set
-        return new AutoDetectParser();
+        // Tika's default config loads the global Tika config when one is set
+        return TikaConfig.getDefaultConfig();
       }
-      return new AutoDetectParser(new TikaConfig(new ByteArrayInputStream(NO_OCR_TIKA_CONFIG.getBytes(StandardCharsets.UTF_8))));
+      return new TikaConfig(new ByteArrayInputStream(NO_OCR_TIKA_CONFIG.getBytes(StandardCharsets.UTF_8)));
+    } catch (Exception e) {
+      throw new StageException("Error starting TextExtractor stage.", e);
+    }
+  }
+
+  /**
+   * Returns the {@link TikaConfig} for this stage's configured {@code tikaConfigPath}, building it at
+   * most once per distinct config file across the JVM (see {@link #TIKA_CONFIG_CACHE}).
+   */
+  private TikaConfig getTikaConfig() throws StageException {
+    try {
+      // Canonical paths used to prevent errors (if relative paths are used in a distributed environment, for example)
+      String key = new File(tikaConfigPath).getCanonicalPath();
+
+      // computeIfAbsent so concurrent workers requesting the same path build it only once; a failed
+      // build propagates out and is never cached.
+      return TIKA_CONFIG_CACHE.computeIfAbsent(key, path -> {
+        try {
+          return new TikaConfig(new File(path));
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      });
+    } catch (RuntimeException e) {
+      throw new StageException("Error starting TextExtractor stage.", e.getCause() != null ? e.getCause() : e);
     } catch (Exception e) {
       throw new StageException("Error starting TextExtractor stage.", e);
     }
@@ -423,6 +499,19 @@ public class TextExtractor extends Stage {
       } catch (TimeoutException e) {
         future.cancel(true);
         log.warn("Tika parsing timed out after {} ms", parseTimeout);
+        // close the stream to abort a parse blocked on a stream read (the common hang case)
+        try {
+          inputStream.close();
+        } catch (IOException ioe) {
+          log.warn("Error closing input stream after parse timeout", ioe);
+        }
+        // future.cancel() doesn't stop a parse thread (may be stuck), but discard + recreate does -
+        // prevent zombie thread / blocking queued documents
+        executorService.shutdownNow();
+        executorService = Executors.newSingleThreadExecutor();
+        handleParseTimeout();
+        // the parse thread may still be writing to bch/metadata, so don't read them.
+        return;
       } catch (Exception e) {
         log.warn("Error during async Tika parsing: {}", e.getMessage());
       }
@@ -445,14 +534,33 @@ public class TextExtractor extends Stage {
     }
   }
 
+  /**
+   * Hook invoked when a parse attempt times out, after the input stream has been closed and the executor
+   * discarded and recreated. No-op by default; subclasses can override it, e.g. to record timeout metrics.
+   */
+  protected void handleParseTimeout() {
+  }
+
+  /**
+   * Clears the JVM-wide TikaConfig cache. Intended for tests.
+   */
+  static void clearTikaConfigCache() {
+    TIKA_CONFIG_CACHE.clear();
+  }
+
   private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch) throws StageException {
     try {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
-      if (forkEnabled) {
+      // We expect truncation when textContentLimit is reached.
+      // It is best to check this condition because exceptions tend to be rewrapped. 
+      if (WriteLimitReachedException.isWriteLimitReached(e)) {
+        log.debug("textContentLimit ({}) reached; extracted text truncated.", textContentLimit);
+      } else if (forkEnabled) {
         throw new StageException("Forked Tika process failed for document: " + doc.getId(), e);
+      } else {
+        log.warn("Tika Exception: {}", e.getMessage());
       }
-      log.warn("Tika Exception: {}", e.getMessage());
     }
   }
 }
