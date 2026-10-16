@@ -474,7 +474,7 @@ To estimate the slowest bulk request, multiply the number of attempts (`indexer.
 * `maxRetries: 3`: about 4 × 35 s + 10 s ≈ 150 s, so 3× is about 450 s.
 * `maxRetries: 5`: about 6 × 35 s + 47 s ≈ 260 s, so 3× is about 780 s, more than 600 s.
 
-Setting `socketTimeoutMs: -1` removes the per-attempt limit, so no interval is long enough if the destination hangs. If the interval is exceeded, the Indexer is evicted from the group and the documents it had in progress are re-delivered (indexed again, with duplicate completion events), not lost. See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
+Setting `socketTimeoutMs: -1` removes the per-attempt limit, so no interval is long enough if the destination hangs. If the interval is exceeded, the Indexer is evicted from the group and the documents it had in progress are re-delivered (indexed again, with duplicate completion events), not lost. A request still running at eviction can also finish after the new owner's replay and leave stale destination state, such as a deleted document reappearing. See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
 
 ### pollIntervalMs
 

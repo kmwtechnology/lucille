@@ -454,8 +454,9 @@ public class IndexerConcurrencyTest {
     awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
     awaitNextBatchBlocked();
 
-    // Interrupt the indexer thread while it waits. The wait must not be abandoned (the batches are already sent), and
-    // the flag is restored afterwards so the next poll ends the run.
+    // Interrupt the indexer thread while it waits. Nothing in Lucille does this; it can only arise when other code embeds
+    // Lucille and interrupts the thread itself, which is considered unlikely. The wait must not be abandoned (the
+    // batches are already sent), and the flag is restored afterwards so the next poll ends the run.
     indexerThread.interrupt();
     awaitNextBatchBlocked();
     assertFalse("an interrupt must not abandon the wait for an in-flight batch", indexer.hasStartedSend("doc3"));
@@ -466,6 +467,32 @@ public class IndexerConcurrencyTest {
     indexerThread.join(TIMEOUT_MS);
     assertFalse(indexerThread.isAlive());
     assertEquals(List.of("doc1", "doc2", "doc3"), messenger.completedBatches().subList(0, 3));
+  }
+
+  @Test
+  public void testInterruptStopsTheRunEvenWhenCompletionSwallowsIt() throws Exception {
+    // Nothing in Lucille interrupts the indexer thread (the Runner and WorkerIndexer stop it with terminate() and
+    // join()), so this can only arise when other code embeds Lucille and interrupts the thread itself, which is
+    // considered unlikely. In that case completion runs with the interrupt set. A messenger whose batchComplete blocks
+    // interruptibly (as the Hybrid messenger's offset handoff does) then throws InterruptedException, which clears the
+    // flag. The indexer must restore it, or the next poll never sees the interrupt and the run keeps going.
+    RecordingMessenger messenger = new RecordingMessenger() {
+      @Override
+      public void batchComplete(List<Document> batch) throws InterruptedException {
+        new CountDownLatch(1).await(1, TimeUnit.MILLISECONDS);
+        super.batchComplete(batch);
+      }
+    };
+    indexer = new ControlledIndexer(config(2), messenger);
+    indexer.blockSendsFor("doc1");
+    queueDocsAndStartIndexer("doc1", "doc2", "doc3", "doc4");
+    awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
+    awaitNextBatchBlocked();
+
+    indexerThread.interrupt();
+    indexer.releaseSends("doc1");
+    indexerThread.join(TIMEOUT_MS);
+    assertFalse("the interrupt must still stop the run", indexerThread.isAlive());
   }
 
   @Test
@@ -1166,7 +1193,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public void batchComplete(List<Document> batch) {
+    public void batchComplete(List<Document> batch) throws InterruptedException {
       completedBatches.add(batch.stream().map(Document::getId).collect(Collectors.joining(",")));
     }
 

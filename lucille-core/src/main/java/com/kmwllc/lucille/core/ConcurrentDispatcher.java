@@ -215,11 +215,12 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   // Waits for a send to finish, even if the indexer thread is interrupted meanwhile.
   //
-  // Lucille never interrupts the indexer thread (the Runner and WorkerIndexer stop it with terminate() and join()), so
-  // an interrupt means something outside Lucille is forcing a shutdown. The batch has already been sent, so the wait is
-  // not abandoned; the interrupt is restored afterwards, so the next poll sees it and the run loop exits. Completion
-  // then runs with the flag set, as it does after a synchronous send when maxConcurrentBatches is 1; a messenger call
-  // that blocks interruptibly may fail, leaving the batch to be re-delivered.
+  // Nothing in Lucille interrupts the indexer thread (the Runner and WorkerIndexer stop it with terminate() and join()),
+  // so this only matters when other code embeds Lucille and interrupts the thread itself, which is considered unlikely.
+  // The batch has already been sent, so the wait is not abandoned; the interrupt is restored afterwards, so the next
+  // poll sees it and the run loop exits. Completion then runs with the flag set, as it does after a synchronous send
+  // when maxConcurrentBatches is 1; a messenger call that blocks interruptibly may fail, leaving the batch to be
+  // re-delivered (Indexer.restoreInterrupt keeps that failure from swallowing the interrupt).
   private SendOutcome awaitOutcome(Future<SendOutcome> future) {
     boolean interrupted = false;
     try {

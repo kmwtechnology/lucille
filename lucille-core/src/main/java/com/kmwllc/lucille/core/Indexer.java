@@ -607,6 +607,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
           }
         }
       } catch (Exception e) {
+        restoreInterrupt(e);
         List<String> docIds = succeededDocs.stream().map(Document::getId).collect(Collectors.toList());
         log.error("Error sending completion events for docs {}. RUN WILL HANG.", docIds, e);
       }
@@ -632,6 +633,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
         try {
           messenger.batchComplete(batchedDocs);
         } catch (Exception e) {
+          restoreInterrupt(e);
           log.error("Error marking batch complete.", e);
         }
       }
@@ -651,11 +653,24 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
       failedDocLogger.atError().setMessage(() -> d.toString()).log();
     } catch (Exception e) {
+      restoreInterrupt(e);
       docLogger.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
     } finally {
       if (d.getRunId() != null) {
         MDC.popByKey(RUNID_FIELD);
       }
+    }
+  }
+
+  // Restores the interrupt flag if a messenger call during completion failed because the indexer thread was
+  // interrupted. Nothing in Lucille interrupts the indexer thread (the Runner and WorkerIndexer stop it with
+  // terminate() and join()), so this only matters when other code embeds Lucille and interrupts the thread itself,
+  // which is considered unlikely. A call that blocks interruptibly (such as the Hybrid messenger's offset handoff)
+  // clears the flag when it throws; restoring it lets the next poll see the interrupt and stop the run. The batch whose
+  // call failed is re-delivered or superseded by a later commit.
+  private static void restoreInterrupt(Exception e) {
+    if (e instanceof InterruptedException) {
+      Thread.currentThread().interrupt();
     }
   }
 
