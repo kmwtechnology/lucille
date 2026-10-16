@@ -445,7 +445,7 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
-  public void testInterruptWhileWaitingStillCompletesInFlightBatches() throws Exception {
+  public void testInterruptWhileWaitingDoesNotAbandonInFlightBatches() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     indexer = new ControlledIndexer(config(2), messenger);
     // doc1 and doc2 go in flight; with the window full, the indexer thread blocks dispatching doc3, waiting for doc1.
@@ -454,19 +454,17 @@ public class IndexerConcurrencyTest {
     awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
     awaitNextBatchBlocked();
 
-    // Interrupt the indexer thread while it waits. The wait must absorb the interrupt (not abandon the in-flight batch)
-    // and keep waiting; the flag is restored afterwards so the next poll ends the run.
+    // Interrupt the indexer thread while it waits. The wait must not be abandoned (the batches are already sent), and
+    // the flag is restored afterwards so the next poll ends the run.
     indexerThread.interrupt();
-    // doc3 must not be abandoned: the indexer keeps waiting for doc1 rather than bailing out.
     awaitNextBatchBlocked();
-    assertFalse("an interrupt must not abandon an in-flight batch", indexer.hasStartedSend("doc3"));
+    assertFalse("an interrupt must not abandon the wait for an in-flight batch", indexer.hasStartedSend("doc3"));
 
-    // Releasing doc1 lets the held batches complete; the restored interrupt then terminates the indexer after it drains
-    // what it is holding.
+    // Releasing doc1 lets the held batches complete; the restored interrupt then ends the run after it drains what it
+    // is holding. (This messenger's batchComplete does not block, so every completion succeeds even with the flag set.)
     indexer.releaseSends("doc1");
     indexerThread.join(TIMEOUT_MS);
     assertFalse(indexerThread.isAlive());
-    // doc1, doc2, doc3 were in flight or dispatched and must all have completed, in order.
     assertEquals(List.of("doc1", "doc2", "doc3"), messenger.completedBatches().subList(0, 3));
   }
 
@@ -1168,11 +1166,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public void batchComplete(List<Document> batch) throws InterruptedException {
-      // Mirror a real messenger (e.g. HybridIndexerMessenger) whose batchComplete makes an interruptible blocking call:
-      // this throws InterruptedException if the thread's interrupt flag is set, so a test can prove completion runs with
-      // the flag clear and is not lost when an interrupt arrived during the preceding wait.
-      new CountDownLatch(1).await(1, TimeUnit.MILLISECONDS);
+    public void batchComplete(List<Document> batch) {
       completedBatches.add(batch.stream().map(Document::getId).collect(Collectors.joining(",")));
     }
 

@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -208,77 +207,37 @@ class ConcurrentDispatcher implements BatchDispatcher {
   }
 
   // Waits for the oldest in-flight batch's send to finish and completes it, on the indexer thread.
-  //
-  // Completion runs with the interrupt flag clear, because the completing messenger calls may themselves make
-  // interruptible blocking calls (e.g. a queue put) that would otherwise throw at once and lose the batch's completion.
-  // Any interrupt — whether it was already pending or arrived during the wait — is restored afterwards, so the next
-  // poll observes it and the run loop exits. See the note on interrupts in awaitOutcome.
   private void completeOldest() {
     InFlightBatch oldest = inFlightBatches.removeFirst();
     inFlightIds.removeAll(oldest.ids());
-    // Clear and remember any already-pending interrupt, so completion below runs with the flag clear.
-    boolean interrupted = Thread.interrupted();
+    processor.completeBatch(oldest.docs(), awaitOutcome(oldest.outcome()));
+  }
+
+  // Waits for a send to finish, even if the indexer thread is interrupted meanwhile.
+  //
+  // Lucille never interrupts the indexer thread (the Runner and WorkerIndexer stop it with terminate() and join()), so
+  // an interrupt means something outside Lucille is forcing a shutdown. The batch has already been sent, so the wait is
+  // not abandoned; the interrupt is restored afterwards, so the next poll sees it and the run loop exits. Completion
+  // then runs with the flag set, as it does after a synchronous send when maxConcurrentBatches is 1; a messenger call
+  // that blocks interruptibly may fail, leaving the batch to be re-delivered.
+  private SendOutcome awaitOutcome(Future<SendOutcome> future) {
+    boolean interrupted = false;
     try {
-      AwaitedOutcome awaited = awaitOutcome(oldest.outcome());
-      interrupted |= awaited.interrupted();
-      processor.completeBatch(oldest.docs(), awaited.outcome());
+      while (true) {
+        try {
+          return future.get();
+        } catch (InterruptedException e) {
+          // Throwing cleared the flag, so the next get() waits normally.
+          interrupted = true;
+        } catch (ExecutionException e) {
+          // processor.sendWithRetry captures its own Throwables, so this only happens if the task wrapper itself failed.
+          return new SendOutcome(null, e.getCause(), 0);
+        }
+      }
     } finally {
       if (interrupted) {
         Thread.currentThread().interrupt();
       }
-    }
-  }
-
-  // Waits for a send to finish.
-  //
-  // On interrupts: an interrupt arriving here is rare. Normal shutdown does not interrupt the indexer thread — the
-  // Runner and WorkerIndexer stop the indexer with terminate() (which sets a flag) followed by join(), letting the run
-  // loop exit on its own. An interrupt reaches this wait only in edge cases: a forced or timed-out shutdown escalating
-  // to Thread.interrupt() or an executor shutdownNow() while a send happens to be slow, or JVM/container termination.
-  //
-  // Rare as it is, it must be handled rather than propagated, because the batch has already been sent (or is being
-  // sent) and must still be accounted for: its completion emits the batch's events and (for a commit-on-completion
-  // messenger) commits its offsets. Abandoning it on interrupt would lose those — a hung run waiting on events that
-  // never arrive, or uncommitted offsets. So an interrupt is reported (not re-thrown) and the wait continues until the
-  // send finishes; completeOldest clears the flag across completion and restores it afterwards.
-  //
-  // Returns with the interrupt flag left as the caller set it; the returned AwaitedOutcome says whether an interrupt
-  // arrived during the wait.
-  private AwaitedOutcome awaitOutcome(Future<SendOutcome> future) {
-    boolean interrupted = false;
-    while (true) {
-      try {
-        return new AwaitedOutcome(future.get(), interrupted);
-      } catch (InterruptedException e) {
-        // Throwing cleared the flag, so the next get() waits normally.
-        interrupted = true;
-      } catch (ExecutionException e) {
-        // processor.sendWithRetry captures its own Throwables, so this only happens if the task wrapper itself failed.
-        return new AwaitedOutcome(new SendOutcome(null, e.getCause(), 0), interrupted);
-      } catch (CancellationException e) {
-        // The send was cancelled before it ran. Nothing here cancels futures, but if one is, the batch must still be
-        // accounted for (FAIL events emitted), or the run would hang waiting for events that never arrive.
-        return new AwaitedOutcome(new SendOutcome(null, e, 0), interrupted);
-      }
-    }
-  }
-
-  // The result of awaiting a send: its outcome, and whether an interrupt arrived during the wait.
-  private static final class AwaitedOutcome {
-    private final SendOutcome outcome;
-    private final boolean interrupted;
-
-    AwaitedOutcome(SendOutcome outcome, boolean interrupted) {
-      this.outcome = outcome;
-      this.interrupted = interrupted;
-    }
-
-    SendOutcome outcome() {
-      return outcome;
-    }
-
-    boolean interrupted() {
-      return interrupted;
     }
   }
 }
