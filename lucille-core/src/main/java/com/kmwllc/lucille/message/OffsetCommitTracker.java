@@ -29,13 +29,16 @@ import org.slf4j.LoggerFactory;
  *   unflushed. The frontier advances across the <i>sequence of offsets actually polled</i>, not by {@code offset + 1},
  *   so a gap between polled offsets (a transaction marker, or a record removed by compaction) does not stall it. A
  *   crash re-reads from the frontier and loses nothing. (This holds independently of the order batches complete in.)</li>
- *   <li><b>No rewind of another consumer.</b> Each partition carries an assignment <i>generation</i>, bumped whenever it
- *   is revoked or lost. A polled document is stamped with the generation it was delivered under; when its batch
- *   completes, the offset is committed only if that generation is still current. So a record polled under an earlier
- *   assignment (the partition having been revoked and possibly reassigned since) is dropped rather than committed, which
- *   would rewind whatever consumer owns the partition now. Dropping an offset only re-delivers its records. This also
- *   makes an eager revoke-and-reassign to the <i>same</i> consumer safe: the re-poll runs under a new generation, so the
- *   stale pre-revoke completions are rejected while the fresh ones commit normally.</li>
+ *   <li><b>No rewind, no stall across rebalances.</b> The frontier advances only across offsets polled since the
+ *   partition was last assigned to this consumer: revoking or losing a partition drops all of its tracked offsets, and a
+ *   partition that comes back is polled again from its committed offset. So a commit never goes below the committed
+ *   offset at reassignment, and only partitions still assigned are committed, so no other consumer is rewound. A batch
+ *   polled before a rebalance that completes afterwards either matches no tracked offset and is ignored, or matches an
+ *   offset polled again since (the same record, since Kafka records never change) and counts as completing it: that
+ *   record was processed by the earlier send, so the frontier may pass it, and the re-polled copy's later completion is
+ *   redundant. Either way a stale completion can only move the frontier forward, never hold it back, so an eager
+ *   revoke-and-reassign to the <i>same</i> consumer cannot stall it. (With the Indexer's pre-revocation drain, a clean
+ *   revoke leaves no batch in flight, so stale completions arise only after a partition is lost.)</li>
  *   <li><b>No lost commit on failure.</b> A failed commit is retained and retried on the next completed batch, on
  *   revocation, and on close.</li>
  * </ul>
@@ -54,11 +57,7 @@ class OffsetCommitTracker {
   // off. Null until the Indexer registers it (and when there is no Indexer, e.g. in some tests).
   private Runnable preRevocationHook;
 
-  // Per partition, the current assignment generation. Bumped each time the partition is revoked or lost, so documents
-  // polled before a rebalance carry an older generation than ones polled after, letting batchCompleted reject the
-  // stale ones. (Starts at 0 on first poll of a partition.)
-  private final Map<TopicPartition, Long> generation = new HashMap<>();
-  // Per partition, the offsets polled under the current generation and not yet absorbed into the commit frontier. The
+  // Per partition, the offsets polled since it was last assigned and not yet absorbed into the commit frontier. The
   // frontier advances across this set (not by offset+1), so gaps between polled offsets never stall it.
   private final Map<TopicPartition, NavigableSet<Long>> polled = new HashMap<>();
   // Per partition, polled offsets whose batch has completed, not yet absorbed into the frontier.
@@ -86,15 +85,9 @@ class OffsetCommitTracker {
     this.preRevocationHook = hook;
   }
 
-  /**
-   * Records that the given offset was polled on the given partition, and returns the partition's current assignment
-   * generation so the caller can stamp it on the document. At completion, {@link #batchCompleted} commits the offset
-   * only if the document's stamped generation still matches.
-   */
-  long recordPolled(TopicPartition partition, long offset) {
-    long gen = generation.computeIfAbsent(partition, p -> 0L);
+  /** Records that the given offset was polled on the given partition, so the frontier can advance across it. */
+  void recordPolled(TopicPartition partition, long offset) {
     polled.computeIfAbsent(partition, p -> new TreeSet<>()).add(offset);
-    return gen;
   }
 
   /**
@@ -109,13 +102,6 @@ class OffsetCommitTracker {
       }
       KafkaDocument kafkaDoc = (KafkaDocument) doc;
       TopicPartition partition = new TopicPartition(kafkaDoc.getTopic(), kafkaDoc.getPartition());
-      // Reject a document whose partition has been revoked (and possibly reassigned) since it was polled: its stamped
-      // generation is older than the partition's current one. Committing its offset could rewind whoever owns the
-      // partition now. A document that predates generation tracking (-1) and any still-current one is accepted.
-      Long current = generation.get(partition);
-      if (current != null && kafkaDoc.getDeliveryGeneration() != -1 && kafkaDoc.getDeliveryGeneration() != current) {
-        continue;
-      }
       recordCompleted(partition, kafkaDoc.getOffset());
     }
     commitPending();
@@ -127,7 +113,8 @@ class OffsetCommitTracker {
   private void recordCompleted(TopicPartition partition, long offset) {
     NavigableSet<Long> polledOffsets = polled.get(partition);
     if (polledOffsets == null || !polledOffsets.contains(offset)) {
-      // Not an outstanding polled offset under the current generation (already absorbed, or stale): nothing to do.
+      // Not an outstanding polled offset (already absorbed, or polled before a revoke and not polled again): nothing to
+      // do.
       return;
     }
     completed.computeIfAbsent(partition, p -> new TreeSet<>()).add(offset);
@@ -183,8 +170,8 @@ class OffsetCommitTracker {
       // it owns the batch/dispatcher). That completes every polled-but-unfinished document — emitting its events and
       // advancing its offset into pendingOffsets below — while the partition is still owned, so the commit below hands
       // off a frontier past them. Without this, those documents are re-delivered after the rebalance and indexed (and
-      // FINISHed) again. It runs before generation is bumped in dropAssignmentState, so the just-completed documents
-      // still match the current generation and commit rather than being rejected as stale.
+      // FINISHed) again. It runs before dropAssignmentState drops the partitions' tracked offsets, so the just-completed
+      // documents still advance the frontier rather than being ignored.
       if (preRevocationHook != null) {
         preRevocationHook.run();
       }
@@ -218,15 +205,13 @@ class OffsetCommitTracker {
     public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
     }
 
-    // Bumps each partition's assignment generation and drops all of its outstanding state: polled, completed, and
-    // pending commit offsets. Any batch still in flight from the old generation will be rejected when it completes (its
-    // stamped generation no longer matches), and a re-poll under the new generation starts fresh. The pending commit
-    // offset is dropped here too; on the revoke path onPartitionsRevoked has already flushed it (while the partition was
-    // still owned) before calling this, and on the lost path nothing was committed and keeping it could rewind the new
-    // owner.
+    // Drops all of each partition's outstanding state: polled, completed, and pending commit offsets. A batch still in
+    // flight from before will find its offsets untracked when it completes, unless they have been polled again since
+    // (see the class javadoc), and a re-poll starts fresh from the committed offset. The pending commit offset is
+    // dropped here too; on the revoke path onPartitionsRevoked has already flushed it (while the partition was still
+    // owned) before calling this, and on the lost path nothing was committed and keeping it could rewind the new owner.
     private void dropAssignmentState(Collection<TopicPartition> partitions) {
       for (TopicPartition partition : partitions) {
-        generation.merge(partition, 1L, Long::sum);
         polled.remove(partition);
         completed.remove(partition);
         pendingOffsets.remove(partition);

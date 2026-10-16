@@ -79,12 +79,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
-      // Record the polled offset under the partition's current assignment generation, and stamp that generation on the
-      // document, so when the batch later completes we can tell whether the partition has since been revoked and
-      // reassigned (making the completion stale) rather than relying on an offset watermark that a re-poll would defeat.
-      long generation = offsetCommitTracker.recordPolled(
-          new TopicPartition(record.topic(), record.partition()), record.offset());
-      doc.setDeliveryGeneration(generation);
+      // Record the polled offset, so the commit frontier can advance across it once its batch completes.
+      offsetCommitTracker.recordPolled(new TopicPartition(record.topic(), record.partition()), record.offset());
       return doc;
     }
     return null;
