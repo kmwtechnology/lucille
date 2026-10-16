@@ -39,6 +39,16 @@ export function validateConfigText(text: string): ConfigValidation {
       continue
     }
 
+    // HOCON triple-quoted strings are raw: scan to the next `"""`, ignoring `"` and `\` inside.
+    if (ch === '"' && next === '"' && text[i + 2] === '"') {
+      const closeIndex = text.indexOf('"""', i + 3)
+      if (closeIndex === -1) {
+        return { valid: false, message: "Unterminated string (missing closing quote)." }
+      }
+      i = closeIndex + 2 
+      continue
+    }
+
     if (ch === '"') {
       inString = true
     } else if (ch === "#" || (ch === "/" && next === "/")) {

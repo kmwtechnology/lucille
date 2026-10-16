@@ -17,6 +17,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { formatBytes } from "@/lib/utils"
+import { SYSTEM_STATS_POLL_INTERVAL_MS } from "@/lib/constants"
 import { useFetch } from "@/hooks/use-fetch"
 import { useHealthStatus } from "@/hooks/use-health-status"
 import type { Run, SystemStats } from "@/types/api"
@@ -27,7 +28,7 @@ export default function Dashboard() {
   const status = useHealthStatus()
   const configs = useFetch<Record<string, unknown>>("/v1/config")
   const runs = useFetch<Run[]>("/v1/run")
-  const stats = useFetch<SystemStats>("/v1/systemstats", 5000)
+  const stats = useFetch<SystemStats>("/v1/systemstats", { pollIntervalMs: SYSTEM_STATS_POLL_INTERVAL_MS })
 
   const totalConfigs = configs.status === "success" ? Object.keys(configs.data).length : null
   const runsList = runs.status === "success" ? runs.data : null

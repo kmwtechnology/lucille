@@ -145,8 +145,11 @@ function ConfigRow({ id, config, onDeleted }: { id: string; config: ConfigObject
 
 export default function Configs() {
   const [reloadKey, setReloadKey] = useState(0)
-  const configs = useFetch<ConfigMap>("/v1/config", undefined, reloadKey)
-  const entries = configs.status === "success" ? Object.entries(configs.data) : []
+  const configs = useFetch<ConfigMap>("/v1/config", { reloadKey })
+  const entries =
+    configs.status === "success"
+      ? Object.entries(configs.data).sort(([a], [b]) => a.localeCompare(b))
+      : []
   const pagination = usePagination(entries, 10)
 
   const refresh = () => setReloadKey((k) => k + 1)

@@ -2,17 +2,10 @@ import type { Run } from "@/types/api"
 import type { RunStatus, RunTone } from "./run-status.types"
 import styles from "./run-status.module.css"
 
-/**
- * Derive a display status from a run. A run that isn't done is "Running".
- * Once done, success is determined by runResult.status, and an error
- * (hasThrowable, or a completed run with no successful result) is "Failed".
- */
+// Running until done; then Succeeded/Failed from runResult.status.
 export function runStatus(run: Run): RunStatus {
   if (!run.done) {
     return { label: "Running", tone: "running" }
-  }
-  if (run.hasThrowable) {
-    return { label: "Failed", tone: "failure" }
   }
   if (run.runResult) {
     return run.runResult.status

@@ -8,13 +8,6 @@ export interface RunResult {
   runId: string
 }
 
-/**
- * A Lucille run (RunDetails). Times are sent by the API as numeric epoch
- * *seconds* (Jackson's default `Instant` serialization), though ISO-8601
- * strings are also tolerated by the formatting helpers. `endTime` and
- * `runResult` are null until the run finishes. `hasThrowable` is true when the
- * run errored.
- */
 export interface Run {
   runId: string
   configId: string
@@ -23,7 +16,6 @@ export interface Run {
   runResult: RunResult | null
   runType: string | null
   done: boolean
-  hasThrowable?: boolean
 }
 
 export interface SystemStats {
@@ -33,11 +25,6 @@ export interface SystemStats {
   storage: { total: number; available: number; used: number; percent: number }
 }
 
-/**
- * A single Lucille configuration object. Contents are dynamic HOCON/JSON,
- * so most fields are loosely typed. The optional top-level keys below are the
- * ones commonly present and used for building list summaries.
- */
 export interface ConfigObject {
   connectors?: Array<Record<string, unknown>>
   pipelines?: Array<{ name?: string; stages?: Array<Record<string, unknown>> }>

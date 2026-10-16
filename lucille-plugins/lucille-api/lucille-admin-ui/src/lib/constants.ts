@@ -10,3 +10,9 @@ export const NAV_LINKS = [
   { href: "/runs", label: "Runs", icon: Play },
   { href: DOCS_URL, label: "Documentation", icon: BookOpen, external: true },
 ] as const
+
+/** Poll interval (ms) for refreshing an in-progress run. */
+export const RUN_POLL_INTERVAL_MS = 3000
+
+/** Poll interval (ms) for refreshing system stats on the dashboard. */
+export const SYSTEM_STATS_POLL_INTERVAL_MS = 5000

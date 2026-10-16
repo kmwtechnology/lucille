@@ -12,6 +12,7 @@ import { Play, Settings } from "lucide-react"
 import { useFetch } from "@/hooks/use-fetch"
 import { useStartRun } from "@/hooks/use-start-run"
 import { formatDuration, formatInstant } from "@/lib/utils"
+import { RUN_POLL_INTERVAL_MS } from "@/lib/constants"
 import type { ConfigMap, Run } from "@/types/api"
 import { RunStatusBadge } from "@/components/run-status/run-status"
 import { BackLink } from "@/components/back-link/back-link"
@@ -108,7 +109,10 @@ function StartRun() {
 }
 
 function RunView({ id }: { id: string }) {
-  const run = useFetch<Run>(`/v1/run/${encodeURIComponent(id)}`, 3000)
+  const run = useFetch<Run>(`/v1/run/${encodeURIComponent(id)}`, {
+    pollIntervalMs: RUN_POLL_INTERVAL_MS,
+    stopPollingWhen: (run) => run.done,
+  })
 
   return (
     <div className={styles.page}>

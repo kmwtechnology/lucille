@@ -2,7 +2,8 @@ import { useNavigate } from "react-router-dom"
 import { Link } from "@/components/ui/link/link"
 import { Link as LinkIcon, Play } from "lucide-react"
 import { useFetch } from "@/hooks/use-fetch"
-import { formatDuration, formatInstant } from "@/lib/utils"
+import { formatDuration, formatInstant, toEpochMs } from "@/lib/utils"
+import { RUN_POLL_INTERVAL_MS } from "@/lib/constants"
 import type { Run } from "@/types/api"
 import { RunStatusBadge } from "@/components/run-status/run-status"
 import { LoadingText } from "@/components/loading-text/loading-text"
@@ -13,7 +14,8 @@ import { usePagination } from "@/hooks/use-pagination"
 import styles from "./runs.module.css"
 
 function startTimeMs(run: Run): number {
-  return run.startTime ? new Date(run.startTime).getTime() : 0
+  const ms = toEpochMs(run.startTime)
+  return Number.isNaN(ms) ? 0 : ms
 }
 
 function StartRunLink() {
@@ -62,7 +64,7 @@ function RunRow({ run }: { run: Run }) {
 }
 
 export default function Runs() {
-  const runs = useFetch<Run[]>("/v1/run", 3000)
+  const runs = useFetch<Run[]>("/v1/run", { pollIntervalMs: RUN_POLL_INTERVAL_MS })
 
   const sorted =
     runs.status === "success"

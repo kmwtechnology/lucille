@@ -17,7 +17,7 @@ export function formatBytes(bytes: number): string {
 /**
  * Normalize an API instant to epoch milliseconds, or NaN when absent/invalid.
  */
-function toEpochMs(value: ApiInstant): number {
+export function toEpochMs(value: ApiInstant): number {
   if (value === null || value === undefined || value === "") return Number.NaN
   if (typeof value === "number") return value * 1000
   const asNumber = Number(value)
