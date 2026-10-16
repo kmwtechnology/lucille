@@ -52,4 +52,38 @@ public interface IndexerMessenger {
    * Provides a way to communicate to other components that a batch of documents has been completed.
    */
   void batchComplete(List<Document> batch) throws Exception;
+
+  /**
+   * Called periodically on the indexer thread while it is blocked waiting for in-flight batches to finish (only when
+   * indexer.maxConcurrentBatches is greater than 1). Implementations that must keep contacting a source to stay alive,
+   * such as a Kafka consumer group member, can do so here. Must not deliver documents or change the position from which
+   * {@link #pollDocToIndex()} will continue. The default does nothing.
+   */
+  default void keepAlive() throws Exception {
+  }
+
+  /**
+   * Registers a hook the messenger runs, on the indexer thread, when it learns a partition is about to be revoked in a
+   * consumer-group rebalance — before the partition is handed off. The Indexer registers an action here that flushes
+   * its open batch and drains in-flight batches, so their offsets are committed before the handoff and a <i>clean</i>
+   * rebalance does not re-deliver them (re-delivery is then limited to crashes, where the hook never runs). The hook
+   * owns the batch and dispatcher, which are confined to the indexer thread; a messenger must therefore only invoke it
+   * from that thread (a Kafka messenger's rebalance callback runs re-entrantly inside poll(), on the indexer thread).
+   * The default does nothing — only a messenger backed by a rebalancing consumer needs it.
+   */
+  default void setPreRevocationHook(Runnable hook) {
+  }
+
+  /**
+   * Whether this messenger commits (or acknowledges) its input on {@link #batchComplete(List)} rather than at poll —
+   * the property that makes it safe to run an Indexer with indexer.maxConcurrentBatches greater than 1. With
+   * concurrency, documents are polled while earlier batches are still being sent, so a messenger that commits its input
+   * at poll time could lose in-flight documents on a crash and must return false. This is a distinct check from
+   * {@code Indexer.supportsConcurrentSends()}, which instead asserts the destination <i>client</i> is thread-safe; both
+   * must hold for concurrency to be enabled. The default is false, so an unknown messenger disables concurrency rather
+   * than risking data loss; messengers that commit on completion (or do not commit input at all) override this to true.
+   */
+  default boolean commitsOnBatchCompletion() {
+    return false;
+  }
 }

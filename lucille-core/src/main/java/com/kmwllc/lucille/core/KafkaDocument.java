@@ -19,6 +19,10 @@ public class KafkaDocument extends JsonDocument {
   private int partition;
   private long offset;
   private String key;
+  // The partition-assignment generation this document was delivered under, stamped by the indexer messenger at poll
+  // time so that offset commits can reject a document whose partition was revoked and reassigned since it was polled.
+  // -1 means "not stamped" (documents outside the concurrent-indexer path never set it).
+  private long deliveryGeneration = -1;
 
   public KafkaDocument(ObjectNode data) throws DocumentException {
     super(data);
@@ -70,6 +74,16 @@ public class KafkaDocument extends JsonDocument {
 
   public String getKey() {
     return key;
+  }
+
+  /** The partition-assignment generation this document was delivered under, or -1 if it was never stamped. */
+  public long getDeliveryGeneration() {
+    return deliveryGeneration;
+  }
+
+  /** Stamps the partition-assignment generation this document was delivered under (see field doc). */
+  public void setDeliveryGeneration(long deliveryGeneration) {
+    this.deliveryGeneration = deliveryGeneration;
   }
 
   @Override

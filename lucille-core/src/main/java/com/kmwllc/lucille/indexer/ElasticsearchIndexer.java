@@ -84,6 +84,7 @@ public class ElasticsearchIndexer extends Indexer {
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalNumber("connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
       .optionalString("parentName", "childDocumentsField")
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
@@ -131,6 +132,13 @@ public class ElasticsearchIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "elasticsearch"; }
+
+  // The Elasticsearch Java client is thread-safe over a shared connection pool, so concurrent sends through the single
+  // shared client are safe. The pool is sized for the configured concurrency by AsyncConnectionPoolUtils.
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
 
   private static ElasticsearchClient getClient(Config config, boolean bypass) throws IndexerException{
     try {
@@ -183,7 +191,7 @@ public class ElasticsearchIndexer extends Indexer {
         documentsToUpload.put(id, doc);
       } else {
         documentsToUpload.remove(id);
-        if (!isMarkedForDeletionByField(doc)) {
+        if (!hasDeleteByFieldValues(doc)) {
           idsToDelete.add(id);
         } else {
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
@@ -424,20 +432,6 @@ public class ElasticsearchIndexer extends Indexer {
     }
 
     return failedDocs;
-  }
-
-  private boolean isMarkedForDeletion(Document doc) {
-    return deletionMarkerField != null
-        && deletionMarkerFieldValue != null
-        && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
-  }
-
-  private boolean isMarkedForDeletionByField(Document doc) {
-    return deleteByFieldField != null
-        && doc.has(deleteByFieldField)
-        && deleteByFieldValue != null
-        && doc.has(deleteByFieldValue);
   }
 
   @Override
