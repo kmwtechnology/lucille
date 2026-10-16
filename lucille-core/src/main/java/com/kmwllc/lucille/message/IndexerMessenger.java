@@ -54,22 +54,15 @@ public interface IndexerMessenger {
   void batchComplete(List<Document> batch) throws Exception;
 
   /**
-   * Called periodically on the indexer thread while it is blocked waiting for in-flight batches to finish (only when
-   * indexer.maxConcurrentBatches is greater than 1). Implementations that must keep contacting a source to stay alive,
-   * such as a Kafka consumer group member, can do so here. Must not deliver documents or change the position from which
-   * {@link #pollDocToIndex()} will continue. The default does nothing.
-   */
-  default void keepAlive() throws Exception {
-  }
-
-  /**
    * Registers a hook the messenger runs, on the indexer thread, when it learns a partition is about to be revoked in a
    * consumer-group rebalance — before the partition is handed off. The Indexer registers an action here that flushes
    * its open batch and drains in-flight batches, so their offsets are committed before the handoff and a <i>clean</i>
    * rebalance does not re-deliver them (re-delivery is then limited to crashes, where the hook never runs). The hook
    * owns the batch and dispatcher, which are confined to the indexer thread; a messenger must therefore only invoke it
-   * from that thread (a Kafka messenger's rebalance callback runs re-entrantly inside poll(), on the indexer thread).
-   * The default does nothing — only a messenger backed by a rebalancing consumer needs it.
+   * from that thread, and only from within {@link #pollDocToIndex()} or {@link #close()} — never while the Indexer is
+   * dispatching or draining a batch. (A Kafka messenger's rebalance callback runs inside the consumer's poll(), which
+   * it calls only from those two methods.) The default does nothing — only a messenger backed by a rebalancing consumer
+   * needs it.
    */
   default void setPreRevocationHook(Runnable hook) {
   }

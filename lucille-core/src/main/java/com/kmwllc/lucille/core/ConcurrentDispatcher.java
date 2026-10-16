@@ -13,7 +13,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -31,14 +30,20 @@ import org.slf4j.MDC;
  * {@link #dispatch}, {@link #completeFinishedBatches}, {@link #drain}, and the completion they drive — is called on the
  * single indexer thread. The in-flight state ({@code inFlightBatches}, {@code inFlightIds}) is therefore confined to
  * that thread and needs no synchronization; the {@link Future} returned by the pool provides the happens-before edge
- * for each send's result.
+ * for each send's result. Nothing here calls back into the messenger while waiting, so these methods are never
+ * re-entered.
+ *
+ * <p> <b>Waiting.</b> While {@link #dispatch} waits for room, the indexer thread does not poll its messenger. The wait
+ * is bounded by the sends already in flight, which run in parallel and all started before it: about one send for a
+ * full window or a shared destination id, and about two for a barrier (the in-flight sends, then its own). For a Kafka
+ * messenger, kafka.maxPollIntervalSecs (also Kafka's rebalance timeout) must exceed that, and also the time from the
+ * start of a rebalance to rejoining: the wait in progress plus the flush-and-drain the revocation hook runs at the
+ * next poll, about three sends. Retries count toward a send.
  */
 class ConcurrentDispatcher implements BatchDispatcher {
 
   private static final Logger log = LoggerFactory.getLogger(ConcurrentDispatcher.class);
   private static final long SHUTDOWN_TIMEOUT_MS = 10000;
-  // How often keepAlive is invoked while the indexer thread waits for an in-flight batch to finish.
-  static final long KEEP_ALIVE_INTERVAL_MS = 1000;
 
   // Counts ConcurrentDispatcher instances created in this JVM, giving each a unique id. The id goes into this pool's
   // thread names so that indexers running at the same time (several concurrent runs can share a runId) have
@@ -50,9 +55,6 @@ class ConcurrentDispatcher implements BatchDispatcher {
   private final Function<List<Document>, Set<String>> destinationIdExtractor;
   // Whether a document forces its batch to run alone (a delete-by-query, which can match documents in any batch).
   private final Predicate<Document> isBarrierDocument;
-  // Called periodically while the indexer thread waits for an in-flight batch, so a messenger that must contact a
-  // source to stay alive (such as a Kafka consumer group member) can do so. Must not throw.
-  private final Runnable keepAlive;
   private final ExecutorService pool;
 
   // Batches dispatched to the pool, oldest first. Only touched by the indexer thread.
@@ -60,26 +62,6 @@ class ConcurrentDispatcher implements BatchDispatcher {
   // The destination ids of every batch in inFlightBatches, unioned. Disjoint across batches by construction, since a
   // batch is not dispatched while it shares an id with one in flight. Only touched by the indexer thread.
   private final Set<String> inFlightIds = new HashSet<>();
-
-  // The batch a dispatch() call has committed to sending next but has not yet submitted — it is waiting in the
-  // overlap/capacity loop. It is recorded here so a re-entrant dispatch() or drain() (reached when awaitOutcome calls
-  // keepAlive, which can poll the consumer and run the revocation hook on this thread) submits it before any newer
-  // batch, preserving dispatch order across the re-entrancy. Null when no dispatch() is waiting. Only touched by the
-  // indexer thread.
-  private PendingBatch waitingBatch;
-
-  private static final class PendingBatch {
-    private final List<Document> docs;
-    private final Set<String> ids;
-    private final boolean barrier;
-    private boolean submitted;
-
-    PendingBatch(List<Document> docs, Set<String> ids, boolean barrier) {
-      this.docs = docs;
-      this.ids = ids;
-      this.barrier = barrier;
-    }
-  }
 
   private static final class InFlightBatch {
     private final List<Document> docs;
@@ -108,13 +90,11 @@ class ConcurrentDispatcher implements BatchDispatcher {
   ConcurrentDispatcher(int maxConcurrentBatches, String runId,
       BatchProcessor processor,
       Function<List<Document>, Set<String>> destinationIdExtractor,
-      Predicate<Document> isBarrierDocument,
-      Runnable keepAlive) {
+      Predicate<Document> isBarrierDocument) {
     this.maxConcurrentBatches = maxConcurrentBatches;
     this.processor = processor;
     this.destinationIdExtractor = destinationIdExtractor;
     this.isBarrierDocument = isBarrierDocument;
-    this.keepAlive = keepAlive;
     // Thread names are Lucille-<runId>-IndexerSend-<dispatcherInstanceId>-<sendThreadNum>: dispatcherInstanceId
     // distinguishes this pool from other concurrent dispatchers' pools, sendThreadNum distinguishes the send threads
     // within this pool.
@@ -130,8 +110,6 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   @Override
   public void dispatch(List<Document> batchedDocs) {
-    // First, so the held batch goes ahead of this one on every path below, including the failure path.
-    admitWaitingBatch();
     Set<String> ids;
     boolean barrier;
     try {
@@ -150,51 +128,13 @@ class ConcurrentDispatcher implements BatchDispatcher {
       processor.completeBatch(batchedDocs, new SendOutcome(null, e, 0));
       return;
     }
-    admit(new PendingBatch(batchedDocs, ids, barrier));
-  }
-
-  // If a dispatch() further down the stack is waiting to submit a batch, this call is re-entrant (reached via
-  // awaitOutcome -> keepAlive -> revocation hook). That batch was polled before anything the re-entrant caller
-  // dispatches, and the caller is about to drain for a partition handoff, so it is admitted now: ahead of any newer
-  // batch, and in time to be completed (and its offsets committed) before the handoff. The outer dispatch() sees it was
-  // submitted and does not submit it again.
-  private void admitWaitingBatch() {
-    if (waitingBatch != null && !waitingBatch.submitted) {
-      admit(waitingBatch);
+    // Wait until this batch may run alongside those in flight: a barrier waits for nothing to be in flight; otherwise
+    // there must be a free slot and no in-flight batch may write any id this batch writes (so writes and deletes of the
+    // same document stay in order).
+    while (!inFlightBatches.isEmpty()
+        && (barrier || inFlightBatches.size() >= maxConcurrentBatches || overlapsInFlight(ids))) {
+      completeOldest();
     }
-  }
-
-  // Waits until the given batch may run alongside those in flight, then submits it. A barrier waits for nothing to be
-  // in flight; otherwise there must be a free slot and no in-flight batch may write any id this batch writes (so writes
-  // and deletes of the same document stay in order). While it waits it is recorded as waitingBatch, so a re-entrant
-  // dispatch() or drain() admits it first (see admitWaitingBatch). If a re-entrant call submits it in the meantime, this
-  // returns without submitting it again.
-  private void admit(PendingBatch pending) {
-    PendingBatch previousWaiting = waitingBatch;
-    waitingBatch = pending;
-    try {
-      while (!pending.submitted
-          && !inFlightBatches.isEmpty()
-          && (pending.barrier || inFlightBatches.size() >= maxConcurrentBatches || overlapsInFlight(pending.ids))) {
-        completeOldest();
-      }
-      // A re-entrant call may have already submitted this batch while we were in completeOldest above.
-      if (!pending.submitted) {
-        enqueue(pending);
-      }
-    } finally {
-      waitingBatch = previousWaiting;
-    }
-
-    // Keep a barrier alone: complete it before anything else is dispatched behind it.
-    if (pending.barrier) {
-      drain();
-    }
-  }
-
-  // Submits a batch's send to the pool and records it in flight. Marks the PendingBatch submitted so neither the outer
-  // dispatch() nor a re-entrant one submits it twice.
-  private void enqueue(PendingBatch pending) {
     Map<String, String> mdc = MDC.getCopyOfContextMap();
     // The task runs on a pool thread, so it must touch only processor.sendWithRetry and the per-thread MDC — never
     // the dispatcher's in-flight state (inFlightBatches, inFlightIds), which belongs to the indexer thread and is
@@ -204,14 +144,17 @@ class ConcurrentDispatcher implements BatchDispatcher {
         MDC.setContextMap(mdc);
       }
       try {
-        return processor.sendWithRetry(pending.docs);
+        return processor.sendWithRetry(batchedDocs);
       } finally {
         MDC.clear();
       }
     });
-    inFlightBatches.addLast(new InFlightBatch(pending.docs, pending.ids, outcome));
-    inFlightIds.addAll(pending.ids);
-    pending.submitted = true;
+    inFlightBatches.addLast(new InFlightBatch(batchedDocs, ids, outcome));
+    inFlightIds.addAll(ids);
+    // Keep a barrier alone: complete it before anything else is dispatched behind it.
+    if (barrier) {
+      drain();
+    }
   }
 
   private boolean overlapsInFlight(Set<String> ids) {
@@ -225,8 +168,6 @@ class ConcurrentDispatcher implements BatchDispatcher {
 
   @Override
   public void drain() {
-    // A drain must leave nothing unsent, including a batch a dispatch() further down the stack is still holding.
-    admitWaitingBatch();
     while (!inFlightBatches.isEmpty()) {
       completeOldest();
     }
@@ -272,24 +213,14 @@ class ConcurrentDispatcher implements BatchDispatcher {
   // interruptible blocking calls (e.g. a queue put) that would otherwise throw at once and lose the batch's completion.
   // Any interrupt — whether it was already pending or arrived during the wait — is restored afterwards, so the next
   // poll observes it and the run loop exits. See the note on interrupts in awaitOutcome.
-  //
-  // The batch stays in inFlightBatches/inFlightIds until the wait is over, so it remains visible to the id-overlap and
-  // barrier checks of anything dispatched meanwhile. That can happen: awaitOutcome calls keepAlive, which may poll the
-  // consumer, and a rebalance there runs the revocation hook, which re-enters dispatch() and drain() on this thread.
-  // Such a nested drain completes this batch (it is still the head) before the outer call's wait returns, so after the
-  // wait the head is checked: if it is no longer this batch, the nested call has already completed it.
   private void completeOldest() {
-    InFlightBatch oldest = inFlightBatches.peekFirst();
+    InFlightBatch oldest = inFlightBatches.removeFirst();
+    inFlightIds.removeAll(oldest.ids());
     // Clear and remember any already-pending interrupt, so completion below runs with the flag clear.
     boolean interrupted = Thread.interrupted();
     try {
       AwaitedOutcome awaited = awaitOutcome(oldest.outcome());
       interrupted |= awaited.interrupted();
-      if (inFlightBatches.peekFirst() != oldest) {
-        return;
-      }
-      inFlightBatches.removeFirst();
-      inFlightIds.removeAll(oldest.ids());
       processor.completeBatch(oldest.docs(), awaited.outcome());
     } finally {
       if (interrupted) {
@@ -298,7 +229,7 @@ class ConcurrentDispatcher implements BatchDispatcher {
     }
   }
 
-  // Waits for a send to finish, calling keepAlive every KEEP_ALIVE_INTERVAL_MS while it is unfinished.
+  // Waits for a send to finish.
   //
   // On interrupts: an interrupt arriving here is rare. Normal shutdown does not interrupt the indexer thread — the
   // Runner and WorkerIndexer stop the indexer with terminate() (which sets a flag) followed by join(), letting the run
@@ -317,11 +248,10 @@ class ConcurrentDispatcher implements BatchDispatcher {
     boolean interrupted = false;
     while (true) {
       try {
-        return new AwaitedOutcome(future.get(KEEP_ALIVE_INTERVAL_MS, TimeUnit.MILLISECONDS), interrupted);
+        return new AwaitedOutcome(future.get(), interrupted);
       } catch (InterruptedException e) {
+        // Throwing cleared the flag, so the next get() waits normally.
         interrupted = true;
-      } catch (TimeoutException e) {
-        keepAlive.run();
       } catch (ExecutionException e) {
         // processor.sendWithRetry captures its own Throwables, so this only happens if the task wrapper itself failed.
         return new AwaitedOutcome(new SendOutcome(null, e.getCause(), 0), interrupted);

@@ -58,13 +58,9 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
    */
   @Override
   public Document pollDocToIndex() throws Exception {
-    // Undo any pause applied by keepAlive() so this poll can deliver records again. paused() reports only partitions
-    // still assigned, so partitions revoked since the pause are simply dropped from the set.
-    Set<TopicPartition> paused = destConsumer.paused();
-    if (!paused.isEmpty()) {
-      destConsumer.resume(paused);
-    }
-
+    // This is the only place the consumer is polled during a run, so it is the only place (besides close()) a rebalance
+    // callback, and with it the pre-revocation hook, can run. The Indexer calls this from its run loop, never while
+    // dispatching or draining a batch, so the hook never re-enters the dispatcher.
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     try {
       consumerRecords = destConsumer.poll(pollInterval);
@@ -101,7 +97,8 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   }
 
   // Registers the Indexer's flush-and-drain action, run from the OffsetCommitTracker's revocation callback (on the
-  // indexer thread, inside poll()) before offsets are committed and the partition is handed off.
+  // indexer thread, inside the poll() in pollDocToIndex or close()) before offsets are committed and the partition is
+  // handed off.
   @Override
   public void setPreRevocationHook(Runnable hook) {
     offsetCommitTracker.setPreRevocationHook(hook);
@@ -111,25 +108,6 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
   // rebalances and need to observe when the assignment has settled.
   Set<TopicPartition> assignment() {
     return destConsumer.assignment();
-  }
-
-  /**
-   * Polls the consumer so it stays in its consumer group during a long wait, without delivering any records or moving
-   * the position {@link #pollDocToIndex()} continues from. All currently assigned partitions are paused first, so the
-   * poll returns nothing from them; {@link #pollDocToIndex()} resumes them on its next call. A partition newly assigned
-   * during this poll is not yet paused and may return a record, so the consumer seeks back to the first record returned
-   * for each such partition, leaving it to be delivered by a later {@link #pollDocToIndex()}.
-   */
-  @Override
-  public void keepAlive() throws Exception {
-    destConsumer.pause(destConsumer.assignment());
-    ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(Duration.ZERO);
-    for (TopicPartition partition : consumerRecords.partitions()) {
-      List<ConsumerRecord<String, KafkaDocument>> records = consumerRecords.records(partition);
-      if (!records.isEmpty()) {
-        destConsumer.seek(partition, records.get(0).offset());
-      }
-    }
   }
 
   @Override
