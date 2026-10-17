@@ -207,6 +207,35 @@ public class MultiBatchTest {
     assertEquals(3, batch.flush().size());
   }
 
+  /**
+   * Test that adding a document to one index's sub-batch also flushes another index's sub-batch that has expired. Under
+   * continuous input the Indexer only calls add(), never flushIfExpired(), so a rarely seen index's documents would
+   * otherwise be held until input went idle, and with it the commit frontier of their partition.
+   */
+  @Test
+  public void testAddFlushesOtherExpiredSubBatch() throws InterruptedException {
+    MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 10, "index");
+    Document rare = Document.create("rare");
+    rare.setField("index", "rareIndex");
+    Document common1 = Document.create("common1");
+    common1.setField("index", "commonIndex");
+    Document common2 = Document.create("common2");
+    common2.setField("index", "commonIndex");
+
+    assertTrue(batch.add(rare).isEmpty());
+    TimeUnit.MILLISECONDS.sleep(15);
+
+    // The rare index's sub-batch has expired; adding to the common index flushes it. The common index's own sub-batch
+    // is new, so it is not flushed.
+    List<Document> docs = batch.add(common1);
+    assertEquals(1, docs.size());
+    assertEquals("rare", docs.get(0).getId());
+
+    // Nothing has expired since, so a further add to the common index flushes nothing.
+    assertTrue(batch.add(common2).isEmpty());
+    assertEquals(2, batch.flush().size());
+  }
+
   @Test
   public void testGetCapacity() throws InterruptedException {
     MultiBatch batch = new MultiBatch(100, Long.MAX_VALUE, 1000, "index");

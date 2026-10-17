@@ -164,7 +164,7 @@ public class KafkaUtils {
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
    *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum amount of time in seconds that the consumer will wait when polling for new messages from Kafka.
+   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    *               - kafka.documentDeserializer - The deserializer class to use when deserializing documents. Defaults to KafkaDocumentDeserializer.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
@@ -217,7 +217,7 @@ public class KafkaUtils {
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
    *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum amount of time in seconds that the consumer will wait when polling for new messages from Kafka.
+   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
    * @return A Kafka consumer for events. The provided Consumer will *always* be configured to commit offsets automatically.

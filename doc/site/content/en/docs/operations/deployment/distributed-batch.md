@@ -51,7 +51,8 @@ kafka {
   # Consumer group ID for all Lucille Workers and Indexers
   consumerGroupId: "lucille_workers"
 
-  # Maximum time between polls before consumer is evicted from consumer group
+  # Maximum time between polls before consumer is evicted from consumer group.
+  # Must exceed the slowest document processing time and ~3x the slowest bulk request (incl. retries).
   maxPollIntervalSecs: 600
 
   # Maximum request size in bytes — increase for large documents
