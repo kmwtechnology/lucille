@@ -29,8 +29,8 @@ import org.slf4j.MDC;
  * {@link #dispatch}, {@link #completeFinishedBatches}, {@link #drain}, and the completion they drive — is called on the
  * single indexer thread. The in-flight state ({@code inFlightBatches}, {@code inFlightIds}) is therefore confined to
  * that thread and needs no synchronization; the {@link Future} returned by the pool provides the happens-before edge
- * for each send's result. Nothing here calls back into the messenger while waiting, so these methods are never
- * re-entered.
+ * for each send's result. Completion calls the messenger (to emit events and commit offsets), but never polls or
+ * closes it, the only messenger calls that can run a rebalance callback, so these methods are never re-entered.
  *
  * <p> <b>Waiting.</b> While {@link #dispatch} waits for room, the indexer thread does not poll its messenger. The wait
  * is bounded by the sends already in flight, which run in parallel and all started before it: about one send for a

@@ -343,8 +343,9 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
   // Flushes the open batch and drains every in-flight batch, so all polled-but-not-yet-completed documents complete
   // (events emitted, offsets committed) now rather than being re-delivered after a rebalance. Runs on the indexer
-  // thread, from the messenger's partition-revocation callback. Never throws: a failure here must not break the
-  // rebalance callback, and uncommitted work simply falls back to re-delivery.
+  // thread, from the messenger's partition-revocation callback. Never throws an Exception: a failure here must not break
+  // the rebalance callback, and uncommitted work simply falls back to re-delivery. An Error is not caught: like an Error
+  // from the run loop, it propagates (Kafka's rebalance callback invoker catches only Exception) and stops the indexer.
   private void flushAndDrain() {
     try {
       List<Document> remaining = batch.flush();
@@ -352,8 +353,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
         dispatcher.dispatch(remaining);
       }
       dispatcher.drain();
-    } catch (Throwable t) {
-      log.error("Error flushing and draining on partition revocation; affected documents may be re-delivered.", t);
+    } catch (Exception e) {
+      log.error("Error flushing and draining on partition revocation; affected documents may be re-delivered.", e);
     }
   }
 
