@@ -5,11 +5,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.indexer.NopIndexer;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.ConfigFactory;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -111,19 +114,26 @@ public class IndexerDocTest {
 
   @Test
   public void testRawDocForNonJsonDocumentIsConvertedDoc() throws Exception {
-    Document doc = new HashMapDocument("doc1");
-    doc.setField("str", "s");
-    doc.setField("int", 1);
-    doc.addToField("list", "a");
-    doc.addToField("list", "b");
-    doc.setField("bytes", new byte[] {1, 2, 3});
-    doc.addChild(new HashMapDocument("child1"));
+    // JsonDocument is currently the only Document implementation, so stand in for an alternate one with a mock whose
+    // asMap() yields plain Java values (and a children entry) the way any implementation's must.
+    Document doc = mock(Document.class);
+    when(doc.asMap()).thenAnswer(invocation -> {
+      Map<String, Object> map = new LinkedHashMap<>();
+      map.put("id", "doc1");
+      map.put("str", "s");
+      map.put("int", 1);
+      map.put("list", List.of("a", "b"));
+      map.put("bytes", new byte[] {1, 2, 3});
+      map.put(Document.CHILDREN_FIELD, List.of(Map.of("id", "child1")));
+      return map;
+    });
     Indexer indexer = indexer("blacklist: [\"int\"]");
 
     Map<String, Object> expected = indexer.getConvertedIndexerDoc(doc);
     Map<String, Object> raw = indexer.getRawIndexerDoc(doc);
 
     assertFalse(raw.containsKey(Document.CHILDREN_FIELD));
+    assertFalse(raw.containsKey("int"));
 
     assertEquals(expected.keySet(), raw.keySet());
     for (String field : expected.keySet()) {
