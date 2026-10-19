@@ -229,7 +229,7 @@ When a file is deleted from the filesystem, Lucille creates a tombstone Document
 
 ## Recipe 9: Extract Text from PDF, Office, and Other Formats (Tika)
 
-Use the `lucille-tika` plugin to extract text from arbitrary file formats. Set `getFileContent: true` in `fileOptions` to read raw bytes into `file_content`, then pass it to the `TextExtractor` stage.
+Use the `lucille-tika` plugin to extract text from arbitrary file formats. Turn off `getFileContent` (it defaults to `true`) so the Connector publishes only paths and metadata, and let `TextExtractor` read each file in the Worker through `filePathField`. The raw bytes never travel on the document.
 
 ```hocon
 connectors: [
@@ -240,7 +240,7 @@ connectors: [
     paths: ["/data/documents"]
 
     fileOptions: {
-      getFileContent: true
+      getFileContent: false
     }
   }
 ]
@@ -251,15 +251,15 @@ pipelines: [
     stages: [
       {
         class: "com.kmwllc.lucille.tika.stage.TextExtractor"
-        source: "file_content"
-        dest: "extracted_text"
+        filePathField: "file_path"
+        textField: "extracted_text"
       }
     ]
   }
 ]
 ```
 
-Requires the `lucille-tika` Maven dependency. See [TextExtractor]({{< relref "docs/ingest-design/stages/text_extractor" >}}) for setup.
+For cloud paths, give the `TextExtractor` stage its own `s3`, `azure`, or `gcp` block. If a stage needs the bytes on the document, use `FetchFileContent` instead and delete `file_content` afterwards. Requires the `lucille-tika` Maven dependency. See [TextExtractor]({{< relref "docs/ingest-design/stages/text_extractor" >}}) for setup and [Content Crawls]({{< relref "docs/operations/performance-tuning#content-crawls-publish-the-path-fetch-content-in-the-worker" >}}) for why this shape matters in distributed mode.
 
 ## Filter Options Reference
 
@@ -289,7 +289,8 @@ Duration values accept: `s` (seconds), `m` (minutes), `h` (hours), `d` (days).
 
 ```hocon
 fileOptions: {
-  # Read file bytes into the file_content field (slow; downloads cloud files)
+  # Read file bytes into the file_content field (default true; slow; downloads cloud files).
+  # Keep it true when handling archived or compressed files: their entries cannot be fetched later in the pipeline.
   getFileContent: true
 
   # Process zip/tar archives by extracting their contents

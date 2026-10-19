@@ -57,7 +57,7 @@ stages: [
   {
     class: "com.kmwllc.lucille.tika.stage.TextExtractor"
     byteArrayField: "file_content"
-    dest: "body"
+    textField: "body"
   },
   {
     class: "com.kmwllc.lucille.stage.DeleteFields"
@@ -75,7 +75,91 @@ Not all data needs to be carried on the Document itself. Consider whether a **re
 - If a stage needs to query an API, it can use an ID or URL stored on the document to make the call at processing time — rather than the Connector pre-fetching all API responses.
 - If the search backend doesn't need the raw content (only extracted/enriched fields), don't carry the raw content through the entire pipeline.
 
-This is especially important in distributed mode where every byte on the document is serialized to Kafka at each hop. A 10MB PDF binary on a document means 10MB written to the source topic, 10MB read by the Worker, 10MB written to the dest topic, and 10MB read by the Indexer — 40MB of I/O for content that might only be needed by one stage.
+This is especially important in distributed mode where every byte on the document is serialized to Kafka at each hop. A 10MB PDF binary on a document is about 13.3MB once base64-encoded (see below), and it is written to the source topic, read by the Worker, written to the dest topic, and read by the Indexer — over 50MB of I/O for content that might only be needed by one stage.
+
+### Content Crawls: Publish the Path, Fetch Content in the Worker
+
+For crawls of file content (PDFs, Office documents, HTML), the recommended shape is a **lightweight source topic**: the Connector publishes only the file's path and metadata, and a stage in the Worker reads the bytes, extracts what it needs, and drops them before the document moves on.
+
+**`fileOptions.getFileContent` defaults to `true`.** Unless you turn it off, `FileConnector` reads every file's bytes into `file_content` during traversal (downloading each object from cloud storage), which puts all of the crawl's content reads on the Connector's traversal thread (a single thread by default; one per path only with `concurrent: true` and several `paths`) and the full content on the source topic. Set it to `false` explicitly:
+
+```hocon
+connectors: [
+  {
+    name: "docs-connector"
+    class: "com.kmwllc.lucille.connector.FileConnector"
+    pipeline: "docs-pipeline"
+    paths: ["s3://my-bucket/documents/"]
+    s3 {
+      region: ${?AWS_REGION}
+    }
+    fileOptions {
+      getFileContent: false
+    }
+  }
+]
+```
+
+Each published document then carries `file_path` plus whatever metadata the storage system reports (`file_modification_date`, `file_size_bytes`, `file_creation_date`), but no content. Two ways to get the content in the Worker:
+
+**Stream it straight into extraction (preferred for Tika).** `TextExtractor` (in `lucille-tika`) accepts `filePathField` as an alternative to `byteArrayField`. It opens the file itself and streams it into Tika, so the raw bytes are never stored on the document at all:
+
+```hocon
+pipelines: [
+  {
+    name: "docs-pipeline"
+    stages: [
+      {
+        class: "com.kmwllc.lucille.tika.stage.TextExtractor"
+        filePathField: "file_path"
+        textField: "body"
+        s3 {
+          region: ${?AWS_REGION}
+        }
+      }
+    ]
+  }
+]
+```
+
+**Fetch the bytes, use them, then delete them.** For stages that need a `byte[]` field, `FetchFileContent` reads the file named by `file_path` into `file_content` (both field names are configurable). Delete the field as soon as the consuming stage has run; otherwise it rides the dest topic to the Indexer and is sent to the search engine (unless excluded with `indexer.blacklist`/`indexer.whitelist`):
+
+```hocon
+stages: [
+  {
+    class: "com.kmwllc.lucille.stage.FetchFileContent"
+    maxSizeBytes: 104857600   # fail documents over 100 MiB instead of loading the whole file
+    s3 {
+      region: ${?AWS_REGION}
+    }
+  },
+  # ... stages that read file_content ...
+  {
+    class: "com.kmwllc.lucille.stage.DeleteFields"
+    fields: ["file_content"]
+  }
+]
+```
+
+For web content, `FetchUri` does the same for an HTTP(S) URL held in a document field (`source`), writing the response bytes to `dest`.
+
+Points to keep in mind:
+
+- **Worker-side stages need their own storage credentials.** `FetchFileContent` and `TextExtractor` build their own storage clients from the stage's config, so a stage reading from S3, Azure, or Google Cloud Storage needs its own `s3`, `azure`, or `gcp` block (same options as `FileConnector`). Local `file://` paths need nothing extra.
+- **Archive and compressed entries cannot be fetched later.** With `handleArchivedFiles` or `handleCompressedFiles`, entries get composite paths such as `s3://bucket/archive.zip!dir/file.pdf`, which do not name a file that a later stage can open. Keep `getFileContent: true` for crawls that depend on those entries.
+- **The fetch moves the I/O, it does not remove it.** The Worker now reads each file. That is usually where you want it — the reads spread across every Worker thread and process instead of the Connector's traversal thread — but the Workers need network access to the storage system.
+
+### Cost of `byte[]` Fields Across Kafka
+
+When a document crosses Kafka, it is serialized to JSON, and a `byte[]` field is written as a single base64 string of `4 * ceil(n / 3)` characters — about a third larger than the bytes themselves. That size applies on every hop the field rides: source topic, dest topic, and anything you index.
+
+On the receiving side the field arrives as that base64 string, and each call to `getBytes()` decodes it into a **new** array. A stage that calls `getBytes()` on the same field more than once pays for the decode and the allocation each time, so read the field once and keep the array. (In the `LOCAL` run type, where no Kafka is involved, documents are passed between threads in memory and the field is held as raw bytes, so `getBytes()` returns the stored array without decoding.)
+
+Large records also have to fit through Kafka's size limits:
+
+- `kafka.maxRequestSize` (the producer's `max.request.size`) must exceed the largest **serialized** document, including the base64 growth. The producer checks the uncompressed record size against this limit, so producer compression does not raise it.
+- The broker's `message.max.bytes` (or the topic's `max.message.bytes`) must accept the largest record batch the producer sends. The broker checks the batch as received, after any producer compression, so the producer's uncompressed check is normally the one that binds. Raise it on the source and dest topics if documents carry content.
+- Large records increase broker disk and replication traffic in proportion to their size and retention. A source topic of paths and metadata stays small regardless of file size, which is the main sizing argument for the lightweight shape above.
 
 ---
 
@@ -478,7 +562,42 @@ kafka {
 }
 ```
 
-The maximum size of a single Kafka message. If your documents are large (e.g., containing extracted PDF text or binary content), this must be large enough to hold the largest document after JSON serialization.
+The maximum size of a single Kafka message. If your documents are large (e.g., containing extracted PDF text or binary content), this must be large enough to hold the largest document after JSON serialization, including the base64 growth of any `byte[]` field (see [Cost of `byte[]` Fields Across Kafka](#cost-of-byte-fields-across-kafka)).
+
+### Producer Compression
+
+Kafka producer compression is off by default (`compression.type` is `none`). Lucille passes any property under `kafka.producer` to its producers, so you can turn it on there:
+
+```hocon
+kafka {
+  producer {
+    compression.type: "zstd"
+  }
+}
+```
+
+**Write the key unquoted**, as above (or as `kafka.producer.compression.type: "zstd"`). With a quoted key (`"compression.type": "zstd"`), the quotes are kept as part of the property name in this version, so the producer does not recognize it and compression stays off. Setting `compression.type` in a `kafka.producerPropertyFile` also works.
+
+What to expect:
+
+- The producer compresses each record batch, and consumers decompress transparently; no Worker or Indexer configuration is needed. The setting applies to every Kafka producer Lucille creates, for both documents and events.
+- `zstd` and `gzip` entropy-code their output, so they recover most of the base64 expansion of `byte[]` fields as well as compressing JSON text. `lz4` and `snappy` are cheaper on CPU but do not entropy-code, so they recover little of the base64 expansion.
+- Compression does not raise the per-record ceiling: the producer checks `kafka.maxRequestSize` against the uncompressed record size.
+- It pays when the network between Lucille and the brokers is the constraint — remote, cross-zone, or metered links — and when records are large. Against a broker on the same host or a fast local network it mostly adds CPU: producers (Connector and Workers) compress, and consumers (Workers and Indexers) decompress. Measure throughput with and without it on your own deployment.
+
+### Indexer Request Compression
+
+The OpenSearch and Elasticsearch indexers can gzip their bulk requests. It is off by default:
+
+```hocon
+opensearch {
+  url: "https://search.example.com:9200"
+  index: "my-index"
+  useCompression: true
+}
+```
+
+The Elasticsearch indexer takes the same option as `elasticsearch.useCompression`. The same trade-off applies as for Kafka: it reduces bytes on the wire at the cost of Indexer CPU, so it is most useful when the cluster is remote or reached over a bandwidth-limited link, and least useful against a local cluster.
 
 ### Partition Count
 
@@ -528,11 +647,13 @@ During a run, track these from the periodic log messages:
 - [ ] Remove unnecessary fields early — ideally don't populate them in the Connector; otherwise use `DeleteFields` at the start of the pipeline
 - [ ] Consider whether large data (file content, binary blobs) needs to live on the document or whether a path/URL reference is sufficient
 - [ ] Delete large intermediate fields (e.g., `file_content`) immediately after the stage that needs them
+- [ ] For content crawls, set `fileOptions.getFileContent: false` and fetch content in the Worker (`TextExtractor` with `filePathField`, or `FetchFileContent`)
 - [ ] Set `worker.threads` appropriate for your pipeline's CPU/memory profile
 - [ ] Set `indexer.batchSize` and `batchTimeout` for your backend's optimal batch size
 - [ ] Set `-Xmx` heap size with headroom for GC
 - [ ] In distributed mode: ensure source topic partition count >= desired Worker count
 - [ ] Set `kafka.maxPollIntervalSecs` higher than your slowest document processing time
+- [ ] If the brokers or search cluster are remote or bandwidth-limited, try `kafka.producer.compression.type` and `opensearch.useCompression`/`elasticsearch.useCompression`
 - [ ] Set `publisher.maxPendingDocs` or `publisher.queueCapacity` to prevent memory exhaustion
 - [ ] Monitor for increasing latency over time (indicates resource pressure)
 

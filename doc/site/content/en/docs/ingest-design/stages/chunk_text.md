@@ -126,8 +126,8 @@ pipelines: [
       # 1. Extract text from PDF bytes
       {
         class: "com.kmwllc.lucille.tika.stage.TextExtractor"
-        source: "file_content"
-        dest: "body"
+        byteArrayField: "file_content"
+        textField: "body"
       },
       # 2. Split into sentence-merged chunks
       {

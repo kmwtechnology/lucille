@@ -198,7 +198,7 @@ File options control traversal behaviour — how the connector handles the files
 
 | Option | Type | Description |
 |---|---|---|
-| `getFileContent` | Boolean | If `true`, reads the file's raw bytes into the `file_content` field. **Downloads the file on cloud storage. Slows traversal significantly.** |
+| `getFileContent` | Boolean | If `true` (the default), reads the file's raw bytes into the `file_content` field. **Downloads the file on cloud storage. Slows traversal significantly.** For content crawls, set it to `false` and fetch content in the Worker instead; see [Content Crawls]({{< relref "docs/operations/performance-tuning#content-crawls-publish-the-path-fetch-content-in-the-worker" >}}). |
 | `handleArchivedFiles` | Boolean | If `true`, unpacks archive files (zip, tar, tar.gz) and traverses their contents. Downloads the archive on cloud storage. |
 | `handleCompressedFiles` | Boolean | If `true`, decompresses compressed files (gz) before processing. |
 | `moveToAfterProcessing` | String | Path to move each file to after successful processing. Single-path configurations only — cannot be combined with multiple `paths`. |
@@ -323,7 +323,7 @@ Every document published by the `FileConnector` carries these fields:
 | `file_modification_date` | Instant | Last-modified timestamp of the file. |
 | `file_creation_date` | Instant | Creation timestamp of the file (where available). |
 | `file_size_bytes` | Long | File size in bytes. |
-| `file_content` | byte[] | Raw file bytes. Only populated when `getFileContent: true`. |
+| `file_content` | byte[] | Raw file bytes. Populated unless `fileOptions.getFileContent` is `false`. |
 | `file_expired` | Boolean | Set to `true` on tombstone documents for deleted files. |
 
 When a File Handler (CSV, JSON, XML) processes a file, it produces child documents with their own fields rather than a single file-level document.
