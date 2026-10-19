@@ -53,8 +53,9 @@ public class KafkaUtils {
       .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
       .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
           "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
-          "onDeserializationError")
-      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors")
+          "onDeserializationError", "eventConsumerGroupId")
+      .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors",
+          "rebalanceDrainTimeoutMs")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("admin", new TypeReference<Map<String, Object>>(){}).build();
@@ -191,15 +192,45 @@ public class KafkaUtils {
    *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
    *               - kafka.maxPollIntervalSecs - The maximum amount of time in seconds that the consumer will wait when polling for new messages from Kafka.
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
+   *               - kafka.eventConsumerGroupId - The consumer group id for the event consumer. See
+   *                 {@link #eventConsumerJoinsGroup(Config)}.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
-   * @return A Kafka consumer for events. The provided Consumer will *always* be configured to commit offsets automatically.
+   * @return A Kafka consumer for events. When it {@link #eventConsumerJoinsGroup(Config) joins a group}, it commits
+   * offsets automatically; otherwise it has no group and commits nothing.
    */
   public static KafkaConsumer<String, String> createEventConsumer(Config config, String clientId) {
-    Properties consumerProps = createConsumerProps(config, clientId);
+    return new KafkaConsumer<>(createEventConsumerProps(config, clientId));
+  }
 
-    consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+  /**
+   * Whether the Publisher's event consumer joins a consumer group (and should <code>subscribe</code>) or reads its
+   * topic without one (and should <code>assign</code> it).
+   *
+   * <p>Group membership spans every topic a group's members subscribe to, so an event consumer in the Workers' group
+   * rebalances every Worker and Indexer in it each time a run starts or ends, revoking their partitions mid-batch.
+   * The default per-run event topic is new and read only by this run's Publisher, so it needs neither a group nor
+   * committed offsets, and is read without one. A fixed <code>kafka.eventTopic</code> keeps using
+   * <code>kafka.consumerGroupId</code>, as its committed position is what stops a new run from re-reading earlier
+   * runs' events; set <code>kafka.eventConsumerGroupId</code> to move it to a group of its own.
+   */
+  public static boolean eventConsumerJoinsGroup(Config config) {
+    return config.hasPath("kafka.eventTopic") || config.hasPath("kafka.eventConsumerGroupId");
+  }
+
+  // package-private so unit tests can validate the properties without initializing a Consumer
+  static Properties createEventConsumerProps(Config config, String clientId) {
+    Properties consumerProps = createConsumerProps(config, clientId);
+    if (config.hasPath("kafka.eventConsumerGroupId")) {
+      consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, config.getString("kafka.eventConsumerGroupId"));
+    }
+    if (eventConsumerJoinsGroup(config)) {
+      consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
+    } else {
+      consumerProps.remove(ConsumerConfig.GROUP_ID_CONFIG);
+      consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+    }
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-    return new KafkaConsumer<>(consumerProps);
+    return consumerProps;
   }
 
   //access set to package so unit tests can validate created properties without initializing a Producer

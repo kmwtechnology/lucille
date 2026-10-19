@@ -8,6 +8,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +46,13 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
     String kafkaClientId = "com.kmwllc.lucille-publisher-" + pipelineName;
     String eventTopicName = KafkaUtils.getEventTopicName(config, pipelineName, runId);
     this.eventConsumer = KafkaUtils.createEventConsumer(config, kafkaClientId);
-    this.eventConsumer.subscribe(Collections.singletonList(eventTopicName));
+    if (KafkaUtils.eventConsumerJoinsGroup(config)) {
+      this.eventConsumer.subscribe(Collections.singletonList(eventTopicName));
+    } else {
+      // the run's own event topic has the single partition createEventTopic gave it; reading it without a group
+      // keeps this consumer out of the Workers' group, so starting and ending a run does not rebalance them
+      this.eventConsumer.assign(Collections.singletonList(new TopicPartition(eventTopicName, 0)));
+    }
     this.kafkaProducer = KafkaUtils.createDocumentProducer(config);
   }
 
