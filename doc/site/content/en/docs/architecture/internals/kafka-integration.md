@@ -150,6 +150,8 @@ consumerProps.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG,
 
 This is the maximum time between `poll()` calls before Kafka considers the consumer dead and triggers a rebalance. It must be set higher than the longest expected document processing time. If a document takes longer to process than this interval, the consumer will be kicked from the group and the document will be reprocessed by another consumer.
 
+The standalone Indexer does not poll while it waits on a bulk request, so the same limit applies to its sends. In Kafka's classic group protocol this setting is also the rebalance timeout: how long the coordinator waits for each member to rejoin. Before rejoining, the Indexer's revocation handler flushes its open batch and drains in-flight bulk requests so their offsets are committed. With `indexer.maxConcurrentBatches` greater than 1, the longest gap between polls is about two bulk requests (a delete-by-query waits for the in-flight requests, then runs its own), and the time from the start of a rebalance to rejoining is about three (the wait in progress, then the drain). The interval must therefore exceed about three times the slowest bulk request, including retries (about two at `maxConcurrentBatches` 1). Exceeding it evicts the Indexer, and the documents it had in progress are re-delivered rather than lost. A request still running at eviction can also finish after the new owner's replay and leave stale destination state, because same-document ordering is enforced within one Indexer only.
+
 ## Topic Creation
 
 The event topic is created explicitly with exactly **one partition**:

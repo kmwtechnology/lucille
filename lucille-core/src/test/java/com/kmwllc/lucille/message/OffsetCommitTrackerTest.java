@@ -20,9 +20,8 @@ import org.junit.Test;
 /**
  * Unit tests for {@link OffsetCommitTracker} in isolation from {@link KafkaIndexerMessenger}. The tracker holds the
  * frontier logic that keeps commit-on-completion at-least-once, which is the riskiest part of the concurrent Kafka
- * path, so it is exercised here directly: records are "polled" (which stamps the document with the generation the
- * tracker returns, as the real messenger does) and "completed" by calling the tracker's own methods, and committed
- * offsets are read back from a {@link MockConsumer}.
+ * path, so it is exercised here directly: records are "polled" and "completed" by calling the tracker's own methods, as
+ * the real messenger does, and committed offsets are read back from a {@link MockConsumer}.
  */
 public class OffsetCommitTrackerTest {
 
@@ -141,7 +140,7 @@ public class OffsetCommitTrackerTest {
     consumer.commitSync(Map.of(P0, new OffsetAndMetadata(10)));
     tracker.rebalanceListener().onPartitionsAssigned(Set.of(P0));
 
-    // The stale P0 batches complete. Their offsets were polled under the earlier generation, so committing them would
+    // The stale P0 batches complete. Their offsets were dropped on revoke and P0 resumes from 10, so committing them would
     // rewind P0 from 10 back to 2 -- that must not happen. P1 stayed ours, so it commits normally.
     tracker.batchCompleted(List.of(p0o0, p0o1, p1o0));
     assertEquals(Long.valueOf(10), committed(consumer, P0));
@@ -151,33 +150,79 @@ public class OffsetCommitTrackerTest {
   @Test
   public void testEagerRebalanceToSameConsumerStillCommitsLaterProgress() {
     // kafka-clients defaults to eager rebalancing: a partition is typically revoked and handed back to the SAME
-    // consumer. Records polled before the revoke are re-polled from the committed offset under a new generation. The
-    // pre-revoke completions must be ignored (older generation) while the re-polled ones commit and the frontier keeps
-    // advancing -- the earlier watermark design stalled here and never committed past 0.
+    // consumer. Records polled before the revoke are re-polled from the committed offset. Pre-revoke completions that
+    // arrive before the re-poll must be ignored (their offsets were dropped on revoke) while the re-polled ones commit and
+    // the frontier keeps advancing -- the earlier watermark design stalled here and never committed past 0.
     MockConsumer<String, KafkaDocument> consumer = assignedConsumer(Set.of(P0));
     OffsetCommitTracker tracker = new OffsetCommitTracker(consumer);
 
-    // Poll 0..9 under generation 0.
+    // Poll 0..9 before the revoke.
     List<KafkaDocument> preRevoke = new java.util.ArrayList<>();
     for (long offset = 0; offset < 10; offset++) {
       preRevoke.add(poll(tracker, P0, offset));
     }
 
-    // Eager revoke and immediate reassignment to the same consumer: generation bumps, outstanding polled state clears.
+    // Eager revoke and immediate reassignment to the same consumer: outstanding polled state clears.
     tracker.rebalanceListener().onPartitionsRevoked(Set.of(P0));
     tracker.rebalanceListener().onPartitionsAssigned(Set.of(P0));
 
-    // The pre-revoke batches now complete. They are from the old generation and must be ignored, not stall the frontier.
+    // The pre-revoke batches now complete, before the re-poll. Their offsets are no longer tracked, so they must be
+    // ignored, not stall the frontier.
     for (KafkaDocument doc : preRevoke) {
       tracker.batchCompleted(List.of(doc));
     }
     assertNull("stale pre-revoke completions must not commit", committed(consumer, P0));
 
-    // Re-poll from the committed offset (0) under the new generation and index 0..999; the frontier must advance.
+    // Re-poll from the committed offset (0) and index 0..999; the frontier must advance.
     for (long offset = 0; offset < 1000; offset++) {
       tracker.batchCompleted(List.of(poll(tracker, P0, offset)));
     }
-    assertEquals("frontier must advance under the new generation", Long.valueOf(1000), committed(consumer, P0));
+    assertEquals("frontier must advance after the re-poll", Long.valueOf(1000), committed(consumer, P0));
+  }
+
+  @Test
+  public void testStaleCompletionsAfterRePollDoNotStallOrRewind() {
+    // The other order: pre-revoke batches complete AFTER the same offsets have been re-polled (possible only when a
+    // partition is lost with batches still in flight, since a clean revoke drains them first). A stale completion of a
+    // re-polled offset counts as completing it -- the earlier send processed that same record -- so it may move the
+    // frontier forward but must never hold it back or move a commit backward. Fresh completions also arrive out of
+    // order, as MultiBatch can produce.
+    MockConsumer<String, KafkaDocument> consumer = assignedConsumer(Set.of(P0));
+    OffsetCommitTracker tracker = new OffsetCommitTracker(consumer);
+    List<KafkaDocument> stale = new java.util.ArrayList<>();
+    for (long offset = 0; offset < 10; offset++) {
+      stale.add(poll(tracker, P0, offset));
+    }
+    tracker.rebalanceListener().onPartitionsLost(Set.of(P0));
+    tracker.rebalanceListener().onPartitionsAssigned(Set.of(P0));
+    List<KafkaDocument> fresh = new java.util.ArrayList<>();
+    for (long offset = 0; offset < 10; offset++) {
+      fresh.add(poll(tracker, P0, offset));
+    }
+
+    // Fresh 9..5 complete first; the frontier must still wait on 0.
+    for (int i = 9; i >= 5; i--) {
+      tracker.batchCompleted(List.of(fresh.get(i)));
+    }
+    assertNull(committed(consumer, P0));
+
+    // The stale copies of 0..9 complete; together with fresh 9..5 they cover 0..9.
+    for (KafkaDocument doc : stale) {
+      tracker.batchCompleted(List.of(doc));
+    }
+    assertEquals(Long.valueOf(10), committed(consumer, P0));
+
+    // The fresh copies of 4..0 complete afterwards: redundant, and the commit must not move backward.
+    for (int i = 4; i >= 0; i--) {
+      tracker.batchCompleted(List.of(fresh.get(i)));
+    }
+    assertEquals(Long.valueOf(10), committed(consumer, P0));
+
+    // Later progress commits normally.
+    for (long offset = 10; offset < 1000; offset++) {
+      tracker.batchCompleted(List.of(poll(tracker, P0, offset)));
+    }
+    assertEquals(Long.valueOf(1000), committed(consumer, P0));
   }
 
   @Test
@@ -229,13 +274,10 @@ public class OffsetCommitTrackerTest {
     return consumer;
   }
 
-  // Records the poll with the tracker and returns the document stamped with the generation the tracker reports -- the
-  // same handshake the real KafkaIndexerMessenger performs in pollDocToIndex.
+  // Records the poll with the tracker and returns the polled document, as KafkaIndexerMessenger does in pollDocToIndex.
   private static KafkaDocument poll(OffsetCommitTracker tracker, TopicPartition partition, long offset) {
-    long generation = tracker.recordPolled(partition, offset);
-    KafkaDocument doc = kafkaDoc(partition, offset);
-    doc.setDeliveryGeneration(generation);
-    return doc;
+    tracker.recordPolled(partition, offset);
+    return kafkaDoc(partition, offset);
   }
 
   private static KafkaDocument kafkaDoc(TopicPartition partition, long offset) {

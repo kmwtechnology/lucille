@@ -21,7 +21,9 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import org.apache.commons.lang3.tuple.Pair;
@@ -35,6 +37,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.GroupState;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.After;
@@ -63,7 +66,6 @@ public class KafkaConcurrentIndexerEndToEndTest {
   private static Admin admin;
 
   private KafkaProducer<String, Document> producer;
-  private final List<KafkaIndexerMessenger> messengers = new ArrayList<>();
 
   @BeforeClass
   public static void startKafka() {
@@ -90,9 +92,6 @@ public class KafkaConcurrentIndexerEndToEndTest {
 
   @After
   public void tearDown() throws Exception {
-    for (KafkaIndexerMessenger messenger : messengers) {
-      messenger.close();
-    }
     if (producer != null) {
       producer.close();
     }
@@ -150,51 +149,101 @@ public class KafkaConcurrentIndexerEndToEndTest {
   }
 
   /**
-   * Exercises the keepAlive pause/resume/seek sequence against a real broker, which a MockConsumer cannot faithfully
-   * model (its seek does not re-deliver a consumed record). A consumer polls part way through its partitions, then
-   * keepAlive is called many times — each call pauses the assignment, polls, and seeks back any record it pulls — and
-   * finally polling resumes. The sequence is correct only if every remaining document is still delivered in order:
-   * keepAlive must neither consume a record it only polled to stay alive nor advance the read position past one.
+   * A rebalance that starts while the indexer thread is blocked in dispatch() must not re-deliver or reorder anything.
+   * Every document writes the same destination id, so each one-document batch waits for the one before it. doc0's send
+   * is held, so dispatching doc1 blocks, and another member joins the group during that wait. The indexer does not
+   * poll while it is blocked, so the rebalance waits for it. Once doc0's send is released, doc1 is submitted, the run
+   * loop polls, and only then does the revocation hook flush doc2 and drain, so the hook never runs in the middle of a
+   * dispatch.
    */
   @Test
-  public void testKeepAlivePreservesPositionAndDeliversEveryDocument() throws Exception {
+  public void testRebalanceDuringBlockedDispatchDoesNotResendOrReorder() throws Exception {
     String pipeline = newPipeline(1);
-    // maxConcurrentBatches > 1 so the Kafka messenger is in its concurrent (commit-on-completion) mode, where keepAlive
-    // is used.
-    Config config = config(pipeline, 3, Map.of());
-    int total = 12;
-    List<String> produced = produce(config, pipeline, 0, total, "run");
+    // One document per batch, never flushed by time.
+    Config config = config(pipeline, 2, Map.of("indexer.batchSize", 1, "indexer.batchTimeout", 600000,
+        "indexer.idOverrideField", "destId", "kafka.pollIntervalMs", 100));
+    String topic = KafkaUtils.getDestTopicName(pipeline);
+    TopicPartition partition = new TopicPartition(topic, 0);
+    int total = 5;
+    if (producer == null) {
+      producer = KafkaUtils.createDocumentProducer(config);
+    }
+    List<String> ids = new ArrayList<>();
+    for (int i = 0; i < total; i++) {
+      String id = "doc" + i;
+      Document doc = Document.create(id, "run");
+      doc.setField("destId", "x");
+      producer.send(new ProducerRecord<>(topic, 0, id, doc)).get();
+      ids.add(id);
+    }
 
-    KafkaIndexerMessenger messenger = messenger(config, pipeline);
-    List<String> delivered = new ArrayList<>();
-
-    // Deliver the first few records normally.
-    while (delivered.size() < 4) {
-      Document doc = messenger.pollDocToIndex();
-      if (doc != null) {
-        delivered.add(doc.getId());
+    AtomicInteger polled = new AtomicInteger();
+    AtomicInteger pollsSinceRejoin = new AtomicInteger();
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
+      @Override
+      public Document pollDocToIndex() throws Exception {
+        Document doc = super.pollDocToIndex();
+        if (doc != null) {
+          polled.incrementAndGet();
+        }
+        // Runs on the indexer thread, which owns the consumer, so reading the assignment here is safe.
+        if (assignment().contains(partition)) {
+          pollsSinceRejoin.incrementAndGet();
+        } else {
+          pollsSinceRejoin.set(0);
+        }
+        return doc;
       }
-    }
+    };
+    GatedIndexer indexer = new GatedIndexer(config, messenger, "doc0");
+    Thread thread = new Thread(indexer);
+    thread.start();
+    try {
+      // Polling doc1 dispatches doc0, whose send is held. Polling doc2 dispatches doc1, which blocks behind doc0.
+      waitFor(() -> indexer.gatedSendStarted && polled.get() == 3);
 
-    // Now stay alive without delivering: keepAlive pauses the assignment, polls, and seeks back. Even though records
-    // remain on the broker, keepAlive must not deliver or skip any of them.
-    for (int i = 0; i < 20; i++) {
-      messenger.keepAlive();
-    }
+      try (KafkaConsumer<String, String> joiner = groupMember(config)) {
+        AtomicInteger assignments = new AtomicInteger();
+        joiner.subscribe(List.of(topic), new ConsumerRebalanceListener() {
+          @Override
+          public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
+          }
 
-    // Polling resumes and must deliver exactly the remaining records, in order, picking up right where it left off.
-    while (delivered.size() < total) {
-      Document doc = messenger.pollDocToIndex();
-      if (doc != null) {
-        delivered.add(doc.getId());
+          @Override
+          public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
+            joiner.pause(partitions);
+            assignments.incrementAndGet();
+          }
+        });
+        boolean released = false;
+        long deadline = System.currentTimeMillis() + TIMEOUT_MS;
+        while (assignments.get() == 0 && System.currentTimeMillis() < deadline) {
+          joiner.poll(Duration.ofMillis(100));
+          if (!released && groupState(config) == GroupState.PREPARING_REBALANCE) {
+            // The rebalance is waiting on the indexer, which is still blocked in dispatch and has not polled since.
+            assertEquals(3, polled.get());
+            indexer.release();
+            released = true;
+          }
+        }
+        assertTrue("the rebalance never started while the indexer was blocked", released);
+        assertTrue("joiner never completed a rebalance", assignments.get() > 0);
       }
+
+      // The joiner has left; let the indexer take the partition back and poll the rest.
+      pollsSinceRejoin.set(0);
+      waitFor(() -> pollsSinceRejoin.get() >= 20 && polled.get() >= total);
+      Thread.sleep(1000);
+    } finally {
+      indexer.release();
+      indexer.terminate();
+      thread.join(TIMEOUT_MS);
     }
 
-    // keepAlive neither dropped nor reordered anything: the full produced sequence came through intact.
-    assertEquals(produced, delivered);
-    // And it did poll the broker (so a real wait would keep the consumer in its group), not short-circuit.
-    assertTrue("keepAlive must stay in the group by polling", messenger.assignment().contains(
-        new TopicPartition(KafkaUtils.getDestTopicName(pipeline), 0)));
+    // Each document was polled and sent exactly once, in order, and every offset was committed.
+    assertEquals("a re-delivery would poll some documents twice", total, polled.get());
+    assertEquals(ids, indexer.sent);
+    assertEquals(Map.of(partition, (long) total), committed(config));
   }
 
   /**
@@ -379,10 +428,9 @@ public class KafkaConcurrentIndexerEndToEndTest {
     return new KafkaConsumer<>(props);
   }
 
-  private KafkaIndexerMessenger messenger(Config config, String pipeline) {
-    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline);
-    messengers.add(messenger);
-    return messenger;
+  private static GroupState groupState(Config config) throws Exception {
+    String group = config.getString("kafka.consumerGroupId");
+    return admin.describeConsumerGroups(List.of(group)).all().get().get(group).groupState();
   }
 
   private static String newPipeline(int partitions) {
@@ -484,6 +532,44 @@ public class KafkaConcurrentIndexerEndToEndTest {
     protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
       documents.forEach(doc -> sent.add(doc.getId()));
       return Collections.emptySet();
+    }
+  }
+
+  // A concurrent RecordingIndexer whose send of one chosen document is held until released.
+  public static class GatedIndexer extends RecordingIndexer {
+
+    public static final Spec SPEC = SpecBuilder.indexer().build();
+
+    volatile boolean gatedSendStarted;
+    private final String gatedId;
+    private final CountDownLatch gate = new CountDownLatch(1);
+
+    GatedIndexer(Config config, IndexerMessenger messenger, String gatedId) {
+      super(config, messenger);
+      this.gatedId = gatedId;
+    }
+
+    void release() {
+      gate.countDown();
+    }
+
+    @Override
+    protected boolean supportsConcurrentSends() {
+      return true;
+    }
+
+    @Override
+    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) {
+      if (documents.stream().anyMatch(doc -> doc.getId().equals(gatedId))) {
+        gatedSendStarted = true;
+        try {
+          gate.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new IllegalStateException(e);
+        }
+      }
+      return super.sendToIndex(documents);
     }
   }
 

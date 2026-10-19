@@ -445,78 +445,7 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
-  public void testKeepAliveCalledWhileWaitingForBatch() throws Exception {
-    RecordingMessenger messenger = new RecordingMessenger();
-    indexer = new ControlledIndexer(config(2), messenger);
-    // Hold doc1 so the indexer thread, once the window is full, blocks waiting for it — the window being 2, it blocks
-    // trying to dispatch doc3.
-    indexer.blockSendsFor("doc1");
-    queueDocsAndStartIndexer("doc1", "doc2", "doc3");
-    awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
-    awaitNextBatchBlocked();
-
-    // While blocked waiting for an in-flight batch, the indexer thread must periodically call messenger.keepAlive(),
-    // so a consumer-group member stays in its group during a long wait.
-    awaitUntil(() -> messenger.keepAliveCount() >= 3);
-
-    // Releasing doc1 lets everything drain and the keepAlive calls stop.
-    indexer.releaseSends("doc1");
-    awaitUntil(() -> messenger.completedBatches().size() == 3);
-  }
-
-  @Test
-  public void testKeepAliveFailureDoesNotStopWaiting() throws Exception {
-    RecordingMessenger messenger = new RecordingMessenger();
-    // Every keepAlive throws. The indexer must log and keep waiting, not let the failure escape and kill its thread.
-    messenger.keepAliveFailure = new RuntimeException("keepAlive failed");
-    indexer = new ControlledIndexer(config(2), messenger);
-    indexer.blockSendsFor("doc1");
-    queueDocsAndStartIndexer("doc1", "doc2", "doc3");
-    awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
-    awaitNextBatchBlocked();
-
-    // keepAlive is still being called despite throwing each time, and the indexer thread is still alive.
-    awaitUntil(() -> messenger.keepAliveCount() >= 2);
-    assertTrue(indexerThread.isAlive());
-
-    // Releasing doc1 still lets everything drain, in order.
-    indexer.releaseSends("doc1");
-    awaitUntil(() -> messenger.completedBatches().size() == 3);
-    assertEquals(List.of("doc1", "doc2", "doc3"), messenger.completedBatches());
-  }
-
-  @Test
-  public void testNoKeepAliveWhenNoBatchInFlight() throws Exception {
-    RecordingMessenger messenger = new RecordingMessenger();
-    indexer = new ControlledIndexer(config(2), messenger);
-    // Sends are not blocked, so no batch ever lingers in flight long enough for the indexer thread to wait on one.
-    queueDocsAndStartIndexer("doc1", "doc2");
-    awaitUntil(() -> messenger.completedBatches().size() == 2);
-
-    // Keep idle-polling for well over a keep-alive interval; keepAlive is only for waiting on an in-flight batch, so it
-    // must not be called when nothing is in flight.
-    Thread.sleep(ConcurrentDispatcher.KEEP_ALIVE_INTERVAL_MS * 3 / 2);
-    assertEquals(0, messenger.keepAliveCount());
-  }
-
-  @Test
-  public void testNoKeepAliveForSynchronousSends() throws Exception {
-    RecordingMessenger messenger = new RecordingMessenger();
-    // maxConcurrentBatches = 1 uses the synchronous dispatcher, which never waits on a pool and so never keeps alive.
-    indexer = new ControlledIndexer(config(1), messenger);
-    indexer.blockSendsFor("doc1");
-    queueDocsAndStartIndexer("doc1");
-    awaitUntil(() -> indexer.hasStartedSend("doc1"));
-
-    // Even while a (synchronous) send is held well past a keep-alive interval, keepAlive is never called.
-    Thread.sleep(ConcurrentDispatcher.KEEP_ALIVE_INTERVAL_MS * 3 / 2);
-    indexer.releaseSends("doc1");
-    awaitUntil(() -> messenger.completedBatches().size() == 1);
-    assertEquals(0, messenger.keepAliveCount());
-  }
-
-  @Test
-  public void testInterruptWhileWaitingStillCompletesInFlightBatches() throws Exception {
+  public void testInterruptWhileWaitingDoesNotAbandonInFlightBatches() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     indexer = new ControlledIndexer(config(2), messenger);
     // doc1 and doc2 go in flight; with the window full, the indexer thread blocks dispatching doc3, waiting for doc1.
@@ -525,20 +454,45 @@ public class IndexerConcurrencyTest {
     awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
     awaitNextBatchBlocked();
 
-    // Interrupt the indexer thread while it waits. The wait must absorb the interrupt (not abandon the in-flight batch)
-    // and keep waiting; the flag is restored afterwards so the next poll ends the run.
+    // Interrupt the indexer thread while it waits. Nothing in Lucille does this; it can only arise when other code embeds
+    // Lucille and interrupts the thread itself, which is considered unlikely. The wait must not be abandoned (the
+    // batches are already sent), and the flag is restored afterwards so the next poll ends the run.
     indexerThread.interrupt();
-    // doc3 must not be abandoned: the indexer keeps waiting for doc1 rather than bailing out.
     awaitNextBatchBlocked();
-    assertFalse("an interrupt must not abandon an in-flight batch", indexer.hasStartedSend("doc3"));
+    assertFalse("an interrupt must not abandon the wait for an in-flight batch", indexer.hasStartedSend("doc3"));
 
-    // Releasing doc1 lets the held batches complete; the restored interrupt then terminates the indexer after it drains
-    // what it is holding.
+    // Releasing doc1 lets the held batches complete; the restored interrupt then ends the run after it drains what it
+    // is holding. (This messenger's batchComplete does not block, so every completion succeeds even with the flag set.)
     indexer.releaseSends("doc1");
     indexerThread.join(TIMEOUT_MS);
     assertFalse(indexerThread.isAlive());
-    // doc1, doc2, doc3 were in flight or dispatched and must all have completed, in order.
     assertEquals(List.of("doc1", "doc2", "doc3"), messenger.completedBatches().subList(0, 3));
+  }
+
+  @Test
+  public void testInterruptStopsTheRunEvenWhenCompletionSwallowsIt() throws Exception {
+    // Nothing in Lucille interrupts the indexer thread (the Runner and WorkerIndexer stop it with terminate() and
+    // join()), so this can only arise when other code embeds Lucille and interrupts the thread itself, which is
+    // considered unlikely. In that case completion runs with the interrupt set. A messenger whose batchComplete blocks
+    // interruptibly (as the Hybrid messenger's offset handoff does) then throws InterruptedException, which clears the
+    // flag. The indexer must restore it, or the next poll never sees the interrupt and the run keeps going.
+    RecordingMessenger messenger = new RecordingMessenger() {
+      @Override
+      public void batchComplete(List<Document> batch) throws InterruptedException {
+        new CountDownLatch(1).await(1, TimeUnit.MILLISECONDS);
+        super.batchComplete(batch);
+      }
+    };
+    indexer = new ControlledIndexer(config(2), messenger);
+    indexer.blockSendsFor("doc1");
+    queueDocsAndStartIndexer("doc1", "doc2", "doc3", "doc4");
+    awaitUntil(() -> indexer.hasStartedSends("doc1", "doc2"));
+    awaitNextBatchBlocked();
+
+    indexerThread.interrupt();
+    indexer.releaseSends("doc1");
+    indexerThread.join(TIMEOUT_MS);
+    assertFalse("the interrupt must still stop the run", indexerThread.isAlive());
   }
 
   @Test
@@ -1192,10 +1146,6 @@ public class IndexerConcurrencyTest {
     private final List<String> sentEvents = Collections.synchronizedList(new ArrayList<>());
     // Completed batches, each rendered as the comma-joined ids of its documents, in completion order.
     private final List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
-    // Number of times keepAlive has been called.
-    private final AtomicInteger keepAliveCount = new AtomicInteger();
-    // When set, keepAlive() throws this (after counting the call), simulating a messenger whose keep-alive fails.
-    private volatile RuntimeException keepAliveFailure;
 
     /** Adds a document to the in-memory FIFO queue, to be returned (in insertion order) by a later {@link #pollDocToIndex()}. */
     void queueDoc(Document document) {
@@ -1205,11 +1155,6 @@ public class IndexerConcurrencyTest {
     /** The number of times {@link #pollDocToIndex()} has been called. */
     int pollCount() {
       return pollCount.get();
-    }
-
-    /** The number of times {@link #keepAlive()} has been called. */
-    int keepAliveCount() {
-      return keepAliveCount.get();
     }
 
     List<String> sentEvents() {
@@ -1249,20 +1194,7 @@ public class IndexerConcurrencyTest {
 
     @Override
     public void batchComplete(List<Document> batch) throws InterruptedException {
-      // Mirror a real messenger (e.g. HybridIndexerMessenger) whose batchComplete makes an interruptible blocking call:
-      // this throws InterruptedException if the thread's interrupt flag is set, so a test can prove completion runs with
-      // the flag clear and is not lost when an interrupt arrived during the preceding wait.
-      new CountDownLatch(1).await(1, TimeUnit.MILLISECONDS);
       completedBatches.add(batch.stream().map(Document::getId).collect(Collectors.joining(",")));
-    }
-
-    @Override
-    public void keepAlive() {
-      keepAliveCount.incrementAndGet();
-      RuntimeException failure = keepAliveFailure;
-      if (failure != null) {
-        throw failure;
-      }
     }
 
     // Records batch completions in order and commits nothing at poll, so it is safe for concurrent batches.

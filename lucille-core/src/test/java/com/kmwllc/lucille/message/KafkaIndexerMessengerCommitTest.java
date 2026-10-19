@@ -10,7 +10,6 @@ import com.typesafe.config.ConfigFactory;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.MockConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetResetStrategy;
@@ -114,39 +113,6 @@ public class KafkaIndexerMessengerCommitTest {
   }
 
   @Test
-  public void testKeepAlivePollsButDeliversNothingAndKeepsPosition() throws Exception {
-    java.util.concurrent.atomic.AtomicInteger pollCount = new java.util.concurrent.atomic.AtomicInteger();
-    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST) {
-      @Override
-      public synchronized ConsumerRecords<String, KafkaDocument> poll(java.time.Duration timeout) {
-        pollCount.incrementAndGet();
-        return super.poll(timeout);
-      }
-    };
-    consumer.setMaxPollRecords(1);
-    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config(), "pipeline1", consumer);
-    consumer.rebalance(Set.of(PARTITION_0));
-    consumer.updateBeginningOffsets(Map.of(PARTITION_0, 0L));
-    consumer.addRecord(record(0));
-    consumer.addRecord(record(1));
-
-    assertEquals("doc-0-0", messenger.pollDocToIndex().getId());
-    int pollsAfterFirstDoc = pollCount.get();
-
-    for (int i = 0; i < 5; i++) {
-      messenger.keepAlive();
-    }
-    // keepAlive must actually poll the broker (to stay in the consumer group) — otherwise the consumer would be
-    // evicted during a long wait. So the poll count must have advanced.
-    assertEquals(pollsAfterFirstDoc + 5, pollCount.get());
-
-    // ...yet it must not deliver a record or move the read position: the next pollDocToIndex still returns the next
-    // record in order, and keepAlive committed nothing.
-    assertEquals("doc-0-1", messenger.pollDocToIndex().getId());
-    assertNull(committedOffset(consumer));
-  }
-
-  @Test
   public void testFailedCommitIsRetainedAndRetried() throws Exception {
     java.util.concurrent.atomic.AtomicInteger failuresRemaining = new java.util.concurrent.atomic.AtomicInteger(1);
     MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST) {
@@ -199,49 +165,6 @@ public class KafkaIndexerMessengerCommitTest {
     messenger.batchComplete(java.util.List.of(p0First, p1First));
     assertEquals(Long.valueOf(1L), committedOffset(consumer, p0));
     assertNull(committedOffset(consumer, p1));
-  }
-
-  @Test
-  public void testKeepAliveSeeksBackOnNewlyAssignedPartition() throws Exception {
-    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
-    consumer.setMaxPollRecords(1);
-    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config(), "pipeline1", consumer);
-    // The partition is assigned during keepAlive's own poll, after the already-assigned partitions were paused, so it
-    // is not yet paused and the poll returns its first record. keepAlive must seek back so that record is not consumed.
-    consumer.schedulePollTask(() -> {
-      consumer.rebalance(Set.of(PARTITION_0));
-      consumer.updateBeginningOffsets(Map.of(PARTITION_0, 0L));
-      consumer.addRecord(record(0));
-    });
-
-    messenger.keepAlive();
-
-    // The read position was rewound to the record keepAlive accidentally pulled, so the next real poll starts there,
-    // and nothing was committed. (This mirrors production: keepAlive seeks back so a newly-assigned partition's first
-    // record is delivered by pollDocToIndex, not silently consumed by keepAlive.)
-    assertEquals(0L, consumer.position(PARTITION_0));
-    assertNull(committedOffset(consumer));
-  }
-
-  @Test
-  public void testKeepAliveWhileJoiningGroupDoesNotAdvancePosition() throws Exception {
-    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
-    consumer.setMaxPollRecords(1);
-    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config(), "pipeline1", consumer);
-    // The partition is assigned during the first keepAlive poll, with a record waiting.
-    consumer.schedulePollTask(() -> {
-      consumer.rebalance(Set.of(PARTITION_0));
-      consumer.updateBeginningOffsets(Map.of(PARTITION_0, 0L));
-      consumer.addRecord(record(0));
-    });
-
-    // Repeated keepAlive while "joining the group" must never commit or advance the read position past the first
-    // unread record: whatever a mid-join poll pulls is seeked back so pollDocToIndex still starts at offset 0.
-    for (int i = 0; i < 5; i++) {
-      messenger.keepAlive();
-    }
-    assertNull(committedOffset(consumer));
-    assertEquals(0L, consumer.position(PARTITION_0));
   }
 
   @Test

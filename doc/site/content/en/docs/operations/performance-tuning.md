@@ -466,6 +466,16 @@ This is the maximum time between Kafka `poll()` calls before the consumer is evi
 
 **Set this higher than your slowest expected document processing time.** If you have stages that call slow external APIs or process very large documents, increase this value.
 
+**For a standalone Indexer (distributed mode), also set it to at least three times your slowest bulk request, including retries.** The Indexer does not poll Kafka while it waits on a bulk request, and Kafka also waits at most this long for each member to rejoin during a rebalance. Before rejoining, the Indexer finishes the bulk requests it has in progress so their offsets are committed. With `indexer.maxConcurrentBatches` greater than 1, the wait in progress plus that drain can add up to about three bulk requests back to back (about two at the default of 1).
+
+To estimate the slowest bulk request, multiply the number of attempts (`indexer.maxRetries` + 1) by the longest one attempt can wait on an unresponsive destination, then add the retry backoff waits. For OpenSearch and Elasticsearch that per-attempt wait is `connectTimeoutMs` + `socketTimeoutMs` (5 s + 30 s by default); for Solr, SolrJ's own client timeouts apply. The backoff starts at `indexer.retryWaitDurationMs` (1 s) and doubles on each retry up to `indexer.retryMaxWaitDurationMs` (30 s), with up to ±50% jitter. Some examples, against a destination that is timing out:
+
+* Retries off (the default): about 35 s, so 3× is about 105 s and 600 s is ample.
+* `maxRetries: 3`: about 4 × 35 s + 10 s ≈ 150 s, so 3× is about 450 s.
+* `maxRetries: 5`: about 6 × 35 s + 47 s ≈ 260 s, so 3× is about 780 s, more than 600 s.
+
+Setting `socketTimeoutMs: -1` removes the per-attempt limit, so no interval is long enough if the destination hangs. If the interval is exceeded, the Indexer is evicted from the group and the documents it had in progress are re-delivered (indexed again, with duplicate completion events), not lost. A request still running at eviction can also finish after the new owner's replay and leave stale destination state, such as a deleted document reappearing. See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
+
 ### pollIntervalMs
 
 ```hocon
@@ -538,7 +548,7 @@ During a run, track these from the periodic log messages:
 - [ ] Set `indexer.batchSize` and `batchTimeout` for your backend's optimal batch size
 - [ ] Set `-Xmx` heap size with headroom for GC
 - [ ] In distributed mode: ensure source topic partition count >= desired Worker count
-- [ ] Set `kafka.maxPollIntervalSecs` higher than your slowest document processing time
+- [ ] Set `kafka.maxPollIntervalSecs` higher than your slowest document processing time and, for a standalone Indexer, at least three times its slowest bulk request including retries
 - [ ] Set `publisher.maxPendingDocs` or `publisher.queueCapacity` to prevent memory exhaustion
 - [ ] Monitor for increasing latency over time (indicates resource pressure)
 

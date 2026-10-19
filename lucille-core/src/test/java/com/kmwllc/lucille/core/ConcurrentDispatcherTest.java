@@ -1,298 +1,463 @@
 package com.kmwllc.lucille.core;
 
+import static com.kmwllc.lucille.core.FakeBatchProcessor.MDC_KEY;
+import static com.kmwllc.lucille.core.FakeBatchProcessor.batch;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.MDC;
 
 /**
- * Tests {@link ConcurrentDispatcher} directly, with a fake {@link BatchProcessor}, for behavior that is awkward to
- * reach through a full Indexer: calls made into the dispatcher while it is itself waiting on an in-flight batch.
+ * Tests {@link ConcurrentDispatcher} on its own, against a {@link FakeBatchProcessor}, with trivial destination-id and
+ * barrier callbacks. These tests pin the dispatcher's scheduling contract — which thread each step runs on, the in-flight
+ * window, the same-id and barrier gates, and completion in dispatch order — independently of the Indexer, its batches,
+ * and any messenger. How a real Indexer derives destination ids and recognizes a delete-by-query is Lucille logic and is
+ * covered by {@link IndexerConcurrencyTest}; here a batch's ids are simply its documents' ids, and a document is a
+ * barrier when it carries a marker field.
+ *
+ * <p> The dispatcher confines its state to the thread that calls it, so every dispatcher call here is made on one
+ * dedicated "indexer" thread, while the test thread drives the fake processor (releasing held sends) and asserts. A
+ * dispatcher call that may block is submitted as a task whose Future the test inspects to see whether it has returned.
  */
 public class ConcurrentDispatcherTest {
 
   private static final long TIMEOUT_MS = 10000;
-  private static final Function<List<Document>, Set<String>> DEST_IDS =
-      docs -> docs.stream().map(d -> d.getString("destId")).collect(Collectors.toSet());
+  // How long to wait before concluding that a dispatcher call is blocked (it has not returned and no send has started).
+  private static final long BLOCKED_SETTLE_MS = 200;
+  private static final String RUN_ID = "run1";
+  private static final String SEND_THREAD_PREFIX = "Lucille-" + RUN_ID + "-IndexerSend-";
+  private static final String INDEXER_THREAD_NAME = "test-indexer";
 
+  // Marks a document as a barrier (the stand-in for a delete-by-query).
+  private static final String BARRIER_FIELD = "barrier";
+  // Make the id extractor, or the barrier predicate, throw for the document.
+  private static final String BAD_ID_FIELD = "badId";
+  private static final String BAD_BARRIER_FIELD = "badBarrier";
+
+  private FakeBatchProcessor processor;
   private ConcurrentDispatcher dispatcher;
-  private Thread indexerThread;
-  private final FakeProcessor processor = new FakeProcessor();
+  private ExecutorService indexerThread;
+  private volatile Thread indexerThreadRef;
+
+  @Before
+  public void setUp() {
+    processor = new FakeBatchProcessor();
+    indexerThread = Executors.newSingleThreadExecutor(task -> {
+      Thread thread = new Thread(task, INDEXER_THREAD_NAME);
+      indexerThreadRef = thread;
+      return thread;
+    });
+  }
 
   @After
   public void tearDown() throws Exception {
     processor.releaseAll();
-    if (indexerThread != null) {
-      indexerThread.join(TIMEOUT_MS);
-    }
     if (dispatcher != null) {
-      dispatcher.close();
+      onIndexerThread(dispatcher::close).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
     }
+    indexerThread.shutdownNow();
+    assertTrue(indexerThread.awaitTermination(TIMEOUT_MS, TimeUnit.MILLISECONDS));
+  }
+
+  // ---- threading contract ----
+
+  @Test
+  public void testSendsRunOnPoolThreadsAndCompletionsOnTheDispatchingThread() throws Exception {
+    newDispatcher(2);
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    onIndexerThread(dispatcher::drain).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+    assertEquals(List.of("A", "B"), processor.completed());
+    for (String label : List.of("A", "B")) {
+      assertTrue("send must run on a pool thread, ran on " + processor.sendThread(label),
+          processor.sendThread(label).startsWith(SEND_THREAD_PREFIX));
+      assertNotEquals(INDEXER_THREAD_NAME, processor.sendThread(label));
+      // The outcome the send returned is the one handed to completion, untouched.
+      assertSame(processor.sentOutcome(label), processor.completedOutcome(label));
+    }
+    assertEquals(Set.of(INDEXER_THREAD_NAME), processor.completionThreads());
+    assertFalse("completions must never overlap", processor.completionsOverlapped());
   }
 
   @Test
-  public void testReentrantDispatchWaitsForSameIdBatchBeingAwaited() throws Exception {
-    // While the indexer thread waits on the oldest in-flight batch, keepAlive polls the consumer, and a rebalance there
-    // runs the revocation hook, which flushes and drains: it calls dispatch() and drain() on this same thread. That
-    // re-entrant dispatch must still see the batch being awaited. Here the re-entrant batch writes the same destination
-    // id as the awaited one, so it must not be sent until the awaited batch has finished, and must complete after it.
-    processor.blockSendsFor("first");
-    AtomicInteger keepAliveCalls = new AtomicInteger();
-    startDispatcher(keepAliveCalls, doc -> false, () -> {
-      dispatcher.dispatch(List.of(doc("second", "sharedId")));
-      dispatcher.drain();
-    });
+  public void testDispatchReturnsWhileTheSendIsStillRunning() throws Exception {
+    // The mirror of SynchronousDispatcherTest.testDispatchBlocksUntilTheSendHasCompleted: with room in the window,
+    // dispatch hands the send to the pool and returns, leaving the batch in flight and not yet completed.
+    newDispatcher(2);
+    processor.hold("A");
+    dispatchAndWait(batch("A", "x"));
+    awaitUntil(() -> processor.hasStartedSend("A"));
+    assertFalse("the send must still be running after dispatch returned", processor.hasFinishedSend("A"));
+    assertEquals(List.of(), processor.completed());
 
-    awaitUntil(() -> keepAliveCalls.get() >= 1);
-    Thread.sleep(300);
-    assertFalse("second must wait: it writes the same id as the first, which is still in flight",
-        processor.started.contains("second"));
-
-    processor.release("first");
-    indexerThread.join(TIMEOUT_MS);
-    assertEquals(List.of("first", "second"), processor.completed);
-    assertEquals("the two same-id batches must never overlap", 1, processor.peakConcurrent.get());
+    processor.release("A");
+    onIndexerThread(dispatcher::drain).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of("A"), processor.completed());
   }
 
   @Test
-  public void testReentrantBarrierBatchWaitsForBatchBeingAwaited() throws Exception {
-    // Same re-entrancy, but the re-entrant batch is a barrier (a delete-by-query), which must run with nothing else in
-    // flight, including the batch being awaited, even though it shares no id with it.
-    processor.blockSendsFor("first");
-    AtomicInteger keepAliveCalls = new AtomicInteger();
-    startDispatcher(keepAliveCalls, doc -> doc.getId().equals("barrier"), () -> {
-      dispatcher.dispatch(List.of(doc("barrier", "otherId")));
-      dispatcher.drain();
-    });
-
-    awaitUntil(() -> keepAliveCalls.get() >= 1);
-    Thread.sleep(300);
-    assertFalse("the barrier must wait for the in-flight first batch", processor.started.contains("barrier"));
-
-    processor.release("first");
-    indexerThread.join(TIMEOUT_MS);
-    assertEquals(List.of("first", "barrier"), processor.completed);
-    assertEquals("the barrier must run alone", 1, processor.peakConcurrent.get());
-  }
-
-  @Test
-  public void testCancelledSendIsCompletedAsAFailure() throws Exception {
-    // If a send's future is cancelled, awaiting it throws CancellationException. The batch must still be completed (with
-    // the failure as its outcome, so FAIL events are emitted) rather than the exception escaping and leaving the batch
-    // unaccounted for. Nothing in the dispatcher cancels futures, so the test cancels the oldest one by reflection.
-    processor.blockSendsFor("first");
-    dispatcher = new ConcurrentDispatcher(2, "run", processor,
-        docs -> docs.stream().map(d -> d.getString("destId")).collect(Collectors.toSet()), doc -> false, () -> {});
-    dispatcher.dispatch(List.of(doc("first", "a")));
-    awaitUntil(() -> processor.started.contains("first"));
-
-    Field inFlight = ConcurrentDispatcher.class.getDeclaredField("inFlightBatches");
-    inFlight.setAccessible(true);
-    Object head = ((Deque<?>) inFlight.get(dispatcher)).peekFirst();
-    Method outcome = head.getClass().getDeclaredMethod("outcome");
-    outcome.setAccessible(true);
-    ((Future<?>) outcome.invoke(head)).cancel(true);
-
-    dispatcher.drain();
-
-    assertEquals(List.of("first"), processor.completed);
-    assertTrue("the outcome must carry the cancellation", processor.errors.get("first") instanceof CancellationException);
-  }
-
-  @Test
-  public void testReentrantDispatchDoesNotOvertakeBatchHeldByOuterDispatch() throws Exception {
-    // The outer dispatch() of "held" waits because "held" writes the same id as the in-flight "first". While it waits,
-    // keepAlive runs the revocation hook, which dispatches the newer open batch ("newer", same id) and drains. "held" was
-    // polled before "newer", so it must be sent before it; otherwise an add/delete of one document is applied out of
-    // order (and "held" is sent after the partition has been handed off).
-    processor.blockSendsFor("first");
-    AtomicInteger keepAliveCalls = new AtomicInteger();
-    startDispatcherHoldingBatch(keepAliveCalls, DEST_IDS, () -> {
-      dispatcher.dispatch(List.of(doc("newer", "sharedId")));
-      dispatcher.drain();
-    });
-
-    awaitUntil(() -> keepAliveCalls.get() >= 1);
-    processor.release("first");
-    indexerThread.join(TIMEOUT_MS);
-    assertEquals(List.of("first", "held", "newer"), processor.started);
-  }
-
-  @Test
-  public void testReentrantDrainSendsBatchHeldByOuterDispatch() throws Exception {
-    // Same held "held" as above, but the revocation hook only drains: the open batch is empty (as when "held" came from
-    // a timeout flush), so Indexer.flushAndDrain dispatches nothing before draining. The drain must still send and
-    // complete "held" before the hook returns; otherwise "held" is sent after the partition has been handed off, its
-    // offset commit is rejected, and it is re-delivered to the new owner.
-    processor.blockSendsFor("first");
-    AtomicInteger keepAliveCalls = new AtomicInteger();
-    List<String> completedByHook = new ArrayList<>();
-    startDispatcherHoldingBatch(keepAliveCalls, DEST_IDS, () -> {
-      dispatcher.drain();
-      completedByHook.addAll(processor.completed);
-    });
-
-    awaitUntil(() -> keepAliveCalls.get() >= 1);
-    processor.release("first");
-    indexerThread.join(TIMEOUT_MS);
-    assertEquals("the hook's drain must complete held", List.of("first", "held"), completedByHook);
-    assertEquals(List.of("first", "held"), processor.completed);
-  }
-
-  @Test
-  public void testReentrantDispatchThatFailsIdExtractionCompletesAfterHeldBatch() throws Exception {
-    // Same held "held", but the hook's newer batch makes the id extractor throw, so dispatch() fails it without sending
-    // it. That failure is still a completion, and "newer" was polled after "held", so "held" must be sent and completed
-    // first.
-    processor.blockSendsFor("first");
-    AtomicInteger keepAliveCalls = new AtomicInteger();
-    Function<List<Document>, Set<String>> failOnNewer = docs -> {
-      if (docs.get(0).getId().equals("newer")) {
-        throw new IllegalStateException("id extraction failed");
+  public void testMdcIsPropagatedToTheSendThread() throws Exception {
+    newDispatcher(1);
+    onIndexerThread(() -> {
+      MDC.put(MDC_KEY, "value");
+      try {
+        dispatcher.dispatch(batch("A", "x"));
+        dispatcher.drain();
+      } finally {
+        MDC.remove(MDC_KEY);
       }
-      return DEST_IDS.apply(docs);
-    };
-    startDispatcherHoldingBatch(keepAliveCalls, failOnNewer, () -> {
-      dispatcher.dispatch(List.of(doc("newer", "sharedId")));
-      dispatcher.drain();
-    });
-
-    awaitUntil(() -> keepAliveCalls.get() >= 1);
-    processor.release("first");
-    indexerThread.join(TIMEOUT_MS);
-    assertEquals(List.of("first", "held", "newer"), processor.completed);
-    assertTrue(processor.errors.get("newer") instanceof IllegalStateException);
+    }).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals("value", processor.sendMdcValue("A"));
   }
 
-  // Starts the dispatcher and an indexer thread that dispatches "first" and then "held" (both destination id
-  // "sharedId"), then drains. The dispatch of "held" waits on the in-flight "first", so keepAlive fires while "held" is
-  // held; on its first call it runs reentrant, standing in for the revocation hook. Later calls do nothing, as Indexer
-  // suppresses keepAlive while draining for a revocation.
-  private void startDispatcherHoldingBatch(AtomicInteger keepAliveCalls,
-      Function<List<Document>, Set<String>> idExtractor, Runnable reentrant) {
-    boolean[] hookRan = {false};
-    dispatcher = new ConcurrentDispatcher(3, "run", processor, idExtractor, doc -> false, () -> {
-      keepAliveCalls.incrementAndGet();
-      if (!hookRan[0]) {
-        hookRan[0] = true;
-        reentrant.run();
+  // ---- window and gates ----
+
+  @Test
+  public void testWindowLimitsSendsInFlight() throws Exception {
+    newDispatcher(2);
+    processor.hold("A", "B");
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    awaitUntil(() -> processor.hasStartedSends("A", "B"));
+
+    // The window is full, so dispatching C blocks without starting its send.
+    Future<?> dispatchC = dispatch(batch("C", "z"));
+    assertStaysBlocked(dispatchC, "C");
+    assertEquals(List.of(), processor.completed());
+
+    // Completing the oldest batch frees a slot: C is sent, and only A was completed to make room.
+    processor.release("A");
+    dispatchC.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    awaitUntil(() -> processor.hasStartedSend("C"));
+    assertEquals(List.of("A"), processor.completed());
+    assertEquals(2, processor.peakConcurrentSends());
+  }
+
+  @Test
+  public void testBatchesWithDisjointIdsRunTogether() throws Exception {
+    newDispatcher(3);
+    processor.hold("A");
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    awaitUntil(() -> processor.hasStartedSends("A", "B"));
+    assertEquals(2, processor.peakConcurrentSends());
+  }
+
+  @Test
+  public void testBatchSharingAnIdWaitsForThatBatchToComplete() throws Exception {
+    newDispatcher(3);
+    processor.hold("A", "B");
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    awaitUntil(() -> processor.hasStartedSends("A", "B"));
+
+    // C writes x, which A is still writing: C must wait for A, even though the window has room.
+    Future<?> dispatchC = dispatch(batch("C", "x"));
+    assertStaysBlocked(dispatchC, "C");
+
+    // Finishing B does not help: it is not the batch C conflicts with, and it is not the oldest, so it is not completed.
+    processor.release("B");
+    awaitUntil(() -> processor.hasFinishedSend("B"));
+    assertStaysBlocked(dispatchC, "C");
+    assertEquals(List.of(), processor.completed());
+
+    // Finishing A lets C go. Only A had to be completed; B stays in flight (from the dispatcher's point of view) until
+    // something else asks for it.
+    processor.release("A");
+    dispatchC.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    awaitUntil(() -> processor.hasStartedSend("C"));
+    assertEquals(List.of("A"), processor.completed());
+  }
+
+  @Test
+  public void testBarrierWaitsForEverythingInFlightAndRunsAlone() throws Exception {
+    newDispatcher(3);
+    processor.hold("A", "B", "D");
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    awaitUntil(() -> processor.hasStartedSends("A", "B"));
+
+    // A barrier shares no id with A or B and the window has room, yet it must wait for both.
+    Future<?> dispatchD = dispatch(barrierBatch("D", "z"));
+    assertStaysBlocked(dispatchD, "D");
+    processor.release("A");
+    awaitUntil(() -> processor.hasFinishedSend("A"));
+    assertStaysBlocked(dispatchD, "D");
+
+    // With nothing in flight the barrier is sent — and its dispatch still does not return until it has completed, so
+    // nothing can be dispatched behind it while it runs.
+    processor.release("B");
+    awaitUntil(() -> processor.hasStartedSend("D"));
+    assertStaysBlocked(dispatchD, "D");
+    assertEquals(1, processor.concurrentSends());
+    processor.release("D");
+    dispatchD.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of("A", "B", "D"), processor.completed());
+
+    // Dispatch resumes normally after the barrier.
+    dispatchAndWait(batch("E", "x"));
+    onIndexerThread(dispatcher::drain).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of("A", "B", "D", "E"), processor.completed());
+  }
+
+  // ---- completion ----
+
+  @Test
+  public void testCompletionFollowsDispatchOrderWhenSendsFinishOutOfOrder() throws Exception {
+    newDispatcher(3);
+    processor.hold("A", "B", "C");
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    dispatchAndWait(batch("C", "z"));
+    awaitUntil(() -> processor.hasStartedSends("A", "B", "C"));
+
+    // C and B finish first, but nothing can be completed past A, which is still in flight — and completeFinishedBatches
+    // must say so without blocking.
+    processor.release("C", "B");
+    awaitUntil(() -> processor.hasFinishedSend("C") && processor.hasFinishedSend("B"));
+    onIndexerThread(dispatcher::completeFinishedBatches).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of(), processor.completed());
+
+    // Once A finishes, the whole finished prefix completes, in dispatch order.
+    processor.release("A");
+    awaitUntil(() -> processor.hasFinishedSend("A"));
+    onIndexerThread(dispatcher::completeFinishedBatches).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of("A", "B", "C"), processor.completed());
+  }
+
+  @Test
+  public void testCompleteFinishedBatchesCompletesOnlyTheFinishedPrefix() throws Exception {
+    newDispatcher(3);
+    processor.hold("B");
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    dispatchAndWait(batch("C", "z"));
+    awaitUntil(() -> processor.hasFinishedSend("A") && processor.hasFinishedSend("C"));
+
+    // A is finished and first, so it completes; B is still in flight, so C (finished) must wait behind it.
+    onIndexerThread(dispatcher::completeFinishedBatches).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of("A"), processor.completed());
+
+    processor.release("B");
+    awaitUntil(() -> processor.hasFinishedSend("B"));
+    onIndexerThread(dispatcher::completeFinishedBatches).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of("A", "B", "C"), processor.completed());
+  }
+
+  @Test
+  public void testDrainWaitsForAndCompletesEverythingInOrder() throws Exception {
+    newDispatcher(3);
+    processor.hold("A", "B", "C");
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    dispatchAndWait(batch("C", "z"));
+    awaitUntil(() -> processor.hasStartedSends("A", "B", "C"));
+
+    Future<?> drain = onIndexerThread(dispatcher::drain);
+    assertStaysBlocked(drain, "drain");
+    processor.release("C", "B", "A");
+    drain.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of("A", "B", "C"), processor.completed());
+  }
+
+  @Test
+  public void testFailedSendOutcomeReachesCompletionInOrder() throws Exception {
+    newDispatcher(2);
+    RuntimeException failure = new RuntimeException("send failed");
+    processor.failSend("A", failure);
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    onIndexerThread(dispatcher::drain).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+    assertEquals(List.of("A", "B"), processor.completed());
+    assertSame(failure, processor.completedOutcome("A").error());
+    assertNull(processor.completedOutcome("B").error());
+  }
+
+  @Test
+  public void testProcessorThatThrowsFromSendStillCompletesTheBatchWithThatError() throws Exception {
+    // BatchProcessor.sendWithRetry is specified never to throw. If one does anyway, the pool wraps the throw in an
+    // ExecutionException; the dispatcher must still complete the batch, carrying the thrown exception as its error.
+    newDispatcher(2);
+    processor.throwFromSend("A");
+    dispatchAndWait(batch("A", "x"));
+    dispatchAndWait(batch("B", "y"));
+    onIndexerThread(dispatcher::drain).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+    assertEquals(List.of("A", "B"), processor.completed());
+    assertTrue(processor.completedOutcome("A").error() instanceof IllegalStateException);
+    assertNull(processor.completedOutcome("B").error());
+  }
+
+  // ---- callbacks that throw ----
+
+  @Test
+  public void testThrowingIdExtractorFailsTheBatchAfterDrainingItsPredecessors() throws Exception {
+    newDispatcher(2);
+    processor.hold("A");
+    dispatchAndWait(batch("A", "x"));
+    awaitUntil(() -> processor.hasStartedSend("A"));
+
+    // The bad batch is failed without being sent, but only after A completes, so completion order is still kept.
+    List<Document> bad = batch("Bad", "y");
+    bad.get(0).setField(BAD_ID_FIELD, "true");
+    Future<?> dispatchBad = dispatch(bad);
+    assertStaysBlocked(dispatchBad, "Bad");
+    processor.release("A");
+    dispatchBad.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+    assertEquals(List.of("A", "Bad"), processor.completed());
+    assertFalse("a batch whose ids cannot be extracted must not be sent", processor.hasStartedSend("Bad"));
+    assertTrue(processor.completedOutcome("Bad").error() instanceof IllegalArgumentException);
+
+    // The dispatcher is still usable afterwards.
+    dispatchAndWait(batch("C", "y"));
+    onIndexerThread(dispatcher::drain).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of("A", "Bad", "C"), processor.completed());
+  }
+
+  @Test
+  public void testThrowingBarrierPredicateFailsTheBatchWithoutSendingIt() throws Exception {
+    newDispatcher(2);
+    List<Document> bad = batch("Bad", "x");
+    bad.get(0).setField(BAD_BARRIER_FIELD, "true");
+    dispatchAndWait(bad);
+
+    assertEquals(List.of("Bad"), processor.completed());
+    assertFalse(processor.hasStartedSend("Bad"));
+    assertTrue(processor.completedOutcome("Bad").error() instanceof IllegalArgumentException);
+  }
+
+  // ---- interrupts and shutdown ----
+
+  @Test
+  public void testInterruptWhileWaitingIsHeldUntilTheSendFinishesThenRestored() throws Exception {
+    newDispatcher(1);
+    processor.hold("A");
+    dispatchAndWait(batch("A", "x"));
+    awaitUntil(() -> processor.hasStartedSend("A"));
+
+    // drain() blocks on A. Interrupting the waiting thread must not abandon the wait: A has already been sent, so its
+    // completion is still owed. The flag is restored once the wait ends, so the caller can see it afterwards.
+    AtomicBoolean interruptedAfterDrain = new AtomicBoolean();
+    Future<?> drain = onIndexerThread(() -> {
+      dispatcher.drain();
+      interruptedAfterDrain.set(Thread.interrupted()); // read and clear, so the thread is clean for the next task
+    });
+    assertStaysBlocked(drain, "drain");
+    indexerThreadRef.interrupt();
+    assertStaysBlocked(drain, "drain");
+    assertEquals(List.of(), processor.completed());
+
+    processor.release("A");
+    drain.get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertEquals(List.of("A"), processor.completed());
+    assertTrue("the interrupt must be restored after the wait", interruptedAfterDrain.get());
+  }
+
+  @Test
+  public void testCloseAfterDrainTerminatesThePool() throws Exception {
+    newDispatcher(2);
+    dispatchAndWait(batch("A", "x"));
+    onIndexerThread(dispatcher::drain).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertFalse(dispatcher.sendPoolTerminated());
+    onIndexerThread(dispatcher::close).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertTrue(dispatcher.sendPoolTerminated());
+  }
+
+  @Test
+  public void testCloseWithSendsInFlightInterruptsThemAndTerminatesThePool() throws Exception {
+    // Only an abnormal exit closes the dispatcher with sends in flight; the run is already failing and their results
+    // would be discarded, so the sends are interrupted rather than waited for.
+    newDispatcher(2);
+    processor.hold("A");
+    dispatchAndWait(batch("A", "x"));
+    awaitUntil(() -> processor.hasStartedSend("A"));
+
+    onIndexerThread(dispatcher::close).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    assertTrue(dispatcher.sendPoolTerminated());
+    assertTrue("the held send must have been interrupted", processor.wasInterrupted("A"));
+    assertEquals("an interrupted in-flight batch is not completed", List.of(), processor.completed());
+  }
+
+  // ---- helpers ----
+
+  private void newDispatcher(int maxConcurrentBatches) {
+    dispatcher = new ConcurrentDispatcher(maxConcurrentBatches, RUN_ID, processor,
+        ConcurrentDispatcherTest::destinationIds, ConcurrentDispatcherTest::isBarrier);
+  }
+
+  /** The destination-id extractor: a batch writes its documents' ids. Throws for a document marked with BAD_ID_FIELD. */
+  private static Set<String> destinationIds(List<Document> docs) {
+    Set<String> ids = new HashSet<>();
+    for (Document doc : docs) {
+      if (doc.has(BAD_ID_FIELD)) {
+        throw new IllegalArgumentException("cannot extract id of " + doc.getId());
       }
-    });
-    indexerThread = new Thread(() -> {
-      dispatcher.dispatch(List.of(doc("first", "sharedId")));
-      dispatcher.dispatch(List.of(doc("held", "sharedId")));
-      dispatcher.drain();
-    });
-    indexerThread.start();
+      ids.add(doc.getId());
+    }
+    return ids;
   }
 
-  // Starts the dispatcher and an indexer thread that dispatches "first" (destination id "sharedId") and then drains,
-  // so the thread waits on "first" and the dispatcher's keepAlive fires. On its first call, keepAlive runs reentrant,
-  // standing in for the revocation hook that a rebalance during the consumer poll would trigger. Later calls (including
-  // those during the re-entrant drain) do nothing, as Indexer suppresses keepAlive while draining for a revocation.
-  private void startDispatcher(AtomicInteger keepAliveCalls, Predicate<Document> isBarrier, Runnable reentrant) {
-    boolean[] hookRan = {false};
-    dispatcher = new ConcurrentDispatcher(3, "run", processor,
-        docs -> docs.stream().map(d -> d.getString("destId")).collect(Collectors.toSet()),
-        isBarrier,
-        () -> {
-          keepAliveCalls.incrementAndGet();
-          if (!hookRan[0]) {
-            hookRan[0] = true;
-            reentrant.run();
-          }
-        });
-    indexerThread = new Thread(() -> {
-      dispatcher.dispatch(List.of(doc("first", "sharedId")));
-      dispatcher.drain();
-    });
-    indexerThread.start();
+  /** The barrier predicate: a document marked with BARRIER_FIELD. Throws for one marked with BAD_BARRIER_FIELD. */
+  private static boolean isBarrier(Document doc) {
+    if (doc.has(BAD_BARRIER_FIELD)) {
+      throw new IllegalArgumentException("cannot tell whether " + doc.getId() + " is a barrier");
+    }
+    return doc.has(BARRIER_FIELD);
   }
 
-  private static Document doc(String docId, String destId) {
-    Document doc = Document.create(docId);
-    doc.setField("destId", destId);
-    return doc;
+  /** A batch whose first document is a barrier. */
+  private static List<Document> barrierBatch(String label, String... ids) {
+    List<Document> docs = batch(label, ids);
+    docs.get(0).setField(BARRIER_FIELD, "true");
+    return docs;
+  }
+
+  private Future<?> onIndexerThread(Runnable task) {
+    return indexerThread.submit(task);
+  }
+
+  private Future<?> dispatch(List<Document> docs) {
+    return onIndexerThread(() -> dispatcher.dispatch(docs));
+  }
+
+  /** Dispatches on the indexer thread and waits for the dispatch call to return (failing if it blocks). */
+  private void dispatchAndWait(List<Document> docs) throws Exception {
+    dispatch(docs).get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+  }
+
+  /** Asserts that a dispatcher call submitted to the indexer thread has not returned after a settling period. */
+  private static void assertStaysBlocked(Future<?> call, String what) throws InterruptedException {
+    Thread.sleep(BLOCKED_SETTLE_MS);
+    assertFalse(what + " should still be blocked", call.isDone());
   }
 
   private static void awaitUntil(BooleanSupplier condition) throws InterruptedException {
     long deadline = System.currentTimeMillis() + TIMEOUT_MS;
     while (!condition.getAsBoolean()) {
       if (System.currentTimeMillis() > deadline) {
-        throw new AssertionError("Condition not met within " + TIMEOUT_MS + " ms");
+        fail("timed out waiting for condition");
       }
       Thread.sleep(5);
-    }
-  }
-
-  /** A processor whose sends block until released, recording the order sends start and batches complete. */
-  private static class FakeProcessor implements BatchProcessor {
-
-    final List<String> started = Collections.synchronizedList(new ArrayList<>());
-    final List<String> completed = Collections.synchronizedList(new ArrayList<>());
-    final ConcurrentHashMap<String, Throwable> errors = new ConcurrentHashMap<>();
-    final AtomicInteger peakConcurrent = new AtomicInteger();
-    private final AtomicInteger concurrent = new AtomicInteger();
-    private final ConcurrentHashMap<String, CountDownLatch> latches = new ConcurrentHashMap<>();
-
-    void blockSendsFor(String... docIds) {
-      for (String docId : docIds) {
-        latches.put(docId, new CountDownLatch(1));
-      }
-    }
-
-    void release(String docId) {
-      latches.get(docId).countDown();
-    }
-
-    void releaseAll() {
-      latches.values().forEach(CountDownLatch::countDown);
-    }
-
-    @Override
-    public SendOutcome sendWithRetry(List<Document> batchedDocs) {
-      String docId = batchedDocs.get(0).getId();
-      started.add(docId);
-      peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
-      try {
-        CountDownLatch latch = latches.get(docId);
-        if (latch != null) {
-          latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        }
-        return new SendOutcome(Set.of(), null, 0);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        return new SendOutcome(null, e, 0);
-      } finally {
-        concurrent.decrementAndGet();
-      }
-    }
-
-    @Override
-    public void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
-      completed.add(batchedDocs.get(0).getId());
-      if (outcome.error() != null) {
-        errors.put(batchedDocs.get(0).getId(), outcome.error());
-      }
     }
   }
 }
