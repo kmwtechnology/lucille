@@ -969,13 +969,21 @@ public class JsonDocument implements Document {
 
   @Override
   public boolean hasChildren() {
-    if (!data.has(CHILDREN_FIELD)) {
+    // Inspect the children array in place rather than calling getChildren(), which deep-copies every child.
+    // A child counts only if getChildren() would return it: an object with a non-empty textual id.
+    JsonNode node = data.get(CHILDREN_FIELD);
+    if (node == null || !node.isArray()) {
       return false;
     }
-    if (getChildren().isEmpty()) {
-      return false;
+    for (JsonNode child : node) {
+      if (child.isObject()) {
+        JsonNode id = child.get(ID_FIELD);
+        if (id != null && id.isTextual() && !id.asText().isEmpty()) {
+          return true;
+        }
+      }
     }
-    return true;
+    return false;
   }
 
   @Override

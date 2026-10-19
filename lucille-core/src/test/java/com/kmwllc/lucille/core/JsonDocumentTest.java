@@ -56,6 +56,38 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   }
 
   @Test
+  public void testHasChildrenDoesNotMaterializeChildren() throws DocumentException {
+    ObjectNode node = MAPPER.createObjectNode();
+    node.put(Document.ID_FIELD, "parent");
+    JsonDocument parent = new JsonDocument(node) {
+      @Override
+      public List<Document> getChildren() {
+        throw new AssertionError("hasChildren() must not deep-copy children via getChildren()");
+      }
+    };
+    assertFalse(parent.hasChildren());
+    parent.addChild(createDocument("child"));
+    assertTrue(parent.hasChildren());
+  }
+
+  @Test
+  public void testHasChildrenIgnoresInvalidChildren() throws DocumentException, JsonProcessingException {
+    String field = Document.CHILDREN_FIELD;
+    // children that getChildren() would skip (no id, empty id, non-string id) do not count
+    assertFalse(createDocumentFromJson("{\"id\":\"p\",\"" + field + "\":[]}").hasChildren());
+    assertFalse(createDocumentFromJson("{\"id\":\"p\",\"" + field + "\":[{\"f\":1},{\"id\":\"\"},{\"id\":5}]}")
+        .hasChildren());
+    // non-object elements and a non-array children field do not count either
+    assertFalse(createDocumentFromJson("{\"id\":\"p\",\"" + field + "\":[\"x\",3]}").hasChildren());
+    assertFalse(createDocumentFromJson("{\"id\":\"p\",\"" + field + "\":{\"id\":\"c\"}}").hasChildren());
+    assertFalse(createDocumentFromJson("{\"id\":\"p\",\"" + field + "\":\"c\"}").hasChildren());
+    // a single valid child among invalid ones is enough
+    Document mixed = createDocumentFromJson("{\"id\":\"p\",\"" + field + "\":[{\"f\":1},{\"id\":\"c\"}]}");
+    assertTrue(mixed.hasChildren());
+    assertEquals(1, mixed.getChildren().size());
+  }
+
+  @Test
   public void testGetByteSizeEstimate() throws DocumentException, JsonProcessingException {
     // a document exercising every node type the estimator switches on:
     // string, number (int + double), boolean, null, nested array, and nested object
