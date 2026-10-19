@@ -201,7 +201,7 @@ If the Worker crashes while processing a document, that Kafka message's offset h
 Lucille has two deployment patterns with different offset semantics:
 
 **Fully distributed mode (separate Worker and Indexer processes):**
-The Worker commits offsets via `KafkaWorkerMessenger.commitPendingDocOffsets()` after processing each document and placing it on the indexing topic. The guarantee is: if the Worker crashes, unprocessed documents are redelivered. However, documents that were processed and placed on the indexing topic but not yet indexed are safe — they're on Kafka and will be picked up by an Indexer.
+The Worker commits offsets via `KafkaWorkerMessenger.commitPendingDocOffsets()` in batches (`worker.commitBatchSize` / `worker.commitBatchTimeout`), each only after the batch's documents have been acknowledged on the indexing topic. The guarantee is: if the Worker crashes, unprocessed documents are redelivered. However, documents that were processed and placed on the indexing topic but not yet indexed are safe — they're on Kafka and will be picked up by an Indexer.
 
 **WorkerIndexer mode (paired Worker + Indexer in one process):**
 The offset flow is more sophisticated. The Indexer, after successfully sending a batch to the search backend, places the offsets of the indexed documents on an in-memory queue. The Worker reads from this queue during its `commitPendingDocOffsets()` call and commits them back to Kafka. The guarantee is stronger: offsets are only committed after documents are *indexed*, not just processed. If the WorkerIndexer crashes, documents that were processed but not yet indexed are redelivered and re-indexed. Since search engine upserts are idempotent, this produces correct results.

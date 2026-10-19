@@ -25,7 +25,7 @@ class Worker implements Runnable {
 
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalString("pipeline")
-      .optionalNumber("threads", "maxProcessingSecs", "maxRetries")
+      .optionalNumber("threads", "maxProcessingSecs", "maxRetries", "commitBatchSize", "commitBatchTimeout")
       .optionalBoolean("exitOnTimeout", "enableHeartbeat").build();
 
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
@@ -96,7 +96,8 @@ class Worker implements Runnable {
       } catch (Exception e) {
         log.info("interrupted " + e);
         terminate();
-        return;
+        // fall through to the cleanup below, which commits pending offsets and closes the messenger
+        break;
       }
 
       if (doc == null) {

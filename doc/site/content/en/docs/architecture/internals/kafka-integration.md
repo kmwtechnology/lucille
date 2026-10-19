@@ -353,7 +353,7 @@ Different components use different commit strategies:
 
 | Component | Strategy | Rationale |
 |-----------|----------|-----------|
-| Worker (source) | `commitSync()` after processing | Minimize reprocessing after crash |
+| Worker (source) | `commitSync()` every `worker.commitBatchSize` docs or `worker.commitBatchTimeout` ms, after flushing dest-topic sends | At-least-once; a crash reprocesses the uncommitted documents (normally at most one batch) |
 | Indexer (dest) | `commitSync()` immediately after poll | Acceptable because indexing is idempotent |
 | Publisher (events) | Auto-commit | Throughput; duplicate events are harmless |
 | Hybrid Worker | Deferred commit via offset queue | Only commit after Indexer confirms |
