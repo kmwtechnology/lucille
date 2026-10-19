@@ -104,6 +104,9 @@ public class JsonDocument implements Document {
     if (id == null) {
       throw new NullPointerException("ID cannot be null");
     }
+    if (id.isEmpty()) {
+      throw new IllegalArgumentException("ID cannot be empty");
+    }
     this.data = MAPPER.createObjectNode();
     this.data.put(ID_FIELD, id);
   }
@@ -125,7 +128,11 @@ public class JsonDocument implements Document {
   public static JsonDocument fromJsonString(String json, UnaryOperator<String> idUpdater, FieldFilter filter)
       throws DocumentException, JsonProcessingException {
 
-    ObjectNode node = (ObjectNode) MAPPER.readTree(json);
+    JsonNode parsed = MAPPER.readTree(json);
+    if (!parsed.isObject()) {
+      throw new DocumentException("Document JSON must be an object but was " + describe(parsed));
+    }
+    ObjectNode node = (ObjectNode) parsed;
 
     if (filter != null && filter.isActive()) {
       Iterator<String> iter = node.fieldNames();
@@ -140,8 +147,22 @@ public class JsonDocument implements Document {
     }
     
     JsonDocument doc = new JsonDocument(node);
-    doc.data.put(ID_FIELD, idUpdater == null ? doc.getId() : idUpdater.apply(doc.getId()));
+    if (idUpdater != null) {
+      String updatedId = idUpdater.apply(doc.getId());
+      if (updatedId == null || updatedId.isEmpty()) {
+        throw new DocumentException("idUpdater returned a null or empty id for document " + doc.getId());
+      }
+      doc.data.put(ID_FIELD, updatedId);
+    }
     return doc;
+  }
+
+  /**
+   * Describes a parsed JSON value for an error message: its node type, or "empty input" for the MissingNode that
+   * readTree returns when there is no content.
+   */
+  public static String describe(JsonNode node) {
+    return node.isMissingNode() ? "empty input" : node.getNodeType().toString().toLowerCase();
   }
 
   @Override
@@ -153,6 +174,10 @@ public class JsonDocument implements Document {
   @Override
   public void removeFromArray(String name, int index) {
     validateFieldNames(name);
+    // withArray() would create an empty array for a missing field and throw for a single-valued one
+    if (!isMultiValued(name)) {
+      return;
+    }
     data.withArray(name).remove(index);
   }
 
@@ -167,9 +192,7 @@ public class JsonDocument implements Document {
 
   @Override
   public void clearRunId() {
-    if (data.has(RUNID_FIELD)) {
-      data.remove(RUNID_FIELD);
-    }
+    data.remove(RUNID_FIELD);
   }
 
   @Override
@@ -217,8 +240,8 @@ public class JsonDocument implements Document {
   @Override
   public void setField(String name, Instant value) {
     validateFieldNames(name);
-    String instantStr = DateTimeFormatter.ISO_INSTANT.format(value);
-    data.put(name, instantStr);
+    // a null value is stored as a JSON null, as every other setField overload does
+    data.put(name, value == null ? null : DateTimeFormatter.ISO_INSTANT.format(value));
   }
 
   @Override
@@ -229,19 +252,21 @@ public class JsonDocument implements Document {
 
   @Override
   public void setField(String name, Date value) {
-    Instant instant = Instant.ofEpochMilli(value.getTime());
-    setField(name, instant);
+    setField(name, value == null ? (Instant) null : Instant.ofEpochMilli(value.getTime()));
   }
 
   @Override
   public void setField(String name, Timestamp value) {
-    Instant instant = Instant.ofEpochMilli(value.getTime());
-    setField(name, instant);
+    setField(name, value == null ? (Instant) null : Instant.ofEpochMilli(value.getTime()));
   }
 
   @Override
   public void renameField(String oldName, String newName, UpdateMode mode) {
     validateFieldNames(oldName, newName);
+    if (!data.has(oldName)) {
+      // nothing to rename; in particular do not create newName or disturb an existing newName
+      return;
+    }
     JsonNode oldValues = data.get(oldName);
     data.remove(oldName);
 
@@ -358,7 +383,8 @@ public class JsonDocument implements Document {
 
     JsonNode node = getSingleNode(name);
 
-    return node.isNull() ? null : node.floatValue();
+    // asDouble() coerces strings and booleans the way getDouble() does; floatValue() would silently return 0 for them
+    return node.isNull() ? null : (float) node.asDouble();
   }
 
   @Override
@@ -374,7 +400,7 @@ public class JsonDocument implements Document {
     ArrayNode array = data.withArray(name);
     List<Float> result = new ArrayList<>();
     for (JsonNode node : array) {
-      result.add(node.isNull() ? null : node.floatValue());
+      result.add(node.isNull() ? null : (float) node.asDouble());
     }
     return result;
   }
@@ -505,7 +531,9 @@ public class JsonDocument implements Document {
       try {
         result.add(node.isNull() ? null : node.binaryValue());
       } catch (IOException e) {
+        // keep the element's position, as getBytes() returns null for the same error
         log.error("Error accessing byte[] field", e);
+        result.add(null);
       }
     }
     return result;
@@ -535,6 +563,7 @@ public class JsonDocument implements Document {
     return result;
   }
 
+  @Override
   public JsonNode getJson(String name) {
     if (!data.has(name)) {
       return null;
@@ -712,8 +741,8 @@ public class JsonDocument implements Document {
     validateFieldNames(name);
     convertToList(name);
     ArrayNode array = data.withArray(name);
-    String dateStr = DateTimeFormatter.ISO_INSTANT.format(value);
-    array.add(dateStr);
+    // ArrayNode.add((String) null) appends a JSON null, as the other addToField overloads do
+    array.add(value == null ? null : DateTimeFormatter.ISO_INSTANT.format(value));
   }
 
   @Override
@@ -734,14 +763,12 @@ public class JsonDocument implements Document {
 
   @Override
   public void addToField(String name, Date value) {
-    Instant instant = Instant.ofEpochMilli(value.getTime());
-    addToField(name, instant);
+    addToField(name, value == null ? (Instant) null : Instant.ofEpochMilli(value.getTime()));
   }
 
   @Override
   public void addToField(String name, Timestamp value) {
-    Instant instant = Instant.ofEpochMilli(value.getTime());
-    addToField(name, instant);
+    addToField(name, value == null ? (Instant) null : Instant.ofEpochMilli(value.getTime()));
   }
 
   @Override
@@ -847,33 +874,40 @@ public class JsonDocument implements Document {
   public void setOrAdd(String name, Document other) throws IllegalArgumentException {
     validateFieldNames(name);
 
-    if (!has(name)) {
-
-      if (!other.has(name)) {
-        return;
-      } else {
-        data.set(name, getData(other).get(name));
-        return;
-      }
-
-    } else {
-
-      convertToList(name);
-      ArrayNode currentValues = (ArrayNode) data.get(name);
-      JsonNode otherValue = getData(other).get(name);
-
-      if (otherValue.getNodeType() == JsonNodeType.ARRAY) {
-        currentValues.addAll((ArrayNode) otherValue);
-      } else {
-        currentValues.add(otherValue);
-      }
-
+    // checked before anything is modified, so a no-op leaves this document exactly as it was
+    JsonNode otherValue = getData(other).get(name);
+    if (otherValue == null) {
+      return;
     }
+
+    if (!has(name)) {
+      data.set(name, unshared(otherValue));
+      return;
+    }
+
+    convertToList(name);
+    ArrayNode currentValues = (ArrayNode) data.get(name);
+    if (otherValue.getNodeType() == JsonNodeType.ARRAY) {
+      for (JsonNode element : otherValue) {
+        currentValues.add(unshared(element));
+      }
+    } else {
+      currentValues.add(unshared(otherValue));
+    }
+  }
+
+  /**
+   * Returns a node safe to store in this document when it came from another document: a deep copy for an object or
+   * array, so that later changes to either document cannot show up in the other, and the node itself for a scalar,
+   * which is immutable and so can be shared.
+   */
+  private static JsonNode unshared(JsonNode node) {
+    return node.isContainerNode() ? node.deepCopy() : node;
   }
 
   @Override
   public void setOrAddAll(Document other) {
-    for (Iterator<String> it = ((JsonDocument) other).data.fieldNames(); it.hasNext(); ) {
+    for (Iterator<String> it = getData(other).fieldNames(); it.hasNext(); ) {
       String name = it.next();
       if (RESERVED_FIELDS.contains(name)) {
         continue;
@@ -1050,7 +1084,8 @@ public class JsonDocument implements Document {
 
   @Override
   public boolean isDropped() {
-    return data.has(DROP_FIELD);
+    // by value, not presence: JSON carrying "___dropped": false must not drop the document
+    return data.path(DROP_FIELD).asBoolean(false);
   }
 
   @Override
@@ -1064,7 +1099,7 @@ public class JsonDocument implements Document {
 
   @Override
   public boolean isSkipped() {
-    return data.has(SKIP_FIELD);
+    return data.path(SKIP_FIELD).asBoolean(false);
   }
 
   @Override
@@ -1149,9 +1184,10 @@ public class JsonDocument implements Document {
 
   /**
    * Recursively converts a JsonNode to a Map/List/primitive, including converting binary nodes to base64 strings
-   *  for compatibility with jsonata-java. It wants only raw values, Maps, or Lists (not arrays or binary types).
+   * for compatibility with jsonata-java, which accepts only raw values, Maps, or Lists (not arrays or binary types).
    *
-   * This is used in place of this.asMap() when you need to handle byte[]. The asMap() method uses MAPPER.convertValue which does not handle byte[].
+   * This is used in place of this.asMap() for JSONata input: asMap() returns byte[] for binary nodes, which jsonata-java
+   * cannot evaluate, whereas this returns the base64 text.
    *
    * @param node the JsonNode to convert
    * @return Object that can be evaluated by jsonata-java

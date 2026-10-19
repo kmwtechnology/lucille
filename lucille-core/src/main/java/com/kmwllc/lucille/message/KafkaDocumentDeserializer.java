@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.message;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.KafkaDocument;
 import org.apache.kafka.common.errors.SerializationException;
@@ -21,7 +23,11 @@ public class KafkaDocumentDeserializer implements Deserializer<Document> {
     }
 
     try {
-      return new KafkaDocument((ObjectNode) MAPPER.readTree(data));
+      JsonNode parsed = MAPPER.readTree(data);
+      if (!parsed.isObject()) {
+        throw new DocumentException("Document JSON must be an object but was " + JsonDocument.describe(parsed));
+      }
+      return new KafkaDocument((ObjectNode) parsed);
     } catch (Exception e) {
       throw new SerializationException("Error deserializing document", e);
     }

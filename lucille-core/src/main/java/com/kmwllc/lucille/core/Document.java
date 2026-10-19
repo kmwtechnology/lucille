@@ -157,14 +157,18 @@ public interface Document {
    * Sets the designated field to the given value, overwriting any value
    * that existed previously, and making the field single-valued.
    * The provided Object value must be one of:
-   * String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, or Date.
+   * String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, or Date, or null, which
+   * stores a JSON null (as every typed setter does for a null argument).
    *
    * @param name the name of the field you want to set.
    * @param value the value you want to set the field to have.
    * @throws IllegalArgumentException if value is not of a supported type
    **/
   default void setField(String name, Object value) {
-    if (value instanceof String) {
+    if (value == null) {
+      // stored as a JSON null, as the typed overloads do for a null argument
+      setField(name, (String) value);
+    } else if (value instanceof String) {
       setField(name, (String) value);
     } else if (value instanceof Long) {
       setField(name, (Long) value);
@@ -233,7 +237,10 @@ public interface Document {
    * @throws IllegalArgumentException if value is not of a supported type
    **/
   default void addToField(String name, Object value) {
-    if (value instanceof String) {
+    if (value == null) {
+      // stored as a JSON null, as the typed overloads do for a null argument
+      addToField(name, (String) value);
+    } else if (value instanceof String) {
       addToField(name, (String) value);
     } else if (value instanceof Long) {
       addToField(name, (Long) value);
@@ -309,7 +316,10 @@ public interface Document {
    * @throws IllegalArgumentException if the value is not a supported type.
    */
   default void setOrAdd(String name, Object value) {
-    if (value instanceof String) {
+    if (value == null) {
+      // stored as a JSON null, as the typed overloads do for a null argument
+      setOrAdd(name, (String) value);
+    } else if (value instanceof String) {
       setOrAdd(name, (String) value);
     } else if (value instanceof Long) {
       setOrAdd(name, (Long) value);

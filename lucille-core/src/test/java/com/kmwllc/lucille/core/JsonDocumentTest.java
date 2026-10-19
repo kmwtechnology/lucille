@@ -29,6 +29,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.mock;
 
 public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
 
@@ -469,6 +470,15 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     }
 
     assertEquals(40, fieldNamesParsed);
+  }
+
+  @Test
+  public void testSetOrAddAllRejectsOtherImplementationClearly() {
+    // same message as every other cross-document operation, rather than a ClassCastException
+    Document doc = Document.create("id1");
+    Document foreign = mock(Document.class);
+    IllegalStateException e = assertThrows(IllegalStateException.class, () -> doc.setOrAddAll(foreign));
+    assertEquals("Documents are not of the same type", e.getMessage());
   }
 
 }
