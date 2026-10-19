@@ -1617,6 +1617,52 @@ public abstract class DocumentTest {
       node.remove("id");
       document.deepCopy();
     }
+
+    @Test
+    public void testGetChildrenReturnsIndependentCopies() throws Exception {
+      // The children a caller gets back are copies: changing them must not change the parent, and changing the
+      // parent must not change them. Callers (present and future) may rely on this and must not expect edits to a
+      // returned child to show up in the parent.
+      Document parent = createDocument("parent");
+      Document child = createDocument("child1");
+      child.setField("field1", "val1");
+      parent.addChild(child);
+
+      Document returned = parent.getChildren().get(0);
+      returned.setField("field1", "changed");
+      returned.setField("field2", "new");
+      assertEquals("val1", parent.getChildren().get(0).getString("field1"));
+      assertFalse(parent.getChildren().get(0).has("field2"));
+
+      parent.removeChildren();
+      assertEquals("changed", returned.getString("field1"));
+    }
+
+    @Test
+    public void testHasChildrenAgreesWithGetChildrenForInvalidChild() throws Exception {
+      // A stored child that is no longer a valid Document (here its id was removed after it was added, which is
+      // possible because addChild does not copy) is skipped by getChildren(); hasChildren() must agree without
+      // having to construct the children.
+      Document parent = createDocument("parent");
+      ObjectNode childNode = JsonNodeFactory.instance.objectNode();
+      childNode.put("id", "child1");
+      parent.addChild(createDocument(childNode));
+      assertTrue(parent.hasChildren());
+
+      childNode.remove("id");
+      assertTrue(parent.getChildren().isEmpty());
+      assertFalse(parent.hasChildren());
+
+      childNode.put("id", "");
+      assertFalse(parent.hasChildren());
+
+      childNode.put("id", 7);
+      assertFalse(parent.hasChildren());
+
+      childNode.put("id", "child1");
+      assertTrue(parent.hasChildren());
+    }
+
   }
 
   @Test

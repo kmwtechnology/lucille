@@ -969,15 +969,41 @@ public class JsonDocument implements Document {
 
   @Override
   public boolean hasChildren() {
-    if (!data.has(CHILDREN_FIELD)) {
+    // Answered by inspecting the children array in place. Delegating to getChildren() would deep copy every child
+    // only to count them, and hasChildren() is called per document by the indexers and several stages.
+    JsonNode children = data.get(CHILDREN_FIELD);
+    if (children == null || !children.isArray()) {
       return false;
     }
-    if (getChildren().isEmpty()) {
-      return false;
+    for (JsonNode child : children) {
+      if (isValidChild(child)) {
+        return true;
+      }
     }
-    return true;
+    return false;
   }
 
+  /**
+   * True when the element would be accepted by {@link #getChildren()}: an object with a non-empty string id, the
+   * same requirement {@link #JsonDocument(ObjectNode)} enforces. Keeps hasChildren() consistent with getChildren()
+   * without constructing any child.
+   */
+  private static boolean isValidChild(JsonNode child) {
+    if (!child.isObject()) {
+      return false;
+    }
+    JsonNode id = child.get(ID_FIELD);
+    return id != null && id.isTextual() && !id.asText().isEmpty();
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Each returned child wraps a deep copy of the stored child node. The copy is deliberate: a caller may read,
+   * modify, or hold on to the returned Documents without affecting this document, and this document may be modified
+   * without affecting them. A caller that wants to change the children replaces them: modify the returned copies,
+   * then {@link #removeChildren()} and {@link #addChild(Document)} each one.
+   */
   @Override
   public List<Document> getChildren() {
     if (!data.has(CHILDREN_FIELD)) {
@@ -987,6 +1013,10 @@ public class JsonDocument implements Document {
     ArrayList<Document> children = new ArrayList<>();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
+      if (!element.isObject()) {
+        log.error("Unable to instantiate child Document: child is not an object: {}", element);
+        continue;
+      }
       try {
         children.add(new JsonDocument((ObjectNode) element.deepCopy()));
       } catch (DocumentException e) {

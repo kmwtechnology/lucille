@@ -571,10 +571,24 @@ public interface Document {
 
   /* --- CHILD HANDLING UTILITIES --- */
 
+  /**
+   * Returns true if this document has at least one child. Cheap: implementations must answer this without copying or
+   * constructing the children, so callers may use it freely as a guard before {@link #getChildren()}.
+   */
   boolean hasChildren();
 
+  /**
+   * Returns this document's children as independent Documents: copies that neither affect nor are affected by later
+   * changes to this document. Callers may read, modify, or retain them freely. Because they are copies, modifying a
+   * returned child does not change this document's children; to change them, modify the returned copies, then call
+   * {@link #removeChildren()} and {@link #addChild(Document)} for each. Returns an empty list when there are none.
+   */
   List<Document> getChildren();
 
+  /**
+   * Adds the given document as a child. The implementation may store the child's own data rather than a copy, so the
+   * given document must not be modified after it is added.
+   */
   void addChild(Document document);
 
   void removeChildren();

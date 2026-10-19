@@ -41,9 +41,9 @@ public class KafkaDocumentTest {
     assertTrue(!doc1.equals(new Object()));
     assertEquals(doc1.hashCode(), doc2.hashCode());
 
-    assertEquals(doc1.hashCode(), doc1.clone().hashCode());
-    assertTrue(doc1.clone().equals(doc1));
-    assertTrue(doc1.equals(doc1.clone()));
+    assertEquals(doc1.hashCode(), doc1.deepCopy().hashCode());
+    assertTrue(doc1.deepCopy().equals(doc1));
+    assertTrue(doc1.equals(doc1.deepCopy()));
 
     assertFalse(doc1.equals(doc4));
     assertFalse(doc1.equals(doc5));
@@ -58,6 +58,28 @@ public class KafkaDocumentTest {
     assertNotEquals(doc1.hashCode(), doc6.hashCode());
     assertNotEquals(doc1.hashCode(), doc7.hashCode());
 
+  }
+
+  @Test
+  public void testDeepCopyKeepsKafkaMetadata() throws Exception {
+    KafkaDocument original = new KafkaDocument(
+        new ConsumerRecord("topic1", 2, 3, "key1", "{\"id\":\"123\", \"field1\":\"val1\"}"));
+
+    // deepCopy() is declared on Document; the copy must still be a KafkaDocument with the same metadata
+    Document copy = original.deepCopy();
+    assertTrue(copy instanceof KafkaDocument);
+    KafkaDocument kafkaCopy = (KafkaDocument) copy;
+    assertEquals("topic1", kafkaCopy.getTopic());
+    assertEquals(2, kafkaCopy.getPartition());
+    assertEquals(3, kafkaCopy.getOffset());
+    assertEquals("key1", kafkaCopy.getKey());
+    assertEquals(original, copy);
+    assertEquals(original.hashCode(), copy.hashCode());
+
+    // and it is independent of the original
+    copy.setField("field1", "changed");
+    assertEquals("val1", original.getString("field1"));
+    assertNotEquals(original, copy);
   }
 
   @Test
