@@ -195,7 +195,9 @@ kafka {
 }
 ```
 
-When a property file is specified, it **completely replaces** the programmatic Kafka client configuration (except for `CLIENT_ID_CONFIG` which is always set by Lucille). This gives you full control over every Kafka client property.
+When a property file is specified, it **completely replaces** the programmatic Kafka client configuration (except for `CLIENT_ID_CONFIG` which is always set by Lucille). 
+Properties can also be declared in the `admin` section of the `kafka` config, which allows for the use of environment variables. 
+This gives you full control over every Kafka client property.
 
 **Example `consumer.properties` for SASL_SSL with SCRAM-SHA-256:**
 
