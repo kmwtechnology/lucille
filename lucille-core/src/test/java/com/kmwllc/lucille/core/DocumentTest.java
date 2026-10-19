@@ -351,7 +351,8 @@ public abstract class DocumentTest {
 
     // Note that we do not currently test whether asMap returns a shallow or deep copy of the document data.
     // For example, modifying the contents of an array value inside the Map might or might not affect the contents
-    // of that same array in the original document. Deep copying could be tested as follows but HashMapDocument would not pass:
+    // of that same array in the original document. Deep copying could be tested as follows, but an implementation that
+    // returns a shallow copy of its backing map would not pass:
     // byte[] myBytes = new byte[]{0x3c, 0x4c, 0x5c};
     // document.setField("myBytes", myBytes);
     // ((byte[])docMap.get("myBytes"))[0] = 0x5c;
@@ -1695,7 +1696,7 @@ public abstract class DocumentTest {
   /**
    * Contract tests that apply only to JSON-node-backed Document implementations (e.g. JsonDocument) — in particular
    * behaviors tied to building a document from literal JSON (empty arrays, nulls, malformed values). They do not apply
-   * to non-node implementations such as HashMapDocument, which stores typed Java objects. Abstract: a concrete subclass
+   * to an implementation that stores typed Java objects rather than JSON nodes. Abstract: a concrete subclass
    * supplies the createDocument factories, and so runs these in addition to the shared DocumentTest contract.
    */
   abstract static class NodeDocumentTest extends DocumentTest {

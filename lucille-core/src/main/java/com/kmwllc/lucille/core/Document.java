@@ -41,6 +41,12 @@ import org.slf4j.LoggerFactory;
  * update() methods provide a convient way of toggling between the behaviors of the other setter types: they
  * accept an UpdateMode which specifies the desired behavior and they accept varargs.
  *
+ * Document is an interface so that the storage representation stays separate from the API that stages and
+ * indexers program against. {@link JsonDocument}, which stores fields in a Jackson ObjectNode, is currently the
+ * only implementation. Code outside this package should create Documents through the static factory methods
+ * here ({@link #create(String)}, {@link #createFromJson(String)}, etc.) rather than naming an implementation, so
+ * that an alternate implementation could be substituted. A new implementation should extend the shared contract
+ * tests in DocumentTest (and NodeDocumentTest, if it is JSON-node-backed) in lucille-core's test sources.
  */
 public interface Document {
 
@@ -605,6 +611,9 @@ public interface Document {
 
 
   /* --- CREATORS --- */
+
+  // These factories are the designated way to construct a Document outside this package. They are the single
+  // place that names the implementation, so swapping it would not require touching callers.
 
   static Document create(ObjectNode node) throws DocumentException {
     return new JsonDocument(node);
