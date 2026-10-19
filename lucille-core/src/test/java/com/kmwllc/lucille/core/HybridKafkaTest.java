@@ -203,6 +203,73 @@ public class HybridKafkaTest {
   }
 
   @Test
+  public void testChildEventsDoNotWaitOutProducerLinger() throws Exception {
+    // With a long linger.ms, a send that waits for its ack takes at least linger.ms. Waiting on each child's CREATE
+    // event would take at least 6 * lingerMs for 3 parents with 2 children each; flushing once per parent does not
+    // wait out the linger at all.
+    final int lingerMs = 4000;
+    final String runId = "linger_run";
+    Config config = loadTestConfig("HybridKafkaTest/childrenConfigWithEvents.conf")
+        .withValue("kafka.sourceTopic", ConfigValueFactory.fromAnyRef("children_linger_topic"))
+        .withValue("kafka.consumerGroupId", ConfigValueFactory.fromAnyRef("children_linger_workers"))
+        .withValue("kafka.producer.linger.ms", ConfigValueFactory.fromAnyRef(lingerMs));
+    String topicName = config.getString("kafka.sourceTopic");
+    embeddedKafka.addTopics(new NewTopic(topicName, 1, (short) 1));
+    sendDoc("doc1", runId, topicName);
+    sendDoc("doc2", runId, topicName);
+    sendDoc("doc3", runId, topicName);
+    producer.flush();
+
+    WorkerIndexer workerIndexer = new WorkerIndexer();
+    Set<String> idSet = CounterUtils.getThreadSafeSet();
+    long start = System.nanoTime();
+    long elapsedMs;
+    try {
+      workerIndexer.start(config, "pipeline1", new LinkedBlockingQueue<>(), new LinkedBlockingQueue<>(), true, idSet);
+      CounterUtils.waitUnique(idSet, 9, 120_000, 0);
+      elapsedMs = (System.nanoTime() - start) / 1_000_000;
+    } finally {
+      workerIndexer.stop();
+    }
+
+    assertTrue("took " + elapsedMs + "ms; per-event sends would wait out linger.ms", elapsedMs < 3L * lingerMs);
+
+    // every parent's terminal event must follow its children's CREATE events on the event topic
+    String eventTopicName = KafkaUtils.getEventTopicName(config, "pipeline1", runId);
+    // a consumer of its own: the shared one's group still has members from earlier tests, and rejoining it waits on them
+    Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(embeddedKafka, "linger_events", false);
+    consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+    List<Event> events = new ArrayList<>();
+    try (Consumer<String, String> eventConsumer = new DefaultKafkaConsumerFactory<String, String>(consumerProps)
+        .createConsumer()) {
+      eventConsumer.subscribe(List.of(eventTopicName));
+      for (ConsumerRecord<String, String> record
+          : KafkaTestUtils.getRecords(eventConsumer, java.time.Duration.ofSeconds(30), 15)) {
+        events.add(Event.fromJsonString(record.value()));
+      }
+    }
+    assertEquals(15, events.size());
+    for (String parent : List.of("doc1", "doc2", "doc3")) {
+      int parentFinish = indexOf(events, parent, Event.Type.FINISH);
+      assertTrue(parentFinish >= 0);
+      for (String child : List.of(parent + "_child1", parent + "_child2")) {
+        int childCreate = indexOf(events, child, Event.Type.CREATE);
+        assertTrue(child + " CREATE must precede " + parent + " FINISH", childCreate >= 0 && childCreate < parentFinish);
+      }
+    }
+  }
+
+  private static int indexOf(List<Event> events, String docId, Event.Type type) {
+    for (int i = 0; i < events.size(); i++) {
+      if (events.get(i).getDocumentId().equals(docId) && events.get(i).getType() == type) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  @Test
   public void testTwoWorkerIndexerPairs() throws Exception {
     Config config = loadTestConfig("HybridKafkaTest/noopConfig.conf");
 

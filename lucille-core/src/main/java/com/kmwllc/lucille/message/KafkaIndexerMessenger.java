@@ -7,9 +7,6 @@ import com.typesafe.config.Config;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.errors.RecordDeserializationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,13 +14,12 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class KafkaIndexerMessenger implements IndexerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessenger.class);
   private final Consumer<String, KafkaDocument> destConsumer;
-  private final KafkaProducer<String, String> kafkaEventProducer;
+  private final KafkaEventSender eventSender;
   private final String pipelineName;
   private final Config config;
   private final DeserializationErrorHandler deserializationErrorHandler;
@@ -34,7 +30,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     String kafkaClientId = "com.kmwllc.lucille-indexer-" + pipelineName;
     this.destConsumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)));
-    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.eventSender = new KafkaEventSender(config, pipelineName);
     this.config = config;
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, destConsumer);
@@ -71,64 +67,49 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
-    if (kafkaEventProducer == null) {
+    if (!eventSender.isEnabled()) {
       return;
     }
-    Event event = new Event(document, message, type);
-    sendEvent(event);
+    sendEvent(new Event(document, message, type));
   }
 
 
   /**
-   * Sends an Event relating to a Document to the appropriate location for Events.
-   *
+   * Sends an Event relating to a Document to the appropriate location for Events, without waiting for it to be
+   * acknowledged. It is delivered by the next sendEvents() or batchComplete() call.
    */
   @Override
   public void sendEvent(Event event) throws Exception {
-    if (kafkaEventProducer == null) {
-      return;
-    }
-    String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
-        new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    eventSender.send(event);
   }
 
   @Override
   public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
-    if (kafkaEventProducer == null || documents.isEmpty()) {
+    if (!eventSender.isEnabled() || documents.isEmpty()) {
       return;
     }
 
-    AtomicReference<Exception> sendException = new AtomicReference<>();
-
     for (Document document : documents) {
-      Event event = new Event(document, message, type);
-      String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-      kafkaEventProducer.send(
-          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString()),
-          (metadata, exception) -> {
-            if (exception != null) {
-              log.error("Failed to send event for doc: {}", event.getDocumentId(), exception);
-              sendException.compareAndSet(null, exception);
-            }
-          });
+      eventSender.send(new Event(document, message, type));
     }
-
-    kafkaEventProducer.flush();
-
-    Exception e = sendException.get();
-    if (e != null) {
-      throw new Exception("Failed to send one or more events", e);
-    }
+    eventSender.flush();
   }
 
   @Override
   public void close() throws Exception {
-    destConsumer.close();
+    try {
+      destConsumer.close();
+    } finally {
+      eventSender.close();
+    }
   }
 
+  /**
+   * Delivers the batch's events (FAIL events are sent one at a time) before the Indexer moves on.
+   */
   @Override
   public void batchComplete(List<Document> batch) throws Exception {
+    eventSender.flush();
   }
 
 }

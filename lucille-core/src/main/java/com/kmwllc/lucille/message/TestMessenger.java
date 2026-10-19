@@ -67,6 +67,11 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
+  public void flushEvents() throws Exception {
+    messenger.flushEvents();
+  }
+
+  @Override
   public Event pollEvent() throws Exception {
     return messenger.pollEvent();
   }

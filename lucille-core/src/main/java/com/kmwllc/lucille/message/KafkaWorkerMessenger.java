@@ -23,7 +23,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, Document> kafkaDocumentProducer;
-  private final KafkaProducer<String, String> kafkaEventProducer;
+  private final KafkaEventSender eventSender;
   private final Config config;
   private final Duration pollInterval;
   private final String pipelineName;
@@ -34,7 +34,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
-    this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.eventSender = new KafkaEventSender(config, pipelineName);
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
@@ -95,25 +95,24 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
 
   @Override
   public void sendEvent(Document document, String message, Event.Type type) throws Exception {
-    if (kafkaEventProducer == null) {
+    if (!eventSender.isEnabled()) {
       return;
     }
-    Event event = new Event(document, message, type);
-    sendEvent(event);
+    sendEvent(new Event(document, message, type));
   }
 
   /**
-   * Sends an Event relating to a Document to the appropriate location for Events.
-   *
+   * Sends an Event relating to a Document to the appropriate location for Events, without waiting for it to be
+   * acknowledged; see {@link #flushEvents()}.
    */
   @Override
   public void sendEvent(Event event) throws Exception {
-    if (kafkaEventProducer == null) {
-      return;
-    }
-    String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = kafkaEventProducer.send(
-        new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    eventSender.send(event);
+  }
+
+  @Override
+  public void flushEvents() throws Exception {
+    eventSender.flush();
   }
 
   @Override
@@ -124,9 +123,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     if (kafkaDocumentProducer != null) {
       kafkaDocumentProducer.close();
     }
-    if (kafkaEventProducer != null) {
-      kafkaEventProducer.close();
-    }
+    eventSender.close();
   }
 
 }
