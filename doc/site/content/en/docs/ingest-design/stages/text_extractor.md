@@ -7,7 +7,7 @@ description: Extracts text and metadata from file contents or file paths using A
 
 `com.kmwllc.lucille.tika.stage.TextExtractor` *(requires `lucille-tika`)*
 
-Extracts text and metadata from files, such as PDF, Microsoft Office and HTML documents, using [Apache Tika](https://tika.apache.org/). The input is either the bytes in `byteArrayField` or the file at the path in `filePathField` (a local path, a `classpath:` path, or a cloud storage URI). Exactly one of the two must be set, or the stage fails at startup. Documents without the configured input field are passed through unchanged. Only the first value of `filePathField` is used.
+Extracts text and metadata from files, such as PDF, Microsoft Office and HTML documents, using [Apache Tika](https://tika.apache.org/). The input is either the bytes in `byteArrayField` or the file at the path in `filePathField` (a local path, a `classpath:` path, or a cloud storage URI). Exactly one of the two must be set, or the stage fails when it is created (including during pre-run validation). Documents without the configured input field are passed through unchanged. Only the first value of `filePathField` is used.
 
 The extracted text is added to `textField`; if the field already has a value, the text is added as another value, making the field multi-valued. If a file cannot be read, a warning is logged and the document continues through the pipeline. If Tika fails to parse it, a warning is logged, whatever text was extracted (possibly an empty string) and metadata are still added, and the document continues. When `fork.enabled` is `true`, a parse failure instead throws an exception for that document.
 
@@ -49,15 +49,15 @@ The extracted text is added to `textField`; if the field already has a value, th
 | `fork.jvmArgs` | List\<String\> | No | JVM arguments for each child JVM. `java` is prepended automatically. Default: `["java", "-Djava.awt.headless=true"]`. |
 | `fork.serverPulseMillis` | Long | No | Heartbeat interval in milliseconds between the parent and child JVMs. Default: `1000`. |
 | `fetcherClass` | String | No | Class name of a custom `FileContentFetcher` used to read `filePathField` paths. It must have a public constructor that takes a `Config`. Default: Lucille's built-in fetcher. |
-| `s3` | Object | No | S3 credentials for reading `filePathField` paths from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `azure` | Object | No | Azure credentials for reading `filePathField` paths from Azure: `connectionString`, `accountName`, `accountKey`, `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `gcp` | Object | No | Google Cloud credentials for reading `filePathField` paths from GCS: `pathToServiceKey` (required within `gcp`), `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `s3` | Object | No | S3 credentials for reading `filePathField` paths from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `azure` | Object | No | Azure credentials for reading `filePathField` paths from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `gcp` | Object | No | Google Cloud credentials for reading `filePathField` paths from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 
 ## OCR
 
 OCR is off by default. Set `enableOcr: true` to OCR images and image-only PDF pages through Tika's Tesseract parser, which requires a `tesseract` binary on the `PATH` and is much slower than plain text extraction. Earlier versions ran OCR automatically whenever `tesseract` was installed; set `enableOcr: true` to keep that behavior.
 
-A custom Tika config is used as is, so `enableOcr` cannot be set (even to `false`) together with `tikaConfigPath`; the stage fails at startup. Control OCR in the Tika config instead, for example with `<parser-exclude class="org.apache.tika.parser.ocr.TesseractOCRParser"/>` under the `DefaultParser`. A global Tika config set with the `tika.config` system property or the `TIKA_CONFIG` environment variable is treated the same way when `tikaConfigPath` is not set. At startup the stage logs whether OCR is enabled and whether `tesseract` was found.
+A custom Tika config is used as is, so `enableOcr` cannot be set (even to `false`) together with `tikaConfigPath`; the stage fails when it is created. Control OCR in the Tika config instead, for example with `<parser-exclude class="org.apache.tika.parser.ocr.TesseractOCRParser"/>` under the `DefaultParser`. A global Tika config set with the `tika.config` system property or the `TIKA_CONFIG` environment variable is treated the same way when `tikaConfigPath` is not set. At startup the stage logs whether OCR is enabled and whether `tesseract` was found.
 
 ## Metadata fields
 

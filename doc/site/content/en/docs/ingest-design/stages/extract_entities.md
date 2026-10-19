@@ -26,9 +26,9 @@ Dictionaries are CSV files read as UTF-8. Each row is `term` or `term, payload`;
 | `ignoreOverlaps` | Boolean | No | Drop matches that overlap another match. Default: `false`. |
 | `stopOnHit` | Boolean | No | Stop scanning a value after the first match. Default: `false`. |
 | `updateMode` | String | No | `overwrite`, `append`, or `skip`. Applies to `dest` and `entityField`. Default: `overwrite`. |
-| `s3` | Object | No | S3 credentials for reading dictionaries from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `azure` | Object | No | Azure credentials for reading dictionaries from Azure: `connectionString`, `accountName`, `accountKey`, `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `gcp` | Object | No | Google Cloud credentials for reading dictionaries from GCS: `pathToServiceKey` (required within `gcp`), `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `s3` | Object | No | S3 credentials for reading dictionaries from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `azure` | Object | No | Azure credentials for reading dictionaries from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `gcp` | Object | No | Google Cloud credentials for reading dictionaries from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 
 ```hocon
 {

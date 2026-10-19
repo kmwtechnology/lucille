@@ -61,9 +61,9 @@ doc["title"] = doc["title"].upper()
 |---|---|---|---|
 | `scriptPath` | String | No | Path to a Python file. Can be a local path, a `classpath:` path, or a cloud storage URI (`s3://`, `gs://`, `https://` for Azure). Exactly one of `scriptPath` or `script` must be set, or the stage fails at startup. |
 | `script` | String | No | Inline Python code. Exactly one of `scriptPath` or `script` must be set. |
-| `s3` | Object | No | S3 credentials for reading `scriptPath` from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `azure` | Object | No | Azure credentials for reading `scriptPath` from Azure: `connectionString`, `accountName`, `accountKey`, `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `pathToServiceKey` (required within `gcp`), `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `s3` | Object | No | S3 credentials for reading `scriptPath` from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `azure` | Object | No | Azure credentials for reading `scriptPath` from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 
 The script is read once at startup and evaluated once per document in the same interpreter context, so top-level variables persist between documents. Fields can be read and written as `doc["field"]` or `doc.field`, including nested objects and list indices. Reading a field that does not exist raises an error. Any error raised by the script fails the document.
 
@@ -72,8 +72,8 @@ The script is read once at startup and evaluated once per document in the same i
  name: "EmbeddedPython-Example"
  class: "com.kmwllc.lucille.stage.EmbeddedPython"
 
- # Specify exactly one of the following:
- scriptPath: "/path/to/my_script.py"
+ # Specify exactly one of scriptPath or script; setting both fails at startup.
+ # scriptPath: "/path/to/my_script.py"
  script: "doc['title'] = doc['title'].upper()"
 }
 ```

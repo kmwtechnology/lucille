@@ -7,7 +7,7 @@ description: Renames fields by replacing spaces with underscores and removing ot
 
 `com.kmwllc.lucille.stage.NormalizeFieldNames`
 
-Renames every non-reserved field on the document. Spaces are replaced with `_`, then every character other than a letter, digit, `_`, or `.` is removed. For example, `First Name!` becomes `First_Name`.
+Renames every non-reserved field on the document. Spaces are replaced with `_`, then every character other than an ASCII letter (`a`-`z`, `A`-`Z`), digit, `_`, or `.` is removed, so accented and non-Latin letters are dropped too. For example, `First Name!` becomes `First_Name`.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

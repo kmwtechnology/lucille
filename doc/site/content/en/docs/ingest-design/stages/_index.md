@@ -136,7 +136,7 @@ All stages share these common configuration parameters:
 |---|---|---|---|
 | `class` | String | Yes | The fully qualified class name of the Stage. |
 | `name` | String | No | Display name used in logging and metrics. Must be unique within the pipeline. Defaults to `stage_<N>`, where N is the stage's 1-based position among the enabled stages. |
-| `enabled` | Boolean | No | Set to `false` to leave the stage out of the pipeline; it is still validated. Defaults to `true`. |
+| `enabled` | Boolean | No | Set to `false` to leave the stage out of the pipeline. Its config is still checked during pre-run validation (the stage is constructed once there), but it is not instantiated or started when the pipeline runs. Defaults to `true`. |
 | `conditions` | List | No | Conditions controlling when the Stage executes (see above). |
 | `conditionPolicy` | String | No | `"any"` or `"all"`. Defaults to `"all"`. |
 

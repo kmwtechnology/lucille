@@ -15,6 +15,9 @@ Fetches the Elasticsearch document in `elasticsearch.index` whose ID matches the
 | `elasticsearch.index` | String | Yes | Index to look documents up in. |
 | `elasticsearch.acceptInvalidCert` | Boolean | No | Accept invalid or self-signed TLS certificates. Default: `false`. |
 | `elasticsearch.useCompression` | Boolean | No | Enable compression in the Elasticsearch HTTP client. Default: `false`. |
+| `elasticsearch.connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `5000`. |
+| `elasticsearch.socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Set `-1` for no limit. Default: `30000`. |
+| `elasticsearch.connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Default: `300000` (5 minutes). |
 | `source` | List\<String\> | Yes | Fields to read from the Elasticsearch document. |
 | `dest` | List\<String\> | Yes | Fields to write to, matched to `source` by position. |
 | `updateMode` | String | No | `overwrite`, `append`, or `skip`. Default: `overwrite`. |

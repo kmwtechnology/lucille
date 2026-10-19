@@ -9,7 +9,7 @@ description: Removes fields whose value is null or an empty string.
 
 Removes every field whose value is `null` or an empty string. All fields on the Document are checked. For a multi-valued field, only the first value is checked: if it is null or empty, the whole field is removed. Whitespace-only strings are not considered empty. Fields holding a nested object are also removed.
 
-Processing fails with an exception for a Document that has a field holding an empty list, or that has attached children.
+A field holding an empty list counts as null, so it is removed. Processing fails with an exception for a Document that has attached children.
 
 This stage has no parameters beyond the shared stage parameters.
 

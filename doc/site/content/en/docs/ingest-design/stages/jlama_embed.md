@@ -7,7 +7,7 @@ description: Generates vector embeddings with a HuggingFace embedding model runn
 
 `com.kmwllc.lucille.jlama.stage.JlamaEmbed` *(requires `lucille-jlama`)*
 
-Generates vector embeddings with an embedding model running locally inside the JVM via [Jlama](https://github.com/tjake/Jlama). No API key or external service is needed to embed documents; the model runs in the Lucille process. The model must be in safetensors format.
+Generates vector embeddings with an embedding model running locally inside the JVM via [Jlama](https://github.com/tjake/Jlama). No API key or external service is needed to embed documents; the model runs in the Lucille process. The model must be in safetensors format and use a BERT architecture; other model types are not supported.
 
 At startup the stage downloads `model` from HuggingFace into `pathToStoreModel`, unless it is already there, and loads it. The stage fails at startup if the model cannot be downloaded or loaded. Jlama uses the incubating Java Vector API, so run Lucille with `--add-modules jdk.incubator.vector` (for example, `export JDK_JAVA_OPTIONS='--add-modules jdk.incubator.vector'`).
 

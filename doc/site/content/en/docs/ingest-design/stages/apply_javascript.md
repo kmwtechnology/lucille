@@ -13,9 +13,9 @@ Runs a JavaScript snippet per document using GraalVM's JavaScript engine. The sc
 |---|---|---|---|
 | `script` | String | No | Inline JavaScript code. |
 | `scriptPath` | String | No | Path to a `.js` file. Can be a local path, a `classpath:` path, or a cloud storage URI (`s3://`, `gs://`, `https://` for Azure). Exactly one of `script` or `scriptPath` must be provided, or the stage fails at startup. |
-| `s3` | Object | No | S3 credentials for reading `scriptPath` from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `azure` | Object | No | Azure credentials for reading `scriptPath` from Azure: `connectionString`, `accountName`, `accountKey`, `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
-| `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `pathToServiceKey` (required within `gcp`), `maxNumOfPages`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `s3` | Object | No | S3 credentials for reading `scriptPath` from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `azure` | Object | No | Azure credentials for reading `scriptPath` from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 
 Field access through `doc`:
 - Read and write root fields with `doc.field`. Reading a missing field returns `null`. Assigning `null` stores a JSON null.

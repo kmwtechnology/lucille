@@ -82,7 +82,7 @@ def process_document(doc):
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `scriptPath` | String | Yes | Path to the Python script containing the function. Must be directly inside one of the directories listed under Restrictions. |
+| `scriptPath` | String | Yes | Path to the Python script containing the function. Must be directly inside one of the directories listed under Restrictions, and the file name must end in `.py`. |
 | `pythonExecutable` | String | No | Python executable used to create the virtual environment. Default: `python3`. |
 | `requirementsPath` | String | No | Path to a `requirements.txt` file installed into the virtual environment with `pip install -r` at startup. |
 | `functionName` | String | No | Name of the Python function called for each document. Default: `process_document`. |
