@@ -7,18 +7,34 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Surface the API error body's `message`, never the raw body; fall back to the status line.
+const MAX_ERROR_MESSAGE_LENGTH = 300
+
+function truncate(text: string): string {
+  if (text.length <= MAX_ERROR_MESSAGE_LENGTH) return text
+  return `${text.slice(0, MAX_ERROR_MESSAGE_LENGTH - 1)}…`
+}
+
+function tryParseJson(text: string): { ok: true; value: unknown } | { ok: false } {
+  try {
+    return { ok: true, value: JSON.parse(text) }
+  } catch {
+    return { ok: false }
+  }
+}
+
 export async function errorMessageFrom(res: Response): Promise<string> {
   const statusLine = `${res.status} ${res.statusText}`.trim() || "Request failed"
+  const body = (await res.text().catch(() => "")).trim()
 
-  const isJson = res.headers.get("content-type")?.includes("application/json")
-  if (!isJson) return statusLine
+  if (!body) return statusLine
 
-  const body: unknown = await res.json().catch(() => null)
-  if (body && typeof body === "object" && typeof (body as Record<string, unknown>).message === "string") {
-    return (body as { message: string }).message
+  const parsed = tryParseJson(body)
+  if (parsed.ok) {
+    const message = (parsed.value as Record<string, unknown> | null)?.message
+    return typeof message === "string" ? truncate(message) : statusLine
   }
-  return statusLine
+
+  return truncate(body)
 }
 
 export function formatBytes(bytes: number): string {

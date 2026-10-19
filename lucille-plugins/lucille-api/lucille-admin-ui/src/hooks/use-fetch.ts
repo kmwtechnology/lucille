@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from "react"
 import { errorMessageFrom } from "@/lib/utils"
+import { API_BASE } from "@/lib/constants"
 
 export type FetchState<T> =
   | { status: "loading" }
   | { status: "error"; error: string }
   | { status: "success"; data: T }
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? ""
 
 export interface UseFetchOptions<T> {
   pollIntervalMs?: number

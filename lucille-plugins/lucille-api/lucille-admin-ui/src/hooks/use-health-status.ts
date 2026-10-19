@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import type { HealthStatus } from "@/pages/dashboard/dashboard.types"
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? ""
+import { API_BASE, HEALTH_POLL_INTERVAL_MS } from "@/lib/constants"
 
 export function useHealthStatus(): HealthStatus {
   const [status, setStatus] = useState<HealthStatus>("loading")
@@ -25,8 +24,13 @@ export function useHealthStatus(): HealthStatus {
       }
     }
 
+    // Re-check on an interval so the status reflects the API going down after mount.
     check()
-    return () => controller.abort()
+    const id = setInterval(check, HEALTH_POLL_INTERVAL_MS)
+    return () => {
+      controller.abort()
+      clearInterval(id)
+    }
   }, [])
 
   return status

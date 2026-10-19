@@ -1,21 +1,5 @@
 import { errorMessageFrom } from "@/lib/utils"
-
-const API_BASE = import.meta.env.VITE_API_BASE ?? ""
-
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`)
-  if (!res.ok) throw new Error(await errorMessageFrom(res))
-  return res.json()
-}
-
-async function healthCheck(path: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}${path}`)
-    return res.ok
-  } catch {
-    return false
-  }
-}
+import { API_BASE } from "@/lib/constants"
 
 /**
  * POST a Lucille config to /v1/config as a raw HOCON string.
@@ -93,4 +77,4 @@ async function deleteConfig(configId: string): Promise<void> {
   }
 }
 
-export const api = { get, healthCheck, postConfig, startRun, deleteConfig }
+export const api = { postConfig, startRun, deleteConfig }

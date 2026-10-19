@@ -272,10 +272,12 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className={styles.quickActionsContent}>
             <Link className={styles.actionButtonPrimary} to="/configs/create">
-              <Settings className="mr-2 h-4 w-4 flex-shrink-0" /> Create New Configuration
+              <Settings className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className={styles.actionButtonLabel}>Create New Configuration</span>
             </Link>
-            <Link className={styles.actionButtonSecondary} to="/runs/detail?id=new">
-              <Play className="mr-2 h-4 w-4 flex-shrink-0" /> Start New Run
+            <Link className={styles.actionButtonSecondary} to="/runs/new">
+              <Play className="mr-2 h-4 w-4 flex-shrink-0" />
+              <span className={styles.actionButtonLabel}>Start New Run</span>
             </Link>
           </CardContent>
         </Card>

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { Navigate, useNavigate, useParams } from "react-router-dom"
 import { Link } from "@/components/ui/link/link"
 import { Button } from "@/components/ui/button/button"
 import {
@@ -20,7 +20,7 @@ import { LoadingText } from "@/components/loading-text/loading-text"
 import { ErrorState } from "@/components/error-state/error-state"
 import styles from "./run-detail.module.css"
 
-function StartRun() {
+export function StartRun() {
   const navigate = useNavigate()
   const configs = useFetch<ConfigMap>("/v1/config")
   const { state, submit } = useStartRun()
@@ -33,7 +33,7 @@ function StartRun() {
     if (!configId) return
     const runId = await submit(configId)
     if (runId) {
-      navigate(`/runs/detail?id=${encodeURIComponent(runId)}`)
+      navigate(`/runs/${encodeURIComponent(runId)}`)
     }
   }
 
@@ -143,7 +143,7 @@ function RunView({ id }: { id: string }) {
                   variant="link"
                   size="sm"
                   className={styles.configLink}
-                  to={`/configs/detail?id=${encodeURIComponent(run.data.configId)}`}
+                  to={`/configs/${encodeURIComponent(run.data.configId)}`}
                 >
                   {run.data.configId}
                 </Link>
@@ -188,11 +188,10 @@ function RunView({ id }: { id: string }) {
 }
 
 export default function RunDetail() {
-  const [searchParams] = useSearchParams()
-  const id = searchParams.get("id")
+  const { id } = useParams<{ id: string }>()
 
-  if (!id || id === "new") {
-    return <StartRun />
+  if (!id) {
+    return <Navigate to="/runs" replace />
   }
 
   return <RunView id={id} />

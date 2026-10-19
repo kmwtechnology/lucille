@@ -159,12 +159,19 @@
   @apply flex-1 grid gap-3 sm:gap-4;
 }
 
+/* min-w-0 + overflow-hidden let the button shrink within the card so a long
+   label can truncate (see actionButtonLabel) instead of overflowing. */
 .actionButtonPrimary {
-  @apply w-full justify-start bg-primary-600 hover:bg-primary-700 text-xs sm:text-sm py-2 h-auto;
+  @apply w-full min-w-0 overflow-hidden justify-start bg-primary-600 hover:bg-primary-700 text-xs sm:text-sm py-2 h-auto;
 }
 
 .actionButtonSecondary {
-  @apply w-full justify-start bg-secondary-600 hover:bg-secondary-700 text-xs sm:text-sm py-2 h-auto;
+  @apply w-full min-w-0 overflow-hidden justify-start bg-secondary-600 hover:bg-secondary-700 text-xs sm:text-sm py-2 h-auto;
+}
+
+/* Allow the label to shrink and truncate rather than push past the button edge. */
+.actionButtonLabel {
+  @apply min-w-0 truncate;
 }
 
 .errorText {

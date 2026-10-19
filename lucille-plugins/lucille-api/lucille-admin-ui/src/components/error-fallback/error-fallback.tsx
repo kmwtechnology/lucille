@@ -1,11 +1,13 @@
 import { Component } from "react"
 import type { ErrorInfo, ReactNode } from "react"
+import { useNavigate, type NavigateFunction } from "react-router-dom"
 import { Button } from "@/components/ui/button/button"
 import { AlertTriangle } from "lucide-react"
 import styles from "./error-fallback.module.css"
 
 interface Props {
   children: ReactNode
+  navigate: NavigateFunction
 }
 
 interface State {
@@ -13,7 +15,7 @@ interface State {
   error: Error | null
 }
 
-export class ErrorFallback extends Component<Props, State> {
+class ErrorFallbackBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
     this.state = { hasError: false, error: null }
@@ -54,7 +56,7 @@ export class ErrorFallback extends Component<Props, State> {
                 variant="outline"
                 onClick={() => {
                   this.handleReset()
-                  window.location.href = "/admin"
+                  this.props.navigate("/")
                 }}
               >
                 Go to Dashboard
@@ -67,4 +69,10 @@ export class ErrorFallback extends Component<Props, State> {
 
     return this.props.children
   }
+}
+
+/** Provides router navigation to the class-based error boundary. */
+export function ErrorFallback({ children }: { children: ReactNode }) {
+  const navigate = useNavigate()
+  return <ErrorFallbackBoundary navigate={navigate}>{children}</ErrorFallbackBoundary>
 }

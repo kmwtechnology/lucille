@@ -20,7 +20,7 @@ function startTimeMs(run: Run): number {
 
 function StartRunLink() {
   return (
-    <Link className={styles.startButton} to="/runs/detail?id=new">
+    <Link className={styles.startButton} to="/runs/new">
       <Play className="mr-2 h-4 w-4 flex-shrink-0" /> Start New Run
     </Link>
   )
@@ -28,7 +28,7 @@ function StartRunLink() {
 
 function RunRow({ run }: { run: Run }) {
   const navigate = useNavigate()
-  const to = `/runs/detail?id=${encodeURIComponent(run.runId)}`
+  const to = `/runs/${encodeURIComponent(run.runId)}`
 
   return (
     <tr

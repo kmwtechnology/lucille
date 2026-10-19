@@ -6,7 +6,7 @@ import Configs from "./pages/configs/configs"
 import ConfigCreate from "./pages/config-create/config-create"
 import ConfigDetail from "./pages/config-detail/config-detail"
 import Runs from "./pages/runs/runs"
-import RunDetail from "./pages/run-detail/run-detail"
+import RunDetail, { StartRun } from "./pages/run-detail/run-detail"
 import NotFound from "./pages/not-found/not-found"
 
 function App() {
@@ -17,9 +17,10 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="configs" element={<Configs />} />
           <Route path="configs/create" element={<ConfigCreate />} />
-          <Route path="configs/detail" element={<ConfigDetail />} />
+          <Route path="configs/:id" element={<ConfigDetail />} />
           <Route path="runs" element={<Runs />} />
-          <Route path="runs/detail" element={<RunDetail />} />
+          <Route path="runs/new" element={<StartRun />} />
+          <Route path="runs/:id" element={<RunDetail />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

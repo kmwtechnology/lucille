@@ -53,7 +53,7 @@ function RowStartRunButton({ configId }: { configId: string }) {
     e.stopPropagation()
     const runId = await submit(configId)
     if (runId) {
-      navigate(`/runs/detail?id=${encodeURIComponent(runId)}`)
+      navigate(`/runs/${encodeURIComponent(runId)}`)
     }
   }
 
@@ -107,7 +107,7 @@ function RowDeleteButton({ configId, onDeleted }: { configId: string; onDeleted:
 
 function ConfigRow({ id, config, onDeleted }: { id: string; config: ConfigObject; onDeleted: () => void }) {
   const navigate = useNavigate()
-  const to = `/configs/detail?id=${encodeURIComponent(id)}`
+  const to = `/configs/${encodeURIComponent(id)}`
 
   return (
     <tr

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
+import { Navigate, useNavigate, useParams } from "react-router-dom"
 import {
   Card,
   CardContent,
@@ -27,7 +27,7 @@ function StartRunButton({ configId }: { configId: string }) {
   const handleStart = async () => {
     const runId = await submit(configId)
     if (runId) {
-      navigate(`/runs/detail?id=${encodeURIComponent(runId)}`)
+      navigate(`/runs/${encodeURIComponent(runId)}`)
     }
   }
 
@@ -224,11 +224,10 @@ function RawConfig({ config }: { config: ConfigObject }) {
 }
 
 export default function ConfigDetail() {
-  const [searchParams] = useSearchParams()
-  const id = searchParams.get("id")
+  const { id } = useParams<{ id: string }>()
 
-  if (!id || id === "new") {
-    return <Navigate to="/configs/create" replace />
+  if (!id) {
+    return <Navigate to="/configs" replace />
   }
 
   return <ConfigDetailView id={id} />

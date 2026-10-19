@@ -25,7 +25,7 @@ export default function ConfigCreate() {
     }
     const configId = await submit(text)
     if (configId) {
-      navigate(`/configs/detail?id=${encodeURIComponent(configId)}`)
+      navigate(`/configs/${encodeURIComponent(configId)}`)
     }
   }
 
