@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-weight: 9
+weight: 11
 date: 2024-10-15
 description: A guide to some common issues and their resolution.
 ---
@@ -156,6 +156,23 @@ If unset, refer to the [installation guide]({{< relref "docs/getting-started/ins
 
 * Verify your `kafka.bootstrapServers` in your config.
 * Check Kafka connectivity to ensure it is reachable.
+
+### Indexer Evicted from the Consumer Group / Duplicate Completion Events
+
+**Symptoms:**
+
+* The Indexer logs `consumer poll timeout has expired. This means the time between subsequent calls to poll() was longer than the configured max.poll.interval.ms`.
+* The Indexer logs `Could not commit offsets ... on revocation; those documents will be re-delivered.` or `Error marking batch complete.`
+* A run reports more indexed documents than were published, or emits duplicate completion events, usually while the search backend is slow or failing.
+
+**Cause:**
+
+The standalone Indexer (distributed mode) does not poll Kafka while it waits on a bulk request, and during a rebalance it finishes its in-progress requests before rejoining the group. If that takes longer than `kafka.maxPollIntervalSecs`, Kafka evicts the Indexer, and the documents it had in progress are re-delivered and indexed again; no document is skipped. A request still running at eviction can, however, finish after the new owner's replay and leave stale destination state, such as a deleted document reappearing.
+
+**Fix:**
+
+* Set `kafka.maxPollIntervalSecs` to at least three times the slowest bulk request, including retries. See [maxPollIntervalSecs]({{< relref "docs/operations/performance-tuning#maxpollintervalsecs" >}}) for how to estimate it.
+* Or shorten the slowest bulk request: lower `indexer.maxRetries` or `indexer.retryMaxWaitDurationMs`, or the client's `socketTimeoutMs`.
 
 ## Solr / Elasticsearch / OpenSearch Connectivity
 

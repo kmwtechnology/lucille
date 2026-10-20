@@ -37,8 +37,14 @@ public interface IndexerMessenger {
     void sendEvent(Document document, String message, Event.Type type) throws Exception;
     void close() throws Exception;
     void batchComplete(List<Document> batch) throws Exception;  // Offset feedback
+
+    // Optional capabilities (default implementations):
+    default void setPreRevocationHook(Runnable hook) {}     // run before a Kafka partition is handed off
+    default boolean commitsOnBatchCompletion() { return false; }  // required for indexer.maxConcurrentBatches > 1
 }
 ```
+
+`commitsOnBatchCompletion()` is true for messengers that commit (or hand off) their input only when `batchComplete()` is called, not when a document is polled. The Indexer requires it before it will accept `indexer.maxConcurrentBatches` greater than 1. `setPreRevocationHook()` lets the Kafka messenger ask the Indexer to flush and complete its in-progress batches before a consumer-group rebalance takes a partition away.
 
 ### PublisherMessenger
 
@@ -126,32 +132,42 @@ Key behaviors:
 - **`sendFailed(doc)`** — produces to the fail topic (dead letter queue).
 - **`sendEvent(event)`** — serializes the event as JSON string and produces to the event topic.
 
-## KafkaIndexerMessenger: Consume and Commit
+## KafkaIndexerMessenger: Consume and Commit on Completion
 
-Reads processed documents from the dest topic:
+Reads processed documents from the dest topic, and commits their offsets only after the batch containing them has been completed:
 
 ```java
 public class KafkaIndexerMessenger implements IndexerMessenger {
     private final Consumer<String, KafkaDocument> destConsumer;
     private final KafkaProducer<String, String> kafkaEventProducer;
+    private final OffsetCommitTracker offsetCommitTracker;
     private final Duration pollInterval;  // kafka.pollIntervalMs, default 2000ms
 }
 ```
 
-Key difference from the Worker: offsets are committed **immediately after polling**, before the document is indexed:
+Key difference from the Worker: the Worker commits right after it has processed a document, but the Indexer does not commit when it polls. Polling only records the offset with the `OffsetCommitTracker`:
 
 ```java
 public Document pollDocToIndex() throws Exception {
     ConsumerRecords<String, KafkaDocument> consumerRecords = destConsumer.poll(pollInterval);
     if (consumerRecords.count() > 0) {
-        destConsumer.commitSync();  // Commit immediately
+        // record the polled offset; nothing is committed yet
+        offsetCommitTracker.recordPolled(partition, record.offset());
         // return the document
     }
     return null;
 }
+
+public void batchComplete(List<Document> batch) throws Exception {
+    offsetCommitTracker.batchCompleted(batch);  // advance the commit frontier and commit
+}
 ```
 
-This means a document might be indexed twice if the indexer crashes after committing but before sending the FINISH event. This is acceptable because indexing is idempotent (upsert semantics).
+`batchComplete()` is called by the Indexer once a batch has been handled: indexed, or reported failed with FAIL events. The tracker commits a per-partition *frontier*: the offset after the longest unbroken run of polled records whose batches have completed. Batches may finish out of order, and an earlier record may still be waiting in another batch, so the frontier never passes a record that has not been handled.
+
+This is at-least-once delivery. If the Indexer crashes after a document was indexed but before its offset was committed, the document is redelivered and indexed again, which is safe because indexing is idempotent (upsert semantics), at the cost of a duplicate FINISH event. Nothing is lost. The document consumer must therefore be configured with `enable.auto.commit=false`, which Lucille checks when it creates the consumer.
+
+On a consumer-group rebalance the tracker's rebalance listener first runs the Indexer's pre-revocation hook, which flushes the open batch and completes all in-flight batches, then commits their offsets while the partition is still owned. A clean rebalance therefore does not redeliver them. See [Delivery semantics]({{< relref "docs/operations/indexing-throughput#delivery-semantics-kafka-distributed-mode" >}}) for the details.
 
 ## HybridWorkerMessenger: Kafka In, Memory Out
 

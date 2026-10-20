@@ -11,6 +11,6 @@ Adds a random double to a field.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `field_name` | String | No | Destination field. Default: `random_double`. |
-| `min` | Double | No | Minimum value. Default: `0.0`. |
-| `max` | Double | No | Maximum value. Default: `1.0`. |
+| `fieldName` | String | No | Destination field. Default: `data`. |
+| `rangeStart` | Double | No | Minimum value (inclusive). Write it with a decimal point (`5.0`, not `5`); an integer value fails at startup. Default: `0.0`. |
+| `rangeEnd` | Double | No | Maximum value (exclusive). Must be greater than `rangeStart`; an equal value passes the startup check but then fails every document. Write it with a decimal point, like `rangeStart`. Default: `1000000.0`. |

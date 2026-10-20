@@ -16,6 +16,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 - **Config validation** — Validates both the generic `indexer` config block (batchSize, field filtering, deletion markers, retry settings) and your implementation-specific config block (e.g., `solr`, `opensearch`) using your `SPEC`.
 - **Field filtering** — Applies whitelist/blacklist filtering before documents reach `sendToIndex()`. Use `getConvertedIndexerDoc(doc)` to get the filtered field map as plain Java values, or `getRawIndexerDoc(doc)` when your client serializes it to JSON with Jackson.
 - **Batching** — Configurable batch size and timeout, with support for per-document index routing via `indexOverrideField`.
+- **Concurrent sends** — When `indexer.maxConcurrentBatches` is above 1, sends several batches to the destination at once while keeping writes to the same document id in order and completing batches in dispatch order. See [Concurrent Sends](#concurrent-sends) below.
 - **Retry with backoff** — When `indexer.maxRetries` is configured, retries failed batches with exponential backoff and jitter. Your `sendToIndex()` returns per-document failures; the base class decides whether to retry based on status codes.
 - **Event accounting** — Sends FINISH or FAIL events for each document so the Runner can track run completion.
 - **Metrics** — Tracks documents indexed, throughput rate, and batch latency automatically.
@@ -29,6 +30,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 | `sendToIndex(List<Document> docs)` | Yes | Send a batch to the destination. Return a set of `Pair<Document, Exception>` for any per-document failures; return an empty set if all succeeded. |
 | `validateConnection()` | Yes | Return `true` if the destination is reachable and the target index/collection exists. Called before the consumption loop starts. |
 | `closeConnection()` | Yes | Close the client or connection to the destination. |
+| `supportsConcurrentSends()` | No | Return `true` only if `sendToIndex()` and your destination client are safe to call from several threads at once. The default is `false`, which makes the base class reject `indexer.maxConcurrentBatches` above 1. See [Concurrent Sends](#concurrent-sends). |
 | `getIndexerConfigKey()` | Yes | Return the config key for your implementation-specific block (e.g., `"solr"`, `"opensearch"`). Return `null` if your indexer takes no additional config. |
 
 **What you declare:**
@@ -117,6 +119,28 @@ public class ExampleIndexer extends Indexer {
   }
 }
 ```
+
+## Concurrent Sends
+
+`indexer.maxConcurrentBatches` (default 1) lets the base class keep several bulk requests in flight at once. At 1, each batch is sent on the indexer thread and completed before the next. Above 1, the base class calls your `sendToIndex()` from a pool of threads. It guarantees that no two batches in flight write the same destination id, that a batch containing a delete-by-query runs alone, and that batches are completed in the order they were dispatched. Your `sendToIndex()` still handles one batch and does not change.
+
+What you must provide is thread safety, and you opt in by overriding `supportsConcurrentSends()`:
+
+```java
+@Override
+protected boolean supportsConcurrentSends() {
+  // Only if the destination client may be called from several threads at once.
+  return true;
+}
+```
+
+- **The destination client must be safe for concurrent use.** Create it once in the constructor, as usual, but do not rely on per-call state inside it. If the client's thread safety is unknown, leave the default (`false`).
+- **Do not keep per-batch state on the indexer instance** (buffers, counters, "current batch" fields). Two calls to `sendToIndex()` can overlap.
+- **The base class calls `supportsConcurrentSends()` from its constructor**, so it must return a constant and not depend on your subclass fields.
+- **Use `isMarkedForDeletion(doc)` and `hasDeleteByFieldValues(doc)`** to detect deletes. The dispatcher uses the same checks to decide which batches are delete-by-query barriers.
+- **Connection pools.** If your client is HTTP-based, size its pool for at least `maxConcurrentBatches` simultaneous requests, or the sends will queue for a connection.
+
+To test, set `indexer.maxConcurrentBatches` in the config you pass to your indexer and assert that your `sendToIndex()` can run twice at once without errors. See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}) for the guarantees, tuning, and Kafka requirements.
 
 ## Unit Testing
 
