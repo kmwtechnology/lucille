@@ -1197,6 +1197,10 @@ public class IndexerConcurrencyTest {
       completedBatches.add(batch.stream().map(Document::getId).collect(Collectors.joining(",")));
     }
 
+    @Override
+    public void sendFailed(Document document) throws Exception {
+    }
+
     // Records batch completions in order and commits nothing at poll, so it is safe for concurrent batches.
     @Override
     public boolean commitsOnBatchCompletion() {
