@@ -156,8 +156,12 @@ public class ConcurrentDispatcherTest {
     newDispatcher(3);
     processor.hold("A");
     dispatchAndWait(batch("A", "x"));
+    // Wait for A's send to be running before dispatching B. dispatch returns once A is submitted to the pool, and the
+    // pool's threads start in no particular order, so without this B's (unheld) send could start and finish before A's
+    // starts, and the peak would read 1 even though the dispatcher let them overlap.
+    awaitUntil(() -> processor.hasStartedSend("A"));
     dispatchAndWait(batch("B", "y"));
-    awaitUntil(() -> processor.hasStartedSends("A", "B"));
+    awaitUntil(() -> processor.hasStartedSend("B"));
     assertEquals(2, processor.peakConcurrentSends());
   }
 
