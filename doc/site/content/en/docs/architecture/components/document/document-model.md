@@ -116,7 +116,7 @@ Similarly, Lucille's JSONata transformation support operates on the Jackson tree
 
 The JSON backing is not free:
 
-**Per-field access overhead.** Getting a String from an ObjectNode means `node.get("field").asText()` rather than `(String) map.get("field")`. The Document API hides this behind typed getters, but the implementation does more work per access than a HashMap. For stages that read many fields in a tight loop, this is measurably slower.
+**Per-field access overhead.** Getting a String from an ObjectNode means `node.get("field").asText()` rather than `(String) map.get("field")`. In practice the difference is negligible: a typed getter costs tens of nanoseconds either way, and in microbenchmarks a Document backed by a map of typed Java objects was no faster at building, reading, parsing, or serializing a document than the ObjectNode-backed one. Because Lucille's inputs and outputs are JSON, any other internal representation still pays the Jackson parse and then adds a conversion pass of its own at every boundary.
 
 **Memory overhead.** Each field value is wrapped in a JsonNode subclass (TextNode, IntNode, etc.) rather than stored as a raw Java object. For documents with many small fields, the per-field wrapper overhead adds up.
 
@@ -125,6 +125,12 @@ The JSON backing is not free:
 **Deep copy cost.** Copying a document requires `objectNode.deepCopy()`, which recursively copies the entire JSON tree. A HashMap with immutable String values would be cheaper to shallow-copy.
 
 In practice, these tradeoffs are acceptable because pipeline stages typically read a small number of fields, do expensive work (API calls, model inference, text processing), and write a small number of fields. The per-access overhead is negligible relative to the actual enrichment work. The serialization savings at every boundary crossing more than compensate.
+
+---
+
+## Interface and Implementation
+
+`Document` is an interface, and `JsonDocument` is its only implementation. The separation is deliberate and worth preserving. Stages, indexers, and connectors program against the interface and construct documents through the static factories `Document.create(...)` and `Document.createFromJson(...)`. Those factories are the one place that names the implementation, so an alternate backing store could be substituted without touching callers. The shared contract tests live in `DocumentTest` (and `NodeDocumentTest` for JSON-node-backed implementations); a new implementation would extend them to prove it honors the same semantics.
 
 ---
 

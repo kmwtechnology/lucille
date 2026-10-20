@@ -292,7 +292,8 @@ public abstract class DocumentTest {
 
     // Note that we do not currently test whether asMap returns a shallow or deep copy of the document data.
     // For example, modifying the contents of an array value inside the Map might or might not affect the contents
-    // of that same array in the original document. Deep copying could be tested as follows but HashMapDocument would not pass:
+    // of that same array in the original document. Deep copying could be tested as follows, but an implementation that
+    // returns a shallow copy of its backing map would not pass:
     // byte[] myBytes = new byte[]{0x3c, 0x4c, 0x5c};
     // document.setField("myBytes", myBytes);
     // ((byte[])docMap.get("myBytes"))[0] = 0x5c;
@@ -1518,35 +1519,60 @@ public abstract class DocumentTest {
     throw new RuntimeException("should not get here");
   }
 
+  /**
+   * Contract tests that apply only to JSON-node-backed Document implementations (e.g. JsonDocument) — in particular
+   * behaviors tied to building a document from literal JSON (empty arrays, nulls, malformed values). They do not apply
+   * to an implementation that stores typed Java objects rather than JSON nodes. Abstract: a concrete subclass
+   * supplies the createDocument factories, and so runs these in addition to the shared DocumentTest contract.
+   */
   abstract static class NodeDocumentTest extends DocumentTest {
 
     @Test
-    public void testGetNullFieldExceptions() throws DocumentException, JsonProcessingException {
-
+    public void testGetInstantFromNullValue() throws DocumentException, JsonProcessingException {
+      // A null date value must return null, not throw. getInstant/getInstantList check for null before parsing, so an
+      // explicit null (field1) and a null array element (field2) yield null rather than a DateTimeParseException.
       Document document = createDocumentFromJson("{\"id\":\"doc\", \"field1\":null, \"field2\":[null]}");
 
       List<Object> nullList = new ArrayList<>();
       nullList.add(null);
 
-      // this fails because tries to parse date from null
-      try {
-        assertNull(document.getInstant("field1"));
-        fail();
-      } catch (java.time.format.DateTimeParseException e) {
-        // cant parse null
-      }
-      try {
-        assertEquals(nullList, document.getInstantList("field1"));
-        fail();
-      } catch (java.time.format.DateTimeParseException e) {
-        // cant parse null
-      }
-      try {
-        assertEquals(nullList, document.getInstantList("field2"));
-        fail();
-      } catch (java.time.format.DateTimeParseException e) {
-        // cant parse null
-      }
+      assertNull(document.getInstant("field1"));
+      assertEquals(nullList, document.getInstantList("field1"));
+      assertEquals(nullList, document.getInstantList("field2"));
+    }
+
+    @Test
+    public void testGetSingleValueFromEmptyArray() throws DocumentException, JsonProcessingException {
+      // An empty JSON array is a present, multi-valued field with no first element. The single-value getters must treat
+      // it as a null value and return null, rather than throwing when they reach for the (absent) first element. This is
+      // the same result they give for an explicit null. (Regression: an empty array used to NPE in getSingleNode, which
+      // could escape from the indexer's id extraction and stall a run.)
+      Document d = createDocumentFromJson("{\"id\":\"id\",\"empty\":[]}");
+
+      assertTrue(d.has("empty"));
+      assertTrue(d.isMultiValued("empty"));
+
+      assertNull(d.getString("empty"));
+      assertNull(d.getInt("empty"));
+      assertNull(d.getDouble("empty"));
+      assertNull(d.getFloat("empty"));
+      assertNull(d.getLong("empty"));
+      assertNull(d.getBoolean("empty"));
+      assertNull(d.getInstant("empty"));
+      assertNull(d.getDate("empty"));
+      assertNull(d.getTimestamp("empty"));
+    }
+
+    @Test
+    public void testGetInstantFromMalformedValue() throws DocumentException, JsonProcessingException {
+      // A value that is not a valid ISO-8601 instant is a data error and still throws, so it is not mistaken for a
+      // missing value.
+      Document d = createDocumentFromJson("{\"id\":\"id\",\"date\":\"not-a-date\", \"dates\":[\"2024-03-12T16:09:32Z\",\"not-a-date\"]}");
+
+      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getInstant("date"));
+      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getDate("date"));
+      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getTimestamp("date"));
+      assertThrows(java.time.format.DateTimeParseException.class, () -> d.getInstantList("dates"));
     }
 
     @Test

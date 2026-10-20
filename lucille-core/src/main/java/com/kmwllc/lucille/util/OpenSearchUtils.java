@@ -7,7 +7,6 @@ import com.kmwllc.lucille.indexer.OpenSearchIndexer;
 import com.typesafe.config.Config;
 import java.util.List;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
-import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
@@ -25,7 +24,8 @@ public class OpenSearchUtils {
       .requiredStringOrList("url")
       .requiredString("index")
       .optionalBoolean("acceptInvalidCert", "useCompression")
-      .optionalNumber("connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs").build();
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal",
+          "connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchUtils.class);
 
@@ -54,10 +54,8 @@ public class OpenSearchUtils {
         .builder(hosts)
         .setMapper(new JacksonJsonpMapper())
         .setHttpClientConfigCallback(httpClientBuilder -> {
-          final var connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
-              .setTlsStrategy(tlsStrategy)
-              .setDefaultConnectionConfig(HttpClientConfigUtils.buildConnectionConfig(config, "opensearch"))
-              .build();
+          final var connectionManager =
+              AsyncConnectionPoolUtils.buildConnectionManager(config, "opensearch", tlsStrategy);
 
           return httpClientBuilder
               .setDefaultCredentialsProvider(credentialsProvider)

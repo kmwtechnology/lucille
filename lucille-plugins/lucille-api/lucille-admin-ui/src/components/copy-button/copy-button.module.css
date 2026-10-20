@@ -1,0 +1,5 @@
+@reference "../../index.css";
+
+.copyButton {
+  @apply h-8 w-8 p-0 text-primary-600 hover:text-primary-700 hover:bg-primary-50;
+}

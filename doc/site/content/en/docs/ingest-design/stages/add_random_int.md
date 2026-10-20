@@ -11,6 +11,6 @@ Adds a random integer to a field.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `field_name` | String | No | Destination field. Default: `random_int`. |
-| `min` | Integer | No | Minimum value (inclusive). Default: `0`. |
-| `max` | Integer | No | Maximum value (exclusive). Default: `100`. |
+| `fieldName` | String | No | Destination field. Default: `data`. |
+| `rangeStart` | Integer | No | Minimum value (inclusive). Default: `0`. |
+| `rangeEnd` | Integer | No | Maximum value (exclusive). Must be greater than `rangeStart`; an equal value passes the startup check but then fails every document. Default: `1000000`. |

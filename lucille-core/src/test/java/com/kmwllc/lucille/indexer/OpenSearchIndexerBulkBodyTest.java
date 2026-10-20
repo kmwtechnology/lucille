@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.HashMapDocument;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.TestMessenger;
@@ -58,15 +57,6 @@ public class OpenSearchIndexerBulkBodyTest {
   @Test
   public void testScalarFieldsAndNulls() throws Exception {
     Document doc = Document.create("doc1");
-    populateScalars(doc);
-
-    assertEquals("{\"index\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
-        + SCALARS_BODY + "\n", bulkBody(config(""), doc));
-  }
-
-  @Test
-  public void testScalarFieldsAndNullsHashMapDocument() throws Exception {
-    Document doc = new HashMapDocument("doc1");
     populateScalars(doc);
 
     assertEquals("{\"index\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"

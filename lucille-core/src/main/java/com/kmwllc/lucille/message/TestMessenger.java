@@ -105,6 +105,12 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
     messenger.batchComplete(batch);
   }
 
+  // Wraps a LocalMessenger, which is safe for concurrent batches.
+  @Override
+  public boolean commitsOnBatchCompletion() {
+    return true;
+  }
+
   /**
    * Returns the ordered history of all Events sent via sendEvent().
    */

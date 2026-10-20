@@ -1,0 +1,6 @@
+@reference "../../index.css";
+
+/* Not-found (404) page styles */
+.page {
+  @apply p-4 sm:p-6 lg:p-8;
+}

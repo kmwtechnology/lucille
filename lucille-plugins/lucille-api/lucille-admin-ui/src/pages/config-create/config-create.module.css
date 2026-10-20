@@ -1,0 +1,48 @@
+@reference "../../index.css";
+
+/* Create configuration page styles */
+.page {
+  @apply p-4 sm:p-6 lg:p-8;
+}
+
+.header {
+  @apply mb-6 sm:mb-8 space-y-3;
+}
+
+.titleRow {
+  @apply flex items-center gap-2;
+}
+
+.title {
+  @apply text-xl sm:text-2xl font-bold text-primary-800;
+}
+
+.subtext {
+  @apply text-sm text-muted-foreground;
+}
+
+.card {
+  @apply border-primary-100 shadow-sm flex flex-col;
+}
+
+.formContent {
+  @apply flex flex-col gap-4;
+}
+
+.formLabel {
+  @apply text-sm font-medium text-primary-800;
+}
+
+.editor {
+  @apply w-full min-h-80 rounded-md border border-primary-100 bg-slate-50 p-4 font-mono text-xs text-slate-800 resize-y;
+  @apply placeholder:text-slate-400;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+}
+
+.formError {
+  @apply rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 whitespace-pre-wrap;
+}
+
+.formActions {
+  @apply flex items-center gap-3;
+}
