@@ -194,6 +194,8 @@ INFO Indexer: 17016 docs indexed. One minute rate: 455.07 docs/sec. Mean backend
 
 **Indexer rate** (Indexer message): How fast the search backend accepts batches.
 
+**Backend latency** (Indexer message): The mean wall time of one bulk send divided by the batch size, including retries and their backoff waits. It is a per-send figure. With `indexer.maxConcurrentBatches` above 1, sends overlap but each is still timed on its own, so ms/doc stays near the single-send latency (and rises if the backend saturates) while docs/sec goes up; the rate is then no longer about 1000 ÷ ms/doc, as it is at 1. Time the Indexer spends waiting for a free slot or for an older batch is not counted, and batches whose send failed are not sampled.
+
 **"Waiting on N docs"**: The number of documents currently in flight (published but not yet indexed or failed). If this number is consistently at `maxPendingDocs` or `queueCapacity`, the Connector is being throttled by backpressure — downstream is the bottleneck.
 
 ### Identifying the Bottleneck

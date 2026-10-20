@@ -356,11 +356,13 @@ Different components use different commit strategies:
 | Component | Strategy | Rationale |
 |-----------|----------|-----------|
 | Worker (source) | `commitSync()` after processing | Minimize reprocessing after crash |
-| Indexer (dest) | `commitSync()` immediately after poll | Acceptable because indexing is idempotent |
+| Indexer (dest) | `commitSync()` when a batch completes, via `OffsetCommitTracker` | At-least-once: a crash redelivers uncommitted documents, which is safe because indexing is idempotent |
 | Publisher (events) | Auto-commit | Throughput; duplicate events are harmless |
 | Hybrid Worker | Deferred commit via offset queue | Only commit after Indexer confirms |
 
 The Worker's synchronous commit ensures that if a Worker crashes, the document it was processing will be redelivered to another Worker. Without this, the document could be lost (committed but not processed).
+
+The standalone Indexer commits when a batch completes, not when its documents are polled, so a crash after polling redelivers them instead of losing them. It commits a per-partition frontier that never passes a record whose batch has not completed. Its document consumer must set `enable.auto.commit=false` (Lucille fails at startup if it is unset or true), because auto-commit would commit at poll time. See [Delivery semantics]({{< relref "docs/operations/indexing-throughput#delivery-semantics-kafka-distributed-mode" >}}).
 
 ## Producer Behavior
 

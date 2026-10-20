@@ -35,8 +35,9 @@ import org.slf4j.LoggerFactory;
  *   offset at reassignment, and only partitions still assigned are committed, so no other consumer is rewound. A batch
  *   polled before a rebalance that completes afterwards either matches no tracked offset and is ignored, or matches an
  *   offset polled again since (the same record, since Kafka records never change) and counts as completing it: that
- *   record was processed by the earlier send, so the frontier may pass it, and the re-polled copy's later completion is
- *   redundant. Either way a stale completion can only move the frontier forward, never hold it back, so an eager
+ *   record was processed by the earlier send, so the frontier may pass it (Indexer.completeBatch calls batchComplete only
+ *   for a batch whose documents were all processed, indexed or failed with FAIL events, and never after an Error), and
+ *   the re-polled copy's later completion is redundant. Either way a stale completion can only move the frontier forward, never hold it back, so an eager
  *   revoke-and-reassign to the <i>same</i> consumer cannot stall it. (With the Indexer's pre-revocation drain, a clean
  *   revoke leaves no batch in flight, so stale completions arise only after a partition is lost.)</li>
  *   <li><b>No lost commit on failure.</b> A failed commit is retained and retried on the next completed batch, on

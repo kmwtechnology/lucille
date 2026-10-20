@@ -91,7 +91,7 @@ The 1:1 pairing means you cannot independently scale Workers and Indexers within
 
 ## When Could Ordering Break?
 
-**Consumer group rebalance.** If Kafka triggers a rebalance (e.g., a Worker or Indexer is slow, or a new instance joins the group), partitions may be reassigned. A document that was in-flight on the old consumer might be redelivered to the new consumer. This can cause a duplicate — but not a reordering, because the duplicate appears later in the partition's log than the original.
+**Consumer group rebalance.** If Kafka triggers a rebalance (e.g., a Worker or Indexer is slow, or a new instance joins the group), partitions may be reassigned. A document that was in-flight on the old consumer might be redelivered to the new consumer. This can cause a duplicate — but not a reordering, because the duplicate appears later in the partition's log than the original. In distributed mode the Indexer completes its open and in-flight batches before a partition is revoked, so a clean rebalance does not redeliver them and redelivery is limited to crashes; WorkerIndexer mode has no such flush. See [Delivery semantics]({{< relref "docs/operations/indexing-throughput#delivery-semantics-kafka-distributed-mode" >}}).
 
 **Topic partition count changes.** Kafka's default partitioner hashes the key modulo the partition count. If the partition count changes mid-ingest, the same document ID might hash to a different partition than before. Operations published before the change and operations published after could end up on different partitions, breaking the ordering guarantee. In practice, partition counts should not be changed during an active ingest.
 

@@ -432,6 +432,15 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   public abstract void closeConnection();
 
   private void close() {
+    // The dispatcher is closed before the messenger. A Kafka messenger's close() can run the pre-revocation hook
+    // (flushAndDrain), which dispatches and drains. On a normal stop run() has already flushed and drained, so the hook
+    // finds nothing to do. After an abnormal exit (an Error), the dispatcher's close() has interrupted the in-flight
+    // sends but still lists their batches as in flight, so the hook's drain completes them: their documents get FAIL
+    // events and their offsets are committed, like any batch whose send threw. Only the open batch (its dispatch is
+    // rejected by the shut-down pool and logged) and the batch whose completion threw the Error are left uncommitted,
+    // to be re-delivered.
+    // TODO: consider having ConcurrentDispatcher.close() drop its in-flight state after shutdownNow(), so that on an
+    // Error exit every in-flight batch is re-delivered rather than failed and committed.
     dispatcher.close();
     if (messenger != null) {
       try {
@@ -580,6 +589,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
         throw outcome.error();
       }
       Set<Pair<Document, Exception>> failedDocPairs = outcome.failedDocPairs();
+      // The send's own elapsed time, measured in sendWithRetry. Time spent waiting for a free slot or behind an older
+      // batch (see ConcurrentDispatcher) is not included, so this stays a measure of the backend.
       histogram.update(outcome.elapsedNanos() / batchedDocs.size());
       meter.mark(batchedDocs.size());
 

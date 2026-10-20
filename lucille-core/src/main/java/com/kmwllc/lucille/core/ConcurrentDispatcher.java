@@ -206,7 +206,8 @@ class ConcurrentDispatcher implements BatchDispatcher {
     }
   }
 
-  // Waits for the oldest in-flight batch's send to finish and completes it, on the indexer thread.
+  // Waits for the oldest in-flight batch's send to finish and completes it, on the indexer thread. Callers must guarantee
+  // inFlightBatches is non-empty; otherwise removeFirst() would throw NoSuchElementException.
   private void completeOldest() {
     InFlightBatch oldest = inFlightBatches.removeFirst();
     inFlightIds.removeAll(oldest.ids());

@@ -36,8 +36,12 @@ import java.util.List;
 interface BatchDispatcher extends AutoCloseable {
 
   /**
-   * Hands a flushed, non-empty batch to the dispatcher. May block to respect scheduling limits. The batch's completer
-   * is invoked, in dispatch order relative to other batches, once the batch has been sent.
+   * Hands a flushed, non-empty batch to the dispatcher. May block to respect scheduling limits (for example, waiting
+   * for an in-flight batch to finish). The batch is sent with {@link BatchProcessor#sendWithRetry} and, once that send
+   * has returned (whether it succeeded, partly failed, or threw), completed with {@link BatchProcessor#completeBatch},
+   * in dispatch order relative to other batches. A synchronous dispatcher completes the batch before this method
+   * returns; a concurrent one may do so later, from a following {@code dispatch}, {@link #completeFinishedBatches}, or
+   * {@link #drain}.
    *
    * @param batchedDocs the documents to send; must not be empty.
    */
@@ -52,8 +56,10 @@ interface BatchDispatcher extends AutoCloseable {
   }
 
   /**
-   * Completes every batch that has been dispatched but not yet completed. Called when the indexer stops, so that no
-   * batch is left unaccounted for.
+   * Waits for every batch that has been dispatched but not yet completed to finish sending, then completes it, in
+   * dispatch order. Blocks for as long as the in-flight sends take (including retries); a send that failed is
+   * completed with its failure. Called when the indexer stops, so that no batch is left unaccounted for, and before a
+   * partition is handed off.
    */
   void drain();
 
