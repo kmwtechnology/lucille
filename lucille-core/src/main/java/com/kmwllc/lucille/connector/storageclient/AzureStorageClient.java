@@ -82,7 +82,7 @@ public class AzureStorageClient extends BaseStorageClient {
 
   private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
-        .listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxNumOfPages), Duration.ofSeconds(10))
+        .listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxResultsPerPage), Duration.ofSeconds(10))
         .stream()
         .forEachOrdered(blob -> {
           if (blob.isPrefix()) {

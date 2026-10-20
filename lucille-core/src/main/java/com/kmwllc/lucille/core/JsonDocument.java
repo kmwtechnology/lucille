@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.util.FieldFilter;
 import java.sql.Timestamp;
@@ -44,7 +45,7 @@ public class JsonDocument implements Document {
    *
    * The mapper is used in several places: it backs {@link #MAPPER} (and therefore {@link #fromJsonString},
    * which {@link Document#createFromJson} dispatches to and which JsonFileHandler calls for each line of
-   * a JSON-Lines file), {@link HashMapDocument}'s mapper, {@link KafkaDocument}'s ConsumerRecord
+   * a JSON-Lines file), {@link KafkaDocument}'s ConsumerRecord
    * constructor, and KafkaDocumentDeserializer. Every path that turns JSON text into a Document goes
    * through the constraints configured here.
    *
@@ -443,10 +444,11 @@ public class JsonDocument implements Document {
     }
 
     JsonNode node = getSingleNode(name);
+    if (node.isNull()) {
+      return null;
+    }
 
-    String dateStr = node.asText();
-    Instant dateInstant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(dateStr));
-    return node.isNull() ? null : dateInstant;
+    return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(node.asText()));
   }
 
   @Override
@@ -478,9 +480,11 @@ public class JsonDocument implements Document {
     ArrayNode array = data.withArray(name);
     List<Instant> result = new ArrayList<>();
     for (JsonNode node : array) {
-      String instantStr = node.asText();
-      Instant instant = Instant.from(DateTimeFormatter.ISO_INSTANT.parse(instantStr));
-      result.add(node.isNull() ? null : instant);
+      if (node.isNull()) {
+        result.add(null);
+        continue;
+      }
+      result.add(Instant.from(DateTimeFormatter.ISO_INSTANT.parse(node.asText())));
     }
     return result;
   }
@@ -579,7 +583,14 @@ public class JsonDocument implements Document {
   }
 
   private JsonNode getSingleNode(String name) {
-    return isMultiValued(name) ? data.withArray(name).get(0) : data.get(name);
+    if (!isMultiValued(name)) {
+      return data.get(name);
+    }
+    // Multi-valued: return the first element. An empty array has no first element (withArray(name).get(0) would be
+    // Java null and NPE the callers' node.isNull() check), so treat it as a null value — the same result the typed
+    // accessors give for an explicit null.
+    JsonNode first = data.withArray(name).get(0);
+    return first == null ? NullNode.getInstance() : first;
   }
 
   @Override

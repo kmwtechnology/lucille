@@ -1,0 +1,5 @@
+@reference "../../index.css";
+
+.viewLink {
+  @apply w-full text-primary-600 hover:text-primary-700 hover:bg-primary-50 text-xs sm:text-sm py-1.5;
+}
