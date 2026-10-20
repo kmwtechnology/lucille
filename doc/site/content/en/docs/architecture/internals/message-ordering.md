@@ -41,7 +41,9 @@ When the Worker produces processed documents to the indexing topic, it again use
 2. Same partition → same consumer (Worker or Indexer), guaranteed by Kafka's consumer group protocol.
 3. Same consumer → sequential processing, guaranteed by the single-threaded polling loop in each component.
 
-**Multiple Indexers do not break ordering.** Even with N Indexers running, each Indexer owns a disjoint set of partitions. All messages for document "D" are on partition Q, and only one Indexer consumes from Q. There is no shared queue where multiple Indexers could pick up different parts of a sequence for the same document.
+**Multiple Indexers do not break ordering.** Even with N Indexers running, each Indexer owns a disjoint set of partitions. All messages for document "D" are on partition Q, and only one Indexer consumes from Q. There is no shared queue where multiple Indexers could pick up different parts of a sequence for the same document. (This covers operations on a known document id. A delete-by-query matches documents by query, not by id, so it is not ordered against writes on other Indexers; see below.)
+
+**Concurrent sends within a single Indexer also do not break ordering.** With `indexer.maxConcurrentBatches` greater than 1, one Indexer sends several batches to the backend at once rather than one at a time. The sequential consumption described above still establishes the order, and the Indexer additionally guarantees that two batches touching the same document ID (or its children) are never in flight simultaneously, and that batches are completed in dispatch order — so overlapping sends do not reorder operations on the same document. A delete-by-query is a further case: because it can match documents in any batch, its batch is treated as a barrier and sent on its own, with nothing else in flight alongside it *on that Indexer*. The barrier does not coordinate across Indexers, so a delete-by-query ingest must run with a single active Indexer (a single-partition topic) to be truly executed by itself; `maxConcurrentBatches` can still be above 1 within that one Indexer. See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}) for the mechanism and its guarantees.
 
 ---
 
@@ -89,7 +91,7 @@ The 1:1 pairing means you cannot independently scale Workers and Indexers within
 
 ## When Could Ordering Break?
 
-**Consumer group rebalance.** If Kafka triggers a rebalance (e.g., a Worker or Indexer is slow, or a new instance joins the group), partitions may be reassigned. A document that was in-flight on the old consumer might be redelivered to the new consumer. This can cause a duplicate — but not a reordering, because the duplicate appears later in the partition's log than the original.
+**Consumer group rebalance.** If Kafka triggers a rebalance (e.g., a Worker or Indexer is slow, or a new instance joins the group), partitions may be reassigned. A document that was in-flight on the old consumer might be redelivered to the new consumer. This can cause a duplicate — but not a reordering, because the duplicate appears later in the partition's log than the original. In distributed mode the Indexer completes its open and in-flight batches before a partition is revoked, so a clean rebalance does not redeliver them and redelivery is limited to crashes; WorkerIndexer mode has no such flush. See [Delivery semantics]({{< relref "docs/operations/indexing-throughput#delivery-semantics-kafka-distributed-mode" >}}).
 
 **Topic partition count changes.** Kafka's default partitioner hashes the key modulo the partition count. If the partition count changes mid-ingest, the same document ID might hash to a different partition than before. Operations published before the change and operations published after could end up on different partitions, breaking the ordering guarantee. In practice, partition counts should not be changed during an active ingest.
 
