@@ -134,4 +134,10 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   @Override
   public void batchComplete(List<Document> batch) throws Exception {
   }
+
+  // Holds documents in an in-memory queue and does not commit input, so it is safe for concurrent batches.
+  @Override
+  public boolean commitsOnBatchCompletion() {
+    return true;
+  }
 }

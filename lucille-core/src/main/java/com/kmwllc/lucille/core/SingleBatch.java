@@ -77,6 +77,12 @@ public class SingleBatch implements Batch {
     return capacity;
   }
 
+  @Override
+  public void delayExpirationBy(long millis) {
+    // Move the reference instant forward, so the delayed span does not count toward expiry.
+    lastAddOrFlushInstant = lastAddOrFlushInstant.plusMillis(millis);
+  }
+
   /**
    * Indicates whether the configured timeout has elapsed since the most
    * recent of the following events: add(), flush(), flushIfExpired() with an expiration detected, new Batch().

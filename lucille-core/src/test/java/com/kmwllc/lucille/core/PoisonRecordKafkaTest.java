@@ -233,14 +233,19 @@ public class PoisonRecordKafkaTest {
   }
 
   private static long committedOffset(Config config, String groupId, String topic) throws Exception {
+    OffsetAndMetadata offset = committed(config, groupId, topic);
+    assertNotNull("no committed offset for " + topic, offset);
+    return offset.offset();
+  }
+
+  // The group's committed offset for partition 0 of the topic, or null if none.
+  private static OffsetAndMetadata committed(Config config, String groupId, String topic) throws Exception {
     Properties adminProps = new Properties();
     adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     try (Admin admin = Admin.create(adminProps)) {
       Map<TopicPartition, OffsetAndMetadata> committed =
           admin.listConsumerGroupOffsets(groupId).partitionsToOffsetAndMetadata().get();
-      OffsetAndMetadata offset = committed.get(new TopicPartition(topic, 0));
-      assertNotNull("no committed offset for " + topic, offset);
-      return offset.offset();
+      return committed.get(new TopicPartition(topic, 0));
     }
   }
 
@@ -359,7 +364,10 @@ public class PoisonRecordKafkaTest {
     }
   }
 
-  /** Skip mode on the indexer's consumer: the poison record is skipped and the position committed past it. */
+  /**
+   * Skip mode on the indexer's consumer: the poison record is skipped, nothing is committed while the documents around
+   * it are still pending, and the commit moves past it once they complete.
+   */
   @Test(timeout = 120000)
   public void testSkipModeOnIndexerMessenger() throws Exception {
     String pipelineName = "poison_indexer";
@@ -370,13 +378,18 @@ public class PoisonRecordKafkaTest {
 
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
     try {
-      assertEquals("doc1", pollUntilDoc(messenger::pollDocToIndex).getId());
-      assertEquals("doc3", pollUntilDoc(messenger::pollDocToIndex).getId());
+      Document doc1 = pollUntilDoc(messenger::pollDocToIndex);
+      Document doc3 = pollUntilDoc(messenger::pollDocToIndex);
+      assertEquals("doc1", doc1.getId());
+      assertEquals("doc3", doc3.getId());
+      // Skipping must not commit past doc1 and doc3 while they are still being indexed.
+      assertNull(committed(config, groupId, destTopic));
+      messenger.batchComplete(List.of(doc1, doc3));
     } finally {
       messenger.close();
     }
 
-    assertTrue(committedOffset(config, groupId, destTopic) >= 2L);
+    assertEquals(3L, committedOffset(config, groupId, destTopic));
     assertFailTopicEmpty(pipelineName);
     assertLocationLogged(destTopic, 1L, "poison2");
   }

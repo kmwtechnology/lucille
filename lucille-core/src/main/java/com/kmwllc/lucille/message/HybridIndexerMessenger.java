@@ -172,4 +172,10 @@ public class HybridIndexerMessenger implements IndexerMessenger {
       offsets.put(batchOffsets);
     }
   }
+
+  // Queues offsets on batch completion (not at poll), so it is safe for concurrent batches.
+  @Override
+  public boolean commitsOnBatchCompletion() {
+    return true;
+  }
 }
