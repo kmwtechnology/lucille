@@ -37,7 +37,8 @@ import org.slf4j.MDC;
  * full window or a shared destination id, and about two for a barrier (the in-flight sends, then its own). For a Kafka
  * messenger, kafka.maxPollIntervalSecs (also Kafka's rebalance timeout) must exceed that, and also the time from the
  * start of a rebalance to rejoining: the wait in progress plus the flush-and-drain the revocation hook runs at the
- * next poll, about three sends. Retries count toward a send.
+ * next poll, about three sends. Retries count toward a send. If the wait outlasts it, the consumer is evicted, and a
+ * batch dispatched (or retried) after that is not sent (see {@link Indexer}'s ownership check before each attempt).
  */
 class ConcurrentDispatcher implements BatchDispatcher {
 

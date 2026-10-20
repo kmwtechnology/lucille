@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.message;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
@@ -267,6 +269,57 @@ public class OffsetCommitTrackerTest {
   // --- helpers ---
 
   // A MockConsumer subscribed to the topic (as the messenger would) and already owning the given partitions.
+  @Test
+  public void testOffsetIsOutstandingUntilCompletedOrLost() {
+    MockConsumer<String, KafkaDocument> consumer = assignedConsumer(Set.of(P0));
+    OffsetCommitTracker tracker = new OffsetCommitTracker(consumer);
+    KafkaDocument d0 = poll(tracker, P0, 0);
+    poll(tracker, P0, 1);
+    assertTrue(tracker.isOutstanding(P0, 0));
+    assertTrue(tracker.isOutstanding(P0, 1));
+    assertFalse("never polled", tracker.isOutstanding(P0, 2));
+
+    tracker.batchCompleted(List.of(d0));
+    assertFalse("completed", tracker.isOutstanding(P0, 0));
+    // Once the partition is lost, a document polled before is no longer this consumer's to send.
+    tracker.rebalanceListener().onPartitionsLost(Set.of(P0));
+    assertFalse("lost", tracker.isOutstanding(P0, 1));
+  }
+
+  @Test
+  public void testRewindUnsentSeeksStillOwnedPartitionBackToItsFrontier() {
+    MockConsumer<String, KafkaDocument> consumer = assignedConsumer(Set.of(P0, P1));
+    consumer.updateBeginningOffsets(Map.of(P0, 0L, P1, 0L));
+    OffsetCommitTracker tracker = new OffsetCommitTracker(consumer);
+    KafkaDocument d0 = poll(tracker, P0, 0);
+    poll(tracker, P0, 1);
+    KafkaDocument d2 = poll(tracker, P0, 2);
+    poll(tracker, P1, 0);
+    tracker.batchCompleted(List.of(d0));
+
+    // d2's batch was not sent, but P0 was never lost: offset 2 is still outstanding and would stall the frontier. P0 is
+    // seeked back to its frontier (1, the lowest outstanding offset) so 1 and 2 are polled and sent again, in order.
+    tracker.batchNotSent(List.of(d2));
+    assertEquals(Set.of(P0), tracker.rewindUnsent());
+    assertEquals(1, consumer.position(P0));
+    assertFalse(tracker.isOutstanding(P0, 1));
+    assertFalse(tracker.isOutstanding(P0, 2));
+    // P1 is untouched, and a rewind is done once.
+    assertTrue(tracker.isOutstanding(P1, 0));
+    assertEquals(Set.of(), tracker.rewindUnsent());
+  }
+
+  @Test
+  public void testRewindUnsentLeavesLostPartitionAlone() {
+    MockConsumer<String, KafkaDocument> consumer = assignedConsumer(Set.of(P0));
+    OffsetCommitTracker tracker = new OffsetCommitTracker(consumer);
+    KafkaDocument d0 = poll(tracker, P0, 0);
+    tracker.batchNotSent(List.of(d0));
+    // The usual case: the batch was not sent because the consumer was evicted, and the next poll reports the loss.
+    tracker.rebalanceListener().onPartitionsLost(Set.of(P0));
+    assertEquals(Set.of(), tracker.rewindUnsent());
+  }
+
   private static MockConsumer<String, KafkaDocument> assignedConsumer(Set<TopicPartition> partitions) {
     MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
     consumer.subscribe(List.of(TOPIC));
