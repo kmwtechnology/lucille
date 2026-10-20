@@ -47,6 +47,33 @@ import org.slf4j.LoggerFactory;
  * here ({@link #create(String)}, {@link #createFromJson(String)}, etc.) rather than naming an implementation, so
  * that an alternate implementation could be substituted. A new implementation should extend the shared contract
  * tests in DocumentTest (and NodeDocumentTest, if it is JSON-node-backed) in lucille-core's test sources.
+ *
+ * <p><b>Sharing and copying.</b> Methods that copy a Document, or move values between Documents, produce independent
+ * results with one deliberate exception, byte[] values. Large file contents are commonly held in byte[] fields, and
+ * copying them on every deepCopy() or getChildren() would add cost to the filtering and Kafka paths for a hazard that
+ * rarely arises, so byte[] values are held by reference:
+ * <ul>
+ *   <li>setField, addToField and setOrAdd with a byte[] store the array itself, not a copy.</li>
+ *   <li>getBytes and getBytesList return the stored arrays themselves, not copies.</li>
+ *   <li>deepCopy() and getChildren() return Documents that share their byte[] values with the original.</li>
+ *   <li>setOrAdd(name, Document) and setOrAddAll share the other Document's byte[] values.</li>
+ * </ul>
+ * The consequence is that changing the <i>contents</i> of an array in place, whether the caller still holds the array it
+ * set or got one back from a getter, changes every Document that shares it. Setting the field to a new array is always
+ * safe. A caller that intends to modify an array in place should clone it first. None of the stages in this
+ * repository that read a byte[] field modify it in place.
+ *
+ * <p>The related cases for other values:
+ * <ul>
+ *   <li>getJson and getJsonList return the Document's own JsonNodes, and setField, addToField and setOrAdd with a
+ *   JsonNode store the given node without copying it. Modifying such a node modifies the Document, and a node set on a
+ *   Document must not be modified by the caller afterwards.</li>
+ *   <li>addChild stores the given child's data without copying it, so the child must not be modified afterwards.
+ *   getChildren, by contrast, returns copies.</li>
+ *   <li>setOrAdd(name, Document) and setOrAddAll copy objects and arrays from the other Document, so changes to those
+ *   in either Document do not show up in the other.</li>
+ *   <li>asMap() builds a new Map with new Lists and byte[] values; modifying it never modifies the Document.</li>
+ * </ul>
  */
 public interface Document {
 
@@ -85,8 +112,16 @@ public interface Document {
 
   Instant getInstant(String name);
 
+  /**
+   * Returns the value of the designated field as a byte[]. The array returned is the one stored in the Document, not a
+   * copy; see the class description before modifying its contents.
+   */
   byte[] getBytes(String name);
 
+  /**
+   * Returns the value of the designated field as a JsonNode. The node returned is the Document's own, not a copy, so
+   * modifying it modifies the Document.
+   */
   JsonNode getJson(String name);
 
   Date getDate(String name);
@@ -115,8 +150,16 @@ public interface Document {
 
   List<Instant> getInstantList(String name);
 
+  /**
+   * Returns the values of the designated field as byte arrays. The arrays are the ones stored in the Document, not
+   * copies; see the class description before modifying their contents.
+   */
   List<byte[]> getBytesList(String name);
 
+  /**
+   * Returns the values of the designated field as JsonNodes. The nodes are the Document's own, not copies, so modifying
+   * them modifies the Document.
+   */
   List<JsonNode> getJsonList(String name);
 
   List<Date> getDateList(String name);
@@ -155,8 +198,16 @@ public interface Document {
    */
   void setField(String name, Instant value);
 
+  /**
+   * Sets the designated field to the given array. The array itself is stored, not a copy, so the caller must not modify
+   * its contents afterwards; see the class description.
+   */
   void setField(String name, byte[] value);
 
+  /**
+   * Sets the designated field to the given node. The node itself is stored, not a copy, so the caller must not modify
+   * it afterwards.
+   */
   void setField(String name, JsonNode value);
 
   /**
@@ -545,6 +596,12 @@ public interface Document {
 
   void setSkipped(boolean status);
 
+  /**
+   * Returns a copy of this Document that can be modified without affecting this Document, and vice versa, with one
+   * exception: byte[] values are shared between the copy and the original rather than copied (including each element
+   * of a multi-valued byte[] field, or a byte[] held in a nested JSON value). Fields can be set, added to, replaced and removed freely on either Document; the contents
+   * of a byte[] should not be modified in place. See the class description.
+   */
   Document deepCopy();
 
   /**
@@ -595,9 +652,12 @@ public interface Document {
 
   /**
    * Returns this document's children as independent Documents: copies that neither affect nor are affected by later
-   * changes to this document. Callers may read, modify, or retain them freely. Because they are copies, modifying a
-   * returned child does not change this document's children; to change them, modify the returned copies, then call
-   * {@link #removeChildren()} and {@link #addChild(Document)} for each. Returns an empty list when there are none.
+   * changes to this document. Callers may read, modify, or retain them freely, except that byte[] values are shared
+   * with the stored children (see the class description) and so should not be modified in place.
+   *
+   * <p>Because they are copies, modifying a returned child does not change this document's children. To change
+   * them, modify the returned copies, then call {@link #removeChildren()} and {@link #addChild(Document)} for each.
+   * Returns an empty list when there are none.
    */
   List<Document> getChildren();
 

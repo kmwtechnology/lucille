@@ -383,8 +383,19 @@ public class JsonDocument implements Document {
 
     JsonNode node = getSingleNode(name);
 
-    // asDouble() coerces strings and booleans the way getDouble() does; floatValue() would silently return 0 for them
-    return node.isNull() ? null : (float) node.asDouble();
+    return node.isNull() ? null : toFloat(node);
+  }
+
+  /**
+   * Converts a node to a float with the same coercion as the other numeric getters (asInt, asLong, asDouble): a
+   * numeric string such as "1.5" is parsed and a boolean becomes 1 or 0.
+   *
+   * <p>Jackson has no asFloat(). The only float accessor, floatValue(), does not coerce: it returns 0 for anything that
+   * is not a numeric node, so a field holding "1.5" would read as 0.0 through getFloat() but 1.5 through getDouble().
+   * Going through asDouble() applies the coercing behavior consistently across the getters.
+   */
+  private static float toFloat(JsonNode node) {
+    return (float) node.asDouble();
   }
 
   @Override
@@ -400,7 +411,7 @@ public class JsonDocument implements Document {
     ArrayNode array = data.withArray(name);
     List<Float> result = new ArrayList<>();
     for (JsonNode node : array) {
-      result.add(node.isNull() ? null : (float) node.asDouble());
+      result.add(node.isNull() ? null : toFloat(node));
     }
     return result;
   }
@@ -897,9 +908,9 @@ public class JsonDocument implements Document {
   }
 
   /**
-   * Returns a node safe to store in this document when it came from another document: a deep copy for an object or
-   * array, so that later changes to either document cannot show up in the other, and the node itself for a scalar,
-   * which is immutable and so can be shared.
+   * Returns a node safe to store in this document when it came from another document: an object or array is deep
+   * copied, so that later changes to either document cannot show up in the other, and any other scalar is immutable and
+   * is shared. The exception is a byte[] value, whose array is shared like everywhere else (see {@link Document}).
    */
   private static JsonNode unshared(JsonNode node) {
     return node.isContainerNode() ? node.deepCopy() : node;
@@ -1037,6 +1048,10 @@ public class JsonDocument implements Document {
    * modify, or hold on to the returned Documents without affecting this document, and this document may be modified
    * without affecting them. A caller that wants to change the children replaces them: modify the returned copies,
    * then {@link #removeChildren()} and {@link #addChild(Document)} each one.
+   *
+   * <p>The one exception is byte[] values: a child's byte arrays are shared with the stored child, so changing the
+   * contents of an array in place (as opposed to setting the field to a new array) changes both. See
+   * {@link Document} for the rationale.
    */
   @Override
   public List<Document> getChildren() {
@@ -1065,6 +1080,12 @@ public class JsonDocument implements Document {
     return data.toString();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Implemented with {@link ObjectNode#deepCopy()}, which copies objects, arrays and immutable scalars but, for a
+   * binary value, returns the same node, so the copy and the original share their byte[] values.
+   */
   @Override
   public Document deepCopy() {
     try {

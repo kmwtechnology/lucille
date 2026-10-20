@@ -473,6 +473,57 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
   }
 
   @Test
+  public void testByteArrayValuesAreHeldByReference() {
+    // Documents the behavior described in the Document class description: byte[] values are not copied by the
+    // setters, the getters, deepCopy or getChildren, so changing an array's contents in place is seen by every holder.
+    // If a change makes this test fail, update that description along with it.
+    byte[] original = {1, 2, 3};
+    Document doc = Document.create("id1");
+    doc.setField("bytes", original);
+
+    original[0] = 10;
+    assertEquals(10, doc.getBytes("bytes")[0]);
+
+    doc.getBytes("bytes")[1] = 20;
+    assertEquals(20, original[1]);
+
+    doc.addToField("list", new byte[] {1});
+    doc.getBytesList("list").get(0)[0] = 30;
+    assertEquals(30, doc.getBytesList("list").get(0)[0]);
+
+    Document copy = doc.deepCopy();
+    doc.getBytes("bytes")[2] = 40;
+    assertEquals(40, copy.getBytes("bytes")[2]);
+
+    Document parent = Document.create("parent");
+    Document child = Document.create("child");
+    child.setField("bytes", new byte[] {1});
+    parent.addChild(child);
+    parent.getChildren().get(0).getBytes("bytes")[0] = 50;
+    assertEquals(50, parent.getChildren().get(0).getBytes("bytes")[0]);
+
+    Document other = Document.create("id2");
+    other.setField("bytes", new byte[] {1});
+    Document merged = Document.create("id3");
+    merged.setOrAdd("bytes", other);
+    Document mergedAll = Document.create("id4");
+    mergedAll.setOrAddAll(other);
+    other.getBytes("bytes")[0] = 70;
+    assertEquals(70, merged.getBytes("bytes")[0]);
+    assertEquals(70, mergedAll.getBytes("bytes")[0]);
+
+    // asMap() is the exception: it converts to new values
+    ((byte[]) doc.asMap().get("bytes"))[0] = 60;
+    assertEquals(10, doc.getBytes("bytes")[0]);
+
+    // but everything other than the arrays' contents is independent of the copy
+    copy.setField("bytes", new byte[] {7});
+    copy.setField("other", "val");
+    assertEquals(10, doc.getBytes("bytes")[0]);
+    assertFalse(doc.has("other"));
+  }
+
+  @Test
   public void testSetOrAddAllRejectsOtherImplementationClearly() {
     // same message as every other cross-document operation, rather than a ClassCastException
     Document doc = Document.create("id1");
