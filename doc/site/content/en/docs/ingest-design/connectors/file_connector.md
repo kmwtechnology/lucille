@@ -67,12 +67,10 @@ Multiple `paths` are traversed one after another by default.
 
 | Option | Type | Description |
 |---|---|---|
-| `concurrent` | Boolean | If `true`, traverses the `paths` in parallel. Paths must not overlap. Cannot be combined with `collapse`. |
-| `maxThreads` | Int | Maximum number of threads for concurrent traversal. Defaults to one thread per path. |
+| `maxThreads` | Int | Number of threads to traverse the `paths` on. `1` (default) traverses them one after another, and `-1` uses one thread per path. Above `1`, paths must not overlap and `collapse` cannot be used. |
 
 ```hocon
 paths: ["s3://bucket/a", "s3://bucket/b", "s3://bucket/c", "s3://bucket/d"]
-concurrent: true
 maxThreads: 2
 ```
 
