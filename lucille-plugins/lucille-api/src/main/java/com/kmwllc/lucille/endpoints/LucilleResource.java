@@ -102,7 +102,10 @@ public class LucilleResource {
               example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
 
     try {
-      Config config = ConfigFactory.parseString(configBody);
+      // resolve before storing: an unresolved ${...} makes root().unwrapped() throw on every GET /config.
+      // not merging defaultOverrides() like PresetConfigHandler does, since that copies all JVM system
+      // properties into the stored config and GET /config would return them.
+      Config config = ConfigFactory.parseString(configBody).resolve();
       CreateConfigResult result = runnerManager.createConfig(config);
       log.info("a lucille config has been created. Config ID: " + result.getConfigId());
       return Response.ok(result).build();
