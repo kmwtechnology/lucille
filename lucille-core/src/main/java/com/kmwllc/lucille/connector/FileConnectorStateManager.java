@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.util.LockRegistry;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -11,6 +12,7 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,8 +51,13 @@ import com.typesafe.config.Config;
  *   {@link TraversalState}.</li>
  *   <li>The paths a FileConnector traverses do not overlap.</li>
  * </ol>
+ * <p> Regardless, the FileConnectorStateManager will lock access by <code>connectionString</code> and <code>tableName</code>. Only one
+ * FileConnectorStateManager within the same JVM will be allowed to connect to the same <code>connectionString</code> and
+ * <code>tableName</code> at a time.
  */
 public class FileConnectorStateManager {
+
+  private static final LockRegistry LOCK_REGISTRY = new LockRegistry();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnectorStateManager.class);
 
@@ -77,6 +84,13 @@ public class FileConnectorStateManager {
   // init() binds one for the thread that calls it, and each additional traversal thread binds its own with openStateForThread().
   private final ThreadLocal<TraversalState> threadState = new ThreadLocal<>();
 
+  private final String registryKey;
+
+  // Whether this instance currently holds the registry lock. init() and shutdown() can run on different threads
+  // (Runner calls execute() on a ConnectorThread but close() on its own thread), and shutdown() can be called
+  // without a successful init() - so only release a lock this instance actually acquired, and only once.
+  private final AtomicBoolean holdsLock = new AtomicBoolean(false);
+
   /**
    * Creates a FileConnectorStateManager from the given config.
    * @param config Configuration for the FileConnectorStateManager.
@@ -95,6 +109,8 @@ public class FileConnectorStateManager {
       throw new IllegalArgumentException("state.runsBeforeExpiration must be >= 1");
     }
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", DEFAULT_PATH_LENGTH);
+
+    this.registryKey = connectionString + ":" + tableName;
   }
 
   /**
@@ -102,6 +118,14 @@ public class FileConnectorStateManager {
    * appropriate schema if it doesn't. After connecting to the table, sets encountered=FALSE for all rows.
    */
   public void init() throws ClassNotFoundException, SQLException {
+    LOCK_REGISTRY.acquire(registryKey);
+    holdsLock.set(true);
+
+    // An important note: we do *not* release the lock in a "finally" block
+    // in the event of an exception here. This is because we expect
+    // shutdown() to still be called in the event of an error -
+    // so we release the lock there instead.
+
     traversalInstant = Instant.now();
 
     jdbcConnection = openConnection();
@@ -236,13 +260,22 @@ public class FileConnectorStateManager {
    * Throws an exception if an error occurs.
    */
   public void shutdown() throws SQLException {
-    closeStateForThread();
+    try {
+      closeStateForThread();
 
-    if (performDeletions) {
-      deleteExpiredFilesAndResetTable();
+      // jdbcConnection is null if init() never ran or failed before connecting - e.g. FileConnector.close() is
+      // still called when preExecute fails
+      if (performDeletions && jdbcConnection != null) {
+        deleteExpiredFilesAndResetTable();
+      }
+    } finally {
+      // close even if the deletion failed, so the connection isn't leaked
+      closeConnection(jdbcConnection);
+
+      if (holdsLock.getAndSet(false)) {
+        LOCK_REGISTRY.release(registryKey);
+      }
     }
-
-    closeConnection(jdbcConnection);
   }
   
   public List<URI> listExpiredFiles() throws SQLException {
