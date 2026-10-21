@@ -141,9 +141,9 @@ public class HybridIndexerMessenger implements IndexerMessenger {
       // exactly when the producer is created. Fail loudly on a misconfiguration rather than NPE.
       throw new IllegalStateException("sendFailed called but indexer.sendFailedDocsToTopic is not enabled");
     }
+    // blocks until the broker acks, so the fail-topic write is durable before we return
     ProducerRecord<String, Document> producerRecord =
         new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    // send(...).get() blocks until the broker acks, so the fail-topic write is durable before we return.
     kafkaDocumentProducer.send(producerRecord).get();
   }
 

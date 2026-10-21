@@ -32,7 +32,6 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final Config config;
   private final Duration pollInterval;
   private final String pipelineName;
-  private final boolean failTopicEnabled;
   private final DeserializationErrorHandler deserializationErrorHandler;
 
   public HybridWorkerMessenger(Config config, String pipelineName,
@@ -42,7 +41,6 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
-    this.failTopicEnabled = KafkaUtils.workerFailTopicEnabled(config);
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
@@ -51,7 +49,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     // constructing this messenger would require Kafka producer config (e.g. kafka.bootstrapServers) that a worker
     // not using the fail topic has no reason to supply. Mirrors how createEventProducer returns null when events
     // are disabled.
-    this.kafkaDocumentProducer = failTopicEnabled ? KafkaUtils.createDocumentProducer(config) : null;
+    this.kafkaDocumentProducer = KafkaUtils.workerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, sourceConsumer);
@@ -96,11 +94,6 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
-      // Only stamp source provenance when the document could later be routed to the fail topic; otherwise these
-      // fields would be added to every document for no benefit.
-      if (failTopicEnabled) {
-        doc.setSourceMetadata(record.topic(), record.partition(), record.offset());
-      }
       return doc;
     }
     return null;
@@ -174,10 +167,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
       throw new IllegalStateException(
           "sendFailed called but the fail topic is not enabled (worker.sendFailedDocsToTopic / worker.maxRetries)");
     }
+    // blocks until the broker acks, so the fail-topic write is durable before we return
     ProducerRecord<String, Document> producerRecord =
         new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    // send(...).get() blocks until the broker acks, so the fail-topic write is durable before we return
-    // and (for the Worker's DLQ path) before the source offset is committed.
     kafkaDocumentProducer.send(producerRecord).get();
   }
 

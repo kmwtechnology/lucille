@@ -68,7 +68,6 @@ public class WorkerFailTopicTest {
     Document failed = messenger.getDocsSentToFailTopic().get(0);
     assertTrue(failed.has(Document.FAILURE_REASON_FIELD));
     assertEquals("worker", failed.getString(Document.FAILURE_COMPONENT_FIELD));
-    assertEquals(PIPELINE_NAME, failed.getString(Document.FAILURE_PIPELINE_FIELD));
     assertTrue("a failure time should be stamped", failed.has(Document.FAILURE_TIME_FIELD));
   }
 

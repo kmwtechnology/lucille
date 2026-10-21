@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.weaviate.indexer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -26,8 +27,10 @@ import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.Misc;
 import io.weaviate.client.v1.misc.api.MetaGetter;
 import io.weaviate.client.v1.misc.model.Meta;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.commons.lang3.tuple.Pair;
@@ -162,6 +165,32 @@ public class WeaviateIndexerTest {
       Assert.assertEquals("doc" + i, events.get(i - 1).getDocumentId());
       Assert.assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
     }
+  }
+
+  @Test
+  public void testReservedBookkeepingFieldsNotSentToWeaviate() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("title", "hello");
+    doc.setFailureMetadata("a reason", "worker", Instant.now());
+
+    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, mockClient, "testing");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<WeaviateObject> captor = ArgumentCaptor.forClass(WeaviateObject.class);
+    verify(mockObjectsBatcher).withObject(captor.capture());
+    Map<String, Object> properties = captor.getValue().getProperties();
+
+    assertEquals("hello", properties.get("title"));
+    for (String field : Document.INDEXING_EXCLUDED_FIELDS) {
+      assertFalse(field + " should not be sent to Weaviate", properties.containsKey(field));
+    }
+
+    // the document itself still carries the fields, so a fail-topic copy would keep them
+    assertTrue(doc.has(Document.FAILURE_REASON_FIELD));
   }
 
   @Test

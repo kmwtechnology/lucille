@@ -26,7 +26,7 @@ class Worker implements Runnable {
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalString("pipeline")
       .optionalNumber("threads", "maxProcessingSecs", "maxRetries")
-      .optionalBoolean("exitOnTimeout", "enableHeartbeat").build();
+      .optionalBoolean("exitOnTimeout", "enableHeartbeat", "sendFailedDocsToTopic").build();
 
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
@@ -46,7 +46,6 @@ class Worker implements Runnable {
   private boolean trackRetries = false;
   private RetryCounter counter = null;
   private final boolean sendFailedDocsToTopic;
-  private final String pipelineName;
   private final String metricsPrefix;
 
   public void terminate() {
@@ -66,7 +65,6 @@ class Worker implements Runnable {
     }
     this.sendFailedDocsToTopic = config.hasPath("worker.sendFailedDocsToTopic")
         && config.getBoolean("worker.sendFailedDocsToTopic");
-    this.pipelineName = pipelineName;
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
     this.metricsPrefix = metricsPrefix;
@@ -170,7 +168,7 @@ class Worker implements Runnable {
 
           if (sendFailedDocsToTopic) {
             try {
-              stampFailureMetadata(doc, e.getMessage(), "worker");
+              stampFailureMetadata(doc, e.getMessage() != null ? e.getMessage() : e.toString(), "worker");
               messenger.sendFailed(doc);
             } catch (Exception e3) {
               docLogger.error("Failed to send doc to failure topic: {}", doc.getId(), e3);
@@ -225,7 +223,7 @@ class Worker implements Runnable {
   }
 
   private void stampFailureMetadata(Document doc, String reason, String component) {
-    doc.setFailureMetadata(reason, component, Instant.now(), pipelineName);
+    doc.setFailureMetadata(reason, component, Instant.now());
   }
 
   public AtomicReference<Instant> getPreviousPollInstant() {

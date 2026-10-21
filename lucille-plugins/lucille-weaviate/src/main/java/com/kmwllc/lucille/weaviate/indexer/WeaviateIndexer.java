@@ -133,6 +133,8 @@ public class WeaviateIndexer extends Indexer {
         // initialize the docMap with all the fields from the document and set the id destination field instead of id field
         Map<String, Object> docMap = doc.asMap();
         docMap.remove(Document.ID_FIELD);
+        // failure metadata on a document replayed from the fail topic must not be written to Weaviate
+        docMap.keySet().removeAll(Document.INDEXING_EXCLUDED_FIELDS);
         docMap.put(idDestinationName, doc.getId());
 
         // set id and class name

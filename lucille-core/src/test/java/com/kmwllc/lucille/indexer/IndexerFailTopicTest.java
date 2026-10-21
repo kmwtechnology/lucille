@@ -62,7 +62,6 @@ public class IndexerFailTopicTest {
     assertEquals("doc1", failedDoc.getId());
     assertTrue(failedDoc.has(Document.FAILURE_REASON_FIELD));
     assertEquals("indexer", failedDoc.getString(Document.FAILURE_COMPONENT_FIELD));
-    assertEquals(PIPELINE_NAME, failedDoc.getString(Document.FAILURE_PIPELINE_FIELD));
     assertTrue("a failure time should be stamped", failedDoc.has(Document.FAILURE_TIME_FIELD));
   }
 
@@ -89,9 +88,8 @@ public class IndexerFailTopicTest {
 
     Document doc = Document.create("doc1", "run1");
     doc.setField("keepMe", "value");
-    // Stamp the internal fields the way Lucille does, via the dedicated reserved-field setters.
-    doc.setSourceMetadata("pipeline1_source", 0, 42L);
-    doc.setFailureMetadata("some reason", "indexer", Instant.now(), PIPELINE_NAME);
+    // Stamp the internal fields the way Lucille does, via the dedicated reserved-field setter.
+    doc.setFailureMetadata("some reason", "indexer", Instant.now());
 
     Map<String, Object> converted = indexer.convertedDoc(doc);
     Map<String, Object> raw = indexer.rawDoc(doc);

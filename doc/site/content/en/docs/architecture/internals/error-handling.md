@@ -203,17 +203,12 @@ A document routed to the fail topic is stamped with these fields so a consumer o
 | `___failure_reason` | The error message (or `"Retry count exceeded"` for the poison-pill path) |
 | `___failure_component` | `"worker"` or `"indexer"` |
 | `___failure_time` | The time the failure was recorded (ISO-8601 instant) |
-| `___failure_pipeline` | The name of the pipeline that was processing the document |
 
-Documents consumed from a Kafka source topic are also stamped with source-provenance fields (`___source_topic`, `___source_partition`, `___source_offset`) at consumption time, so a document on the fail topic can be traced back to its origin. To avoid adding these fields to every document for no benefit, the worker messenger stamps provenance only when a document could actually reach the fail topic — that is, when `worker.sendFailedDocsToTopic` is enabled or when retry tracking (`worker.maxRetries`) is configured. When neither applies, provenance is not stamped.
-
-These `___`-prefixed fields are **Lucille-internal reserved fields**: like the other reserved fields, they are protected from being set via the normal field API, skipped by field-copying stages and connectors, preserved by the FieldFilter, and immune to JSONata mutation. Lucille stamps them through dedicated setters (`setSourceMetadata`, `setFailureMetadata`). They additionally travel with the document to the fail topic but are stripped from the document written to the search index, so they never leak into the index. Pipelines should avoid field names that begin with `___`.
-
-> Note: `HashMapDocument` is deprecated and does not fully support these fail-topic fields (it cannot serialize the failure time). The fail topic is a Kafka/Hybrid concept, and that path uses `JsonDocument`/`KafkaDocument`, which support the fields correctly.
+These `___`-prefixed fields are **Lucille-internal reserved fields**: like the other reserved fields, they are protected from being set via the normal field API, skipped by field-copying stages and connectors, preserved by the FieldFilter, and immune to JSONata mutation. Lucille stamps them through a dedicated setter (`setFailureMetadata`). They additionally travel with the document to the fail topic but are stripped from the document written to the search index, so they never leak into the index. Pipelines should avoid field names that begin with `___`.
 
 ### Local mode
 
-There is no fail topic in local mode — it is a Kafka/Hybrid concept. The `sendFailedDocsToTopic` settings have no effect in local mode (a warning is logged the first time a failed document would otherwise have been routed). The FAIL event and the `FailedDocuments` log remain the failure signals.
+There is no fail topic in local mode — it is a Kafka/Hybrid concept. The `sendFailedDocsToTopic` settings have no effect in local mode. The FAIL event and the `FailedDocuments` log remain the failure signals.
 
 ---
 

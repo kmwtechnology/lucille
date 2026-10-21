@@ -1047,22 +1047,12 @@ public class JsonDocument implements Document {
   }
 
   @Override
-  public void setSourceMetadata(String topic, int partition, long offset) {
-    // Written directly (bypassing validateFieldNames) because these are reserved fields. Mirrors how setField stores
-    // the corresponding types for a JsonDocument.
-    data.put(SOURCE_TOPIC_FIELD, topic);
-    data.put(SOURCE_PARTITION_FIELD, partition);
-    data.put(SOURCE_OFFSET_FIELD, offset);
-  }
-
-  @Override
-  public void setFailureMetadata(String reason, String component, Instant time, String pipeline) {
+  public void setFailureMetadata(String reason, String component, Instant time) {
     // Written directly (bypassing validateFieldNames) because these are reserved fields. The Instant is stored as an
     // ISO-8601 string, matching setField(String, Instant) for a JsonDocument.
     data.put(FAILURE_REASON_FIELD, reason);
     data.put(FAILURE_COMPONENT_FIELD, component);
     data.put(FAILURE_TIME_FIELD, DateTimeFormatter.ISO_INSTANT.format(time));
-    data.put(FAILURE_PIPELINE_FIELD, pipeline);
   }
 
   @Override

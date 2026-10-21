@@ -62,33 +62,26 @@ public interface Document {
   String DROP_FIELD = "___dropped";
   String SKIP_FIELD = "___skipped";
 
-  /* --- SOURCE PROVENANCE FIELDS (stamped at consumption from a Kafka source topic) --- */
-
-  String SOURCE_TOPIC_FIELD = "___source_topic";
-  String SOURCE_PARTITION_FIELD = "___source_partition";
-  String SOURCE_OFFSET_FIELD = "___source_offset";
-
   /* --- FAILURE METADATA FIELDS (stamped when sending to the fail topic) --- */
 
   String FAILURE_REASON_FIELD = "___failure_reason";
   String FAILURE_COMPONENT_FIELD = "___failure_component";
   String FAILURE_TIME_FIELD = "___failure_time";
-  String FAILURE_PIPELINE_FIELD = "___failure_pipeline";
 
   /*
    * Reserved fields are Lucille-owned bookkeeping fields, not user data. They are protected: setField and the other
    * field mutators reject them (see validateFieldNames), connectors and stages that copy fields skip them, the
    * FieldFilter preserves them, and a JSONata transform may not mutate them. Lucille sets them through dedicated
-   * methods that bypass that guard (e.g. setDropped, setSourceMetadata, setFailureMetadata).
+   * methods that bypass that guard (e.g. setDropped, setFailureMetadata).
    *
-   * The source-provenance and failure-metadata fields are additionally stripped from the document written to a
-   * search index (see the Indexer's indexer-doc conversion), so they travel with the document to the fail topic but
-   * never leak into the index. They are grouped in INDEXING_EXCLUDED_FIELDS for that purpose. (The FieldFilter
+   * The failure-metadata fields are additionally stripped from the document written to a search index (see the
+   * Indexer's indexer-doc conversion). A document is stamped when it is sent to the fail topic and is not indexed in
+   * that run, but a document replayed from the fail topic still carries the fields, so they must not reach the index
+   * then. They are grouped in INDEXING_EXCLUDED_FIELDS for that purpose. (The FieldFilter
    * preserves reserved fields, so this stripping has to be explicit; it is not implied by reservation.)
    */
   Set<String> INDEXING_EXCLUDED_FIELDS = new HashSet<>(List.of(
-      SOURCE_TOPIC_FIELD, SOURCE_PARTITION_FIELD, SOURCE_OFFSET_FIELD,
-      FAILURE_REASON_FIELD, FAILURE_COMPONENT_FIELD, FAILURE_TIME_FIELD, FAILURE_PIPELINE_FIELD));
+      FAILURE_REASON_FIELD, FAILURE_COMPONENT_FIELD, FAILURE_TIME_FIELD));
 
   Set<String> RESERVED_FIELDS = Stream.concat(
       Stream.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD),
@@ -569,20 +562,12 @@ public interface Document {
   void setSkipped(boolean status);
 
   /**
-   * Stamps the source-provenance fields (SOURCE_TOPIC_FIELD, SOURCE_PARTITION_FIELD, SOURCE_OFFSET_FIELD) recording
-   * where this document was consumed from. These are reserved fields, so this dedicated setter is the only supported
-   * way to set them (setField would reject them). Called by the Kafka worker messengers at poll time so that a
-   * document later routed to the fail topic can be traced back to its origin.
-   */
-  void setSourceMetadata(String topic, int partition, long offset);
-
-  /**
-   * Stamps the failure-metadata fields (FAILURE_REASON_FIELD, FAILURE_COMPONENT_FIELD, FAILURE_TIME_FIELD,
-   * FAILURE_PIPELINE_FIELD) describing why and where this document failed. These are reserved fields, so this
+   * Stamps the failure-metadata fields (FAILURE_REASON_FIELD, FAILURE_COMPONENT_FIELD, FAILURE_TIME_FIELD)
+   * describing why and where this document failed. These are reserved fields, so this
    * dedicated setter is the only supported way to set them (setField would reject them). Called by the Worker and
    * Indexer before routing a failed document to the fail topic.
    */
-  void setFailureMetadata(String reason, String component, Instant time, String pipeline);
+  void setFailureMetadata(String reason, String component, Instant time);
 
   Document deepCopy();
 

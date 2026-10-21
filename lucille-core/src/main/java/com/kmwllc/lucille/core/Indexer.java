@@ -160,7 +160,6 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   private final List<Integer> retryableStatusCodes;
 
   private final boolean sendFailedDocsToTopic;
-  private final String pipelineName;
 
   // The maximum number of batches that may be in flight at once. 1 (the default) means synchronous sends.
   private final int maxConcurrentBatches;
@@ -253,7 +252,6 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
     this.sendFailedDocsToTopic = config.hasPath("indexer.sendFailedDocsToTopic")
         && config.getBoolean("indexer.sendFailedDocsToTopic");
-    this.pipelineName = metricsPrefix;
 
     if (!config.hasPath("indexer.maxRetries")) {
       if (config.hasPath("indexer.retryWaitDurationMs") || config.hasPath("indexer.retryableStatusCodes")
@@ -664,23 +662,31 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * for structured logging. When sendFailedDocsToTopic is enabled, also stamps failure metadata
    * on the document and sends it to the fail topic.
    */
+  private void sendToFailTopic(Document d, String reason) {
+    if (!sendFailedDocsToTopic) {
+      return;
+    }
+    try {
+      d.setFailureMetadata(reason, "indexer", Instant.now());
+      messenger.sendFailed(d);
+    } catch (Exception failEx) {
+      docLogger.error("Failed to send doc to failure topic: {}", d.getId(), failEx);
+    }
+  }
+
   private void sendFailEvent(Document d, String reason) {
     try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
       if (d.getRunId() != null) {
         MDC.pushByKey(RUNID_FIELD, d.getRunId());
       }
-      messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
+      try {
+        messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
+      } finally {
+        // the fail-topic copy is independent of the FAIL event: attempt it even if the event could not be sent
+        sendToFailTopic(d, reason);
+      }
       docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
       failedDocLogger.atError().setMessage(() -> d.toString()).log();
-
-      if (sendFailedDocsToTopic) {
-        try {
-          d.setFailureMetadata(reason, "indexer", Instant.now(), pipelineName);
-          messenger.sendFailed(d);
-        } catch (Exception failEx) {
-          docLogger.error("Failed to send doc to failure topic: {}", d.getId(), failEx);
-        }
-      }
     } catch (Exception e) {
       restoreInterrupt(e);
       docLogger.error("Couldn't send failure event for doc {}. RUN WILL HANG.", d.getId(), e);
@@ -738,8 +744,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   protected final Map<String, Object> getConvertedIndexerDoc(Document doc) {
     Map<String, Object> indexerDoc = doc.asMap();
     indexerDoc.remove(Document.CHILDREN_FIELD);
-    // Lucille-internal bookkeeping fields (source provenance, failure metadata) travel with the document but must
-    // never be written to the search index.
+    // Failure metadata is stamped on a document sent to the fail topic. A document replayed from that topic still
+    // carries it, so strip it here to keep it out of the search index (and out of strict schemas that would reject it).
     indexerDoc.keySet().removeAll(Document.INDEXING_EXCLUDED_FIELDS);
     if (fieldFilter.isActive()) {
       indexerDoc.keySet().removeIf(key -> !fieldFilter.shouldInclude(key));
@@ -772,8 +778,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       Map.Entry<String, JsonNode> field = it.next();
       String name = field.getKey();
       JsonNode value = field.getValue();
-      // Skip CHILDREN_FIELD and Lucille-internal bookkeeping fields (source provenance, failure metadata), which must
-      // never be written to the search index, as well as anything excluded by the field filter.
+      // Skip CHILDREN_FIELD, failure metadata (which a document replayed from the fail topic still carries; see
+      // getConvertedIndexerDoc), and anything excluded by the field filter.
       if (Document.CHILDREN_FIELD.equals(name) || Document.INDEXING_EXCLUDED_FIELDS.contains(name)
           || !fieldFilter.shouldInclude(name)) {
         continue;

@@ -27,14 +27,12 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private final Config config;
   private final Duration pollInterval;
   private final String pipelineName;
-  private final boolean failTopicEnabled;
   private final DeserializationErrorHandler deserializationErrorHandler;
 
   public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
-    this.failTopicEnabled = KafkaUtils.workerFailTopicEnabled(config);
     // In fully-distributed mode this document producer is the primary dispatch path (sendForIndexing writes to the
     // dest topic), so it is always created; sendFailed reuses it for the fail topic.
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
@@ -68,11 +66,6 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
       deserializationErrorHandler.onSuccessfulPoll(record);
       KafkaDocument doc = record.value();
       doc.setKafkaMetadata(record);
-      // Only stamp source provenance when the document could later be routed to the fail topic; otherwise these
-      // fields would be added to every document for no benefit.
-      if (failTopicEnabled) {
-        doc.setSourceMetadata(record.topic(), record.partition(), record.offset());
-      }
       return doc;
     }
     return null;
@@ -98,10 +91,9 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
 
   @Override
   public void sendFailed(Document document) throws Exception {
+    // blocks until the broker acks, so the fail-topic write is durable before we return
     ProducerRecord<String, Document> producerRecord =
         new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    // send(...).get() blocks until the broker acks, so the fail-topic write is durable before we return
-    // and (for the Worker's DLQ path) before the source offset is committed.
     kafkaDocumentProducer.send(producerRecord).get();
   }
 
