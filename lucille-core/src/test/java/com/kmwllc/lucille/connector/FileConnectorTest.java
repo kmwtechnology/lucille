@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -976,7 +977,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversal() throws Exception {
     Config sequentialConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf");
-    Config concurrentConfig = sequentialConfig.withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+    Config concurrentConfig = sequentialConfig.withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
 
     List<Document> sequentialDocs = publishedDocuments(sequentialConfig);
     List<Document> concurrentDocs = publishedDocuments(concurrentConfig);
@@ -993,7 +994,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversalsOverlap() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
@@ -1024,7 +1025,7 @@ public class FileConnectorTest {
   @Test
   public void testPreventConcurrentAndCollapse() {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
         .withValue("collapse", ConfigValueFactory.fromAnyRef(true));
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
@@ -1040,7 +1041,7 @@ public class FileConnectorTest {
             "./src/test/resources/FileConnectorTest/directory1/nested")));
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> new FileConnector(config.withValue("concurrent", ConfigValueFactory.fromAnyRef(true))));
+        () -> new FileConnector(config.withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))));
     assertTrue(e.getMessage().contains("overlapping"));
 
     // sequential traversals of overlapping paths already worked before concurrency was an option, so they still do
@@ -1051,7 +1052,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentPathsSharingNamePrefixAllowed() {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
         .withValue("paths", ConfigValueFactory.fromIterable(List.of(
             "./src/test/resources/FileConnectorTest/directory1",
             "./src/test/resources/FileConnectorTest/directory1-archive")));
@@ -1063,7 +1064,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversalNoPaths() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
         .withValue("paths", ConfigValueFactory.fromIterable(List.of()));
 
     assertEquals(0, publishedDocuments(config).size());
@@ -1080,7 +1081,7 @@ public class FileConnectorTest {
         .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:sequentialRun")));
 
     List<Document> concurrentDocs = publishedDocuments(baseConfig
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
         .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:concurrentRun")));
 
     assertFalse(concurrentDocs.isEmpty());
@@ -1094,7 +1095,7 @@ public class FileConnectorTest {
   public void testConcurrentTraversalWithStateExecuteAndCloseOnDifferentThreads() throws Exception {
     // DB_CLOSE_DELAY=-1 keeps the in-memory database between runs, so the second run sees the first run's state
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
         .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
         .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:executeAndCloseThreads;DB_CLOSE_DELAY=-1"));
 
@@ -1106,11 +1107,78 @@ public class FileConnectorTest {
     assertEquals(0, secondRunDocs.size());
   }
 
+  // Verifies that with fewer threads than paths, the queued paths are still traversed, and a thread reused for a second
+  // path can open state again.
+  @Test
+  public void testConcurrentTraversalWithMaxThreads() throws Exception {
+    Config baseConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
+        .withValue("paths", ConfigValueFactory.fromIterable(List.of(
+            "./src/test/resources/FileConnectorTest/example",
+            "./src/test/resources/FileConnectorTest/defaults.csv",
+            "./src/test/resources/FileConnectorTest/directory1")));
+
+    List<Document> sequentialDocs = publishedDocuments(baseConfig
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxThreadsSequentialRun")));
+
+    // three paths on two threads
+    List<Document> cappedDocs = publishedDocuments(baseConfig
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(2))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxThreadsCappedRun")));
+
+    assertFalse(cappedDocs.isEmpty());
+    assertEquals(sequentialDocs.size(), cappedDocs.size());
+    assertEquals(documentIds(sequentialDocs), documentIds(cappedDocs));
+  }
+
+  // Verifies that maxThreads sets the pool size. A fixed pool starts a new thread for each task until it is
+  // full, so the number of distinct threads that traverse is exactly the pool size: one would mean sequential, three
+  // would mean maxThreads was ignored.
+  @Test
+  public void testMaxThreadsCapsPoolSize() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(2));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Set<String> threadNames = ConcurrentHashMap.newKeySet();
+
+    try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      StorageClient mockClient = mock(StorageClient.class);
+
+      doAnswer(invocation -> {
+        threadNames.add(Thread.currentThread().getName());
+        return null;
+      }).when(mockClient).traverse(any(), any(), any());
+
+      mockedStorage.when(() -> StorageClient.createClients(any())).thenReturn(Map.of("file", mockClient));
+
+      connector = new FileConnector(config);
+      connector.execute(publisher);
+
+      verify(mockClient, times(3)).traverse(any(), any(), any());
+      assertEquals(2, threadNames.size());
+    }
+  }
+
+  @Test
+  public void testInvalidMaxThreads() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(0));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage().contains("maxThreads"));
+
+    // -1 is the only negative value accepted
+    e = assertThrows(IllegalArgumentException.class,
+        () -> new FileConnector(config.withValue("maxThreads", ConfigValueFactory.fromAnyRef(-2))));
+    assertTrue(e.getMessage().contains("maxThreads"));
+  }
+
   // Verifies that a failed traversal does not stop the others, and that the resulting exception names the failed path.
   @Test
   public void testConcurrentTraversalContinuesAfterFailure() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
@@ -1132,7 +1200,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversalMultipleFailures() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 

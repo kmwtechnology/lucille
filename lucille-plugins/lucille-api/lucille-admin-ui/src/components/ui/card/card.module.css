@@ -1,0 +1,30 @@
+@reference "../../../index.css";
+
+/* Card component styles */
+.card {
+  @apply bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm;
+}
+
+.header {
+  @apply grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6;
+}
+
+.title {
+  @apply leading-none font-semibold;
+}
+
+.description {
+  @apply text-muted-foreground text-sm;
+}
+
+.action {
+  @apply col-start-2 row-span-2 row-start-1 self-start justify-self-end;
+}
+
+.content {
+  @apply px-6;
+}
+
+.footer {
+  @apply flex items-center px-6;
+}

@@ -1,0 +1,94 @@
+@reference "../../index.css";
+
+/* Configurations list page styles */
+.page {
+  @apply p-4 sm:p-6 lg:p-8;
+}
+
+.pageHeader {
+  @apply mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4;
+}
+
+.pageTitle {
+  @apply text-3xl font-bold mb-2 text-primary-800;
+}
+
+.pageSubtitle {
+  @apply text-muted-foreground;
+}
+
+.createButton {
+  @apply justify-start bg-primary-600 hover:bg-primary-700 text-xs sm:text-sm py-2 h-auto;
+}
+
+/* Table */
+.tableWrap {
+  @apply overflow-x-auto rounded-md border border-primary-100 bg-white;
+}
+
+.table {
+  @apply w-full border-collapse text-sm;
+}
+
+.th {
+  @apply text-left font-semibold text-primary-800 px-4 py-2.5 border-b border-primary-100
+    bg-primary-50/50 whitespace-nowrap;
+}
+
+.row {
+  @apply border-b border-primary-100 last:border-0 cursor-pointer hover:bg-primary-50 transition-colors align-top;
+}
+
+.row td {
+  @apply px-4 py-3;
+}
+
+.idCell {
+  @apply align-top;
+}
+
+.idWrap {
+  @apply inline-flex items-center gap-1.5 text-primary-700;
+}
+
+.idIcon {
+  @apply h-3.5 w-3.5 flex-shrink-0;
+}
+
+.rowId {
+  @apply font-mono text-xs text-primary-700 break-all underline underline-offset-2;
+}
+
+.indexerCell {
+  @apply whitespace-nowrap text-primary-800;
+}
+
+/* Name tags */
+.tags {
+  @apply flex flex-wrap gap-1;
+}
+
+.tag {
+  @apply inline-flex max-w-full truncate rounded px-1.5 py-0.5 text-xs font-mono bg-primary-50 text-primary-700;
+}
+
+.cellEmpty {
+  @apply text-xs text-muted-foreground;
+}
+
+/* Row actions */
+.actionTd {
+  @apply whitespace-nowrap align-middle;
+}
+
+.actions {
+  @apply flex items-center gap-2;
+}
+
+.actionCell {
+  @apply flex items-center gap-2;
+}
+
+.actionError {
+  @apply text-xs text-red-600;
+}

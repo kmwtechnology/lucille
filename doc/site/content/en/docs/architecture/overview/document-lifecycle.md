@@ -136,7 +136,7 @@ Everything from the Happy Path, plus:
 - **Index routing.** If `indexer.indexOverrideField` is configured and the document has that field, the document is routed to a different index/collection than the default. With MultiBatch, it goes into a separate batch for that destination.
 - **Deletion handling.** If the document is marked for deletion (via `deletionMarkerField` + `deletionMarkerFieldValue`), the Indexer issues a delete operation instead of an index operation. If `deleteByFieldField` and `deleteByFieldValue` are also present, it's a delete-by-query.
 - **ID override.** If `indexer.idOverrideField` is configured, the document's ID in the search backend is taken from that field rather than the internal document ID.
-- **Field filtering.** The configured whitelist/blacklist is applied — only the desired fields reach the search backend. Reserved fields (`___dropped`, `___skipped`, `___children`) are always stripped.
+- **Field filtering.** The configured whitelist/blacklist is applied — only the desired fields reach the search backend. `___children` is always omitted. The other reserved fields (such as `run_id` and `___skipped`) are treated like any other field and reach the backend unless the whitelist leaves them out or the blacklist names them.
 - **Retries.** If the bulk API call fails with a retryable status code (429, 503) and `indexer.maxRetries > 0`, the entire batch is retried with exponential backoff. The document may be sent multiple times before succeeding or being declared failed.
 - **Metrics.** The Indexer's Meter and Histogram record the batch: docs/sec throughput and per-doc backend latency.
 
@@ -145,7 +145,7 @@ Everything from the Happy Path, plus:
 Everything from the Happy Path, plus:
 
 - **Per-document failures.** If the bulk API reported a per-document failure for this specific document (e.g., schema violation), a FAIL event is sent instead of FINISH. The document was processed successfully through the pipeline but rejected by the search backend.
-- **Offset commitment.** The `batchComplete()` call fires in the `finally` block regardless of success or failure — this allows Kafka offset commits in WorkerIndexer mode even when a batch fails.
+- **Offset commitment.** `Indexer.completeBatch` calls `batchComplete()` once the batch has been handled, whether it succeeded or failed (per-document failures and a thrown `Exception` included), so Kafka offsets can be committed even when a batch fails. It is skipped only after an `Error` (such as an `OutOfMemoryError`), so offsets for documents that were never indexed are not committed.
 - **Backpressure release.** The Publisher receives the event, removes the document's ID from `docIdsToTrack`, and decrements the pending count. If `maxPendingDocs` was blocking the Connector, this may unblock it.
 - **Run accounting.** The document contributes to the run's `numSucceeded` (FINISH), `numFailed` (FAIL), or `numDropped` (DROP) count, which appears in the final run summary.
 

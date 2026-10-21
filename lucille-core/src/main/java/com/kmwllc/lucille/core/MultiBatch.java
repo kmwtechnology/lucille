@@ -19,7 +19,8 @@ public class MultiBatch implements Batch {
    * <p>
    * A batch is considered to be "expired" if a configured timeout has
    * elapsed since last add or flush. If any of the underlying batches are expired,
-   * it will be flushed during the next call to add() or flushIfExpired().
+   * it will be flushed during the next call to add() or flushIfExpired(), regardless of
+   * which underlying batch the added document belongs to.
    */
   public MultiBatch(int capacity, long byteCapacity, int timeout, String indexField) {
     this.batches = new HashMap<>();
@@ -41,7 +42,18 @@ public class MultiBatch implements Batch {
       batches.put(index, batch);
     }
 
-    return batch.add(doc);
+    // Flush any other sub-batch that has expired, not just the one this document goes into. Under continuous input the
+    // Indexer never calls flushIfExpired() (it only does so on an idle poll), so without this a sub-batch for a rarely
+    // seen index value could hold its documents for the whole run. With a messenger that commits input offsets on batch
+    // completion, such a held document would also hold back the commit frontier of its partition.
+    List<Document> flushedDocs = new LinkedList<>();
+    for (Batch other : batches.values()) {
+      if (other != batch) {
+        flushedDocs.addAll(other.flushIfExpired());
+      }
+    }
+    flushedDocs.addAll(batch.add(doc));
+    return flushedDocs;
   }
 
   @Override
@@ -65,5 +77,14 @@ public class MultiBatch implements Batch {
   @Override
   public int getCapacity() {
     return capacity;
+  }
+
+  @Override
+  public void delayExpirationBy(long millis) {
+    // Delay the deadline of every per-index sub-batch, so a rarely-touched index's batch is not expired by time the
+    // indexer spent sending other indexes' batches.
+    for (Batch batch : batches.values()) {
+      batch.delayExpirationBy(millis);
+    }
   }
 }

@@ -1,0 +1,17 @@
+@reference "../../index.css";
+
+.emptyCard {
+  @apply border-primary-100 shadow-sm;
+}
+
+.emptyContent {
+  @apply flex flex-col items-center justify-center text-center gap-3 py-12;
+}
+
+.emptyTitle {
+  @apply text-lg font-semibold text-primary-800;
+}
+
+.emptySubtext {
+  @apply text-sm text-muted-foreground;
+}

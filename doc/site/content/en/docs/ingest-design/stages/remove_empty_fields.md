@@ -2,13 +2,17 @@
 title: RemoveEmptyFields
 weight: 550
 date: 2025-06-09
-description: Removes fields whose value is null, an empty string, or an empty list.
+description: Removes fields whose value is null or an empty string.
 ---
 
 `com.kmwllc.lucille.stage.RemoveEmptyFields`
 
-Removes fields whose value is `null`, an empty string, or an empty list.
+Removes every field whose value is `null` or an empty string. All fields on the Document are checked. For a multi-valued field, only the first value is checked: if it is null or empty, the whole field is removed. Whitespace-only strings are not considered empty. Fields holding a nested object are also removed.
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `fields` | List\<String\> | No | Specific fields to check. If omitted, all fields are checked. |
+A field holding an empty list counts as null, so it is removed. Processing fails with an exception for a Document that has attached children.
+
+This stage has no parameters beyond the shared stage parameters.
+
+```hocon
+{ class: "com.kmwllc.lucille.stage.RemoveEmptyFields" }
+```
