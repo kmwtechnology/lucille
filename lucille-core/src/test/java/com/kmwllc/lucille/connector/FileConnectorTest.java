@@ -1027,12 +1027,12 @@ public class FileConnectorTest {
             "./src/test/resources/FileConnectorTest/directory1")));
 
     List<Document> sequentialDocs = publishedDocuments(baseConfig
-        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:sequentialRun")));
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxThreadsSequentialRun")));
 
     // three paths on two threads
     List<Document> cappedDocs = publishedDocuments(baseConfig
         .withValue("maxThreads", ConfigValueFactory.fromAnyRef(2))
-        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:cappedRun")));
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxThreadsCappedRun")));
 
     assertFalse(cappedDocs.isEmpty());
     assertEquals(sequentialDocs.size(), cappedDocs.size());
