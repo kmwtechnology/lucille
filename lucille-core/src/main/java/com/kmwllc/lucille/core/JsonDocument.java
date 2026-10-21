@@ -930,9 +930,9 @@ public class JsonDocument implements Document {
     convertToList(name);
     ArrayNode currentValues = (ArrayNode) data.get(name);
     if (otherValue.getNodeType() == JsonNodeType.ARRAY) {
-      for (JsonNode element : otherValue) {
-        currentValues.add(unshared(element));
-      }
+      // copied as a whole before appending: when other is this document, otherValue is currentValues itself, and
+      // appending to it while iterating it would throw ConcurrentModificationException
+      currentValues.addAll((ArrayNode) unshared(otherValue));
     } else {
       currentValues.add(unshared(otherValue));
     }
