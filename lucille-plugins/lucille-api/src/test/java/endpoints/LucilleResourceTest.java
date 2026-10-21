@@ -63,6 +63,17 @@ public class LucilleResourceTest {
   }
 
   @Test
+  public void testCreateConfig_UnresolvedSubstitution() {
+    String configBody = "pipeline = ${LUCILLE_TEST_UNSET_ENV_VAR}";
+    Response response = lucilleResource.createConfig(configBody);
+    assertEquals(Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+
+    // the rejected config shouldn't be stored, so listing configs still works
+    Response allConfigsResponse = lucilleResource.getAllConfigs();
+    assertEquals(Status.OK.getStatusCode(), allConfigsResponse.getStatus());
+  }
+
+  @Test
   public void testStartRun_Success() {
     // Create a config first
     String configBody = "pipeline = \"testPipeline\"";
