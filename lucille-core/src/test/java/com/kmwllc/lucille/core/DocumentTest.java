@@ -129,6 +129,38 @@ public abstract class DocumentTest {
     createDocument(new ObjectMapper().createObjectNode());
   }
 
+  @Test(expected = IllegalArgumentException.class)
+  public void testCreateWithEmptyId() {
+    // an empty id is rejected at creation, where the cause is, rather than later when the document is deserialized
+    createDocument("");
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testCreateWithBlankId() {
+    createDocument(" \t\n ");
+  }
+
+  @Test
+  public void testIsValidId() {
+    // valid: any id with a visible character, used exactly as given, so surrounding whitespace is not an issue
+    assertTrue(Document.isValidId("a"));
+    assertTrue(Document.isValidId("  a  "));
+    assertTrue(Document.isValidId("2_"));
+    assertTrue(Document.isValidId("_"));
+    // a non-breaking space is not whitespace as Character.isWhitespace defines it, so it does not make an id blank
+    assertTrue(Document.isValidId("\u00A0"));
+
+    // invalid: null, empty, or only whitespace
+    assertFalse(Document.isValidId(null));
+    assertFalse(Document.isValidId(""));
+    assertFalse(Document.isValidId(" "));
+    assertFalse(Document.isValidId(" \t\r\n "));
+
+    // and what the factories enforce is the same rule
+    assertEquals("  a  ", createDocument("  a  ").getId());
+    assertThrows(IllegalArgumentException.class, () -> createDocument(" "));
+  }
+
   @Test
   public void testInvalidIdExceptionTypes() throws Exception {
     // The exception for an invalid id depends on where the id came from; see "Invalid ids" in Document.
@@ -136,9 +168,13 @@ public abstract class DocumentTest {
     // an id passed as a Java argument is reported with an unchecked IllegalArgumentException, as an invalid field name is
     assertThrows(IllegalArgumentException.class, () -> createDocument((String) null));
     assertThrows(IllegalArgumentException.class, () -> createDocument((String) null, "run1"));
+    assertThrows(IllegalArgumentException.class, () -> createDocument(""));
+    assertThrows(IllegalArgumentException.class, () -> createDocument("", "run1"));
+    assertThrows(IllegalArgumentException.class, () -> createDocument("   "));
+    assertThrows(IllegalArgumentException.class, () -> createDocument("   ", "run1"));
 
     // an id read from data is a DocumentException that callers can catch to skip the record: JSON text and ObjectNodes
-    for (String json : List.of("{\"a\":1}", "{\"id\":null}", "{\"id\":\"\"}", "{\"id\":1}", "{\"id\":{}}", "{\"id\":[\"a\"]}")) {
+    for (String json : List.of("{\"a\":1}", "{\"id\":null}", "{\"id\":\"\"}", "{\"id\":\"   \"}", "{\"id\":1}", "{\"id\":{}}", "{\"id\":[\"a\"]}")) {
       assertThrows(json, DocumentException.class, () -> createDocumentFromJson(json));
       assertThrows(json, DocumentException.class, () -> createDocument((ObjectNode) new ObjectMapper().readTree(json)));
     }
@@ -163,6 +199,7 @@ public abstract class DocumentTest {
   public void testCreateFromJsonIdUpdaterMustReturnId() {
     // the updated id is validated like a parsed id, so an updater cannot produce an invalid document
     assertThrows(DocumentException.class, () -> createDocumentFromJson("{\"id\":\"1\"}", id -> ""));
+    assertThrows(DocumentException.class, () -> createDocumentFromJson("{\"id\":\"1\"}", id -> "   "));
     assertThrows(DocumentException.class, () -> createDocumentFromJson("{\"id\":\"1\"}", id -> null));
   }
 
@@ -1877,6 +1914,20 @@ public abstract class DocumentTest {
       for (String field : List.of("str", "bool", "num")) {
         assertEquals(field, document.getDouble(field).floatValue(), document.getFloat(field), 0);
       }
+    }
+
+
+    @Test
+    public void testChildrenWithBlankIdsAreNotChildren() throws Exception {
+      // a nested child needs a valid id like any Document: one with a blank id is dropped by getChildren, and
+      // hasChildren() agrees without constructing any child
+      Document mixed = createDocumentFromJson("{\"id\":\"p\", \"___children\":[{\"id\":\"   \"}, {\"id\":\"c\"}]}");
+      assertTrue(mixed.hasChildren());
+      assertEquals(List.of("c"), mixed.getChildren().stream().map(Document::getId).toList());
+
+      Document onlyBlank = createDocumentFromJson("{\"id\":\"p\", \"___children\":[{\"id\":\"   \"}]}");
+      assertFalse(onlyBlank.hasChildren());
+      assertTrue(onlyBlank.getChildren().isEmpty());
     }
 
   }

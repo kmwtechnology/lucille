@@ -206,9 +206,19 @@ public class DatabaseConnector extends AbstractConnector {
         otherColumns.add(columns2);
       }
       log.info("Processing rows...");
+      long rowNum = 0;
+      long skippedRows = 0;
       while (rs.next()) {
+        rowNum++;
         // Need the ID column from the RS.
-        String id = createDocId(rs.getString(idColumn));
+        String sourceId = rs.getString(idColumn);
+        if (!Document.isValidId(sourceId)) {
+          // without an id the row cannot be told apart from other such rows, so skip it and carry on with the next one
+          skippedRows++;
+          log.error("Skipping row {} of the query: its id column \"{}\" is null or blank.", rowNum, columns[idColumn - 1]);
+          continue;
+        }
+        String id = createDocId(sourceId);
         Document doc = Document.create(id);
         // Add each column / field name to the doc
         for (int i = 1; i <= columns.length; i++) {
@@ -253,6 +263,9 @@ public class DatabaseConnector extends AbstractConnector {
         }
         // feed the accumulated document.
         publisher.publish(doc);
+      }
+      if (skippedRows > 0) {
+        log.warn("Skipped {} of {} rows because their id was null or blank.", skippedRows, rowNum);
       }
     } catch (Exception e) {
       throw new ConnectorException("Exception caught during connector execution", e);

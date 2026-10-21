@@ -41,6 +41,9 @@ public class ParquetFileIterator implements Iterator<Document> {
   // (reaching the limit is the other condition causing the iterator to close.)
   private PageReadStore pages;
   private long nRows = 0L;
+  // rows skipped because their id was null or blank; reported when the iterator closes
+  private long skippedRows = 0L;
+  private boolean summaryLogged = false;
   private RecordReader<Group> recordReader;
 
   /**
@@ -79,6 +82,10 @@ public class ParquetFileIterator implements Iterator<Document> {
       } catch (IOException e) {
         log.warn("Error closing ParquetFileReader:", e);
       }
+      if (skippedRows > 0 && !summaryLogged) {
+        summaryLogged = true;
+        log.warn("Skipped {} rows of the Parquet file because their id was null or blank.", skippedRows);
+      }
       return false;
     } else {
       return true;
@@ -91,6 +98,7 @@ public class ParquetFileIterator implements Iterator<Document> {
       throw new NoSuchElementException("Requested document from Parquet, but hasNext() is false.");
     }
 
+    boolean skippedUnusableId = false;
     while (nRows > 0) {
       nRows--;
       // read records regardless of whether we will skip them...
@@ -105,14 +113,22 @@ public class ParquetFileIterator implements Iterator<Document> {
         continue;
       }
 
-      return createDocumentFromSimpleGroup(simpleGroup);
+      Document doc = createDocumentFromSimpleGroup(simpleGroup);
+      if (doc != null) {
+        return doc;
+      }
+      // the row had no usable id and was skipped; keep reading
+      skippedUnusableId = true;
     }
 
-    // This is unlikely to occur - a combination of skipping a row AND readNewPages() failing due to an IOException within the loop.
+    // This is reached after skipping rows that had no usable id and then running out of rows, or, unlikely, after skipping
+    // a row AND readNewPages() failing due to an IOException within the loop.
     // The constructor handles the case of numToSkip being greater than the number of rows to read, so this doesn't execute
     // simply due to "running out".
     // hasNext() WILL be false after this, so the iterator will be able to close.
-    log.warn("ParquetFileIterator.next() is returning null.");
+    if (!skippedUnusableId) {
+      log.warn("ParquetFileIterator.next() is returning null.");
+    }
     return null;
   }
 
@@ -144,9 +160,16 @@ public class ParquetFileIterator implements Iterator<Document> {
     }
   }
 
-  // Creates a document from the given SimpleGroup, and increments count by 1.
+  // Creates a document from the given SimpleGroup, and increments count by 1. Returns null, and does not increment count,
+  // if the row's id is null or blank, because such a row cannot be told apart from others like it.
   private Document createDocumentFromSimpleGroup(SimpleGroup simpleGroup) {
-    String id = simpleGroup.getString(idField, 0);
+    // a null value in an optional column has no repetitions, and reading it would throw
+    String id = simpleGroup.getFieldRepetitionCount(idField) == 0 ? null : simpleGroup.getString(idField, 0);
+    if (!Document.isValidId(id)) {
+      skippedRows++;
+      log.error("Skipping a row of the Parquet file, after {} documents: its id field \"{}\" is null or blank.", count, idField);
+      return null;
+    }
     Document doc = Document.create(id);
 
     for (int j = 0; j < fields.size(); j++) {

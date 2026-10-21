@@ -4,6 +4,7 @@ import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.opencsv.CSVParser;
@@ -30,6 +31,11 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A file handler for CSV files. Extracts documents from the rows of a CSV file.
+ *
+ * <p>A row that cannot be turned into a Document is logged and skipped, and the following rows are still processed.
+ * This covers a blank line, a row with the wrong number of columns, and a row whose id, built from the idFields, is
+ * blank as a whole. An id with only some blank parts, such as "2_" from two columns, is usable. If 10 rows in a row cannot
+ * be read the file fails, because the cause is then likely a wrong configuration or the wrong file format.
  */
 public class CSVFileHandler extends BaseFileHandler {
 
@@ -96,6 +102,8 @@ public class CSVFileHandler extends BaseFileHandler {
   private Iterator<Document> getDocumentIterator(CSVReader reader, String filename, String path) throws FileHandlerException {
     return new Iterator<Document>() {;
       final CSVReader csvReader = reader;
+      final BadRecordTracker tracker = new BadRecordTracker(path);
+      boolean finished = false;
       final String[] header = getHeaderFromCSV(csvReader, path);
       final HashMap<String, Integer> columnIndexMap = getColumnIndexMap(header, path);
       final List<Integer> idColumns = getIdColumns(columnIndexMap, path);
@@ -112,6 +120,10 @@ public class CSVFileHandler extends BaseFileHandler {
           } catch (IOException e) {
             log.error("Error closing CSVReader. ({})", path, e);
           }
+          if (!finished) {
+            finished = true;
+            tracker.logSummary(lineNum);
+          }
         }
         return hasNext;
       }
@@ -124,21 +136,37 @@ public class CSVFileHandler extends BaseFileHandler {
             throw new IllegalStateException(String.format("No more lines to process. (%s)", path));
           }
 
-          line = csvIterator.next();
-          lineNum++;
+          // rows that cannot be turned into a Document are skipped, so keep reading until there is one, or no more rows
+          while (true) {
+            line = csvIterator.next();
+            lineNum++;
 
-          if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
-            log.warn("Skipping blank line {}. ({})", lineNum, path);
-            return next();
-          }
-          if (line.length != header.length) {
-            // the line/row number reported here may differ from the physical line number in the file, if the CSV contains
-            // a quoted value that spans multiple lines
-            log.warn("Logical row {} has {} columns but the header has {}. Skipping line. ({})", lineNum, line.length, header.length, path);
-            return next();
-          }
+            if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
+              log.warn("Skipping blank line {}. ({})", lineNum, path);
+            } else if (line.length != header.length) {
+              // the line/row number reported here may differ from the physical line number in the file, if the CSV contains
+              // a quoted value that spans multiple lines
+              log.warn("Logical row {} has {} columns but the header has {}. Skipping line. ({})", lineNum, line.length, header.length, path);
+            } else {
+              try {
+                Document doc = getDocumentFromLine(idColumns, header, line, filename, path, lineNum);
+                tracker.good();
+                return doc;
+              } catch (DocumentException | IllegalArgumentException e) {
+                // a problem with this row's data: skip it and carry on with the next row
+                tracker.bad(lineNum, e.getMessage());
+              }
+            }
 
-          return getDocumentFromLine(idColumns, header, line, filename, path, lineNum);
+            if (!hasNext()) {
+              // the remaining rows were all skipped; the caller treats null as "no document" and then sees hasNext() is false
+              return null;
+            }
+          }
+        } catch (BadRecordTracker.TooManyBadRecordsException e) {
+          log.error("Error processing CSV line {}. ({})", lineNum, path, e);
+          closeQuietly();
+          throw e;
         } catch (Exception e) {
           log.error("Error processing CSV line {}. ({})", lineNum, path, e);
 
@@ -151,10 +179,19 @@ public class CSVFileHandler extends BaseFileHandler {
           return null;
         }
       }
+
+      private void closeQuietly() {
+        try {
+          csvReader.close();
+        } catch (IOException e) {
+          log.error("Error closing CSVReader. ({})", path, e);
+        }
+      }
     };
   }
 
-  private Document getDocumentFromLine(List<Integer> idColumns, String[] header, String[] line, String filename, String path, int lineNum) {
+  private Document getDocumentFromLine(List<Integer> idColumns, String[] header, String[] line, String filename, String path, int lineNum)
+      throws DocumentException {
     String docId = "";
     if (!idColumns.isEmpty()) {
       // let's get the columns with the values for the id.
@@ -171,7 +208,12 @@ public class CSVFileHandler extends BaseFileHandler {
         }
       }
 
-      docId = createDocId(idColumnData);
+      String rawId = rawDocId(idColumnData);
+      // an id with only some blank parts, such as "2_", is usable; one that is blank as a whole is not
+      if (!Document.isValidId(rawId)) {
+        throw new DocumentException("the id built from columns " + idFields + " is blank");
+      }
+      docId = createDocId(rawId);
     } else {
       // a default unique id for a csv file is filename + line num
       docId = docIdPrefix + filename + "-" + lineNum;
@@ -278,15 +320,13 @@ public class CSVFileHandler extends BaseFileHandler {
     return s;
   }
 
-  private String createDocId(ArrayList<String> idColumnData) {
-    // format the string with the data and pre-pend the doc id prefix
+  // builds the id from the values of the id columns, before the doc id prefix is added
+  private String rawDocId(ArrayList<String> idColumnData) {
     if (docIdFormat != null) {
-      return createDocId(String.format(docIdFormat, idColumnData.toArray()));
+      return String.format(docIdFormat, idColumnData.toArray());
     } else {
-      // no doc id.. just choose the first value in the idColumnData
       // Join the column data with an underscore if no docIdFormat provided.
-      String idData = StringUtils.join(idColumnData, "_");
-      return createDocId(idData);
+      return StringUtils.join(idColumnData, "_");
     }
   }
 
