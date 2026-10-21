@@ -42,8 +42,8 @@ public class LockRegistry {
    * @param key The key for the lock.
    */
   public void release(String key) {
-    // in one action, get the lock, unlock, and mgrCount...
-    // if mgrCount is now zero, return null --> cleanup preventing unbounded usage
+    // in one action, get the lock, unlock, and refCount...
+    // if refCount is now zero, return null --> cleanup preventing unbounded usage
     locks.compute(key, (k, existing) -> {
       if (existing == null) {
         throw new IllegalStateException("No lock for key \"" + key + "\".");
