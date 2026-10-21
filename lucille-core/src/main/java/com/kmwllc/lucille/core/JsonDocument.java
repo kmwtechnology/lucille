@@ -1047,6 +1047,15 @@ public class JsonDocument implements Document {
   }
 
   @Override
+  public void setFailureMetadata(String reason, String component, Instant time) {
+    // Written directly (bypassing validateFieldNames) because these are reserved fields. The Instant is stored as an
+    // ISO-8601 string, matching setField(String, Instant) for a JsonDocument.
+    data.put(FAILURE_REASON_FIELD, reason);
+    data.put(FAILURE_COMPONENT_FIELD, component);
+    data.put(FAILURE_TIME_FIELD, DateTimeFormatter.ISO_INSTANT.format(time));
+  }
+
+  @Override
   public void removeDuplicateValues(String fieldName, String targetFieldName) {
     if (!isMultiValued(fieldName)) {
       return;

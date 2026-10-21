@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,7 +61,31 @@ public interface Document {
   String CHILDREN_FIELD = "___children";
   String DROP_FIELD = "___dropped";
   String SKIP_FIELD = "___skipped";
-  Set<String> RESERVED_FIELDS = new HashSet<>(List.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD));
+
+  /* --- FAILURE METADATA FIELDS (stamped when sending to the fail topic) --- */
+
+  String FAILURE_REASON_FIELD = "___failure_reason";
+  String FAILURE_COMPONENT_FIELD = "___failure_component";
+  String FAILURE_TIME_FIELD = "___failure_time";
+
+  /*
+   * Reserved fields are Lucille-owned bookkeeping fields, not user data. They are protected: setField and the other
+   * field mutators reject them (see validateFieldNames), connectors and stages that copy fields skip them, the
+   * FieldFilter preserves them, and a JSONata transform may not mutate them. Lucille sets them through dedicated
+   * methods that bypass that guard (e.g. setDropped, setFailureMetadata).
+   *
+   * The failure-metadata fields are additionally stripped from the document written to a search index (see the
+   * Indexer's indexer-doc conversion). A document is stamped when it is sent to the fail topic and is not indexed in
+   * that run, but a document replayed from the fail topic still carries the fields, so they must not reach the index
+   * then. They are grouped in INDEXING_EXCLUDED_FIELDS for that purpose. (The FieldFilter
+   * preserves reserved fields, so this stripping has to be explicit; it is not implied by reservation.)
+   */
+  Set<String> INDEXING_EXCLUDED_FIELDS = new HashSet<>(List.of(
+      FAILURE_REASON_FIELD, FAILURE_COMPONENT_FIELD, FAILURE_TIME_FIELD));
+
+  Set<String> RESERVED_FIELDS = Stream.concat(
+      Stream.of(ID_FIELD, RUNID_FIELD, CHILDREN_FIELD, DROP_FIELD, SKIP_FIELD),
+      INDEXING_EXCLUDED_FIELDS.stream()).collect(Collectors.toCollection(HashSet::new));
 
 
   /* --- SINGLE-VALUE GETTERS --- */
@@ -534,6 +560,14 @@ public interface Document {
   boolean isSkipped();
 
   void setSkipped(boolean status);
+
+  /**
+   * Stamps the failure-metadata fields (FAILURE_REASON_FIELD, FAILURE_COMPONENT_FIELD, FAILURE_TIME_FIELD)
+   * describing why and where this document failed. These are reserved fields, so this
+   * dedicated setter is the only supported way to set them (setField would reject them). Called by the Worker and
+   * Indexer before routing a failed document to the fail topic.
+   */
+  void setFailureMetadata(String reason, String component, Instant time);
 
   Document deepCopy();
 

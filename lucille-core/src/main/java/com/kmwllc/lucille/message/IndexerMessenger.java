@@ -54,6 +54,11 @@ public interface IndexerMessenger {
   void batchComplete(List<Document> batch) throws Exception;
 
   /**
+   * Submit a given Document to the "Dead Letter Queue" (fail topic) for Documents that could not be indexed.
+   */
+  void sendFailed(Document document) throws Exception;
+
+  /**
    * Registers a hook the messenger runs, on the indexer thread, when it learns a partition is about to be revoked in a
    * consumer-group rebalance — before the partition is handed off. The Indexer registers an action here that flushes
    * its open batch and drains in-flight batches, so their offsets are committed before the handoff and a <i>clean</i>

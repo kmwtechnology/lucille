@@ -471,4 +471,18 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     assertEquals(40, fieldNamesParsed);
   }
 
+  @Test
+  public void testReservedInternalFieldsSurviveRoundTrip() throws Exception {
+    // A document routed to the fail topic is serialized in full, so the stamped reserved fields must round-trip
+    // through JSON. This is the JsonDocument/KafkaDocument path, which is the only path that actually reaches the
+    // fail topic.
+    Document document = createDocument("123");
+    document.setFailureMetadata("boom", "worker", Instant.ofEpochSecond(10000));
+
+    Document roundTripped = createDocumentFromJson(document.toString());
+    assertEquals("boom", roundTripped.getString(Document.FAILURE_REASON_FIELD));
+    assertEquals("worker", roundTripped.getString(Document.FAILURE_COMPONENT_FIELD));
+    assertEquals(Instant.ofEpochSecond(10000), roundTripped.getInstant(Document.FAILURE_TIME_FIELD));
+  }
+
 }

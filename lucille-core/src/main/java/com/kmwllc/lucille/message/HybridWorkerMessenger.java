@@ -24,6 +24,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
+  private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final LinkedBlockingQueue<Document> pipelineDest;
   private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
@@ -43,6 +44,12 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.pipelineDest = pipelineDest;
     this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
+    // In WorkerIndexer (hybrid) mode, sendForIndexing writes to the in-memory pipelineDest queue, so the document
+    // producer is used only to write to the fail topic. Create it only when the fail topic can be used; otherwise
+    // constructing this messenger would require Kafka producer config (e.g. kafka.bootstrapServers) that a worker
+    // not using the fail topic has no reason to supply. Mirrors how createEventProducer returns null when events
+    // are disabled.
+    this.kafkaDocumentProducer = KafkaUtils.workerFailTopicEnabled(config) ? KafkaUtils.createDocumentProducer(config) : null;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, sourceConsumer);
@@ -154,6 +161,16 @@ public class HybridWorkerMessenger implements WorkerMessenger {
 
   @Override
   public void sendFailed(Document document) throws Exception {
+    if (kafkaDocumentProducer == null) {
+      // Should not happen: the Worker only calls sendFailed when the fail topic is enabled, which is exactly when the
+      // producer is created. Fail loudly on a misconfiguration rather than NPE.
+      throw new IllegalStateException(
+          "sendFailed called but the fail topic is not enabled (worker.sendFailedDocsToTopic / worker.maxRetries)");
+    }
+    // blocks until the broker acks, so the fail-topic write is durable before we return
+    ProducerRecord<String, Document> producerRecord =
+        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
+    kafkaDocumentProducer.send(producerRecord).get();
   }
 
   @Override
@@ -179,6 +196,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   public void close() throws Exception {
     if (sourceConsumer != null) {
       sourceConsumer.close();
+    }
+    if (kafkaDocumentProducer != null) {
+      kafkaDocumentProducer.close();
     }
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();

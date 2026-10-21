@@ -33,6 +33,8 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
+    // In fully-distributed mode this document producer is the primary dispatch path (sendForIndexing writes to the
+    // dest topic), so it is always created; sendFailed reuses it for the fail topic.
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
@@ -87,10 +89,12 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
         new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
   }
 
+  @Override
   public void sendFailed(Document document) throws Exception {
+    // blocks until the broker acks, so the fail-topic write is durable before we return
     ProducerRecord<String, Document> producerRecord =
         new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    RecordMetadata metadata = kafkaDocumentProducer.send(producerRecord).get();
+    kafkaDocumentProducer.send(producerRecord).get();
   }
 
   @Override

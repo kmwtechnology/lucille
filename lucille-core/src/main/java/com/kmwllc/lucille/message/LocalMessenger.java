@@ -67,9 +67,9 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
     pipelineDest.put(document);
   }
 
+  /** In local mode there is no fail topic, so this is a no-op. */
   @Override
   public void sendFailed(Document document) throws Exception {
-
   }
 
   @Override

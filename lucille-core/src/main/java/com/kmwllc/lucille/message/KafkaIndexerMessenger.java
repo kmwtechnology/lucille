@@ -25,6 +25,7 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaIndexerMessenger.class);
   private final Consumer<String, KafkaDocument> destConsumer;
+  private final KafkaProducer<String, Document> kafkaDocumentProducer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
@@ -46,6 +47,11 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     this.offsetCommitTracker = new OffsetCommitTracker(destConsumer);
     this.destConsumer.subscribe(Collections.singletonList(KafkaUtils.getDestTopicName(pipelineName)),
         offsetCommitTracker.rebalanceListener());
+    // The document producer is used only to write to the fail topic (sendFailed). Create it only when the fail topic
+    // is enabled; otherwise an Indexer not using the fail topic would need Kafka producer config it has no reason to
+    // supply. Mirrors how createEventProducer returns null when events are disabled.
+    this.kafkaDocumentProducer = KafkaUtils.indexerFailTopicEnabled(config)
+        ? KafkaUtils.createDocumentProducer(config) : null;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     this.config = config;
     this.deserializationErrorHandler =
@@ -166,6 +172,22 @@ public class KafkaIndexerMessenger implements IndexerMessenger {
     // Commit offsets of batches completed but not yet committed, so a clean shutdown does not force their re-delivery.
     offsetCommitTracker.commitOnClose();
     destConsumer.close();
+    if (kafkaDocumentProducer != null) {
+      kafkaDocumentProducer.close();
+    }
+  }
+
+  @Override
+  public void sendFailed(Document document) throws Exception {
+    if (kafkaDocumentProducer == null) {
+      // Should not happen: the Indexer only calls sendFailed when indexer.sendFailedDocsToTopic is enabled, which is
+      // exactly when the producer is created. Fail loudly on a misconfiguration rather than NPE.
+      throw new IllegalStateException("sendFailed called but indexer.sendFailedDocsToTopic is not enabled");
+    }
+    // blocks until the broker acks, so the fail-topic write is durable before we return
+    ProducerRecord<String, Document> producerRecord =
+        new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
+    kafkaDocumentProducer.send(producerRecord).get();
   }
 
   /**
