@@ -409,15 +409,24 @@ public class JsonDocument implements Document {
   }
 
   /**
-   * Converts a node to a float with the same coercion as the other numeric getters (asInt, asLong, asDouble): a
-   * numeric string such as "1.5" is parsed and a boolean becomes 1 or 0.
+   * Converts a node to a float. A number is converted with floatValue(). Anything else is coerced the way the other
+   * numeric getters (asInt, asLong, asDouble) coerce: a numeric string such as "1.5" is parsed and a boolean becomes 1
+   * or 0.
    *
-   * <p>Jackson has no asFloat(). The only float accessor, floatValue(), does not coerce: it returns 0 for anything that
-   * is not a numeric node, so a field holding "1.5" would read as 0.0 through getFloat() but 1.5 through getDouble().
-   * Going through asDouble() applies the coercing behavior consistently across the getters.
+   * <p>Jackson has no asFloat(), and floatValue() does not coerce: it returns 0 for anything that is not a number.
+   * Using it for every node would make a field holding "1.5" read as 0.0 through getFloat() but as 1.5 through
+   * getDouble(). Nodes that are not numbers therefore go through asDouble(), which coerces them consistently with the
+   * other getters.
+   *
+   * <p>Numbers are not converted that way, because going through a double rounds twice, first to a double and then to a
+   * float. When the first rounding lands exactly on the midpoint between two floats, the second can round the wrong
+   * way, giving a result one float step from the nearest float. That can happen for a long above 2^53 or a decimal value
+   * that is extremely close to such a midpoint; it does not happen for the float, double and int values that make up
+   * ordinary data. floatValue() rounds once, straight from the stored value to the nearest float, so every number is
+   * converted exactly.
    */
   private static float toFloat(JsonNode node) {
-    return (float) node.asDouble();
+    return node.isNumber() ? node.floatValue() : (float) node.asDouble();
   }
 
   @Override

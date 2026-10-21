@@ -6,8 +6,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.typesafe.config.ConfigFactory;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -521,6 +523,24 @@ public class JsonDocumentTest extends DocumentTest.NodeDocumentTest {
     copy.setField("other", "val");
     assertEquals(10, doc.getBytes("bytes")[0]);
     assertFalse(doc.has("other"));
+  }
+
+  @Test
+  public void testGetFloatOnNumbersRoundsOnce() {
+    // A number is converted to the nearest float in one step. Converting through a double first rounds twice, and for
+    // these values the two roundings give a result one float step away.
+    long nearMidpoint = (1L << 60) + (1L << 36) + 1;
+    assertNotEquals((float) nearMidpoint, (float) (double) nearMidpoint, 0f);   // the case this guards against
+    Document doc = Document.create("id1");
+    doc.setField("long", nearMidpoint);
+    assertEquals((float) nearMidpoint, doc.getFloat("long"), 0f);
+    doc.addToField("longs", nearMidpoint);
+    assertEquals((float) nearMidpoint, doc.getFloatList("longs").get(0), 0f);
+
+    // a decimal just above the midpoint between 1.0f and the next float rounds up, as Float.parseFloat does
+    String justAboveMidpoint = "1.00000005960464477539062500000000000000001";
+    doc.setField("decimal", new DecimalNode(new BigDecimal(justAboveMidpoint)));
+    assertEquals(Float.parseFloat(justAboveMidpoint), doc.getFloat("decimal"), 0f);
   }
 
   @Test
