@@ -3,6 +3,7 @@ package com.kmwllc.lucille.message;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
@@ -59,7 +60,7 @@ public class KafkaUtils {
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
       // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
-      .optionalParent("event", new TypeReference<Map<String, Object>>(){}).build();
+      .optionalParent(EventFieldConfig.SPEC).build();
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;

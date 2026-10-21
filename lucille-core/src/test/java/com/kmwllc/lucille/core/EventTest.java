@@ -1,8 +1,13 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -16,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(JUnit4.class)
@@ -168,17 +174,96 @@ public class EventTest {
   }
 
   @Test
-  public void testMaxValuesPerFieldZeroYieldsEmptyArray() throws Exception {
-    Document doc = Document.create("id1", "runId1");
-    doc.addToField("tags", "a");
-    doc.addToField("tags", "b");
+  public void testInvalidLimitsRejected() {
+    assertThrows(IllegalArgumentException.class, () -> configFor(List.of("tags"), 0));
+    assertThrows(IllegalArgumentException.class, () -> configFor(List.of("tags"), -5));
+    Config badLength = ConfigFactory.parseMap(Map.of(
+        "kafka.event.includeFields", List.of("tags"), "kafka.event.maxValueLength", 0));
+    assertThrows(IllegalArgumentException.class, () -> EventFieldConfig.fromConfig(badLength));
+  }
 
-    // a cap of 0 truncates every value out, leaving an empty array (not null; the field is still present)
-    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("tags"), 0));
-    ObjectNode fields = event.getDocumentFields();
-    assertTrue(fields.has("tags"));
-    assertTrue(fields.get("tags").isArray());
-    assertEquals(0, fields.get("tags").size());
+  @Test
+  public void testSpecRejectsUnknownKeyAndWrongTypes() {
+    Spec spec = KafkaUtils.SPEC;
+    Config base = ConfigFactory.parseMap(Map.of(
+        "bootstrapServers", "localhost:9092", "consumerGroupId", "g",
+        "maxPollIntervalSecs", 10, "maxRequestSize", 1000));
+    spec.validate(base.withFallback(ConfigFactory.parseMap(
+        Map.of("event.includeFields", List.of("a"), "event.maxValueLength", 5))), "kafka");
+
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(base.withFallback(
+        ConfigFactory.parseMap(Map.of("event.includeField", List.of("a")))), "kafka"));
+    assertThrows(IllegalArgumentException.class, () -> spec.validate(base.withFallback(
+        ConfigFactory.parseMap(Map.of("event.maxValuesPerField", "ten"))), "kafka"));
+  }
+
+  @Test
+  public void testNestedValuesSkipped() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.setField("flat", "ok");
+    doc.setField("obj", JsonNodeFactory.instance.objectNode().put("a", 1));
+    doc.setField("nestedArray", JsonNodeFactory.instance.arrayNode()
+        .add("x").add(JsonNodeFactory.instance.arrayNode().add("y")));
+
+    ObjectNode fields = new Event(doc, "msg", Event.Type.FINISH,
+        configFor(List.of("flat", "obj", "nestedArray"), null)).getDocumentFields();
+    assertEquals(1, fields.size());
+    assertEquals("ok", fields.get("flat").asText());
+  }
+
+  @Test
+  public void testOverlongStringSkippedNotTruncated() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.setField("long", "abcdef");
+    doc.addToField("longInArray", "ab");
+    doc.addToField("longInArray", "abcdef");
+    doc.setField("short", "abc");
+
+    Map<String, Object> map = new HashMap<>();
+    map.put("kafka.event.includeFields", List.of("long", "longInArray", "short"));
+    map.put("kafka.event.maxValueLength", 3);
+    ObjectNode fields = new Event(doc, "msg", Event.Type.FINISH,
+        EventFieldConfig.fromConfig(ConfigFactory.parseMap(map)))
+        .getDocumentFields();
+
+    // a partially copied or truncated value would be misleading (e.g. invalid embedded JSON), so skip whole field
+    assertEquals(1, fields.size());
+    assertEquals("abc", fields.get("short").asText());
+  }
+
+  @Test
+  public void testArrayOfJsonStringsCopiedAsStrings() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.addToField("payloads", "{\"a\":1}");
+    doc.addToField("payloads", "{\"b\":2}");
+
+    ObjectNode fields = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("payloads"), null))
+        .getDocumentFields();
+    assertEquals(2, fields.get("payloads").size());
+    assertTrue(fields.get("payloads").get(0).isTextual());
+    assertEquals("{\"a\":1}", fields.get("payloads").get(0).asText());
+  }
+
+  @Test
+  public void testNullValuedFieldSkipped() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.setField("nothing", JsonNodeFactory.instance.nullNode());
+    doc.setField("flat", "ok");
+
+    ObjectNode fields = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("nothing", "flat"), null))
+        .getDocumentFields();
+    assertFalse(fields.has("nothing"));
+    assertTrue(fields.has("flat"));
+  }
+
+  @Test
+  public void testObjectNodeConstructorKeepsDocumentFields() throws Exception {
+    Document doc = Document.create("id1", "runId1");
+    doc.setField("source", "s3://b/k");
+    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("source"), null));
+
+    Event fromNode = new Event((ObjectNode) new ObjectMapper().readTree(event.toString()));
+    assertEquals("s3://b/k", fromNode.getDocumentFields().get("source").asText());
   }
 
   @Test
@@ -262,7 +347,7 @@ public class EventTest {
   }
 
   private static EventFieldConfig configFor(List<String> fields, Integer maxValues) {
-    java.util.Map<String, Object> map = new java.util.HashMap<>();
+    Map<String, Object> map = new HashMap<>();
     map.put("kafka.event.includeFields", fields);
     if (maxValues != null) {
       map.put("kafka.event.maxValuesPerField", maxValues);

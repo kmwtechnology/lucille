@@ -84,6 +84,9 @@ public class Event {
     this.message = node.get("message").asText();
     this.runId = node.get("runId").asText();
     this.type = Type.valueOf(node.get("type").asText());
+    if (node.get("documentFields") instanceof ObjectNode) {
+      this.documentFields = (ObjectNode) node.get("documentFields");
+    }
   }
 
   public String getDocumentId() {
