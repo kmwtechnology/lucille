@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -85,8 +86,17 @@ public abstract class AbstractConnector implements Connector {
   /**
    * Creates an extended doc ID by adding a prefix (and possibly in the future, a suffix) to the
    * given id.
+   *
+   * <p>The id is a value read from a source system, which may be bad data. Callers should check it with
+   * {@link Document#isValidId(String)} first, and skip and report the record if it is not valid. This method
+   * refuses a null or blank id, instead of building an id like "prefixnull" that would be shared by every such record.
+   *
+   * @throws IllegalArgumentException if the id is null or blank
    */
   public String createDocId(String id) {
+    if (!Document.isValidId(id)) {
+      throw new IllegalArgumentException("Cannot create a document id from a null or blank source id.");
+    }
     return docIdPrefix + id;
   }
 
