@@ -1,0 +1,20 @@
+# Dropwizard config for the API container in this example. Mounted into the container and
+# selected via DROPWIZARD_CONF, so this also exercises running the image with an external config.
+server:
+  type: default
+  requestLog:
+    type: external
+logging:
+  type: external
+# Auth is enabled so the verifier can check that protected endpoints reject unauthenticated requests.
+auth:
+  type: "basicAuth"
+  enabled: true
+  password: "example-password"
+swagger:
+  resourcePackage: "com.kmwllc.lucille.endpoints"
+  title: Lucille API
+  description: Lucille API
+  version: 0.0.1
+  contact: info@kmwllc.com
+  license: Apache 2.0

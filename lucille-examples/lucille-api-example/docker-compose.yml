@@ -1,0 +1,31 @@
+name: lucille-api-example
+
+services:
+  # Built from the same Dockerfile that release-to-docker.yml publishes as kmwtechnology/lucille-api.
+  # Requires target/lucille-api-plugin.jar, built with `mvn clean install -Pshaded-plugin-jars`.
+  api:
+    build:
+      context: ../../lucille-plugins/lucille-api
+      dockerfile: Dockerfile
+    image: lucille-api:api-example
+    environment:
+      DROPWIZARD_CONF: /conf/api.yml
+    volumes:
+      - ./conf:/conf:ro
+    ports:
+      - 8080:8080
+    networks:
+      - lucille-net
+
+  # Exercises the API over HTTP (see verifier/verify.sh) and exits non-zero if any check fails.
+  verifier:
+    build:
+      context: ./verifier
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - lucille-net
+
+networks:
+  lucille-net:
