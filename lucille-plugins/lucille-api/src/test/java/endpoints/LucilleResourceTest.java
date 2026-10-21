@@ -3,6 +3,7 @@ package endpoints;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeNotNull;
 
 import com.kmwllc.lucille.objects.RunRequest;
 import jakarta.ws.rs.core.Response;
@@ -63,12 +64,19 @@ public class LucilleResourceTest {
   }
 
   @Test
-  public void testCreateConfig_UnresolvedSubstitution() {
-    String configBody = "pipeline = ${LUCILLE_TEST_UNSET_ENV_VAR}";
+  public void testCreateConfig_EnvVarSubstitutionRejected() {
+    // an env var that is set on this machine
+    String envVar = System.getenv().keySet().stream()
+        .filter(name -> name.matches("[A-Za-z_][A-Za-z0-9_]*"))
+        .findFirst()
+        .orElse(null);
+    assumeNotNull(envVar);
+
+    String configBody = "pipeline = ${" + envVar + "}";
     Response response = lucilleResource.createConfig(configBody);
     assertEquals(Status.BAD_REQUEST.getStatusCode(), response.getStatus());
 
-    // the rejected config shouldn't be stored, so listing configs still works
+    // a rejected config isn't stored, so listing configs succeeds
     Response allConfigsResponse = lucilleResource.getAllConfigs();
     assertEquals(Status.OK.getStatusCode(), allConfigsResponse.getStatus());
   }

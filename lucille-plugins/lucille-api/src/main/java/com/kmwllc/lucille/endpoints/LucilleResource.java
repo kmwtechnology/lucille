@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigResolveOptions;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -102,10 +103,11 @@ public class LucilleResource {
               example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
 
     try {
-      // Resolve substitutions before storing the config. An unresolved config can't be returned by the
-      // GET /config endpoints. Unlike PresetConfigHandler, we don't merge in ConfigFactory.defaultOverrides(),
-      // as it would add every JVM system property to the stored config.
-      Config config = ConfigFactory.parseString(configBody).resolve();
+      // Resolve substitutions before storing the config, since an unresolved config can't be returned by the
+      // GET /config endpoints. Environment variables are not available to POSTed configs, as API callers
+      // could read the host's environment back out of GET /config, so a ${ENV_VAR} reference returns a 400.
+      Config config = ConfigFactory.parseString(configBody)
+          .resolve(ConfigResolveOptions.defaults().setUseSystemEnvironment(false));
       CreateConfigResult result = runnerManager.createConfig(config);
       log.info("a lucille config has been created. Config ID: " + result.getConfigId());
       return Response.ok(result).build();
