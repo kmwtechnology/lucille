@@ -58,11 +58,14 @@ public class EventFieldConfig {
 
   public static final int DEFAULT_MAX_VALUE_LENGTH = 1024;
 
+  // marks maxValuesPerField as unset (no cap on array length)
+  private static final int NO_LIMIT = -1;
+
   private static final JsonNodeFactory NODE_FACTORY = JsonNodeFactory.instance;
 
   /** Shared instance representing "no enrichment"; used when config is absent or empty. */
   public static final EventFieldConfig DISABLED =
-      new EventFieldConfig(Collections.emptyList(), -1, DEFAULT_MAX_VALUE_LENGTH);
+      new EventFieldConfig(Collections.emptyList(), NO_LIMIT, DEFAULT_MAX_VALUE_LENGTH);
 
   private final List<String> includeFields;
   private final int maxValuesPerField;
@@ -99,13 +102,13 @@ public class EventFieldConfig {
       return DISABLED;
     }
 
-    int maxValues = positiveInt(config, "maxValuesPerField", -1);
-    int maxLength = positiveInt(config, "maxValueLength", DEFAULT_MAX_VALUE_LENGTH);
+    int maxValues = getPositiveIntOrDefault(config, "maxValuesPerField", NO_LIMIT);
+    int maxLength = getPositiveIntOrDefault(config, "maxValueLength", DEFAULT_MAX_VALUE_LENGTH);
 
     return new EventFieldConfig(Collections.unmodifiableList(fields), maxValues, maxLength);
   }
 
-  private static int positiveInt(Config config, String key, int defaultValue) {
+  private static int getPositiveIntOrDefault(Config config, String key, int defaultValue) {
     String path = EVENT_PATH + "." + key;
     if (!config.hasPath(path)) {
       return defaultValue;
@@ -118,7 +121,7 @@ public class EventFieldConfig {
   }
 
   /** Returns true if no source-document fields should be embedded. */
-  public boolean isEmpty() {
+  public boolean isDisabled() {
     return includeFields.isEmpty();
   }
 
@@ -132,7 +135,7 @@ public class EventFieldConfig {
    *     or none of the requested fields qualify (so the Event omits {@code documentFields} entirely).
    */
   public ObjectNode extract(Document document) {
-    if (isEmpty() || document == null) {
+    if (isDisabled() || document == null) {
       return null;
     }
 
@@ -147,7 +150,7 @@ public class EventFieldConfig {
         continue;
       }
 
-      JsonNode copy = flatCopy(fieldName, value);
+      JsonNode copy = copyOrNull(fieldName, value);
       if (copy != null) {
         result.set(fieldName, copy);
       }
@@ -156,17 +159,24 @@ public class EventFieldConfig {
     return result.isEmpty() ? null : result;
   }
 
-  /** Returns a copy of a scalar or array of scalars (cut to the value cap), or null if it must be skipped. */
-  private JsonNode flatCopy(String fieldName, JsonNode value) {
+  /** Returns a copy of a scalar or array of scalars (cut to the value cap), or null if the field must be skipped. */
+  private JsonNode copyOrNull(String fieldName, JsonNode value) {
     if (!value.isArray()) {
-      return acceptable(fieldName, value) ? value.deepCopy() : null;
+      String skipReason = getSkipReason(value);
+      if (skipReason != null) {
+        warnSkippedOnce(fieldName, skipReason);
+        return null;
+      }
+      return value.deepCopy();
     }
 
-    int count = maxValuesPerField < 0 ? value.size() : Math.min(value.size(), maxValuesPerField);
+    int count = maxValuesPerField == NO_LIMIT ? value.size() : Math.min(value.size(), maxValuesPerField);
     ArrayNode copy = NODE_FACTORY.arrayNode(count);
     for (int i = 0; i < count; i++) {
       JsonNode element = value.get(i);
-      if (!acceptable(fieldName, element)) {
+      String skipReason = getSkipReason(element);
+      if (skipReason != null) {
+        warnSkippedOnce(fieldName, skipReason);
         return null;
       }
       copy.add(element.deepCopy());
@@ -174,19 +184,18 @@ public class EventFieldConfig {
     return copy;
   }
 
-  private boolean acceptable(String fieldName, JsonNode scalar) {
-    if (scalar.isContainerNode()) {
-      warnSkipped(fieldName, "it contains an object or nested array");
-      return false;
+  /** Returns why the given value cannot be copied onto an event, or null if it can. */
+  private String getSkipReason(JsonNode value) {
+    if (value.isContainerNode()) {
+      return "it is, or contains, an object or nested array";
     }
-    if (scalar.isTextual() && scalar.textValue().length() > maxValueLength) {
-      warnSkipped(fieldName, "a value exceeds " + EVENT_PATH + ".maxValueLength (" + maxValueLength + ")");
-      return false;
+    if (value.isTextual() && value.textValue().length() > maxValueLength) {
+      return "a value exceeds " + EVENT_PATH + ".maxValueLength (" + maxValueLength + ")";
     }
-    return true;
+    return null;
   }
 
-  private void warnSkipped(String fieldName, String reason) {
+  private void warnSkippedOnce(String fieldName, String reason) {
     if (warnedFields.add(fieldName)) {
       log.warn("Not copying field '{}' onto events because {}. Further skips of this field are not logged.",
           fieldName, reason);

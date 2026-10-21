@@ -98,7 +98,7 @@ public class EventTest {
     doc.setField("mimeType", "application/pdf");
     doc.setField("unwanted", "should not appear");
 
-    EventFieldConfig fieldConfig = configFor(List.of("source", "mimeType"), null);
+    EventFieldConfig fieldConfig = fieldConfigFor(List.of("source", "mimeType"), null);
     Event event = new Event(doc, "msg", Event.Type.FINISH, fieldConfig);
 
     ObjectNode fields = event.getDocumentFields();
@@ -119,7 +119,7 @@ public class EventTest {
     doc.addToField("tags", "b");
     doc.setField("single", "only");
 
-    Event event = new Event(doc, "msg", Event.Type.CREATE, configFor(List.of("tags", "single"), null));
+    Event event = new Event(doc, "msg", Event.Type.CREATE, fieldConfigFor(List.of("tags", "single"), null));
     ObjectNode fields = event.getDocumentFields();
 
     // multi-valued field stays an array, single-valued stays a scalar, matching the document's own JSON
@@ -136,11 +136,11 @@ public class EventTest {
     doc.setField("present", "yes");
 
     // "missing" is absent from the doc; requesting only absent fields yields no documentFields at all
-    Event withOnePresent = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("present", "missing"), null));
+    Event withOnePresent = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("present", "missing"), null));
     assertTrue(withOnePresent.getDocumentFields().has("present"));
     assertFalse(withOnePresent.getDocumentFields().has("missing"));
 
-    Event withNonePresent = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("missing"), null));
+    Event withNonePresent = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("missing"), null));
     assertNull(withNonePresent.getDocumentFields());
   }
 
@@ -151,7 +151,7 @@ public class EventTest {
     doc.addToField("tags", "b");
     doc.addToField("tags", "c");
 
-    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("tags"), 2));
+    Event event = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("tags"), 2));
     ObjectNode fields = event.getDocumentFields();
     assertEquals(2, fields.get("tags").size());
     assertEquals("a", fields.get("tags").get(0).asText());
@@ -165,7 +165,7 @@ public class EventTest {
     doc.addToField("tags", "b");
 
     // cap equal to the number of values: nothing is truncated (boundary of value.size() <= max)
-    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("tags"), 2));
+    Event event = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("tags"), 2));
     ObjectNode fields = event.getDocumentFields();
     assertTrue(fields.get("tags").isArray());
     assertEquals(2, fields.get("tags").size());
@@ -175,8 +175,8 @@ public class EventTest {
 
   @Test
   public void testInvalidLimitsRejected() {
-    assertThrows(IllegalArgumentException.class, () -> configFor(List.of("tags"), 0));
-    assertThrows(IllegalArgumentException.class, () -> configFor(List.of("tags"), -5));
+    assertThrows(IllegalArgumentException.class, () -> fieldConfigFor(List.of("tags"), 0));
+    assertThrows(IllegalArgumentException.class, () -> fieldConfigFor(List.of("tags"), -5));
     Config badLength = ConfigFactory.parseMap(Map.of(
         "kafka.event.includeFields", List.of("tags"), "kafka.event.maxValueLength", 0));
     assertThrows(IllegalArgumentException.class, () -> EventFieldConfig.fromConfig(badLength));
@@ -206,7 +206,7 @@ public class EventTest {
         .add("x").add(JsonNodeFactory.instance.arrayNode().add("y")));
 
     ObjectNode fields = new Event(doc, "msg", Event.Type.FINISH,
-        configFor(List.of("flat", "obj", "nestedArray"), null)).getDocumentFields();
+        fieldConfigFor(List.of("flat", "obj", "nestedArray"), null)).getDocumentFields();
     assertEquals(1, fields.size());
     assertEquals("ok", fields.get("flat").asText());
   }
@@ -237,7 +237,7 @@ public class EventTest {
     doc.addToField("payloads", "{\"a\":1}");
     doc.addToField("payloads", "{\"b\":2}");
 
-    ObjectNode fields = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("payloads"), null))
+    ObjectNode fields = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("payloads"), null))
         .getDocumentFields();
     assertEquals(2, fields.get("payloads").size());
     assertTrue(fields.get("payloads").get(0).isTextual());
@@ -250,7 +250,7 @@ public class EventTest {
     doc.setField("nothing", JsonNodeFactory.instance.nullNode());
     doc.setField("flat", "ok");
 
-    ObjectNode fields = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("nothing", "flat"), null))
+    ObjectNode fields = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("nothing", "flat"), null))
         .getDocumentFields();
     assertFalse(fields.has("nothing"));
     assertTrue(fields.has("flat"));
@@ -260,7 +260,7 @@ public class EventTest {
   public void testObjectNodeConstructorKeepsDocumentFields() throws Exception {
     Document doc = Document.create("id1", "runId1");
     doc.setField("source", "s3://b/k");
-    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("source"), null));
+    Event event = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("source"), null));
 
     Event fromNode = new Event((ObjectNode) new ObjectMapper().readTree(event.toString()));
     assertEquals("s3://b/k", fromNode.getDocumentFields().get("source").asText());
@@ -272,7 +272,7 @@ public class EventTest {
     doc.setField("single", "only");
 
     // a single-valued (scalar) field is never truncated regardless of the cap; it stays a scalar
-    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("single"), 1));
+    Event event = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("single"), 1));
     ObjectNode fields = event.getDocumentFields();
     assertFalse(fields.get("single").isArray());
     assertEquals("only", fields.get("single").asText());
@@ -285,7 +285,7 @@ public class EventTest {
     doc.setField("ratio", 3.5);
     doc.setField("flag", true);
 
-    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("count", "ratio", "flag"), null));
+    Event event = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("count", "ratio", "flag"), null));
     ObjectNode fields = event.getDocumentFields();
 
     // raw JsonNode copy preserves the JSON type of each value, not just its string form
@@ -309,7 +309,7 @@ public class EventTest {
     doc.addToField("tags", "a");
     doc.addToField("tags", "b");
 
-    Event event = new Event(doc, "msg", Event.Type.FINISH, configFor(List.of("tags"), null));
+    Event event = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("tags"), null));
     ObjectNode fields = event.getDocumentFields();
     assertEquals(2, fields.get("tags").size());
 
@@ -339,14 +339,14 @@ public class EventTest {
 
   @Test
   public void testFromConfigDisabledWhenAbsentOrEmpty() {
-    assertTrue(EventFieldConfig.fromConfig(ConfigFactory.empty()).isEmpty());
-    assertTrue(EventFieldConfig.fromConfig(null).isEmpty());
+    assertTrue(EventFieldConfig.fromConfig(ConfigFactory.empty()).isDisabled());
+    assertTrue(EventFieldConfig.fromConfig(null).isDisabled());
 
     Config emptyList = ConfigFactory.parseMap(Map.of("kafka.event.includeFields", List.of()));
-    assertTrue(EventFieldConfig.fromConfig(emptyList).isEmpty());
+    assertTrue(EventFieldConfig.fromConfig(emptyList).isDisabled());
   }
 
-  private static EventFieldConfig configFor(List<String> fields, Integer maxValues) {
+  private static EventFieldConfig fieldConfigFor(List<String> fields, Integer maxValues) {
     Map<String, Object> map = new HashMap<>();
     map.put("kafka.event.includeFields", fields);
     if (maxValues != null) {
