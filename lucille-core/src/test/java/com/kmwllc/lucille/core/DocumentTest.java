@@ -36,7 +36,7 @@ public abstract class DocumentTest {
   public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException;
 
-  @Test(expected = NullPointerException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testCreateWithoutId1() {
     createDocument((String) null);
   }
@@ -129,10 +129,25 @@ public abstract class DocumentTest {
     createDocument(new ObjectMapper().createObjectNode());
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testCreateWithEmptyId() {
-    // an empty id is rejected at creation, where the cause is, rather than later when the document is deserialized
-    createDocument("");
+  @Test
+  public void testInvalidIdExceptionTypes() throws Exception {
+    // The exception for an invalid id depends on where the id came from; see "Invalid ids" in Document.
+
+    // an id passed as a Java argument is reported with an unchecked IllegalArgumentException, as an invalid field name is
+    assertThrows(IllegalArgumentException.class, () -> createDocument((String) null));
+    assertThrows(IllegalArgumentException.class, () -> createDocument((String) null, "run1"));
+
+    // an id read from data is a DocumentException that callers can catch to skip the record: JSON text and ObjectNodes
+    for (String json : List.of("{\"a\":1}", "{\"id\":null}", "{\"id\":\"\"}", "{\"id\":1}", "{\"id\":{}}", "{\"id\":[\"a\"]}")) {
+      assertThrows(json, DocumentException.class, () -> createDocumentFromJson(json));
+      assertThrows(json, DocumentException.class, () -> createDocument((ObjectNode) new ObjectMapper().readTree(json)));
+    }
+
+    // an existing document's id cannot be changed or removed
+    Document document = createDocument("123");
+    assertThrows(IllegalArgumentException.class, () -> document.setField(Document.ID_FIELD, "456"));
+    assertThrows(IllegalArgumentException.class, () -> document.removeField(Document.ID_FIELD));
+    assertEquals("123", document.getId());
   }
 
   @Test

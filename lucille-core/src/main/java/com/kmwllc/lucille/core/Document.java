@@ -74,6 +74,25 @@ import org.slf4j.LoggerFactory;
  *   in either Document do not show up in the other.</li>
  *   <li>asMap() builds a new Map with new Lists and byte[] values; modifying it never modifies the Document.</li>
  * </ul>
+ *
+ * <p><b>Invalid ids.</b> Every Document has a non-empty String id. Which exception reports an invalid one depends on
+ * where the id came from, not on what is wrong with it:
+ * <ul>
+ *   <li>An id read from <i>data</i>, meaning JSON text, an ObjectNode or a Kafka record, is checked: a missing, null,
+ *   empty or non-string id is a DocumentException, as is JSON that is not an object, or an id updater that returns a
+ *   null or empty id. A bad record is an expected possibility with external data, so callers can catch this to skip the
+ *   record and continue. Malformed JSON text is a JsonProcessingException, and a Kafka deserializer wraps either in the
+ *   SerializationException that Kafka requires, with the original as its cause.</li>
+ *   <li>An id passed as a Java <i>argument</i>, as in create(String), is reported with an unchecked
+ *   IllegalArgumentException, as an invalid field name is. These factories assume a valid id. Code that obtains ids
+ *   from external data is responsible for validating them first and deciding whether to skip the record or fail; it
+ *   should not rely on the exception. (An empty String id is not currently rejected here, although the ObjectNode and
+ *   JSON paths do reject it.)</li>
+ *   <li>Changing the id of an existing Document is never allowed. Every mutator, including the nested JSON and rename
+ *   methods and the update methods, throws IllegalArgumentException for a reserved field name.</li>
+ * </ul>
+ * In short, a DocumentException means that data being read contained a bad id, and an IllegalArgumentException means
+ * that Java code supplied an unacceptable value.
  */
 public interface Document {
 
@@ -675,22 +694,50 @@ public interface Document {
   // These factories are the designated way to construct a Document outside this package. They are the single
   // place that names the implementation, so swapping it would not require touching callers.
 
+  /**
+   * Creates a Document backed by the given node, which is not copied.
+   *
+   * @throws DocumentException if the node's id is missing, null, empty, or not a string (see "Invalid ids" above)
+   */
   static Document create(ObjectNode node) throws DocumentException {
     return new JsonDocument(node);
   }
 
+  /**
+   * Creates a Document with the given id.
+   *
+   * @throws IllegalArgumentException if the id is null (see "Invalid ids" above)
+   */
   static Document create(String id) {
     return new JsonDocument(id);
   }
 
+  /**
+   * Creates a Document with the given id and run id.
+   *
+   * @throws IllegalArgumentException if the id is null (see "Invalid ids" above)
+   */
   static Document create(String id, String runId) {
     return new JsonDocument(id, runId);
   }
 
+  /**
+   * Creates a Document from JSON text.
+   *
+   * @throws JsonProcessingException if the text is not well-formed JSON
+   * @throws DocumentException if the JSON is not an object or its id is invalid (see "Invalid ids" above)
+   */
   static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
     return createFromJson(json, null);
   }
 
+  /**
+   * Creates a Document from JSON text, replacing its id with the result of the updater when one is given.
+   *
+   * @throws JsonProcessingException if the text is not well-formed JSON
+   * @throws DocumentException if the JSON is not an object, its id is invalid, or the updater returns a null or empty
+   * id (see "Invalid ids" above)
+   */
   static Document createFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }

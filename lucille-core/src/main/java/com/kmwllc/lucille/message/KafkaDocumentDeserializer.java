@@ -10,6 +10,11 @@ import com.kmwllc.lucille.core.KafkaDocument;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Deserializer;
 
+/**
+ * Deserializes a Kafka record value into a {@link KafkaDocument}. A value that is not a JSON object, or whose id is
+ * invalid, fails with a SerializationException, as Kafka requires of a Deserializer, whose cause is the
+ * DocumentException that describes the problem (see "Invalid ids" in {@link Document}).
+ */
 public class KafkaDocumentDeserializer implements Deserializer<Document> {
 
   // a stock ObjectMapper rejects any byte[] field over 15,000,000 bytes (~14.3 MiB) that the serializer happily wrote;
