@@ -35,7 +35,7 @@ public class VerifyApiEndpoints {
   public void testConnectorList() throws Exception {
     HttpResponse<String> response = ApiClient.get("/v1/config-info/connector-list", true);
     assertEquals(200, response.statusCode());
-    JsonNode connectors = ApiClient.mapper.readTree(response.body());
+    JsonNode connectors = ApiClient.json(response);
     assertTrue("connector-list returned no connectors", connectors.isArray() && connectors.size() > 0);
   }
 

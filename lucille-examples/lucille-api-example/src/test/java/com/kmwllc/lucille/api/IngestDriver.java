@@ -43,7 +43,7 @@ public class IngestDriver {
       System.out.println("Uploading " + file + " as " + contentType);
       HttpResponse<String> response = ApiClient.postConfig(Files.readString(Paths.get("/conf", file)), contentType);
       check(response.statusCode() == 200, "config upload for run " + run + " failed: " + response.body());
-      configIds.put(run, ApiClient.mapper.readTree(response.body()).get("configId").asText());
+      configIds.put(run, ApiClient.json(response).get("configId").asText());
     }
     return configIds;
   }
@@ -59,7 +59,7 @@ public class IngestDriver {
     for (String run : RUNS) {
       HttpResponse<String> response = starts.get(run).join();
       check(response.statusCode() == 200, "starting run " + run + " failed: " + response.body());
-      runIds.put(run, ApiClient.mapper.readTree(response.body()).get("runId").asText());
+      runIds.put(run, ApiClient.json(response).get("runId").asText());
     }
     check(!runIds.get("a").equals(runIds.get("b")), "both runs were given the same runId");
     return runIds;
@@ -102,7 +102,7 @@ public class IngestDriver {
     while (true) {
       HttpResponse<String> response = ApiClient.get("/v1/run/" + runId, true);
       check(response.statusCode() == 200, "getting run " + runId + " failed: " + response.body());
-      JsonNode runDetails = ApiClient.mapper.readTree(response.body());
+      JsonNode runDetails = ApiClient.json(response);
       // "done" (rather than endTime) is only true once the run has finished, so runResult is set by then
       // if the run didn't throw. endTime is set just before runResult, so a poll could see one without the other.
       if (runDetails.path("done").asBoolean()) {
