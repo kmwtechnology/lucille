@@ -28,6 +28,13 @@ services:
       - 8080:8080
     networks:
       - lucille-net
+    # The container starts well before Dropwizard is serving requests, so the verifier waits on this.
+    # The image is based on eclipse-temurin, which includes curl.
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "-o", "/dev/null", "http://localhost:8080/v1/readyz"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
 
   # Runs VerifyIngestResult against the API and exits non-zero if any check fails. Needs the example's
   # target/ (test classes and verifier-lib), built by `mvn package`. Reads the configs to upload from
@@ -38,7 +45,8 @@ services:
       dockerfile: ./verifier/Dockerfile
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
+    entrypoint: ["java", "-cp", "/verifier/classes:/verifier/lib/*", "org.junit.runner.JUnitCore", "com.kmwllc.lucille.api.VerifyIngestResult"]
     volumes:
       - ./conf:/conf:ro
       - output:/output:ro

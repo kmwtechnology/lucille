@@ -27,10 +27,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * config, and two concurrent config upload -> run -> completed-run round trips. Each run's output is checked
  * for docs from the other run and for every pipeline stage having been applied.
  * <p>
- * Not picked up by the normal build (the name doesn't match surefire's default includes). It's run by
- * verifier/verification.sh inside the verifier container started by docker-compose.yml, after that script
- * waits for the API to become ready. There, the API is reachable at api:8080, the configs are mounted at
- * /conf, and the runs' CSV output is mounted at /output.
+ * Not picked up by the normal build (the name doesn't match surefire's default includes). It's run by the
+ * verifier container in docker-compose.yml, which starts once the api container's healthcheck passes. There,
+ * the API is reachable at api:8080, the configs are mounted at /conf, and the runs' CSV output is mounted at
+ * /output.
  */
 public class VerifyIngestResult {
 
