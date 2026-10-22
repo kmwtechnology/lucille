@@ -4,10 +4,11 @@ set -e
 # run from the example's root so docker compose picks up docker-compose.yml
 cd "$(dirname "$0")/.."
 
-# verifier only starts once api is healthy, so this fails if the API never becomes ready
+# runner only starts once api is healthy, and verifier only once runner succeeds, so this fails if the API
+# never becomes ready or the runs through it fail
 if ! docker compose up -d --build; then
   echo "failed to start the stack"
-  docker compose logs api
+  docker compose logs runner api
   docker compose down -v
   exit 1
 fi
@@ -20,7 +21,8 @@ docker compose wait verifier || true
 EXIT_CODE=$(docker inspect --format='{{.State.ExitCode}}' "$(docker compose ps -aq verifier)")
 echo "verifier exited with code ${EXIT_CODE}"
 
-docker compose logs verifier
+# runner's logs include each run's details and whether the runs overlapped
+docker compose logs runner verifier
 if [ "$EXIT_CODE" != "0" ]; then
   docker compose logs api
 fi

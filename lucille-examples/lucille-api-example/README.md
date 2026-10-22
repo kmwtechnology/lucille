@@ -9,15 +9,18 @@ Runs the `lucille-api` Docker image (the same Dockerfile published as `kmwtechno
 
 ### What it checks
 
-The `api` service has a healthcheck on its readiness probe, and the `verifier` container starts once it passes. It runs `VerifyIngestResult` (`src/test/java/com/kmwllc/lucille/api/VerifyIngestResult.java`) against the `api` container. It's not run as part of normal Lucille builds. The build also copies the jars it needs into `target/verifier-lib`, which `verifier/Dockerfile` puts into the image. 
+The `api` service has a healthcheck on its readiness probe, so `/v1/readyz` must return 200 before anything else starts. Then the other containers run, in order. Their code is in `src/test/java/com/kmwllc/lucille/api/`, and none of it runs as part of normal Lucille builds.
 
-1. `/v1/readyz` returns 200. This is checked first by the `api` service's healthcheck in `docker-compose.yml`, which the `verifier` waits on, and then again by the test.
-2. `/v1/livez` returns 200.
-3. Basic auth is enforced: `/v1/run` returns 401 without credentials and 200 with them (auth is enabled in `conf/api.yml`).
-4. `/v1/config-info/connector-list` returns connectors.
-5. An invalid HOCON upload to `/v1/config` returns 400.
-6. `conf/run_a.conf` and `conf/run_b.conf` are uploaded and started at the same time. Each uses a SequenceConnector to generate 500 docs, with its own doc ID prefix, a `run` field, and an output CSV on a volume shared with the verifier. 
-Both runs must succeed with 500 docs, and each CSV must contain exactly its own run's 500 docs, with every stage applied, and nothing from the other run.
-The test does *not* enforce that these runs are executed concurrently.
+**`runner`** runs `IngestDriver`, which drives the ingest through the API. It uploads `conf/run_a.conf` as HOCON and `conf/run_b.json` as JSON, so both of `/v1/config`'s content types are covered, and starts both runs at the same time. Each config uses a SequenceConnector to generate 500 docs, with its own doc ID prefix, a `run` field, and an output CSV on a volume shared with the verifier. Both runs must succeed with 500 docs, with distinct run IDs. It fails, and `verifier` never starts, if an upload or run fails. It reports whether the runs overlapped in time, but doesn't fail if they didn't.
 
-`scripts/run-nightly.sh` fails early (printing the API's logs) if the API never becomes healthy. Otherwise, it waits for `verifier` to exit, prints its logs (and the API's logs on failure), tears the stack down, and exits with the verifier's exit code.
+**`verifier`** starts once `runner` succeeds, and runs two JUnit classes.
+
+`VerifyApiEndpoints` checks the API's endpoints:
+1. `/v1/readyz` and `/v1/livez` return 200.
+2. Basic auth is enforced: `/v1/run` returns 401 without credentials and 200 with them (auth is enabled in `conf/api.yml`).
+3. `/v1/config-info/connector-list` returns connectors.
+4. An invalid HOCON upload to `/v1/config` returns 400.
+
+`VerifyIngestResult` checks the runs' output. Each run's CSV must contain exactly its own run's 500 docs, with every pipeline stage applied, and nothing from the other run.
+
+`scripts/run-nightly.sh` fails early (printing the runner's and API's logs) if the API never becomes healthy or the runner fails. Otherwise, it waits for `verifier` to exit, prints the runner's and verifier's logs (and the API's logs on failure), tears the stack down, and exits with the verifier's exit code.

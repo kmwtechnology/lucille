@@ -1,5 +1,15 @@
 name: lucille-api-example
 
+# The runner and verifier both run classes from the example's test classes, so they share one image, built
+# from verifier/Dockerfile. Needs the example's target/ (test classes and verifier-lib), built by `mvn package`.
+x-example-classes: &example-classes
+  build:
+    context: .
+    dockerfile: ./verifier/Dockerfile
+  image: lucille-api-example-classes:api-example
+  networks:
+    - lucille-net
+
 services:
   # One-shot init container: a fresh named volume is owned by root, but the API image runs as the
   # non-root "lucille" user, so open up the output volume before the API writes to it.
@@ -29,7 +39,7 @@ services:
     networks:
       - lucille-net
     # The container starts well before Dropwizard is serving requests, so the verifier waits on this.
-    # Requires exactly 200 from the readiness probe, the same as VerifyIngestResult does, rather than any
+    # Requires exactly 200 from the readiness probe, the same as VerifyApiEndpoints does, rather than any
     # non-error status. The image is based on eclipse-temurin, which includes curl. ($$ escapes $ for compose.)
     healthcheck:
       test: ["CMD-SHELL", "[ \"$$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/readyz)\" = 200 ]"]
@@ -37,22 +47,28 @@ services:
       timeout: 5s
       retries: 60
 
-  # Runs VerifyIngestResult against the API and exits non-zero if any check fails. Needs the example's
-  # target/ (test classes and verifier-lib), built by `mvn package`. Reads the configs to upload from
-  # ./conf, and the CSVs the API's runs write from the shared output volume.
-  verifier:
-    build:
-      context: .
-      dockerfile: ./verifier/Dockerfile
+  # Runs IngestDriver: uploads ./conf/run_a.conf (as HOCON) and ./conf/run_b.json (as JSON) to the API, starts both runs at once,
+  # and exits non-zero if an upload or run fails.
+  runner:
+    <<: *example-classes
     depends_on:
       api:
         condition: service_healthy
-    entrypoint: ["java", "-cp", "/verifier/classes:/verifier/lib/*", "org.junit.runner.JUnitCore", "com.kmwllc.lucille.api.VerifyIngestResult"]
+    entrypoint: ["java", "-cp", "/verifier/classes:/verifier/lib/*", "com.kmwllc.lucille.api.IngestDriver"]
     volumes:
       - ./conf:/conf:ro
+
+  # Runs VerifyApiEndpoints against the API, and VerifyIngestResult against the CSVs the runs wrote to the
+  # shared output volume. Exits non-zero if any check fails.
+  verifier:
+    <<: *example-classes
+    depends_on:
+      runner:
+        condition: service_completed_successfully
+    entrypoint: ["java", "-cp", "/verifier/classes:/verifier/lib/*", "org.junit.runner.JUnitCore",
+                 "com.kmwllc.lucille.api.VerifyApiEndpoints", "com.kmwllc.lucille.api.VerifyIngestResult"]
+    volumes:
       - output:/output:ro
-    networks:
-      - lucille-net
 
 networks:
   lucille-net:

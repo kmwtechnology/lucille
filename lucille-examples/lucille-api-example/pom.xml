@@ -58,8 +58,8 @@
 
   <build>
     <plugins>
-      <!-- Copies just the jars VerifyIngestResult needs into target/verifier-lib, which verifier/Dockerfile
-           copies into the verifier image alongside target/test-classes. -->
+      <!-- Copies just the jars the runner and verifier need into target/verifier-lib, which verifier/Dockerfile
+           copies into their image alongside target/test-classes. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
