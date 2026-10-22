@@ -29,9 +29,10 @@ services:
     networks:
       - lucille-net
     # The container starts well before Dropwizard is serving requests, so the verifier waits on this.
-    # The image is based on eclipse-temurin, which includes curl.
+    # Requires exactly 200 from the readiness probe, the same as VerifyIngestResult does, rather than any
+    # non-error status. The image is based on eclipse-temurin, which includes curl. ($$ escapes $ for compose.)
     healthcheck:
-      test: ["CMD", "curl", "-sf", "-o", "/dev/null", "http://localhost:8080/v1/readyz"]
+      test: ["CMD-SHELL", "[ \"$$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/readyz)\" = 200 ]"]
       interval: 2s
       timeout: 5s
       retries: 60
