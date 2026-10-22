@@ -49,6 +49,11 @@
       </dependency>
       <dependency>
         <groupId>com.kmwllc</groupId>
+        <artifactId>lucille-relevan</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.kmwllc</groupId>
         <artifactId>lucille-tika</artifactId>
         <version>${project.version}</version>
       </dependency>

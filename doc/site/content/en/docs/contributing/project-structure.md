@@ -16,7 +16,7 @@ lucille (root aggregator)
 ├── lucille-bom             # Bill of Materials: version-aligned dependency declarations
 ├── lucille-core            # the framework itself: Runner, Worker, Indexer, Pipeline, Document, Stages, Connectors
 ├── lucille-plugins/        # optional modules with heavy or specialized dependencies
-│                           #   (tika, pinecone, weaviate, jlama, parquet, ocr, video, entity-extraction, api)
+│                           #   (tika, pinecone, relevan, weaviate, jlama, parquet, ocr, video, entity-extraction, api)
 └── lucille-examples/       # runnable example projects demonstrating common ingestion patterns (not published to Maven Central)
 ```
 
@@ -168,7 +168,7 @@ mvn clean install -pl lucille-plugins/lucille-tika
 ### What artifacts are produced
 
 - **lucille-core:** `target/lucille.jar` — a thin JAR containing only Lucille's own classes (named `lucille.jar` via `finalName` in the POM). Runtime dependencies are copied to `target/lib/`. To run Lucille, both must be on the classpath: `-cp 'target/lucille.jar:target/lib/*'` (or simply `-cp 'target/lib/*'` since the lucille JAR is also copied there).
-- **Each plugin:** a **shaded (fat) JAR** that bundles the plugin's own dependencies into a single artifact. This avoids classpath conflicts when multiple plugins are used together. Plugins that produce shaded JARs include: lucille-tika, lucille-pinecone, lucille-weaviate, lucille-jlama, lucille-parquet, lucille-ocr, lucille-video, and lucille-api. The shaded JAR (`target/<plugin>-plugin.jar`) is built only when the `shaded-plugin-jars` profile is active, e.g. `mvn clean install -Pshaded-plugin-jars`; a default build produces only the plugin's thin JAR, which keeps `mvn verify` fast since tests do not use the shaded JARs.
+- **Each plugin:** a **shaded (fat) JAR** that bundles the plugin's own dependencies into a single artifact. This avoids classpath conflicts when multiple plugins are used together. Plugins that produce shaded JARs include: lucille-tika, lucille-pinecone, lucille-relevan, lucille-weaviate, lucille-jlama, lucille-parquet, lucille-ocr, lucille-video, and lucille-api. The shaded JAR (`target/<plugin>-plugin.jar`) is built only when the `shaded-plugin-jars` profile is active, e.g. `mvn clean install -Pshaded-plugin-jars`; a default build produces only the plugin's thin JAR, which keeps `mvn verify` fast since tests do not use the shaded JARs.
 - **Each example:** a thin JAR plus `target/lib/` containing all runtime dependencies (via `maven-dependency-plugin` copy-dependencies).
 
 ### Thin JAR vs. Shaded JAR

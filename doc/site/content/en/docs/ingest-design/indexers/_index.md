@@ -105,4 +105,5 @@ The timeout flush ensures documents are not left waiting indefinitely in low-vol
 ### Plugin Indexers
 
 - [Pinecone Indexer]({{< relref "docs/ingest-design/indexers/pinecone_indexer" >}}) — Index vector embeddings into Pinecone.
+- [Relevan Indexer]({{< relref "docs/ingest-design/indexers/relevan_indexer" >}}) — Index documents into a Relevan search index.
 - [Weaviate Indexer]({{< relref "docs/ingest-design/indexers/weaviate_indexer" >}}) — Index documents and vectors into Weaviate.
