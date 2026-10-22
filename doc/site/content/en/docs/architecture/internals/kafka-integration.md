@@ -295,6 +295,23 @@ As a convenience, in your Config, you can also include additional properties for
 resolution for your Kafka properties. Additionally, properties declared here _will_ override any values declared in a 
 `consumerPropertyFile`, `producerPropertyFile`, or `adminPropertyFile`.
 
+Use the Kafka client's property names. A dotted name can be written quoted or unquoted; both reach the client as the
+same property:
+
+```hocon
+kafka.producer {
+  linger.ms: 5                # HOCON reads this as linger { ms: 5 }
+  "compression.type": "lz4"   # quoted keys work too
+}
+```
+
+In earlier Lucille versions, a quoted key reached the client with its quotes and was silently ignored. Such keys now take
+effect, and they override Lucille's own client defaults (for example, a quoted `"enable.auto.commit"` under
+`kafka.consumer`), so review any quoted keys in existing configs when upgrading.
+
+Setting one property both ways with different values is an error. A key the Kafka client does not define is logged at
+`WARN` once and still passed through, since serializers, interceptors, and other plugins may read their own keys.
+
 ## Partitions and Parallelism
 
 The relationship between Kafka partitions and Lucille parallelism:
