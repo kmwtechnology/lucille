@@ -17,7 +17,7 @@ import org.junit.Test;
  * pipeline stage applied, to their own output CSV.
  * <p>
  * Not picked up by the normal build (the name doesn't match surefire's default includes). It's run by the
- * verifier container in docker-compose.yml, after the runner container (IngestDriver) completes successfully.
+ * verifier container in docker-compose.yml, after IngestDriver completes successfully.
  * There, the runs' CSV output is mounted at /output.
  */
 public class VerifyIngestResult {

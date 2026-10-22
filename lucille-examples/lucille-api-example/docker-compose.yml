@@ -1,15 +1,5 @@
 name: lucille-api-example
 
-# The runner and verifier both run classes from the example's test classes, so they share one image, built
-# from verifier/Dockerfile. Needs the example's target/ (test classes and verifier-lib), built by `mvn package`.
-x-example-classes: &example-classes
-  build:
-    context: .
-    dockerfile: ./verifier/Dockerfile
-  image: lucille-api-example-classes:api-example
-  networks:
-    - lucille-net
-
 services:
   # One-shot init container: a fresh named volume is owned by root, but the API image runs as the
   # non-root "lucille" user, so open up the output volume before the API writes to it.
@@ -47,28 +37,24 @@ services:
       timeout: 5s
       retries: 60
 
-  # Runs IngestDriver: uploads ./conf/run_a.conf (as HOCON) and ./conf/run_b.json (as JSON) to the API, starts both runs at once,
-  # and exits non-zero if an upload or run fails.
-  runner:
-    <<: *example-classes
+  # Runs IngestDriver, which uploads ./conf/run_a.conf (as HOCON) and ./conf/run_b.json (as JSON) to the API and
+  # runs both at once. If that succeeds, runs VerifyApiEndpoints against the API, and VerifyIngestResult against
+  # the CSVs the runs wrote to the shared output volume. Exits non-zero if any of that fails. Needs the example's
+  # target/ (test classes and verifier-lib), built by `mvn package`.
+  verifier:
+    build:
+      context: .
+      dockerfile: ./verifier/Dockerfile
     depends_on:
       api:
         condition: service_healthy
-    entrypoint: ["java", "-cp", "/verifier/classes:/verifier/lib/*", "com.kmwllc.lucille.api.IngestDriver"]
+    # the classpath is set in verifier/Dockerfile
+    entrypoint: ["sh", "-c", "java com.kmwllc.lucille.api.IngestDriver && exec java org.junit.runner.JUnitCore com.kmwllc.lucille.api.VerifyApiEndpoints com.kmwllc.lucille.api.VerifyIngestResult"]
     volumes:
       - ./conf:/conf:ro
-
-  # Runs VerifyApiEndpoints against the API, and VerifyIngestResult against the CSVs the runs wrote to the
-  # shared output volume. Exits non-zero if any check fails.
-  verifier:
-    <<: *example-classes
-    depends_on:
-      runner:
-        condition: service_completed_successfully
-    entrypoint: ["java", "-cp", "/verifier/classes:/verifier/lib/*", "org.junit.runner.JUnitCore",
-                 "com.kmwllc.lucille.api.VerifyApiEndpoints", "com.kmwllc.lucille.api.VerifyIngestResult"]
-    volumes:
       - output:/output:ro
+    networks:
+      - lucille-net
 
 networks:
   lucille-net:
