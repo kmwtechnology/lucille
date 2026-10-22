@@ -28,14 +28,28 @@ public class IngestDriver {
   private static final Map<String, String> CONFIG_FILES = Map.of("a", "run_a.conf", "b", "run_b.json");
 
   public static void main(String[] args) throws Exception {
+    Map<String, String> configIds = uploadConfigs();
+    Map<String, String> runIds = startRuns(configIds);
+    Map<String, JsonNode> details = awaitRuns(runIds, configIds);
+    reportOverlap(details);
+  }
+
+  // returns each run's configId
+  private static Map<String, String> uploadConfigs() throws Exception {
     Map<String, String> configIds = new HashMap<>();
     for (String run : RUNS) {
-      HttpResponse<String> response = uploadConfig(run);
+      String file = CONFIG_FILES.get(run);
+      String contentType = file.endsWith(".json") ? "application/json" : "application/hocon";
+      System.out.println("Uploading " + file + " as " + contentType);
+      HttpResponse<String> response = ApiClient.postConfig(Files.readString(Paths.get("/conf", file)), contentType);
       check(response.statusCode() == 200, "config upload for run " + run + " failed: " + response.body());
       configIds.put(run, ApiClient.mapper.readTree(response.body()).get("configId").asText());
     }
+    return configIds;
+  }
 
-    // start both runs at the same time, so they execute concurrently inside the API
+  // Starts every run before waiting on any of them, so they execute concurrently inside the API. Returns each run's runId.
+  private static Map<String, String> startRuns(Map<String, String> configIds) throws Exception {
     Map<String, CompletableFuture<HttpResponse<String>>> starts = new HashMap<>();
     for (String run : RUNS) {
       starts.put(run, ApiClient.startRun(configIds.get(run)));
@@ -48,35 +62,39 @@ public class IngestDriver {
       runIds.put(run, ApiClient.mapper.readTree(response.body()).get("runId").asText());
     }
     check(!runIds.get("a").equals(runIds.get("b")), "both runs were given the same runId");
+    return runIds;
+  }
 
+  // waits for every run to finish and checks that each succeeded. Returns each run's final details.
+  private static Map<String, JsonNode> awaitRuns(Map<String, String> runIds, Map<String, String> configIds)
+      throws Exception {
     Map<String, JsonNode> details = new HashMap<>();
     for (String run : RUNS) {
       JsonNode runDetails = waitForRun(runIds.get(run));
-      details.put(run, runDetails);
       System.out.println("Run " + run + " details: " + runDetails);
-
-      check(configIds.get(run).equals(runDetails.get("configId").asText()),
-          "run " + run + " has the wrong configId: " + runDetails.get("configId"));
-      // runResult is null if the run threw, rather than completing with a failed status
-      JsonNode runResult = runDetails.path("runResult");
-      check(runResult.path("status").asBoolean(), "run " + run + " did not succeed: " + runDetails);
-      check(runResult.path("message").asText().contains(" " + EXPECTED_DOCS + " docs succeeded"),
-          "expected " + EXPECTED_DOCS + " docs to succeed in run " + run + ": " + runDetails);
+      checkRunSucceeded(run, configIds.get(run), runDetails);
+      details.put(run, runDetails);
     }
+    return details;
+  }
 
-    // The runs are short, so report whether they actually overlapped in time rather than fail on it.
+  private static void checkRunSucceeded(String run, String configId, JsonNode runDetails) {
+    check(configId.equals(runDetails.get("configId").asText()),
+        "run " + run + " has the wrong configId: " + runDetails.get("configId"));
+    // runResult is null if the run threw, rather than completing with a failed status
+    JsonNode runResult = runDetails.path("runResult");
+    check(runResult.path("status").asBoolean(), "run " + run + " did not succeed: " + runDetails);
+    check(runResult.path("message").asText().contains(" " + EXPECTED_DOCS + " docs succeeded"),
+        "expected " + EXPECTED_DOCS + " docs to succeed in run " + run + ": " + runDetails);
+  }
+
+  // The runs are short, so report whether they actually overlapped in time rather than fail on it.
+  private static void reportOverlap(Map<String, JsonNode> details) {
     double startA = details.get("a").get("startTime").asDouble();
     double endA = details.get("a").get("endTime").asDouble();
     double startB = details.get("b").get("startTime").asDouble();
     double endB = details.get("b").get("endTime").asDouble();
     System.out.println("Runs overlapped in time: " + (startA < endB && startB < endA ? "yes" : "no"));
-  }
-
-  private static HttpResponse<String> uploadConfig(String run) throws Exception {
-    String file = CONFIG_FILES.get(run);
-    String contentType = file.endsWith(".json") ? "application/json" : "application/hocon";
-    System.out.println("Uploading " + file + " as " + contentType);
-    return ApiClient.postConfig(Files.readString(Paths.get("/conf", file)), contentType);
   }
 
   private static JsonNode waitForRun(String runId) throws Exception {
