@@ -562,11 +562,32 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       // retryable status code. When retries are exhausted, the last result is returned directly —
       // preserving per-document detail for the FAIL event path in completeBatch.
       Set<Pair<Document, Exception>> failedDocPairs = retry != null
-          ? Retry.decorateCheckedSupplier(retry, () -> sendToIndex(batchedDocs)).get()
-          : sendToIndex(batchedDocs);
+          ? Retry.decorateCheckedSupplier(retry, () -> sendIfInputOwned(batchedDocs)).get()
+          : sendIfInputOwned(batchedDocs);
       return new SendOutcome(failedDocPairs, null, System.nanoTime() - start);
+    } catch (InputNotOwnedException e) {
+      return SendOutcome.inputNotOwned(System.nanoTime() - start);
     } catch (Throwable t) {
       return new SendOutcome(null, t, System.nanoTime() - start);
+    }
+  }
+
+  // One send attempt, made only if the messenger confirms this indexer still owns every document's input. Checked before
+  // each attempt, retries included, since a send blocked or retrying past the consumer's poll deadline means the consumer
+  // has been evicted and its partitions may be written by a new owner; sending then could overwrite the new owner's
+  // later writes, or restore a document it has since deleted. A request already on the wire cannot be recalled.
+  private Set<Pair<Document, Exception>> sendIfInputOwned(List<Document> batchedDocs) throws Exception {
+    if (messenger != null && !batchedDocs.stream().allMatch(messenger::ownsInput)) {
+      throw new InputNotOwnedException();
+    }
+    return sendToIndex(batchedDocs);
+  }
+
+  // Thrown by sendIfInputOwned to stop a send and its retries. Not retryable (the retry policy retries only
+  // IndexerRetryableException), so it reaches sendWithRetry directly.
+  private static final class InputNotOwnedException extends Exception {
+    InputNotOwnedException() {
+      super(null, null, false, false);
     }
   }
 
@@ -576,6 +597,20 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    */
   @Override
   public final void completeBatch(List<Document> batchedDocs, SendOutcome outcome) {
+    if (outcome.notSent()) {
+      // Not sent (or retries stopped) because this indexer may no longer own the input. Its documents get no events and
+      // the batch is not marked complete: whichever consumer owns the input now re-delivers them and emits their
+      // events. The messenger is told, so it can re-poll them if it turns out to own them still.
+      log.warn("Did not send {} document(s): this indexer may no longer own their input (its consumer was evicted from "
+          + "its group or lost the partition). They are left uncommitted for re-delivery.", batchedDocs.size());
+      try {
+        messenger.batchNotSent(batchedDocs);
+      } catch (Exception e) {
+        restoreInterrupt(e);
+        log.error("Error reporting a batch that was not sent.", e);
+      }
+      return;
+    }
     // An Error (OutOfMemoryError, etc.) means the send did not run to a defined conclusion — the batch's documents were
     // not indexed. Two things must happen on that path, and they are deliberately split:
     //  - FAIL events are still sent for every document, so the run's publisher stops tracking them and does not hang

@@ -1,12 +1,16 @@
 package com.kmwllc.lucille.message;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -182,6 +186,45 @@ public class KafkaIndexerMessengerCommitTest {
     for (int i = 0; i < 5; i++) {
       assertNull(messenger.pollDocToIndex());
     }
+  }
+
+  @Test
+  public void testOwnsInputLapsesWithoutAPollWithinMaxPollInterval() throws Exception {
+    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
+    consumer.setMaxPollRecords(1);
+    KafkaIndexerMessenger messenger =
+        new KafkaIndexerMessenger(config(), "pipeline1", consumer, Duration.ofMillis(200));
+    consumer.rebalance(Set.of(PARTITION_0));
+    consumer.updateBeginningOffsets(Map.of(PARTITION_0, 0L));
+    consumer.addRecord(record(0));
+
+    Document doc = messenger.pollDocToIndex();
+    assertTrue(messenger.ownsInput(doc));
+    // No poll for longer than max.poll.interval.ms: the consumer has left its group, so ownership is not confirmed.
+    Thread.sleep(300);
+    assertFalse(messenger.ownsInput(doc));
+    // A poll that does not report the partition lost restores it.
+    messenger.pollDocToIndex();
+    assertTrue(messenger.ownsInput(doc));
+  }
+
+  @Test
+  public void testRecordFromRewoundPartitionIsNotReturned() throws Exception {
+    MockConsumer<String, KafkaDocument> consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST);
+    consumer.setMaxPollRecords(1);
+    KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config(), "pipeline1", consumer);
+    consumer.rebalance(Set.of(PARTITION_0));
+    consumer.updateBeginningOffsets(Map.of(PARTITION_0, 0L));
+    consumer.addRecord(record(0));
+    consumer.addRecord(record(1));
+
+    Document first = messenger.pollDocToIndex();
+    // first was not sent, though the partition is still assigned. The next poll seeks back to offset 0, and discards
+    // the record it fetched (offset 1), which will be fetched again after offset 0.
+    messenger.batchNotSent(List.of(first));
+    assertNull(messenger.pollDocToIndex());
+    assertEquals(0, consumer.position(PARTITION_0));
+    assertFalse(messenger.ownsInput(first));
   }
 
   private static Config config() {

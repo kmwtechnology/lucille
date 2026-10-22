@@ -690,6 +690,48 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
+  public void testBatchWhoseInputIsNotOwnedIsNotSent() throws Exception {
+    // Synchronous and concurrent dispatch alike.
+    for (int maxConcurrentBatches : new int[] {1, 2}) {
+      RecordingMessenger messenger = new RecordingMessenger();
+      ControlledIndexer controlled = new ControlledIndexer(config(maxConcurrentBatches), messenger);
+      indexer = controlled;
+      // The messenger can no longer confirm this indexer owns doc2's input (its consumer was evicted, say).
+      messenger.disown("doc2");
+      queueDocsAndStartIndexer("doc1", "doc2", "doc3");
+      awaitUntil(() -> messenger.completedBatches().size() == 2);
+
+      // doc2 was never sent, emitted no event, and was not marked complete, so its input stays uncommitted for whichever
+      // consumer owns it now; the messenger was told instead.
+      assertEquals(0, controlled.sendAttempts("doc2"));
+      assertEquals(List.of("doc1", "doc3"), messenger.completedBatches());
+      assertEquals(List.of("FINISH:doc1", "FINISH:doc3"), messenger.sentEvents());
+      assertEquals(List.of("doc2"), messenger.notSentBatches());
+      tearDown();
+    }
+  }
+
+  @Test
+  public void testRetryStopsOnceInputIsNoLongerOwned() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    ControlledIndexer controlled = new ControlledIndexer(
+        config(2, Map.of("indexer.maxRetries", 3, "indexer.retryWaitDurationMs", 500)), messenger);
+    indexer = controlled;
+    controlled.failSendRetryablyThenSucceed("doc1", 3);
+    queueDocsAndStartIndexer("doc1");
+    awaitUntil(() -> controlled.sendAttempts("doc1") == 1);
+    // Ownership is lost while the send waits to retry (a send retrying past the poll deadline, for instance).
+    messenger.disown("doc1");
+    awaitUntil(() -> messenger.notSentBatches().size() == 1);
+
+    // The retry was not made, and the batch was reported not sent rather than completed or failed.
+    assertEquals(1, controlled.sendAttempts("doc1"));
+    assertEquals(List.of("doc1"), messenger.notSentBatches());
+    assertEquals(List.of(), messenger.completedBatches());
+    assertEquals(List.of(), messenger.sentEvents());
+  }
+
+  @Test
   public void testPerDocumentFailureInConcurrentBatch() throws Exception {
     RecordingMessenger messenger = new RecordingMessenger();
     // batchSize 2, so okDoc and failedDoc go in the same batch; K=2 sends it on the pool.
@@ -1146,6 +1188,29 @@ public class IndexerConcurrencyTest {
     private final List<String> sentEvents = Collections.synchronizedList(new ArrayList<>());
     // Completed batches, each rendered as the comma-joined ids of its documents, in completion order.
     private final List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
+    // Ids of documents whose input this messenger reports it no longer owns (see ownsInput).
+    private final Set<String> unownedDocIds = ConcurrentHashMap.newKeySet();
+    // Batches reported not sent, rendered like completedBatches, in the order reported.
+    private final List<String> notSentBatches = Collections.synchronizedList(new ArrayList<>());
+
+    /** Makes {@link #ownsInput} return false for the given document id from now on. */
+    void disown(String docId) {
+      unownedDocIds.add(docId);
+    }
+
+    List<String> notSentBatches() {
+      return new ArrayList<>(notSentBatches);
+    }
+
+    @Override
+    public boolean ownsInput(Document doc) {
+      return !unownedDocIds.contains(doc.getId());
+    }
+
+    @Override
+    public void batchNotSent(List<Document> batch) {
+      notSentBatches.add(batch.stream().map(Document::getId).collect(Collectors.joining(",")));
+    }
 
     /** Adds a document to the in-memory FIFO queue, to be returned (in insertion order) by a later {@link #pollDocToIndex()}. */
     void queueDoc(Document document) {
