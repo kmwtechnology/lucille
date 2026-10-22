@@ -14,6 +14,7 @@ Lucille's `lucille-examples` module contains several runnable examples:
 |---|---|
 | [lucille-simple-csv-solr-example](https://github.com/kmwtechnology/lucille/tree/main/lucille-examples/lucille-simple-csv-solr-example) | Ingest a CSV file into Solr in local mode. A good first example. |
 | [lucille-distributed-example](https://github.com/kmwtechnology/lucille/tree/main/lucille-examples/lucille-distributed-example) | Full distributed mode with Runner, Worker, Indexer, Kafka, ZooKeeper, and Solr each running in their own Docker container via Docker Compose. Includes an integration test that verifies the ingest result. Run with `mvn verify -Pnightly` from that directory. |
+| [lucille-api-example](https://github.com/kmwtechnology/lucille/tree/main/lucille-examples/lucille-api-example) | Runs the Lucille API Docker image via Docker Compose, then uploads two configs and runs them concurrently through the API. Includes an integration test that verifies both runs' output. Build with `mvn clean install -DskipTests -Pshaded-plugin-jars` from the top level, then run with `mvn verify -Pnightly` from that directory. |
 
 To run the simple CSV example, start an instance of Apache Solr on port 8983 and create a collection called `quickstart`. Then from `lucille-examples/lucille-simple-csv-solr-example`, run:
 

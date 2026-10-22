@@ -18,6 +18,6 @@ docker compose logs verifier
 if [ "$EXIT_CODE" != "0" ]; then
   docker compose logs api
 fi
-docker compose down
+docker compose down -v
 
 exit "$EXIT_CODE"

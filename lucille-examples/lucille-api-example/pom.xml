@@ -13,8 +13,22 @@
   </parent>
 
   <artifactId>lucille-api-example</artifactId>
-  <packaging>pom</packaging>
+  <packaging>jar</packaging>
   <name>Lucille Examples: API Example</name>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <!-- for VerifyIngestResult -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 
   <profiles>
     <profile>
@@ -41,4 +55,30 @@
       </build>
     </profile>
   </profiles>
+
+  <build>
+    <plugins>
+      <!-- Copies just the jars VerifyIngestResult needs into target/verifier-lib, which verifier/Dockerfile
+           copies into the verifier image alongside target/test-classes. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.1</version>
+        <executions>
+          <execution>
+            <id>copy-verifier-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/verifier-lib</outputDirectory>
+              <includeScope>test</includeScope>
+              <includeArtifactIds>junit,hamcrest-core,jackson-databind,jackson-core,jackson-annotations</includeArtifactIds>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>

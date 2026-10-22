@@ -10,7 +10,7 @@ logging:
 auth:
   type: "basicAuth"
   enabled: true
-  password: "example-password"
+  password: "4"
 swagger:
   resourcePackage: "com.kmwllc.lucille.endpoints"
   title: Lucille API

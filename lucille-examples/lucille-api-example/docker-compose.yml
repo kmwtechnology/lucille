@@ -1,6 +1,14 @@
 name: lucille-api-example
 
 services:
+  # One-shot init container: a fresh named volume is owned by root, but the API image runs as the
+  # non-root "lucille" user, so open up the output volume before the API writes to it.
+  output-init:
+    image: alpine:3.20
+    command: ["chmod", "777", "/output"]
+    volumes:
+      - output:/output
+
   # Built from the same Dockerfile that release-to-docker.yml publishes as kmwtechnology/lucille-api.
   # Requires target/lucille-api-plugin.jar, built with `mvn clean install -Pshaded-plugin-jars`.
   api:
@@ -8,24 +16,37 @@ services:
       context: ../../lucille-plugins/lucille-api
       dockerfile: Dockerfile
     image: lucille-api:api-example
+    depends_on:
+      output-init:
+        condition: service_completed_successfully
     environment:
       DROPWIZARD_CONF: /conf/api.yml
     volumes:
       - ./conf:/conf:ro
+      - output:/output
     ports:
       - 8080:8080
     networks:
       - lucille-net
 
-  # Exercises the API over HTTP (see verifier/verify.sh) and exits non-zero if any check fails.
+  # Runs VerifyIngestResult against the API and exits non-zero if any check fails. Needs the example's
+  # target/ (test classes and verifier-lib), built by `mvn package`. Reads the configs to upload from
+  # ./conf, and the CSVs the API's runs write from the shared output volume.
   verifier:
     build:
-      context: ./verifier
+      context: .
+      dockerfile: ./verifier/Dockerfile
     depends_on:
       api:
         condition: service_started
+    volumes:
+      - ./conf:/conf:ro
+      - output:/output:ro
     networks:
       - lucille-net
 
 networks:
   lucille-net:
+
+volumes:
+  output:
