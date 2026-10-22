@@ -57,9 +57,11 @@ public class IngestDriver {
 
       check(configIds.get(run).equals(runDetails.get("configId").asText()),
           "run " + run + " has the wrong configId: " + runDetails.get("configId"));
-      check(runDetails.get("runResult").get("status").asBoolean(), "run " + run + " did not succeed");
-      check(runDetails.get("runResult").get("message").asText().contains(" " + EXPECTED_DOCS + " docs succeeded"),
-          "expected " + EXPECTED_DOCS + " docs to succeed in run " + run);
+      // runResult is null if the run threw, rather than completing with a failed status
+      JsonNode runResult = runDetails.path("runResult");
+      check(runResult.path("status").asBoolean(), "run " + run + " did not succeed: " + runDetails);
+      check(runResult.path("message").asText().contains(" " + EXPECTED_DOCS + " docs succeeded"),
+          "expected " + EXPECTED_DOCS + " docs to succeed in run " + run + ": " + runDetails);
     }
 
     // The runs are short, so report whether they actually overlapped in time rather than fail on it.
@@ -80,8 +82,12 @@ public class IngestDriver {
   private static JsonNode waitForRun(String runId) throws Exception {
     Instant deadline = Instant.now().plus(MAX_WAIT);
     while (true) {
-      JsonNode runDetails = ApiClient.mapper.readTree(ApiClient.get("/v1/run/" + runId, true).body());
-      if (!runDetails.path("endTime").isNull() && !runDetails.path("endTime").isMissingNode()) {
+      HttpResponse<String> response = ApiClient.get("/v1/run/" + runId, true);
+      check(response.statusCode() == 200, "getting run " + runId + " failed: " + response.body());
+      JsonNode runDetails = ApiClient.mapper.readTree(response.body());
+      // "done" (rather than endTime) is only true once the run has finished, so runResult is set by then
+      // if the run didn't throw. endTime is set just before runResult, so a poll could see one without the other.
+      if (runDetails.path("done").asBoolean()) {
         return runDetails;
       }
       check(Instant.now().isBefore(deadline), "run " + runId + " did not complete. Last details: " + runDetails);
