@@ -24,7 +24,7 @@ public final class ApiClient {
       Base64.getEncoder().encodeToString("user:4".getBytes(StandardCharsets.UTF_8));
 
   private static final HttpClient client = HttpClient.newHttpClient();
-  static final ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private ApiClient() {
   }
@@ -43,7 +43,7 @@ public final class ApiClient {
 
   // async, so that several runs can be started at the same time
   static CompletableFuture<HttpResponse<String>> startRun(String configId) throws Exception {
-    String body = mapper.writeValueAsString(Map.of("configId", configId));
+    String body = MAPPER.writeValueAsString(Map.of("configId", configId));
     return client.sendAsync(request("/v1/run", true)
         .header("Content-Type", "application/json")
         .POST(HttpRequest.BodyPublishers.ofString(body))
