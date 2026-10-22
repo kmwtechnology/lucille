@@ -4,11 +4,14 @@ set -e
 # run from the example's root so docker compose picks up docker-compose.yml
 cd "$(dirname "$0")/.."
 
+# tear the stack down however the script exits, including an unexpected failure under set -e.
+# The script's exit code is kept, since the trap doesn't call exit.
+trap 'docker compose down -v' EXIT
+
 # verifier only starts once api is healthy, so this fails if the API never becomes ready
 if ! docker compose up -d --build; then
   echo "failed to start the stack"
   docker compose logs api
-  docker compose down -v
   exit 1
 fi
 
@@ -24,6 +27,5 @@ docker compose logs verifier
 if [ "$EXIT_CODE" != "0" ]; then
   docker compose logs api
 fi
-docker compose down -v
 
 exit "$EXIT_CODE"
