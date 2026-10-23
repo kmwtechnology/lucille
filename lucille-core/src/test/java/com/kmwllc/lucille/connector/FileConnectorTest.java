@@ -29,6 +29,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.io.FileUtils;
 import java.nio.file.attribute.FileTime;
@@ -36,6 +39,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.mockito.MockedStatic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +74,9 @@ public class FileConnectorTest {
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
+
+  @Rule
+  public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   FileConnector connector;
 
@@ -1178,5 +1185,88 @@ public class FileConnectorTest {
 
   private static Set<String> documentIds(List<Document> documents) {
     return documents.stream().map(Document::getId).collect(Collectors.toSet());
+  }
+
+  private Config maxSizeBytesConfig(File inputDir, Map<String, Object> fileOptions) {
+    return ConfigFactory.parseMap(Map.of(
+        "name", "file-connector-1",
+        "pipeline", "pipeline1",
+        "paths", List.of(inputDir.getAbsolutePath() + "/"),
+        "fileOptions", fileOptions));
+  }
+
+  private List<Document> runConnector(Config config) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    connector = new FileConnector(config);
+    connector.execute(publisher);
+    return messenger.getDocsSentForProcessing();
+  }
+
+  @Test
+  public void testMaxSizeBytes() throws Exception {
+    File inputDir = tempFolder.newFolder("input");
+    File errorDir = new File(tempFolder.getRoot(), "error");
+    Files.write(inputDir.toPath().resolve("small.txt"), new byte[10]);
+    Files.write(inputDir.toPath().resolve("big.txt"), new byte[1000]);
+
+    List<Document> docs = runConnector(maxSizeBytesConfig(inputDir,
+        Map.of("maxSizeBytes", 100, "moveToErrorFolder", errorDir.getAbsolutePath())));
+
+    // only the small file is published, and the big one is handled as a processing error
+    assertEquals(1, docs.size());
+    assertTrue(docs.get(0).getString(FILE_PATH).endsWith("small.txt"));
+    assertEquals(10, docs.get(0).getBytes(FileConnector.CONTENT).length);
+    assertTrue(new File(errorDir, "big.txt").exists());
+  }
+
+  @Test
+  public void testMaxSizeBytesArchiveEntries() throws Exception {
+    File inputDir = tempFolder.newFolder("input");
+    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(inputDir.toPath().resolve("files.zip")))) {
+      zip.putNextEntry(new ZipEntry("small.txt"));
+      zip.write(new byte[10]);
+      zip.putNextEntry(new ZipEntry("big.txt"));
+      zip.write(new byte[1000]);
+      zip.putNextEntry(new ZipEntry("small2.txt"));
+      zip.write(new byte[20]);
+    }
+
+    List<Document> docs = runConnector(maxSizeBytesConfig(inputDir,
+        Map.of("maxSizeBytes", 100, "handleArchivedFiles", true)));
+
+    // the oversized entry is skipped, and the entries after it are still published
+    Set<String> paths = docs.stream().map(doc -> doc.getString(FILE_PATH)).collect(Collectors.toSet());
+    assertEquals(2, paths.size());
+    assertTrue(paths.stream().anyMatch(path -> path.endsWith("!small.txt")));
+    assertTrue(paths.stream().anyMatch(path -> path.endsWith("!small2.txt")));
+  }
+
+  @Test
+  public void testMaxSizeBytesCompressedFile() throws Exception {
+    File inputDir = tempFolder.newFolder("input");
+    try (GZIPOutputStream gzip = new GZIPOutputStream(Files.newOutputStream(inputDir.toPath().resolve("big.txt.gz")))) {
+      // compresses to far fewer than 100 bytes, so only the decompressed size can trip the limit
+      gzip.write(new byte[1000]);
+    }
+
+    List<Document> docs = runConnector(maxSizeBytesConfig(inputDir,
+        Map.of("maxSizeBytes", 100, "handleCompressedFiles", true)));
+    assertEquals(0, docs.size());
+
+    connector.close();
+    docs = runConnector(maxSizeBytesConfig(inputDir,
+        Map.of("maxSizeBytes", 1000, "handleCompressedFiles", true)));
+    assertEquals(1, docs.size());
+    assertEquals(1000, docs.get(0).getBytes(FileConnector.CONTENT).length);
+  }
+
+  @Test
+  public void testInvalidMaxSizeBytes() {
+    Config zeroConfig = ConfigFactory.parseMap(Map.of("fileOptions", Map.of("maxSizeBytes", 0)));
+    assertThrows(IllegalArgumentException.class, () -> new TraversalParams(zeroConfig, URI.create("file:///tmp/"), ""));
+
+    Config tooLargeConfig = ConfigFactory.parseMap(Map.of("fileOptions", Map.of("maxSizeBytes", (long) Integer.MAX_VALUE)));
+    assertThrows(IllegalArgumentException.class, () -> new TraversalParams(tooLargeConfig, URI.create("file:///tmp/"), ""));
   }
 }
