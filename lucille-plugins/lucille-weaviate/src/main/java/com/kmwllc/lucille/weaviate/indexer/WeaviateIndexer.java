@@ -57,22 +57,30 @@ public class WeaviateIndexer extends Indexer {
 
   public WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client,
       String metricsPrefix, String localRunId) {
-    super(config, messenger, false, metricsPrefix, localRunId);
+    this(config, messenger, client, false, metricsPrefix, localRunId);
+  }
+
+  private WeaviateIndexer(Config config, IndexerMessenger messenger, WeaviateClient client, boolean bypass,
+      String metricsPrefix, String localRunId) {
+    super(config, messenger, bypass, metricsPrefix, localRunId);
 
     if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
       log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
+    }
+    if (this.indexOverrideField != null) {
+      throw new IllegalArgumentException("indexer.indexOverrideField is not supported by WeaviateIndexer.");
     }
 
     this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
     this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
         "id_original";
 
-    this.vectorField = ConfigUtils.getOrDefault(config, "weaviate.vectorField", null);
+    this.vectorField = ConfigUtils.getStringOrDefault(config, "weaviate.vectorField", null);
     this.client = client;
   }
 
   public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, localRunId);
+    this(config, messenger, getClient(config, bypass), bypass, metricsPrefix, localRunId);
   }
 
   // Convenience Constructors
@@ -130,13 +138,15 @@ public class WeaviateIndexer extends Indexer {
       Map<String, Document> docGeneratedUUIDMap = new HashMap<>();
 
       for (Document doc : documents) {
-        // initialize the docMap with all the fields from the document and set the id destination field instead of id field
-        Map<String, Object> docMap = doc.asMap();
+        // the document's fields with indexer.whitelist / indexer.blacklist applied; the id moves to idDestinationName
+        // (indexer.idOverrideField, when configured and present, supplies the id written to Weaviate)
+        Map<String, Object> docMap = getConvertedIndexerDoc(doc);
         docMap.remove(Document.ID_FIELD);
-        docMap.put(idDestinationName, doc.getId());
+        String override = getDocIdOverride(doc);
+        docMap.put(idDestinationName, override != null ? override : doc.getId());
 
         // set id and class name
-        String uuidForDoc = generateDocumentUUID(doc);
+        String uuidForDoc = generateDocumentUUID(override != null ? override : doc.getId());
         WeaviateObjectBuilder objectBuilder = WeaviateObject.builder()
             .className(weaviateClassName)
             .id(uuidForDoc);
@@ -182,7 +192,11 @@ public class WeaviateIndexer extends Indexer {
   }
 
   public static String generateDocumentUUID(Document document) {
-    return UUID.nameUUIDFromBytes(document.getId().getBytes()).toString();
+    return generateDocumentUUID(document.getId());
+  }
+
+  public static String generateDocumentUUID(String id) {
+    return UUID.nameUUIDFromBytes(id.getBytes()).toString();
   }
 
   private static Float[] floatsToArray(List<Float> list) {

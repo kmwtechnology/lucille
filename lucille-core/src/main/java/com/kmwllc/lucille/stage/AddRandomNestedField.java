@@ -82,10 +82,10 @@ public class AddRandomNestedField extends Stage {
 
   public AddRandomNestedField(Config config) throws StageException {
     super(config);
-    this.targetField = ConfigUtils.getOrDefault(config, "targetField", null);
-    this.numObjects = ConfigUtils.getOrDefault(config, "numObjects", null);
-    this.minNumObjects = ConfigUtils.getOrDefault(config, "minNumObjects", null);
-    this.maxNumObjects = ConfigUtils.getOrDefault(config, "maxNumObjects", null);
+    this.targetField = ConfigUtils.getStringOrDefault(config, "targetField", null);
+    this.numObjects = ConfigUtils.getIntOrDefault(config, "numObjects", null);
+    this.minNumObjects = ConfigUtils.getIntOrDefault(config, "minNumObjects", null);
+    this.maxNumObjects = ConfigUtils.getIntOrDefault(config, "maxNumObjects", null);
     this.generatorsConfig = config.hasPath("generators") ? config.getConfig("generators") : null;
     Config entriesCfg = config.getConfig("entries");
 

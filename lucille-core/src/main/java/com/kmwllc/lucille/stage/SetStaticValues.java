@@ -11,6 +11,7 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,7 +19,7 @@ import java.util.Map;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>staticValues (Map&lt;String, Object&gt;) : A mapping from the field to the value.</li>
+ *   <li>staticValues (Map&lt;String, Object&gt;) : A mapping from the field to the value. A list value produces a multi-valued field.</li>
  *   <li>updateMode (UpdateMode) : The update mode to use when updating the fields.</li>
  *   <li>skipDocument (boolean) : Sets the document to be skipped by the rest of the pipeline. Can be used in place of the {@link SkipDocument}
  *   stage when we want to both skip and delete documents, and don't want to add another stage with duplicate conditions.</li>
@@ -45,7 +46,11 @@ public class SetStaticValues extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    staticValues.forEach((fieldName, staticValue) -> doc.update(fieldName, updateMode, staticValue));
+    staticValues.forEach((fieldName, staticValue) -> {
+      // a list in the config becomes a multi-valued field; update() takes the values as varargs
+      Object[] values = staticValue instanceof List ? ((List<?>) staticValue).toArray() : new Object[] {staticValue};
+      doc.update(fieldName, updateMode, values);
+    });
     if (skipDocument) {
       doc.setSkipped(true);
     }
