@@ -1,0 +1,9 @@
+# IndexerTypeProvider implementations discoverable via ServiceLoader. Each exposes an Indexer class whose
+# `public static final String INDEXER_TYPE` names its `indexer.type`. IndexerFactory reads the type name and
+# constructs the Indexer, without lucille-core referencing backend classes by name.
+#
+# These are the in-core indexers that need no search client. The Solr, OpenSearch, and Elasticsearch providers
+# live in their own plugin modules (lucille-solr, lucille-opensearch, lucille-elasticsearch) and register
+# themselves through their own copies of this service file.
+com.kmwllc.lucille.indexer.provider.CSVIndexerProvider
+com.kmwllc.lucille.indexer.provider.NopIndexerProvider

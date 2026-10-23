@@ -143,18 +143,6 @@
         <scope>import</scope>
       </dependency>
 
-      <!-- Pin OTel API to 1.56.0 — solr-core 10 requires it; elasticsearch-java pulls in 1.29.0 which lacks DoubleGauge -->
-      <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-api</artifactId>
-        <version>1.62.0</version>
-      </dependency>
-      <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-context</artifactId>
-        <version>1.56.0</version>
-      </dependency>
-
       <!-- Force the whole httpcore5 family to a single fixed version. As of 7/28/26, opensearch-java is pulling
       in httpcore5-h2: 5.4.2, which has a CVE fixed in 5.4.3, which we are fixing to. -->
       <dependency>

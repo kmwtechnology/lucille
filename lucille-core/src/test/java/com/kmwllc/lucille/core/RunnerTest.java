@@ -825,14 +825,6 @@ public class RunnerTest {
   }
 
   @Test
-  public void testIndexerConnectFailure() throws Exception {
-    // use runLocal() instead of runInTestMode() so we attempt to start an Indexer and
-    // handle the failure
-    assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerConnectFailure.conf"),
-        Runner.RunType.LOCAL).getStatus());
-  }
-
-  @Test
   public void testIndexerDeleteByFieldConfig() throws Exception {
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldInvalid1.conf"), Runner.RunType.LOCAL).getStatus());
     assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerDeleteByFieldInvalid2.conf"), Runner.RunType.LOCAL).getStatus());

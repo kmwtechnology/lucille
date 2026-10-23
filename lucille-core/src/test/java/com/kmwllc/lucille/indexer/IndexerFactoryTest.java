@@ -15,14 +15,6 @@ import static org.junit.Assert.assertThrows;
 public class IndexerFactoryTest {
 
   @Test
-  public void testFromValidTypeConfig() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type.conf");
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
-    Assert.assertTrue(indexer instanceof SolrIndexer);
-  }
-
-  @Test
   public void testFromInvalidTypeConfig() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_invalid_type.conf");
@@ -30,22 +22,6 @@ public class IndexerFactoryTest {
       Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
     });
     Assert.assertTrue(exception.getMessage().contains("Unknown indexer.type configuration of:"));
-  }
-
-  @Test
-  public void testFromValidTypeConfigOpen() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type_open.conf");
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
-    Assert.assertTrue(indexer instanceof OpenSearchIndexer);
-  }
-
-  @Test
-  public void testFromValidTypeConfigElastic() throws Exception {
-    TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type_elastic.conf");
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
-    Assert.assertTrue(indexer instanceof ElasticsearchIndexer);
   }
 
   @Test
@@ -62,10 +38,13 @@ public class IndexerFactoryTest {
   }
 
   @Test
-  public void testFromDefaultTypeConfig() {
+  public void testDefaultsToNopIndexerWhenNoTypeOrClass() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Config config = ConfigFactory.load("IndexerFactoryTest/config_default_type.conf");
+    Config config = ConfigFactory.load("IndexerFactoryTest/config_no_type_or_class.conf");
 
-    assertThrows(IndexerException.class, () -> IndexerFactory.fromConfig(config, messenger, true, "testing"));
+    // With neither indexer.class nor indexer.type set, the factory defaults to a no-op indexer
+    // rather than throwing, so a pipeline can run without a configured destination.
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
+    Assert.assertTrue(indexer instanceof NopIndexer);
   }
 }

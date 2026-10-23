@@ -33,6 +33,8 @@ import java.util.List;
  */
 public class CSVIndexer extends Indexer {
 
+  public static final String INDEXER_TYPE = "CSV";
+
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("path")
       .requiredList("columns", new TypeReference<List<String>>(){})

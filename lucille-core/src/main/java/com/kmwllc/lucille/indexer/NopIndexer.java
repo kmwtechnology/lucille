@@ -18,6 +18,8 @@ import org.slf4j.LoggerFactory;
  */
 public class NopIndexer extends Indexer {
 
+  public static final String INDEXER_TYPE = "Nop";
+
   public static final Spec SPEC = SpecBuilder.indexer().build();
 
   private static final Logger log = LoggerFactory.getLogger(NopIndexer.class);
