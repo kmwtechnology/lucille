@@ -169,9 +169,9 @@ public class TextExtractor extends Stage {
       });
 
   private String textField;
-  private String filePathField;
+  protected String filePathField;
   private String tikaConfigPath;
-  private String byteArrayField;
+  protected String byteArrayField;
   private String metadataPrefix;
   private String fieldNamesField;
   private boolean replaceDotsInMetadataNames;
@@ -189,7 +189,7 @@ public class TextExtractor extends Stage {
   private ForkParser forkParser;
   private TikaConfig tikaConfig;
   private DocumentSelector documentSelector;
-  private final FileContentFetcher fileFetcher;
+  protected final FileContentFetcher fileFetcher;
   private ExecutorService executorService;
   private final FieldFilter fieldFilter;
   private final Map<String, Object> metadataFields;
