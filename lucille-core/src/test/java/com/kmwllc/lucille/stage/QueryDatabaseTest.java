@@ -317,29 +317,35 @@ public class QueryDatabaseTest {
   }
 
   @Test
-  public void testUnsupportedTypeTime() throws Exception {
+  public void testTimeTypeIsKeptAsString() throws Exception {
     Stage stage = factory.get("QueryDatabaseTest/time_type.conf");
 
     Document d = Document.create("id");
     d.setField("get_row", 1);
-    // JDBCUtils should log warning for the unsupported TIME column
-    stage.processDocument(d);
-    stage.stop();
+    try {
+      // a zone-less TIME round-trips losslessly as a string and must not be dropped
+      stage.processDocument(d);
+    } finally {
+      stage.stop();
+    }
 
-    assertFalse(d.has("time_col"));
+    assertTrue(d.has("time_col"));
     assertTrue(d.has("integer_col"));
     assertEquals(7, (int) d.getInt("integer_col"));
   }
 
   @Test
-  public void testUnsupportedTypeTimeWTimezone() throws Exception {
+  public void testUnsupportedTypeTimeWTimezoneFailsTheDocument() throws Exception {
     Stage stage = factory.get("QueryDatabaseTest/time_w_timezone_type.conf");
 
     Document d = Document.create("id");
     d.setField("get_row", 1);
-    // JDBCUtils should log warning
-    stage.processDocument(d);
-    stage.stop();
+    try {
+      // strict type handling: an unsupported column type fails rather than being silently dropped
+      assertThrows(StageException.class, () -> stage.processDocument(d));
+    } finally {
+      stage.stop();
+    }
   }
 
   @Test
