@@ -118,6 +118,12 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    *
    * <p>If the commit fails, the drained offsets are not re-queued; as offsets are cumulative per partition, the
    * next completed batch supersedes them and the cost is at most some reprocessing after a restart.
+   *
+   * <p>TODO: the reasoning above does not hold when the indexer uses a MultiBatch (indexOverrideField is set): its
+   * per-index sub-batches can complete a higher offset while a lower one is still unflushed, so committing the highest
+   * offset can skip that record after a crash. Share {@link OffsetCommitTracker} here (as the distributed
+   * KafkaIndexerMessenger does), which commits only the contiguous completed prefix and also handles rebalances. See the
+   * "Known boundary (hybrid + indexOverrideField)" note in docs/operations/indexing-throughput.
    */
   @Override
   public void commitPendingDocOffsets() throws Exception {

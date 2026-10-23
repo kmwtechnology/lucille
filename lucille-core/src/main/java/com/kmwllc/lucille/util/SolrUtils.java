@@ -140,13 +140,18 @@ public class SolrUtils {
    * are not included in the created document. Array and List types become multivalued fields.
    *
    * @param tuple a Tuple from Solr
-   * @throws DocumentException if tuple does not have a key called Document.ID_FIELD
+   * @throws DocumentException if tuple does not have a key called Document.ID_FIELD, or its value is null
    * @return a Document whose id is the stringified version of the contents of Document.ID_FIELD in the tuple.
    */
   public static Document toDocument(Tuple tuple) throws DocumentException {
     Document d;
 
     if (tuple.getFields().containsKey(Document.ID_FIELD)) {
+      // test the raw value: Tuple.getString() turns a null value into the text "null", which would become the id
+      if (tuple.getFields().get(Document.ID_FIELD) == null) {
+        // the id comes from data, so a bad one is a DocumentException rather than the factory's IllegalArgumentException
+        throw new DocumentException("Unable to create Document from Tuple. The id is null.");
+      }
       d = Document.create(tuple.getString(Document.ID_FIELD));
     } else {
       throw new DocumentException("Unable to create Document from Tuple. No id field present.");

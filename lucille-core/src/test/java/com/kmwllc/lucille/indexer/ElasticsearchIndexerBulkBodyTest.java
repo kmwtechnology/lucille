@@ -17,7 +17,6 @@ import co.elastic.clients.util.BinaryData;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.HashMapDocument;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -55,15 +54,6 @@ public class ElasticsearchIndexerBulkBodyTest {
   @Test
   public void testScalarFieldsAndNulls() throws Exception {
     Document doc = Document.create("doc1");
-    populateScalars(doc);
-
-    assertEquals("{\"index\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
-        + SCALARS_BODY + "\n", bulkBody(config(""), doc));
-  }
-
-  @Test
-  public void testScalarFieldsAndNullsHashMapDocument() throws Exception {
-    Document doc = new HashMapDocument("doc1");
     populateScalars(doc);
 
     assertEquals("{\"index\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
