@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.JsonDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.BoundedLineReader;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.typesafe.config.Config;
 import java.io.BufferedReader;
@@ -38,11 +39,16 @@ import org.apache.commons.lang3.StringUtils;
  * <p>
  * <b>Note:</b> if your input JSON has its own "id" field but you've configured a different field for IDs, your original
  * "id" will be overwritten by the generated one in the documents.
+ * <p>
+ * <code>maxRecordBytes</code> (Integer, Optional): The maximum size, in bytes (UTF-8), of a single line. If a line
+ * exceeds this limit, processing of the file stops with an error instead of reading the line into memory. Documents
+ * from earlier lines will already have been published. No limit by default.
  */
 public class JsonFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .optionalString("docIdFormat", "idField")
+      .optionalNumber("maxRecordBytes")
       .optionalList("idFields", new TypeReference<List<String>>() {})
       .optionalList("blacklist", new TypeReference<List<String>>() {})
       .optionalList("whitelist", new TypeReference<List<String>>() {})
@@ -55,9 +61,15 @@ public class JsonFileHandler extends BaseFileHandler {
   private final String docIdFormat;
   private final ObjectMapper mapper = new ObjectMapper();
   private final FieldFilter fieldFilter;
+  private final Integer maxRecordBytes;
 
   public JsonFileHandler(Config config) {
     super(config);
+
+    this.maxRecordBytes = config.hasPath("maxRecordBytes") ? config.getInt("maxRecordBytes") : null;
+    if (maxRecordBytes != null && maxRecordBytes <= 0) {
+      throw new IllegalArgumentException("maxRecordBytes must be positive, got " + maxRecordBytes);
+    }
 
     if (config.hasPath("idField")) {
       this.idFields = List.of(config.getString("idField"));
@@ -109,7 +121,8 @@ public class JsonFileHandler extends BaseFileHandler {
     Reader reader;
 
     try {
-      reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+      Reader streamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+      reader = maxRecordBytes == null ? new BufferedReader(streamReader) : new BoundedLineReader(streamReader, maxRecordBytes);
     } catch (Exception e) {
       throw new FileHandlerException(String.format("Error creating reader from file. (%s)", path), e);
     }
@@ -125,7 +138,18 @@ public class JsonFileHandler extends BaseFileHandler {
 
       @Override
       public boolean hasNext() {
-        boolean hasNext = it.hasNext();
+        // each line is its own record. LineIterator only reads when it has no cached line, so this is safe to call repeatedly
+        if (reader instanceof BoundedLineReader) {
+          ((BoundedLineReader) reader).startRecord();
+        }
+
+        boolean hasNext;
+        try {
+          hasNext = it.hasNext();
+        } catch (IllegalStateException e) {
+          // LineIterator wraps IOExceptions (such as an oversized line) in an IllegalStateException and closes itself
+          throw new IllegalStateException(String.format("Error reading line %d. (%s)", lineNum + 1, path), e);
+        }
         // Iterator closes when reader is done reading (successful job)
         if (!hasNext) {
           IOUtils.closeQuietly(it);

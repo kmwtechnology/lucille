@@ -18,8 +18,11 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -523,5 +526,60 @@ public class CSVFileHandlerTest {
     assertEquals(2, published.size());
     assertEquals("doc1", published.get(0).getId());
     assertEquals("doc3", published.get(1).getId());
+  }
+
+  private static InputStream toStream(String csv) {
+    return new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  public void testMaxRecordBytes() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 10)));
+    FileHandler handler = FileHandler.create("csv", config);
+
+    Iterator<Document> docs = handler.processFile(toStream("id,value\n1,short\n2,this is too long\n3,short\n"), "test.csv");
+
+    // the row before the oversized one is still returned
+    assertTrue(docs.hasNext());
+    assertEquals("short", docs.next().getString("value"));
+
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::hasNext);
+    assertTrue(e.getMessage().contains("Logical row 2"));
+    assertTrue(e.getMessage().contains("test.csv"));
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testMaxRecordBytesOnHeader() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 5)));
+    FileHandler handler = FileHandler.create("csv", config);
+
+    assertThrows(FileHandlerException.class, () -> handler.processFile(toStream("id,value\n1,a\n"), "test.csv"));
+  }
+
+  @Test
+  public void testMaxRecordBytesAcrossLines() throws Exception {
+    // the second row spans three physical lines of 7, 4 and 5 bytes: each is under the limit, but the row is 16 bytes
+    String csv = "id,value\n1,a\n2,\"xxxx\nyyyy\nzzzz\"\n3,b\n";
+
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 10)));
+    Iterator<Document> docs = FileHandler.create("csv", config).processFile(toStream(csv), "test.csv");
+    assertEquals("a", docs.next().getString("value"));
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::hasNext);
+    assertTrue(e.getMessage().contains("Logical row 2"));
+
+    // the count starts over for each row, so a limit that fits the largest row lets every row through
+    config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 16)));
+    docs = FileHandler.create("csv", config).processFile(toStream(csv), "test.csv");
+    assertEquals("a", docs.next().getString("value"));
+    assertEquals("xxxx\nyyyy\nzzzz", docs.next().getString("value"));
+    assertEquals("b", docs.next().getString("value"));
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testInvalidMaxRecordBytes() {
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 0)));
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("csv", config));
   }
 }
