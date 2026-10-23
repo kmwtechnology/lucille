@@ -3,6 +3,7 @@ package com.kmwllc.lucille.tika.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -38,7 +39,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
@@ -578,6 +582,43 @@ public class TextExtractorTest {
   }
 
   @Test
+  public void testTimeoutRecoveryOnSameStage() throws Exception {
+    HangingParser.release = new CountDownLatch(1);
+    HangingParser.hanging = new CountDownLatch(1);
+    Stage stage = factory.get(Map.of(
+        "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
+        "byteArrayField", "byte_array",
+        "parseTimeout", 1000,
+        "tikaConfigPath", "src/test/resources/TextExtractorTest/tika-config-hang.xml"));
+
+    try {
+      Document stuck = Document.create("stuck");
+      stuck.setField("byte_array", "hang forever".getBytes());
+      stage.processDocument(stuck);
+      assertTrue("parse should have started", HangingParser.hanging.await(5, TimeUnit.SECONDS));
+      assertFalse("Document should not have text on timeout.", stuck.has("text"));
+
+      // the timed-out parse ignores interruption, so it is still running
+      Thread stuckThread = HangingParser.hangingThread.get();
+      assertTrue(stuckThread.isAlive());
+      assertTrue("abandoned parse thread should not keep the JVM alive", stuckThread.isDaemon());
+
+      // the same stage keeps working instead of queueing behind the stuck parse
+      Document next = Document.create("next");
+      next.setField("byte_array", "Hi There!".getBytes());
+      stage.processDocument(next);
+      assertEquals("Hi There!\n", next.getString("text"));
+      assertTrue(stuckThread.isAlive());
+
+      // the two parses, which overlapped, didn't share a ParseContext
+      assertNotSame(HangingParser.hangingContext.get(), HangingParser.lastContext.get());
+    } finally {
+      HangingParser.release.countDown();
+      stage.stop();
+    }
+  }
+
+  @Test
   public void testSkipEmbeddedWithForkThrows() {
     // DocumentSelector can't cross the fork boundary, so this combination is rejected at construction.
     Map<String, Object> config = Map.of(
@@ -864,6 +905,47 @@ public class TextExtractorTest {
       while (true) {
         chunks.add(new byte[10_000_000]);
       }
+    }
+  }
+
+  /**
+   * Parses text/plain like {@link DefaultParser}, except content starting with "hang" blocks until {@link #release}
+   * is counted down, ignoring interrupts the way a parse stuck in a CPU loop would.
+   */
+  public static class HangingParser extends DefaultParser {
+    private static CountDownLatch release;
+    private static CountDownLatch hanging;
+    private static final AtomicReference<Thread> hangingThread = new AtomicReference<>();
+    private static final AtomicReference<ParseContext> hangingContext = new AtomicReference<>();
+    private static final AtomicReference<ParseContext> lastContext = new AtomicReference<>();
+
+    @Override
+    public Set<MediaType> getSupportedTypes(ParseContext context) {
+      return Collections.singleton(MediaType.TEXT_PLAIN);
+    }
+
+    @Override
+    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
+        throws TikaException, IOException, SAXException {
+      TikaInputStream tikaStream = TikaInputStream.get(stream);
+      tikaStream.mark(4);
+      byte[] start = tikaStream.readNBytes(4);
+      tikaStream.reset();
+      if ("hang".equals(new String(start))) {
+        hangingThread.set(Thread.currentThread());
+        hangingContext.set(context);
+        hanging.countDown();
+        while (true) {
+          try {
+            release.await();
+            return;
+          } catch (InterruptedException e) {
+            // ignored, like a parse that never checks for interruption
+          }
+        }
+      }
+      lastContext.set(context);
+      super.parse(tikaStream, handler, metadata, context);
     }
   }
 }

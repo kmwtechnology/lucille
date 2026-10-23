@@ -27,11 +27,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaConfigException;
 import org.apache.tika.exception.TikaException;
-import org.apache.tika.extractor.DocumentSelector;
 import org.apache.tika.exception.WriteLimitReachedException;
+import org.apache.tika.extractor.DocumentSelector;
 import org.apache.tika.fork.ForkParser;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
@@ -147,6 +148,9 @@ public class TextExtractor extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
 
+  // numbers parse threads so they can be told apart in thread dumps
+  private static final AtomicInteger PARSE_THREAD_COUNT = new AtomicInteger();
+
   // Building TikaConfigs from files is expensive, so we cache these configs across the JVM.
   // This is particularly helpful in multi-threaded runs, where each thread has its own instance of
   // TextExtractor but is using the same TikaConfig.
@@ -180,7 +184,8 @@ public class TextExtractor extends Stage {
   private long forkServerPulseMillis;
   private Parser parser;
   private ForkParser forkParser;
-  private ParseContext parseCtx;
+  private TikaConfig tikaConfig;
+  private DocumentSelector documentSelector;
   private final FileContentFetcher fileFetcher;
   private ExecutorService executorService;
   private final FieldFilter fieldFilter;
@@ -247,7 +252,6 @@ public class TextExtractor extends Stage {
           + "); control OCR in the Tika config instead, e.g. by excluding " + TesseractOCRParser.class.getName()
           + " from the DefaultParser");
     }
-    parseCtx = new ParseContext();
 
     this.fileFetcher = FileContentFetcher.create(config);
   }
@@ -275,7 +279,7 @@ public class TextExtractor extends Stage {
     }
 
     // we use an auto detect parser whether we are forking or not; ForkParser serializes it into the child JVMs
-    TikaConfig tikaConfig = createTikaConfig();
+    tikaConfig = createTikaConfig();
     AutoDetectParser autoParser = new AutoDetectParser(tikaConfig);
     log.info("TextExtractor OCR: {}; tesseract binary on PATH: {}", describeOcrSetting(),
         tesseractDetected() ? "detected" : "not detected");
@@ -291,24 +295,50 @@ public class TextExtractor extends Stage {
       parser = forkParser;
     } else {
       parser = autoParser;
-      parseCtx.set(Parser.class, parser);
-      // Without a TikaConfig in the context, Tika builds a fresh one (an expensive operation) for
-      // every embedded document, so we set ours here to reuse it. We don't set it in the fork case
-      // since TikaConfig isn't Serializable and the context is sent to the child JVM.
-      parseCtx.set(TikaConfig.class, tikaConfig);
-      // Skip parsing embedded documents whose content type matches a configured prefix, avoiding
-      // their stream open, detection, and parse entirely. Only set when configured, so the default
-      // (empty) leaves Tika's normal behavior unchanged. Non-fork only, alongside the other context
-      // hints above.
       if (!skipEmbeddedContentTypePrefixes.isEmpty()) {
-        parseCtx.set(DocumentSelector.class, new EmbeddedContentTypeSelector(skipEmbeddedContentTypePrefixes));
+        documentSelector = new EmbeddedContentTypeSelector(skipEmbeddedContentTypePrefixes);
       }
       if (parseTimeout != null) {
         // each worker is running in a single thread so we only need to run the extraction with a
         // single thread executor rather than using a thread pool.
-        executorService = Executors.newSingleThreadExecutor();
+        executorService = createParseExecutor();
       }
     }
+  }
+
+  /**
+   * Builds the {@link ParseContext} for a single document. Each parse gets its own context because Tika
+   * writes into it during a parse, and a parse abandoned after a timeout may still be running alongside
+   * the next one. The context only holds references to objects built once in {@link #start()}, so this is cheap.
+   */
+  private ParseContext createParseContext() {
+    ParseContext parseCtx = new ParseContext();
+    // the fork case is left empty: the context is sent to the child JVM and TikaConfig/DocumentSelector
+    // aren't Serializable
+    if (!forkEnabled) {
+      parseCtx.set(Parser.class, parser);
+      // Without a TikaConfig in the context, Tika builds a fresh one (an expensive operation) for
+      // every embedded document, so we set ours here to reuse it.
+      parseCtx.set(TikaConfig.class, tikaConfig);
+      // Skip parsing embedded documents whose content type matches a configured prefix. Only set when
+      // configured, so the default (empty) leaves Tika's normal behavior unchanged.
+      if (documentSelector != null) {
+        parseCtx.set(DocumentSelector.class, documentSelector);
+      }
+    }
+    return parseCtx;
+  }
+
+  /**
+   * Creates the single-thread executor parses run on when parseTimeout is set. Its thread is a daemon so a
+   * parse that ignores interruption after a timeout can't keep the JVM alive.
+   */
+  private static ExecutorService createParseExecutor() {
+    return Executors.newSingleThreadExecutor(r -> {
+      Thread thread = new Thread(r, "TextExtractor-parse-" + PARSE_THREAD_COUNT.incrementAndGet());
+      thread.setDaemon(true);
+      return thread;
+    });
   }
 
   /**
@@ -481,14 +511,15 @@ public class TextExtractor extends Stage {
    */
   public void parseInputStream(Metadata metadata, Document doc, InputStream inputStream) throws StageException {
     ContentHandler bch = new BodyContentHandler(textContentLimit);
+    ParseContext parseCtx = createParseContext();
     if (forkEnabled || parseTimeout == null) {
       // fork path: StageException propagates on child failure; ForkParser's serverParseTimeoutMillis handles hangs.
       // non-fork path with no timeout: parse inline.
-      parse(doc, inputStream, metadata, bch);
+      parse(doc, inputStream, metadata, bch, parseCtx);
     } else {
       Future<?> future = executorService.submit(() -> {
         try {
-          parse(doc, inputStream, metadata, bch);
+          parse(doc, inputStream, metadata, bch, parseCtx);
         } catch (StageException e) {
           log.warn("Tika Exception: {}", e.getMessage());
         }
@@ -505,10 +536,12 @@ public class TextExtractor extends Stage {
         } catch (IOException ioe) {
           log.warn("Error closing input stream after parse timeout", ioe);
         }
-        // future.cancel() doesn't stop a parse thread (may be stuck), but discard + recreate does -
-        // prevent zombie thread / blocking queued documents
+        // Neither cancel() nor shutdownNow() can stop a parse that ignores interruption (e.g. stuck in a
+        // CPU loop), so replace the executor to keep the next documents from queueing behind it. The
+        // abandoned thread is a daemon and has its own ParseContext, so it can't keep the JVM alive or
+        // interfere with later parses; it exits once the parse returns.
         executorService.shutdownNow();
-        executorService = Executors.newSingleThreadExecutor();
+        executorService = createParseExecutor();
         handleParseTimeout();
         // the parse thread may still be writing to bch/metadata, so don't read them.
         return;
@@ -548,7 +581,8 @@ public class TextExtractor extends Stage {
     TIKA_CONFIG_CACHE.clear();
   }
 
-  private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch) throws StageException {
+  private void parse(Document doc, InputStream inputStream, Metadata metadata, ContentHandler bch, ParseContext parseCtx)
+      throws StageException {
     try {
       parser.parse(inputStream, bch, metadata, parseCtx);
     } catch (IOException | SAXException | TikaException e) {
