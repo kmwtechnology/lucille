@@ -30,11 +30,15 @@ import org.slf4j.LoggerFactory;
  *
  * <p>If <code>otherSQLs</code> is set, each of those statements is run on its own connection and merged with the
  * primary result set by join key: every row whose join field equals the current primary row's
- * <code>idField</code> value is attached to the Document as a child Document. The merge walks all result sets
- * forward in lockstep, so <code>sql</code> and every <code>otherSQLs</code> entry must be ordered by their join
- * key; an out-of-order key fails the run rather than silently dropping children. Join keys may be any mutually
- * comparable type (numbers, strings, dates). Child rows whose key has no matching primary row are skipped.
- * {@link com.kmwllc.lucille.stage.CollapseChildrenDocuments} can flatten the children into multi-valued fields.
+ * <code>idField</code> value is attached to the Document as a child Document with id
+ * <code>&lt;parentId&gt;_&lt;n&gt;</code>, where <code>n</code> counts the parent's children across all
+ * <code>otherSQLs</code> starting at 0. The merge walks all result sets forward in lockstep, so <code>sql</code>
+ * and every <code>otherSQLs</code> entry must be ordered by their join key and primary keys must be unique; an
+ * out-of-order or duplicate key fails the run rather than silently dropping children. Join keys may be any
+ * mutually comparable type (numbers, strings, dates). Child rows whose key is NULL or has no matching primary
+ * row are skipped. <code>ignoreColumns</code> applies to the primary result set only; child documents carry
+ * every column of their query. {@link com.kmwllc.lucille.stage.CollapseChildrenDocuments} can flatten the
+ * children into multi-valued fields.
  *
  * <p>Column values are converted by {@link JDBCUtils}: SQL NULLs are skipped, and a column of an unsupported SQL
  * type fails the run (cast it in SQL or list it in <code>ignoreColumns</code>).
@@ -233,19 +237,28 @@ public class DatabaseConnector extends AbstractConnector {
         }
         if (!otherResults.isEmpty()) {
           Object joinId = rs.getObject(idColumn);
-          // The merge also requires the primary result set to be ordered by the join key; a parent whose key is
-          // smaller than the previous parent's would silently get no children (its rows were already passed).
-          if (lastPrimaryJoinId != null && joinId instanceof Comparable
-              && ((Comparable) joinId).compareTo(lastPrimaryJoinId) < 0) {
-            throw new ConnectorException(String.format(
-                "primary result set is not ordered by id field %s (%s follows %s); add ORDER BY %s when using otherSQLs",
-                idField, joinId, lastPrimaryJoinId, idField));
+          // The merge also requires the primary result set to be ordered by the join key and the keys to be
+          // unique: a parent whose key is smaller than, or equal to, the previous parent's would silently get no
+          // children, because the child cursors have already moved past that key.
+          if (lastPrimaryJoinId != null && joinId instanceof Comparable) {
+            int order = ((Comparable) joinId).compareTo(lastPrimaryJoinId);
+            if (order < 0) {
+              throw new ConnectorException(String.format(
+                  "primary result set is not ordered by id field %s (%s follows %s); add ORDER BY %s when using otherSQLs",
+                  idField, joinId, lastPrimaryJoinId, idField));
+            }
+            if (order == 0) {
+              throw new ConnectorException(String.format(
+                  "primary result set has duplicate id field %s value %s; ids must be unique when using otherSQLs",
+                  idField, joinId));
+            }
           }
           lastPrimaryJoinId = joinId;
-          int childId = -1;
+          // children are numbered continuously across all otherSQLs; see iterateOtherSQL for the id format
+          int nextChildIndex = 0;
           int j = 0;
           for (ResultSet otherResult : otherResults) {
-            iterateOtherSQL(otherResult, otherColumns.get(j), doc, joinId, childId, otherJoinFields.get(j));
+            nextChildIndex = iterateOtherSQL(otherResult, otherColumns.get(j), doc, joinId, nextChildIndex, otherJoinFields.get(j));
             j++;
           }
         }
@@ -287,24 +300,34 @@ public class DatabaseConnector extends AbstractConnector {
 
   /**
    * Attaches to {@code doc} every row of {@code rs2} whose {@code joinField} equals {@code joinId}, as child
-   * documents. Both result sets are consumed forward only, so the cursor is left on the first row whose key is
-   * greater than {@code joinId} (or past the end) for the next primary row to continue from.
+   * documents with ids of the form {@code <parentId>_<n>}, numbering from {@code nextChildIndex}. Returns the
+   * next unused index so that children from several otherSQLs are numbered continuously. Rows whose join key
+   * is SQL NULL match no parent and are skipped. Both result sets are consumed forward only, so the cursor is
+   * left on the first row whose key is greater than {@code joinId} (or past the end) for the next primary row
+   * to continue from.
    */
-  private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Object joinId, int childId, String joinField) throws Exception {
+  private int iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Object joinId, int nextChildIndex, String joinField) throws Exception {
     // getRow() is 0 when there is no current row: before the first row, after the last row, or for an
     // empty result set (where isBeforeFirst() and isAfterLast() are both false). In all three cases try to
     // advance; if there is no row to advance to, this parent has no children in this result set.
     if (rs2.getRow() == 0 && !rs2.next()) {
-      return;
+      return nextChildIndex;
     }
 
     while (true) {
       Object otherJoinId = rs2.getObject(joinField);
+      if (otherJoinId == null) {
+        // a NULL join key (e.g. a nullable foreign key) can match no parent: skip the row
+        if (!rs2.next()) {
+          return nextChildIndex;
+        }
+        continue;
+      }
       int comparison;
       try {
         comparison = ((Comparable) otherJoinId).compareTo(joinId);
       } catch (NullPointerException e) {
-        throw new ConnectorException("Either otherJoinId or joinId is null.", e);
+        throw new ConnectorException("Primary id field " + idField + " is null; cannot join otherSQLs.", e);
       } catch (ClassCastException e) {
         throw new ConnectorException("Either otherJoinId or joinId type prevents them from being compared.", e);
       }
@@ -320,17 +343,17 @@ public class DatabaseConnector extends AbstractConnector {
         // this child row belongs to no parent in the primary result set (or to one already passed);
         // advance exactly one row, returning if the result set is exhausted.
         if (!rs2.next()) {
-          return;
+          return nextChildIndex;
         }
         continue;
       } else if (comparison > 0) {
         // this child key is past the current parent; leave the cursor here for the next primary row
-        return;
+        return nextChildIndex;
       }
 
       // join keys match: this row becomes a child document
-      childId++;
-      Document child = Document.create(Integer.toString(childId));
+      Document child = Document.create(doc.getId() + "_" + nextChildIndex);
+      nextChildIndex++;
       // columns2 is in column order (see getColumnNames), so index i corresponds to column i + 1
       for (int i = 0; i < columns2.length; i++) {
         // same type handling as the primary result set (nulls skipped, unsupported types fail the run)
@@ -338,7 +361,7 @@ public class DatabaseConnector extends AbstractConnector {
       }
       doc.addChild(child);
       if (!rs2.next()) {
-        return;
+        return nextChildIndex;
       }
     }
   }

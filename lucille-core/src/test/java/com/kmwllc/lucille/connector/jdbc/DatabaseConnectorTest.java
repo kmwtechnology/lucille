@@ -9,6 +9,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -452,7 +453,7 @@ public class DatabaseConnectorTest {
     assertEquals(3, docs.size());
 
     // TODO: better verification / edge cases.. also formalize the "children" docs.
-    String expected = "{\"id\":\"1\",\"name\":\"Matt\",\"___children\":[{\"id\":\"0\",\"meal_id\":1,\"animal_id\":1,\"name\":\"breakfast\"},{\"id\":\"1\",\"meal_id\":2,\"animal_id\":1,\"name\":\"lunch\"},{\"id\":\"2\",\"meal_id\":3,\"animal_id\":1,\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
+    String expected = "{\"id\":\"1\",\"name\":\"Matt\",\"___children\":[{\"id\":\"1_0\",\"meal_id\":1,\"animal_id\":1,\"name\":\"breakfast\"},{\"id\":\"1_1\",\"meal_id\":2,\"animal_id\":1,\"name\":\"lunch\"},{\"id\":\"1_2\",\"meal_id\":3,\"animal_id\":1,\"name\":\"dinner\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
 
     connector.close();
@@ -652,6 +653,162 @@ public class DatabaseConnectorTest {
     }
   }
 
+  /** Base config for a joining connector; callers add otherSQLs / otherJoinFields and optional preSQL. */
+  private HashMap<String, Object> baseJoinConfig(String sql) {
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", sql);
+    configValues.put("idField", "id");
+    return configValues;
+  }
+
+  private List<Document> runConnector(HashMap<String, Object> configValues) throws Exception {
+    DatabaseConnector connector = new DatabaseConnector(ConfigFactory.parseMap(configValues));
+    try {
+      connector.execute(publisher);
+    } finally {
+      connector.close();
+    }
+    return messenger.getDocsSentForProcessing();
+  }
+
+  private static List<String> childIds(Document parent) {
+    List<String> ids = new ArrayList<>();
+    for (Document child : parent.getChildren()) {
+      ids.add(child.getId());
+    }
+    return ids;
+  }
+
+  /**
+   * Two otherSQLs merged against one primary result set. Each child query keeps its own cursor and ordering
+   * state, the children of a parent are numbered continuously across both queries, and child ids are
+   * {@code <parentId>_<n>} so they are unique across the run. Meals come from the seed data; toys are created
+   * here so that animal 2 has toys but animal 3 does not.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorTwoOtherSQLs() throws Exception {
+    HashMap<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
+    configValues.put("preSQL",
+        "CREATE TABLE toy(id INT, animal_id INT, toy_name VARCHAR(20)); "
+            + "INSERT INTO toy VALUES (1, 1, 'ball'), (2, 2, 'mouse'), (3, 2, 'string');");
+    configValues.put("otherSQLs", new ArrayList<>(List.of(
+        "select id as meal_id, animal_id, name from meal order by animal_id, id",
+        "select id as toy_id, animal_id, toy_name from toy order by animal_id, id")));
+    configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id", "animal_id")));
+
+    List<Document> docs = runConnector(configValues);
+    assertEquals(3, docs.size());
+
+    // animal 1: three meals then one toy, numbered 0..3 continuously
+    Document animal1 = docs.get(0);
+    assertEquals(Arrays.asList("1_0", "1_1", "1_2", "1_3"), childIds(animal1));
+    assertEquals(Arrays.asList(1, 2, 3), mealIds(animal1).subList(0, 3));
+    assertEquals("ball", animal1.getChildren().get(3).getString("toy_name"));
+    assertFalse("a meal child must not carry toy columns", animal1.getChildren().get(0).has("toy_name"));
+
+    // animal 2: two meals then two toys
+    Document animal2 = docs.get(1);
+    assertEquals(Arrays.asList("2_0", "2_1", "2_2", "2_3"), childIds(animal2));
+    assertEquals("mouse", animal2.getChildren().get(2).getString("toy_name"));
+    assertEquals("string", animal2.getChildren().get(3).getString("toy_name"));
+
+    // animal 3: two meals, no toys
+    Document animal3 = docs.get(2);
+    assertEquals(Arrays.asList("3_0", "3_1"), childIds(animal3));
+    assertEquals(Arrays.asList(6, 7), mealIds(animal3));
+  }
+
+  /**
+   * A child row whose join key is SQL NULL (a nullable foreign key) matches no parent and is skipped; it must
+   * neither abort the run nor disturb the merge for the rows around it. H2 sorts NULLs first for ascending
+   * order, so the NULL rows are encountered before any key is matched.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorNullChildJoinKeyIsSkipped() throws Exception {
+    HashMap<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
+    configValues.put("preSQL",
+        "CREATE TABLE toy(id INT, animal_id INT, toy_name VARCHAR(20)); "
+            + "INSERT INTO toy VALUES (1, NULL, 'lost'), (2, 1, 'ball'), (3, NULL, 'unclaimed'), (4, 3, 'bell');");
+    configValues.put("otherSQLs", new ArrayList<>(List.of(
+        "select id as toy_id, animal_id, toy_name from toy order by animal_id, id")));
+    configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id")));
+
+    List<Document> docs = runConnector(configValues);
+    assertEquals(3, docs.size());
+    assertEquals(Arrays.asList("1_0"), childIds(docs.get(0)));
+    assertEquals("ball", docs.get(0).getChildren().get(0).getString("toy_name"));
+    assertFalse(docs.get(1).hasChildren());
+    assertEquals(Arrays.asList("3_0"), childIds(docs.get(2)));
+    assertEquals("bell", docs.get(2).getChildren().get(0).getString("toy_name"));
+  }
+
+  /**
+   * Duplicate keys in the primary result set cannot be merged correctly: the child cursors have already moved
+   * past the key when the second parent arrives, so it would silently get no children. The connector must fail
+   * the run instead.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorDuplicatePrimaryKeyFailsTheRun() throws Exception {
+    HashMap<String, Object> configValues = baseJoinConfig("select id,name from dup_animal order by id");
+    configValues.put("preSQL",
+        "CREATE TABLE dup_animal(id INT, name VARCHAR(10)); "
+            + "INSERT INTO dup_animal VALUES (1, 'Matt'), (1, 'Matt again'), (2, 'Sonny');");
+    configValues.put("otherSQLs", new ArrayList<>(List.of(
+        "select id as meal_id, animal_id, name from meal order by animal_id, id")));
+    configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id")));
+
+    DatabaseConnector connector = new DatabaseConnector(ConfigFactory.parseMap(configValues));
+    try {
+      ConnectorException e = assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+      assertTrue("message should name the duplicate key: " + e.getCause().getMessage(),
+          e.getCause().getMessage().contains("duplicate"));
+    } finally {
+      connector.close();
+    }
+  }
+
+  /** postSQL runs after the primary query, on the same connection, and its effect is visible afterwards. */
+  @Test
+  public void testPostSqlRunsAfterQuery() throws Exception {
+    HashMap<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
+    configValues.put("preSQL", "CREATE TABLE marker(note VARCHAR(20));");
+    configValues.put("postSQL", "INSERT INTO marker VALUES ('done');");
+
+    List<Document> docs = runConnector(configValues);
+    assertEquals(3, docs.size());
+
+    try (Connection check = DriverManager.getConnection("jdbc:h2:mem:test");
+        Statement statement = check.createStatement();
+        ResultSet rs = statement.executeQuery("select count(*) from marker")) {
+      assertTrue(rs.next());
+      assertEquals(1, rs.getInt(1));
+    }
+  }
+
+  /** ignoreColumns leaves ordinary primary columns off the document; child rows are not filtered by it. */
+  @Test
+  public void testIgnoreColumnsOmitsPrimaryColumnOnly() throws Exception {
+    HashMap<String, Object> configValues = baseJoinConfig("select id,name,type from animal order by id");
+    configValues.put("ignoreColumns", new ArrayList<>(List.of("TYPE", "name")));
+    configValues.put("otherSQLs", new ArrayList<>(List.of(
+        "select id as meal_id, animal_id, name from meal order by animal_id, id")));
+    configValues.put("otherJoinFields", new ArrayList<>(List.of("animal_id")));
+
+    List<Document> docs = runConnector(configValues);
+    assertEquals(3, docs.size());
+    Document animal1 = docs.get(0);
+    assertFalse("ignored column (case-insensitive) must be absent", animal1.has("type"));
+    assertFalse(animal1.has("name"));
+    // the child query also has a "name" column; ignoreColumns does not apply to child rows
+    assertEquals("breakfast", animal1.getChildren().get(0).getString("name"));
+  }
+
   /**
    * Join scenario where an otherSQL (child) query returns no rows at all - for example, an empty child
    * table or a child filter that matches nothing. Each parent should simply be published with no children,
@@ -723,7 +880,7 @@ public class DatabaseConnectorTest {
 
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(3, docs.size());
-    String expected = "{\"id\":\"Matt\",\"name\":\"Matt\",\"type\":\"Human\",\"___children\":[{\"id\":\"0\",\"network_id\":3,\"name\":\"Matt\",\"friends_with\":\"Bob\"},{\"id\":\"1\",\"network_id\":4,\"name\":\"Matt\",\"friends_with\":\"Sonny\"},{\"id\":\"2\",\"network_id\":5,\"name\":\"Matt\",\"friends_with\":\"Blaze\"}],\"run_id\":\"testRunId\"}";
+    String expected = "{\"id\":\"Matt\",\"name\":\"Matt\",\"type\":\"Human\",\"___children\":[{\"id\":\"Matt_0\",\"network_id\":3,\"name\":\"Matt\",\"friends_with\":\"Bob\"},{\"id\":\"Matt_1\",\"network_id\":4,\"name\":\"Matt\",\"friends_with\":\"Sonny\"},{\"id\":\"Matt_2\",\"network_id\":5,\"name\":\"Matt\",\"friends_with\":\"Blaze\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(1).toString());
 
     connector.close();
@@ -788,7 +945,7 @@ public class DatabaseConnectorTest {
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(1, docs.size());
     // birthday is idField
-    String expected = "{\"id\":\"2024-07-30\",\"name\":\"Sonny\",\"type\":\"Cat\",\"birthday\":\"2024-07-30T00:00:00Z\",\"___children\":[{\"id\":\"0\",\"adoption_id\":1,\"name\":\"Sonny\",\"adopted_on\":\"2024-07-30T00:00:00Z\"},{\"id\":\"1\",\"adoption_id\":2,\"name\":\"Blaze\",\"adopted_on\":\"2024-07-30T00:00:00Z\"}],\"run_id\":\"testRunId\"}";
+    String expected = "{\"id\":\"2024-07-30\",\"name\":\"Sonny\",\"type\":\"Cat\",\"birthday\":\"2024-07-30T00:00:00Z\",\"___children\":[{\"id\":\"2024-07-30_0\",\"adoption_id\":1,\"name\":\"Sonny\",\"adopted_on\":\"2024-07-30T00:00:00Z\"},{\"id\":\"2024-07-30_1\",\"adoption_id\":2,\"name\":\"Blaze\",\"adopted_on\":\"2024-07-30T00:00:00Z\"}],\"run_id\":\"testRunId\"}";
     assertEquals(expected, docs.get(0).toString());
 
     String expectedDateStr = "2024-07-30";
