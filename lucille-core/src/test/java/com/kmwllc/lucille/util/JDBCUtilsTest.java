@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.util;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -63,6 +65,38 @@ public class JDBCUtilsTest {
     assertTrue("TIMESTAMP must keep its wall-clock value, not be shifted by the resolving zone "
             + "(was: " + stored + ")",
         stored.startsWith("2023-01-01T00:00:00"));
+  }
+
+  /**
+   * Vendor-specific column type codes (Oracle TIMESTAMP WITH TIME ZONE is -101, SQL Server DATETIMEOFFSET
+   * is -155) are not members of {@link Types}, so {@link java.sql.JDBCType#valueOf(int)} throws for them.
+   * H2 cannot produce such a code, so this is checked against a mocked ResultSet.
+   *
+   * <p>Under the strict contract an unsupported type must fail, so an exception is expected; but it must be
+   * a deliberate, diagnosable failure that names the field (and ideally the code), not the accidental
+   * {@code IllegalArgumentException: Type:-101 is not a valid Types.java value} raised while trying to
+   * build a log message. The test is agnostic about the exception class.
+   */
+  @Test
+  public void testVendorSpecificTypeCodeFailsWithDiagnosableMessage() throws Exception {
+    int oracleTimestampWithTimeZone = -101;
+
+    ResultSet rs = mock(ResultSet.class);
+    ResultSetMetaData meta = mock(ResultSetMetaData.class);
+    when(rs.getMetaData()).thenReturn(meta);
+    when(meta.getColumnType(1)).thenReturn(oracleTimestampWithTimeZone);
+    when(meta.getColumnTypeName(1)).thenReturn("TIMESTAMP WITH TIME ZONE");
+
+    Document doc = Document.create("id");
+    Exception thrown = assertThrows(Exception.class, () -> JDBCUtils.parseResultToDoc(doc, rs, "weird_col", 1));
+
+    String message = String.valueOf(thrown.getMessage());
+    assertFalse("the failure must be deliberate, not JDBCType.valueOf failing inside the warning (was: "
+            + message + ")",
+        message.contains("is not a valid Types.java value"));
+    assertTrue("the failure must name the offending field (was: " + message + ")",
+        message.contains("weird_col"));
+    assertFalse("nothing must be stored for an unsupported column", doc.has("weird_col"));
   }
 
   @Test

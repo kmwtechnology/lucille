@@ -522,6 +522,106 @@ public class DatabaseConnectorTest {
   }
 
   /**
+   * Builds a joining-connector config against the seeded animal/meal tables with the given primary and
+   * child queries, joining on animal_id.
+   */
+  private Config joinConfig(String sql, String otherSql) {
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", sql);
+    configValues.put("idField", "id");
+    ArrayList<String> otherSqls = new ArrayList<>();
+    otherSqls.add(otherSql);
+    configValues.put("otherSQLs", otherSqls);
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("animal_id");
+    configValues.put("otherJoinFields", otherJoinFields);
+    return ConfigFactory.parseMap(configValues);
+  }
+
+  /** Runs a joining connector built by {@link #joinConfig} and returns the published documents. */
+  private List<Document> runJoin(String sql, String otherSql) throws Exception {
+    DatabaseConnector connector = new DatabaseConnector(joinConfig(sql, otherSql));
+    try {
+      connector.execute(publisher);
+    } finally {
+      connector.close();
+    }
+    return messenger.getDocsSentForProcessing();
+  }
+
+  private static List<Integer> mealIds(Document parent) {
+    List<Integer> ids = new ArrayList<>();
+    for (Document child : parent.getChildren()) {
+      ids.add(child.getInt("meal_id"));
+    }
+    return ids;
+  }
+
+  /**
+   * Two consecutive orphan child rows between two parents. The sorted merge consumes rows in pairs when
+   * it skips a "too small" key, so an even-length run of orphans happens to lose nothing even on the
+   * buggy implementation; this case exists so that a rewrite of the merge is checked for both the odd
+   * (see testJoiningDatabaseConnectorGapBetweenParents) and the even case.
+   *
+   * <p>Parents are animals 1 and 3; children are meals 1 (animal 1), 4 and 5 (animal 2, both orphans),
+   * 6 and 7 (animal 3). Child join-key sequence: 1, 2, 2, 3, 3.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorTwoConsecutiveOrphans() throws Exception {
+    List<Document> docs = runJoin(
+        "select id,name from animal where id in (1,3) order by id",
+        "select id as meal_id, animal_id, name from meal where id in (1,4,5,6,7) order by animal_id, id");
+
+    assertEquals(2, docs.size());
+    assertEquals("1", docs.get(0).getId());
+    assertEquals(Arrays.asList(1), mealIds(docs.get(0)));
+    assertEquals("3", docs.get(1).getId());
+    assertEquals(Arrays.asList(6, 7), mealIds(docs.get(1)));
+  }
+
+  /**
+   * Orphan child rows before the first parent and after the last parent. The only parent is animal 2;
+   * children are meals 1, 2, 3 (animal 1, orphans before), 4, 5 (animal 2), 6, 7 (animal 3, orphans
+   * after). Child join-key sequence: 1, 1, 1, 2, 2, 3, 3. Animal 2 must receive both of its meals; the
+   * trailing orphans must be ignored without error.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorOrphansBeforeFirstAndAfterLastParent() throws Exception {
+    List<Document> docs = runJoin(
+        "select id,name from animal where id = 2 order by id",
+        "select id as meal_id, animal_id, name from meal order by animal_id, id");
+
+    assertEquals(1, docs.size());
+    assertEquals("2", docs.get(0).getId());
+    assertEquals(Arrays.asList(4, 5), mealIds(docs.get(0)));
+  }
+
+  /**
+   * The child result set is exhausted before the last parents are reached: all three animals are parents
+   * but only animal 1 has child rows. Animal 1 gets its three meals; animals 2 and 3 are published with no
+   * children and the run completes. This exercises the "cursor already past the end" path separately from
+   * the empty-result-set path in testJoiningDatabaseConnectorEmptyChildResultSet.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorChildResultSetExhaustedBeforeLastParent() throws Exception {
+    List<Document> docs = runJoin(
+        "select id,name from animal order by id",
+        "select id as meal_id, animal_id, name from meal where animal_id = 1 order by animal_id, id");
+
+    assertEquals(3, docs.size());
+    assertEquals("1", docs.get(0).getId());
+    assertEquals(Arrays.asList(1, 2, 3), mealIds(docs.get(0)));
+    assertFalse("animal 2 has no meals in the child query", docs.get(1).hasChildren());
+    assertFalse("animal 3 has no meals in the child query", docs.get(2).hasChildren());
+  }
+
+  /**
    * Join scenario where an otherSQL (child) query returns no rows at all - for example, an empty child
    * table or a child filter that matches nothing. Each parent should simply be published with no children,
    * and the overall run should complete successfully.
@@ -881,11 +981,15 @@ public class DatabaseConnectorTest {
    * <p>NOTE: ordinary DECIMAL/NUMERIC is supported-as-Double here; the separate concern that high-precision
    * DECIMAL is read lossily via getDouble is tracked elsewhere and intentionally NOT asserted by this test.
    *
-   * <p>The test is resolution-agnostic about the exact exception type: it asserts at the connector
+   * <p>The tests are resolution-agnostic about the exact exception type: they assert at the connector
    * boundary that a ConnectorException is raised for unsupported types.
+   *
+   * <p>This method covers the supported types on both paths; the unsupported types each have their own
+   * test method below (testUnsupportedType*FailsTheRun) so that every type's outcome is reported
+   * independently rather than hidden behind the first failure.
    */
   @Test
-  public void testTypeHandlingIsConsistentAcrossParentAndChild() throws Exception {
+  public void testSupportedTypesHandledIdenticallyOnParentAndChildPaths() throws Exception {
     // A parent table and a child table carrying the same set of supported column types. The child joins
     // to the parent on parent_id so every supported type flows through the otherSQL path as well.
     String setup =
@@ -967,19 +1071,57 @@ public class DatabaseConnectorTest {
       connector.close();
     }
 
-    // --- Unsupported types must throw a ConnectorException, on BOTH paths ---
-    // Each case creates a scratch table (via preSQL) with an id, an integer join key (animal_id=1 so it
-    // joins to seed animal 1), and the unsupported-typed column as a NON-join column - so any thrown
-    // exception is attributable to type handling, not to comparing the join keys. Every unsupported type
-    // H2 can represent in-memory is exercised here.
+  }
+
+  // --- Unsupported types must throw a ConnectorException, on BOTH paths ---
+  // One test per type so that each type's result is visible independently. Each case creates a scratch
+  // table (via preSQL) with an id, an integer join key (animal_id=1 so it joins to seed animal 1), and the
+  // unsupported-typed column as a NON-join column - so any thrown exception is attributable to type
+  // handling, not to comparing the join keys. Every unsupported type H2 can represent in-memory is covered.
+
+  @Test
+  public void testUnsupportedTypeTimeWithTimeZoneFailsTheRun() throws Exception {
     assertUnsupportedTypeThrowsOnBothPaths("TIME WITH TIME ZONE", "TIME '10:15:30-04:00'");
+  }
+
+  @Test
+  public void testUnsupportedTypeTimestampWithTimeZoneFailsTheRun() throws Exception {
     assertUnsupportedTypeThrowsOnBothPaths("TIMESTAMP WITH TIME ZONE",
         "TIMESTAMP WITH TIME ZONE '2023-01-01 00:00:00-04:00'");
+  }
+
+  /**
+   * H2 reports UUID as {@code Types.BINARY}, so the JDBC type code alone does not distinguish it from a
+   * genuine binary column; the strict contract still requires it to fail rather than be stored as 16 raw
+   * bytes, which means the implementation must look at the column type name as well as the code.
+   */
+  @Test
+  public void testUnsupportedTypeUuidFailsTheRun() throws Exception {
     assertUnsupportedTypeThrowsOnBothPaths("UUID", "RANDOM_UUID()");
+  }
+
+  @Test
+  public void testUnsupportedTypeJsonFailsTheRun() throws Exception {
     assertUnsupportedTypeThrowsOnBothPaths("JSON", "JSON '{\"a\":1}'");
+  }
+
+  @Test
+  public void testUnsupportedTypeGeometryFailsTheRun() throws Exception {
     assertUnsupportedTypeThrowsOnBothPaths("GEOMETRY", "'POINT(1 1)'");
+  }
+
+  @Test
+  public void testUnsupportedTypeArrayFailsTheRun() throws Exception {
     assertUnsupportedTypeThrowsOnBothPaths("INTEGER ARRAY", "ARRAY[1,2,3]");
+  }
+
+  @Test
+  public void testUnsupportedTypeIntervalFailsTheRun() throws Exception {
     assertUnsupportedTypeThrowsOnBothPaths("INTERVAL DAY", "INTERVAL '1' DAY");
+  }
+
+  @Test
+  public void testUnsupportedTypeEnumFailsTheRun() throws Exception {
     assertUnsupportedTypeThrowsOnBothPaths("ENUM('a','b')", "'a'");
   }
 
