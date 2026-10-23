@@ -1009,8 +1009,8 @@ public class DatabaseConnectorTest {
    * H2 cannot represent in-memory and are therefore NOT exercised here, but to which the same must-throw
    * contract applies against a database that supports them: STRUCT, SQLXML, ROWID, REF, DATALINK.
    *
-   * <p>NOTE: ordinary DECIMAL/NUMERIC is supported-as-Double here; the separate concern that high-precision
-   * DECIMAL is read lossily via getDouble is tracked elsewhere and intentionally NOT asserted by this test.
+   * <p>NOTE: DECIMAL/NUMERIC with a fractional scale is supported-as-Double here; integral (scale 0) values are
+   * stored as Long, see testIntegralDecimalKeepsPrecisionAsLong.
    *
    * <p>The tests are resolution-agnostic about the exact exception type: they assert at the connector
    * boundary that a ConnectorException is raised for unsupported types.
@@ -1076,7 +1076,7 @@ public class DatabaseConnectorTest {
       assertEquals((Integer) 42, parent.getInt("int_col"));
       assertEquals(Long.valueOf(9000000000L), parent.getLong("long_col"));
       assertEquals(Double.valueOf(3.5), parent.getDouble("dbl_col"));
-      // ordinary DECIMAL round-trips as a Double (high-precision loss tracked separately, not asserted here)
+      // DECIMAL with a fractional scale round-trips as a Double
       assertEquals(Double.valueOf(12.50), parent.getDouble("dec_col"));
       assertEquals(Float.valueOf(1.25f), parent.getFloat("flt_col"));
       assertEquals(Boolean.TRUE, parent.getBoolean("bool_col"));
@@ -1102,6 +1102,57 @@ public class DatabaseConnectorTest {
       connector.close();
     }
 
+  }
+
+  /**
+   * DECIMAL/NUMERIC precision: an integral value (scale 0) must survive as a Long so that identifiers above 2^53
+   * (the limit of exact double representation) are not silently rounded, while a value with a fractional scale
+   * keeps the Double representation. Checked on both the primary and the otherSQL path.
+   */
+  @Test
+  public void testIntegralDecimalKeepsPrecisionAsLong() throws Exception {
+    // 2^53 + 1 cannot be represented exactly as a double; a lossy read would yield 9007199254740992
+    String bigId = "9007199254740993";
+    String setup =
+        "CREATE TABLE dec_parent(id INT, big_id NUMERIC(19,0), amount DECIMAL(10,2)); "
+            + "INSERT INTO dec_parent VALUES (1, " + bigId + ", 12.50); "
+            + "CREATE TABLE dec_child(id INT, parent_id INT, c_big NUMERIC(19,0), c_amount DECIMAL(10,2)); "
+            + "INSERT INTO dec_child VALUES (1, 1, " + bigId + ", 99.99);";
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("preSQL", setup);
+    configValues.put("sql", "select id, big_id, amount from dec_parent order by id");
+    configValues.put("idField", "id");
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as child_id, parent_id, c_big, c_amount from dec_child order by parent_id");
+    configValues.put("otherSQLs", otherSql);
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("parent_id");
+    configValues.put("otherJoinFields", otherJoinFields);
+
+    DatabaseConnector connector = new DatabaseConnector(ConfigFactory.parseMap(configValues));
+    try {
+      connector.execute(publisher);
+    } finally {
+      connector.close();
+    }
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(1, docs.size());
+    Document parent = docs.get(0);
+    assertEquals(Long.valueOf(9007199254740993L), parent.getLong("big_id"));
+    assertEquals(Double.valueOf(12.50), parent.getDouble("amount"));
+
+    assertEquals(1, parent.getChildren().size());
+    Document child = parent.getChildren().get(0);
+    assertEquals(Long.valueOf(9007199254740993L), child.getLong("c_big"));
+    assertEquals(Double.valueOf(99.99), child.getDouble("c_amount"));
   }
 
   // --- Unsupported types must throw a ConnectorException, on BOTH paths ---

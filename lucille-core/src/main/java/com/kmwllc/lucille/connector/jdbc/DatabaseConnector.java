@@ -207,8 +207,7 @@ public class DatabaseConnector extends AbstractConnector {
         String id = createDocId(rs.getString(idColumn));
         Document doc = Document.create(id);
         for (int i = 1; i <= columns.length; i++) {
-          // column names are lower-cased because drivers differ in the case they report labels in
-          String fieldName = columns[i - 1].toLowerCase();
+          String fieldName = columns[i - 1];
           // an id column literally named "id" is already represented by the document id
           if (i == idColumn && Document.ID_FIELD.equals(fieldName)) {
             continue;
@@ -233,7 +232,7 @@ public class DatabaseConnector extends AbstractConnector {
           }
         }
         if (!otherResults.isEmpty()) {
-          Object joinId = rs.getObject(idField);
+          Object joinId = rs.getObject(idColumn);
           // The merge also requires the primary result set to be ordered by the join key; a parent whose key is
           // smaller than the previous parent's would silently get no children (its rows were already passed).
           if (lastPrimaryJoinId != null && joinId instanceof Comparable
@@ -332,10 +331,10 @@ public class DatabaseConnector extends AbstractConnector {
       // join keys match: this row becomes a child document
       childId++;
       Document child = Document.create(Integer.toString(childId));
-      for (String c : columns2) {
-        String fieldName = c.trim().toLowerCase();
+      // columns2 is in column order (see getColumnNames), so index i corresponds to column i + 1
+      for (int i = 0; i < columns2.length; i++) {
         // same type handling as the primary result set (nulls skipped, unsupported types fail the run)
-        JDBCUtils.parseResultToDoc(child, rs2, fieldName, rs2.findColumn(c));
+        JDBCUtils.parseResultToDoc(child, rs2, columns2[i].trim(), i + 1);
       }
       doc.addChild(child);
       if (!rs2.next()) {
@@ -369,7 +368,10 @@ public class DatabaseConnector extends AbstractConnector {
     return rs2;
   }
 
-  /** Returns the result set's column labels, lower-cased, in column order. */
+  /**
+   * Returns the result set's column labels in column order. Labels are lower-cased because drivers differ in
+   * the case they report them in; the lower-cased label is the document field name.
+   */
   private String[] getColumnNames(ResultSet rs) throws SQLException {
     ResultSetMetaData meta = rs.getMetaData();
     String[] names = new String[meta.getColumnCount()];

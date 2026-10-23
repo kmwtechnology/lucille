@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Document;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -90,6 +91,21 @@ public class JDBCUtils {
           break;
         case Types.DECIMAL:
         case Types.NUMERIC:
+          // An integral DECIMAL/NUMERIC (scale 0, e.g. an Oracle NUMBER id) is stored as a Long so that values
+          // above 2^53 keep their precision; anything with a fractional scale is stored as a Double as before.
+          BigDecimal decimalVal = rs.getBigDecimal(columnIndex);
+          if (decimalVal != null) {
+            if (decimalVal.scale() <= 0) {
+              try {
+                doc.setOrAdd(fieldName, decimalVal.longValueExact());
+                break;
+              } catch (ArithmeticException e) {
+                // does not fit in a long; fall through to the Double representation
+              }
+            }
+            doc.setOrAdd(fieldName, decimalVal.doubleValue());
+          }
+          break;
         case Types.DOUBLE:
           double doubleVal = rs.getDouble(columnIndex);
           // rs.getDouble would return 0 if SQL value is null. This would to check that the field value is not null
