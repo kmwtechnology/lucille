@@ -458,6 +458,111 @@ public class DatabaseConnectorTest {
     connector.close();
   }
 
+  /**
+   * Join scenario where the primary (parent) result set has a gap relative to the child result set:
+   * the child query returns a join key that the primary query does not.
+   *
+   * <p>Parents are animals 1 and 3 (animal 2 is filtered out, creating the gap). The child (meal) query
+   * returns a single orphan row for animal_id 2 sitting between animal_id 1 and the animal_id 3 rows, so
+   * the child join-key sequence is: 1, 2, 3, 3. Parent 1 matches the animal_id=1 row; parent 3 matches
+   * both animal_id=3 rows (meal ids 6 and 7). The orphan animal_id=2 row belongs to no parent and is
+   * simply skipped.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorGapBetweenParents() throws Exception {
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    // Primary parents are animals 1 and 3 - animal 2 is intentionally excluded, creating a gap
+    // relative to the child result set below.
+    configValues.put("sql", "select id,name from animal where id in (1,3) order by id");
+    configValues.put("idField", "id");
+    // Child result set with a single orphan (animal_id=2) between the parent keys.
+    // meal id 1 -> animal_id 1, meal id 4 -> animal_id 2 (orphan), meal ids 6,7 -> animal_id 3.
+    // Ordered by animal_id, the child join-key sequence is: 1, 2, 3, 3.
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as meal_id, animal_id, name from meal where id in (1,4,6,7) order by animal_id");
+    configValues.put("otherSQLs", otherSql);
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("animal_id");
+    configValues.put("otherJoinFields", otherJoinFields);
+
+    Config config = ConfigFactory.parseMap(configValues);
+    DatabaseConnector connector = new DatabaseConnector(config);
+    try {
+      connector.execute(publisher);
+
+      List<Document> docs = messenger.getDocsSentForProcessing();
+      assertEquals(2, docs.size());
+
+      // Parent 1 (animal id 1) should have exactly one child: meal id 1 (breakfast).
+      Document parent1 = docs.get(0);
+      assertEquals("1", parent1.getId());
+      assertEquals(1, parent1.getChildren().size());
+      assertEquals((Integer) 1, parent1.getChildren().get(0).getInt("meal_id"));
+
+      // Parent 3 (animal id 3) should have BOTH of its matching children: meal ids 6 and 7.
+      Document parent3 = docs.get(1);
+      assertEquals("3", parent3.getId());
+      assertEquals(2, parent3.getChildren().size());
+
+      List<Integer> childMealIds = new ArrayList<>();
+      for (Document child : parent3.getChildren()) {
+        childMealIds.add(child.getInt("meal_id"));
+      }
+      assertTrue("expected meal id 6 to be present as a child of parent 3", childMealIds.contains(6));
+      assertTrue("expected meal id 7 to be present as a child of parent 3", childMealIds.contains(7));
+    } finally {
+      connector.close();
+    }
+  }
+
+  /**
+   * Join scenario where an otherSQL (child) query returns no rows at all - for example, an empty child
+   * table or a child filter that matches nothing. Each parent should simply be published with no children,
+   * and the overall run should complete successfully.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorEmptyChildResultSet() throws Exception {
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,name from animal order by id");
+    configValues.put("idField", "id");
+    // Child query that is guaranteed to return zero rows.
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as meal_id, animal_id, name from meal where 1=0 order by animal_id");
+    configValues.put("otherSQLs", otherSql);
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("animal_id");
+    configValues.put("otherJoinFields", otherJoinFields);
+
+    Config config = ConfigFactory.parseMap(configValues);
+    DatabaseConnector connector = new DatabaseConnector(config);
+    try {
+      // An empty child result set must not abort the run.
+      connector.execute(publisher);
+
+      List<Document> docs = messenger.getDocsSentForProcessing();
+      // All three parents should still be published...
+      assertEquals(3, docs.size());
+      // ...each with no children, since the child query returned nothing.
+      for (Document doc : docs) {
+        assertFalse("parent " + doc.getId() + " should have no children", doc.hasChildren());
+      }
+    } finally {
+      connector.close();
+    }
+  }
+
   @Test
   public void testJoiningDatabaseConnectorStringType() throws Exception {
     HashMap<String, Object> configValues = new HashMap<>();
@@ -745,5 +850,267 @@ public class DatabaseConnectorTest {
     assertEquals("id2", doc2.getString("other_id"));
 
     connector.close();
+  }
+
+  /**
+   * Comprehensive type-handling contract for the DatabaseConnector, asserted identically on the primary
+   * (parent) path and the otherSQL (child) path. The connector should treat column types the same
+   * whichever query they appear in, and it should take a strict stance: supported types are carried onto
+   * the document with a faithful value, and any unsupported type fails the run with a ConnectorException
+   * (never a silent drop and never a silently converted/corrupted value).
+   *
+   * <p><b>Supported types</b> (verified on both paths): CHAR/VARCHAR family (String), TINYINT/SMALLINT/
+   * INTEGER (Integer), BIGINT (Long), DOUBLE and ordinary DECIMAL (Double), REAL/FLOAT (Float),
+   * BOOLEAN/BIT (Boolean), DATE/TIMESTAMP (stored as ISO-8601 instant strings, read back via
+   * getDate/getTimestamp), and the binary family (byte[]). Plain TIME has no time zone and round-trips
+   * losslessly as a string, so it is also treated as supported here.
+   *
+   * <p><b>Unsupported types</b> (must throw on both paths): reading zone-aware temporal types through
+   * getTimestamp normalizes away the offset and corrupts the value, and structural/vendor types have no
+   * safe scalar mapping, so under the strict stance both must fail the run rather than be silently
+   * dropped, reinterpreted, or converted.
+   *
+   * <p>Every unsupported type that H2 (in-memory) can actually represent is exercised below via
+   * {@link #assertUnsupportedTypeThrowsOnBothPaths}: TIME WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, UUID,
+   * JSON, GEOMETRY, ARRAY, INTERVAL, and ENUM. (Note H2 maps several of these onto surprising JDBC types -
+   * e.g. UUID -> Types.BINARY, JSON/GEOMETRY/INTERVAL/ENUM -> Types.OTHER - which is exactly why the
+   * current code handles them inconsistently; the strict contract is that all of them throw.) Types that
+   * H2 cannot represent in-memory and are therefore NOT exercised here, but to which the same must-throw
+   * contract applies against a database that supports them: STRUCT, SQLXML, ROWID, REF, DATALINK.
+   *
+   * <p>NOTE: ordinary DECIMAL/NUMERIC is supported-as-Double here; the separate concern that high-precision
+   * DECIMAL is read lossily via getDouble is tracked elsewhere and intentionally NOT asserted by this test.
+   *
+   * <p>The test is resolution-agnostic about the exact exception type: it asserts at the connector
+   * boundary that a ConnectorException is raised for unsupported types.
+   */
+  @Test
+  public void testTypeHandlingIsConsistentAcrossParentAndChild() throws Exception {
+    // A parent table and a child table carrying the same set of supported column types. The child joins
+    // to the parent on parent_id so every supported type flows through the otherSQL path as well.
+    String setup =
+        "CREATE TABLE typed_parent("
+            + "id INT, str_col VARCHAR(20), int_col INTEGER, long_col BIGINT, dbl_col DOUBLE, "
+            + "dec_col DECIMAL(10,2), flt_col REAL, bool_col BOOLEAN, date_col DATE, ts_col TIMESTAMP, "
+            + "bin_col VARBINARY(8), time_col TIME); "
+            + "INSERT INTO typed_parent VALUES "
+            + "(1, 'hello', 42, 9000000000, 3.5, 12.50, 1.25, TRUE, DATE '2024-07-30', "
+            + "TIMESTAMP '2024-07-30 00:00:01', X'0A0B', TIME '10:15:30'); "
+            + "CREATE TABLE typed_child("
+            + "id INT, parent_id INT, c_str VARCHAR(20), c_int INTEGER, c_long BIGINT, c_dbl DOUBLE, "
+            + "c_dec DECIMAL(10,2), c_flt REAL, c_bool BOOLEAN, c_date DATE, c_ts TIMESTAMP, "
+            + "c_bin VARBINARY(8), c_time TIME); "
+            + "INSERT INTO typed_child VALUES "
+            + "(1, 1, 'world', 7, 8000000000, 2.5, 99.99, 4.75, FALSE, DATE '2023-01-01', "
+            + "TIMESTAMP '2023-01-01 00:00:02', X'0C0D', TIME '12:00:00');";
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("preSQL", setup);
+    configValues.put("sql",
+        "select id, str_col, int_col, long_col, dbl_col, dec_col, flt_col, bool_col, date_col, ts_col, "
+            + "bin_col, time_col from typed_parent order by id");
+    configValues.put("idField", "id");
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as child_id, parent_id, c_str, c_int, c_long, c_dbl, c_dec, c_flt, c_bool, "
+        + "c_date, c_ts, c_bin, c_time from typed_child order by parent_id");
+    configValues.put("otherSQLs", otherSql);
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("parent_id");
+    configValues.put("otherJoinFields", otherJoinFields);
+
+    Config config = ConfigFactory.parseMap(configValues);
+    DatabaseConnector connector = new DatabaseConnector(config);
+    try {
+      connector.execute(publisher);
+
+      List<Document> docs = messenger.getDocsSentForProcessing();
+      assertEquals(1, docs.size());
+
+      Document parent = docs.get(0);
+      assertEquals(1, parent.getChildren().size());
+      Document child = parent.getChildren().get(0);
+
+      // --- Supported types on the PRIMARY path ---
+      assertEquals("hello", parent.getString("str_col"));
+      assertEquals((Integer) 42, parent.getInt("int_col"));
+      assertEquals(Long.valueOf(9000000000L), parent.getLong("long_col"));
+      assertEquals(Double.valueOf(3.5), parent.getDouble("dbl_col"));
+      // ordinary DECIMAL round-trips as a Double (high-precision loss tracked separately, not asserted here)
+      assertEquals(Double.valueOf(12.50), parent.getDouble("dec_col"));
+      assertEquals(Float.valueOf(1.25f), parent.getFloat("flt_col"));
+      assertEquals(Boolean.TRUE, parent.getBoolean("bool_col"));
+      assertEquals(Date.valueOf("2024-07-30"), parent.getDate("date_col"));
+      assertEquals(Timestamp.valueOf("2024-07-30 00:00:01.0"), parent.getTimestamp("ts_col"));
+      assertArrayEquals(new byte[] {0x0A, 0x0B}, parent.getBytes("bin_col"));
+      // plain TIME is lossless as a string and must not be silently dropped
+      assertTrue("TIME column must be present on the parent document", parent.has("time_col"));
+
+      // --- The SAME supported types on the CHILD path ---
+      assertEquals("world", child.getString("c_str"));
+      assertEquals((Integer) 7, child.getInt("c_int"));
+      assertEquals(Long.valueOf(8000000000L), child.getLong("c_long"));
+      assertEquals(Double.valueOf(2.5), child.getDouble("c_dbl"));
+      assertEquals(Double.valueOf(99.99), child.getDouble("c_dec"));
+      assertEquals(Float.valueOf(4.75f), child.getFloat("c_flt"));
+      assertEquals(Boolean.FALSE, child.getBoolean("c_bool"));
+      assertEquals(Date.valueOf("2023-01-01"), child.getDate("c_date"));
+      assertEquals(Timestamp.valueOf("2023-01-01 00:00:02.0"), child.getTimestamp("c_ts"));
+      assertArrayEquals(new byte[] {0x0C, 0x0D}, child.getBytes("c_bin"));
+      assertTrue("TIME column must be present on the child document", child.has("c_time"));
+    } finally {
+      connector.close();
+    }
+
+    // --- Unsupported types must throw a ConnectorException, on BOTH paths ---
+    // Each case creates a scratch table (via preSQL) with an id, an integer join key (animal_id=1 so it
+    // joins to seed animal 1), and the unsupported-typed column as a NON-join column - so any thrown
+    // exception is attributable to type handling, not to comparing the join keys. Every unsupported type
+    // H2 can represent in-memory is exercised here.
+    assertUnsupportedTypeThrowsOnBothPaths("TIME WITH TIME ZONE", "TIME '10:15:30-04:00'");
+    assertUnsupportedTypeThrowsOnBothPaths("TIMESTAMP WITH TIME ZONE",
+        "TIMESTAMP WITH TIME ZONE '2023-01-01 00:00:00-04:00'");
+    assertUnsupportedTypeThrowsOnBothPaths("UUID", "RANDOM_UUID()");
+    assertUnsupportedTypeThrowsOnBothPaths("JSON", "JSON '{\"a\":1}'");
+    assertUnsupportedTypeThrowsOnBothPaths("GEOMETRY", "'POINT(1 1)'");
+    assertUnsupportedTypeThrowsOnBothPaths("INTEGER ARRAY", "ARRAY[1,2,3]");
+    assertUnsupportedTypeThrowsOnBothPaths("INTERVAL DAY", "INTERVAL '1' DAY");
+    assertUnsupportedTypeThrowsOnBothPaths("ENUM('a','b')", "'a'");
+  }
+
+  /**
+   * Asserts that a column of the given unsupported SQL type causes the connector to throw a
+   * ConnectorException both when the column appears in the primary query and when it appears in an
+   * otherSQL (child) query. This encodes the strict stance: an unsupported type is a misconfiguration
+   * that must fail the run rather than being silently dropped, reinterpreted, or converted.
+   *
+   * <p>For each path a fresh scratch table {@code unsupported_type_probe} is created holding an id, an
+   * integer {@code join_key} (always 1, to join to seed animal 1), and a single {@code bad_col} of the
+   * unsupported type. The column is a non-join column so a thrown exception is attributable to type
+   * handling rather than to join-key comparison.
+   *
+   * @param columnDdl the SQL type as written in a CREATE TABLE column definition (e.g. "UUID",
+   *                  "TIME WITH TIME ZONE", "INTEGER ARRAY", "ENUM('a','b')")
+   * @param valueSql  a SQL literal/expression producing a value of that type (e.g. "RANDOM_UUID()")
+   */
+  private void assertUnsupportedTypeThrowsOnBothPaths(String columnDdl, String valueSql) throws Exception {
+    String setup =
+        "DROP TABLE IF EXISTS unsupported_type_probe; "
+            + "CREATE TABLE unsupported_type_probe(id INT, join_key INT, bad_col " + columnDdl + "); "
+            + "INSERT INTO unsupported_type_probe VALUES (1, 1, " + valueSql + ");";
+
+    // Primary path: the unsupported column is selected directly by the primary query.
+    {
+      HashMap<String, Object> cfg = new HashMap<>();
+      cfg.put("name", connectorName);
+      cfg.put("pipeline", pipelineName);
+      cfg.put("driver", "org.h2.Driver");
+      cfg.put("connectionString", "jdbc:h2:mem:test");
+      cfg.put("jdbcUser", "");
+      cfg.put("jdbcPassword", "");
+      cfg.put("preSQL", setup);
+      cfg.put("sql", "select id, bad_col from unsupported_type_probe order by id");
+      cfg.put("idField", "id");
+
+      DatabaseConnector connector = new DatabaseConnector(ConfigFactory.parseMap(cfg));
+      try {
+        assertThrows(columnDdl + " in the primary query must fail the run",
+            ConnectorException.class, () -> connector.execute(publisher));
+      } finally {
+        connector.close();
+      }
+    }
+
+    // reset the publisher so child-path docs don't accumulate with the primary-path attempt
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(ConfigFactory.empty(), messenger, testRunId, pipelineName);
+
+    // Child path: seed animal 1 joined to an otherSQL that selects the unsupported column.
+    {
+      HashMap<String, Object> cfg = new HashMap<>();
+      cfg.put("name", connectorName);
+      cfg.put("pipeline", pipelineName);
+      cfg.put("driver", "org.h2.Driver");
+      cfg.put("connectionString", "jdbc:h2:mem:test");
+      cfg.put("jdbcUser", "");
+      cfg.put("jdbcPassword", "");
+      cfg.put("preSQL", setup);
+      cfg.put("sql", "select id, name from animal where id=1 order by id");
+      cfg.put("idField", "id");
+      ArrayList<String> otherSql = new ArrayList<>();
+      otherSql.add("select id as probe_id, join_key, bad_col from unsupported_type_probe order by join_key");
+      cfg.put("otherSQLs", otherSql);
+      ArrayList<String> otherJoinFields = new ArrayList<>();
+      otherJoinFields.add("join_key");
+      cfg.put("otherJoinFields", otherJoinFields);
+
+      DatabaseConnector connector = new DatabaseConnector(ConfigFactory.parseMap(cfg));
+      try {
+        assertThrows(columnDdl + " in an otherSQL query must fail the run",
+            ConnectorException.class, () -> connector.execute(publisher));
+      } finally {
+        connector.close();
+      }
+    }
+  }
+
+  /**
+   * The join is a sorted merge: the primary and child result sets are walked in lockstep by join key, so
+   * it is only correct when both are ordered by that key. When a child result set is not ordered by its
+   * join key, the merge currently drops matching child rows while the run reports success - silent data
+   * loss. This test fails on that behavior. It does not prescribe the resolution: it passes whether the
+   * fix is to attach all matching children anyway OR to raise a ConnectorException on out-of-order input.
+   * It only fails if the run completes while silently dropping matching children.
+   *
+   * <p>Child rows for animal_id 1 (meal ids 1,2,3) are returned in descending meal-id order, which places
+   * the join keys (animal_id) in descending order relative to how the merge walks the cursor.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorUnorderedChildResultSet() throws Exception {
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", "jdbc:h2:mem:test");
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,name from animal order by id");
+    configValues.put("idField", "id");
+    // Child query NOT ordered by the join key (animal_id). Ordering by meal id descending yields the
+    // animal_id sequence 3,3,2,2,1,1,1 - i.e. join keys in descending order.
+    ArrayList<String> otherSql = new ArrayList<>();
+    otherSql.add("select id as meal_id, animal_id, name from meal order by id desc");
+    configValues.put("otherSQLs", otherSql);
+    ArrayList<String> otherJoinFields = new ArrayList<>();
+    otherJoinFields.add("animal_id");
+    configValues.put("otherJoinFields", otherJoinFields);
+
+    Config config = ConfigFactory.parseMap(configValues);
+    DatabaseConnector connector = new DatabaseConnector(config);
+    try {
+      try {
+        connector.execute(publisher);
+      } catch (ConnectorException e) {
+        // Loud failure on out-of-order input is an acceptable resolution - no silent data loss.
+        return;
+      }
+
+      List<Document> docs = messenger.getDocsSentForProcessing();
+      assertEquals(3, docs.size());
+
+      // If the run completed, animal 1's three meals (ids 1,2,3) must all be attached as children rather
+      // than silently dropped because of the child ordering.
+      Document animal1 = docs.get(0);
+      assertEquals("1", animal1.getId());
+      assertEquals("animal 1's matching children must not be silently dropped for unordered child input",
+          3, animal1.getChildren().size());
+    } finally {
+      connector.close();
+    }
   }
 }
