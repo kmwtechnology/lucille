@@ -71,7 +71,8 @@ import org.xml.sax.SAXException;
  * A provided or global config is applied to embedded documents as well as the top-level document.
  * metadataPrefix (String, Optional) : prefix to be appended to fields for metadata information extracted after parsing
  * textContentLimit (Integer, Optional) : limits how large the content of the returned text can be
- * parseTimeout (Long, Optional) : timeout for parsing in milliseconds.
+ * parseTimeout (Long, Optional) : timeout for parsing in milliseconds. On timeout, the text extracted so far and the
+ * metadataFields input hints are added to the document, but no extracted metadata.
  * skipEmbeddedContentTypePrefixes (List&lt;String&gt;, Optional) : content-type prefixes for which embedded documents are
  * skipped (not parsed), e.g. ["image/"] to skip embedded images. Defaults to empty (all embedded documents parsed).
  * Embedded parts with no content type are always parsed.
@@ -521,6 +522,8 @@ public class TextExtractor extends Stage {
   public void parseInputStream(Metadata metadata, Document doc, InputStream inputStream) throws StageException {
     ContentHandler bch = new BodyContentHandler(textContentLimit);
     ParseContext parseCtx = createParseContext();
+    // the metadata written to the document; swapped for a fresh copy of the input hints on timeout
+    Metadata metadataToWrite = metadata;
     if (forkEnabled || parseTimeout == null) {
       // fork path: StageException propagates on child failure; ForkParser's serverParseTimeoutMillis handles hangs.
       // non-fork path with no timeout: parse inline.
@@ -552,8 +555,10 @@ public class TextExtractor extends Stage {
         executorService.shutdownNow();
         executorService = createParseExecutor();
         handleParseTimeout();
-        // the parse thread may still be writing to bch/metadata, so don't read them.
-        return;
+        // The parse thread may still be writing. The text is safe to read (BodyContentHandler writes to a
+        // StringWriter, whose StringBuffer is synchronized), so the text extracted so far is kept. Metadata isn't
+        // thread-safe, so the extracted metadata is dropped and only the input hints are rebuilt from the document.
+        metadataToWrite = createMetadataInput(doc);
       } catch (Exception e) {
         log.warn("Error during async Tika parsing: {}", e.getMessage());
       }
@@ -561,12 +566,12 @@ public class TextExtractor extends Stage {
 
     doc.setOrAdd(textField, bch.toString());
     String newMetadataPrefix = metadataPrefix.isEmpty() ? "" : metadataPrefix + "_";
-    for (String name : metadata.names()) {
+    for (String name : metadataToWrite.names()) {
       // clean the field name first.
       String cleanName = cleanFieldName(name, replaceDotsInMetadataNames);
       if (fieldFilter.shouldInclude(cleanName)) {
         String prefixedName = newMetadataPrefix + cleanName;
-        for (String value : metadata.getValues(name)) {
+        for (String value : metadataToWrite.getValues(name)) {
           doc.setOrAdd(prefixedName, value);
         }
         if (fieldNamesField != null) {

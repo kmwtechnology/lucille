@@ -561,9 +561,8 @@ public class TextExtractorTest {
     // If timeout works, it should have returned within much less than our 5 sec. max
     // and interrupted should be true (if we interrupt the thread)
     assertTrue("Parser should have been interrupted", InterruptTrackingParser.interrupted.get());
-    // On timeout we don't read the shared handler (the parse thread may still be writing to it), so
-    // the text field is left unset rather than populated with partial output.
-    assertFalse("Document should not have text on timeout.", doc.has("text"));
+    // On timeout the text extracted so far is kept; this parser times out before writing any.
+    assertEquals("", doc.getString("text"));
 
     stage.stop();
 
@@ -596,7 +595,7 @@ public class TextExtractorTest {
       stuck.setField("byte_array", "hang forever".getBytes());
       stage.processDocument(stuck);
       assertTrue("parse should have started", HangingParser.hanging.await(5, TimeUnit.SECONDS));
-      assertFalse("Document should not have text on timeout.", stuck.has("text"));
+      assertEquals("", stuck.getString("text"));
 
       // the timed-out parse ignores interruption, so it is still running
       Thread stuckThread = HangingParser.hangingThread.get();
