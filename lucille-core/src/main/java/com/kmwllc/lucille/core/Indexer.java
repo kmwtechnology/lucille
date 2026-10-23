@@ -873,9 +873,9 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     Config indexerConfig = config.getConfig("indexer");
     SpecBuilder.withoutDefaults()
-        .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
-            "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
-        .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
+        .optionalString("type", "class", "pipeline", "idOverrideField", "indexOverrideField", "deletionMarkerField",
+            "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
+        .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})

@@ -48,10 +48,11 @@ import org.slf4j.LoggerFactory;
  */
 public class KafkaUtils {
 
-  public static Spec SPEC = SpecBuilder.withoutDefaults()
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .requiredString("bootstrapServers", "consumerGroupId")
       .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
-      .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
+      .optionalBoolean("events")
+      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertyFile",
           "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
           "onDeserializationError")
       .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors")

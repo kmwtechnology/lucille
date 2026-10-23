@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -27,13 +28,13 @@ public class NormalizeFieldNames extends Stage {
   private static final Pattern SPACE = Pattern.compile(" ");
   private static final Pattern NON_ALPHANUM = Pattern.compile("[^a-zA-Z0-9_.]");
 
-  private final String delimeter;
+  private final String delimiter;
   private final String nonAlphanumReplacement;
 
   public NormalizeFieldNames(Config config) {
     super(config);
-    this.delimeter = config.hasPath("delimeter") ? config.getString("delimeter") : "_";
-    this.nonAlphanumReplacement = config.hasPath("nonAlphaNumReplacement") ? config.getString("nonAlphanumReplacement") : "";
+    this.delimiter = ConfigUtils.getOrDefault(config, "delimiter", "_");
+    this.nonAlphanumReplacement = ConfigUtils.getOrDefault(config, "nonAlphanumReplacement", "");
   }
 
   @Override
@@ -43,7 +44,7 @@ public class NormalizeFieldNames extends Stage {
         continue;
       }
 
-      String spaced = SPACE.matcher(field).replaceAll(delimeter);
+      String spaced = SPACE.matcher(field).replaceAll(delimiter);
       String normalizedField = NON_ALPHANUM.matcher(spaced).replaceAll(nonAlphanumReplacement);
       doc.renameField(field, normalizedField, UpdateMode.DEFAULT);
     }

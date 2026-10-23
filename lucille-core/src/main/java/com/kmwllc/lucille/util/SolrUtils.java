@@ -25,8 +25,9 @@ import org.slf4j.LoggerFactory;
  */
 public class SolrUtils {
 
+  // url is required for the standalone client and for the cloud client without zkHosts; getSolrClient enforces that
   public static final Spec SOLR_PARENT_SPEC = SpecBuilder.parent("solr")
-      .requiredStringOrList("url")
+      .optionalStringOrList("url")
       .optionalString("zkChroot", "defaultCollection", "userName", "password")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
       .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
@@ -44,9 +45,18 @@ public class SolrUtils {
    * @return A SolrClient suitable for the given configuration.
    */
   public static SolrClient getSolrClient(Config config) {
+    // the SSL keys may be given at the root of the config or inside the solr block (the Solr Specs declare them there)
     SSLUtils.setSSLSystemProperties(config);
-    
-    if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
+    if (config.hasPath("solr")) {
+      SSLUtils.setSSLSystemProperties(config.getConfig("solr"));
+    }
+
+    boolean cloud = config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient");
+    if (!config.hasPath("solr.url") && !(cloud && config.hasPath("solr.zkHosts"))) {
+      throw new IllegalArgumentException("solr.url is required (or solr.zkHosts with solr.useCloudClient: true).");
+    }
+
+    if (cloud) {
       return getCloudClient(config);
     } else {
       return getHttpClientAndSetCheckPeerName(config);
