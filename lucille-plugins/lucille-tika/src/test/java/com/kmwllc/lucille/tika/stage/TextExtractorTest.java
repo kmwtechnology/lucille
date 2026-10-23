@@ -738,7 +738,7 @@ public class TextExtractorTest {
   @Test
   public void testOcrDisabledByDefault() throws Exception {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/filepath.conf");
-    Parser parser = stage.createAutoDetectParser();
+    Parser parser = stage.createTikaConfig().getParser();
 
     assertFalse(containsParser(parser, TesseractOCRParser.class));
     // PDFParser only renders pages for OCR when some parser supports image/ocr-*; holds whether or not tesseract is installed
@@ -749,7 +749,7 @@ public class TextExtractorTest {
   @Test
   public void testOcrExplicitlyDisabled() throws Exception {
     TextExtractor stage = (TextExtractor) factory.get(baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(false)));
-    Parser parser = stage.createAutoDetectParser();
+    Parser parser = stage.createTikaConfig().getParser();
 
     assertFalse(containsParser(parser, TesseractOCRParser.class));
     assertFalse(parser.getSupportedTypes(new ParseContext()).contains(MediaType.image("ocr-png")));
@@ -759,7 +759,7 @@ public class TextExtractorTest {
   public void testOcrEnabled() throws Exception {
     TextExtractor stage = (TextExtractor) factory.get(baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(true)));
 
-    assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+    assertTrue(containsParser(stage.createTikaConfig().getParser(), TesseractOCRParser.class));
   }
 
   @Test
@@ -803,7 +803,7 @@ public class TextExtractorTest {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/tika-config.conf");
 
     // tika-config.xml declares only a DefaultParser, so tesseract stays in the parser set as before
-    assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+    assertTrue(containsParser(stage.createTikaConfig().getParser(), TesseractOCRParser.class));
   }
 
   @Test
@@ -812,7 +812,7 @@ public class TextExtractorTest {
     try {
       // without enableOcr, the global config is used as is, so tesseract stays in its DefaultParser
       TextExtractor stage = (TextExtractor) factory.get(baseConfig());
-      assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+      assertTrue(containsParser(stage.createTikaConfig().getParser(), TesseractOCRParser.class));
 
       for (boolean enableOcr : new boolean[]{true, false}) {
         Config config = baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(enableOcr));

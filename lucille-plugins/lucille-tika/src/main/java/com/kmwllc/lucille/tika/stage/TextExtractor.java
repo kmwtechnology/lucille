@@ -345,17 +345,10 @@ public class TextExtractor extends Stage {
   }
 
   /**
-   * Builds the {@link AutoDetectParser} used for parsing from {@link #createTikaConfig()}.
-   */
-  AutoDetectParser createAutoDetectParser() throws StageException {
-    return new AutoDetectParser(createTikaConfig());
-  }
-
-  /**
    * Returns the {@link TikaConfig} used for parsing: from tikaConfigPath (cached, see {@link #getTikaConfig()}) or a
    * global Tika config when set, otherwise Tika's defaults, with {@link TesseractOCRParser} excluded unless enableOcr is true.
    */
-  private TikaConfig createTikaConfig() throws StageException {
+  TikaConfig createTikaConfig() throws StageException {
     if (tikaConfigPath != null) {
       return getTikaConfig();
     }
