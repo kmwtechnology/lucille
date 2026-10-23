@@ -16,7 +16,9 @@ import org.apache.commons.lang3.StringUtils;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -66,6 +68,12 @@ public class DatabaseConnector extends AbstractConnector {
   private final String idField;
   private final List<String> otherSQLs;
   private final List<String> otherJoinFields;
+
+  // the join key most recently read from each otherSQL result set during execute(); used to detect child
+  // result sets that are not ordered by their join field (which would make the merge drop rows silently)
+  private final Map<ResultSet, Object> lastOtherJoinIds = new IdentityHashMap<>();
+  // the join key of the previous primary row during execute(), for the same ordering check on the parent side
+  private Object lastPrimaryJoinId;
   private final Set<String> ignoreColumns;
   private final Integer connectionRetries;
   private final Integer connectionRetryPause;
@@ -195,6 +203,8 @@ public class DatabaseConnector extends AbstractConnector {
 
       otherResults = new ArrayList<>();
       ArrayList<String[]> otherColumns = new ArrayList<>();
+      lastOtherJoinIds.clear();
+      lastPrimaryJoinId = null;
 
       for (String otherSQL : otherSQLs) {
         log.info("Describing other result set... {}", otherSQL);
@@ -237,6 +247,9 @@ public class DatabaseConnector extends AbstractConnector {
             // can throw SQL Exception if column cannot be found or resultSet is closed
             // will not add to document if fieldValue is null or if field value is unsupported type
             JDBCUtils.parseResultToDoc(doc, rs, fieldName, i);
+          } catch(JDBCUtils.UnsupportedSqlTypeException e) {
+            // an unsupported column type is a misconfiguration: fail the run rather than drop the field
+            throw e;
           } catch(SQLException e) {
             log.warn("Error encountered while processing resultSet", e);
           }
@@ -244,6 +257,15 @@ public class DatabaseConnector extends AbstractConnector {
         if (!otherResults.isEmpty()) {
           // this is the primary key that the result set is ordered by.
           Object joinId = rs.getObject(idField);
+          // The merge also requires the primary result set to be ordered by the join key; a parent whose key is
+          // smaller than the previous parent's would silently get no children (its rows were already passed).
+          if (lastPrimaryJoinId != null && joinId instanceof Comparable
+              && ((Comparable) joinId).compareTo(lastPrimaryJoinId) < 0) {
+            throw new ConnectorException(String.format(
+                "primary result set is not ordered by id field %s (%s follows %s); add ORDER BY %s when using otherSQLs",
+                idField, joinId, lastPrimaryJoinId, idField));
+          }
+          lastPrimaryJoinId = joinId;
           int childId = -1;
           int j = 0;
           for (ResultSet otherResult : otherResults) {
@@ -289,18 +311,14 @@ public class DatabaseConnector extends AbstractConnector {
   }
 
   private void iterateOtherSQL(ResultSet rs2, String[] columns2, Document doc, Object joinId, int childId, String joinField) throws Exception {
-    // Test if we need to advance or if we should read the current row ...
-    if (rs2.isBeforeFirst()) {
-      // we need to at least advance to the first row.
-      rs2.next();
-    }
-    // Test if this result set is already exhausted.
-    if (rs2.isAfterLast()) {
-      // um... why is this getting called?  if it is?
+    // getRow() is 0 when there is no current row: before the first row, after the last row, or for an
+    // empty result set (where isBeforeFirst() and isAfterLast() are both false). In all three cases try to
+    // advance; if there is no row to advance to, this parent has no children in this result set.
+    if (rs2.getRow() == 0 && !rs2.next()) {
       return;
     }
 
-    do {
+    while (true) {
       Object otherJoinId = rs2.getObject(joinField);
       int comparison;
       try {
@@ -310,9 +328,20 @@ public class DatabaseConnector extends AbstractConnector {
       } catch (ClassCastException e) {
         throw new ConnectorException("Either otherJoinId or joinId type prevents them from being compared.", e);
       }
+      // The merge requires both result sets to be ordered by the join key. A child key smaller than the one
+      // seen before it means the child query is not ordered, which would silently drop matching rows.
+      Object lastJoinId = lastOtherJoinIds.put(rs2, otherJoinId);
+      if (lastJoinId != null && ((Comparable) otherJoinId).compareTo(lastJoinId) < 0) {
+        throw new ConnectorException(String.format(
+            "otherSQL result set is not ordered by join field %s (%s follows %s); add ORDER BY %s",
+            joinField, otherJoinId, lastJoinId, joinField));
+      }
       if (comparison < 0) {
-        // advance until we get to the id on the right side that we want.
-        rs2.next();
+        // this child row belongs to no parent in the primary result set (or to one already passed);
+        // advance exactly one row, returning if the result set is exhausted.
+        if (!rs2.next()) {
+          return;
+        }
         continue;
       } else if (comparison > 0) {
         // we've gone too far... lets back up and break out , move forward the primary result set.
@@ -325,18 +354,18 @@ public class DatabaseConnector extends AbstractConnector {
       Document child = Document.create(Integer.toString(childId));
       for (String c : columns2) {
         String fieldName = c.trim().toLowerCase();
-        Object fieldValue = rs2.getObject(c);
-        if (fieldValue != null) {
-          child.setOrAdd(fieldName, fieldValue);
-        }
+        // same type handling as the primary result set (nulls skipped, unsupported types fail the run)
+        JDBCUtils.parseResultToDoc(child, rs2, fieldName, rs2.findColumn(c));
       }
       // add the accumulated child doc.
 
       // add the accumulated rows to the document.
       doc.addChild(child);
       // Ok... so now we need to advance this cursor and see if there is another row to collapse into a child.
-    } while (rs2.next());
-
+      if (!rs2.next()) {
+        return;
+      }
+    }
   }
 
   // TODO: can we remove this method and just use runSql instead?

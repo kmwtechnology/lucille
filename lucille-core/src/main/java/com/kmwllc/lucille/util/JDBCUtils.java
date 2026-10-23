@@ -1,20 +1,39 @@
 package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Document;
-import java.sql.Date;
-import java.sql.JDBCType;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class JDBCUtils {
 
-  private static final Logger log = LoggerFactory.getLogger(JDBCUtils.class);
+  /**
+   * Thrown when a result set column has a SQL type that Lucille cannot represent faithfully on a Document.
+   * An unsupported type is treated as a misconfiguration (select a different column or cast it in SQL) and
+   * fails the run rather than silently dropping or converting the value.
+   */
+  public static class UnsupportedSqlTypeException extends SQLException {
+
+    public UnsupportedSqlTypeException(String fieldName, String typeName, int typeCode) {
+      super(String.format("Unsupported SQL type %s (%d) for column %s; cast it in SQL or exclude the column",
+          typeName, typeCode, fieldName));
+    }
+  }
+
+  // The column's SQL type name as reported by the driver, or "unknown" if the driver cannot provide it.
+  private static String columnTypeName(ResultSet rs, int columnIndex) {
+    try {
+      String name = rs.getMetaData().getColumnTypeName(columnIndex);
+      return name == null ? "unknown" : name;
+    } catch (Exception e) {
+      return "unknown";
+    }
+  }
 
   public static void parseResultToDoc(Document doc, ResultSet rs, Map<String, Object> fieldMapping) throws SQLException {
     ResultSetMetaData metadata = rs.getMetaData();
@@ -94,32 +113,48 @@ public class JDBCUtils {
             doc.setOrAdd(fieldName, boolVal);
           }
           break;
+        // DATE and TIMESTAMP carry no zone. Reading them as LocalDate/LocalDateTime keeps the stored wall-clock
+        // value regardless of the JVM's default zone (getDate/getTimestamp would shift it by that zone's offset);
+        // the value is then labelled UTC so that Document.getInstant/getDate/getTimestamp keep working.
         case Types.DATE:
-          Date dateVal = rs.getDate(columnIndex);
+          LocalDate dateVal = rs.getObject(columnIndex, LocalDate.class);
           if (dateVal != null) {
-            doc.setOrAdd(fieldName, dateVal);
+            doc.setOrAdd(fieldName, dateVal.atStartOfDay(ZoneOffset.UTC).toInstant());
           }
           break;
         case Types.TIMESTAMP:
-          Timestamp timestamp = rs.getTimestamp(columnIndex);
+          LocalDateTime timestamp = rs.getObject(columnIndex, LocalDateTime.class);
           if (timestamp != null) {
-            doc.setOrAdd(fieldName, timestamp);
+            doc.setOrAdd(fieldName, timestamp.toInstant(ZoneOffset.UTC));
           }
           break;
         // case Types.TIMESTAMP_WITH_TIMEZONE:
         // if TIMESTAMP_WITH_TIMEZONE = 2023-01-01T00:00:00-4, will be retrieved as 2023-01-01T04:00:00Z in getTimestamp()
         // better not save it if it would be converted
+        case Types.TIME:
+          // a zone-less time of day round-trips losslessly as the driver's string form ("10:15:30")
+          String timeStr = rs.getString(columnIndex);
+          if (timeStr != null) {
+            doc.setOrAdd(fieldName, timeStr);
+          }
+          break;
         case Types.BLOB:
         case Types.BINARY:
         case Types.VARBINARY:
         case Types.LONGVARBINARY:
+          // some drivers (H2) report UUID columns as BINARY; storing the 16 raw bytes would misrepresent the value
+          if ("UUID".equalsIgnoreCase(columnTypeName(rs, columnIndex))) {
+            throw new UnsupportedSqlTypeException(fieldName, "UUID", columnType);
+          }
           byte[] bytes = rs.getBytes(columnIndex);
           if (bytes != null) {
             doc.setOrAdd(fieldName, bytes);
           }
           break;
         default:
-          log.warn("SQL Type {} ({}) not supported", JDBCType.valueOf(columnType).getName(), columnType);
+          // includes the zone-aware temporal types (TIME/TIMESTAMP WITH TIME ZONE), ARRAY, STRUCT, OTHER
+          // (JSON, geometry, interval, enum) and vendor-specific type codes outside java.sql.Types
+          throw new UnsupportedSqlTypeException(fieldName, columnTypeName(rs, columnIndex), columnType);
       }
   }
 }

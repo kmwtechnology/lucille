@@ -54,6 +54,8 @@ public class JDBCUtilsTest {
     when(rs.getMetaData()).thenReturn(meta);
     when(meta.getColumnType(1)).thenReturn(Types.TIMESTAMP);
     when(rs.getTimestamp(1)).thenReturn(driverValue);
+    // the zone-less form the driver hands back for the same column via the JDBC 4.2 accessor
+    when(rs.getObject(1, LocalDateTime.class)).thenReturn(wallClock);
 
     Document doc = Document.create("id");
     JDBCUtils.parseResultToDoc(doc, rs, "ts", 1);
@@ -112,6 +114,8 @@ public class JDBCUtilsTest {
     when(rs.getMetaData()).thenReturn(meta);
     when(meta.getColumnType(1)).thenReturn(Types.DATE);
     when(rs.getDate(1)).thenReturn(driverValue);
+    // the zone-less form the driver hands back for the same column via the JDBC 4.2 accessor
+    when(rs.getObject(1, LocalDate.class)).thenReturn(day);
 
     Document doc = Document.create("id");
     JDBCUtils.parseResultToDoc(doc, rs, "d", 1);

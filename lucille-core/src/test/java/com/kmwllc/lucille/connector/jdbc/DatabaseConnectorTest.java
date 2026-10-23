@@ -622,6 +622,37 @@ public class DatabaseConnectorTest {
   }
 
   /**
+   * The sorted merge also requires the primary result set to be ordered by the join key. With parents in
+   * descending order (3, 2, 1) and children ordered ascending, the child cursor passes animal 1's and 2's
+   * rows while serving animal 3, so those parents would silently get no children. Like the unordered-child
+   * test this is resolution-agnostic: a ConnectorException is acceptable, and so is attaching every child
+   * correctly; only a run that completes while dropping matching children fails.
+   */
+  @Test
+  public void testJoiningDatabaseConnectorUnorderedPrimaryResultSet() throws Exception {
+    DatabaseConnector connector = new DatabaseConnector(joinConfig(
+        "select id,name from animal order by id desc",
+        "select id as meal_id, animal_id, name from meal order by animal_id, id"));
+    try {
+      try {
+        connector.execute(publisher);
+      } catch (ConnectorException e) {
+        // loud failure on out-of-order input is an acceptable resolution - no silent data loss
+        return;
+      }
+      List<Document> docs = messenger.getDocsSentForProcessing();
+      assertEquals(3, docs.size());
+      for (Document parent : docs) {
+        int expectedMeals = parent.getId().equals("1") ? 3 : 2;
+        assertEquals("animal " + parent.getId() + "'s matching children must not be silently dropped",
+            expectedMeals, parent.getChildren().size());
+      }
+    } finally {
+      connector.close();
+    }
+  }
+
+  /**
    * Join scenario where an otherSQL (child) query returns no rows at all - for example, an empty child
    * table or a child filter that matches nothing. Each parent should simply be published with no children,
    * and the overall run should complete successfully.
