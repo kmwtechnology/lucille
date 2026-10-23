@@ -28,6 +28,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaConfigException;
 import org.apache.tika.exception.TikaException;
@@ -155,12 +156,13 @@ public class TextExtractor extends Stage {
   // This is particularly helpful in multi-threaded runs, where each thread has its own instance of
   // TextExtractor but is using the same TikaConfig.
   // The cache is bounded by MAX_CACHED_CONFIGS; once it is reached, the oldest entry is evicted (FIFO).
-  // Canonical paths are used as keys to prevent unwarranted collisions.
+  // Keys are canonical paths; each value holds the file's last-modified time alongside the config built from it,
+  // so an edited file is rebuilt and replaces its entry.
   private static final int MAX_CACHED_CONFIGS = 1000;
-  private static final Map<String, TikaConfig> TIKA_CONFIG_CACHE = Collections.synchronizedMap(
+  private static final Map<String, Pair<Long, TikaConfig>> TIKA_CONFIG_CACHE = Collections.synchronizedMap(
       new LinkedHashMap<>() {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<String, TikaConfig> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<String, Pair<Long, TikaConfig>> eldest) {
           return size() > MAX_CACHED_CONFIGS;
         }
       });
@@ -369,22 +371,29 @@ public class TextExtractor extends Stage {
 
   /**
    * Returns the {@link TikaConfig} for this stage's configured {@code tikaConfigPath}, building it at
-   * most once per distinct config file across the JVM (see {@link #TIKA_CONFIG_CACHE}).
+   * most once per distinct config file across the JVM (see {@link #TIKA_CONFIG_CACHE}). Editing the file (changing its
+   * last-modified time) causes it to be rebuilt on the next start.
    */
   private TikaConfig getTikaConfig() throws StageException {
     try {
       // Canonical paths used to prevent errors (if relative paths are used in a distributed environment, for example)
-      String key = new File(tikaConfigPath).getCanonicalPath();
+      File configFile = new File(tikaConfigPath).getCanonicalFile();
+      // compared against the cached entry so an edited config file is rebuilt rather than served stale in a
+      // long-lived JVM (e.g. the Admin API running several pipelines)
+      long lastModified = configFile.lastModified();
 
-      // computeIfAbsent so concurrent workers requesting the same path build it only once; a failed
-      // build propagates out and is never cached.
-      return TIKA_CONFIG_CACHE.computeIfAbsent(key, path -> {
+      // compute so concurrent workers requesting the same config build it only once; a failed build
+      // propagates out and leaves the existing entry untouched.
+      return TIKA_CONFIG_CACHE.compute(configFile.getPath(), (path, cached) -> {
+        if (cached != null && cached.getLeft() == lastModified) {
+          return cached;
+        }
         try {
-          return new TikaConfig(new File(path));
+          return Pair.of(lastModified, new TikaConfig(configFile));
         } catch (Exception e) {
           throw new RuntimeException(e);
         }
-      });
+      }).getRight();
     } catch (RuntimeException e) {
       throw new StageException("Error starting TextExtractor stage.", e.getCause() != null ? e.getCause() : e);
     } catch (Exception e) {
