@@ -41,9 +41,10 @@ The extracted text is added to `textField`; if the field already has a value, th
 | `replaceDotsInMetadataNames` | Boolean | No | Replace `.` with `_` in metadata names. See [Metadata fields](#metadata-fields). Default: `false`. |
 | `metadataFields` | Map\<String, String\> | No | Input metadata hints for Tika. See [Detection hints](#detection-hints). |
 | `textContentLimit` | Integer | No | Maximum number of characters of text to extract. Default: no limit. |
-| `parseTimeout` | Long | No | Parse timeout in milliseconds. When a parse times out, a warning is logged and whatever text was extracted so far is kept. Default: no timeout. |
+| `parseTimeout` | Long | No | Parse timeout in milliseconds. When a parse times out, a warning is logged, whatever text was extracted so far is kept and the `metadataFields` input values are written, but no extracted metadata is added. Default: no timeout. |
 | `enableOcr` | Boolean | No | OCR images and image-only PDF pages. See [OCR](#ocr). Cannot be set together with `tikaConfigPath`. Default: `false`. |
-| `tikaConfigPath` | String | No | Local path to a Tika config file. The config is used as is. |
+| `tikaConfigPath` | String | No | Local path to a Tika config file. The config is used as is, and is applied to embedded documents as well as the top-level document. |
+| `skipEmbeddedContentTypePrefixes` | List\<String\> | No | Content-type prefixes for which embedded documents are skipped (not parsed), e.g. `["image/"]`. Embedded parts with no content type are always parsed. Cannot be set when `fork.enabled` is `true`. Default: empty (all embedded documents are parsed). |
 | `fork.enabled` | Boolean | No | Parse in child JVMs with Tika's `ForkParser`. This adds overhead per document but keeps crashes such as out-of-memory errors out of the Lucille JVM. When enabled, `parseTimeout` is passed to the `ForkParser` as its parse timeout. Default: `false`. |
 | `fork.poolSize` | Integer | No | Number of child JVMs kept in the pool. Default: `5`. |
 | `fork.jvmArgs` | List\<String\> | No | JVM arguments for each child JVM. `java` is prepended automatically. Default: `["java", "-Djava.awt.headless=true"]`. |
@@ -75,3 +76,8 @@ metadataFields: {
   "Content-Type": "content_type"
 }
 ```
+
+## Performance
+
+Tika can be an intensive process. There are some small alterations we have made within the stage to improve its throughput; if
+you are working closely with `TextExtractor` and focused on performance, you may want to look into these a bit closer.
