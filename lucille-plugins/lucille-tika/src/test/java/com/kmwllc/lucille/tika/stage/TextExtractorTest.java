@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,6 +59,7 @@ import org.apache.tika.parser.Parser;
 import org.apache.tika.parser.ParserDecorator;
 import org.apache.tika.parser.ocr.TesseractOCRParser;
 import org.apache.tika.parser.pdf.PDFParser;
+import org.apache.tika.sax.XHTMLContentHandler;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -584,11 +587,11 @@ public class TextExtractorTest {
   public void testTimeoutRecoveryOnSameStage() throws Exception {
     HangingParser.release = new CountDownLatch(1);
     HangingParser.hanging = new CountDownLatch(1);
-    Stage stage = factory.get(Map.of(
+    TextExtractor stage = spy((TextExtractor) factory.get(Map.of(
         "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
         "byteArrayField", "byte_array",
         "parseTimeout", 1000,
-        "tikaConfigPath", "src/test/resources/TextExtractorTest/tika-config-hang.xml"));
+        "tikaConfigPath", "src/test/resources/TextExtractorTest/tika-config-hang.xml")));
 
     try {
       Document stuck = Document.create("stuck");
@@ -611,10 +614,66 @@ public class TextExtractorTest {
 
       // the two parses, which overlapped, didn't share a ParseContext
       assertNotSame(HangingParser.hangingContext.get(), HangingParser.lastContext.get());
+
+      // the hook ran for the timed-out parse only
+      verify(stage, times(1)).handleParseTimeout();
     } finally {
       HangingParser.release.countDown();
       stage.stop();
     }
+  }
+
+  /**
+   * Handles image/png by writing {@link #MARKER} to the text, so a test can tell from the extracted text whether an
+   * embedded image was parsed.
+   */
+  public static class ImageMarkerParser extends AbstractParser {
+
+    static final String MARKER = "IMAGE-PARSED";
+
+    @Override
+    public Set<MediaType> getSupportedTypes(ParseContext context) {
+      return Collections.singleton(MediaType.image("png"));
+    }
+
+    @Override
+    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
+        throws IOException, SAXException, TikaException {
+      // text only survives inside an XHTML body
+      XHTMLContentHandler xhtml = new XHTMLContentHandler(handler, metadata);
+      xhtml.startDocument();
+      xhtml.element("p", MARKER);
+      xhtml.endDocument();
+    }
+  }
+
+  @Test
+  public void testSkipEmbeddedImagesInDocx() throws Exception {
+    byte[] docx = Files.readAllBytes(Paths.get("src/test/resources/TextExtractorTest/tika-image.docx"));
+    Map<String, Object> config = Map.of(
+        "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
+        "byteArrayField", "byte_array",
+        "tikaConfigPath", "src/test/resources/TextExtractorTest/tika-config-image-marker.xml");
+
+    // without skipping, the docx's embedded image is parsed
+    Stage stage = factory.get(config);
+    Document doc = Document.create("doc1");
+    doc.setField("byte_array", docx);
+    stage.processDocument(doc);
+    stage.stop();
+    assertTrue(doc.getString("text").contains("Hi There!"));
+    assertTrue(doc.getString("text"), doc.getString("text").contains(ImageMarkerParser.MARKER));
+
+    // with image/ skipped, the image isn't parsed but the document's own text still is
+    Map<String, Object> skipConfig = new HashMap<>(config);
+    skipConfig.put("skipEmbeddedContentTypePrefixes", List.of("image/"));
+    Stage skipStage = factory.get(skipConfig);
+    Document skipDoc = Document.create("doc2");
+    skipDoc.setField("byte_array", docx);
+    skipStage.processDocument(skipDoc);
+    skipStage.stop();
+    assertTrue(skipDoc.getString("text").contains("Hi There!"));
+    assertFalse(skipDoc.getString("text"), skipDoc.getString("text").contains(ImageMarkerParser.MARKER));
   }
 
   @Test
