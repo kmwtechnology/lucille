@@ -53,8 +53,10 @@ import com.typesafe.config.Config;
  * <ul>
  *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
- *   <li>concurrent (Boolean, Optional) : Traverse each of the paths concurrently, on its own thread. Only applies
- *   when more than one path is given. Requires that the paths do not overlap. Defaults to false.</li>
+ *   <li>maxThreads (Int, Optional) : Number of threads to traverse the paths on. 1 traverses them sequentially.
+ *   A larger value traverses them concurrently on up to that many threads, with paths beyond the cap waiting for a free
+ *   thread. -1 uses one thread per path. Concurrent traversal requires that the paths do not overlap. Must be -1 or at
+ *   least 1. Defaults to 1.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
@@ -140,7 +142,7 @@ public class FileConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredList("paths", new TypeReference<List<String>>(){})
-      .optionalBoolean("concurrent")
+      .optionalNumber("maxThreads")
       .optionalParent(
           SpecBuilder.parent("filterOptions")
               .optionalList("includes", new TypeReference<List<String>>(){})
@@ -165,12 +167,19 @@ public class FileConnector extends AbstractConnector {
 
   private final FileConnectorStateManager stateManager;
 
+  private final int maxThreads;
   private final boolean concurrent;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
-    this.concurrent = ConfigUtils.getOrDefault(config, "concurrent", false);
+    this.maxThreads = config.hasPath("maxThreads") ? config.getInt("maxThreads") : 1;
+
+    if (maxThreads < 1 && maxThreads != -1) {
+      throw new IllegalArgumentException("maxThreads must be -1 or >= 1.");
+    }
+
+    this.concurrent = maxThreads != 1;
 
     List<String> paths = config.getStringList("paths");
     this.storageURIs = new ArrayList<>();
@@ -214,7 +223,7 @@ public class FileConnector extends AbstractConnector {
 
     // A collapsing Publisher is not safe for concurrent publish() calls - it would merge and drop documents silently
     if (concurrent && requiresCollapsingPublisher()) {
-      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Disable one of them.");
+      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set maxThreads to 1 or disable collapse.");
     }
 
     if (concurrent) {
@@ -331,14 +340,16 @@ public class FileConnector extends AbstractConnector {
   }
 
   /**
-   * Traverses each of the storage paths on its own thread. Requires the paths to not overlap, so that concurrent
-   * traversals never touch the same row of the state database.
+   * Traverses the storage paths concurrently, on up to maxThreads threads. Requires the paths to not overlap, so that
+   * concurrent traversals never touch the same row of the state database.
    */
   private void traversePathsConcurrently(Publisher publisher) throws ConnectorException {
     ThreadFactory threadFactory = new BasicThreadFactory.Builder()
         .namingPattern(ThreadNameUtils.createName("PathTraversal") + "-%d")
         .build();
-    ExecutorService executor = Executors.newFixedThreadPool(storageURIs.size(), threadFactory);
+    // -1 means one thread per path
+    int poolSize = maxThreads == -1 ? storageURIs.size() : Math.min(maxThreads, storageURIs.size());
+    ExecutorService executor = Executors.newFixedThreadPool(poolSize, threadFactory);
 
     try {
       List<Future<?>> traversals = new ArrayList<>();

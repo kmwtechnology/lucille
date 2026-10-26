@@ -46,6 +46,15 @@ public class SolrUtilsTest {
   }
 
   @Test
+  public void testToDocumentNullIdIsDocumentException() {
+    // the id comes from data, so a null one is a DocumentException, as for a missing id, not the factory's
+    // IllegalArgumentException
+    Tuple nullId = new Tuple();
+    nullId.put(Document.ID_FIELD, null);
+    assertThrows(DocumentException.class, () -> SolrUtils.toDocument(nullId));
+  }
+
+  @Test
   public void testToDocument() throws DocumentException {
     Tuple noId = new Tuple();
 
