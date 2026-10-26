@@ -31,4 +31,13 @@
   <dependencies>
 
   </dependencies>
+
+  <profiles>
+    <profile>
+      <id>admin-ui</id>
+      <modules>
+        <module>lucille-api/lucille-admin-ui</module>
+      </modules>
+    </profile>
+  </profiles>
 </project>

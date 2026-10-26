@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.kmwllc</groupId>
+    <artifactId>lucille-plugins</artifactId>
+    <version>0.13.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>lucille-admin-ui</artifactId>
+  <packaging>jar</packaging>
+  <name>Lucille Plugins: Lucille Admin UI</name>
+  <description>
+    React/Vite admin UI for the Lucille API. Built via frontend-maven-plugin and packaged (under
+    admin/) into a jar that lucille-api serves at /admin. Only built under the admin-ui profile.
+  </description>
+
+  <properties>
+    <!-- Keep in sync with .nvmrc and the UI CI workflow. npm is the one bundled with this Node. -->
+    <node.version>v24.10.0</node.version>
+    <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
+
+    <!-- No Java is produced here, so disable the Java-oriented plugins the parent applies. -->
+    <maven.javadoc.skip>true</maven.javadoc.skip>
+    <maven.source.skip>true</maven.source.skip>
+    <jacoco.skip>true</jacoco.skip>
+    <maven.test.skip>true</maven.test.skip>
+    <maven.deploy.skip>true</maven.deploy.skip>
+    <maven.install.skip>false</maven.install.skip>
+  </properties>
+
+  <build>
+    <plugins>
+      <!-- Package the Vite dist/ output into the jar under admin/. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>copy-ui-dist</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.outputDirectory}/admin</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/dist</directory>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.github.eirslett</groupId>
+        <artifactId>frontend-maven-plugin</artifactId>
+        <version>${frontend-maven-plugin.version}</version>
+        <configuration>
+          <workingDirectory>${project.basedir}</workingDirectory>
+          <installDirectory>${project.basedir}/.mvn-node</installDirectory>
+        </configuration>
+        <executions>
+          <!-- Install the pinned Node (with its bundled npm) locally. -->
+          <execution>
+            <id>install-node-and-npm</id>
+            <goals>
+              <goal>install-node-and-npm</goal>
+            </goals>
+            <phase>generate-resources</phase>
+            <configuration>
+              <nodeVersion>${node.version}</nodeVersion>
+            </configuration>
+          </execution>
+
+          <!-- Install dependencies from the committed lockfile. -->
+          <execution>
+            <id>npm-ci</id>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <phase>generate-resources</phase>
+            <configuration>
+              <arguments>ci</arguments>
+            </configuration>
+          </execution>
+
+          <!-- Non-blocking vulnerability scan; audit:report ends with `|| true` so it never fails the build. -->
+          <execution>
+            <id>npm-audit</id>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <phase>generate-resources</phase>
+            <configuration>
+              <arguments>run audit:report</arguments>
+            </configuration>
+          </execution>
+
+          <!-- tsc + vite build; a type or syntax error fails the build here. -->
+          <execution>
+            <id>npm-build</id>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <phase>generate-resources</phase>
+            <configuration>
+              <arguments>run build</arguments>
+            </configuration>
+          </execution>
+
+          <!-- Vitest suite; a failing test fails the build. -->
+          <execution>
+            <id>npm-test</id>
+            <goals>
+              <goal>npm</goal>
+            </goals>
+            <phase>test</phase>
+            <configuration>
+              <arguments>test</arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

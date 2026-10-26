@@ -239,4 +239,17 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>admin-ui</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.kmwllc</groupId>
+                    <artifactId>lucille-admin-ui</artifactId>
+                    <version>${project.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 </project>
