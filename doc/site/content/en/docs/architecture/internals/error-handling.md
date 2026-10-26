@@ -119,7 +119,7 @@ Before the Indexer thread starts processing, `validateConnection()` is called. I
 There are two sub-cases:
 
 **10a. The entire batch call throws an exception (batch-level failure):**
-The Indexer catches the exception, logs it, and sends a FAIL event for every document in the batch. If retries are configured (`indexer.maxRetries > 0`) and the failure's status code is in `indexer.retryableStatusCodes` (default `[429, 503, -1]`), the batch is retried with exponential backoff before being declared failed. After all retries are exhausted (or if the status code is not retryable), all documents in the batch receive FAIL events. The Indexer continues processing subsequent batches. The `batchComplete()` call in the `finally` block always fires regardless of outcome.
+The Indexer catches the exception, logs it, and sends a FAIL event for every document in the batch. If retries are configured (`indexer.maxRetries > 0`) and the failure's status code is in `indexer.retryableStatusCodes` (default `[429, 503, -1]`), the batch is retried with exponential backoff before being declared failed. After all retries are exhausted (or if the status code is not retryable), all documents in the batch receive FAIL events. The Indexer continues processing subsequent batches. `batchComplete()` is still called once the batch has been handled, so Kafka offsets can be committed even though the batch failed; it is skipped only after an `Error` (such as an `OutOfMemoryError`), so offsets for documents that were never indexed are not committed.
 
 **10b. The bulk API succeeds but reports per-document failures:**
 `sendToIndex()` returns a set of failed document/reason pairs. The Indexer sends FAIL events for those specific documents and FINISH events for the rest. The Indexer continues normally.
@@ -132,7 +132,7 @@ The Indexer catches the exception, logs it, and sends a FAIL event for every doc
 
 - **Local mode:** The Indexer thread dies. Documents accumulate on the indexing queue but are never consumed. The Publisher's `waitForCompletion()` will eventually time out because pending documents never reach a terminal state. The run fails.
 
-- **Distributed mode:** The Indexer process dies. Kafka's consumer group protocol reassigns its partitions to another available Indexer instance. Unacknowledged documents (those in the batch that was being processed) are redelivered to the new Indexer. Since search engine upserts are idempotent, re-indexing an already-indexed document produces the same result.
+- **Distributed mode:** The Indexer process dies. Kafka's consumer group protocol reassigns its partitions to another available Indexer instance. Documents the Indexer had polled but not yet completed (those in its open batch and in any batches still being sent, up to `indexer.maxConcurrentBatches`) have uncommitted offsets, because offsets are committed only when a batch completes, and are redelivered to the new Indexer. Since search engine upserts are idempotent, re-indexing an already-indexed document produces the same result.
 
 **Severity:** In local mode, fatal to the run. In distributed mode, recoverable.
 
@@ -204,11 +204,11 @@ Lucille has two deployment patterns with different offset semantics:
 The Worker commits offsets via `KafkaWorkerMessenger.commitPendingDocOffsets()` after processing each document and placing it on the indexing topic. The guarantee is: if the Worker crashes, unprocessed documents are redelivered. However, documents that were processed and placed on the indexing topic but not yet indexed are safe — they're on Kafka and will be picked up by an Indexer.
 
 **WorkerIndexer mode (paired Worker + Indexer in one process):**
-The offset flow is more sophisticated. The Indexer, after successfully sending a batch to the search backend, places the offsets of the indexed documents on an in-memory queue. The Worker reads from this queue during its `commitPendingDocOffsets()` call and commits them back to Kafka. The guarantee is stronger: offsets are only committed after documents are *indexed*, not just processed. If the WorkerIndexer crashes, documents that were processed but not yet indexed are redelivered and re-indexed. Since search engine upserts are idempotent, this produces correct results.
+The offset flow is more sophisticated. The Indexer, once it has handled a batch (sent it to the search backend, or reported its documents as failed), places the offsets of the batch's documents on an in-memory queue. The Worker reads from this queue during its `commitPendingDocOffsets()` call and commits them back to Kafka. The guarantee is stronger: offsets are only committed after documents are *handled by the Indexer* (indexed, or reported failed), not just processed. If the WorkerIndexer crashes, documents that were processed but not yet indexed are redelivered and re-indexed. Since search engine upserts are idempotent, this produces correct results.
 
 ### What Fault Tolerance Guarantees
 
-- **No data loss.** A document that enters the system (is placed on a Kafka topic) will eventually be processed and indexed, or will exhaust its retry count and be routed to a dead-letter queue. It will not silently disappear.
+- **No data loss.** A document that enters the system (is placed on a Kafka topic) will eventually be processed and indexed, or will exhaust its retry count and be routed to a dead-letter queue. It will not silently disappear. (One documented boundary: in WorkerIndexer mode with `indexOverrideField`, a crash can skip a record that was still waiting in another index's batch; see [Delivery semantics]({{< relref "docs/operations/indexing-throughput#delivery-semantics-kafka-distributed-mode" >}}).)
 - **At-least-once processing.** A document may be processed more than once if a crash occurs after processing but before offset commit. Pipeline stages and indexing operations should be idempotent (search engine upserts naturally are).
 - **Automatic recovery.** No manual intervention is required when a Worker or Indexer crashes. Kafka's consumer group protocol handles partition reassignment automatically. New instances can be added at any time.
 

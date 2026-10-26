@@ -37,12 +37,17 @@ You'll specify either `templateName`, the name of a search template you've saved
 You'll also need to specify the names of parameters in your search template. These will need to match the names of fields on your Documents. 
 If your names don't match, you can use the `RenameFields` Stage first. 
 
-In particular, you have to specify which parameters are required and which are optional. If a required name in `requiredParamNames` is 
-missing from a Document, an Exception will be thrown, and the template will not be executed. If an optional name in `optionalParamNames`
-is missing they (naturally) won't be part of the template execution, so the default value will be used by OpenSearch.
+In particular, you have to specify which parameters are required and which are optional. If a required name in `requiredParamNames` is
+missing from a Document, a warning is logged, the field `queryOpensearchError` is set on the Document, and the template is not executed.
+The Document continues through the pipeline. If an optional name in `optionalParamNames` is missing, it isn't part of the template
+execution, so the template's default value is used by OpenSearch.
 
 If a parameter without a default value is missing, OpenSearch doesn't throw an Exception - it just returns an empty response with zero hits.
 So, it is very important that `requiredParamNames` and `optionalParamNames` are defined very carefully!
+
+The value at `opensearchResponsePath` is written to `destinationField`, replacing any existing value. If OpenSearch returns a non-2xx
+status or an empty body, or the request or response parsing fails, the Document fails. Setting both `templateName` and `searchTemplate`,
+or neither, fails at startup, as does a `searchTemplate` that isn't valid JSON.
 
 ### Connection and Authentication
 
@@ -74,12 +79,16 @@ The stage connects to OpenSearch via the same `opensearch` config block used by 
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `opensearch.url` | String | Yes | OpenSearch endpoint URL, optionally including credentials. |
+| `opensearch.url` | String or List\<String\> | Yes | OpenSearch endpoint URL, optionally including credentials. Can also be a list of URLs for the same cluster. |
 | `opensearch.index` | String | Yes | Index to query against. |
 | `opensearch.acceptInvalidCert` | Boolean | No | Accept invalid TLS certificates. Default: `false`. |
-| `templateName` | String | Required if no `searchTemplate` | Name of a saved search template in the cluster. |
-| `searchTemplate` | String | Required if no `templateName` | Inline template body (not saved to the cluster). |
-| `requiredParamNames` | List\<String\> | No | Document fields required for the template. Missing fields cause a warning and an error field on the document. |
+| `opensearch.useCompression` | Boolean | No | Enable compression in the OpenSearch HTTP client. Default: `false`. |
+| `opensearch.connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `5000`. |
+| `opensearch.socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Raise it above the slowest expected query, or set `-1` for no limit. Default: `30000`. |
+| `opensearch.connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Lower it to rebalance faster. Default: `300000` (5 minutes). |
+| `templateName` | String | No | Name of a saved search template in the cluster. Set exactly one of `templateName` and `searchTemplate`. |
+| `searchTemplate` | String | No | Inline template body as a JSON string (not saved to the cluster). Set exactly one of `templateName` and `searchTemplate`. |
+| `requiredParamNames` | List\<String\> | No | Document fields required for the template. If one is missing, the query is skipped, a warning is logged, and `queryOpensearchError` is set on the Document. |
 | `optionalParamNames` | List\<String\> | No | Document fields used if present; omitted from the query otherwise. |
-| `opensearchResponsePath` | String | No | JsonPointer path into the response (e.g., `/hits/hits`). Defaults to the entire response. |
-| `destinationField` | String | No | Field name to write the response value to. Default: `"response"`. |
+| `opensearchResponsePath` | String | No | JsonPointer path into the response (e.g., `/hits/hits`). Default: the entire response. |
+| `destinationField` | String | No | Field name to write the response value to. Default: `response`. |

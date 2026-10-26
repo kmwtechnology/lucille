@@ -5,9 +5,11 @@ date: 2025-12-16
 description: Run a document through a Java embedded Graal Python environment.
 ---
 
+`com.kmwllc.lucille.stage.EmbeddedPython`
+
 ### Why Use It?
 
-EmbeddedPython executes per-document Python code inside the Lucille JVM using [GraalPy](https://www.graalvm.org/python/). Instead of returning a JSON object, your script mutates the current document directly through a Python-friendly proxy bound as doc (and the raw Java document as rawDoc). This avoids ports, subprocesses, venvs, and per-document JSON round trips.
+EmbeddedPython executes per-document Python code inside the Lucille JVM using [GraalPy](https://www.graalvm.org/python/). Instead of returning a JSON object, your script mutates the current document directly through a Python-friendly proxy bound as `doc` (and the raw Java `Document` as `rawDoc`). This avoids ports, subprocesses, venvs, and per-document JSON round trips.
 
 ### When To Use It
 
@@ -55,22 +57,31 @@ doc["title"] = doc["title"].upper()
 
 #### Config Parameters
 
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `scriptPath` | String | No | Path to a Python file. Can be a local path, a `classpath:` path, or a cloud storage URI (`s3://`, `gs://`, `https://` for Azure). Exactly one of `scriptPath` or `script` must be set, or the stage fails at startup. |
+| `script` | String | No | Inline Python code. Exactly one of `scriptPath` or `script` must be set. |
+| `s3` | Object | No | S3 credentials for reading `scriptPath` from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `azure` | Object | No | Azure credentials for reading `scriptPath` from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+
+The script is read once at startup and evaluated once per document in the same interpreter context, so top-level variables persist between documents. Fields can be read and written as `doc["field"]` or `doc.field`, including nested objects and list indices. Reading a field that does not exist raises an error. Any error raised by the script fails the document.
+
 ```hocon
 {
  name: "EmbeddedPython-Example"
  class: "com.kmwllc.lucille.stage.EmbeddedPython"
 
- # Specify exactly one of the following:
- script_path: "/path/to/my_script.py"
+ # Specify exactly one of scriptPath or script; setting both fails at startup.
+ # scriptPath: "/path/to/my_script.py"
  script: "doc['title'] = doc['title'].upper()"
 }
 ```
 
-`script_path` can begin with `classpath:` to load the script as a classpath resource rather than a filesystem path:
+`scriptPath` can begin with `classpath:` to load the script as a classpath resource rather than a filesystem path:
 
 ```hocon
-script_path: "classpath:scripts/my_script.py"
+scriptPath: "classpath:scripts/my_script.py"
 ```
 
 This lets you package Python scripts inside your JAR as resources (under `src/main/resources/`). The Lucille process loads them directly from the classpath at runtime, so you don't need to place files in specific filesystem locations or ensure the process has read access to them.
-```

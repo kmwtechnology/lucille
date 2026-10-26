@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>url (List&lt;String&gt;, Optional) : One or more Solr base URLs (e.g., https://localhost:8983).</li>
+ *   <li>url (String or List&lt;String&gt;, Optional) : One or more Solr base URLs (e.g., https://localhost:8983).</li>
  *   <li>useCloudClient (Boolean, Optional) : Use the SolrCloud client. Defaults to false.</li>
  *   <li>zkHosts (List&lt;String&gt;, Optional) : ZooKeeper connection strings when using SolrCloud.</li>
  *   <li>zkChroot (String, Optional) : ZooKeeper chroot used with SolrCloud.</li>
@@ -52,7 +52,7 @@ import org.slf4j.LoggerFactory;
 public class SolrIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
-      .optionalList("url", new TypeReference<List<String>>() {})
+      .optionalStringOrList("url")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
       .optionalString("defaultCollection", "userName", "password", "zkChroot")
       .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
@@ -84,6 +84,13 @@ public class SolrIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "solr"; }
+
+  // SolrJ's Http2SolrClient and CloudHttp2SolrClient are thread-safe and intended to be shared, so concurrent sends
+  // through the single shared client are safe.
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
 
   private static SolrClient getSolrClient(Config config, boolean bypass) {
     return bypass ? null : SolrUtils.getSolrClient(config);
@@ -175,25 +182,18 @@ public class SolrIndexer extends Indexer {
       SolrDocRequests solrDocRequests = solrDocRequestsByCollection.get(collection);
       String solrId = idOverride != null ? idOverride : doc.getId();
 
-      if (isDeletion(doc)) {
+      if (isMarkedForDeletion(doc)) {
 
         // if the add/update requests contain the ID of this delete, send the add/updates
         // immediately so the add/update
         // of the document is processed before this delete.
 
-        if (solrDocRequests.containsIdForAddUpdate(solrId)
-            || (deleteByFieldField != null
-            && doc.has(deleteByFieldField)
-            && deleteByFieldValue != null
-            && doc.has(deleteByFieldValue))) {
+        if (solrDocRequests.containsIdForAddUpdate(solrId) || hasDeleteByFieldValues(doc)) {
           sendAddUpdateBatch(collection, solrDocRequests.getAddUpdateDocs());
           solrDocRequests.resetAddUpdates();
         }
 
-        if (deleteByFieldField != null
-            && doc.has(deleteByFieldField)
-            && deleteByFieldValue != null
-            && doc.has(deleteByFieldValue)) {
+        if (hasDeleteByFieldValues(doc)) {
           solrDocRequests.addDeleteByFieldValue(
               doc.getString(deleteByFieldField), doc.getString(deleteByFieldValue));
         } else {
@@ -322,25 +322,13 @@ public class SolrIndexer extends Indexer {
     return new IndexerRetryableException("Solr error with no HTTP status code", e);
   }
 
-  private boolean isDeletion(Document doc) {
-    return this.deletionMarkerField != null
-        && this.deletionMarkerFieldValue != null
-        && doc.hasNonNull(this.deletionMarkerField)
-        && doc.getString(this.deletionMarkerField).equals(this.deletionMarkerFieldValue);
-  }
-
   private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
       throws IndexerException {
     // removes fields specified by fieldFilter config, including id
-    Map<String, Object> map = getIndexerDoc(doc);
+    Map<String, Object> map = getConvertedIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
 
     for (String key : map.keySet()) {
-
-      if (Document.CHILDREN_FIELD.equals(key)) {
-        continue;
-      }
-      
       if (idOverride != null && Document.ID_FIELD.equals(key)) {
         solrDoc.setField(Document.ID_FIELD, idOverride);
         continue;
@@ -372,14 +360,11 @@ public class SolrIndexer extends Indexer {
     }
     for (Document child : children) {
       // remove key:value pair mappings if they appear in blacklist
-      Map<String, Object> map = getIndexerDoc(child);
+      Map<String, Object> map = getConvertedIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();
+      // getConvertedIndexerDoc omits CHILDREN_FIELD, so children nested inside a child are not sent
       for (String key : map.keySet()) {
-        // we don't support children that contain nested children
-        if (Document.CHILDREN_FIELD.equals(key)) {
-          continue;
-        }
         Object value = map.get(key);
         if (value instanceof Map) {
           throw new IndexerException(

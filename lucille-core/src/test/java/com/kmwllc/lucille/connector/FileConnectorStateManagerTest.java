@@ -22,12 +22,14 @@ import java.time.Instant;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.h2.tools.RunScript;
 import org.junit.Rule;
 import org.junit.Test;
 
 import com.kmwllc.lucille.connector.jdbc.DBTestHelper;
 import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -317,7 +319,10 @@ public class FileConnectorStateManagerTest {
     assertEquals(18, messenger2.getDocsSentForProcessing().size());
   }
 
-  // empty state configuration should mean we create a database for the user.
+  // Empty state configuration should mean we create a database for the user, at the hardcoded default
+  // jdbc:h2:./state/<connectorName>. This test must keep using the bare state/ directory, or it no longer tests that
+  // default. In turn, no other test may write to state/: this one asserts the directory is absent beforehand, so a
+  // test in a parallel fork that touched it would make this one flaky. Other tests set state.connectionString instead.
   @Test
   public void testEmbeddedCreationEmptyConfig() throws Exception {
     File stateDirectory = new File("state");
@@ -613,4 +618,49 @@ public class FileConnectorStateManagerTest {
     manager.shutdown();
   }
 
+  @Test
+  public void testDefaultPathLengthFitsLongPaths() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    String longPath = "s3://lucille-bucket/" + "a".repeat(FileConnectorStateManager.DEFAULT_PATH_LENGTH - 20);
+    manager.markFileEncountered(longPath);
+    manager.successfullyPublishedFile(longPath);
+    assertNotNull(manager.getLastPublished(longPath));
+
+    manager.shutdown();
+  }
+
+  @Test
+  public void testPathLongerThanColumnThrows() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/s3.conf")
+        .withValue("pathLength", ConfigValueFactory.fromAnyRef(20));
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    String path = "s3://lucille-bucket/files/info.txt";
+    try {
+      StatePathTooLongException e = assertThrows(StatePathTooLongException.class, () -> manager.markFileEncountered(path));
+      assertTrue(e.getMessage().contains(path));
+      assertTrue(e.getMessage().contains("state.pathLength"));
+    } finally {
+      manager.shutdown();
+    }
+  }
+
+  @Test
+  public void testTraversalFailsWhenPathLongerThanColumn() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("state.pathLength", ConfigValueFactory.fromAnyRef(20));
+    Publisher publisher = new PublisherImpl(config, new TestMessenger(), "run", "pipeline1");
+
+    Connector conn = new FileConnector(config);
+    try {
+      ConnectorException e = assertThrows(ConnectorException.class, () -> conn.execute(publisher));
+      assertTrue(ExceptionUtils.indexOfThrowable(e, StatePathTooLongException.class) >= 0);
+    } finally {
+      conn.close();
+    }
+  }
 }

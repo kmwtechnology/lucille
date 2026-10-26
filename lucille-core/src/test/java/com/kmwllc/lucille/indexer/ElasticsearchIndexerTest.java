@@ -19,6 +19,7 @@ import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.elasticsearch.core.bulk.UpdateOperation;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.Document;
@@ -35,7 +36,12 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
@@ -46,6 +52,8 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Random;
+import java.util.TreeMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,6 +63,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -155,7 +164,7 @@ public class ElasticsearchIndexerTest {
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
 
-    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
 
     // parent should still be indexed as appropriate (parent_field: parentValue)
     assertEquals("parentValue", indexed.get("parent_field"));
@@ -192,7 +201,7 @@ public class ElasticsearchIndexerTest {
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
 
-    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
     List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
 
     assertEquals(1, children.size());
@@ -223,7 +232,7 @@ public class ElasticsearchIndexerTest {
     ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
     verify(mockClient, times(1)).bulk(captor.capture());
 
-    Map<String, Object> indexed = (Map<String, Object>) captor.getValue().operations().get(0).index().document();
+    Map<String, Object> indexed = asSent(captor.getValue().operations().get(0).index().document());
     List<Map<String, Object>> children = (List<Map<String, Object>>) indexed.get("children");
 
     assertEquals(1, children.size());
@@ -386,6 +395,129 @@ public class ElasticsearchIndexerTest {
     List<Event> events = messenger.getSentEvents();
     Assert.assertEquals("doc1", events.get(0).getDocumentId());
     Assert.assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  @Test
+  public void testSameIdSequencesInOneBatchResolveToLastWrite() throws Exception {
+    // Longer same-id sequences in one batch than the add/delete/add case: the id must resolve to the LAST operation,
+    // whichever kind it is (a delete-final sequence must leave no upload; an add-final one must carry the latest add's
+    // content, never an earlier add's). "aN" is an add carrying version N, "d" is a delete.
+    List<List<String>> sequences = List.of(
+        List.of("a1", "d"),
+        List.of("d", "a1"),
+        List.of("d", "a1", "d"),
+        List.of("a1", "a2", "a3"),
+        List.of("d", "d"),
+        List.of("a1", "d", "a2", "d"),
+        List.of("a1", "d", "a2", "d", "a3"),
+        List.of("d", "a1", "d", "a2", "d", "a3", "d"));
+    for (List<String> sequence : sequences) {
+      List<String> ops = new ArrayList<>();
+      sequence.forEach(op -> ops.add("doc1:" + op));
+      assertBatchResolvesToLastWritePerId(ops);
+    }
+  }
+
+  @Test
+  public void testLongRandomSameIdSequenceInOneBatchResolvesToLastWrite() throws Exception {
+    // A long, seeded-random run of adds and deletes over a few ids, interleaved in one batch. Each id must resolve to its
+    // own last operation, independent of the other ids' operations between them.
+    Random random = new Random(42);
+    String[] ids = {"doc1", "doc2", "doc3"};
+    List<String> ops = new ArrayList<>();
+    for (int version = 1; version <= 40; version++) {
+      String id = ids[random.nextInt(ids.length)];
+      ops.add(id + (random.nextInt(3) == 0 ? ":d" : ":a" + version));
+    }
+    assertBatchResolvesToLastWritePerId(ops);
+  }
+
+  // Sends one document per op ("<id>:a<version>" for an add carrying that version, "<id>:d" for a delete) through a
+  // single batch, then checks that each id was sent exactly once, and as the last operation submitted for it: the
+  // latest add's version, or a delete when the last operation was a delete.
+  private void assertBatchResolvesToLastWritePerId(List<String> ops) throws Exception {
+    Mockito.clearInvocations(mockClient);
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(ops.size()));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+
+    // The model: the final state of each id is its last operation (null means deleted).
+    Map<String, String> expected = new TreeMap<>();
+    for (String op : ops) {
+      String id = op.substring(0, op.indexOf(':'));
+      String kind = op.substring(op.indexOf(':') + 1);
+      Document doc = Document.create(id, "test_run");
+      if (kind.equals("d")) {
+        doc.setField("deleted", "true");
+        expected.put(id, null);
+      } else {
+        doc.setField("version", kind.substring(1));
+        expected.put(id, kind.substring(1));
+      }
+      messenger.sendForIndexing(doc);
+    }
+
+    indexer.run(ops.size());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, Mockito.atLeast(1)).bulk(captor.capture());
+    Map<String, String> actual = new TreeMap<>();
+    int operationCount = 0;
+    for (BulkRequest request : captor.getAllValues()) {
+      for (BulkOperation operation : request.operations()) {
+        operationCount++;
+        if (operation.isIndex()) {
+          actual.put(operation.index().id(), (String) asSent(operation.index().document()).get("version"));
+        } else {
+          assertTrue("only index and delete operations are expected", operation.isDelete());
+          actual.put(operation.delete().id(), null);
+        }
+      }
+    }
+    assertEquals("each id must be sent exactly once for sequence " + ops, expected.size(), operationCount);
+    assertEquals("final state must match the last operation per id for sequence " + ops, expected, actual);
+  }
+
+  @Test
+  public void testSameIdAddDeleteAddInOneBatch() throws Exception {
+    // add, delete, then re-add the SAME id in one batch. ElasticsearchIndexer collapses a batch per id (last write
+    // wins): each operation removes the id from the opposite set, so an id ends up in either the upload set or the
+    // delete set, never both. The final operation here is the re-add, so the id resolves to a single upload (carrying
+    // the latest version) and no delete — the correct final state. Mirrors SolrIndexerTest.testSolrIndexerAddDeleteAdd,
+    // but asserts the collapsed result rather than Solr's in-order replay, since the two reach the correct final state
+    // by different means.
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(3));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+
+    Document add1 = Document.create("doc1", "test_run");
+    add1.setField("version", "1");
+    Document delete = Document.create("doc1", "test_run");
+    delete.setField("deleted", "true");
+    Document add2 = Document.create("doc1", "test_run");
+    add2.setField("version", "2");
+
+    messenger.sendForIndexing(add1);
+    messenger.sendForIndexing(delete);
+    messenger.sendForIndexing(add2);
+
+    indexer.run(3);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    // The collapse leaves a single upload for the id and no delete, so one bulk request with one index operation.
+    verify(mockClient, times(1)).bulk(captor.capture());
+    verify(mockClient, never()).deleteByQuery(any(DeleteByQueryRequest.class));
+
+    List<BulkOperation> operations = captor.getValue().operations();
+    assertEquals(1, operations.size());
+    IndexOperation<?> indexRequest = operations.get(0).index();
+    assertNotNull("the id must resolve to an upload, not a delete, since the last operation was a re-add", indexRequest);
+    assertEquals("doc1", indexRequest.id());
+    // The surviving upload is the second add (version 2), not the first.
+    Map<String, Object> indexed = asSent(indexRequest.document());
+    assertEquals("2", indexed.get("version"));
   }
 
   @Test
@@ -611,7 +743,7 @@ public class ElasticsearchIndexerTest {
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
 
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), indexRequest.id());
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -644,7 +776,7 @@ public class ElasticsearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -677,7 +809,7 @@ public class ElasticsearchIndexerTest {
     BulkRequest br = bulkRequestArgumentCaptor.getValue();
     List<BulkOperation> requests = br.operations();
     IndexOperation indexRequest = requests.get(0).index();
-    Map<String, Object> map = (Map<String, Object>) indexRequest.document();
+    Map<String, Object> map = asSent(indexRequest.document());
 
     assertEquals(doc.getId(), map.get("id"));
     assertEquals(doc.asMap().get("myJsonField"), map.get("myJsonField"));
@@ -716,7 +848,7 @@ public class ElasticsearchIndexerTest {
     // note that id has also been deleted from the document, but the id is still passed to the ElasticSearch Index
     // to id documents.
     assertEquals("routing1", indexRequest.routing());
-    assertEquals(Map.of("field1", "value1"), indexRequest.document());
+    assertEquals(Map.of("field1", "value1"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -769,7 +901,7 @@ public class ElasticsearchIndexerTest {
     assertEquals("doc1", indexRequest.id());
     assertEquals(Long.valueOf(100), indexRequest.version());
     assertEquals(VersionType.ExternalGte, indexRequest.versionType());
-    assertEquals(Map.of("id", "doc1", "field1", "value1"), indexRequest.document());
+    assertEquals(Map.of("id", "doc1", "field1", "value1"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -817,7 +949,7 @@ public class ElasticsearchIndexerTest {
 
     // add doc id to expected
     expected.put("id", doc.getId());
-    assertEquals(expected, indexRequest.document());
+    assertEquals(expected, asSent(indexRequest.document()));
   }
 
   @Test
@@ -924,7 +1056,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that ignoreField1, ignoreField2, and id has been removed
-    assertEquals(Map.of("normalField", "normalValue"), indexRequest.document());
+    assertEquals(Map.of("normalField", "normalValue"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -950,7 +1082,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that normalField and id have been removed
-    assertEquals(Map.of("includeField1", "value1", "includeField2", "value2"), indexRequest.document());
+    assertEquals(Map.of("includeField1", "value1", "includeField2", "value2"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -976,7 +1108,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that ignoreField1, normalField, and id have been removed
-    assertEquals(Map.of("includeField2", "value2"), indexRequest.document());
+    assertEquals(Map.of("includeField2", "value2"), asSent(indexRequest.document()));
   }
 
   /**
@@ -1008,7 +1140,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id and other_id has been removed
-    assertEquals(Map.of("normalField", "normalValue"), indexRequest.document());
+    assertEquals(Map.of("normalField", "normalValue"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -1033,7 +1165,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id and other_id have been removed
-    assertEquals(Map.of("normalField", "normalValue"), indexRequest.document());
+    assertEquals(Map.of("normalField", "normalValue"), asSent(indexRequest.document()));
   }
 
   /**
@@ -1063,7 +1195,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id has been removed and that other_id field remains
-    assertEquals(Map.of("other_id", "otherId", "normalField", "normalValue"), indexRequest.document());
+    assertEquals(Map.of("other_id", "otherId", "normalField", "normalValue"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -1088,7 +1220,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id and normalField have been removed and that other_id field remains
-    assertEquals(Map.of("other_id", "otherId"), indexRequest.document());
+    assertEquals(Map.of("other_id", "otherId"), asSent(indexRequest.document()));
   }
 
   /**
@@ -1117,7 +1249,7 @@ public class ElasticsearchIndexerTest {
     IndexOperation<Map<String, Object>> indexRequest = requests.get(0).index();
 
     // check that id has been overwritten and that other_id field remains
-    assertEquals(Map.of("id", "otherId", "other_id", "otherId"), indexRequest.document());
+    assertEquals(Map.of("id", "otherId", "other_id", "otherId"), asSent(indexRequest.document()));
   }
 
   @Test
@@ -1373,5 +1505,136 @@ public class ElasticsearchIndexerTest {
     public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to indexer are correctly handled");
     }
+  }
+
+  // How long a concurrent-send test waits for the expected overlap before declaring a timeout.
+  private static final long CONCURRENCY_WAIT_SECONDS = 2;
+
+  /**
+   * Verifies concurrent bulk sends through the real ElasticsearchIndexer.sendToIndex path (only the final client.bulk
+   * call is mocked). The stub blocks each bulk until a second is also in the client, proving two real bulks overlap,
+   * the limit is respected, doc2's batch finishes sending before doc0's, and batches still complete in dispatch order.
+   */
+  @Test
+  public void testConcurrentBatches() throws Exception {
+    int maxConcurrentBatches = 2;
+    AtomicInteger inClient = new AtomicInteger();
+    AtomicInteger maxInClient = new AtomicInteger();
+    CountDownLatch overlapping = new CountDownLatch(2);
+    CountDownLatch doc2BatchSent = new CountDownLatch(1);
+    List<String> sendFinishOrder = Collections.synchronizedList(new ArrayList<>());
+    List<String> timeouts = Collections.synchronizedList(new ArrayList<>());
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenAnswer(invocation -> {
+      blockingSend(lowestDocId(invocation.getArgument(0)), inClient, maxInClient, overlapping, doc2BatchSent,
+          sendFinishOrder, timeouts);
+      return response;
+    });
+    List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
+    TestMessenger messenger = new TestMessenger() {
+      @Override
+      public void batchComplete(List<Document> batch) throws Exception {
+        completedBatches.add(batch.get(0).getId());
+        super.batchComplete(batch);
+      }
+    };
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
+        .withValue("indexer.maxConcurrentBatches", ConfigValueFactory.fromAnyRef(maxConcurrentBatches));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    for (int i = 0; i < 6; i++) {
+      messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
+    }
+    long start = System.nanoTime();
+    indexer.run(6);
+    long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+    assertEquals("Sends timed out waiting for a concurrent send after " + elapsedMs + " ms", List.of(), timeouts);
+    assertTrue("Expected at least 2 sends in flight at once, saw " + maxInClient.get(), maxInClient.get() >= 2);
+    assertTrue("Saw " + maxInClient.get() + " sends in flight, above the limit of " + maxConcurrentBatches,
+        maxInClient.get() <= maxConcurrentBatches);
+    // The doc2 batch really did finish sending before the doc0 batch.
+    assertEquals(List.of("doc2", "doc0"), sendFinishOrder.subList(0, 2));
+    assertEquals(3, sendFinishOrder.size());
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(6, events.size());
+    for (int i = 0; i < 6; i++) {
+      assertEquals("doc" + i, events.get(i).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i).getType());
+    }
+    assertEquals(List.of("doc0", "doc2", "doc4"), completedBatches);
+  }
+
+  /**
+   * With maxConcurrentBatches unset, every send runs on the indexer thread itself and never overlaps another.
+   */
+  @Test
+  public void testSerialBatchesByDefault() throws Exception {
+    AtomicInteger inClient = new AtomicInteger();
+    AtomicInteger maxInClient = new AtomicInteger();
+    Set<Thread> sendThreads = ConcurrentHashMap.newKeySet();
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    Mockito.when(mockClient.bulk(any(BulkRequest.class))).thenAnswer(invocation -> {
+      recordingSend(inClient, maxInClient, sendThreads);
+      return response;
+    });
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/config.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+    for (int i = 0; i < 6; i++) {
+      messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
+    }
+    indexer.run(6);
+    verify(mockClient, times(3)).bulk(any(BulkRequest.class));
+    assertEquals(1, maxInClient.get());
+    assertEquals(Set.of(Thread.currentThread()), sendThreads);
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(6, events.size());
+    for (int i = 0; i < 6; i++) {
+      assertEquals("doc" + i, events.get(i).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i).getType());
+    }
+  }
+
+  // Body of a stubbed client.bulk call for testConcurrentBatches. Identifies the batch by its lowest doc id. Blocks
+  // until a second send overlaps, and makes the doc0 batch wait for the doc2 batch to finish first.
+  private static void blockingSend(String batch, AtomicInteger inClient, AtomicInteger maxInClient,
+      CountDownLatch overlapping, CountDownLatch doc2BatchSent, List<String> sendFinishOrder, List<String> timeouts)
+      throws InterruptedException {
+    maxInClient.accumulateAndGet(inClient.incrementAndGet(), Math::max);
+    overlapping.countDown();
+    if (!overlapping.await(CONCURRENCY_WAIT_SECONDS, TimeUnit.SECONDS)) {
+      timeouts.add(batch + " batch: no other send entered the client");
+    }
+    if ("doc0".equals(batch) && !doc2BatchSent.await(CONCURRENCY_WAIT_SECONDS, TimeUnit.SECONDS)) {
+      timeouts.add("doc0 batch: doc2 batch never finished first");
+    }
+    sendFinishOrder.add(batch);
+    inClient.decrementAndGet();
+    if ("doc2".equals(batch)) {
+      doc2BatchSent.countDown();
+    }
+  }
+
+  // Body of a stubbed client call for testSerialBatchesByDefault. The short sleep gives any overlap a chance to show.
+  private static void recordingSend(AtomicInteger inClient, AtomicInteger maxInClient, Set<Thread> sendThreads)
+      throws InterruptedException {
+    sendThreads.add(Thread.currentThread());
+    maxInClient.accumulateAndGet(inClient.incrementAndGet(), Math::max);
+    Thread.sleep(20);
+    inClient.decrementAndGet();
+  }
+
+  // The lowest document id among a bulk request's operations, used to name the batch in testConcurrentBatches.
+  private static String lowestDocId(BulkRequest request) {
+    return request.operations().stream().map(op -> op.index().id()).sorted().findFirst().orElseThrow();
+  }
+
+  /**
+   * Converts the document handed to the client into plain Java values. The indexer may pass the document's own
+   * JsonNodes as map values, which the client serializes the same way as the converted values.
+   */
+  private static Map<String, Object> asSent(Object document) {
+    return new ObjectMapper().convertValue(document, new TypeReference<Map<String, Object>>() {});
   }
 }

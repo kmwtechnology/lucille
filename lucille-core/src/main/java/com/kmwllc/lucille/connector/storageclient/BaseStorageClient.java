@@ -2,12 +2,13 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MAX_NUM_OF_PAGES;
+import static com.kmwllc.lucille.connector.FileConnector.MAX_RESULTS_PER_PAGE;
 import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
+import com.kmwllc.lucille.connector.StatePathTooLongException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
@@ -27,6 +28,7 @@ import org.apache.commons.compress.archivers.ArchiveStreamFactory;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.input.CloseShieldInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -44,7 +46,7 @@ public abstract class BaseStorageClient implements StorageClient {
 
   protected final Config config;
 
-  protected final int maxNumOfPages;
+  protected final int maxResultsPerPage;
   private boolean initialized = false;
 
   /**
@@ -52,11 +54,19 @@ public abstract class BaseStorageClient implements StorageClient {
    * IllegalArgumentException if they are invalid for the specific implementation.
    */
   public BaseStorageClient(Config config) {
+    this(config, 100);
+  }
+
+  /**
+   * Creates a base implementation of a Storage client from the given config, using the given page size when the config
+   * does not set "maxResultsPerPage".
+   */
+  protected BaseStorageClient(Config config, int defaultMaxResultsPerPage) {
     validateOptions(config);
     this.config = config;
 
     // only matters for traversals
-    this.maxNumOfPages = config.hasPath(MAX_NUM_OF_PAGES) ? config.getInt(MAX_NUM_OF_PAGES) : 100;
+    this.maxResultsPerPage = config.hasPath(MAX_RESULTS_PER_PAGE) ? config.getInt(MAX_RESULTS_PER_PAGE) : defaultMaxResultsPerPage;
   }
 
   /**
@@ -242,8 +252,10 @@ public abstract class BaseStorageClient implements StorageClient {
               handleStreamExtensionFiles(publisher, resolvedExtension, params, compressorStream, compressedFileFullPath);
             } else {
               Document doc = fileReference.decompressedFileAsDoc(compressorStream, compressedFileFullPath, params);
-              try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
-                docLogger.info("StorageClient to publish Document {}.", doc.getId());
+              if (docLogger.isInfoEnabled()) {
+                try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+                  docLogger.info("StorageClient to publish Document {}.", doc.getId());
+                }
               }
               publisher.publish(doc);
             }
@@ -295,8 +307,10 @@ public abstract class BaseStorageClient implements StorageClient {
 
       // handle normal files
       Document doc = fileReference.asDoc(params);
-      try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
-        docLogger.info("StorageClient to publish Document {}.", doc.getId());
+      if (docLogger.isInfoEnabled()) {
+        try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+          docLogger.info("StorageClient to publish Document {}.", doc.getId());
+        }
       }
       publisher.publish(doc);
 
@@ -307,6 +321,8 @@ public abstract class BaseStorageClient implements StorageClient {
       afterProcessingFile(fullPath, params);
     } catch (UnsupportedOperationException e) {
       throw new UnsupportedOperationException("Encountered unsupported operation", e);
+    } catch (StatePathTooLongException e) {
+      throw e;
     } catch (Exception e) {
       try {
         errorProcessingFile(fullPath, params);
@@ -369,8 +385,10 @@ public abstract class BaseStorageClient implements StorageClient {
               doc.setField(CONTENT, in.readAllBytes());
             }
             try {
-              try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
-                docLogger.info("StorageClient to publish Document {}.", doc.getId());
+              if (docLogger.isInfoEnabled()) {
+                try (MDCCloseable mdc = MDC.putCloseable(Document.ID_FIELD, doc.getId())) {
+                  docLogger.info("StorageClient to publish Document {}.", doc.getId());
+                }
               }
               publisher.publish(doc);
             } catch (Exception e) {
@@ -400,17 +418,8 @@ public abstract class BaseStorageClient implements StorageClient {
   private void handleStreamExtensionFiles(Publisher publisher, String fileExtension, TraversalParams params, InputStream in, String fullPathStr)
       throws ConnectorException {
     try {
-      InputStream wrappedNonClosingStream = new InputStream() {
-        @Override
-        public int read() throws IOException {
-          return in.read();
-        }
-
-        // Intentionally a no-op. We don't want to close the archiveInputStream when finished
-        // with this one file.
-        @Override
-        public void close() {}
-      };
+      // Shield the archive / compressor stream from close() calls, but delegate everything else (notably bulk reads).
+      InputStream wrappedNonClosingStream = CloseShieldInputStream.wrap(in);
 
       FileHandler handler = params.handlerForExtension(fileExtension);
       handler.processFileAndPublish(publisher, wrappedNonClosingStream, fullPathStr);

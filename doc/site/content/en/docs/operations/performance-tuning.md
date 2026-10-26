@@ -194,6 +194,8 @@ INFO Indexer: 17016 docs indexed. One minute rate: 455.07 docs/sec. Mean backend
 
 **Indexer rate** (Indexer message): How fast the search backend accepts batches.
 
+**Backend latency** (Indexer message): The mean wall time of one bulk send divided by the batch size, including retries and their backoff waits. It is a per-send figure. With `indexer.maxConcurrentBatches` above 1, sends overlap but each is still timed on its own, so ms/doc stays near the single-send latency (and rises if the backend saturates) while docs/sec goes up; the rate is then no longer about 1000 ÷ ms/doc, as it is at 1. Time the Indexer spends waiting for a free slot or for an older batch is not counted, and batches whose send failed are not sampled.
+
 **"Waiting on N docs"**: The number of documents currently in flight (published but not yet indexed or failed). If this number is consistently at `maxPendingDocs` or `queueCapacity`, the Connector is being throttled by backpressure — downstream is the bottleneck.
 
 ### Identifying the Bottleneck
@@ -311,6 +313,12 @@ indexer {
 ```
 
 A higher timeout allows more documents to accumulate (better throughput) but increases the time between a document being processed and appearing in the index.
+
+### Concurrent Bulk Sends
+
+Batch size amortizes per-request overhead but does not overlap the time the indexer spends waiting for the destination to respond — the indexer still sends one bulk request at a time. When the Indexer is the bottleneck and the search backend has spare capacity, `indexer.maxConcurrentBatches` lets a single indexer keep several bulk requests in flight at once. This is often the highest-leverage indexing optimization once batch size is tuned, and in some cases (a single-partition topic, or a delete-by-query workload) it is the only way to add send parallelism at all.
+
+See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}) for a full treatment: choosing `maxConcurrentBatches`, its ordering and delivery guarantees, how it compares to adding more consumers, the delete-by-query/single-partition case, and hybrid/distributed fan-out.
 
 ### Recommended Starting Points
 
@@ -460,6 +468,26 @@ This is the maximum time between Kafka `poll()` calls before the consumer is evi
 
 **Set this higher than your slowest expected document processing time.** If you have stages that call slow external APIs or process very large documents, increase this value.
 
+**For a standalone Indexer (distributed mode), also set it to at least three times your slowest bulk request, including retries.** The Indexer does not poll Kafka while it waits on a bulk request, and Kafka also waits at most this long for each member to rejoin during a rebalance. Before rejoining, the Indexer finishes the bulk requests it has in progress so their offsets are committed. With `indexer.maxConcurrentBatches` greater than 1, the wait in progress plus that drain can add up to about three bulk requests back to back (about two at the default of 1).
+
+To estimate the slowest bulk request, multiply the number of attempts (`indexer.maxRetries` + 1) by the longest one attempt can wait on an unresponsive destination, then add the retry backoff waits. For OpenSearch and Elasticsearch that per-attempt wait is `connectTimeoutMs` + `socketTimeoutMs` (5 s + 30 s by default); for Solr, SolrJ's own client timeouts apply. The backoff starts at `indexer.retryWaitDurationMs` (1 s) and doubles on each retry up to `indexer.retryMaxWaitDurationMs` (30 s), with up to ±50% jitter. Some examples, against a destination that is timing out:
+
+* Retries off (the default): about 35 s, so 3× is about 105 s and 600 s is ample.
+* `maxRetries: 3`: about 4 × 35 s + 10 s ≈ 150 s, so 3× is about 450 s.
+* `maxRetries: 5`: about 6 × 35 s + 47 s ≈ 260 s, so 3× is about 780 s, more than 600 s.
+
+Setting `socketTimeoutMs: -1` removes the per-attempt limit, so no interval is long enough if the destination hangs. If the interval is exceeded, the Indexer is evicted from the group and the documents it had in progress are re-delivered (indexed again, with duplicate completion events), not lost. A request still running at eviction can also finish after the new owner's replay and leave stale destination state, such as a deleted document reappearing. See [Indexing Throughput]({{< relref "docs/operations/indexing-throughput" >}}).
+
+### pollIntervalMs
+
+```hocon
+kafka {
+  pollIntervalMs: 2000  # default
+}
+```
+
+How long a Worker, Indexer, or Publisher blocks in each Kafka `poll()` when no records are available. A poll returns as soon as a record arrives, so this does not limit throughput under load. It does set how long an idle component waits: the Publisher needs one empty poll to detect the end of a run, shutdown waits for in-flight polls to return, and an expired Indexer batch is flushed only when a poll returns. Lowering it shortens those waits, but an idle Worker calls `commitSync()` after every empty poll, so a very low value increases commit traffic to the brokers.
+
 ### maxRequestSize
 
 ```hocon
@@ -522,7 +550,7 @@ During a run, track these from the periodic log messages:
 - [ ] Set `indexer.batchSize` and `batchTimeout` for your backend's optimal batch size
 - [ ] Set `-Xmx` heap size with headroom for GC
 - [ ] In distributed mode: ensure source topic partition count >= desired Worker count
-- [ ] Set `kafka.maxPollIntervalSecs` higher than your slowest document processing time
+- [ ] Set `kafka.maxPollIntervalSecs` higher than your slowest document processing time and, for a standalone Indexer, at least three times its slowest bulk request including retries
 - [ ] Set `publisher.maxPendingDocs` or `publisher.queueCapacity` to prevent memory exhaustion
 - [ ] Monitor for increasing latency over time (indicates resource pressure)
 

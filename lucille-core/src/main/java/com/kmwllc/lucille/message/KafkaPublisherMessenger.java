@@ -11,6 +11,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -19,6 +20,7 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
   private static final Logger log = LoggerFactory.getLogger(KafkaPublisherMessenger.class);
 
   private final Config config;
+  private final Duration pollInterval;
   private final AtomicReference<Exception> sendException = new AtomicReference<>();
   private KafkaProducer<String, Document> kafkaProducer;
   private Consumer<String, String> eventConsumer;
@@ -27,6 +29,7 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
 
   public KafkaPublisherMessenger(Config config) {
     this.config = config;
+    this.pollInterval = KafkaUtils.getPollInterval(config);
   }
 
   public void initialize(String runId, String pipelineName) throws Exception {
@@ -81,7 +84,7 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
    */
   @Override
   public Event pollEvent() throws Exception {
-    ConsumerRecords<String, String> consumerRecords = eventConsumer.poll(KafkaUtils.POLL_INTERVAL);
+    ConsumerRecords<String, String> consumerRecords = eventConsumer.poll(pollInterval);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
       // we do not call commitSync() or commitAsync() on the eventConsumer here because auto-commit is enabled

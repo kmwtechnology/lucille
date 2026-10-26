@@ -15,6 +15,7 @@ dist/
 
 # Log files
 *.log
+log/
 
 # Package files
 *.jar
@@ -62,6 +63,8 @@ DetectLanguage/profiles
 
 # VSCode
 .vscode
+# VSCode Local History extension
+.history/
 
 # Claude Code: local worktrees/settings and per-checkout instructions
 .claude/

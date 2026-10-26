@@ -2,41 +2,63 @@ package com.kmwllc.lucille.util;
 
 import com.kmwllc.lucille.core.Document;
 import com.typesafe.config.Config;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Standardizes whitelist and blacklist implementations for document fields. Applicable to any class which processes documents.
  */
 public class FieldFilter {
 
-  private final List<String> whitelist;
-  private final List<String> blacklist;
+  private final Set<String> whitelistSet;
+  private final Set<String> blacklistSet;
 
   /**
    * If a whitelist or blacklist is not passed in, default to an empty list.
    * @param config the config for Lucille
    */
   public FieldFilter(Config config) {
-    this.whitelist = config.hasPath("whitelist") ? List.copyOf(config.getStringList("whitelist")) : List.of();
-    this.blacklist = config.hasPath("blacklist") ? List.copyOf(config.getStringList("blacklist")) : List.of();
+    this.whitelistSet = readSet(config, "whitelist");
+    this.blacklistSet = readSet(config, "blacklist");
   }
 
+  // Insertion-ordered so the list getters keep the configured order; duplicate entries are dropped.
+  private static Set<String> readSet(Config config, String path) {
+    return config.hasPath(path)
+        ? Collections.unmodifiableSet(new LinkedHashSet<>(config.getStringList(path)))
+        : Set.of();
+  }
+
+  /**
+   * @return the configured whitelist, in configured order, without duplicates
+   */
   public List<String> getWhitelist() {
-    return whitelist;
+    return List.copyOf(whitelistSet);
   }
 
+  /**
+   * @return the configured blacklist, in configured order, without duplicates
+   */
   public List<String> getBlacklist() {
-    return blacklist;
+    return List.copyOf(blacklistSet);
   }
 
   public boolean isActive() {
-    return !whitelist.isEmpty() || !blacklist.isEmpty();
+    return !whitelistSet.isEmpty() || !blacklistSet.isEmpty();
   }
 
   /**
    * Returns a filtered deep copy of the given document. Fields are included or excluded according to this FieldFilter's
-   * whitelist and blacklist. Reserved fields are handled via their dedicated methods {@link Document#ID_FIELD} is always
+   * whitelist and blacklist. Reserved fields are handled via their dedicated methods; {@link Document#ID_FIELD} is always
    * preserved as it is required for a valid Document.
+   *
+   * <p>The result is always a new document, even when the filter is not {@link #isActive() active}, so callers may
+   * add, change and remove its fields freely regardless of configuration. The one exception is byte[] values, which the
+   * copy shares with the original (see {@link Document#deepCopy()}), so their contents should not be modified in place.
+   * A caller that only reads the result and wants to avoid the copy when nothing would be filtered should check
+   * {@link #isActive()} first and use the original document when it is false.
    *
    * @param doc the document to filter
    * @return a filtered deep copy of the document
@@ -71,11 +93,11 @@ public class FieldFilter {
   }
 
   public boolean shouldInclude(String field) {
-    if (!whitelist.isEmpty() && !blacklist.isEmpty()) {
-      return whitelist.contains(field) && !blacklist.contains(field);
-    } else if (!whitelist.isEmpty()) {
-      return whitelist.contains(field);
+    if (!whitelistSet.isEmpty() && !blacklistSet.isEmpty()) {
+      return whitelistSet.contains(field) && !blacklistSet.contains(field);
+    } else if (!whitelistSet.isEmpty()) {
+      return whitelistSet.contains(field);
     }
-    return !blacklist.contains(field);
+    return !blacklistSet.contains(field);
   }
 }

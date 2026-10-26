@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -50,7 +51,7 @@ public class CSVFileHandler extends BaseFileHandler {
   private final char quoteChar;
   private final char escapeChar;
   private final boolean lowercaseFields;
-  private final List<String> ignoredTerms;
+  private final Set<String> ignoredTerms;
   private static final String UTF8_BOM = "\uFEFF";
 
   public CSVFileHandler(Config config) {
@@ -76,7 +77,7 @@ public class CSVFileHandler extends BaseFileHandler {
     this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ?
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
     this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
-    this.ignoredTerms = config.hasPath("ignoredTerms") ? config.getStringList("ignoredTerms") : new ArrayList<>();
+    this.ignoredTerms = config.hasPath("ignoredTerms") ? Set.copyOf(config.getStringList("ignoredTerms")) : Set.of();
   }
 
   @Override

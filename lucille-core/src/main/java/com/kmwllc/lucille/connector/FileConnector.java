@@ -53,8 +53,10 @@ import com.typesafe.config.Config;
  * <ul>
  *   <li>paths (List&lt;String&gt;, Required) : Paths or URIs to traverse (local paths or cloud storage URIs). s3 URIs must be
  *   percent-encoded; unencoded spaces or special characters will not be recognized. For example, use s3://test/folder%20with%20spaces.</li>
- *   <li>concurrent (Boolean, Optional) : Traverse each of the paths concurrently, on its own thread. Only applies
- *   when more than one path is given. Requires that the paths do not overlap. Defaults to false.</li>
+ *   <li>maxThreads (Int, Optional) : Number of threads to traverse the paths on. 1 traverses them sequentially.
+ *   A larger value traverses them concurrently on up to that many threads, with paths beyond the cap waiting for a free
+ *   thread. -1 uses one thread per path. Concurrent traversal requires that the paths do not overlap. Must be -1 or at
+ *   least 1. Defaults to 1.</li>
  *   <li>filterOptions.includes (List&lt;String&gt;, Optional) : Regex patterns to include files.</li>
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
@@ -75,20 +77,22 @@ import com.typesafe.config.Config;
  *   <li>state.performDeletions (Boolean, Optional) : Delete rows for files removed from storage. Defaults to true.</li>
  *   <li>state.runsBeforeExpiration (Int, Optional) : After a file is not encountered for this number of runs, it will be marked
  *   as expired. Must be at least 1. Defaults to 1.</li>
- *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 200.</li>
+ *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 768. A longer path fails the run.</li>
  *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
- *   <li>gcp.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>gcp.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
  *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
  *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
  *   <li>s3.region (String, Optional) : AWS region for S3.</li>
  *   <li>s3.anonymous (Boolean, Optional) : Send unsigned requests, for public buckets that need no
  *   credentials. Cannot be combined with accessKeyId/secretAccessKey. When set and no region is given,
  *   region defaults to us-east-1, S3's global endpoint. Defaults to false.</li>
- *   <li>s3.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>s3.maxResultsPerPage (Int, Optional) : Maximum number of results returned per S3 LIST call (page size). Defaults to 1000, which is also
+ *   the most S3 will return per call; larger values have no further effect. Without filterOptions.pathsToSkip, every key under the
+ *   path is listed in one paginated listing, so files may be published in a different order than a directory-by-directory walk.</li>
  *   <li>azure.connectionString (String, Optional) : Azure connection string.</li>
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
  *   <li>azure.accountKey (String, Optional) : Azure account key.</li>
- *   <li>azure.maxNumOfPages (Int, Optional) : Maximum number of file references to hold in memory. Defaults to 100.</li>
+ *   <li>azure.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
  *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).
  *   Supply a class to override the default handler. Otherwise the built-in handler for csv/json/xml is used. Configure docIdPrefix inside
  *   each handler's config as needed.</li>
@@ -113,7 +117,7 @@ public class FileConnector extends AbstractConnector {
   public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
   public static final String S3_ANONYMOUS = "anonymous";
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
-  public static final String MAX_NUM_OF_PAGES = "maxNumOfPages";
+  public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
 
   // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
@@ -125,20 +129,20 @@ public class FileConnector extends AbstractConnector {
   // parent specs for cloud provider configs
   public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
       .requiredString("pathToServiceKey")
-      .optionalNumber("maxNumOfPages").build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
       .optionalString("accessKeyId", "secretAccessKey", "region")
       .optionalBoolean("anonymous")
-      .optionalNumber("maxNumOfPages").build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
       .optionalString("connectionString", "accountName", "accountKey")
-      .optionalNumber("maxNumOfPages").build();
+      .optionalNumber(MAX_RESULTS_PER_PAGE).build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredList("paths", new TypeReference<List<String>>(){})
-      .optionalBoolean("concurrent")
+      .optionalNumber("maxThreads")
       .optionalParent(
           SpecBuilder.parent("filterOptions")
               .optionalList("includes", new TypeReference<List<String>>(){})
@@ -163,12 +167,19 @@ public class FileConnector extends AbstractConnector {
 
   private final FileConnectorStateManager stateManager;
 
+  private final int maxThreads;
   private final boolean concurrent;
 
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
-    this.concurrent = ConfigUtils.getOrDefault(config, "concurrent", false);
+    this.maxThreads = config.hasPath("maxThreads") ? config.getInt("maxThreads") : 1;
+
+    if (maxThreads < 1 && maxThreads != -1) {
+      throw new IllegalArgumentException("maxThreads must be -1 or >= 1.");
+    }
+
+    this.concurrent = maxThreads != 1;
 
     List<String> paths = config.getStringList("paths");
     this.storageURIs = new ArrayList<>();
@@ -212,7 +223,7 @@ public class FileConnector extends AbstractConnector {
 
     // A collapsing Publisher is not safe for concurrent publish() calls - it would merge and drop documents silently
     if (concurrent && requiresCollapsingPublisher()) {
-      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Disable one of them.");
+      throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set maxThreads to 1 or disable collapse.");
     }
 
     if (concurrent) {
@@ -329,14 +340,16 @@ public class FileConnector extends AbstractConnector {
   }
 
   /**
-   * Traverses each of the storage paths on its own thread. Requires the paths to not overlap, so that concurrent
-   * traversals never touch the same row of the state database.
+   * Traverses the storage paths concurrently, on up to maxThreads threads. Requires the paths to not overlap, so that
+   * concurrent traversals never touch the same row of the state database.
    */
   private void traversePathsConcurrently(Publisher publisher) throws ConnectorException {
     ThreadFactory threadFactory = new BasicThreadFactory.Builder()
         .namingPattern(ThreadNameUtils.createName("PathTraversal") + "-%d")
         .build();
-    ExecutorService executor = Executors.newFixedThreadPool(storageURIs.size(), threadFactory);
+    // -1 means one thread per path
+    int poolSize = maxThreads == -1 ? storageURIs.size() : Math.min(maxThreads, storageURIs.size());
+    ExecutorService executor = Executors.newFixedThreadPool(poolSize, threadFactory);
 
     try {
       List<Future<?>> traversals = new ArrayList<>();

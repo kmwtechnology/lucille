@@ -53,10 +53,17 @@ import java.util.Optional;
  * Config Parameters -
  * <ul>
  *   <li>index (String, Required) : Target Elasticsearch index name.</li>
- *   <li>url (String, Required) : Elasticsearch HTTP endpoint (e.g., https://localhost:9200).</li>
+ *   <li>url (String or List&lt;String&gt;, Required) : Elasticsearch HTTP endpoint (e.g., https://localhost:9200), or a list of
+ *   endpoints for the same cluster. With a list, the client round-robins requests across the hosts and fails over between them.</li>
  *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying Elasticsearch HTTP client. Defaults to false.</li>
+ *   <li>connectTimeoutMs (Long, Optional) : Maximum time to establish a connection. Defaults to 5000.</li>
+ *   <li>socketTimeoutMs (Long, Optional) : Maximum time to wait for data on an open connection, including a bulk or
+ *   delete-by-query response. A timeout is a transport failure, retried when indexer.maxRetries is set. Defaults to
+ *   30000; raise it for long deletes, or set it to -1 for no limit.</li>
+ *   <li>connectionTimeToLiveMs (Long, Optional) : Maximum lifetime of a pooled connection, so long-running indexers
+ *   behind a load balancer or Kubernetes Service reconnect and reach new nodes. Defaults to 300000 (5 minutes).</li>
  *   <li>childDocumentsField (String, Optional) : Field name to place attached child documents in the
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
@@ -72,9 +79,12 @@ import java.util.Optional;
 public class ElasticsearchIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
-      .requiredString("index", "url")
+      .requiredString("index")
+      .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
+      .optionalNumber("connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
       .optionalString("parentName", "childDocumentsField")
+      .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
@@ -122,6 +132,13 @@ public class ElasticsearchIndexer extends Indexer {
 
   @Override
   protected String getIndexerConfigKey() { return "elasticsearch"; }
+
+  // The Elasticsearch Java client is thread-safe over a shared connection pool, so concurrent sends through the single
+  // shared client are safe. The pool is sized for the configured concurrency by AsyncConnectionPoolUtils.
+  @Override
+  protected boolean supportsConcurrentSends() {
+    return true;
+  }
 
   private static ElasticsearchClient getClient(Config config, boolean bypass) throws IndexerException{
     try {
@@ -174,7 +191,7 @@ public class ElasticsearchIndexer extends Indexer {
         documentsToUpload.put(id, doc);
       } else {
         documentsToUpload.remove(id);
-        if (!isMarkedForDeletionByField(doc)) {
+        if (!hasDeleteByFieldValues(doc)) {
           idsToDelete.add(id);
         } else {
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
@@ -319,10 +336,7 @@ public class ElasticsearchIndexer extends Indexer {
       joinData.populateJoinData(doc);
 
       // removing fields in the blacklist or not in the whitelist in configurations
-      Map<String, Object> indexerDoc = getIndexerDoc(doc);
-
-      // remove children documents field from indexer doc (processed from doc by addChildren method call below)
-      indexerDoc.remove(Document.CHILDREN_FIELD);
+      Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
@@ -420,20 +434,6 @@ public class ElasticsearchIndexer extends Indexer {
     return failedDocs;
   }
 
-  private boolean isMarkedForDeletion(Document doc) {
-    return deletionMarkerField != null
-        && deletionMarkerFieldValue != null
-        && doc.hasNonNull(deletionMarkerField)
-        && doc.getString(deletionMarkerField).equals(deletionMarkerFieldValue);
-  }
-
-  private boolean isMarkedForDeletionByField(Document doc) {
-    return deleteByFieldField != null
-        && doc.has(deleteByFieldField)
-        && deleteByFieldValue != null
-        && doc.has(deleteByFieldValue);
-  }
-
   @Override
   public void closeConnection() {
     if (!bypass && client != null && client._transport() != null) {
@@ -456,11 +456,8 @@ public class ElasticsearchIndexer extends Indexer {
     List<Document> children = doc.getChildren();
 
     for (Document child : children) {
-      // calling getIndexerDoc allows us to apply black/whitelist
-      Map<String, Object> childDocMap = getIndexerDoc(child);
-      // we don't support children that contain nested children
-      childDocMap.remove(Document.CHILDREN_FIELD);
-      childDocMaps.add(childDocMap);
+      // calling getRawIndexerDoc applies black/whitelist and drops nested children, which we don't support
+      childDocMaps.add(getRawIndexerDoc(child));
     }
     indexerDoc.put(childDocumentsField, childDocMaps);
   }

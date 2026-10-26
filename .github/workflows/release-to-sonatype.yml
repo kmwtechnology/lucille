@@ -35,9 +35,10 @@ jobs:
       - name: Set Maven version
         run: mvn versions:set -DnewVersion=${{ env.release }} -f lucille-parent/pom.xml
 
+      # -T1 overrides -T1C from .mvn/maven.config: publishing to the shared staging repo stays serial
       - name: Publish package
         run: > 
-          mvn --batch-mode deploy -Dgpg.passphrase="$MAVEN_GPG_PASSPHRASE" -Ddeploy -Dassembly.skipAssembly=true
+          mvn --batch-mode -T1 deploy -Dgpg.passphrase="$MAVEN_GPG_PASSPHRASE" -Ddeploy -Dassembly.skipAssembly=true
         env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}

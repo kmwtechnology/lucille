@@ -27,6 +27,10 @@ import org.mockito.InOrder;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.*;
@@ -1283,5 +1287,114 @@ public class SolrIndexerTest {
     public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
       throw new Exception("Test that errors when sending to Solr are correctly handled");
     }
+  }
+
+  // How long a concurrent-send test waits for the expected overlap before declaring a timeout.
+  private static final long CONCURRENCY_WAIT_SECONDS = 2;
+
+  /**
+   * Verifies concurrent sends through the real SolrIndexer.sendToIndex path (only the final solrClient.add call is
+   * mocked). The stub blocks each add until a second is also in the client, proving two real sends overlap, the limit
+   * is respected, doc2's batch finishes sending before doc0's, and batches still complete in dispatch order.
+   */
+  @Test
+  public void testConcurrentBatches() throws Exception {
+    int maxConcurrentBatches = 2;
+    AtomicInteger inClient = new AtomicInteger();
+    AtomicInteger maxInClient = new AtomicInteger();
+    CountDownLatch overlapping = new CountDownLatch(2);
+    CountDownLatch doc2BatchSent = new CountDownLatch(1);
+    List<String> sendFinishOrder = Collections.synchronizedList(new ArrayList<>());
+    List<String> timeouts = Collections.synchronizedList(new ArrayList<>());
+    SolrClient solrClient = mock(SolrClient.class);
+    when(solrClient.add(any(Collection.class))).thenAnswer(invocation -> {
+      blockingSend(lowestDocId(invocation.getArgument(0)), inClient, maxInClient, overlapping, doc2BatchSent,
+          sendFinishOrder, timeouts);
+      return mock(UpdateResponse.class);
+    });
+    List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
+    TestMessenger messenger = new TestMessenger() {
+      @Override
+      public void batchComplete(List<Document> batch) throws Exception {
+        completedBatches.add(batch.get(0).getId());
+        super.batchComplete(batch);
+      }
+    };
+    Config config = ConfigFactory.empty()
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
+        .withValue("indexer.maxConcurrentBatches", ConfigValueFactory.fromAnyRef(maxConcurrentBatches));
+    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    for (int i = 0; i < 6; i++) {
+      messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
+    }
+    long start = System.nanoTime();
+    indexer.run(6);
+    long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+    assertEquals("Sends timed out waiting for a concurrent send after " + elapsedMs + " ms", List.of(), timeouts);
+    assertTrue("Expected at least 2 sends in flight at once, saw " + maxInClient.get(), maxInClient.get() >= 2);
+    assertTrue("Saw " + maxInClient.get() + " sends in flight, above the limit of " + maxConcurrentBatches,
+        maxInClient.get() <= maxConcurrentBatches);
+    // The doc2 batch really did finish sending before the doc0 batch.
+    assertEquals(List.of("doc2", "doc0"), sendFinishOrder.subList(0, 2));
+    assertEquals(3, sendFinishOrder.size());
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(6, events.size());
+    for (int i = 0; i < 6; i++) {
+      assertEquals("doc" + i, events.get(i).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i).getType());
+    }
+    assertEquals(List.of("doc0", "doc2", "doc4"), completedBatches);
+  }
+
+  /**
+   * With maxConcurrentBatches unset, every send runs on the indexer thread itself and never overlaps another.
+   */
+  @Test
+  public void testSerialBatchesByDefault() throws Exception {
+    AtomicInteger inClient = new AtomicInteger();
+    AtomicInteger maxInClient = new AtomicInteger();
+    Set<Thread> sendThreads = ConcurrentHashMap.newKeySet();
+    SolrClient solrClient = mock(SolrClient.class);
+    when(solrClient.add(any(Collection.class))).thenAnswer(invocation -> {
+      sendThreads.add(Thread.currentThread());
+      maxInClient.accumulateAndGet(inClient.incrementAndGet(), Math::max);
+      Thread.sleep(20);
+      inClient.decrementAndGet();
+      return mock(UpdateResponse.class);
+    });
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.empty().withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2));
+    Indexer indexer = new SolrIndexer(config, messenger, "", solrClient);
+    for (int i = 0; i < 6; i++) {
+      messenger.sendForIndexing(Document.create("doc" + i, "test_run"));
+    }
+    indexer.run(6);
+    assertEquals("every send runs on the indexer thread, so none overlaps", 1, maxInClient.get());
+    assertEquals(Set.of(Thread.currentThread()), sendThreads);
+  }
+
+  // Body of a stubbed solrClient.add call for testConcurrentBatches. Identifies the batch by its lowest doc id. Blocks
+  // until a second send overlaps, and makes the doc0 batch wait for the doc2 batch to finish first.
+  private static void blockingSend(String batch, AtomicInteger inClient, AtomicInteger maxInClient,
+      CountDownLatch overlapping, CountDownLatch doc2BatchSent, List<String> sendFinishOrder, List<String> timeouts)
+      throws InterruptedException {
+    maxInClient.accumulateAndGet(inClient.incrementAndGet(), Math::max);
+    overlapping.countDown();
+    if (!overlapping.await(CONCURRENCY_WAIT_SECONDS, TimeUnit.SECONDS)) {
+      timeouts.add(batch + " batch: no other send entered the client");
+    }
+    if ("doc0".equals(batch) && !doc2BatchSent.await(CONCURRENCY_WAIT_SECONDS, TimeUnit.SECONDS)) {
+      timeouts.add("doc0 batch: doc2 batch never finished first");
+    }
+    sendFinishOrder.add(batch);
+    inClient.decrementAndGet();
+    if ("doc2".equals(batch)) {
+      doc2BatchSent.countDown();
+    }
+  }
+
+  // The lowest document id among the SolrInputDocuments of a send, used to name the batch in testConcurrentBatches.
+  private static String lowestDocId(Collection<SolrInputDocument> docs) {
+    return docs.stream().map(d -> (String) d.getFieldValue("id")).sorted().findFirst().orElseThrow();
   }
 }

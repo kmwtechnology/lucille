@@ -2,6 +2,7 @@ package com.kmwllc.lucille.util;
 
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.io.IOException;
@@ -25,7 +26,7 @@ import org.slf4j.LoggerFactory;
 public class SolrUtils {
 
   public static final Spec SOLR_PARENT_SPEC = SpecBuilder.parent("solr")
-      .requiredList("url", new TypeReference<List<String>>() {})
+      .requiredStringOrList("url")
       .optionalString("zkChroot", "defaultCollection", "userName", "password")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
       .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
@@ -65,7 +66,7 @@ public class SolrUtils {
 
       cloudBuilder = new CloudHttp2SolrClient.Builder(config.getStringList("solr.zkHosts"), zkChroot);
     } else {
-      cloudBuilder = new CloudHttp2SolrClient.Builder(config.getStringList("solr.url"));
+      cloudBuilder = new CloudHttp2SolrClient.Builder(ConfigUtils.getStringOrList(config, "solr.url"));
     }
     if (config.hasPath("solr.defaultCollection")) {
       cloudBuilder.withDefaultCollection(config.getString("solr.defaultCollection"));
@@ -139,13 +140,18 @@ public class SolrUtils {
    * are not included in the created document. Array and List types become multivalued fields.
    *
    * @param tuple a Tuple from Solr
-   * @throws DocumentException if tuple does not have a key called Document.ID_FIELD
+   * @throws DocumentException if tuple does not have a key called Document.ID_FIELD, or its value is null
    * @return a Document whose id is the stringified version of the contents of Document.ID_FIELD in the tuple.
    */
   public static Document toDocument(Tuple tuple) throws DocumentException {
     Document d;
 
     if (tuple.getFields().containsKey(Document.ID_FIELD)) {
+      // test the raw value: Tuple.getString() turns a null value into the text "null", which would become the id
+      if (tuple.getFields().get(Document.ID_FIELD) == null) {
+        // the id comes from data, so a bad one is a DocumentException rather than the factory's IllegalArgumentException
+        throw new DocumentException("Unable to create Document from Tuple. The id is null.");
+      }
       d = Document.create(tuple.getString(Document.ID_FIELD));
     } else {
       throw new DocumentException("Unable to create Document from Tuple. No id field present.");
