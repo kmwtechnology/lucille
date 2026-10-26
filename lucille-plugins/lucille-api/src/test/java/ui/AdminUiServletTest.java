@@ -44,6 +44,15 @@ public class AdminUiServletTest {
   }
 
   @Test
+  public void testServesCssWithCssContentType() throws Exception {
+    when(request.getPathInfo()).thenReturn("/assets/app.css");
+
+    servlet.service(getRequest(), response);
+
+    verify(response).setContentType("text/css");
+  }
+
+  @Test
   public void testServesIndexForRoot() throws Exception {
     when(request.getPathInfo()).thenReturn("/");
 

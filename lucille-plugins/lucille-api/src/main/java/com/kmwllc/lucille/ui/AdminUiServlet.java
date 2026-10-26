@@ -6,8 +6,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
+import org.eclipse.jetty.http.MimeTypes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,34 +105,19 @@ public class AdminUiServlet extends HttpServlet {
   }
 
   /**
-   * Returns a best-effort content type for the given resource path.
+   * Returns the content type for the given resource path using Jetty's MIME table, with an explicit
+   * UTF-8 charset for HTML and a binary default for unknown extensions.
    * @param resourcePath the classpath resource path
    * @return a MIME type, defaulting to {@code application/octet-stream}
    */
   private static String contentTypeFor(String resourcePath) {
-    String lower = resourcePath.toLowerCase();
-    if (lower.endsWith(".html")) {
-      return "text/html; charset=" + StandardCharsets.UTF_8.name();
+    String mime = MimeTypes.DEFAULTS.getMimeByExtension(resourcePath);
+    if (mime == null) {
+      return "application/octet-stream";
     }
-    if (lower.endsWith(".js") || lower.endsWith(".mjs")) {
-      return "text/javascript";
+    if (MimeTypes.Type.TEXT_HTML.is(mime)) {
+      return mime + "; charset=" + StandardCharsets.UTF_8.name();
     }
-    if (lower.endsWith(".css")) {
-      return "text/css";
-    }
-    if (lower.endsWith(".svg")) {
-      return "image/svg+xml";
-    }
-    if (lower.endsWith(".json")) {
-      return "application/json";
-    }
-    if (lower.endsWith(".woff2")) {
-      return "font/woff2";
-    }
-    if (lower.endsWith(".woff")) {
-      return "font/woff";
-    }
-    String guessed = URLConnection.guessContentTypeFromName(resourcePath);
-    return guessed != null ? guessed : "application/octet-stream";
+    return mime;
   }
 }
