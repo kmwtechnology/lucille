@@ -35,6 +35,10 @@
     <shaded-plugin-jar.phase>none</shaded-plugin-jar.phase>
   </properties>
 
+  <dependencies>
+
+  </dependencies>
+
   <profiles>
     <profile>
       <id>shaded-plugin-jars</id>
@@ -42,13 +46,7 @@
         <shaded-plugin-jar.phase>package</shaded-plugin-jar.phase>
       </properties>
     </profile>
-  </profiles>
-
-  <dependencies>
-
-  </dependencies>
-
-  <profiles>
+    <!-- Off by default: adds the admin UI module to the reactor only when active (CI and release). -->
     <profile>
       <id>admin-ui</id>
       <modules>

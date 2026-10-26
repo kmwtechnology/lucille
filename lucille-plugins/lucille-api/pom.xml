@@ -241,8 +241,13 @@
     </build>
 
     <profiles>
+        <!-- Off by default: adds the admin UI jar and enables the shade phase so its admin/ assets
+             get merged into the fat jar. (Shade is otherwise gated off by shaded-plugin-jar.phase.) -->
         <profile>
             <id>admin-ui</id>
+            <properties>
+                <shaded-plugin-jar.phase>package</shaded-plugin-jar.phase>
+            </properties>
             <dependencies>
                 <dependency>
                     <groupId>com.kmwllc</groupId>
