@@ -20,6 +20,15 @@ import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 
+/**
+ * The WorkerMessenger a {@link com.kmwllc.lucille.core.WorkerIndexer} uses by default: it polls documents from the
+ * Kafka source topic, hands processed documents to the paired Indexer through an in-memory queue, and commits the
+ * offsets the Indexer reports once the documents have been indexed.
+ *
+ * <p>Set <code>worker.messenger.class</code> to use a subclass (or another WorkerMessenger) instead. A configured class
+ * needs a public constructor with the same arguments as
+ * {@link #HybridWorkerMessenger(Config, String, LinkedBlockingQueue, LinkedBlockingQueue)}.
+ */
 public class HybridWorkerMessenger implements WorkerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
@@ -48,6 +57,16 @@ public class HybridWorkerMessenger implements WorkerMessenger {
         new DeserializationErrorHandler(config, sourceConsumer);
   }
 
+  /**
+   * Creates a HybridWorkerMessenger that consumes from the pipeline's Kafka source topic. This is the constructor
+   * {@link com.kmwllc.lucille.core.WorkerIndexer} calls, and the one a class named by
+   * <code>worker.messenger.class</code> must also provide. Further settings are read from <code>config</code>.
+   *
+   * @param config The Lucille config.
+   * @param pipelineName The name of the pipeline the Worker runs.
+   * @param pipelineDest The in-memory queue the Indexer reads processed documents from.
+   * @param offsets The in-memory queue the Indexer adds the offsets of handled documents to.
+   */
   public HybridWorkerMessenger(Config config, String pipelineName,
       LinkedBlockingQueue<Document> pipelineDest,
       LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {

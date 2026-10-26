@@ -4,6 +4,7 @@ import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.HybridIndexerMessenger;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -13,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -26,6 +29,9 @@ import java.util.concurrent.LinkedBlockingQueue;
  *  4) the Indexer adds offsets of indexed documents to an in-memory queue
  *  5) the Worker reads offsets from the in-memory queue and commits them
  *  6) callbacks are disabled
+ *
+ *  The Worker's messenger is a {@link HybridWorkerMessenger} unless <code>worker.messenger.class</code> names another
+ *  {@link WorkerMessenger} implementation. See {@link #createWorkerMessenger}.
  *
  *  TODO: document why pairing of one worker with one indexer is necessary for hybrid mode
  */
@@ -80,8 +86,7 @@ public class WorkerIndexer {
 
     log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
 
-    HybridWorkerMessenger workerMessageManager =
-        new HybridWorkerMessenger(config, pipelineName, pipelineDest, offsets);
+    WorkerMessenger workerMessageManager = createWorkerMessenger(config, pipelineName, pipelineDest, offsets);
 
     HybridIndexerMessenger indexerMessageManager =
         new HybridIndexerMessenger(config, pipelineDest, offsets, idSet, pipelineName);
@@ -98,6 +103,55 @@ public class WorkerIndexer {
     // Since Kafka is in use, we do not provide (or even have for that matter) a runId to directly provide to Worker.
     Worker worker = new Worker(config, workerMessageManager, null, pipelineName, pipelineName);
     workerThread = Worker.startThread(worker, name);
+  }
+
+  /**
+   * Creates the WorkerMessenger for a WorkerIndexer: a {@link HybridWorkerMessenger}, or an instance of the class named
+   * by <code>worker.messenger.class</code> when that is set.
+   *
+   * <p>A configured class must implement {@link WorkerMessenger} and have a public constructor with the same arguments
+   * as {@link HybridWorkerMessenger#HybridWorkerMessenger(Config, String, LinkedBlockingQueue, LinkedBlockingQueue)}:
+   * <code>(Config config, String pipelineName, LinkedBlockingQueue&lt;Document&gt; pipelineDest,
+   * LinkedBlockingQueue&lt;Map&lt;TopicPartition, OffsetAndMetadata&gt;&gt; offsets)</code>. It must send processed
+   * documents to <code>pipelineDest</code> and commit the offsets the Indexer adds to <code>offsets</code>. Subclassing
+   * HybridWorkerMessenger is the simplest way to change one part of its behaviour and keep the rest.
+   *
+   * @param config The Lucille config.
+   * @param pipelineName The name of the pipeline the Worker runs.
+   * @param pipelineDest The in-memory queue the Indexer reads processed documents from.
+   * @param offsets The in-memory queue the Indexer adds the offsets of handled documents to.
+   * @return The WorkerMessenger to use.
+   * @throws IllegalArgumentException If <code>worker.messenger.class</code> can't be loaded, doesn't implement
+   * WorkerMessenger, or doesn't have the required constructor.
+   * @throws Exception If the messenger's constructor throws.
+   */
+  static WorkerMessenger createWorkerMessenger(Config config, String pipelineName,
+      LinkedBlockingQueue<Document> pipelineDest,
+      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) throws Exception {
+    if (!config.hasPath("worker.messenger.class")) {
+      return new HybridWorkerMessenger(config, pipelineName, pipelineDest, offsets);
+    }
+
+    String className = config.getString("worker.messenger.class");
+    Constructor<?> constructor;
+    try {
+      Class<?> clazz = Class.forName(className);
+      if (!WorkerMessenger.class.isAssignableFrom(clazz)) {
+        throw new IllegalArgumentException("worker.messenger.class '" + className + "' does not implement "
+            + WorkerMessenger.class.getName());
+      }
+      constructor = clazz.getConstructor(Config.class, String.class, LinkedBlockingQueue.class, LinkedBlockingQueue.class);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalArgumentException("Problem initializing worker.messenger.class configuration of: '" + className + "'", e);
+    }
+
+    log.info("Using worker.messenger.class: " + className);
+    try {
+      return (WorkerMessenger) constructor.newInstance(config, pipelineName, pipelineDest, offsets);
+    } catch (InvocationTargetException e) {
+      // surface what the messenger's constructor threw, e.g. a Kafka configuration problem
+      throw e.getCause() instanceof Exception ? (Exception) e.getCause() : e;
+    }
   }
 
   public void stop() throws Exception {

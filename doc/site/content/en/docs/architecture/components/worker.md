@@ -159,6 +159,16 @@ worker {
 }
 ```
 
+**Custom worker messenger:** a WorkerIndexer's Worker reads from Kafka and hands documents to its Indexer through a `HybridWorkerMessenger`. To change how documents are polled, committed, dead-lettered or reported, set `worker.messenger.class` to a subclass of `HybridWorkerMessenger` (or any other `WorkerMessenger` implementation):
+
+```hocon
+worker {
+  messenger.class: "com.example.MyWorkerMessenger"
+}
+```
+
+The class needs a public constructor with the same arguments as `HybridWorkerMessenger`'s: `(Config config, String pipelineName, LinkedBlockingQueue<Document> pipelineDest, LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets)`. Any further settings it needs should be read from `config`. The setting only applies to WorkerIndexer; standalone Workers and local mode are unaffected.
+
 In a multi-node deployment, you can run multiple WorkerIndexer processes consuming from the same Kafka topic. Kafka's consumer group protocol distributes source documents across them automatically. WorkerIndexer is particularly useful in [streaming mode]({{< relref "docs/operations/deployment#streaming-mode-connectorless" >}}) where no Runner is coordinating the run.
 
 ---

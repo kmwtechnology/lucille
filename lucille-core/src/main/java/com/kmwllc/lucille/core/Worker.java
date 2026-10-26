@@ -26,7 +26,8 @@ class Worker implements Runnable {
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalString("pipeline")
       .optionalNumber("threads", "maxProcessingSecs", "maxRetries")
-      .optionalBoolean("exitOnTimeout", "enableHeartbeat").build();
+      .optionalBoolean("exitOnTimeout", "enableHeartbeat")
+      .optionalParent(SpecBuilder.parent("messenger").optionalString("class").build()).build();
 
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 

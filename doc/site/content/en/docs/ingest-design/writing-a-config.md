@@ -88,7 +88,7 @@ In addition to the three required elements, you can configure other parts of a L
 
 | Block | Key Settings | Notes |
 |---|---|---|
-| `worker` | `threads`, `maxRetries`, `exitOnTimeout`, `maxProcessingSecs`, `enableHeartbeat` | Per-thread pipeline isolation. |
+| `worker` | `threads`, `maxRetries`, `exitOnTimeout`, `maxProcessingSecs`, `enableHeartbeat`, `messenger.class` | Per-thread pipeline isolation. |
 | `publisher` | `queueCapacity`, `maxPendingDocs` | Backpressure control. `queueCapacity` for local mode; `maxPendingDocs` for distributed. |
 | `runner` | `metricsLoggingLevel`, `connectorTimeout` | `connectorTimeout` defaults to 24 hours. |
 | `kafka` | `bootstrapServers`, `consumerGroupId`, `maxPollIntervalSecs`, `maxRequestSize`, `events`, `sourceTopic`, `eventTopic`, security properties | Required when running in distributed or external mode. See [Deployment]({{< relref "docs/operations/deployment" >}}). |
