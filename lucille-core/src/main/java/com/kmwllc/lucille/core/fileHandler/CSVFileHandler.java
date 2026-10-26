@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -144,9 +145,10 @@ public class CSVFileHandler extends BaseFileHandler {
             if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
               log.warn("Skipping blank line {}. ({})", lineNum, path);
             } else if (line.length != header.length) {
-              // the line/row number reported here may differ from the physical line number in the file, if the CSV contains
-              // a quoted value that spans multiple lines
-              log.warn("Logical row {} has {} columns but the header has {}. Skipping line. ({})", lineNum, line.length, header.length, path);
+              // a row with the wrong number of columns is skipped like any other bad record, so that a file where every row
+              // mismatches (for example a header with a trailing empty cell) fails instead of yielding no documents.
+              // The row number reported here may differ from the physical line number if a quoted value spans lines.
+              tracker.bad(lineNum, String.format("row has %d columns but the header has %d", line.length, header.length));
             } else {
               try {
                 Document doc = getDocumentFromLine(idColumns, header, line, filename, path, lineNum);
@@ -236,18 +238,25 @@ public class CSVFileHandler extends BaseFileHandler {
     return doc;
   }
 
-  private List<Integer> getIdColumns(HashMap<String, Integer> columnIndexMap, String path) {
+  /**
+   * Maps the configured idFields to column positions. An idField that is not in the header is a configuration error that
+   * would otherwise make every row unusable, so it fails the file up front instead of being reported row by row.
+   */
+  private List<Integer> getIdColumns(HashMap<String, Integer> columnIndexMap, String path) throws FileHandlerException {
     List<Integer> idColumns = new ArrayList<Integer>();
-    for (String field : idFields) {
-      if (lowercaseFields) {
-        idColumns.add(columnIndexMap.get(field.toLowerCase()));
-      } else {
-        idColumns.add(columnIndexMap.get(field));
-      }
+    // an empty file has no header; there are no rows to build ids for, so there is nothing to check
+    if (columnIndexMap.isEmpty()) {
+      return idColumns;
     }
-    // verify that we found all the columns.
-    if (idColumns.size() != idFields.size()) {
-      log.warn("Mismatch in idFields to column map. ({})", path);
+    for (String field : idFields) {
+      String columnName = lowercaseFields ? field.toLowerCase() : field;
+      Integer index = columnIndexMap.get(columnName);
+      if (index == null) {
+        throw new FileHandlerException(String.format(
+            "idField '%s' is not a column in the CSV header %s; check the idField/idFields configuration and lowercaseFields. (%s)",
+            field, Arrays.toString(columnIndexMap.keySet().toArray()), path));
+      }
+      idColumns.add(index);
     }
     return idColumns;
   }
@@ -286,7 +295,7 @@ public class CSVFileHandler extends BaseFileHandler {
         }
         log.warn("CSV does not contain header row, no Documents will be published for the file. ({})", path);
       }
-      if (lowercaseFields) {
+      if (lowercaseFields && header != null) {
         for (int i = 0; i < header.length; i++) {
           header[i] = header[i].toLowerCase();
         }

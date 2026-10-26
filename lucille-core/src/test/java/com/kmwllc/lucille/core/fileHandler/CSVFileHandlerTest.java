@@ -71,6 +71,47 @@ public class CSVFileHandlerTest {
   }
 
   @Test
+  public void testIdFieldNotInHeaderFailsTheFile() throws Exception {
+    // an idField that matches no column is a configuration error: every row would be unusable, so the file fails up front
+    // with a message naming the column, instead of every row being skipped (or, before, dropped by a NullPointerException)
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "ID"))));
+
+    FileHandlerException e = assertThrows(FileHandlerException.class, () -> idsOf(handler, "id,name\n1,a\n2,b\n"));
+    assertTrue(e.getMessage(), e.getMessage().contains("idField 'ID'"));
+    assertTrue(e.getMessage(), e.getMessage().contains("lowercaseFields"));
+
+    // the same column name is found once the header is lower-cased
+    FileHandler lowercasing = FileHandler.create("csv",
+        ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "ID", "lowercaseFields", true))));
+    assertEquals(List.of("1", "2"), idsOf(lowercasing, "id,name\n1,a\n2,b\n"));
+
+    // one missing column out of several is reported by name
+    FileHandler composite = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idFields", List.of("id", "nam")))));
+    e = assertThrows(FileHandlerException.class, () -> idsOf(composite, "id,name\n1,a\n"));
+    assertTrue(e.getMessage(), e.getMessage().contains("idField 'nam'"));
+
+    // an empty file has no header to check against, and no rows, so it is not an error
+    assertEquals(List.of(), idsOf(handler, ""));
+  }
+
+  @Test
+  public void testRowsWithWrongColumnCountCountAsBadRecords() throws Exception {
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id"))));
+    int limit = BadRecordTracker.MAX_CONSECUTIVE;
+
+    // a few short or long rows are skipped and the rest of the file is read
+    assertEquals(List.of("1", "3"), idsOf(handler, "id,name\n1,a\n2\n3,c\n4,d,extra\n"));
+
+    // a header with a trailing empty cell makes every row mismatch; the file fails instead of yielding no documents
+    String trailingCell = "id,name,\n" + "1,a\n".repeat(limit) + "2,b\n";
+    assertThrows(BadRecordTracker.TooManyBadRecordsException.class, () -> idsOf(handler, trailingCell));
+
+    // mismatches and blank ids count toward the same limit, and a good row resets it
+    String mixed = "id,name\n" + "x\n,y\n".repeat((limit - 1) / 2) + "1,a\n" + "x\n".repeat(limit - 1) + "2,b\n";
+    assertEquals(List.of("1", "2"), idsOf(handler, mixed));
+  }
+
+  @Test
   public void testCompositeIdWithSomeBlankPartsIsUsable() throws Exception {
     // only an id that is blank as a whole is unusable; one with a blank part, like "_3", is kept
     FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idFields", List.of("a", "b")))));

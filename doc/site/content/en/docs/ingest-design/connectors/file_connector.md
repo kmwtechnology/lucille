@@ -93,8 +93,8 @@ Extracts one Document per row from a CSV file.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `idField` | String | — | Single column name whose value becomes the Document ID. |
-| `idFields` | List\<String\> | — | Multiple column names combined to form the Document ID. |
+| `idField` | String | — | Single column name whose value becomes the Document ID. The file fails if the column is not in the header. |
+| `idFields` | List\<String\> | — | Multiple column names combined to form the Document ID. The file fails if any of them is not in the header. |
 | `docIdFormat` | String | — | Java `String.format` pattern for constructing the Document ID from column values. |
 | `lineNumberField` | String | `csvLineNumber` | Field name for storing the row's line number. |
 | `filenameField` | String | `filename` | Field name for storing the source filename. |
