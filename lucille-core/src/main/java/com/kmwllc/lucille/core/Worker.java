@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import sun.misc.Signal;
 
+import java.lang.reflect.InvocationTargetException;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,7 +27,8 @@ class Worker implements Runnable {
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalString("pipeline")
       .optionalNumber("threads", "maxProcessingSecs", "maxRetries")
-      .optionalBoolean("exitOnTimeout", "enableHeartbeat").build();
+      .optionalBoolean("exitOnTimeout", "enableHeartbeat")
+      .optionalParent(SpecBuilder.parent("retryCounter").optionalString("class").build()).build();
 
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
@@ -58,13 +60,53 @@ class Worker implements Runnable {
     this.localRunId = localRunId;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
     if (config.hasPath("worker.maxRetries")) {
-      log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
+      this.counter = createRetryCounter(config);
+      log.info("Retries will be tracked by " + counter.getClass().getName() + " with a configured maximum of: "
+          + config.getInt("worker.maxRetries"));
       this.trackRetries = true;
-      this.counter = new ZKRetryCounter(config);
     }
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
     this.metricsPrefix = metricsPrefix;
+  }
+
+  /**
+   * Creates the RetryCounter named by worker.retryCounter.class, or a ZKRetryCounter when that setting is absent.
+   * The named class must implement RetryCounter and have a public constructor that takes a Config; it is
+   * given the full config.
+   *
+   * @param config The full Lucille config.
+   * @return The RetryCounter to use for tracking retries.
+   * @throws IllegalArgumentException If the class can't be found, doesn't implement RetryCounter, or has no Config constructor.
+   */
+  static RetryCounter createRetryCounter(Config config) {
+    if (!config.hasPath("worker.retryCounter.class")) {
+      return new ZKRetryCounter(config);
+    }
+
+    String className = config.getString("worker.retryCounter.class");
+    Class<?> clazz;
+    try {
+      clazz = Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new IllegalArgumentException("worker.retryCounter.class: could not find class " + className, e);
+    }
+
+    if (!RetryCounter.class.isAssignableFrom(clazz)) {
+      throw new IllegalArgumentException("worker.retryCounter.class: " + className + " does not implement "
+          + RetryCounter.class.getName());
+    }
+
+    try {
+      return (RetryCounter) clazz.getConstructor(Config.class).newInstance(config);
+    } catch (NoSuchMethodException e) {
+      throw new IllegalArgumentException("worker.retryCounter.class: " + className
+          + " must have a public constructor that takes a Config", e);
+    } catch (InvocationTargetException e) {
+      throw new IllegalStateException("Could not create RetryCounter of type " + className, e.getCause());
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("Could not create RetryCounter of type " + className, e);
+    }
   }
 
   @Override
