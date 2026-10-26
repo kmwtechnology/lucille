@@ -11,6 +11,8 @@ import jakarta.ws.rs.core.Response.Status;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.kmwllc.lucille.core.CreateConfigResult;
+import java.io.File;
+import java.net.URL;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.Before;
@@ -65,7 +67,7 @@ public class LucilleResourceTest {
 
   @Test
   public void testCreateConfig_EnvVarSubstitutionRejected() {
-    // an env var that is set on this machine
+    // use an env var that's actually set
     String envVar = System.getenv().keySet().stream()
         .filter(name -> name.matches("[A-Za-z_][A-Za-z0-9_]*"))
         .findFirst()
@@ -79,6 +81,23 @@ public class LucilleResourceTest {
     // a rejected config isn't stored, so listing configs succeeds
     Response allConfigsResponse = lucilleResource.getAllConfigs();
     assertEquals(Status.OK.getStatusCode(), allConfigsResponse.getStatus());
+  }
+
+  @Test
+  public void testCreateConfig_IncludesRejected() throws Exception {
+    // includes of missing files are ignored, so point at a real one
+    URL included = getClass().getClassLoader().getResource("test_presets/config2.conf");
+    String[] configBodies = {
+        "include file(\"" + new File(included.toURI()).getPath() + "\")",
+        "include url(\"" + included + "\")",
+        "include classpath(\"test_presets/config2.conf\")",
+        "include \"test_presets/config2.conf\""
+    };
+
+    for (String configBody : configBodies) {
+      Response response = lucilleResource.createConfig(configBody);
+      assertEquals(configBody, Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+    }
   }
 
   @Test
