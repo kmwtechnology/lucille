@@ -278,26 +278,26 @@ public class LucilleResource {
 
     @Override
     public ConfigObject include(ConfigIncludeContext context, String what) {
-      throw reject();
+      return reject();
     }
 
     @Override
     public ConfigObject includeFile(ConfigIncludeContext context, File what) {
-      throw reject();
+      return reject();
     }
 
     @Override
     public ConfigObject includeURL(ConfigIncludeContext context, URL what) {
-      throw reject();
+      return reject();
     }
 
     @Override
     public ConfigObject includeResources(ConfigIncludeContext context, String what) {
-      throw reject();
+      return reject();
     }
 
-    private static ConfigException reject() {
-      return new ConfigException.Generic("Includes are not allowed in configs POSTed to the API.");
+    private static ConfigObject reject() {
+      throw new ConfigException.Generic("Includes are not allowed in configs POSTed to the API.");
     }
   }
 }

@@ -94,8 +94,11 @@ public class LucilleResourceTest {
         "include \"test_presets/config2.conf\""
     };
 
+    String validBody = "\npipeline = \"testPipeline\"";
+    assertEquals(Status.OK.getStatusCode(), lucilleResource.createConfig(validBody).getStatus());
+
     for (String configBody : configBodies) {
-      Response response = lucilleResource.createConfig(configBody);
+      Response response = lucilleResource.createConfig(configBody + validBody);
       assertEquals(configBody, Status.BAD_REQUEST.getStatusCode(), response.getStatus());
     }
   }
