@@ -55,7 +55,6 @@ connectors: [
 | [Kafka Connector]({{< relref "docs/ingest-design/connectors/kafka_connector" >}}) | Reads documents from a Kafka topic as a data source. |
 | [RSS Connector]({{< relref "docs/ingest-design/connectors/rss_connector" >}}) | Publishes documents from an RSS feed, with optional incremental refresh. |
 | [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java) *(source only)* | Generates a configurable number of empty Documents. Useful for testing. Requires `numDocs`; accepts optional `startWith`. |
-| [Solr Connector]({{< relref "docs/ingest-design/connectors/solr_connector" >}}) | Reads documents from a Solr collection using cursor-based pagination. Supports pre/post update actions. |
 
 **The following connectors are deprecated.** Use FileConnector with a corresponding FileHandler instead.
 
@@ -70,5 +69,6 @@ connectors: [
 | Connector | Description |
 |---|---|
 | [Parquet Connector]({{< relref "docs/ingest-design/connectors/parquet_connector" >}}) | Reads Apache Parquet files and publishes each row as a Document. Requires `lucille-parquet` dependency. |
+| [Solr Connector]({{< relref "docs/ingest-design/connectors/solr_connector" >}}) | Reads documents from a Solr collection using cursor-based pagination. Supports pre/post update actions. Requires `lucille-solr` dependency. |
 
 File Handler configuration (CSV, JSON, XML, custom) is documented on the [File Connector]({{< relref "docs/ingest-design/connectors/file_connector" >}}) page.

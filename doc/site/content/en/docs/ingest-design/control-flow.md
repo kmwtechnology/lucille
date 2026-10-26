@@ -192,7 +192,7 @@ List the connectors in order in the `connectors` array of a single Lucille confi
 connectors: [
   {
     name: "delete-stale"
-    class: "com.kmwllc.lucille.connector.SolrConnector"
+    class: "com.kmwllc.lucille.solr.connector.SolrConnector"
     // ...
   },
   {
@@ -232,7 +232,7 @@ There is no built-in mechanism for parallel connector execution within a single 
 ```hocon
 {
   name: "solr-reindex"
-  class: "com.kmwllc.lucille.connector.SolrConnector"
+  class: "com.kmwllc.lucille.solr.connector.SolrConnector"
   pipeline: "my-pipeline"
   solr: { url: "http://localhost:8983/solr/mycore" }
   preActions: [

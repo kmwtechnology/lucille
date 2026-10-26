@@ -5,9 +5,20 @@ date: 2025-06-09
 description: Configuration reference for the Elasticsearch Indexer, including join field support.
 ---
 
-`com.kmwllc.lucille.indexer.ElasticsearchIndexer`
+`com.kmwllc.lucille.elasticsearch.indexer.ElasticsearchIndexer`
 
 Config block: `elastic { ... }`
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-elasticsearch</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
+
+Selecting the indexer with `indexer.type: "Elasticsearch"` works when `lucille-elasticsearch` is on the classpath.
 
 Supports all OpenSearch parameters, plus parent-child join support:
 

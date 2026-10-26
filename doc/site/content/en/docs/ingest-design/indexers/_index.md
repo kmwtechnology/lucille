@@ -24,14 +24,16 @@ solr {
 }
 ```
 
-`indexer.type` is shorthand for a built-in indexer: `"Solr"`, `"OpenSearch"`, `"Elasticsearch"`, or `"CSV"`. For plugin indexers, use `indexer.class` with the fully qualified class name instead.
+`indexer.type` is a shorthand that is resolved at runtime via `ServiceLoader`: `"Solr"`, `"OpenSearch"`, `"Elasticsearch"`, `"CSV"`, or `"Nop"`. 
+`Solr`, `OpenSearch`, and `Elasticsearch` live in their own plugin modules and the `type` shortcut only resolves when that module is on the classpath (see the per-indexer pages below for the exact Maven dependency). 
+For plugin indexers that do not register a `type` (e.g., Pinecone, Weaviate), use `indexer.class` with the fully qualified class name instead. `indexer.class` also works for any of the backends above if you prefer to be explicit.
 
 ### Generic Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `type` | String | — | Shorthand for built-in indexers: `Solr`, `OpenSearch`, `Elasticsearch`, `CSV`. |
-| `class` | String | — | Fully qualified class name for plugin or custom indexers. |
+| `type` | String | — | Shorthand resolved via `ServiceLoader`: `Solr`, `OpenSearch`, `Elasticsearch` (each requires its plugin module on the classpath), or `CSV` / `Nop` (in `lucille-core`). |
+| `class` | String | — | Fully qualified class name. Works for any indexer (built-in, backend plugin, or custom) and is required for plugin indexers that do not register a `type`. |
 | `batchSize` | Integer | 100 | Number of documents to accumulate before sending a batch. |
 | `batchByteSize` | Long | — (disabled) | Estimated cumulative byte size of documents in a batch before flushing. The size is approximated by traversing the document's JSON structure, not by measuring exact serialized bytes. When set alone, document-count batching is disabled. When set alongside `batchSize`, whichever limit is reached first triggers a flush. |
 | `batchTimeout` | Integer (ms) | 100 | Milliseconds since last add or flush before the batch is sent regardless of size. |
@@ -96,13 +98,13 @@ The timeout flush ensures documents are not left waiting indefinitely in low-vol
 
 ### Core Indexers
 
-- [Solr Indexer]({{< relref "docs/ingest-design/indexers/solr_indexer" >}}) — Single-node and SolrCloud.
-- [OpenSearch Indexer]({{< relref "docs/ingest-design/indexers/opensearch_indexer" >}}) — OpenSearch with optional partial updates.
-- [Elasticsearch Indexer]({{< relref "docs/ingest-design/indexers/elasticsearch_indexer" >}}) — Elasticsearch with join field support.
 - [CSV Indexer]({{< relref "docs/ingest-design/indexers/csv_indexer" >}}) — Write pipeline output to a CSV file.
-- [NopIndexer]({{< relref "docs/ingest-design/indexers/nop_indexer" >}}) — No-op indexer for testing.
+- [NopIndexer]({{< relref "docs/ingest-design/indexers/nop_indexer" >}}) — No-op indexer for testing (default).
 
 ### Plugin Indexers
 
+- [Solr Indexer]({{< relref "docs/ingest-design/indexers/solr_indexer" >}}) — Single-node and SolrCloud.
+- [OpenSearch Indexer]({{< relref "docs/ingest-design/indexers/opensearch_indexer" >}}) — OpenSearch with optional partial updates.
+- [Elasticsearch Indexer]({{< relref "docs/ingest-design/indexers/elasticsearch_indexer" >}}) — Elasticsearch with join field support.
 - [Pinecone Indexer]({{< relref "docs/ingest-design/indexers/pinecone_indexer" >}}) — Index vector embeddings into Pinecone.
 - [Weaviate Indexer]({{< relref "docs/ingest-design/indexers/weaviate_indexer" >}}) — Index documents and vectors into Weaviate.
