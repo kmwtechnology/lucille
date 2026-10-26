@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.kmwllc</groupId>
+    <artifactId>lucille-parent</artifactId>
+    <version>0.13.0-SNAPSHOT</version>
+    <relativePath>../lucille-parent/pom.xml</relativePath>
+  </parent>
+
+  <artifactId>lucille-all</artifactId>
+  <packaging>jar</packaging>
+  <name>Lucille: All Components</name>
+  <description>
+    Aggregator module that bundles lucille-core together with every pipeline-component plugin
+    (search backends, vector stores, document/ML plugins). It produces no sources of its own as its
+    purpose is to assemble a single runtime classpath (target/lib) containing all components. It is used
+    to build the "lucille-all" Docker image. The Admin API (lucille-api) is excluded.
+
+    Each plugin jar is kept separate (not shaded together), so that per-jar
+    META-INF/services/com.kmwllc.lucille.indexer.IndexerTypeProvider files merge naturally via
+    ServiceLoader at runtime, and so native/platform-specific dependencies do not collide.
+  </description>
+
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-solr</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-opensearch</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-elasticsearch</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-pinecone</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-weaviate</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-parquet</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-tika</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-ocr</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-jlama</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-entity-extraction</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-video</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <extensions>
+      <!-- Resolves ${os.detected.name}/${os.detected.arch}, which lucille-jlama's native dependency
+           (jlama-native) uses as its classifier. lucille-jlama declares this extension in its own build, but
+           build extensions are not inherited through a dependency, so lucille-all must declare it too to
+           resolve the transitive native artifact. This makes lucille-all platform-specific for the jlama
+           native bits, which is expected for the batteries-included bundle. -->
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.0</version>
+      </extension>
+    </extensions>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.1.1</version>
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/lib</outputDirectory>
+              <includeScope>runtime</includeScope>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

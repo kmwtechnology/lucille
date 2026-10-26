@@ -55,13 +55,27 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_IMAGE_TOKEN }}
 
+      # Both images are built from the single multi-stage Dockerfile. The default (last) stage is
+      # `core`; the all-plugins image is the explicit `all` target.
       - name: Build and push (lucille-core)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
+          target: core
           push: true
           tags: kmwtechnology/lucille:${{ env.release }}
+
+      # lucille-all image: lucille-core + every component plugin, assembled by lucille-all's
+      # copy-dependencies into lucille-all/target/lib (produced by the package build above).
+      - name: Build and push (lucille-all)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: all
+          push: true
+          tags: kmwtechnology/lucille-all:${{ env.release }}
 
       - name: Build and push (lucille-api)
         uses: docker/build-push-action@v6
