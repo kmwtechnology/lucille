@@ -5,13 +5,7 @@ import com.typesafe.config.ConfigFactory;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
-import com.kmwllc.lucille.util.StoringAppender;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.LogEvent;
-import org.apache.logging.log4j.core.Logger;
 import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -275,55 +269,10 @@ public class KafkaUtilsTest {
   }
 
   @Test
-  public void testUnknownKeysAreReported() {
-    Set<String> known = org.apache.kafka.clients.producer.ProducerConfig.configNames();
-    assertEquals(List.of("lingerr.ms", "myString"),
-        KafkaUtils.unknownKeys(List.of("linger.ms", "lingerr.ms", "myString", "sasl.jaas.config",
-            "ssl.keystore.location", "interceptor.classes"), known));
-  }
-
-  @Test
-  public void testConfigProviderKeysAreNotReported() {
-    Set<String> known = org.apache.kafka.clients.producer.ProducerConfig.configNames();
-    assertEquals(List.of(), KafkaUtils.unknownKeys(List.of("config.providers", "config.providers.file.class",
-        "config.providers.file.param.path"), known));
-  }
-
-  @Test
   public void testSubstitutedStringAndLiteralNumberAreNotAConflict() {
     Config config = ConfigFactory.parseString(BASE_KAFKA
         + "kafka.lingerFromEnv: \"5\"\nkafka.producer { \"linger.ms\": ${kafka.lingerFromEnv}, linger.ms: 5 }").resolve();
     assertEquals("5", String.valueOf(KafkaUtils.createProducerProps(config).get("linger.ms")));
-  }
-
-  @Test
-  public void testUnknownKeyWarningUsesTheRightClientAndIsLoggedOnce() {
-    List<String> warnings = new CopyOnWriteArrayList<>();
-    StoringAppender appender = new StoringAppender() {
-      @Override
-      public void append(LogEvent event) {
-        if (event.getLevel() == Level.WARN) {
-          warnings.add(event.getMessage().getFormattedMessage());
-        }
-      }
-    };
-    appender.start();
-    Logger logger = (Logger) LogManager.getLogger(KafkaUtils.class);
-    logger.addAppender(appender);
-    try {
-      // transactional.id is a producer-only key: unknown to the consumer, known to the producer
-      Config config = ConfigFactory.parseString(BASE_KAFKA
-          + "kafka.consumer { \"transactional.id\": \"t\" }\nkafka.producer { \"transactional.id\": \"t\" }");
-      KafkaUtils.createConsumerProps(config, "client-1");
-      KafkaUtils.createConsumerProps(config, "client-2");
-      KafkaUtils.createProducerProps(config);
-
-      assertEquals(warnings.toString(), 1, warnings.size());
-      assertTrue(warnings.get(0), warnings.get(0).startsWith("kafka.consumer.transactional.id "));
-    } finally {
-      logger.removeAppender(appender);
-      appender.stop();
-    }
   }
 
   private static Set<String> quotedKeys(Properties props) {

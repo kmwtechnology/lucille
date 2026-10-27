@@ -308,8 +308,8 @@ and `auto.offset.reset` for consumers. A few values are set by Lucille after the
 overridden: the value serializer and deserializer, `enable.idempotence` on producers, and `enable.auto.commit` on the
 consumer that reads the event topic.
 
-Setting one property both ways with different values is an error. A key the Kafka client does not define is logged at
-`WARN` once and still passed through, since serializers, interceptors, and other plugins may read their own keys.
+Setting one property both ways with different values is an error. Keys are passed through to the client as given, so
+serializers, interceptors, and other plugins can read their own; the Kafka client logs any key it does not use.
 
 ## Partitions and Parallelism
 

@@ -11,11 +11,8 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigUtil;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map.Entry;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.*;
@@ -67,10 +64,6 @@ public class KafkaUtils {
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
   private static final Logger log = LoggerFactory.getLogger(KafkaUtils.class);
-  // keyPath + "." + key for each unknown kafka.producer/consumer/admin key already warned about, so a key is
-  // reported once per JVM rather than once per consumer or producer created.
-  private static final Set<String> WARNED_UNKNOWN_KEYS = ConcurrentHashMap.newKeySet();
-  private static final String CONFIG_PROVIDERS = org.apache.kafka.common.config.AbstractConfig.CONFIG_PROVIDERS_CONFIG;
 
   /**
    * Returns how long a Lucille Kafka consumer poll should block waiting for records: <code>kafka.pollIntervalMs</code>,
@@ -109,17 +102,15 @@ public class KafkaUtils {
    * <p>Kafka property names contain dots, and HOCON reads an unquoted dotted key (<code>linger.ms: 0</code>) as a nested
    * object (<code>linger { ms: 0 }</code>), while a quoted key (<code>"linger.ms": 0</code>) stays a single key whose
    * path expression keeps the quotes. Both forms, and any mix of them, are mapped to the plain dotted property name
-   * the Kafka client expects. Keys that are not defined by the client's config class are logged once at WARN; they
-   * still pass through, because serializers, interceptors, and other plugins may read their own keys.
+   * the Kafka client expects. Keys are passed through as given; the Kafka client itself logs any it does not use.
    *
    * @param props Kafka properties.
    * @param config Kafka config.
    * @param keyPath A path in the kafka config ("kafka.consumer", for example) that contains additional, arbitrary properties.
-   * @param knownKeys The property names the Kafka client defines (e.g. {@link ProducerConfig#configNames()}).
    * @throws IllegalArgumentException if a value is a list, or if two spellings of one key (quoted and unquoted)
    * have different values.
    */
-  private static void mergeConfigProps(Properties props, Config config, String keyPath, Set<String> knownKeys) {
+  private static void mergeConfigProps(Properties props, Config config, String keyPath) {
     if (!config.hasPath(keyPath)) {
       return;
     }
@@ -143,27 +134,7 @@ public class KafkaUtils {
       }
     }
 
-    for (String unknown : unknownKeys(merged.keySet(), knownKeys)) {
-      if (WARNED_UNKNOWN_KEYS.add(keyPath + "." + unknown)) {
-        log.warn("{}.{} is not a Kafka client config property; it is passed through but has no effect unless a "
-            + "serializer, interceptor, or other plugin reads it.", keyPath, unknown);
-      }
-    }
-
     props.putAll(merged);
-  }
-
-  /**
-   * Returns, sorted, the keys that are not in <code>known</code>. Config-provider keys
-   * (<code>config.providers.&lt;name&gt;.class</code>, <code>.param.*</code>) are read by Kafka's
-   * <code>AbstractConfig</code> but are not listed in <code>configNames()</code>, so they are never reported.
-   */
-  static List<String> unknownKeys(Collection<String> keys, Set<String> known) {
-    return keys.stream()
-        .filter(key -> !known.contains(key))
-        .filter(key -> !key.equals(CONFIG_PROVIDERS) && !key.startsWith(CONFIG_PROVIDERS + "."))
-        .sorted()
-        .toList();
   }
 
   //access set to public so KafkaConnector can create consumer props from config.
@@ -193,7 +164,7 @@ public class KafkaUtils {
       props.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, ConfigUtils.getOrDefault(config, "kafka.metadataMaxAgeMs", 30000));
     }
 
-    mergeConfigProps(props, config, "kafka.consumer", ConsumerConfig.configNames());
+    mergeConfigProps(props, config, "kafka.consumer");
     return props;
   }
 
@@ -269,7 +240,7 @@ public class KafkaUtils {
       producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     }
 
-    mergeConfigProps(producerProps, config, "kafka.producer", ProducerConfig.configNames());
+    mergeConfigProps(producerProps, config, "kafka.producer");
 
     // The async publish path relies on per-partition ordering to ensure that multiple operations
     // on the same document (create, update, delete in streaming mode) are applied in the correct
@@ -369,7 +340,7 @@ public class KafkaUtils {
       adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, config.getString("kafka.bootstrapServers"));
     }
 
-    mergeConfigProps(adminProps, config, "kafka.admin", AdminClientConfig.configNames());
+    mergeConfigProps(adminProps, config, "kafka.admin");
 
     try (Admin kafkaAdminClient = Admin.create(adminProps)) {
       NewTopic eventTopic = new NewTopic(eventTopicName, 1, (short) 1);
