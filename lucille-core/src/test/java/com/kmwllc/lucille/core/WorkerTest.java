@@ -198,6 +198,74 @@ public class WorkerTest {
     assertNull(thread.getThrowable());
   }
 
+  /** A counter that reports every document as having exhausted its retries. */
+  private static final RetryCounter EXHAUSTED = new RetryCounter() {
+    @Override
+    public boolean add(Document document) {
+      return true;
+    }
+
+    @Override
+    public void remove(Document document) {
+    }
+  };
+
+  private static WorkerThread startWorkerWithCounter(TestMessenger messenger, RetryCounter counter) throws Exception {
+    Worker worker = new Worker(PIPELINES, messenger, "run1", "nop", "metrics", counter);
+    return Worker.startThread(worker, "Lucille-Test-Worker-dlq");
+  }
+
+  @Test
+  public void testExhaustedRetriesSendTheDocumentToTheDeadLetterQueue() throws Exception {
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
+    WorkerThread thread = startWorkerWithCounter(messenger, EXHAUSTED);
+    messenger.sendForProcessing(Document.create("doc1"));
+
+    waitUntil(() -> count(messenger, Event.Type.FAIL) == 1);
+    Mockito.verify(messenger).sendFailed(Mockito.any());
+    assertEquals("SENT_TO_DLQ", messenger.getSentEvents().get(0).getMessage());
+    assertEquals(0, messenger.getDocsSentForIndexing().size());
+    assertTrue(thread.isAlive());
+
+    thread.terminate();
+    thread.join(5000);
+    assertNull(thread.getThrowable());
+  }
+
+  @Test
+  public void testDeadLetterQueueRejectingTheDocumentStillFailsAndCommitsIt() throws Exception {
+    // a record too large for the fail topic is the document's fault: redelivering it would only repeat the rejection,
+    // so the document is failed and committed and the worker carries on
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
+    Mockito.doThrow(new MessengerException("too large", new java.io.IOException("record too large"), true))
+        .when(messenger).sendFailed(Mockito.any());
+    WorkerThread thread = startWorkerWithCounter(messenger, EXHAUSTED);
+    messenger.sendForProcessing(Document.create("doc1"));
+    messenger.sendForProcessing(Document.create("doc2"));
+
+    waitUntil(() -> count(messenger, Event.Type.FAIL) == 2);
+    assertTrue(thread.isAlive());
+    assertNull(thread.getThrowable());
+
+    thread.terminate();
+    thread.join(5000);
+    assertNull(thread.getThrowable());
+  }
+
+  @Test
+  public void testDeadLetterQueueFailureIsFatalWhenNotDocumentSpecific() throws Exception {
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
+    Mockito.doThrow(new MessengerException("broker unavailable", new java.io.IOException("broker unavailable")))
+        .when(messenger).sendFailed(Mockito.any());
+    WorkerThread thread = startWorkerWithCounter(messenger, EXHAUSTED);
+    messenger.sendForProcessing(Document.create("doc1"));
+
+    thread.join(15000);
+    assertFalse(thread.isAlive());
+    assertTrue(String.valueOf(thread.getThrowable()), thread.getThrowable() instanceof MessengerException);
+    assertEquals(0, count(messenger, Event.Type.FAIL));
+  }
+
   @Test
   public void testPollFailureStopsTheWorkerWithAFailureAndCleansUp() throws Exception {
     // RUN-04: a poll failure used to be one INFO line and a thread that vanished without closing anything

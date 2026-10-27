@@ -79,23 +79,40 @@ class Worker implements Runnable {
 
   public Worker(Config config, WorkerMessenger messenger, String localRunId, String pipelineName, String metricsPrefix)
       throws Exception {
+    this(config, messenger, localRunId, pipelineName, metricsPrefix, createRetryCounter(config, messenger));
+  }
+
+  /**
+   * As the public constructor, but with the retry counter supplied: a null counter means retries are not tracked.
+   * Package-private so that tests can exercise the dead letter path without ZooKeeper.
+   */
+  Worker(Config config, WorkerMessenger messenger, String localRunId, String pipelineName, String metricsPrefix,
+      RetryCounter counter) throws Exception {
     this.messenger = messenger;
     this.localRunId = localRunId;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
-    if (config.hasPath("worker.maxRetries")) {
-      // retries are redeliveries of a Kafka record; a local messenger never redelivers, so a counter would only cost a
-      // ZooKeeper connection per worker thread
-      if (messenger instanceof KafkaWorkerMessenger || messenger instanceof HybridWorkerMessenger) {
-        log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
-        this.trackRetries = true;
-        this.counter = new ZKRetryCounter(config);
-      } else {
-        log.warn("worker.maxRetries is set but retries are only tracked for Kafka messengers; ignoring it.");
-      }
-    }
+    this.counter = counter;
+    this.trackRetries = counter != null;
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
     this.metricsPrefix = metricsPrefix;
+  }
+
+  /**
+   * Returns the retry counter for a worker, or null when retries are not tracked: either worker.maxRetries is not set,
+   * or the messenger is not a Kafka one. Retries are redeliveries of a Kafka record; a local messenger never
+   * redelivers, so a counter would only cost a ZooKeeper connection per worker thread.
+   */
+  private static RetryCounter createRetryCounter(Config config, WorkerMessenger messenger) {
+    if (!config.hasPath("worker.maxRetries")) {
+      return null;
+    }
+    if (messenger instanceof KafkaWorkerMessenger || messenger instanceof HybridWorkerMessenger) {
+      log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
+      return new ZKRetryCounter(config);
+    }
+    log.warn("worker.maxRetries is set but retries are only tracked for Kafka messengers; ignoring it.");
+    return null;
   }
 
   @Override
@@ -151,10 +168,7 @@ class Worker implements Runnable {
           docLogger.info("Worker is processing document {}.", doc.getId());
 
           if (trackRetries && counter.add(doc)) {
-            docLogger.error("Document FAILED: retry count exceeded for {}. Sending to dead letter queue.", doc.getId());
-            failedDocLogger.atError().setMessage(() -> doc.toString()).log();
-            messenger.sendFailed(doc);
-            messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
+            sendToDeadLetterQueue(doc);
             commitOffsetsAndRemoveCounter(doc);
             continue;
           }
@@ -214,6 +228,25 @@ class Worker implements Runnable {
     if (rethrow != null) {
       throw rethrow;
     }
+  }
+
+  /**
+   * Sends a document whose retries are exhausted to the dead letter queue and fails it. If the queue rejects the
+   * document itself (for Kafka, a record too large for the fail topic) the document is still failed and committed,
+   * since redelivering it would only repeat the rejection; any other failure to send propagates as a messenger failure.
+   */
+  private void sendToDeadLetterQueue(Document doc) throws MessengerException {
+    docLogger.error("Document FAILED: retry count exceeded for {}. Sending to dead letter queue.", doc.getId());
+    failedDocLogger.atError().setMessage(() -> doc.toString()).log();
+    try {
+      messenger.sendFailed(doc);
+    } catch (MessengerException e) {
+      if (!e.isDocumentSpecific()) {
+        throw e;
+      }
+      docLogger.error("Document {} could not be sent to the dead letter queue.", doc.getId(), e);
+    }
+    messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
   }
 
   /**
