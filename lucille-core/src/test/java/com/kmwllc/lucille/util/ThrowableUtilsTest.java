@@ -3,7 +3,6 @@ package com.kmwllc.lucille.util;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import java.io.IOException;
 import org.junit.Test;
 
 public class ThrowableUtilsTest {
@@ -18,8 +17,6 @@ public class ThrowableUtilsTest {
     assertFalse(ThrowableUtils.isFatal(new StackOverflowError("x")));
     assertFalse(ThrowableUtils.isFatal(new NoClassDefFoundError("x")));
     assertFalse(ThrowableUtils.isFatal(new AssertionError("x")));
-    assertFalse(ThrowableUtils.isFatal(new IOException("x")));
-    assertFalse(ThrowableUtils.isFatal(new RuntimeException("x")));
     assertFalse(ThrowableUtils.isFatal(null));
   }
 }

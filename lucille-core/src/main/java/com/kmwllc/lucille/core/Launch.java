@@ -136,14 +136,14 @@ public final class Launch {
     });
     workerPool.start();
 
-    while (!shuttingDown && workerPool.isAlive() && !workerPool.hasFailed()) {
+    while (!shuttingDown && workerPool.isAlive() && !workerPool.isFailed()) {
       Thread.sleep(POLL_MILLIS);
     }
     if (shuttingDown) {
       return;
     }
-    if (workerPool.hasFailed()) {
-      log.error("A worker failed; stopping the remaining workers and exiting.", workerPool.getFailure());
+    if (workerPool.isFailed()) {
+      log.error("A worker failed; stopping the remaining workers and exiting.", workerPool.getThrowable());
     } else {
       log.error("All worker threads have stopped without being asked to; exiting.");
     }

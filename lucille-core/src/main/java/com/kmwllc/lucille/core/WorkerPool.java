@@ -32,7 +32,7 @@ import org.slf4j.MDC;
  *
  * <p>The pool's watcher notices a worker thread that ended without being asked to stop, or (when
  * <code>worker.exitOnTimeout</code> is set) one that has not polled for <code>worker.maxProcessingSecs</code>, and
- * records the pool as failed; see {@link #getFailure()} and {@link #setFailureListener}. The hosting component decides
+ * records the pool as failed; see {@link #getThrowable()} and {@link #setFailureListener}. The hosting component decides
  * what a failed pool means: a Runner fails the run, a standalone worker process exits non-zero. The pool itself never
  * exits the JVM.
  */
@@ -187,13 +187,16 @@ public class WorkerPool {
    * @return The Throwable that stopped the first worker to fail, or null if no worker has failed. A worker that stops
    * because {@link #stop()} was called has not failed.
    */
-  public Throwable getFailure() {
+  public Throwable getThrowable() {
     return failure.get();
   }
 
-  public boolean hasFailed() {
-    // check now rather than wait for the watcher's next tick, so a caller asking right after the run sees a worker that
-    // died moments ago
+  /**
+   * Whether any worker has failed. Not a plain state read: this first checks for a worker thread that died without
+   * reporting, rather than waiting for the watcher's next tick, so that a caller asking right after a run sees a worker
+   * that died moments ago.
+   */
+  public boolean isFailed() {
     detectDeadWorkers();
     return failure.get() != null;
   }
@@ -206,7 +209,7 @@ public class WorkerPool {
     for (WorkerThread thread : threads) {
       // without this check the run would wait for the connector timeout
       if (!thread.isAlive()) {
-        Throwable cause = thread.getFailure();
+        Throwable cause = thread.getThrowable();
         if (cause == null) {
           cause = new IllegalStateException("Worker thread " + thread.getName() + " ended unexpectedly.");
         }

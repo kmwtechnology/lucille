@@ -107,7 +107,7 @@ public class WorkerPoolTest {
     pool.start();
     try {
       assertTrue(notified.await(15, java.util.concurrent.TimeUnit.SECONDS));
-      assertTrue(pool.hasFailed());
+      assertTrue(pool.isFailed());
       assertTrue(String.valueOf(reported.get()), reported.get() instanceof java.io.IOException);
       assertFalse(pool.isAlive());
     } finally {
@@ -127,7 +127,7 @@ public class WorkerPoolTest {
     pool.stop();
     pool.join();
     assertFalse(pool.isAlive());
-    assertFalse(pool.hasFailed());
+    assertFalse(pool.isFailed());
   }
 
   @Test

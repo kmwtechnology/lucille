@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li>An OutOfMemoryError, InternalError or UnknownError is fatal to the worker and is rethrown after cleanup, since
  *   the JVM itself may no longer be reliable. See {@link ThrowableUtils#isFatal}.</li>
  * </ul>
- * In every fatal case the failure is recorded, see {@link #getFailure()}, so that a {@link WorkerPool} can fail the
+ * In every fatal case the failure is recorded, see {@link #getThrowable()}, so that a {@link WorkerPool} can fail the
  * run rather than wait for the connector timeout; the messenger is closed and the stages are stopped either way.
  */
 class Worker implements Runnable {
@@ -258,14 +258,14 @@ class Worker implements Runnable {
       // the messenger is fine; it is this document (or child) that cannot be sent
       failDocument(doc, announcedChild, e.getCause());
     } catch (Throwable t) {
-      if (ThrowableUtils.isFatal(t)) {
+      if (t instanceof Error e && ThrowableUtils.isFatal(e)) {
         // best effort: the publisher may still learn the document failed, but nothing can be relied on after this
         try {
-          failDocument(doc, announcedChild, t);
+          failDocument(doc, announcedChild, e);
         } catch (Throwable ignored) {
           // the original error is what matters
         }
-        throw (Error) t;
+        throw e;
       }
       // an Exception from a stage, or an Error local to this document such as StackOverflowError or a LinkageError
       failDocument(doc, announcedChild, t);
@@ -348,7 +348,7 @@ class Worker implements Runnable {
    * @return The Throwable that stopped this worker, or null if it is running or stopped because {@link #terminate()}
    * was called.
    */
-  public Throwable getFailure() {
+  public Throwable getThrowable() {
     return failure;
   }
 

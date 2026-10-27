@@ -422,9 +422,9 @@ public class PublisherImpl implements Publisher {
       }
 
       // stop waiting if the connector threw an exception, or another component aborted it (for example a worker died)
-      if (thread.hasException()) {
+      if (thread.isFailed()) {
         String message = thread.getFailureMessage() != null ? thread.getFailureMessage() : "Connector exception.";
-        log.error("Exiting run with " + numPending() + " pending documents; " + message, thread.getException());
+        log.error("Exiting run with " + numPending() + " pending documents; " + message, thread.getThrowable());
         return new PublisherResult(false, message);
       }
 
@@ -456,7 +456,7 @@ public class PublisherImpl implements Publisher {
         if (numFailed > 0) {
           log.error(numFailed + " documents FAILED, but run will continue.");
         }
-        return new PublisherResult(!thread.hasException(), null);
+        return new PublisherResult(!thread.isFailed(), null);
       }
 
       if (ChronoUnit.SECONDS.between(lastLog, Instant.now()) > logSeconds) {

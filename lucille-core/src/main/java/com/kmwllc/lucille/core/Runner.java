@@ -843,8 +843,8 @@ public class Runner {
 
       // a worker that died during the run may have left documents unprocessed, or may simply have died after the last
       // document was accounted for; either way the run did not go as configured, so it does not report success
-      if (result.getStatus() && workerPool != null && workerPool.hasFailed()) {
-        log.error("Connector {} completed, but a worker failed during the run.", connector.getName(), workerPool.getFailure());
+      if (result.getStatus() && workerPool != null && workerPool.isFailed()) {
+        log.error("Connector {} completed, but a worker failed during the run.", connector.getName(), workerPool.getThrowable());
         return new ConnectorResult(connector, publisher, false, "Worker failed.");
       }
       return result;

@@ -130,12 +130,12 @@ public class WorkerTest {
     assertEquals("doc2", messenger.getDocsSentForIndexing().get(0).getId());
     assertEquals("doc1", messenger.getSentEvents().get(0).getDocumentId());
     assertTrue(thread.isAlive());
-    assertNull(thread.getFailure());
+    assertNull(thread.getThrowable());
 
     thread.terminate();
     thread.join(5000);
     assertFalse(thread.isAlive());
-    assertNull(thread.getFailure());
+    assertNull(thread.getThrowable());
   }
 
   @Test
@@ -147,7 +147,7 @@ public class WorkerTest {
 
     thread.join(15000);
     assertFalse(thread.isAlive());
-    assertTrue(String.valueOf(thread.getFailure()), thread.getFailure() instanceof OutOfMemoryError);
+    assertTrue(String.valueOf(thread.getThrowable()), thread.getThrowable() instanceof OutOfMemoryError);
     assertEquals(1, count(messenger, Event.Type.FAIL));
     Mockito.verify(messenger, Mockito.times(1)).close();
   }
@@ -162,7 +162,7 @@ public class WorkerTest {
 
     thread.join(15000);
     assertFalse(thread.isAlive());
-    assertTrue(String.valueOf(thread.getFailure()), thread.getFailure() instanceof java.io.IOException);
+    assertTrue(String.valueOf(thread.getThrowable()), thread.getThrowable() instanceof java.io.IOException);
     assertEquals(0, count(messenger, Event.Type.FAIL));
     Mockito.verify(messenger, Mockito.times(1)).close();
   }
@@ -189,11 +189,11 @@ public class WorkerTest {
     assertEquals(List.of("CREATE:doc1_child1", "FAIL:doc1_child1", "FAIL:doc1",
         "CREATE:doc2_child1", "FAIL:doc2_child1", "FAIL:doc2"), events);
     assertTrue(thread.isAlive());
-    assertNull(thread.getFailure());
+    assertNull(thread.getThrowable());
 
     thread.terminate();
     thread.join(5000);
-    assertNull(thread.getFailure());
+    assertNull(thread.getThrowable());
   }
 
   @Test
@@ -206,7 +206,7 @@ public class WorkerTest {
 
     thread.join(15000);
     assertFalse(thread.isAlive());
-    assertTrue(String.valueOf(thread.getFailure()), thread.getFailure() instanceof java.io.IOException);
+    assertTrue(String.valueOf(thread.getThrowable()), thread.getThrowable() instanceof java.io.IOException);
     Mockito.verify(messenger, Mockito.times(1)).close();
     assertTrue(StartStopCaptureStage.stopCalled);
     StartStopCaptureStage.reset();
@@ -219,7 +219,7 @@ public class WorkerTest {
     thread.terminate();
     thread.join(5000);
     assertFalse(thread.isAlive());
-    assertNull(thread.getFailure());
+    assertNull(thread.getThrowable());
   }
 
   @Test
@@ -228,7 +228,7 @@ public class WorkerTest {
     // ZooKeeper client per worker thread
     Config config = ConfigFactory.parseString("worker.maxRetries: 3").withFallback(PIPELINES);
     Worker worker = new Worker(config, new TestMessenger(), "run1", "nop", "metrics");
-    assertNull(worker.getFailure());
+    assertNull(worker.getThrowable());
   }
 
   @Test

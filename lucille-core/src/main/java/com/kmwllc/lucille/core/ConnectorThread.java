@@ -38,9 +38,9 @@ public class ConnectorThread extends Thread {
       publisher.flush();
     } catch (Throwable t) {
       markFailed("Connector exception.", t);
-      if (ThrowableUtils.isFatal(t)) {
+      if (t instanceof Error e && ThrowableUtils.isFatal(e)) {
         // the failure is recorded for the run; the JVM may be unusable, so do not swallow it
-        throw (Error) t;
+        throw e;
       }
     } finally {
       MDC.remove(Document.RUNID_FIELD);
@@ -69,7 +69,7 @@ public class ConnectorThread extends Thread {
   /**
    * @return The Throwable that ended or aborted this thread, or null if it has not failed.
    */
-  public Throwable getException() {
+  public Throwable getThrowable() {
     return failure;
   }
 
@@ -80,7 +80,10 @@ public class ConnectorThread extends Thread {
     return failureMessage;
   }
 
-  public boolean hasException() {
+  /**
+   * @return Whether this thread has failed or been aborted; see {@link #getThrowable()} for the cause.
+   */
+  public boolean isFailed() {
     return failure != null;
   }
 

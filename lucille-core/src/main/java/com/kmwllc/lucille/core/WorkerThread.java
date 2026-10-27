@@ -41,7 +41,7 @@ public class WorkerThread extends Thread {
    * @return The Throwable that stopped the worker, or null if it has not failed (it may still be running, or have
    * stopped because it was asked to).
    */
-  public Throwable getFailure() {
-    return failure != null ? failure : worker.getFailure();
+  public Throwable getThrowable() {
+    return failure != null ? failure : worker.getThrowable();
   }
 }
