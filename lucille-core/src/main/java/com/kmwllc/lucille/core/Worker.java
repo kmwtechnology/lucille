@@ -184,6 +184,11 @@ class Worker implements Runnable {
         rethrow = (Error) t;
       }
     } finally {
+      // This thread is about to end, so an interrupt (for example from the pool's exitOnTimeout watcher) has done its
+      // job; clear it so that closing the messenger can complete, in particular so a Kafka consumer leaves its group
+      // rather than making the broker wait out the session timeout before reassigning the partition.
+      Thread.interrupted();
+
       // In local mode this worker belongs to one run, whose id was put in the MDC at the start, so the cleanup logs
       // below keep it. In distributed mode the MDC holds the run id of the last document processed, set per document
       // above; the cleanup belongs to no particular run, so remove it rather than attribute those logs to that run.
