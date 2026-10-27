@@ -17,6 +17,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This stage collects all records from namespace(s) if their prefix ID matches the ID of the Lucille document marked for deletion.
@@ -40,6 +42,8 @@ import java.util.stream.Collectors;
  *     should have the same value provided in indexer configs
  */
 public class EmitDocsToDeleteByPrefix extends Stage {
+
+  private static final Logger log = LoggerFactory.getLogger(EmitDocsToDeleteByPrefix.class);
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("apiKey", "deletionMarkerField", "deletionMarkerFieldValue", "index")
@@ -120,6 +124,11 @@ public class EmitDocsToDeleteByPrefix extends Stage {
   private List<Document> createDocsToDeleteFromIds(List<String> idsToDelete) {
     List<Document> documents = new ArrayList<>();
     for (String id : idsToDelete) {
+      if (!Document.isValidId(id)) {
+        // Pinecone does not allow blank ids, so this is not expected; skip it rather than fail the whole document
+        log.error("Skipping a Pinecone vector to delete because its id is null or blank.");
+        continue;
+      }
       Document newDoc = Document.create(id);
       newDoc.setField(deletionMarkerField, deletionMarkerFieldValue);
       documents.add(newDoc);
