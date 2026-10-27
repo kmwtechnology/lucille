@@ -320,6 +320,21 @@ public class KafkaUtilsTest {
   }
 
   @Test
+  public void testToMessengerException() {
+    // the Kafka error behind an ExecutionException is the cause; only a record too large is specific to the document
+    MessengerException tooLarge = KafkaUtils.toMessengerException("Sending doc1", new ExecutionException(
+        new org.apache.kafka.common.errors.RecordTooLargeException("too large")));
+    assertTrue(tooLarge.isDocumentSpecific());
+    assertTrue(tooLarge.getCause() instanceof org.apache.kafka.common.errors.RecordTooLargeException);
+    assertTrue(tooLarge.getMessage(), tooLarge.getMessage().startsWith("Sending doc1 failed"));
+
+    MessengerException timeout = KafkaUtils.toMessengerException("Sending doc1", new ExecutionException(
+        new org.apache.kafka.common.errors.TimeoutException("timed out")));
+    assertFalse(timeout.isDocumentSpecific());
+    assertTrue(timeout.getCause() instanceof org.apache.kafka.common.errors.TimeoutException);
+  }
+
+  @Test
   public void testGetPollInterval() {
     assertEquals(Duration.ofMillis(2000), KafkaUtils.getPollInterval(ConfigFactory.empty()));
     assertEquals(Duration.ofMillis(150), KafkaUtils.getPollInterval(ConfigFactory.parseString("kafka.pollIntervalMs: 150")));

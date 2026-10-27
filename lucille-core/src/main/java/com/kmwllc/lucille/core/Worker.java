@@ -8,12 +8,12 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.KafkaWorkerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.ThrowableUtils;
 import com.typesafe.config.Config;
 import org.apache.kafka.common.errors.RecordDeserializationException;
-import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -31,7 +31,8 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li>A document that a stage cannot process gets a FAIL event, as does any child whose CREATE event was already
  *   sent but which never reached the indexer. The worker then commits and moves on to the next document. This covers
  *   Exceptions and the Errors that are local to one document, such as a StackOverflowError or a LinkageError from an
- *   optional dependency, and a Kafka RecordTooLargeException for a document that cannot be sent.</li>
+ *   optional dependency, and a send failure that the messenger marks as specific to the document (for Kafka, a record
+ *   too large for the topic); see {@link MessengerException#isDocumentSpecific()}.</li>
  *   <li>Any other failure to send a document or an event through the messenger is fatal to the worker: the messenger
  *   can no longer be trusted, so no FAIL event is sent and the current offsets are not committed. The documents in
  *   flight are redelivered when a worker next consumes the partition.</li>
@@ -152,8 +153,8 @@ class Worker implements Runnable {
           if (trackRetries && counter.add(doc)) {
             docLogger.error("Document FAILED: retry count exceeded for {}. Sending to dead letter queue.", doc.getId());
             failedDocLogger.atError().setMessage(() -> doc.toString()).log();
-            send(() -> messenger.sendFailed(doc));
-            send(() -> messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL));
+            messenger.sendFailed(doc);
+            messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
             commitOffsetsAndRemoveCounter(doc);
             continue;
           }
@@ -162,11 +163,11 @@ class Worker implements Runnable {
           commitOffsetsAndRemoveCounter(doc);
         }
       }
-    } catch (MessengerFailure e) {
-      failure = e.getCause();
+    } catch (MessengerException e) {
+      failure = e;
       commitOnExit = false;
       log.error("Worker stopping: the messenger failed. The offsets of the document being processed are not committed, "
-          + "so it will be redelivered.", e.getCause());
+          + "so it will be redelivered.", e);
     } catch (Throwable t) {
       failure = t;
       commitOnExit = false;
@@ -219,7 +220,7 @@ class Worker implements Runnable {
    * Runs one document through the pipeline and sends the results on. A problem with the document itself is handled
    * here by failing the document; a failure of the messenger, or of the JVM, propagates to the caller.
    */
-  private void processDocument(Document doc, Timer timer) {
+  private void processDocument(Document doc, Timer timer) throws MessengerException {
     // a child whose CREATE event has been sent but which has not yet been sent for indexing or dropped; if processing
     // fails now, the publisher would wait for this child forever unless it is told the child failed
     Document announcedChild = null;
@@ -239,26 +240,26 @@ class Worker implements Runnable {
         // assumes the run is complete because the parent is complete and the Publisher didn't know
         // about the children. This code assumes the pipeline emits children before parents.
         if (!doc.getId().equals(result.getId())) {
-          send(() -> messenger.sendEvent(result, null, Event.Type.CREATE));
+          messenger.sendEvent(result, null, Event.Type.CREATE);
           announcedChild = result;
         }
 
         if (result.isDropped()) {
-          send(() -> messenger.sendEvent(result, null, Event.Type.DROP));
+          messenger.sendEvent(result, null, Event.Type.DROP);
         } else {
           // send the completed document to the queue for indexing
-          send(() -> messenger.sendForIndexing(result));
+          messenger.sendForIndexing(result);
         }
         announcedChild = null;
       }
 
       context.stop();
-    } catch (MessengerFailure e) {
-      if (!isDocumentSpecific(e.getCause())) {
+    } catch (MessengerException e) {
+      if (!e.isDocumentSpecific()) {
         throw e;
       }
       // the messenger is fine; it is this document (or child) that cannot be sent
-      failDocument(doc, announcedChild, e.getCause());
+      failDocument(doc, announcedChild, e);
     } catch (Throwable t) {
       if (t instanceof Error e && ThrowableUtils.isFatal(e)) {
         // best effort: the publisher may still learn the document failed, but nothing can be relied on after this
@@ -278,53 +279,16 @@ class Worker implements Runnable {
    * Records that the document failed in the pipeline and sends FAIL events for it and for the given child, if any.
    * A failure to send those events is a messenger failure and propagates as such.
    */
-  private void failDocument(Document doc, Document announcedChild, Throwable cause) {
+  private void failDocument(Document doc, Document announcedChild, Throwable cause) throws MessengerException {
     docLogger.error("Document FAILED during pipeline processing: {}", doc.getId(), cause);
     failedDocLogger.atError().setMessage(() -> doc.toString()).log();
     if (announcedChild != null) {
       Document child = announcedChild;
       docLogger.error("Child document {} of {} FAILED: its parent failed after the child was announced.", child.getId(),
           doc.getId());
-      send(() -> messenger.sendEvent(child, null, Event.Type.FAIL));
+      messenger.sendEvent(child, null, Event.Type.FAIL);
     }
-    send(() -> messenger.sendEvent(doc, null, Event.Type.FAIL));
-  }
-
-  /**
-   * Whether a send failure is caused by the record being sent, rather than by the messenger or its transport. Only
-   * such failures are treated as document failures; everything else stops the worker.
-   */
-  static boolean isDocumentSpecific(Throwable cause) {
-    for (Throwable t = cause; t != null; t = t.getCause()) {
-      if (t instanceof RecordTooLargeException) {
-        return true;
-      }
-      if (t.getCause() == t) {
-        break;
-      }
-    }
-    return false;
-  }
-
-  @FunctionalInterface
-  private interface MessengerCall {
-    void run() throws Exception;
-  }
-
-  /** Runs a messenger call, converting any Exception it throws into a MessengerFailure. */
-  private static void send(MessengerCall call) {
-    try {
-      call.run();
-    } catch (Exception e) {
-      throw new MessengerFailure(e);
-    }
-  }
-
-  /** Thrown when the messenger could not send a document or event. The cause is the messenger's exception. */
-  static final class MessengerFailure extends RuntimeException {
-    MessengerFailure(Exception cause) {
-      super(cause);
-    }
+    messenger.sendEvent(doc, null, Event.Type.FAIL);
   }
 
   public void logMetrics() {

@@ -14,6 +14,7 @@ import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.typesafe.config.Config;
@@ -156,13 +157,15 @@ public class WorkerTest {
   public void testMessengerFailureIsFatalAndIsNotTurnedIntoADocumentFailure() throws Exception {
     // RUN-05: a send failure means the messenger is unhealthy; the document must not be marked FAILED and committed
     TestMessenger messenger = Mockito.spy(new TestMessenger());
-    Mockito.doThrow(new java.io.IOException("broker unavailable")).when(messenger).sendForIndexing(Mockito.any());
+    Mockito.doThrow(new MessengerException("broker unavailable", new java.io.IOException("broker unavailable")))
+        .when(messenger).sendForIndexing(Mockito.any());
     WorkerThread thread = startWorker(PIPELINES, messenger, "nop");
     messenger.sendForProcessing(Document.create("doc1"));
 
     thread.join(15000);
     assertFalse(thread.isAlive());
-    assertTrue(String.valueOf(thread.getThrowable()), thread.getThrowable() instanceof java.io.IOException);
+    assertTrue(String.valueOf(thread.getThrowable()), thread.getThrowable() instanceof MessengerException);
+    assertTrue(thread.getThrowable().getCause() instanceof java.io.IOException);
     assertEquals(0, count(messenger, Event.Type.FAIL));
     Mockito.verify(messenger, Mockito.times(1)).close();
   }
@@ -170,13 +173,12 @@ public class WorkerTest {
   @Test
   public void testRecordTooLargeFailsTheDocumentAndItsAnnouncedChild() throws Exception {
     // RUN-03: the child's CREATE was sent, so without a FAIL for the child the publisher would wait for it forever;
-    // RecordTooLargeException is specific to the record, so the worker itself carries on
+    // a failure the messenger marks as specific to the document (e.g. a Kafka record too large) leaves the worker running
     TestMessenger messenger = Mockito.spy(new TestMessenger());
     Mockito.doAnswer(invocation -> {
       Document doc = invocation.getArgument(0);
       if (doc.getId().contains("_child")) {
-        throw new java.util.concurrent.ExecutionException(
-            new org.apache.kafka.common.errors.RecordTooLargeException("too large"));
+        throw new MessengerException("too large", new java.io.IOException("record too large"), true);
       }
       return invocation.callRealMethod();
     }).when(messenger).sendForIndexing(Mockito.any());
@@ -229,17 +231,6 @@ public class WorkerTest {
     Config config = ConfigFactory.parseString("worker.maxRetries: 3").withFallback(PIPELINES);
     Worker worker = new Worker(config, new TestMessenger(), "run1", "nop", "metrics");
     assertNull(worker.getThrowable());
-  }
-
-  @Test
-  public void testIsDocumentSpecific() {
-    assertTrue(Worker.isDocumentSpecific(new org.apache.kafka.common.errors.RecordTooLargeException("x")));
-    assertTrue(Worker.isDocumentSpecific(new java.util.concurrent.ExecutionException(
-        new org.apache.kafka.common.errors.RecordTooLargeException("x"))));
-    assertFalse(Worker.isDocumentSpecific(new java.util.concurrent.ExecutionException(
-        new org.apache.kafka.common.errors.TimeoutException("x"))));
-    assertFalse(Worker.isDocumentSpecific(new java.io.IOException("x")));
-    assertFalse(Worker.isDocumentSpecific(null));
   }
 
 }

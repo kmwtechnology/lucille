@@ -23,6 +23,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaFuture;
+import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -388,5 +389,18 @@ public class KafkaUtils {
     }
 
     return true;
+  }
+  /**
+   * Wraps the failure of a producer send as a {@link MessengerException}, with the Kafka error behind the
+   * ExecutionException as the cause. A RecordTooLargeException is marked as specific to the record: the broker
+   * rejected this one record and the producer is fine for the next; every other error (timeout, authorization, broker
+   * unavailable) is not.
+   *
+   * @param action What was being sent, for the message (e.g. "Sending document x for indexing").
+   * @param e The exception thrown by waiting on the send's future.
+   */
+  public static MessengerException toMessengerException(String action, ExecutionException e) {
+    Throwable cause = e.getCause() != null ? e.getCause() : e;
+    return new MessengerException(action + " failed: " + cause, cause, cause instanceof RecordTooLargeException);
   }
 }
