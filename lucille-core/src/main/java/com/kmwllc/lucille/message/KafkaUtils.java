@@ -3,13 +3,16 @@ package com.kmwllc.lucille.message;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigUtil;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.kafka.clients.CommonClientConfigs;
@@ -48,16 +51,19 @@ import org.slf4j.LoggerFactory;
  */
 public class KafkaUtils {
 
-  public static Spec SPEC = SpecBuilder.withoutDefaults()
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .requiredString("bootstrapServers", "consumerGroupId")
       .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
-      .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
+      .optionalBoolean("events")
+      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertyFile",
           "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
           "onDeserializationError")
       .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
-      .optionalParent("admin", new TypeReference<Map<String, Object>>(){}).build();
+      .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
+      // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
+      .optionalParent(EventFieldConfig.SPEC).build();
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;
@@ -96,34 +102,43 @@ public class KafkaUtils {
    * Merges, into the provided <code>Properties</code>, the key-value pairs that are found in the given <code>config</code>
    * under the provided <code>keyPath</code>. If <code>config</code> has the <code>keyPath</code>, it should map to an object
    * with the arbitrary property mappings.
+   *
+   * <p>Kafka property names contain dots, and HOCON reads an unquoted dotted key (<code>linger.ms: 0</code>) as a nested
+   * object (<code>linger { ms: 0 }</code>), while a quoted key (<code>"linger.ms": 0</code>) stays a single key whose
+   * path expression keeps the quotes. Both forms, and any mix of them, are mapped to the plain dotted property name
+   * the Kafka client expects. Keys are passed through as given; the Kafka client itself logs any it does not use.
+   *
    * @param props Kafka properties.
    * @param config Kafka config.
    * @param keyPath A path in the kafka config ("kafka.consumer", for example) that contains additional, arbitrary properties.
-   * @throws IllegalArgumentException In the event the config at <code>keyPath</code> contains a value list
+   * @throws IllegalArgumentException if a value is a list, or if two spellings of one key (quoted and unquoted)
+   * have different values.
    */
   private static void mergeConfigProps(Properties props, Config config, String keyPath) {
     if (!config.hasPath(keyPath)) {
       return;
     }
 
-    Config propsConfig = config.getConfig(keyPath);
-
-    for (Entry<String, ConfigValue> entry : propsConfig.entrySet()) {
-      String propKey = entry.getKey();
+    Map<String, Object> merged = new HashMap<>();
+    // entrySet() flattens nested objects into leaf paths and omits nulls, so each value is a scalar or a list.
+    for (Entry<String, ConfigValue> entry : config.getConfig(keyPath).entrySet()) {
+      String propKey = String.join(".", ConfigUtil.splitPath(entry.getKey()));
       ConfigValue value = entry.getValue();
 
-      // NOTE: we don't prevent ConfigValueType.OBJECT here, for two reasons:
-      // 1. many Kafka properties include ".", like "security.protocol". With HOCON, writing 'security.protocol: "ssl"'
-      //    is equivalent to writing security: { protocol: "ssl" }
-      // 2. the library does not distinguish between using dot notation / an object - even if we were to use "getParent"
-      //    like we do in Spec.validate(), we would struggle to achieve our desired outcome here.
-      // We also do not include ConfigValueType.NULL here, as entrySet excludes them.
       if (value.valueType() == ConfigValueType.LIST) {
         throw new IllegalArgumentException(String.format("Cannot use list for Kafka property (key %s)", propKey));
       }
 
-      props.put(propKey, value.unwrapped());
+      // compare as strings: a substitution or env var yields a String, a literal an Integer, and Kafka parses both
+      Object previous = merged.putIfAbsent(propKey, value.unwrapped());
+      if (previous != null && !String.valueOf(previous).equals(String.valueOf(value.unwrapped()))) {
+        throw new IllegalArgumentException(String.format(
+            "Kafka property %s is set twice under %s with different values (%s and %s); quoted and unquoted "
+                + "spellings of a dotted key name the same property.", propKey, keyPath, previous, value.unwrapped()));
+      }
     }
+
+    props.putAll(merged);
   }
 
   //access set to public so KafkaConnector can create consumer props from config.

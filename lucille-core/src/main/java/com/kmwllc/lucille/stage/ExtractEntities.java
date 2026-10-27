@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
  *   <li>source (List&lt;String&gt;) : list of source field names.</li>
  *   <li>dest (List&lt;String&gt;) : list of destination field names. You can either supply the same number of source and destination
  *   fields for a 1-1 mapping of results or supply one destination field for all of the source fields to be mapped into.</li>
- *   <li>dictPath (String) : The path the dictionary to use for matching. If the dictPath begins with "classpath:" the classpath
+ *   <li>dictionaries (List&lt;String&gt;) : Paths of the dictionaries to use for matching. If a path begins with "classpath:" the classpath
  *   will be searched for the file. Otherwise, the local file system will be searched.</li>
  *   <li>usePayloads (Boolean, Optional) : denotes whether paylaods from the dictionary should be used or not.</li>
  *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can be

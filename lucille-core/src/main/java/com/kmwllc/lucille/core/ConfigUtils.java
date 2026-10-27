@@ -23,17 +23,88 @@ public class ConfigUtils {
    * Get the value of the given setting from the config file, or a default value if the setting does not exist in the
    * config.
    *
+   * <p>The value is read with the typed Config getter that matches the fallback's type (getInt for an Integer fallback,
+   * getBoolean for a Boolean fallback, and so on), so HOCON's usual coercions apply: an integer literal is accepted for a
+   * Long or Double setting, and a numeric or boolean string (for example from an environment variable substitution) is
+   * accepted for a number or boolean setting. A value that cannot be coerced fails with a ConfigException naming the
+   * setting, instead of a ClassCastException at the point of use.
+   *
+   * <p>A {@code null} fallback carries no type information, so the raw unwrapped value is returned. Prefer
+   * {@link #getStringOrDefault}, {@link #getIntOrDefault}, {@link #getLongOrDefault}, {@link #getDoubleOrDefault} or
+   * {@link #getBooleanOrDefault} when the default is null.
+   *
    * @param config  the config to search for the setting
    * @param setting the setting to get the value of
    * @param fallback  default value
    * @param <T> the Type of this setting's value
    * @return the value
    */
+  @SuppressWarnings("unchecked")
   public static <T> T getOrDefault(Config config, String setting, T fallback) {
-    if (config.hasPath(setting)) {
-      return (T) config.getValue(setting).unwrapped();
+    if (!config.hasPath(setting)) {
+      return fallback;
     }
+    Object value;
+    if (fallback instanceof Boolean) {
+      value = config.getBoolean(setting);
+    } else if (fallback instanceof Integer) {
+      value = config.getInt(setting);
+    } else if (fallback instanceof Long) {
+      value = config.getLong(setting);
+    } else if (fallback instanceof Double) {
+      value = config.getDouble(setting);
+    } else if (fallback instanceof Float) {
+      value = (float) config.getDouble(setting);
+    } else if (fallback instanceof Number) {
+      value = config.getNumber(setting);
+    } else if (fallback instanceof String) {
+      value = config.getString(setting);
+    } else if (fallback instanceof List) {
+      value = config.getAnyRefList(setting);
+    } else {
+      value = config.getValue(setting).unwrapped();
+    }
+    return (T) value;
+  }
 
+  /** Returns the setting as a String (coercing numbers and booleans), or the fallback if it is absent. */
+  public static String getStringOrDefault(Config config, String setting, String fallback) {
+    return config.hasPath(setting) ? config.getString(setting) : fallback;
+  }
+
+  /** Returns the setting as an Integer (coercing numeric strings), or the fallback if it is absent. */
+  public static Integer getIntOrDefault(Config config, String setting, Integer fallback) {
+    // not a ternary: a ternary would unbox a null fallback and throw NullPointerException
+    if (config.hasPath(setting)) {
+      return config.getInt(setting);
+    }
+    return fallback;
+  }
+
+  /** Returns the setting as a Long (coercing integer literals and numeric strings), or the fallback if it is absent. */
+  public static Long getLongOrDefault(Config config, String setting, Long fallback) {
+    // not a ternary: a ternary would unbox a null fallback and throw NullPointerException
+    if (config.hasPath(setting)) {
+      return config.getLong(setting);
+    }
+    return fallback;
+  }
+
+  /** Returns the setting as a Double (coercing integer literals and numeric strings), or the fallback if it is absent. */
+  public static Double getDoubleOrDefault(Config config, String setting, Double fallback) {
+    // not a ternary: a ternary would unbox a null fallback and throw NullPointerException
+    if (config.hasPath(setting)) {
+      return config.getDouble(setting);
+    }
+    return fallback;
+  }
+
+  /** Returns the setting as a Boolean (coercing "true"/"false" strings), or the fallback if it is absent. */
+  public static Boolean getBooleanOrDefault(Config config, String setting, Boolean fallback) {
+    // not a ternary: a ternary would unbox a null fallback and throw NullPointerException
+    if (config.hasPath(setting)) {
+      return config.getBoolean(setting);
+    }
     return fallback;
   }
 

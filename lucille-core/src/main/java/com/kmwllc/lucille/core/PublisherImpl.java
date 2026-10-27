@@ -109,7 +109,7 @@ public class PublisherImpl implements Publisher {
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
 
-    Integer maxPendingDocs = ConfigUtils.getOrDefault(config, "publisher.maxPendingDocs", null);
+    Integer maxPendingDocs = ConfigUtils.getIntOrDefault(config, "publisher.maxPendingDocs", null);
     if (maxPendingDocs != null && maxPendingDocs < 0) {
       maxPendingDocs = null;
     }

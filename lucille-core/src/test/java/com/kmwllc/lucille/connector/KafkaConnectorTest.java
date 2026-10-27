@@ -6,6 +6,7 @@ import static org.junit.Assert.assertTrue;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -35,9 +36,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.mockito.ArgumentCaptor;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.Test;
 
@@ -74,8 +77,16 @@ public class KafkaConnectorTest {
 
     connector.execute(mock(Publisher.class));
 
+    // offsets are applied from the rebalance listener registered with subscribe(), once partitions are assigned
+    ArgumentCaptor<ConsumerRebalanceListener> listener = ArgumentCaptor.forClass(ConsumerRebalanceListener.class);
+    verify(mockConsumer).subscribe(anyCollection(), listener.capture());
+    listener.getValue().onPartitionsAssigned(Arrays.asList(tp0, tp1));
     verify(mockConsumer).seek(tp0, 100L);
     verify(mockConsumer).seek(tp1, 200L);
+
+    // a later re-assignment of the same partitions must not seek again (the consumer resumes from its committed offset)
+    listener.getValue().onPartitionsAssigned(Arrays.asList(tp0, tp1));
+    verify(mockConsumer, times(1)).seek(tp0, 100L);
   }
 
   @Test
@@ -297,7 +308,6 @@ public class KafkaConnectorTest {
     Set<TopicPartition> assignment = new HashSet<>();
     assignment.add(tp0);
     when(mockConsumer.assignment()).thenReturn(assignment);
-    when(mockConsumer.poll(Duration.ZERO)).thenReturn(new ConsumerRecords<>(Collections.emptyMap()));
     when(mockConsumer.poll(any(Duration.class))).thenReturn(new ConsumerRecords<>(Collections.emptyMap()));
 
     KafkaConnector connector = spy(new KafkaConnector(config));
@@ -305,6 +315,9 @@ public class KafkaConnectorTest {
 
     connector.execute(mock(Publisher.class));
 
+    ArgumentCaptor<ConsumerRebalanceListener> listener = ArgumentCaptor.forClass(ConsumerRebalanceListener.class);
+    verify(mockConsumer).subscribe(anyCollection(), listener.capture());
+    listener.getValue().onPartitionsAssigned(Collections.singletonList(tp0));
     verify(mockConsumer).seek(tp0, 100L);
   }
 

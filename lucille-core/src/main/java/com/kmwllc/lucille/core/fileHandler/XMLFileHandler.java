@@ -79,8 +79,8 @@ public class XMLFileHandler extends BaseFileHandler {
     super(config);
 
     this.xmlRootPath = config.getString("xmlRootPath");
-    this.xmlIdPath = ConfigUtils.getOrDefault(config, "xmlIdPath", null);
-    this.xpathIdPath = ConfigUtils.getOrDefault(config, "xpathIdPath", null);
+    this.xmlIdPath = ConfigUtils.getStringOrDefault(config, "xmlIdPath", null);
+    this.xpathIdPath = ConfigUtils.getStringOrDefault(config, "xpathIdPath", null);
     this.encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
     this.outputField = config.hasPath("outputField") ? config.getString("outputField") : "xml";
     this.skipEmptyId = ConfigUtils.getOrDefault(config, "skipEmptyId", false);

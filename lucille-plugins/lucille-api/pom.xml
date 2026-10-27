@@ -37,6 +37,12 @@
           <type>pom</type>
           <scope>import</scope>
         </dependency>
+        <!-- Dropwizard 5.0.2 pulls hibernate-validator 8.0.3.Final (EL injection); 8.0.6.Final fixes it. -->
+        <dependency>
+          <groupId>org.hibernate.validator</groupId>
+          <artifactId>hibernate-validator</artifactId>
+          <version>8.0.6.Final</version>
+        </dependency>
       </dependencies>
     </dependencyManagement>
 

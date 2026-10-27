@@ -240,8 +240,8 @@ Filter options control which files are processed and published. All filter optio
 1. File name must match at least one `includes` pattern (if any are specified).
 2. File name must not match any `excludes` pattern.
 3. File's modification time must fall within `lastModifiedCutoff` (if specified).
-4. File must not have been published within `lastPublishedCutoff` (if specified — requires state configuration).
-5. In `incremental` publish mode, only new or modified files since the last run are published (requires state configuration).
+4. In `incremental` publish mode, only new or modified files since the last run are published (requires state configuration).
+5. In `incremental` publish mode, the file must not have been published within `lastPublishedCutoff` (if specified).
 
 | Option | Type | Description |
 |---|---|---|
@@ -249,7 +249,7 @@ Filter options control which files are processed and published. All filter optio
 | `excludes` | List\<String\> | Regex patterns — file names matching any pattern are skipped. |
 | `pathsToSkip` | List\<String\> | Paths of directories to skip. While traversing, this directory and its contents will not be read, processed, or published. See note below for more. |
 | `lastModifiedCutoff` | String | Duration string (e.g., `"24h"`, `"7d"`) — only files modified within this window are processed. |
-| `lastPublishedCutoff` | String | Duration string — files published by Lucille within this window are skipped. Requires state. |
+| `lastPublishedCutoff` | String | Duration string — files published by Lucille within this window are skipped. Requires state and `publishMode: incremental`; the connector fails to start if either is missing, since the cutoff would otherwise be ignored. |
 | `publishMode` | String | `FULL` (default) or `INCREMENTAL`. In incremental mode, only new or modified files are published. Requires state. |
 | `sendTombstones` | Boolean | If `true`, publishes tombstone documents for files that have been deleted since the last run. Requires incremental mode. |
 

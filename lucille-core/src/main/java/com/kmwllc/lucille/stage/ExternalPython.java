@@ -42,7 +42,7 @@ public final class ExternalPython extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("scriptPath")
-      .optionalString("pythonExecutable", "functionName", "port", "requirementsPath")
+      .optionalString("pythonExecutable", "functionName", "requirementsPath")
       .optionalNumber("port")
       .build();
 
