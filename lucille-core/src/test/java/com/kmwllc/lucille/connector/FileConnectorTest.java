@@ -25,9 +25,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.io.FileUtils;
 import java.nio.file.attribute.FileTime;
@@ -35,6 +39,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.mockito.MockedStatic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,6 +74,9 @@ public class FileConnectorTest {
 
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
+
+  @Rule
+  public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   FileConnector connector;
 
@@ -914,7 +922,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversal() throws Exception {
     Config sequentialConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf");
-    Config concurrentConfig = sequentialConfig.withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+    Config concurrentConfig = sequentialConfig.withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
 
     List<Document> sequentialDocs = publishedDocuments(sequentialConfig);
     List<Document> concurrentDocs = publishedDocuments(concurrentConfig);
@@ -931,7 +939,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversalsOverlap() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
@@ -962,7 +970,7 @@ public class FileConnectorTest {
   @Test
   public void testPreventConcurrentAndCollapse() {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
         .withValue("collapse", ConfigValueFactory.fromAnyRef(true));
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
@@ -978,7 +986,7 @@ public class FileConnectorTest {
             "./src/test/resources/FileConnectorTest/directory1/nested")));
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> new FileConnector(config.withValue("concurrent", ConfigValueFactory.fromAnyRef(true))));
+        () -> new FileConnector(config.withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))));
     assertTrue(e.getMessage().contains("overlapping"));
 
     // sequential traversals of overlapping paths already worked before concurrency was an option, so they still do
@@ -989,7 +997,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentPathsSharingNamePrefixAllowed() {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
         .withValue("paths", ConfigValueFactory.fromIterable(List.of(
             "./src/test/resources/FileConnectorTest/directory1",
             "./src/test/resources/FileConnectorTest/directory1-archive")));
@@ -1001,7 +1009,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversalNoPaths() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
         .withValue("paths", ConfigValueFactory.fromIterable(List.of()));
 
     assertEquals(0, publishedDocuments(config).size());
@@ -1018,7 +1026,7 @@ public class FileConnectorTest {
         .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:sequentialRun")));
 
     List<Document> concurrentDocs = publishedDocuments(baseConfig
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true))
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
         .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:concurrentRun")));
 
     assertFalse(concurrentDocs.isEmpty());
@@ -1026,11 +1034,78 @@ public class FileConnectorTest {
     assertEquals(documentIds(sequentialDocs), documentIds(concurrentDocs));
   }
 
+  // Verifies that with fewer threads than paths, the queued paths are still traversed, and a thread reused for a second
+  // path can open state again.
+  @Test
+  public void testConcurrentTraversalWithMaxThreads() throws Exception {
+    Config baseConfig = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
+        .withValue("paths", ConfigValueFactory.fromIterable(List.of(
+            "./src/test/resources/FileConnectorTest/example",
+            "./src/test/resources/FileConnectorTest/defaults.csv",
+            "./src/test/resources/FileConnectorTest/directory1")));
+
+    List<Document> sequentialDocs = publishedDocuments(baseConfig
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxThreadsSequentialRun")));
+
+    // three paths on two threads
+    List<Document> cappedDocs = publishedDocuments(baseConfig
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(2))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:maxThreadsCappedRun")));
+
+    assertFalse(cappedDocs.isEmpty());
+    assertEquals(sequentialDocs.size(), cappedDocs.size());
+    assertEquals(documentIds(sequentialDocs), documentIds(cappedDocs));
+  }
+
+  // Verifies that maxThreads sets the pool size. A fixed pool starts a new thread for each task until it is
+  // full, so the number of distinct threads that traverse is exactly the pool size: one would mean sequential, three
+  // would mean maxThreads was ignored.
+  @Test
+  public void testMaxThreadsCapsPoolSize() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(2));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Set<String> threadNames = ConcurrentHashMap.newKeySet();
+
+    try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      StorageClient mockClient = mock(StorageClient.class);
+
+      doAnswer(invocation -> {
+        threadNames.add(Thread.currentThread().getName());
+        return null;
+      }).when(mockClient).traverse(any(), any(), any());
+
+      mockedStorage.when(() -> StorageClient.createClients(any())).thenReturn(Map.of("file", mockClient));
+
+      connector = new FileConnector(config);
+      connector.execute(publisher);
+
+      verify(mockClient, times(3)).traverse(any(), any(), any());
+      assertEquals(2, threadNames.size());
+    }
+  }
+
+  @Test
+  public void testInvalidMaxThreads() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(0));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage().contains("maxThreads"));
+
+    // -1 is the only negative value accepted
+    e = assertThrows(IllegalArgumentException.class,
+        () -> new FileConnector(config.withValue("maxThreads", ConfigValueFactory.fromAnyRef(-2))));
+    assertTrue(e.getMessage().contains("maxThreads"));
+  }
+
   // Verifies that a failed traversal does not stop the others, and that the resulting exception names the failed path.
   @Test
   public void testConcurrentTraversalContinuesAfterFailure() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
@@ -1052,7 +1127,7 @@ public class FileConnectorTest {
   @Test
   public void testConcurrentTraversalMultipleFailures() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/multiplePathsLocal.conf")
-        .withValue("concurrent", ConfigValueFactory.fromAnyRef(true));
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
@@ -1110,5 +1185,88 @@ public class FileConnectorTest {
 
   private static Set<String> documentIds(List<Document> documents) {
     return documents.stream().map(Document::getId).collect(Collectors.toSet());
+  }
+
+  private Config maxSizeBytesConfig(File inputDir, Map<String, Object> fileOptions) {
+    return ConfigFactory.parseMap(Map.of(
+        "name", "file-connector-1",
+        "pipeline", "pipeline1",
+        "paths", List.of(inputDir.getAbsolutePath() + "/"),
+        "fileOptions", fileOptions));
+  }
+
+  private List<Document> runConnector(Config config) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    connector = new FileConnector(config);
+    connector.execute(publisher);
+    return messenger.getDocsSentForProcessing();
+  }
+
+  @Test
+  public void testMaxSizeBytes() throws Exception {
+    File inputDir = tempFolder.newFolder("input");
+    File errorDir = new File(tempFolder.getRoot(), "error");
+    Files.write(inputDir.toPath().resolve("small.txt"), new byte[10]);
+    Files.write(inputDir.toPath().resolve("big.txt"), new byte[1000]);
+
+    List<Document> docs = runConnector(maxSizeBytesConfig(inputDir,
+        Map.of("maxSizeBytes", 100, "moveToErrorFolder", errorDir.getAbsolutePath())));
+
+    // only the small file is published, and the big one is handled as a processing error
+    assertEquals(1, docs.size());
+    assertTrue(docs.get(0).getString(FILE_PATH).endsWith("small.txt"));
+    assertEquals(10, docs.get(0).getBytes(FileConnector.CONTENT).length);
+    assertTrue(new File(errorDir, "big.txt").exists());
+  }
+
+  @Test
+  public void testMaxSizeBytesArchiveEntries() throws Exception {
+    File inputDir = tempFolder.newFolder("input");
+    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(inputDir.toPath().resolve("files.zip")))) {
+      zip.putNextEntry(new ZipEntry("small.txt"));
+      zip.write(new byte[10]);
+      zip.putNextEntry(new ZipEntry("big.txt"));
+      zip.write(new byte[1000]);
+      zip.putNextEntry(new ZipEntry("small2.txt"));
+      zip.write(new byte[20]);
+    }
+
+    List<Document> docs = runConnector(maxSizeBytesConfig(inputDir,
+        Map.of("maxSizeBytes", 100, "handleArchivedFiles", true)));
+
+    // the oversized entry is skipped, and the entries after it are still published
+    Set<String> paths = docs.stream().map(doc -> doc.getString(FILE_PATH)).collect(Collectors.toSet());
+    assertEquals(2, paths.size());
+    assertTrue(paths.stream().anyMatch(path -> path.endsWith("!small.txt")));
+    assertTrue(paths.stream().anyMatch(path -> path.endsWith("!small2.txt")));
+  }
+
+  @Test
+  public void testMaxSizeBytesCompressedFile() throws Exception {
+    File inputDir = tempFolder.newFolder("input");
+    try (GZIPOutputStream gzip = new GZIPOutputStream(Files.newOutputStream(inputDir.toPath().resolve("big.txt.gz")))) {
+      // compresses to far fewer than 100 bytes, so only the decompressed size can trip the limit
+      gzip.write(new byte[1000]);
+    }
+
+    List<Document> docs = runConnector(maxSizeBytesConfig(inputDir,
+        Map.of("maxSizeBytes", 100, "handleCompressedFiles", true)));
+    assertEquals(0, docs.size());
+
+    connector.close();
+    docs = runConnector(maxSizeBytesConfig(inputDir,
+        Map.of("maxSizeBytes", 1000, "handleCompressedFiles", true)));
+    assertEquals(1, docs.size());
+    assertEquals(1000, docs.get(0).getBytes(FileConnector.CONTENT).length);
+  }
+
+  @Test
+  public void testInvalidMaxSizeBytes() {
+    Config zeroConfig = ConfigFactory.parseMap(Map.of("fileOptions", Map.of("maxSizeBytes", 0)));
+    assertThrows(IllegalArgumentException.class, () -> new TraversalParams(zeroConfig, URI.create("file:///tmp/"), ""));
+
+    Config tooLargeConfig = ConfigFactory.parseMap(Map.of("fileOptions", Map.of("maxSizeBytes", (long) Integer.MAX_VALUE)));
+    assertThrows(IllegalArgumentException.class, () -> new TraversalParams(tooLargeConfig, URI.create("file:///tmp/"), ""));
   }
 }

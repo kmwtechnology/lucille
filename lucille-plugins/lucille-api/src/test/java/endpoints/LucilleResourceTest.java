@@ -3,6 +3,7 @@ package endpoints;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeNotNull;
 
 import com.kmwllc.lucille.objects.RunRequest;
 import jakarta.ws.rs.core.Response;
@@ -10,6 +11,8 @@ import jakarta.ws.rs.core.Response.Status;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.kmwllc.lucille.core.CreateConfigResult;
+import java.io.File;
+import java.net.URL;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.Before;
@@ -60,6 +63,44 @@ public class LucilleResourceTest {
     CreateConfigResult result = (CreateConfigResult) response.getEntity();
 
     assertNotNull(result.getConfigId());
+  }
+
+  @Test
+  public void testCreateConfig_EnvVarSubstitutionRejected() {
+    // use an env var that's actually set
+    String envVar = System.getenv().keySet().stream()
+        .filter(name -> name.matches("[A-Za-z_][A-Za-z0-9_]*"))
+        .findFirst()
+        .orElse(null);
+    assumeNotNull(envVar);
+
+    String configBody = "pipeline = ${" + envVar + "}";
+    Response response = lucilleResource.createConfig(configBody);
+    assertEquals(Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+
+    // a rejected config isn't stored, so listing configs succeeds
+    Response allConfigsResponse = lucilleResource.getAllConfigs();
+    assertEquals(Status.OK.getStatusCode(), allConfigsResponse.getStatus());
+  }
+
+  @Test
+  public void testCreateConfig_IncludesRejected() throws Exception {
+    // includes of missing files are ignored, so point at a real one
+    URL included = getClass().getClassLoader().getResource("test_presets/config2.conf");
+    String[] configBodies = {
+        "include file(\"" + new File(included.toURI()).getPath() + "\")",
+        "include url(\"" + included + "\")",
+        "include classpath(\"test_presets/config2.conf\")",
+        "include \"test_presets/config2.conf\""
+    };
+
+    String validBody = "\npipeline = \"testPipeline\"";
+    assertEquals(Status.OK.getStatusCode(), lucilleResource.createConfig(validBody).getStatus());
+
+    for (String configBody : configBodies) {
+      Response response = lucilleResource.createConfig(configBody + validBody);
+      assertEquals(configBody, Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+    }
   }
 
   @Test

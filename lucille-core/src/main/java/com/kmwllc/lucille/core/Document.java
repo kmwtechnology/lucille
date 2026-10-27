@@ -47,6 +47,52 @@ import org.slf4j.LoggerFactory;
  * here ({@link #create(String)}, {@link #createFromJson(String)}, etc.) rather than naming an implementation, so
  * that an alternate implementation could be substituted. A new implementation should extend the shared contract
  * tests in DocumentTest (and NodeDocumentTest, if it is JSON-node-backed) in lucille-core's test sources.
+ *
+ * <p><b>Sharing and copying.</b> Methods that copy a Document, or move values between Documents, produce independent
+ * results with one deliberate exception, byte[] values. Large file contents are commonly held in byte[] fields, and
+ * copying them on every deepCopy() or getChildren() would add cost to the filtering and Kafka paths for a hazard that
+ * rarely arises, so byte[] values are held by reference:
+ * <ul>
+ *   <li>setField, addToField and setOrAdd with a byte[] store the array itself, not a copy.</li>
+ *   <li>getBytes and getBytesList return the stored arrays themselves, not copies.</li>
+ *   <li>deepCopy() and getChildren() return Documents that share their byte[] values with the original.</li>
+ *   <li>setOrAdd(name, Document) and setOrAddAll share the other Document's byte[] values.</li>
+ * </ul>
+ * The consequence is that changing the <i>contents</i> of an array in place, whether the caller still holds the array it
+ * set or got one back from a getter, changes every Document that shares it. Setting the field to a new array is always
+ * safe. A caller that intends to modify an array in place should clone it first. None of the stages in this
+ * repository that read a byte[] field modify it in place.
+ *
+ * <p>The related cases for other values:
+ * <ul>
+ *   <li>getJson and getJsonList return the Document's own JsonNodes, and setField, addToField and setOrAdd with a
+ *   JsonNode store the given node without copying it. Modifying such a node modifies the Document, and a node set on a
+ *   Document must not be modified by the caller afterwards.</li>
+ *   <li>addChild stores the given child's data without copying it, so the child must not be modified afterwards.
+ *   getChildren, by contrast, returns copies.</li>
+ *   <li>setOrAdd(name, Document) and setOrAddAll copy objects and arrays from the other Document, so changes to those
+ *   in either Document do not show up in the other.</li>
+ *   <li>asMap() builds a new Map with new Lists and byte[] values; modifying it never modifies the Document.</li>
+ * </ul>
+ *
+ * <p><b>Invalid ids.</b> Every Document has a non-empty String id. Which exception reports an invalid one depends on
+ * where the id came from, not on what is wrong with it:
+ * <ul>
+ *   <li>An id read from <i>data</i>, meaning JSON text, an ObjectNode or a Kafka record, is checked: a missing, null,
+ *   empty or non-string id is a DocumentException, as is JSON that is not an object, or an id updater that returns a
+ *   null or empty id. A bad record is an expected possibility with external data, so callers can catch this to skip the
+ *   record and continue. Malformed JSON text is a JsonProcessingException, and a Kafka deserializer wraps either in the
+ *   SerializationException that Kafka requires, with the original as its cause.</li>
+ *   <li>An id passed as a Java <i>argument</i>, as in create(String), is reported with an unchecked
+ *   IllegalArgumentException, as an invalid field name is. These factories assume a valid id. Code that obtains ids
+ *   from external data is responsible for validating them first and deciding whether to skip the record or fail; it
+ *   should not rely on the exception. (An empty String id is not currently rejected here, although the ObjectNode and
+ *   JSON paths do reject it.)</li>
+ *   <li>Changing the id of an existing Document is never allowed. Every mutator, including the nested JSON and rename
+ *   methods and the update methods, throws IllegalArgumentException for a reserved field name.</li>
+ * </ul>
+ * In short, a DocumentException means that data being read contained a bad id, and an IllegalArgumentException means
+ * that Java code supplied an unacceptable value.
  */
 public interface Document {
 
@@ -85,8 +131,16 @@ public interface Document {
 
   Instant getInstant(String name);
 
+  /**
+   * Returns the value of the designated field as a byte[]. The array returned is the one stored in the Document, not a
+   * copy; see the class description before modifying its contents.
+   */
   byte[] getBytes(String name);
 
+  /**
+   * Returns the value of the designated field as a JsonNode. The node returned is the Document's own, not a copy, so
+   * modifying it modifies the Document.
+   */
   JsonNode getJson(String name);
 
   Date getDate(String name);
@@ -115,8 +169,16 @@ public interface Document {
 
   List<Instant> getInstantList(String name);
 
+  /**
+   * Returns the values of the designated field as byte arrays. The arrays are the ones stored in the Document, not
+   * copies; see the class description before modifying their contents.
+   */
   List<byte[]> getBytesList(String name);
 
+  /**
+   * Returns the values of the designated field as JsonNodes. The nodes are the Document's own, not copies, so modifying
+   * them modifies the Document.
+   */
   List<JsonNode> getJsonList(String name);
 
   List<Date> getDateList(String name);
@@ -155,22 +217,34 @@ public interface Document {
    */
   void setField(String name, Instant value);
 
+  /**
+   * Sets the designated field to the given array. The array itself is stored, not a copy, so the caller must not modify
+   * its contents afterwards; see the class description.
+   */
   void setField(String name, byte[] value);
 
+  /**
+   * Sets the designated field to the given node. The node itself is stored, not a copy, so the caller must not modify
+   * it afterwards.
+   */
   void setField(String name, JsonNode value);
 
   /**
    * Sets the designated field to the given value, overwriting any value
    * that existed previously, and making the field single-valued.
    * The provided Object value must be one of:
-   * String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, or Date.
+   * String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp, or Date, or null, which
+   * stores a JSON null (as every typed setter does for a null argument).
    *
    * @param name the name of the field you want to set.
    * @param value the value you want to set the field to have.
    * @throws IllegalArgumentException if value is not of a supported type
    **/
   default void setField(String name, Object value) {
-    if (value instanceof String) {
+    if (value == null) {
+      // stored as a JSON null, as the typed overloads do for a null argument
+      setField(name, (String) value);
+    } else if (value instanceof String) {
       setField(name, (String) value);
     } else if (value instanceof Long) {
       setField(name, (Long) value);
@@ -239,7 +313,10 @@ public interface Document {
    * @throws IllegalArgumentException if value is not of a supported type
    **/
   default void addToField(String name, Object value) {
-    if (value instanceof String) {
+    if (value == null) {
+      // stored as a JSON null, as the typed overloads do for a null argument
+      addToField(name, (String) value);
+    } else if (value instanceof String) {
       addToField(name, (String) value);
     } else if (value instanceof Long) {
       addToField(name, (Long) value);
@@ -315,7 +392,10 @@ public interface Document {
    * @throws IllegalArgumentException if the value is not a supported type.
    */
   default void setOrAdd(String name, Object value) {
-    if (value instanceof String) {
+    if (value == null) {
+      // stored as a JSON null, as the typed overloads do for a null argument
+      setOrAdd(name, (String) value);
+    } else if (value instanceof String) {
       setOrAdd(name, (String) value);
     } else if (value instanceof Long) {
       setOrAdd(name, (Long) value);
@@ -535,6 +615,12 @@ public interface Document {
 
   void setSkipped(boolean status);
 
+  /**
+   * Returns a copy of this Document that can be modified without affecting this Document, and vice versa, with one
+   * exception: byte[] values are shared between the copy and the original rather than copied (including each element
+   * of a multi-valued byte[] field, or a byte[] held in a nested JSON value). Fields can be set, added to, replaced and removed freely on either Document; the contents
+   * of a byte[] should not be modified in place. See the class description.
+   */
   Document deepCopy();
 
   /**
@@ -577,10 +663,27 @@ public interface Document {
 
   /* --- CHILD HANDLING UTILITIES --- */
 
+  /**
+   * Returns true if this document has at least one child. Cheap: implementations must answer this without copying or
+   * constructing the children, so callers may use it freely as a guard before {@link #getChildren()}.
+   */
   boolean hasChildren();
 
+  /**
+   * Returns this document's children as independent Documents: copies that neither affect nor are affected by later
+   * changes to this document. Callers may read, modify, or retain them freely, except that byte[] values are shared
+   * with the stored children (see the class description) and so should not be modified in place.
+   *
+   * <p>Because they are copies, modifying a returned child does not change this document's children. To change
+   * them, modify the returned copies, then call {@link #removeChildren()} and {@link #addChild(Document)} for each.
+   * Returns an empty list when there are none.
+   */
   List<Document> getChildren();
 
+  /**
+   * Adds the given document as a child. The implementation may store the child's own data rather than a copy, so the
+   * given document must not be modified after it is added.
+   */
   void addChild(Document document);
 
   void removeChildren();
@@ -591,22 +694,50 @@ public interface Document {
   // These factories are the designated way to construct a Document outside this package. They are the single
   // place that names the implementation, so swapping it would not require touching callers.
 
+  /**
+   * Creates a Document backed by the given node, which is not copied.
+   *
+   * @throws DocumentException if the node's id is missing, null, empty, or not a string (see "Invalid ids" above)
+   */
   static Document create(ObjectNode node) throws DocumentException {
     return new JsonDocument(node);
   }
 
+  /**
+   * Creates a Document with the given id.
+   *
+   * @throws IllegalArgumentException if the id is null (see "Invalid ids" above)
+   */
   static Document create(String id) {
     return new JsonDocument(id);
   }
 
+  /**
+   * Creates a Document with the given id and run id.
+   *
+   * @throws IllegalArgumentException if the id is null (see "Invalid ids" above)
+   */
   static Document create(String id, String runId) {
     return new JsonDocument(id, runId);
   }
 
+  /**
+   * Creates a Document from JSON text.
+   *
+   * @throws JsonProcessingException if the text is not well-formed JSON
+   * @throws DocumentException if the JSON is not an object or its id is invalid (see "Invalid ids" above)
+   */
   static Document createFromJson(String json) throws DocumentException, JsonProcessingException {
     return createFromJson(json, null);
   }
 
+  /**
+   * Creates a Document from JSON text, replacing its id with the result of the updater when one is given.
+   *
+   * @throws JsonProcessingException if the text is not well-formed JSON
+   * @throws DocumentException if the JSON is not an object, its id is invalid, or the updater returns a null or empty
+   * id (see "Invalid ids" above)
+   */
   static Document createFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {
     return JsonDocument.fromJsonString(json, idUpdater);
   }
