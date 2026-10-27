@@ -6,12 +6,10 @@ import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
 
 import java.util.Map;
 import java.util.Set;
@@ -37,26 +35,21 @@ public class WorkerIndexer {
   private Thread indexerThread;
   private WorkerThread workerThread;
 
+  /**
+   * Starts paired Worker and Indexer threads for the pipeline named by the first argument (or by
+   * <code>worker.pipeline</code>). The process runs until it is told to stop (SIGINT or SIGTERM); if a thread stops on
+   * its own, the rest are stopped and the process exits 1. The body of this entry point is
+   * {@link Launch#workerIndexer}.
+   */
   public static void main(String[] args) throws Exception {
-    Config config = ConfigFactory.load();
-    String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    WorkerIndexerPool pool = new WorkerIndexerPool(config, pipelineName, false, null);
-    pool.start();
+    Launch.workerIndexer(args);
+  }
 
-    Signal.handle(new Signal("INT"), signal -> {
-      log.info("Workers shutting down");
-      try {
-        // stopping the WorkerIndexer should close the kafka client connection
-        // via workerThread.terminate() -> worker.terminate() which causes
-        // the worker's run method to break out of its while loop and
-        // eventually call messenger.close()
-        pool.stop();
-      } catch (Exception e) {
-        log.error("Error stopping WorkerIndexer", e);
-        System.exit(1);
-      }
-      System.exit(0);
-    });
+  /**
+   * @return Whether both the worker thread and the indexer thread are still running.
+   */
+  public boolean isAlive() {
+    return workerThread != null && workerThread.isAlive() && indexerThread != null && indexerThread.isAlive();
   }
 
 

@@ -253,7 +253,8 @@ public class RunnerManagerTest {
       Config noopConfig = ConfigFactory.load("RunnerManagerTest/noop.conf");
       String noopId = runnerManager.createConfig(noopConfig).getConfigId();
 
-      Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
+      // a config that is valid but whose run fails; an invalid config can no longer be created
+      Config badConfig = ConfigFactory.load("RunnerManagerTest/failing.conf");
       String badId = runnerManager.createConfig(badConfig).getConfigId();
 
       // these three are run serially, so we know the order in which
@@ -290,12 +291,12 @@ public class RunnerManagerTest {
   @Test
   public void testDeleteConfig() throws Exception {
     RunnerManager runnerManager = RunnerManager.getInstance();
-    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config");
+    runnerManager.createConfigWithKey(ConfigFactory.load("RunnerManagerTest/noop.conf"), "test-config");
 
     assertTrue(runnerManager.deleteConfig("test-config"));
     assertFalse(runnerManager.deleteConfig("test-config"));
 
-    runnerManager.createConfigWithKey(ConfigFactory.empty(), "test-config-2");
+    runnerManager.createConfigWithKey(ConfigFactory.load("RunnerManagerTest/noop.conf"), "test-config-2");
     assertFalse(runnerManager.deleteConfig("test-config"));
     assertTrue(runnerManager.deleteConfig("test-config-2"));
   }
@@ -306,14 +307,14 @@ public class RunnerManagerTest {
       RunnerManager.limitHistoriesForTesting(3);
       RunnerManager runnerManager = RunnerManager.getInstance();
 
-      String id1 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
-      String id2 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
-      String id3 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+      String id1 = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
+      String id2 = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
+      String id3 = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
 
       assertEquals(3, runnerManager.getConfigKeys().size());
 
       // we should be prevented from making a config bringing us beyond the limit
-      assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(ConfigFactory.empty()).getConfigId());
+      assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId());
 
       assertEquals(3, runnerManager.getConfigKeys().size());
 
@@ -323,7 +324,7 @@ public class RunnerManagerTest {
 
       // we shoudl be able to delete a config and then add another.
       runnerManager.deleteConfig(id1);
-      String id4 = runnerManager.createConfig(ConfigFactory.empty()).getConfigId();
+      String id4 = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
 
       assertFalse(runnerManager.getConfigKeys().contains(id1));
       assertTrue(runnerManager.getConfigKeys().contains(id2));
@@ -413,4 +414,18 @@ public class RunnerManagerTest {
 
     assertEquals(16, run3Reader.getLinesRead());
   }
+
+  @Test
+  public void testCreateConfigRejectsAnInvalidConfig() throws Exception {
+    // RUN-06: validation happens once, when the config is created, and an invalid config is refused rather than stored
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    Config badConfig = ConfigFactory.load("RunnerManagerTest/invalid.conf");
+    RunnerManagerException e = assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(badConfig));
+    assertTrue(e.getMessage().contains("invalid"), e.getMessage());
+
+    Config undefinedPipeline = ConfigFactory.load("RunnerTest/pipelineNotFound.conf");
+    e = assertThrows(RunnerManagerException.class, () -> runnerManager.createConfig(undefinedPipeline));
+    assertTrue(e.getMessage().contains("pipeline5"), e.getMessage());
+  }
+
 }

@@ -13,6 +13,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.errors.RecordDeserializationException;
+import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,19 +86,33 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public void sendForIndexing(Document document) throws Exception {
-    RecordMetadata result = kafkaDocumentProducer.send(
-        new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
+  public void sendForIndexing(Document document) throws MessengerException {
+    try {
+      kafkaDocumentProducer.send(
+          new ProducerRecord<>(KafkaUtils.getDestTopicName(pipelineName), document.getId(), document)).get();
+    } catch (ExecutionException e) {
+      throw KafkaUtils.toMessengerException("Sending document " + document.getId() + " for indexing", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending document " + document.getId() + " for indexing was interrupted", e);
+    }
   }
 
-  public void sendFailed(Document document) throws Exception {
+  public void sendFailed(Document document) throws MessengerException {
     ProducerRecord<String, Document> producerRecord =
         new ProducerRecord<>(KafkaUtils.getFailTopicName(pipelineName), document.getId(), document);
-    RecordMetadata metadata = kafkaDocumentProducer.send(producerRecord).get();
+    try {
+      kafkaDocumentProducer.send(producerRecord).get();
+    } catch (ExecutionException e) {
+      throw KafkaUtils.toMessengerException("Sending document " + document.getId() + " to the fail topic", e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending document " + document.getId() + " to the fail topic was interrupted", e);
+    }
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
@@ -110,13 +125,20 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = kafkaEventProducer.send(
-        new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    try {
+      kafkaEventProducer.send(
+          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    } catch (ExecutionException e) {
+      throw KafkaUtils.toMessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId(), e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId() + " was interrupted", e);
+    }
   }
 
   @Override
