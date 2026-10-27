@@ -196,9 +196,4 @@ public class WeaviateIndexer extends Indexer {
   public void closeConnection() {
     // WeaviateClient as of 4.3.0 does not appear to be closeable
   }
-
-  // a quick way to test the WeaviateIndexer with an example configuration
-  // if running in Intellij, set up the Intellij Run/Debug Configuration so:
-  // 1) "-cp" is set to lucille-weaviate
-  // 2) under "Modify Options" you have selected "add dependencies with 'provided' scope to classpath"
 }
