@@ -89,7 +89,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   public WeaviateIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
-    this(config, messenger, getClient(config, bypass), metricsPrefix, null);
+    this(config, messenger, bypass, metricsPrefix, null);
   }
 
   @Override
@@ -132,6 +132,10 @@ public class WeaviateIndexer extends Indexer {
 
   @Override
   protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+    if (bypass) {
+      // no client in bypass mode
+      return Set.of();
+    }
     Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     try (ObjectsBatcher batcher = client.batch().objectsBatcher()) {
