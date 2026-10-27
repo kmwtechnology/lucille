@@ -226,6 +226,45 @@ kafka.events = false
 
 When disabled, `createEventProducer()` returns null and all `sendEvent()` calls become no-ops. This is useful for Workers/Indexers that run independently without a Publisher waiting for completion.
 
+### Enriching Events with Document Fields
+
+By default an event identifies its document only by id (plus the run id, message, and Kafka source coordinates). A consumer of the event topic can optionally be given more context by copying selected fields from the source document onto each event. For example, copying a deletion marker field lets a `FINISH` event be read as "deleted from the search backend" rather than "indexed".
+
+```hocon
+kafka {
+  event {
+    includeFields: ["source", "filename", "deleted"]
+    maxValuesPerField: 10     # optional
+    maxValueLength: 1024      # optional
+  }
+}
+```
+
+The named fields appear in a nested `documentFields` object, with the same JSON shape they have in the document (single value vs. array, and value type). Fields that are absent from the document are omitted, and if none of the requested fields are present the event has no `documentFields` at all:
+
+```json
+{
+  "type": "FINISH",
+  "documentId": "doc-123",
+  "runId": "c1d9413a-8191-4f4a-92bb-0fc42b5499e3",
+  "message": "indexed",
+  "documentFields": {
+    "source": "s3://bucket/key",
+    "deleted": true
+  }
+}
+```
+
+Only small, flat data is copied:
+
+- **Copied:** strings, numbers, booleans, and arrays of those. An array of JSON strings is copied as an array of strings; the embedded JSON is never parsed.
+- **Skipped:** null values, objects, nested arrays, arrays containing objects or nested arrays, and any string longer than `maxValueLength` (default 1024 characters). A skipped field is dropped entirely, never truncated, so a consumer never sees a partial value (for example, a cut-off JSON string). Lucille logs a warning the first time each field is skipped, and stays quiet after that.
+- **Capped:** an array with more than `maxValuesPerField` values is cut to its first `maxValuesPerField` values. Without this setting arrays are copied in full.
+
+These limits exist because the event topic is how the Publisher does run accounting. Event metadata is optional, and it must never be able to cause a Kafka failure that compromises that accounting. A very large or deeply nested value could exceed the producer's maximum request size and make an event send fail, so enrichment is restricted to bounded, flat data. The limits apply per value, not to the event as a whole: listing many large fields in `includeFields` can still produce a large event, so keep the list short and the values small.
+
+Enrichment applies to events sent by Kafka-backed Workers and Indexers (including the hybrid messengers). Local mode does not send events to Kafka, so these settings have no effect there. Settings are read when the Worker or Indexer starts; changing them requires a restart. `maxValuesPerField` and `maxValueLength` must be at least 1, and unknown keys inside `kafka.event` are rejected when the config is validated.
+
 ### Event Topic Naming in Streaming Mode
 
 In streaming mode (no Runner, no Publisher), documents arrive from an external system without a `run_id` field. Since the default event topic name is `{pipeline}_event_{runId}`, a null run_id produces a topic named `{pipeline}_event_null`. This is functional but awkward.
@@ -281,6 +320,9 @@ All Kafka settings live under the `kafka` config prefix:
 | `kafka.sourceTopic` | Override source topic name | No |
 | `kafka.eventTopic` | Override event topic name | No |
 | `kafka.events` | Enable/disable event production | No (default: true) |
+| `kafka.event.includeFields` | Source-document fields to copy onto events as `documentFields` (see [Enriching Events with Document Fields](#enriching-events-with-document-fields)) | No (default: none) |
+| `kafka.event.maxValuesPerField` | Max number of values copied from a multi-valued field (at least 1) | No (default: no cap) |
+| `kafka.event.maxValueLength` | Max length in characters of any copied string value (at least 1); fields with longer values are skipped | No (default: 1024) |
 | `kafka.documentSerializer` | Custom serializer class | No |
 | `kafka.documentDeserializer` | Custom deserializer class | No |
 | `kafka.consumerPropertyFile` | Path to external consumer properties | No |
