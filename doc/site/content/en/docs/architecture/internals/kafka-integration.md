@@ -303,9 +303,10 @@ kafka.producer {
 }
 ```
 
-In earlier Lucille versions, a quoted key reached the client with its quotes and was silently ignored. Such keys now take
-effect, and they override Lucille's own client defaults (for example, a quoted `"enable.auto.commit"` under
-`kafka.consumer`), so review any quoted keys in existing configs when upgrading.
+Properties declared here, quoted or not, override the defaults Lucille sets on the client, such as `enable.auto.commit`
+and `auto.offset.reset` for consumers. A few values are set by Lucille after these properties are applied and cannot be
+overridden: the value serializer and deserializer, `enable.idempotence` on producers, and `enable.auto.commit` on the
+consumer that reads the event topic.
 
 Setting one property both ways with different values is an error. A key the Kafka client does not define is logged at
 `WARN` once and still passed through, since serializers, interceptors, and other plugins may read their own keys.
