@@ -243,7 +243,8 @@ public final class Launch {
     Runtime.getRuntime().addShutdownHook(new Thread(Launch::runShutdownActions, "lucille-shutdown"));
   }
 
-  private static void runShutdownActions() {
+  // package-private so that tests can run the hook's actions without stopping the JVM
+  static void runShutdownActions() {
     shuttingDown = true;
     List<Runnable> actions;
     synchronized (Launch.class) {
@@ -270,6 +271,15 @@ public final class Launch {
 
   static boolean isShuttingDown() {
     return shuttingDown;
+  }
+
+  /**
+   * Forgets the registered shutdown actions and clears the shutting-down flag. For tests only: the actions and the
+   * flag are static, so a test that runs them would otherwise affect every later test in the same JVM.
+   */
+  static synchronized void resetShutdownState() {
+    shutdownActions.clear();
+    shuttingDown = false;
   }
 
   /** Lower-cases a command line option name, leaving the value of any future option that takes one alone. */
