@@ -493,6 +493,11 @@ public class Runner {
    * As {@link #runAndLogResult(Config, RunType, String, boolean)}, with <code>validate</code> controlling whether the
    * config is validated before the run. Pass false only for a config that has already been validated, as the
    * RunnerManager does for configs validated when they were created.
+   *
+   * <p><code>runId</code> is in the MDC throughout this call: run() adds it for the run itself and removes it when the
+   * run ends, and this method adds it again for the run summary, metrics and duration it logs afterwards. It is
+   * removed from the MDC on return, so a caller on a long-lived thread, such as the API server's, never sees a run's
+   * id on later work; a caller that wants a run id on its own logging afterwards adds it again.
    */
   public static RunResult runAndLogResult(Config config, RunType runType, String runId, boolean logMetrics,
       boolean validate) throws Exception {
@@ -507,6 +512,8 @@ public class Runner {
     try {
       result = run(config, runType, runId, validate);
 
+      // run() removes the run id from the MDC before it returns; we add it again here for logging the metrics and summary
+      MDC.put(RUNID_FIELD, runId);
       if (logMetrics) {
         Slf4jReporter.forRegistry(SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG))
             .outputTo(log).withLoggingLevel(getMetricsLoggingLevel(config)).build().report();
@@ -516,12 +523,15 @@ public class Runner {
       log.info(result.toString());
       return result;
     } finally {
+      // whether the run returned or threw, make sure the run id is present in the MDC for the final log statement
+      MDC.put(RUNID_FIELD, runId);
       stopWatch.stop();
       log.info(String.format("Run took %.2f secs.",
           (double) stopWatch.getTime(TimeUnit.MILLISECONDS) / 1000));
 
       SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG)
           .removeMatching(MetricFilter.startsWith(runId));
+      MDC.remove(RUNID_FIELD);
     }
   }
 
@@ -542,6 +552,10 @@ public class Runner {
   /**
    * As {@link #run(Config, RunType, String)}, with <code>validate</code> controlling whether the config is validated
    * first. Pass false only for a config that has already been validated.
+   *
+   * <p>The run id (<code>runId</code>, or one generated here if it is null) is added to the MDC for the duration of
+   * this call and removed from the MDC on return. runAndLogResult adds the same id again around its own logging; a
+   * caller that wants a run id on its logging after run() returns does likewise.
    */
   public static RunResult run(Config config, RunType type, String runId, boolean validate) throws Exception {
     if (runId == null) {

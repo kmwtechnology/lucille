@@ -19,7 +19,11 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValueFactory;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
+import org.slf4j.MDC;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,6 +35,7 @@ import org.mockito.Mockito;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
@@ -1482,11 +1487,43 @@ public class RunnerTest {
   }
 
   @Test
+  public void testRunSummaryIsLoggedWithTheRunId() throws Exception {
+    // run() removes the run id from the MDC when it returns; runAndLogResult must add it again, or the summary and
+    // duration lines, the ones operators filter on, would be the only lines of the run without it
+    Map<String, String> runIdByMessage = new ConcurrentHashMap<>();
+    AbstractAppender appender = new AbstractAppender("RunIdCapture", null, null, true, Property.EMPTY_ARRAY) {
+          @Override
+          public void append(LogEvent event) {
+            String message = event.getMessage().getFormattedMessage();
+            if (message.contains("RUN SUMMARY") || message.startsWith("Run took")) {
+              // typed as Object: String.valueOf(getValue(...)) would infer char[] and fail with a ClassCastException
+              Object runId = event.getContextData().getValue(Document.RUNID_FIELD);
+              runIdByMessage.put(message.contains("RUN SUMMARY") ? "summary" : "duration", String.valueOf(runId));
+            }
+          }
+        };
+    appender.start();
+    Logger logger = (Logger) LogManager.getLogger(Runner.class);
+    logger.addAppender(appender);
+    try {
+      MDC.remove(Document.RUNID_FIELD);
+      Runner.runAndLogResult(ConfigFactory.load("RunnerTest/singleDocSendEnabledFalse.conf"), RunType.TEST, "run-mdc", false);
+    } finally {
+      logger.removeAppender(appender);
+      appender.stop();
+    }
+
+    assertEquals("run-mdc", runIdByMessage.get("summary"));
+    assertEquals("run-mdc", runIdByMessage.get("duration"));
+    assertNull(MDC.get(Document.RUNID_FIELD));
+  }
+
+  @Test
   public void testRunIdIsRemovedFromMdcAfterTheRun() throws Exception {
     // RUN-09: a pooled thread (such as the API server's) must not carry one run's id into the next run's logs
-    org.slf4j.MDC.remove(Document.RUNID_FIELD);
+    MDC.remove(Document.RUNID_FIELD);
     Runner.run(ConfigFactory.load("RunnerTest/singleDocSendEnabledFalse.conf"), RunType.TEST);
-    assertNull(org.slf4j.MDC.get(Document.RUNID_FIELD));
+    assertNull(MDC.get(Document.RUNID_FIELD));
   }
 
   @Test
