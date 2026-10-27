@@ -417,6 +417,39 @@ public class FileConnectorTest {
     assertTrue(e.getMessage().contains("state configuration"));
   }
 
+  @Test
+  public void testLastPublishedCutoffWithoutStateFailsFast() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
+        .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage().contains("lastPublishedCutoff"));
+    assertTrue(e.getMessage().contains("state configuration"));
+  }
+
+  @Test
+  public void testLastPublishedCutoffInFullModeFailsFast() {
+    // full mode never consults lastPublishedCutoff, so configuring both is rejected rather than silently ignored,
+    // whether full mode is explicit or the default
+    Config explicitFull = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"))
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("full"));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(explicitFull));
+    assertTrue(e.getMessage().contains("incremental"));
+
+    Config defaultFull = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(defaultFull));
+  }
+
+  @Test
+  public void testLastPublishedCutoffWithIncrementalAndState() throws Exception {
+    // the only combination in which the cutoff is applied, so construction succeeds
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/state.conf")
+        .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"))
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
+    new FileConnector(config);
+  }
+
   // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
 
   // Testing with an embedded H2 database that the connector creates on first use. Only the location is set

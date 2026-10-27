@@ -3,6 +3,7 @@ package com.kmwllc.lucille.message;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.FileContentFetcher;
@@ -48,16 +49,19 @@ import org.slf4j.LoggerFactory;
  */
 public class KafkaUtils {
 
-  public static Spec SPEC = SpecBuilder.withoutDefaults()
+  public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .requiredString("bootstrapServers", "consumerGroupId")
       .requiredNumber("maxPollIntervalSecs", "maxRequestSize")
-      .optionalString("documentSerializer", "documentDeserializer", "events", "consumerPropertyFile",
+      .optionalBoolean("events")
+      .optionalString("documentSerializer", "documentDeserializer", "consumerPropertyFile",
           "producerPropertyFile", "adminPropertyFile", "securityProtocol", "sourceTopic", "eventTopic",
           "onDeserializationError")
       .optionalNumber("metadataMaxAgeMs", "pollIntervalMs", "maxConsecutiveDeserializationErrors")
       .optionalParent("consumer", new TypeReference<Map<String, Object>>(){})
       .optionalParent("producer", new TypeReference<Map<String, Object>>(){})
-      .optionalParent("admin", new TypeReference<Map<String, Object>>(){}).build();
+      .optionalParent("admin", new TypeReference<Map<String, Object>>(){})
+      // controls optional enrichment of lifecycle events with source-document fields; see EventFieldConfig
+      .optionalParent(EventFieldConfig.SPEC).build();
 
   /** Default for <code>kafka.pollIntervalMs</code>: how long a consumer poll blocks waiting for records. */
   public static final int DEFAULT_POLL_INTERVAL_MS = 2000;

@@ -77,7 +77,7 @@ import org.slf4j.LoggerFactory;
  *  },
  *  {
  *    class: "com.kmwllc.lucille.stage.EmitNestedChildren"
- *    drop_parent : true # drop parent document if you do not want it to be indexed
+ *    dropParent : true # drop parent document if you do not want it to be indexed
  *  }
  *
  *  e.g. of sentence chunking configuration with 5 sentences per chunk and 1 sentence of overlap, with a limit of 2000 characters

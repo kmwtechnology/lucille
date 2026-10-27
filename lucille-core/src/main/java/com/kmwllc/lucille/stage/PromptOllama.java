@@ -92,7 +92,7 @@ public class PromptOllama extends Stage {
     this.modelName = config.getString("modelName");
     this.timeout = config.hasPath("timeout") ? config.getLong("timeout") : null;
 
-    this.systemPrompt = ConfigUtils.getOrDefault(config, "systemPrompt", null);
+    this.systemPrompt = ConfigUtils.getStringOrDefault(config, "systemPrompt", null);
     this.fields = ConfigUtils.getOrDefault(config, "fields", List.of());
     this.requireJSON = ConfigUtils.getOrDefault(config, "requireJSON", false);
 

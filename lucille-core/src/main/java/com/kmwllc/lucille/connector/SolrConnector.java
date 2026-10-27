@@ -81,8 +81,8 @@ public class SolrConnector extends AbstractConnector {
 
     // These parameters should only be set when a pipeline is also supplied
     Set<Map.Entry<String, ConfigValue>> paramSet =
-        config.hasPath("pipeline") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
-    this.idField = config.hasPath("pipeline") ? config.getString("idField") : Document.ID_FIELD;
+        config.hasPath("pipeline") && config.hasPath("solrParams") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
+    this.idField = ConfigUtils.getOrDefault(config, "idField", Document.ID_FIELD);
     this.replacedPreActions = new ArrayList<>();
     this.replacedPostActions = new ArrayList<>();
 

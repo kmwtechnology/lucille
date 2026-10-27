@@ -114,7 +114,7 @@ public class PublisherImpl implements Publisher {
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
 
     // zero or a negative value means there is no limit; a literal limit of zero would block the first publish forever
-    Integer maxPendingDocs = ConfigUtils.getOrDefault(config, "publisher.maxPendingDocs", null);
+    Integer maxPendingDocs = ConfigUtils.getIntOrDefault(config, "publisher.maxPendingDocs", null);
     if (maxPendingDocs != null && maxPendingDocs <= 0) {
       maxPendingDocs = null;
     }
