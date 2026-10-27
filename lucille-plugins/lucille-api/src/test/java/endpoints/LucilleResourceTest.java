@@ -117,7 +117,8 @@ public class LucilleResourceTest {
         "include \"test_presets/config2.conf\""
     };
 
-    String validBody = "\npipeline = \"testPipeline\"";
+    // the rest of the body must pass validation, so that a 400 below can only be due to the include
+    String validBody = "\n" + MINIMAL_HOCON;
     assertEquals(Status.OK.getStatusCode(), lucilleResource.createConfig(validBody).getStatus());
 
     for (String configBody : configBodies) {
