@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.connector.jdbc;
 
+import java.util.Map;
+
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -151,6 +153,39 @@ public class DatabaseConnectorTest {
     assertEquals("3", docsSentForProcessing.get(2).getId());
     assertEquals("Blaze", docsSentForProcessing.get(2).getStringList("name").get(0));
     assertEquals("Cat", docsSentForProcessing.get(2).getStringList("type").get(0));
+
+    connector.close();
+  }
+
+  @Test
+  public void testRowsWithNullOrBlankIdsAreSkipped() throws Exception {
+    // a row whose id is null or blank cannot be told apart from others like it, so it is skipped and the rest are published
+    try (Connection connection = DriverManager.getConnection(DBTestHelper.CONNECTION_STRING);
+        Statement statement = connection.createStatement()) {
+      statement.execute("create table blank_ids (id varchar(20), name varchar(20))");
+      statement.execute("insert into blank_ids values ('1', 'a'), (null, 'b'), ('  ', 'c'), ('', 'd'), ('5', 'e')");
+    }
+
+    HashMap<String, Object> configValues = new HashMap<>();
+    configValues.put("name", connectorName);
+    configValues.put("pipeline", pipelineName);
+    configValues.put("driver", "org.h2.Driver");
+    configValues.put("connectionString", DBTestHelper.CONNECTION_STRING);
+    configValues.put("jdbcUser", "");
+    configValues.put("jdbcPassword", "");
+    configValues.put("sql", "select id,name from blank_ids order by id");
+    configValues.put("idField", "id");
+    configValues.put("docIdPrefix", "p-");
+
+    DatabaseConnector connector = new DatabaseConnector(ConfigFactory.parseMap(configValues));
+    connector.execute(publisher);
+
+    Map<String, String> namesById = new HashMap<>();
+    for (Document doc : messenger.getDocsSentForProcessing()) {
+      namesById.put(doc.getId(), doc.getString("name"));
+    }
+    assertEquals(Map.of("p-1", "a", "p-5", "e"), namesById);
+    assertEquals(2, messenger.getDocsSentForProcessing().size());
 
     connector.close();
   }

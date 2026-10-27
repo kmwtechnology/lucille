@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.core.fileHandler;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -41,6 +44,34 @@ public class XMLFileHandlerTest {
     File file = new File(filePath);
 
     assertThrows(FileHandlerException.class, () -> xmlHandler.processFile(new FileInputStream(file), filePath));
+  }
+
+  private static List<Document> publishXml(Map<String, Object> xmlConfig, String xml) throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("xml", xmlConfig));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    xmlHandler.processFileAndPublish(publisher, new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "inline.xml");
+    return messenger.getDocsSentForProcessing();
+  }
+
+  @Test
+  public void testBlankIdIsTreatedAsEmpty() throws Exception {
+    String xml = "<Company><staff><id>1</id></staff><staff><id>   </id></staff><staff><id>3</id></staff></Company>";
+    Map<String, Object> base = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "outputField", "xml");
+
+    // with skipEmptyId, an element whose id is only whitespace is skipped, as one with an empty id is
+    Map<String, Object> skipping = new java.util.HashMap<>(base);
+    skipping.put("skipEmptyId", true);
+    List<Document> skipped = publishXml(skipping, xml);
+    assertEquals(List.of("1", "3"), skipped.stream().map(Document::getId).toList());
+
+    // without it, such an element gets a generated UUID instead of the whitespace as its id
+    List<Document> generated = publishXml(base, xml);
+    assertEquals(3, generated.size());
+    assertEquals("1", generated.get(0).getId());
+    assertEquals(UUID.randomUUID().toString().length(), generated.get(1).getId().length());
+    assertEquals("3", generated.get(2).getId());
   }
 
   @Test

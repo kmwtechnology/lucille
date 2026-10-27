@@ -127,8 +127,8 @@ public class ChunkingXMLHandler implements ContentHandler {
         id = docIdBuilder.toString();
       }
 
-      // always publish a Document we successfully got *some* ID String for.
-      if (id != null && !id.isEmpty()) {
+      // always publish a Document we successfully got *some* usable ID String for; a blank one counts as none
+      if (Document.isValidId(id)) {
         Document doc = Document.create(docIDPrefix + id);
         doc.setField(outputField, xml);
         internalPublishDocument(doc);

@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.core.DocumentException;
+import org.apache.kafka.common.errors.SerializationException;
+import static org.junit.Assert.assertTrue;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -415,6 +419,28 @@ public class KafkaConnectorTest {
     String jsonValue = "{\"id\":\"doc1\"}";
     Document doc = deserializer.deserialize("test-topic", jsonValue.getBytes());
     assertEquals("prefix_doc1", doc.getId());
+  }
+
+  @Test
+  public void testDeserializerTreatsNullIdAsMissing() throws Exception {
+    KafkaConnectorDefaultDeserializer deserializer = new KafkaConnectorDefaultDeserializer();
+    deserializer.configure(new HashMap<>(), false);
+
+    // a JSON null id is not turned into the text "null"; it is a missing id, which cannot be a Document
+    SerializationException e = assertThrows(SerializationException.class,
+        () -> deserializer.deserialize("test-topic", "{\"id\":null}".getBytes()));
+    assertTrue(e.getCause() instanceof DocumentException);
+  }
+
+  @Test
+  public void testDeserializerFallsBackFromNullIdField() throws Exception {
+    KafkaConnectorDefaultDeserializer deserializer = new KafkaConnectorDefaultDeserializer();
+    Map<String, Object> kafkaConfigs = new HashMap<>();
+    kafkaConfigs.put("idField", "myIdField");
+    deserializer.configure(kafkaConfigs, false);
+
+    Document doc = deserializer.deserialize("test-topic", "{\"id\":\"doc1\", \"myIdField\":null}".getBytes());
+    assertEquals("doc1", doc.getId());
   }
 
   @Test
