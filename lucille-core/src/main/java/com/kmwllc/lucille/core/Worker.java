@@ -99,7 +99,7 @@ class Worker implements Runnable {
 
   @Override
   public void run() {
-    // Again, the runID here will be null in a non-local mode.
+    // localRunId is null in distributed mode, where the run id is put in the MDC per document below instead
     MDC.put(RUNID_FIELD, localRunId);
 
     MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
@@ -115,12 +115,12 @@ class Worker implements Runnable {
         Document doc;
         try {
           pollInstant.set(Instant.now());
+
           // blocking poll with a timeout which we assume to be in the range of
           // several milliseconds to several seconds
-
           doc = messenger.pollDocToProcess();
 
-          // continuously update the MDC if we haven't been given a localRunID (in Kafka modes).
+          // in distributed mode each document may belong to a different run, so tag the logs with its run id
           if (localRunId == null && doc != null) {
             MDC.put(RUNID_FIELD, doc.getRunId());
           }
@@ -175,7 +175,9 @@ class Worker implements Runnable {
         rethrow = (Error) t;
       }
     } finally {
-      // Don't have a run id attached to the logs below if in a non-local mode.
+      // In local mode this worker belongs to one run, whose id was put in the MDC at the start, so the cleanup logs
+      // below keep it. In distributed mode the MDC holds the run id of the last document processed, set per document
+      // above; the cleanup belongs to no particular run, so remove it rather than attribute those logs to that run.
       if (localRunId == null) {
         MDC.remove(RUNID_FIELD);
       }
@@ -230,7 +232,7 @@ class Worker implements Runnable {
 
         Document result = results.next();
 
-        // if we're looking at a child document, send a CREATE events for it;
+        // if we're looking at a child document, send a CREATE event for it;
         // a document is a child if it has a different ID from the input document;
         // Note: we want to make sure that the Publisher is notified of any generated children
         // BEFORE the input/parent document is completed. This prevents a situation where the Runner
