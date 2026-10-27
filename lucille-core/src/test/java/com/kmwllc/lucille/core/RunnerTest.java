@@ -1,4 +1,6 @@
 package com.kmwllc.lucille.core;
+import static com.kmwllc.lucille.util.ThreadNameUtils.areLucilleThreadsRunning;
+import com.kmwllc.lucille.connector.CloseCountingConnector;
 
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
@@ -156,11 +158,16 @@ public class RunnerTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", connector.getPipelineName());
     Instant start = Instant.now();
-    boolean result = Runner.runConnector(config, "run1", connector, publisher).getStatus();
+    ConnectorResult result = Runner.runConnector(config, "run1", connector, publisher);
     Instant end = Instant.now();
 
-    assertFalse(result);
+    assertFalse(result.getStatus());
     assertTrue(ChronoUnit.SECONDS.between(start, end) < 10);
+
+    // RUN-10: the connector thread is interrupted and joined before its connector and publisher are closed, and a
+    // publisher that has been closed refuses further documents
+    assertFalse(areLucilleThreadsRunning());
+    assertThrows(IllegalStateException.class, () -> publisher.publish(Document.create("late")));
   }
 
   /**
@@ -955,7 +962,7 @@ public class RunnerTest {
     RunResult mockResult = mock(RunResult.class);
     when(mockResult.getStatus()).thenReturn(true);
 
-    try (MockedStatic<Runner.SystemHelper> mockedHelper = mockStatic(Runner.SystemHelper.class);
+    try (MockedStatic<Launch.SystemHelper> mockedHelper = mockStatic(Launch.SystemHelper.class);
         MockedStatic<Runner> mockedRunner = mockStatic(Runner.class, invocation -> {
           switch (invocation.getMethod().getName()) {
             case "runAndLogResult":
@@ -1134,8 +1141,8 @@ public class RunnerTest {
     }
 
     // when executing a run via main(), an instance of RunnerState should be created, populated, and cleared
-    // to test this, first we mock Runner.SystemHelper so that System.exit() calls inside Runner.main() do not interfere
-    try (MockedStatic<Runner.SystemHelper> mockedStatic = mockStatic(Runner.SystemHelper.class)) {
+    // to test this, first we mock Launch.SystemHelper so that System.exit() calls inside Runner.main() do not interfere
+    try (MockedStatic<Launch.SystemHelper> mockedStatic = mockStatic(Launch.SystemHelper.class)) {
       // now mock RunnerState's constructor so we can see how many instances are created and inspect them
       try (MockedConstruction<Runner.RunnerState> mockedConstruction = Mockito.mockConstruction(Runner.RunnerState.class)) {
         assertNull(System.getProperty("config.file")); // tests should not be run with config.file already set
@@ -1408,4 +1415,122 @@ public class RunnerTest {
     // numPublished could exceed the number of documents that actually reached the broker.
     assertEquals(2, publisher.numPublished());
   }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // run lifecycle (LC-987)
+
+  @Test
+  public void testConnectorErrorFailsRun() throws Exception {
+    // RUN-01: an Error from the connector, not only an Exception, must fail the run instead of being treated as a
+    // thread that finished normally
+    RunResult result = Runner.run(ConfigFactory.load("RunnerTest/connectorThrowsError.conf"), RunType.TEST);
+    assertFalse(result.getStatus());
+    assertTrue(result.getMessage(), result.getMessage().contains("Connector exception."));
+  }
+
+  @Test
+  public void testStageErrorFailsTheDocumentNotTheRun() throws Exception {
+    // RUN-02: an Error that is local to one document (a StackOverflowError here) fails that document, with a FAIL
+    // event so the publisher stops waiting for it, and the run completes
+    Instant start = Instant.now();
+    RunResult result = Runner.run(ConfigFactory.load("RunnerTest/stageThrowsStackOverflow.conf"), RunType.TEST);
+    assertTrue(ChronoUnit.SECONDS.between(start, Instant.now()) < 30);
+    assertTrue(result.getStatus());
+    TestMessenger messenger = result.getHistory().get("connector1");
+    assertEquals(0, messenger.getDocsSentForIndexing().size());
+    assertEquals(1, messenger.getSentEvents().stream().filter(e -> e.getType() == Event.Type.FAIL).count());
+  }
+
+  @Test
+  public void testWorkerDeathFailsRunPromptly() throws Exception {
+    // RUN-02 / RUN-04: a fatal error kills the worker; the pool notices and aborts the connector, so the run fails in
+    // seconds instead of waiting for the 24 hour connector timeout
+    Instant start = Instant.now();
+    RunResult result = Runner.run(ConfigFactory.load("RunnerTest/stageThrowsOutOfMemory.conf"), RunType.TEST);
+    assertTrue(ChronoUnit.SECONDS.between(start, Instant.now()) < 30);
+    assertFalse(result.getStatus());
+    assertTrue(result.getMessage(), result.getMessage().contains("Worker failed."));
+    assertFalse(areLucilleThreadsRunning());
+  }
+
+  @Test
+  public void testUndefinedPipelineFailsValidation() throws Exception {
+    // RUN-15: a connector whose pipeline is not defined is a validation error, not a late "Error starting workers"
+    Map<String, List<Exception>> errors = Runner.runInValidationMode("RunnerTest/pipelineNotFound.conf");
+    assertTrue(errors.containsKey("connector1"));
+    assertTrue(errors.get("connector1").get(0).getMessage().contains("pipeline5"));
+  }
+
+  @Test
+  public void testValidationClosesTheConnectorsItConstructs() throws Exception {
+    // RUN-06: validation constructs every connector; each one must be closed again or its clients leak on every run
+    CloseCountingConnector.reset();
+    Map<String, List<Exception>> errors = Runner.runInValidationMode("RunnerTest/closeCountingConnector.conf");
+    assertTrue(errors.isEmpty());
+    assertEquals(2, CloseCountingConnector.constructed.get());
+    assertEquals(2, CloseCountingConnector.closed.get());
+    CloseCountingConnector.reset();
+  }
+
+  @Test
+  public void testMaxPendingDocsZeroMeansUnlimited() throws Exception {
+    // RUN-07: a limit of zero used to block the first publish forever
+    Instant start = Instant.now();
+    RunResult result = Runner.run(ConfigFactory.load("RunnerTest/maxPendingDocsZero.conf"), RunType.TEST);
+    assertTrue(ChronoUnit.SECONDS.between(start, Instant.now()) < 30);
+    assertTrue(result.getStatus());
+  }
+
+  @Test
+  public void testRunIdIsRemovedFromMdcAfterTheRun() throws Exception {
+    // RUN-09: a pooled thread (such as the API server's) must not carry one run's id into the next run's logs
+    org.slf4j.MDC.remove(Document.RUNID_FIELD);
+    Runner.run(ConfigFactory.load("RunnerTest/singleDocSendEnabledFalse.conf"), RunType.TEST);
+    assertNull(org.slf4j.MDC.get(Document.RUNID_FIELD));
+  }
+
+  @Test
+  public void testRunnerMainLowerCasesOnlyOptionNames() throws Exception {
+    // RUN-20
+    assertEquals(RunType.DISTRIBUTED, runTypeForArgs("-DISTRIBUTED"));
+  }
+
+
+  @Test
+  public void testExitCodeFollowsRunResult() throws Exception {
+    // RUN-18 companion: a failed run exits 1, a successful one 0; a signal exit is left to the JVM's own status
+    assertEquals(0, exitCodeForResult(true));
+    assertEquals(1, exitCodeForResult(false));
+  }
+
+  private int exitCodeForResult(boolean status) throws Exception {
+    RunResult mockResult = mock(RunResult.class);
+    when(mockResult.getStatus()).thenReturn(status);
+    int[] exitCode = {-1};
+    try (MockedStatic<Launch.SystemHelper> helper = mockStatic(Launch.SystemHelper.class);
+        MockedStatic<Runner> mockedRunner = mockStatic(Runner.class, invocation -> {
+          switch (invocation.getMethod().getName()) {
+            case "runAndLogResult":
+              return mockResult;
+            case "runInValidationMode":
+              return Collections.emptyMap();
+            default:
+              return invocation.callRealMethod();
+          }
+        })) {
+      helper.when(() -> Launch.SystemHelper.exit(anyInt())).thenAnswer(invocation -> {
+        exitCode[0] = invocation.getArgument(0);
+        return null;
+      });
+      assertNull(System.getProperty("config.file"));
+      System.setProperty("config.file", "src/test/resources/RunnerTest/singleDocSendEnabledFalse.conf");
+      try {
+        Runner.main(new String[0]);
+      } finally {
+        System.clearProperty("config.file");
+      }
+    }
+    return exitCode[0];
+  }
+
 }

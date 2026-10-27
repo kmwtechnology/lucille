@@ -81,8 +81,8 @@ public class LucilleResource {
         runnerManager.createConfigWithKey(entry.getValue(), entry.getKey());
       }
     } catch (RunnerManagerException e) {
-      // if we breach the config limit just from presets, warn the user
-      throw new IllegalStateException("Config limit has been reached while loading presets.", e);
+      // a preset that is invalid, or more presets than the config limit, is a deployment error: fail startup
+      throw new IllegalStateException("Could not load preset configs: " + e.getMessage(), e);
     }
   }
 

@@ -72,6 +72,10 @@ public class PublisherImpl implements Publisher {
 
   private final Integer maxPendingDocs;
 
+  // set by close(); a connector that keeps publishing after the run has ended gets an exception instead of feeding
+  // documents into a system that no longer tracks them
+  private volatile boolean closed = false;
+
   // lock and condition used for blocking publishing when the number of pending docs exceeds the specified maxPendingDocs
   private final ReentrantLock lockForPendingDocs = new ReentrantLock();
   private final Condition pendingDocsBelowMaxCondition = lockForPendingDocs.newCondition();
@@ -109,8 +113,9 @@ public class PublisherImpl implements Publisher {
     this.isCollapsing = isCollapsing;
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
 
+    // zero or a negative value means there is no limit; a literal limit of zero would block the first publish forever
     Integer maxPendingDocs = ConfigUtils.getOrDefault(config, "publisher.maxPendingDocs", null);
-    if (maxPendingDocs != null && maxPendingDocs < 0) {
+    if (maxPendingDocs != null && maxPendingDocs <= 0) {
       maxPendingDocs = null;
     }
     this.maxPendingDocs = maxPendingDocs;
@@ -168,6 +173,7 @@ public class PublisherImpl implements Publisher {
    */
   @Override
   public void publish(Document document) throws Exception {
+    checkNotClosed();
 
     // check if we should wait until resume() is called
     if (resumeCondition != null) {
@@ -193,6 +199,8 @@ public class PublisherImpl implements Publisher {
         // retest the condition every 10 seconds to handle any possible edge cases where the notification is not received
         while (docIdsToTrack.size() >= maxPendingDocs) {
           pendingDocsBelowMaxCondition.await(10, TimeUnit.SECONDS);
+          // the run may have ended while we were waiting for room
+          checkNotClosed();
           // note that in a scenario where N threads are calling publish() and the number of pending docs reaches maxPendingDocs,
           // all N threads will block on docIdsToTracBelowMax.await();
           // when numPending eventually drops to maxPendingDocs-1 via handleEvent(), all N threads are signalled simultaneously;
@@ -303,11 +311,18 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public void close() throws Exception {
+    closed = true;
     if (timerContext.get() != null) {
       timerContext.get().stop();
       timerContext.remove();
     }
     messenger.close();
+  }
+
+  private void checkNotClosed() {
+    if (closed) {
+      throw new IllegalStateException("Publisher is closed; the run it belonged to has ended. (" + pipelineName + ")");
+    }
   }
 
   @Override
@@ -406,10 +421,11 @@ public class PublisherImpl implements Publisher {
         return new PublisherResult(false, "Connector timeout.");
       }
 
-      // stop waiting if the connector threw an exception
+      // stop waiting if the connector threw an exception, or another component aborted it (for example a worker died)
       if (thread.hasException()) {
-        log.error("Exiting run with " + numPending() + " pending documents; connector threw exception", thread.getException());
-        return new PublisherResult(false, "Connector exception.");
+        String message = thread.getFailureMessage() != null ? thread.getFailureMessage() : "Connector exception.";
+        log.error("Exiting run with " + numPending() + " pending documents; " + message, thread.getException());
+        return new PublisherResult(false, message);
       }
 
       // We are done if 1) the Connector thread has terminated and therefore no more Documents will be generated,

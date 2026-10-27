@@ -128,6 +128,18 @@ public class RunnerManager {
       throw new RunnerManagerException("RunnerManager has reached capacity of " + maxConfigs + " configs.");
     }
 
+    // validate once, here, rather than at the start of every run of this config: validation constructs every
+    // connector, stage and indexer, and an invalid config should be refused rather than stored
+    Map<String, List<Exception>> validationErrors;
+    try {
+      validationErrors = Runner.runInValidationMode(config);
+    } catch (Exception e) {
+      throw new RunnerManagerException("Config could not be validated: " + e.getMessage(), e);
+    }
+    if (!validationErrors.isEmpty()) {
+      throw new RunnerManagerException(Runner.stringifyValidation(validationErrors, "Config"));
+    }
+
     configMap.put(desiredKey, config);
   }
 
@@ -203,7 +215,8 @@ public class RunnerManager {
 
         log.debug(config.entrySet().toString());
 
-        runDetails.setRunResult(Runner.runAndLogResult(config, runDetails.getRunType(), runId, false));
+        // the config was validated when it was created
+        runDetails.setRunResult(Runner.runAndLogResult(config, runDetails.getRunType(), runId, false, false));
       } catch (Exception e) {
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);

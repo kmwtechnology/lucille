@@ -44,6 +44,22 @@ public class LucilleResourceTest {
   }
   """;
 
+  // the smallest config that passes validation: configs are validated when they are created, so a placeholder such as
+  // pipeline = "testPipeline" is now refused with a 400
+  private static final String MINIMAL_HOCON = """
+  connectors: [{class: "com.kmwllc.lucille.connector.SleepConnector", name: "sleep", pipeline: "pipeline1", duration: 1}]
+  pipelines: [{name: "pipeline1", stages: []}]
+  indexer: {type: "NoOpIndexer", class: "com.kmwllc.lucille.indexer.NopIndexer"}
+  """;
+
+  private static final String MINIMAL_JSON = """
+  {
+    "connectors": [{"class": "com.kmwllc.lucille.connector.SleepConnector", "name": "sleep", "pipeline": "pipeline1", "duration": 1}],
+    "pipelines": [{"name": "pipeline1", "stages": []}],
+    "indexer": {"type": "NoOpIndexer", "class": "com.kmwllc.lucille.indexer.NopIndexer"}
+  }
+  """;
+
   private RunnerManager runnerManager;
   private LucilleResource lucilleResource;
 
@@ -55,12 +71,19 @@ public class LucilleResourceTest {
 
   @Test
   public void testCreateRun_Success() {
-    String configBody = "connectors = [\"dummyConnector\"]";
-    Response response = lucilleResource.createConfig(configBody);
+    Response response = lucilleResource.createConfig(MINIMAL_HOCON);
     assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
     CreateConfigResult result = (CreateConfigResult) response.getEntity();
 
     assertNotNull(result.getConfigId());
+  }
+
+  @Test
+  public void testCreateConfig_InvalidConfigRejected() {
+    // RUN-06: the config is validated once, when it is created, and an invalid one is refused rather than stored
+    Response response = lucilleResource.createConfig("pipeline = \"testPipeline\"");
+    assertEquals(Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+    assertTrue(String.valueOf(response.getEntity()), String.valueOf(response.getEntity()).contains("connectors"));
   }
 
   @Test
@@ -84,7 +107,7 @@ public class LucilleResourceTest {
   @Test
   public void testStartRun_Success() {
     // Create a config first
-    String configBody = "pipeline = \"testPipeline\"";
+    String configBody = MINIMAL_HOCON;
     Response configResponse = lucilleResource.createConfig(configBody);
     String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
     // Start run
@@ -130,7 +153,7 @@ public class LucilleResourceTest {
   @Test
   public void testGetRunById_Success() {
     // Create and start a run
-    String configBody = "pipeline = \"testPipeline\"";
+    String configBody = MINIMAL_HOCON;
     Response configResponse = lucilleResource.createConfig(configBody);
     String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
     RunRequest runRequest = new RunRequest();
@@ -149,7 +172,7 @@ public class LucilleResourceTest {
   @Test
   public void testGetRunById_SuccessJsonConfig() {
     // Create and start a run
-    String configBody = "{\"pipeline\": \"testPipeline\"}";
+    String configBody = MINIMAL_JSON;
     Response configResponse = lucilleResource.createConfig(configBody);
     String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
     RunRequest runRequest = new RunRequest();
@@ -194,7 +217,7 @@ public class LucilleResourceTest {
 
   @Test
   public void testDeleteConfigs() {
-    String configBody = "pipeline = \"testPipeline\"";
+    String configBody = MINIMAL_HOCON;
     Response configResponse = lucilleResource.createConfig(configBody);
     String configId = ((CreateConfigResult) configResponse.getEntity()).getConfigId();
 

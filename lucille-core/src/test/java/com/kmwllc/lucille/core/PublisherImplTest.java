@@ -1,4 +1,5 @@
 package com.kmwllc.lucille.core;
+import static org.junit.Assert.assertFalse;
 
 import static java.time.Duration.ofMillis;
 import static org.junit.Assert.assertEquals;
@@ -659,6 +660,41 @@ public class PublisherImplTest {
     assertThrows(IllegalStateException.class, () -> publisher.pause()); // pause() called when already paused
     publisher.resume();
     assertThrows(IllegalStateException.class, () -> publisher.resume()); // resume() called when not paused
+  }
+
+
+  @Test
+  public void testMaxPendingDocsZeroMeansUnlimited() throws Exception {
+    // RUN-07: zero used to pass through and block the first publish forever
+    Config config = ConfigFactory.parseString("publisher {maxPendingDocs: 0}");
+    LocalMessenger messenger = new LocalMessenger(config);
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    assertEquals(null, publisher.getMaxPendingDocs());
+    publisher.publish(Document.create("doc1"));
+    assertEquals(1, publisher.numPublished());
+  }
+
+  @Test
+  public void testPublishAfterCloseThrows() throws Exception {
+    // RUN-10: a connector that outlives its run must not keep feeding documents into a closed publisher
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    publisher.publish(Document.create("doc1"));
+    publisher.close();
+    assertThrows(IllegalStateException.class, () -> publisher.publish(Document.create("doc2")));
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
+  }
+
+  @Test
+  public void testAbortedConnectorThreadFailsWaitForCompletionWithItsMessage() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    Connector connector = new com.kmwllc.lucille.connector.NoOpConnector(ConfigFactory.parseString("name: c"));
+    ConnectorThread thread = new ConnectorThread(connector, publisher, "run1", "Lucille-Test-Connector");
+    thread.abort("Worker failed.", new IllegalStateException("worker died"));
+    PublisherResult result = publisher.waitForCompletion(thread, 10000);
+    assertFalse(result.getStatus());
+    assertEquals("Worker failed.", result.getMessage());
   }
 
 }

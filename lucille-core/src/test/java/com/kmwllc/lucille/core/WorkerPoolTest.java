@@ -1,4 +1,5 @@
 package com.kmwllc.lucille.core;
+import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
@@ -85,4 +86,78 @@ public class WorkerPoolTest {
 
     assertFalse(areLucilleThreadsRunning());
   }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // failure detection (LC-987)
+
+  @Test
+  public void testDeadWorkerIsReportedAndFailsThePool() throws Exception {
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
+    Mockito.doThrow(new java.io.IOException("topic authorization failed")).when(messenger).pollDocToProcess();
+    WorkerMessengerFactory factory = WorkerMessengerFactory.getConstantFactory(messenger);
+    WorkerPool pool = new WorkerPool(ConfigFactory.load("WorkerPoolTest/onePipeline.conf"),
+        "pipeline1", null, factory, "metricsPrefix");
+
+    java.util.concurrent.CountDownLatch notified = new java.util.concurrent.CountDownLatch(1);
+    java.util.concurrent.atomic.AtomicReference<Throwable> reported = new java.util.concurrent.atomic.AtomicReference<>();
+    pool.setFailureListener(t -> {
+      reported.set(t);
+      notified.countDown();
+    });
+    pool.start();
+    try {
+      assertTrue(notified.await(15, java.util.concurrent.TimeUnit.SECONDS));
+      assertTrue(pool.hasFailed());
+      assertTrue(String.valueOf(reported.get()), reported.get() instanceof java.io.IOException);
+      assertFalse(pool.isAlive());
+    } finally {
+      pool.stop();
+      pool.join();
+    }
+  }
+
+  @Test
+  public void testStoppedWorkersAreNotAFailure() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    WorkerMessengerFactory factory = WorkerMessengerFactory.getConstantFactory(messenger);
+    WorkerPool pool = new WorkerPool(ConfigFactory.load("WorkerPoolTest/onePipeline.conf"),
+        "pipeline1", null, factory, "metricsPrefix");
+    pool.start();
+    assertTrue(pool.isAlive());
+    pool.stop();
+    pool.join();
+    assertFalse(pool.isAlive());
+    assertFalse(pool.hasFailed());
+  }
+
+  @Test
+  public void testExitOnTimeoutFailsThePoolInsteadOfTheJvm() throws Exception {
+    // a worker that has not polled for maxProcessingSecs is interrupted and reported; nothing calls System.exit
+    TestMessenger messenger = Mockito.spy(new TestMessenger());
+    Mockito.doAnswer(invocation -> {
+      Thread.sleep(60000);
+      return null;
+    }).when(messenger).pollDocToProcess();
+    WorkerMessengerFactory factory = WorkerMessengerFactory.getConstantFactory(messenger);
+    WorkerPool pool = new WorkerPool(ConfigFactory.load("WorkerPoolTest/exitOnTimeout.conf"),
+        "pipeline1", null, factory, "metricsPrefix");
+
+    java.util.concurrent.CountDownLatch notified = new java.util.concurrent.CountDownLatch(1);
+    java.util.concurrent.atomic.AtomicReference<Throwable> reported = new java.util.concurrent.atomic.AtomicReference<>();
+    pool.setFailureListener(t -> {
+      reported.set(t);
+      notified.countDown();
+    });
+    pool.start();
+    try {
+      assertTrue(notified.await(15, java.util.concurrent.TimeUnit.SECONDS));
+      assertTrue(String.valueOf(reported.get()), reported.get() instanceof java.util.concurrent.TimeoutException);
+      pool.join(5000);
+      assertFalse(pool.isAlive());
+    } finally {
+      pool.stop();
+      pool.join();
+    }
+  }
+
 }

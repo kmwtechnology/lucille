@@ -4,14 +4,10 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
-import com.kmwllc.lucille.core.RunResult;
-import com.kmwllc.lucille.core.Runner;
-import com.kmwllc.lucille.core.Runner.RunType;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import io.weaviate.client.WeaviateAuthClient;
 import io.weaviate.client.WeaviateClient;
 import io.weaviate.client.base.Result;
@@ -23,7 +19,6 @@ import io.weaviate.client.v1.data.model.WeaviateObject;
 import io.weaviate.client.v1.data.model.WeaviateObject.WeaviateObjectBuilder;
 import io.weaviate.client.v1.data.replication.model.ConsistencyLevel;
 import io.weaviate.client.v1.misc.model.Meta;
-import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -206,10 +201,4 @@ public class WeaviateIndexer extends Indexer {
   // if running in Intellij, set up the Intellij Run/Debug Configuration so:
   // 1) "-cp" is set to lucille-weaviate
   // 2) under "Modify Options" you have selected "add dependencies with 'provided' scope to classpath"
-  public static void main(String[] args) throws Exception {
-    File file = new File("lucille-plugins/lucille-weaviate/conf-example/application.conf");
-    Config config = ConfigFactory.parseFile(file);
-    RunResult result = Runner.run(config, RunType.LOCAL);
-    System.out.println(result);
-  }
 }

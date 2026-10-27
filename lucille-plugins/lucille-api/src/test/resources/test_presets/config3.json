@@ -1,3 +1,6 @@
 {
-  "id": 3
+  "id": 3,
+  "connectors": [{"class": "com.kmwllc.lucille.connector.SleepConnector", "name": "sleep", "pipeline": "pipeline1", "duration": 1}],
+  "pipelines": [{"name": "pipeline1", "stages": []}],
+  "indexer": {"type": "NoOpIndexer", "class": "com.kmwllc.lucille.indexer.NopIndexer"}
 }
