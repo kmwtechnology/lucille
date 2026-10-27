@@ -79,40 +79,34 @@ class Worker implements Runnable {
 
   public Worker(Config config, WorkerMessenger messenger, String localRunId, String pipelineName, String metricsPrefix)
       throws Exception {
-    this(config, messenger, localRunId, pipelineName, metricsPrefix, createRetryCounter(config, messenger));
-  }
-
-  /**
-   * As the public constructor, but with the retry counter supplied: a null counter means retries are not tracked.
-   * Package-private so that tests can exercise the dead letter path without ZooKeeper.
-   */
-  Worker(Config config, WorkerMessenger messenger, String localRunId, String pipelineName, String metricsPrefix,
-      RetryCounter counter) throws Exception {
     this.messenger = messenger;
     this.localRunId = localRunId;
     this.pipeline = Pipeline.fromConfig(config, pipelineName, metricsPrefix);
-    this.counter = counter;
-    this.trackRetries = counter != null;
+    if (config.hasPath("worker.maxRetries")) {
+      // retries are redeliveries of a Kafka record; a local messenger never redelivers, so a counter would only cost a
+      // ZooKeeper connection per worker thread
+      if (messenger instanceof KafkaWorkerMessenger || messenger instanceof HybridWorkerMessenger) {
+        log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
+        this.trackRetries = true;
+        this.counter = new ZKRetryCounter(config);
+      } else {
+        log.warn("worker.maxRetries is set but retries are only tracked for Kafka messengers; ignoring it.");
+      }
+    }
     this.pollInstant = new AtomicReference();
     this.pollInstant.set(Instant.now());
     this.metricsPrefix = metricsPrefix;
   }
 
   /**
-   * Returns the retry counter for a worker, or null when retries are not tracked: either worker.maxRetries is not set,
-   * or the messenger is not a Kafka one. Retries are redeliveries of a Kafka record; a local messenger never
-   * redelivers, so a counter would only cost a ZooKeeper connection per worker thread.
+   * For tests: as the public constructor, but with the retry counter supplied so that the dead letter path can be
+   * exercised without ZooKeeper. The config must not set worker.maxRetries.
    */
-  private static RetryCounter createRetryCounter(Config config, WorkerMessenger messenger) {
-    if (!config.hasPath("worker.maxRetries")) {
-      return null;
-    }
-    if (messenger instanceof KafkaWorkerMessenger || messenger instanceof HybridWorkerMessenger) {
-      log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
-      return new ZKRetryCounter(config);
-    }
-    log.warn("worker.maxRetries is set but retries are only tracked for Kafka messengers; ignoring it.");
-    return null;
+  Worker(Config config, WorkerMessenger messenger, String localRunId, String pipelineName, String metricsPrefix,
+      RetryCounter counter) throws Exception {
+    this(config, messenger, localRunId, pipelineName, metricsPrefix);
+    this.counter = counter;
+    this.trackRetries = counter != null;
   }
 
   @Override
