@@ -1903,8 +1903,7 @@ public abstract class DocumentTest {
 
     @Test
     public void testGetFloatCoercesLikeGetDouble() throws Exception {
-      // a numeric string or a boolean is converted the same way by the float and double getters; previously the float
-      // getters returned 0 for both
+      // a numeric string or a boolean is converted the same way by the float and double getters
       Document document = createDocumentFromJson(
           "{\"id\":\"doc\", \"str\":\"1.5\", \"bool\":true, \"num\":2.25, \"list\":[\"1.5\", true, 2.25, null]}");
       assertEquals(1.5f, document.getFloat("str"), 0);

@@ -7,6 +7,7 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.util.BoundedLineReader;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -17,6 +18,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,11 +39,17 @@ import org.slf4j.LoggerFactory;
  * This covers a blank line, a row with the wrong number of columns, and a row whose id, built from the idFields, is
  * blank as a whole. An id with only some blank parts, such as "2_" from two columns, is usable. If 10 rows in a row cannot
  * be read the file fails, because the cause is then likely a wrong configuration or the wrong file format.
+ * <p>
+ * <code>maxRecordBytes</code> (Integer, Optional): The maximum size, in bytes (UTF-8), of a single row, including all the
+ * physical lines of a row whose quoted value contains line breaks. If a row exceeds this limit, processing of the file
+ * stops with an error instead of reading the row into memory. Documents from earlier rows will already have been
+ * published. No limit by default.
  */
 public class CSVFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .optionalString("docIdPrefix", "lineNumberField", "separatorChar", "filenameField", "filePathField", "idField", "docIdFormat")
+      .optionalNumber("maxRecordBytes")
       .optionalList("idFields", new TypeReference<List<String>>() {})
       .optionalList("ignoredTerms", new TypeReference<List<String>>() {})
       .optionalBoolean("useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields").build();
@@ -59,6 +67,7 @@ public class CSVFileHandler extends BaseFileHandler {
   private final char escapeChar;
   private final boolean lowercaseFields;
   private final Set<String> ignoredTerms;
+  private final Integer maxRecordBytes;
   private static final String UTF8_BOM = "\uFEFF";
 
   public CSVFileHandler(Config config) {
@@ -85,11 +94,17 @@ public class CSVFileHandler extends BaseFileHandler {
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
     this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
     this.ignoredTerms = config.hasPath("ignoredTerms") ? Set.copyOf(config.getStringList("ignoredTerms")) : Set.of();
+
+    this.maxRecordBytes = config.hasPath("maxRecordBytes") ? config.getInt("maxRecordBytes") : null;
+    if (maxRecordBytes != null && maxRecordBytes <= 0) {
+      throw new IllegalArgumentException("maxRecordBytes must be positive, got " + maxRecordBytes);
+    }
   }
 
   @Override
   public Iterator<Document> processFile(InputStream inputStream, String pathStr) throws FileHandlerException {
-    CSVReader csvReader = getCsvReader(inputStream, pathStr);
+    BufferedReader lineReader = getLineReader(inputStream);
+    CSVReader csvReader = getCsvReader(lineReader, pathStr);
     String fileName = FilenameUtils.getName(pathStr);
 
     if (pathStr.contains(ARCHIVE_FILE_SEPARATOR)) {
@@ -97,49 +112,68 @@ public class CSVFileHandler extends BaseFileHandler {
       fileName = entryName.substring(entryName.lastIndexOf("/") + 1);
     }
 
-    return getDocumentIterator(csvReader, fileName, pathStr);
+    return getDocumentIterator(csvReader, lineReader, fileName, pathStr);
   }
 
-  private Iterator<Document> getDocumentIterator(CSVReader reader, String filename, String path) throws FileHandlerException {
+  private Iterator<Document> getDocumentIterator(CSVReader reader, BufferedReader lineReader, String filename, String path)
+      throws FileHandlerException {
     return new Iterator<Document>() {;
       final CSVReader csvReader = reader;
       final BadRecordTracker tracker = new BadRecordTracker(path);
-      boolean finished = false;
       final String[] header = getHeaderFromCSV(csvReader, path);
       final HashMap<String, Integer> columnIndexMap = getColumnIndexMap(header, path);
       final List<Integer> idColumns = getIdColumns(columnIndexMap, path);
       Integer lineNum = 0;
-      String[] line;
-      final Iterator<String[]> csvIterator = csvReader.iterator();
+      // read lazily in hasNext(), not with CSVIterator: it reads one row ahead, so a failure on row N would lose row N-1
+      String[] nextLine = null;
+      boolean finished = false;
 
       @Override
       public boolean hasNext() {
-        boolean hasNext = csvIterator.hasNext();
-        if (!hasNext) {
-          try {
-            csvReader.close();
-          } catch (IOException e) {
-            log.error("Error closing CSVReader. ({})", path, e);
-          }
-          if (!finished) {
-            finished = true;
-            tracker.logSummary(lineNum);
-          }
+        if (nextLine != null) {
+          return true;
         }
-        return hasNext;
+        if (finished) {
+          return false;
+        }
+
+        // each row is its own record, even if a quoted value makes it span several physical lines
+        if (lineReader instanceof BoundedLineReader) {
+          ((BoundedLineReader) lineReader).startRecord();
+        }
+
+        try {
+          nextLine = csvReader.readNext();
+        } catch (BoundedLineReader.RecordTooLargeException e) {
+          finish();
+          throw new IllegalStateException(String.format("Logical row %d exceeds maxRecordBytes. (%s)", lineNum + 1, path), e);
+        } catch (IOException | CsvValidationException e) {
+          // other read errors stop processing of the file without failing it
+          log.error("Error reading logical row {}. ({})", lineNum + 1, path, e);
+          finish();
+          return false;
+        }
+
+        if (nextLine == null) {
+          finish();
+          return false;
+        }
+        return true;
       }
 
       @Override
       public Document next() {
-        try {
-          if (!hasNext()) {
-            log.warn("No more lines to process. ({})", path);
-            throw new IllegalStateException(String.format("No more lines to process. (%s)", path));
-          }
+        if (!hasNext()) {
+          log.warn("No more lines to process. ({})", path);
+          return null;
+        }
 
-          // rows that cannot be turned into a Document are skipped, so keep reading until there is one, or no more rows
-          while (true) {
-            line = csvIterator.next();
+        try {
+          // rows that cannot be turned into a Document are skipped, so keep reading until there is one, or no more rows.
+          // hasNext() reads each row and throws if it exceeds maxRecordBytes, which fails the file even while skipping.
+          do {
+            String[] line = nextLine;
+            nextLine = null;
             lineNum++;
 
             if (line.length == 0 || (line.length == 1 && StringUtils.isBlank(line[0]))) {
@@ -159,35 +193,29 @@ public class CSVFileHandler extends BaseFileHandler {
                 tracker.bad(lineNum, e.getMessage());
               }
             }
+          } while (hasNext());
 
-            if (!hasNext()) {
-              // the remaining rows were all skipped; the caller treats null as "no document" and then sees hasNext() is false
-              return null;
-            }
-          }
+          // the remaining rows were all skipped; the caller treats null as "no document" and then sees hasNext() is false
+          return null;
         } catch (BadRecordTracker.TooManyBadRecordsException e) {
           log.error("Error processing CSV line {}. ({})", lineNum, path, e);
-          closeQuietly();
+          finish();
           throw e;
-        } catch (Exception e) {
-          log.error("Error processing CSV line {}. ({})", lineNum, path, e);
-
-          try {
-            csvReader.close();
-          } catch (IOException ex) {
-            throw new RuntimeException(ex);
-          }
-
-          return null;
         }
       }
 
-      private void closeQuietly() {
+      // closes the reader and logs the summary of skipped rows once, however the file ended
+      private void finish() {
+        if (finished) {
+          return;
+        }
+        finished = true;
         try {
           csvReader.close();
         } catch (IOException e) {
           log.error("Error closing CSVReader. ({})", path, e);
         }
+        tracker.logSummary(lineNum);
       }
     };
   }
@@ -311,9 +339,14 @@ public class CSVFileHandler extends BaseFileHandler {
     }
   }
 
-  private CSVReader getCsvReader(InputStream inputStream, String path) throws FileHandlerException {
+  private BufferedReader getLineReader(InputStream inputStream) {
+    Reader streamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+    return maxRecordBytes == null ? new BufferedReader(streamReader) : new BoundedLineReader(streamReader, maxRecordBytes);
+  }
+
+  private CSVReader getCsvReader(BufferedReader lineReader, String path) throws FileHandlerException {
     try {
-      return new CSVReaderBuilder(new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8)))
+      return new CSVReaderBuilder(lineReader)
           .withCSVParser(
               new CSVParserBuilder().withSeparator(separatorChar).withQuoteChar(quoteChar).withEscapeChar(escapeChar).build())
           .build();

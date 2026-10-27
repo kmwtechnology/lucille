@@ -8,14 +8,23 @@ import com.kmwllc.lucille.stage.XPathExtractor;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class XMLConnectorTest {
+
+  @Rule
+  public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   private StageFactory factory = StageFactory.of(XPathExtractor.class);
 
@@ -135,5 +144,25 @@ public class XMLConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
     Connector connector = new XMLConnector(config);
     connector.execute(publisher);
+  }
+
+  @Test
+  public void testMaxRecordBytes() throws Exception {
+    File file = tempFolder.newFile("test.xml");
+    Files.writeString(file.toPath(), "<Records>"
+        + "<record><id>1</id></record>"
+        + "<record><id>2</id><data>" + "a".repeat(1024 * 1024) + "</data></record>"
+        + "</Records>");
+
+    Config config = ConfigFactory.parseMap(Map.of(
+        "name", "connector1", "pipeline", "pipeline1",
+        "xmlRootPath", "/Records/record", "xmlIdPath", "/Records/record/id", "encoding", "utf-8", "outputField", "xml",
+        "filePaths", List.of(file.getAbsolutePath()), "maxRecordBytes", 64 * 1024));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Connector connector = new XMLConnector(config);
+
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
   }
 }

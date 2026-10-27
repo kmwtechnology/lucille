@@ -64,6 +64,21 @@ The URI scheme selects the appropriate storage backend automatically. A local fi
 
 ---
 
+## Concurrent Traversal
+
+Multiple `paths` are traversed one after another by default.
+
+| Option | Type | Description |
+|---|---|---|
+| `maxThreads` | Int | Number of threads to traverse the `paths` on. `1` (default) traverses them one after another, and `-1` uses one thread per path. With any value other than `1`, paths must not overlap and `collapse` cannot be used. |
+
+```hocon
+paths: ["s3://bucket/a", "s3://bucket/b", "s3://bucket/c", "s3://bucket/d"]
+maxThreads: 2
+```
+
+---
+
 ## File Handlers
 
 File Handlers process individual files and extract one or more Lucille Documents from their contents. Without a handler, the `FileConnector` publishes one document per file containing only the file metadata fields. With a handler, a CSV file becomes one document per row, a JSON file becomes one document per object, and so on.
@@ -106,6 +121,7 @@ Extracts one Document per row from a CSV file.
 | `lowercaseFields` | Boolean | `false` | Convert column header names to lowercase field names. |
 | `ignoredTerms` | List\<String\> | — | Column values matching these strings are excluded from the document. |
 | `docIdPrefix` | String | — | Prefix prepended to every Document ID. |
+| `maxRecordBytes` | Integer | no limit | Maximum size, in bytes (UTF-8), of a single row — including every physical line of a row whose quoted value contains line breaks. If a row is larger, processing of the file stops with an error instead of reading the row into memory; rows before it are still published. |
 
 ```hocon
 fileHandlers: {
@@ -133,6 +149,7 @@ Extracts one Document per JSON object. Supports both standard JSON files (a sing
 | `blacklist` | List\<String\> | — | JSON fields to exclude from the Document. |
 | `whitelist` | List\<String\> | — | Only include these JSON fields on the Document. |
 | `docIdPrefix` | String | — | Prefix prepended to every Document ID. |
+| `maxRecordBytes` | Integer | no limit | Maximum size, in bytes (UTF-8), of a single line. If a line is larger, processing of the file stops with an error instead of reading the line into memory; lines before it are still published. |
 
 ```hocon
 fileHandlers: {
@@ -154,6 +171,7 @@ Extracts Documents from an XML file by selecting elements matching an XPath expr
 |---|---|---|---|
 | `chunkPath` | String | Yes | XPath expression selecting the XML elements to convert into Documents (e.g., `"//record"`, `"/root/items/item"`). |
 | `docIdPrefix` | String | No | Prefix prepended to every Document ID. |
+| `maxRecordBytes` | Integer | No | Maximum number of bytes held in memory while reading a single record. If exceeded, processing of the file stops with an error; records before it are still published. The limit is approximate (bytes read ahead by the parser count too) and also applies to content before the first record. No limit by default. |
 
 ```hocon
 fileHandlers: {
@@ -199,6 +217,7 @@ File options control traversal behaviour — how the connector handles the files
 | Option | Type | Description |
 |---|---|---|
 | `getFileContent` | Boolean | If `true`, reads the file's raw bytes into the `file_content` field. **Downloads the file on cloud storage. Slows traversal significantly.** |
+| `maxSizeBytes` | Long | Maximum size, in bytes, of file content read into `file_content`. Must be positive and at most 2147483638 (`Integer.MAX_VALUE - 9`), or the connector fails at startup. A larger file is not published and is handled as a processing error (moved to `moveToErrorFolder`, if set); its known size is checked first, so it is not downloaded. An oversized entry in an archive is skipped, and the rest of the archive is still processed. Does not apply to files processed by a File Handler — see each handler's own limits. No limit by default. |
 | `handleArchivedFiles` | Boolean | If `true`, unpacks archive files (zip, tar, tar.gz) and traverses their contents. Downloads the archive on cloud storage. |
 | `handleCompressedFiles` | Boolean | If `true`, decompresses compressed files (gz) before processing. |
 | `moveToAfterProcessing` | String | Path to move each file to after successful processing. Single-path configurations only — cannot be combined with multiple `paths`. |
@@ -390,6 +409,7 @@ public static final Spec SPEC = SpecBuilder.connector()
             .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode", "sendTombstones").build(),
         SpecBuilder.parent("fileOptions")
             .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+            .optionalNumber("maxSizeBytes")
             .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
         SpecBuilder.parent("state")
             .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
