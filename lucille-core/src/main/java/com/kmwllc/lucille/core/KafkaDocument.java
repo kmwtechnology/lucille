@@ -95,12 +95,18 @@ public class KafkaDocument extends JsonDocument {
     return Objects.hash(data, topic, partition, offset, key);
   }
 
+  /**
+   * Returns a deep copy that is itself a KafkaDocument carrying the same topic, partition, offset, and key. Overrides
+   * {@link JsonDocument#deepCopy()}, which would otherwise return a plain JsonDocument and silently drop the Kafka
+   * metadata, so that code which copies Documents generically (for example FieldFilter) keeps the metadata an indexer
+   * may later read from the copy.
+   */
   @Override
-  public KafkaDocument clone() {
+  public KafkaDocument deepCopy() {
     try {
       return new KafkaDocument(data.deepCopy(), topic, partition, offset, key);
     } catch (DocumentException e) {
-      throw new IllegalStateException("Document not cloneable", e);
+      throw new IllegalStateException("Document not copyable", e);
     }
   }
 }

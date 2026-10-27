@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -27,12 +28,14 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
   private final Config config;
   private final Duration pollInterval;
   private final String pipelineName;
+  private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
 
   public KafkaWorkerMessenger(Config config, String pipelineName) {
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
+    this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.kafkaDocumentProducer = KafkaUtils.createDocumentProducer(config);
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
@@ -98,7 +101,7 @@ public class KafkaWorkerMessenger implements WorkerMessenger {
     if (kafkaEventProducer == null) {
       return;
     }
-    Event event = new Event(document, message, type);
+    Event event = new Event(document, message, type, eventFieldConfig);
     sendEvent(event);
   }
 
