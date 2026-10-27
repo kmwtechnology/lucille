@@ -76,8 +76,3 @@ metadataFields: {
   "Content-Type": "content_type"
 }
 ```
-
-## Performance
-
-Tika can be an intensive process. There are some small alterations we have made within the stage to improve its throughput; if
-you are working closely with `TextExtractor` and focused on performance, you may want to look into these a bit closer.
