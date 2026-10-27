@@ -1,0 +1,26 @@
+name: Nightly Smoketest for Lucille API Docker Image
+
+on:
+  schedule:
+    # runs at 00:00 UTC every day, 20:00 EST
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # allows manual triggering of the workflow via actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # the stack's own waits are bounded, but this stops a hang elsewhere (e.g. in Docker) running for GitHub's 6 hour default
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      # -Pshaded-plugin-jars builds the shaded lucille-api-plugin.jar that the lucille-api image runs
+      - name: Build with Maven
+        run: mvn -B package -DskipTests -Pshaded-plugin-jars --file pom.xml
+      - name: Run Lucille API Example
+        run: ./lucille-examples/lucille-api-example/scripts/run-nightly.sh

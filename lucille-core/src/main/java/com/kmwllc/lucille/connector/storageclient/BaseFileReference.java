@@ -7,8 +7,11 @@ import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileUtils.ContentTooLargeException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.time.Instant;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -85,10 +88,31 @@ public abstract class BaseFileReference implements FileReference {
     Document doc = buildBaseDoc(getFullPath().toString(), lastModified, size, created, params);
 
     if (params.shouldGetFileContent()) {
-      doc.setField(CONTENT, getFileContent(params));
+      doc.setField(CONTENT, getBoundedFileContent(params));
     }
 
     return doc;
+  }
+
+  // checks the listed size first so an oversized cloud file is never downloaded; the bounded read covers a missing or
+  // stale size
+  private byte[] getBoundedFileContent(TraversalParams params) {
+    Long maxSizeBytes = params.getMaxSizeBytes();
+
+    if (maxSizeBytes == null) {
+      return getFileContent(params);
+    }
+
+    if (size != null && size > maxSizeBytes) {
+      throw new UncheckedIOException(new ContentTooLargeException(
+          String.format("File of %d bytes exceeds maxSizeBytes of %d. (%s)", size, maxSizeBytes, pathToFile)));
+    }
+
+    try (InputStream in = getContentStream(params)) {
+      return FileUtils.readAllBytes(in, maxSizeBytes);
+    } catch (IOException e) {
+      throw new UncheckedIOException(String.format("Error reading file content. (%s)", pathToFile), e);
+    }
   }
 
   @Override
@@ -96,7 +120,8 @@ public abstract class BaseFileReference implements FileReference {
     Document doc = buildBaseDoc(decompressedFullPathStr, lastModified, size, created, params);
 
     if (params.shouldGetFileContent()) {
-      doc.setField(CONTENT, in.readAllBytes());
+      // the size of this reference is the compressed size, so it can't be used to check the limit up front
+      doc.setField(CONTENT, FileUtils.readAllBytes(in, params.getMaxSizeBytes()));
     }
 
     return doc;

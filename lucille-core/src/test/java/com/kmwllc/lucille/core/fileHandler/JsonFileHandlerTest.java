@@ -2,19 +2,24 @@ package com.kmwllc.lucille.core.fileHandler;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -159,6 +164,24 @@ public class JsonFileHandlerTest {
     assertEquals("two", d2.getId());
     assertEquals("three", d3.getId());
     assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testNonObjectLineIsReportedClearly() throws Exception {
+    // on both the idFields path and the plain path, a line that is a JSON array fails with a DocumentException that
+    // says so, wrapped in the handler's RuntimeException, rather than a ClassCastException
+    for (Map<String, Object> jsonConfig : List.<Map<String, Object>>of(Map.of("idField", "field1", "docIdPrefix", ""), Map.of())) {
+      FileHandler handler = FileHandler.create("json", ConfigFactory.parseMap(Map.of("json", jsonConfig)));
+      String content = "{\"id\":\"1\", \"field1\":\"one\"}\n[\"not\", \"an\", \"object\"]\n";
+      Iterator<Document> docs = handler.processFile(
+          new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), "inline.jsonl");
+
+      docs.next();
+      RuntimeException e = assertThrows(RuntimeException.class, docs::next);
+      assertTrue(String.valueOf(e.getCause()), e.getCause() instanceof DocumentException);
+      assertTrue(e.getCause().getMessage(), e.getCause().getMessage().contains("must be a JSON object")
+          || e.getCause().getMessage().contains("must be an object"));
+    }
   }
 
   @Test
@@ -389,5 +412,29 @@ public class JsonFileHandlerTest {
     assertEquals("PREFIX-two_2", docs.next().getId());
     assertEquals("PREFIX-three_3", docs.next().getId());
     assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testMaxRecordBytes() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("json", Map.of("maxRecordBytes", 30)));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String input = "{\"id\": \"1\", \"a\": \"short\"}\n"
+        + "{\"id\": \"2\", \"a\": \"this line is longer than the limit\"}\n"
+        + "{\"id\": \"3\", \"a\": \"short\"}\n";
+
+    Iterator<Document> docs = handler.processFile(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), "test.jsonl");
+    assertEquals("1", docs.next().getId());
+
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::hasNext);
+    assertTrue(e.getMessage().contains("line 2"));
+    assertTrue(e.getMessage().contains("test.jsonl"));
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testInvalidMaxRecordBytes() {
+    Config config = ConfigFactory.parseMap(Map.of("json", Map.of("maxRecordBytes", 0)));
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("json", config));
   }
 }

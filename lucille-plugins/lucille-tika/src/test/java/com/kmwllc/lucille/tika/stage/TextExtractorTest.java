@@ -3,6 +3,7 @@ package com.kmwllc.lucille.tika.stage;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -12,6 +13,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,11 +37,16 @@ import java.util.ArrayList;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
@@ -52,6 +59,7 @@ import org.apache.tika.parser.Parser;
 import org.apache.tika.parser.ParserDecorator;
 import org.apache.tika.parser.ocr.TesseractOCRParser;
 import org.apache.tika.parser.pdf.PDFParser;
+import org.apache.tika.sax.XHTMLContentHandler;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -556,8 +564,8 @@ public class TextExtractorTest {
     // If timeout works, it should have returned within much less than our 5 sec. max
     // and interrupted should be true (if we interrupt the thread)
     assertTrue("Parser should have been interrupted", InterruptTrackingParser.interrupted.get());
-    // Document should not have text (or at least not from the parser)
-    assertEquals("Document should have empty text.", "", doc.getString("text"));
+    // On timeout the text extracted so far is kept; this parser times out before writing any.
+    assertEquals("", doc.getString("text"));
 
     stage.stop();
 
@@ -573,6 +581,122 @@ public class TextExtractorTest {
     assertFalse("Parser should not have been interrupted", InterruptTrackingParser.interrupted.get());
     // Document should have text after processing without interruption.
     assertEquals("Document should have text.", "Hi There!\n", doc2.getString("text"));
+  }
+
+  @Test
+  public void testTimeoutRecoveryOnSameStage() throws Exception {
+    HangingParser.release = new CountDownLatch(1);
+    HangingParser.hanging = new CountDownLatch(1);
+    TextExtractor stage = spy((TextExtractor) factory.get(Map.of(
+        "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
+        "byteArrayField", "byte_array",
+        "parseTimeout", 1000,
+        "tikaConfigPath", "src/test/resources/TextExtractorTest/tika-config-hang.xml")));
+
+    try {
+      Document stuck = Document.create("stuck");
+      stuck.setField("byte_array", "hang forever".getBytes());
+      stage.processDocument(stuck);
+      assertTrue("parse should have started", HangingParser.hanging.await(5, TimeUnit.SECONDS));
+      assertEquals("", stuck.getString("text"));
+
+      // the timed-out parse ignores interruption, so it is still running
+      Thread stuckThread = HangingParser.hangingThread.get();
+      assertTrue(stuckThread.isAlive());
+      assertTrue("abandoned parse thread should not keep the JVM alive", stuckThread.isDaemon());
+
+      // the same stage keeps working instead of queueing behind the stuck parse
+      Document next = Document.create("next");
+      next.setField("byte_array", "Hi There!".getBytes());
+      stage.processDocument(next);
+      assertEquals("Hi There!\n", next.getString("text"));
+      assertTrue(stuckThread.isAlive());
+
+      // the two parses, which overlapped, didn't share a ParseContext
+      assertNotSame(HangingParser.hangingContext.get(), HangingParser.lastContext.get());
+
+      // the hook ran for the timed-out parse only
+      verify(stage, times(1)).handleParseTimeout();
+    } finally {
+      HangingParser.release.countDown();
+      stage.stop();
+    }
+  }
+
+  /**
+   * Handles image/png by writing {@link #MARKER} to the text, so a test can tell from the extracted text whether an
+   * embedded image was parsed.
+   */
+  public static class ImageMarkerParser extends AbstractParser {
+
+    static final String MARKER = "IMAGE-PARSED";
+
+    @Override
+    public Set<MediaType> getSupportedTypes(ParseContext context) {
+      return Collections.singleton(MediaType.image("png"));
+    }
+
+    @Override
+    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
+        throws IOException, SAXException, TikaException {
+      // text only survives inside an XHTML body
+      XHTMLContentHandler xhtml = new XHTMLContentHandler(handler, metadata);
+      xhtml.startDocument();
+      xhtml.element("p", MARKER);
+      xhtml.endDocument();
+    }
+  }
+
+  @Test
+  public void testSkipEmbeddedImagesInDocx() throws Exception {
+    byte[] docx = Files.readAllBytes(Paths.get("src/test/resources/TextExtractorTest/tika-image.docx"));
+    Map<String, Object> config = Map.of(
+        "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
+        "byteArrayField", "byte_array",
+        "tikaConfigPath", "src/test/resources/TextExtractorTest/tika-config-image-marker.xml");
+
+    // without skipping, the docx's embedded image is parsed
+    Stage stage = factory.get(config);
+    Document doc = Document.create("doc1");
+    doc.setField("byte_array", docx);
+    stage.processDocument(doc);
+    stage.stop();
+    assertTrue(doc.getString("text").contains("Hi There!"));
+    assertTrue(doc.getString("text"), doc.getString("text").contains(ImageMarkerParser.MARKER));
+
+    // with image/ skipped, the image isn't parsed but the document's own text still is
+    Map<String, Object> skipConfig = new HashMap<>(config);
+    skipConfig.put("skipEmbeddedContentTypePrefixes", List.of("image/"));
+    Stage skipStage = factory.get(skipConfig);
+    Document skipDoc = Document.create("doc2");
+    skipDoc.setField("byte_array", docx);
+    skipStage.processDocument(skipDoc);
+    skipStage.stop();
+    assertTrue(skipDoc.getString("text").contains("Hi There!"));
+    assertFalse(skipDoc.getString("text"), skipDoc.getString("text").contains(ImageMarkerParser.MARKER));
+  }
+
+  @Test
+  public void testSkipEmbeddedWithForkThrows() {
+    // DocumentSelector can't cross the fork boundary, so this combination is rejected at construction.
+    Map<String, Object> config = Map.of(
+        "class", "com.kmwllc.lucille.tika.stage.TextExtractor",
+        "byteArrayField", "byte_array",
+        "skipEmbeddedContentTypePrefixes", List.of("image/"),
+        "fork", Map.of("enabled", true));
+    assertThrows(StageException.class, () -> factory.get(config));
+  }
+
+  @Test
+  public void testForkingSizeLimit() throws Exception {
+    // Hitting textContentLimit should be treated as expected truncation, not a document failure,
+    // even in fork mode where the write-limit exception crosses the child-JVM boundary.
+    Stage stage = factory.get("TextExtractorTest/forking-sizelimit.conf");
+    Document doc = Document.create("doc1");
+    byte[] fileContent = Files.readAllBytes(Paths.get("src/test/resources/TextExtractorTest/tika.txt"));
+    doc.setField("byte_array", fileContent);
+    stage.processDocument(doc);
+    assertEquals("Hi ", doc.getString("text"));
   }
 
   @Test
@@ -614,7 +738,7 @@ public class TextExtractorTest {
   @Test
   public void testOcrDisabledByDefault() throws Exception {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/filepath.conf");
-    Parser parser = stage.createAutoDetectParser();
+    Parser parser = stage.createTikaConfig().getParser();
 
     assertFalse(containsParser(parser, TesseractOCRParser.class));
     // PDFParser only renders pages for OCR when some parser supports image/ocr-*; holds whether or not tesseract is installed
@@ -625,7 +749,7 @@ public class TextExtractorTest {
   @Test
   public void testOcrExplicitlyDisabled() throws Exception {
     TextExtractor stage = (TextExtractor) factory.get(baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(false)));
-    Parser parser = stage.createAutoDetectParser();
+    Parser parser = stage.createTikaConfig().getParser();
 
     assertFalse(containsParser(parser, TesseractOCRParser.class));
     assertFalse(parser.getSupportedTypes(new ParseContext()).contains(MediaType.image("ocr-png")));
@@ -635,7 +759,7 @@ public class TextExtractorTest {
   public void testOcrEnabled() throws Exception {
     TextExtractor stage = (TextExtractor) factory.get(baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(true)));
 
-    assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+    assertTrue(containsParser(stage.createTikaConfig().getParser(), TesseractOCRParser.class));
   }
 
   @Test
@@ -679,7 +803,7 @@ public class TextExtractorTest {
     TextExtractor stage = (TextExtractor) factory.get("TextExtractorTest/tika-config.conf");
 
     // tika-config.xml declares only a DefaultParser, so tesseract stays in the parser set as before
-    assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+    assertTrue(containsParser(stage.createTikaConfig().getParser(), TesseractOCRParser.class));
   }
 
   @Test
@@ -688,7 +812,7 @@ public class TextExtractorTest {
     try {
       // without enableOcr, the global config is used as is, so tesseract stays in its DefaultParser
       TextExtractor stage = (TextExtractor) factory.get(baseConfig());
-      assertTrue(containsParser(stage.createAutoDetectParser(), TesseractOCRParser.class));
+      assertTrue(containsParser(stage.createTikaConfig().getParser(), TesseractOCRParser.class));
 
       for (boolean enableOcr : new boolean[]{true, false}) {
         Config config = baseConfig().withValue("enableOcr", ConfigValueFactory.fromAnyRef(enableOcr));
@@ -788,6 +912,38 @@ public class TextExtractorTest {
   }
 
   /**
+   * Sanity check that a TikaConfig is built once per config path and reused across stage instances,
+   * rather than rebuilt for every stage (as would happen with each worker thread in a real run).
+   */
+  @Test
+  public void testTikaConfigCaching() throws Exception {
+    // Clear the JVM-wide cache so this test doesn't depend on ordering with other tests, and so we
+    // don't leave a mock config behind for them afterward.
+    TextExtractor.clearTikaConfigCache();
+
+    // AutoDetectParser(TikaConfig) reads these four getters off the config, so delegate them to a
+    // real default config to let the mock stand in without changing what the stage builds.
+    TikaConfig realConfig = TikaConfig.getDefaultConfig();
+    try (MockedConstruction<TikaConfig> mockedConstruction = mockConstruction(TikaConfig.class,
+        (mock, context) -> {
+          when(mock.getMediaTypeRegistry()).thenReturn(realConfig.getMediaTypeRegistry());
+          when(mock.getParser()).thenReturn(realConfig.getParser());
+          when(mock.getDetector()).thenReturn(realConfig.getDetector());
+          when(mock.getAutoDetectParserConfig()).thenReturn(realConfig.getAutoDetectParserConfig());
+        })) {
+      // Two stages pointing at the same tikaConfigPath, as two worker threads would each be. Each
+      // factory.get(...) calls start(), which is what resolves the config.
+      factory.get("TextExtractorTest/tika-config.conf");
+      factory.get("TextExtractorTest/tika-config.conf");
+
+      // The config is built for the first stage and served from the cache for the second.
+      assertEquals(1, mockedConstruction.constructed().size());
+    } finally {
+      TextExtractor.clearTikaConfigCache();
+    }
+  }
+
+  /**
    * Registered (see tika-config-oom.xml) as the parser for application/zip only, so it doesn't
    * interfere with normal text/plain parsing. Deliberately allocates memory until it dies, so
    * the resulting OutOfMemoryError doesn't depend on tuning a heap size against any particular
@@ -807,6 +963,47 @@ public class TextExtractorTest {
       while (true) {
         chunks.add(new byte[10_000_000]);
       }
+    }
+  }
+
+  /**
+   * Parses text/plain like {@link DefaultParser}, except content starting with "hang" blocks until {@link #release}
+   * is counted down, ignoring interrupts the way a parse stuck in a CPU loop would.
+   */
+  public static class HangingParser extends DefaultParser {
+    private static CountDownLatch release;
+    private static CountDownLatch hanging;
+    private static final AtomicReference<Thread> hangingThread = new AtomicReference<>();
+    private static final AtomicReference<ParseContext> hangingContext = new AtomicReference<>();
+    private static final AtomicReference<ParseContext> lastContext = new AtomicReference<>();
+
+    @Override
+    public Set<MediaType> getSupportedTypes(ParseContext context) {
+      return Collections.singleton(MediaType.TEXT_PLAIN);
+    }
+
+    @Override
+    public void parse(InputStream stream, ContentHandler handler, Metadata metadata, ParseContext context)
+        throws TikaException, IOException, SAXException {
+      TikaInputStream tikaStream = TikaInputStream.get(stream);
+      tikaStream.mark(4);
+      byte[] start = tikaStream.readNBytes(4);
+      tikaStream.reset();
+      if ("hang".equals(new String(start))) {
+        hangingThread.set(Thread.currentThread());
+        hangingContext.set(context);
+        hanging.countDown();
+        while (true) {
+          try {
+            release.await();
+            return;
+          } catch (InterruptedException e) {
+            // ignored, like a parse that never checks for interruption
+          }
+        }
+      }
+      lastContext.set(context);
+      super.parse(tikaStream, handler, metadata, context);
     }
   }
 }

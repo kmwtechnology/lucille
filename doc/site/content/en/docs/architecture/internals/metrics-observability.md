@@ -111,19 +111,22 @@ this.meter = metrics.meter(metricsPrefix + ".indexer.docsIndexed");
 this.histogram = metrics.histogram(metricsPrefix + ".indexer.batchTimeOverSize");
 ```
 
-After each batch is sent to the search engine:
+Each batch's send is timed, and the sample is recorded when the batch is completed:
 
 ```java
-stopWatch.reset();
-stopWatch.start();
-Set<Pair<Document, String>> failedDocPairs = sendToIndex(batchedDocs);
-stopWatch.stop();
+// sendWithRetry: may run on a send-pool thread when maxConcurrentBatches > 1
+long start = System.nanoTime();
+Set<Pair<Document, Exception>> failedDocPairs = /* sendToIndex(batchedDocs), with any retries */;
+long elapsedNanos = System.nanoTime() - start;
 
-histogram.update(stopWatch.getNanoTime() / batchedDocs.size());  // Per-doc latency
-meter.mark(batchedDocs.size());                                   // Throughput
+// completeBatch: always on the indexer thread, for a send that did not throw
+histogram.update(elapsedNanos / batchedDocs.size());  // Per-doc latency
+meter.mark(batchedDocs.size());                       // Throughput
 ```
 
-The histogram records **time per document** (total batch time / batch size), giving a normalized view of backend performance regardless of batch size.
+The histogram records **time per document** (the send's time / batch size), giving a normalized view of backend performance regardless of batch size. The time includes retries and their backoff waits.
+
+It is a per-send figure. With `indexer.maxConcurrentBatches` above 1, sends overlap but each is timed on its own, so ms/doc stays near the single-send latency while docs/sec rises, and the rate is no longer about 1000 / ms/doc. Time the Indexer spends waiting for a free slot or for an older batch is not counted, and batches whose send threw are not sampled. See the Backend latency note in [Performance Tuning]({{< relref "docs/operations/performance-tuning" >}}).
 
 Periodic logging:
 ```java

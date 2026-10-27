@@ -12,7 +12,18 @@ import com.kmwllc.lucille.core.RunDetails;
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigIncludeContext;
+import com.typesafe.config.ConfigIncluder;
+import com.typesafe.config.ConfigIncluderClasspath;
+import com.typesafe.config.ConfigIncluderFile;
+import com.typesafe.config.ConfigIncluderURL;
+import com.typesafe.config.ConfigObject;
+import com.typesafe.config.ConfigParseOptions;
+import com.typesafe.config.ConfigResolveOptions;
+import java.io.File;
+import java.net.URL;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -102,7 +113,9 @@ public class LucilleResource {
               example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
 
     try {
-      Config config = ConfigFactory.parseString(configBody);
+      // no includes or env vars, so a POSTed config can't read data off the host
+      Config config = ConfigFactory.parseString(configBody, ConfigParseOptions.defaults().setIncluder(new RejectingIncluder()))
+          .resolve(ConfigResolveOptions.defaults().setUseSystemEnvironment(false));
       CreateConfigResult result = runnerManager.createConfig(config);
       log.info("a lucille config has been created. Config ID: " + result.getConfigId());
       return Response.ok(result).build();
@@ -252,5 +265,39 @@ public class LucilleResource {
     }
 
     return Response.ok(details).build();
+  }
+
+  // Rejects all includes. Implements each includer interface, since Typesafe uses its default for any that are missing.
+  private static final class RejectingIncluder
+      implements ConfigIncluder, ConfigIncluderFile, ConfigIncluderURL, ConfigIncluderClasspath {
+
+    @Override
+    public ConfigIncluder withFallback(ConfigIncluder fallback) {
+      return this;
+    }
+
+    @Override
+    public ConfigObject include(ConfigIncludeContext context, String what) {
+      throw includesDisabledException();
+    }
+
+    @Override
+    public ConfigObject includeFile(ConfigIncludeContext context, File what) {
+      throw includesDisabledException();
+    }
+
+    @Override
+    public ConfigObject includeURL(ConfigIncludeContext context, URL what) {
+      throw includesDisabledException();
+    }
+
+    @Override
+    public ConfigObject includeResources(ConfigIncludeContext context, String what) {
+      throw includesDisabledException();
+    }
+
+    private static ConfigException includesDisabledException() {
+      return new ConfigException.Generic("Includes are not allowed in configs POSTed to the API.");
+    }
   }
 }

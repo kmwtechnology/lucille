@@ -175,19 +175,47 @@ public class KafkaUtils {
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
    *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum amount of time in seconds that the consumer will wait when polling for new messages from Kafka.
+   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    *               - kafka.documentDeserializer - The deserializer class to use when deserializing documents. Defaults to KafkaDocumentDeserializer.
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
-   * @return A Kafka consumer for events. The provided Consumer will *not* be configured to commit offsets automatically. The caller is responsible for committing offsets after processing documents.
+   * @return A Kafka consumer for documents. Auto-commit must be disabled: offsets are committed by the caller once a
+   *         batch has completed (at-least-once), not automatically at poll time. This method validates that
+   *         {@code enable.auto.commit} resolves to {@code false} and throws {@link IllegalArgumentException} if it is
+   *         enabled or left unset (kafka-clients defaults it to {@code true}). See {@link #requireAutoCommitDisabled}.
    */
   public static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Config config, String clientId) {
     Properties consumerProps = createConsumerProps(config, clientId);
+    requireAutoCommitDisabled(consumerProps);
     String deserializerClass = config.hasPath("kafka.documentDeserializer")
         ? config.getString("kafka.documentDeserializer")
         : KafkaDocumentDeserializer.class.getName();
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
     return new KafkaConsumer<>(consumerProps);
+  }
+
+  /**
+   * Fails fast unless the document consumer has auto-commit explicitly disabled. The indexer commits destination-topic
+   * offsets only once a batch has completed (at-least-once); auto-commit would instead commit at poll time, before the
+   * documents are indexed, so a crash would skip them (at-most-once).
+   *
+   * <p> It is not enough to reject an explicit {@code true}: kafka-clients defaults {@code enable.auto.commit} to
+   * {@code true} when it is unset, so an absent value is just as unsafe as an explicit {@code true}. The non-property-file
+   * path sets it to {@code false} here, but a {@code kafka.consumerPropertyFile} that omits it (or a
+   * {@code kafka.consumer.enable.auto.commit} override) would otherwise auto-commit at poll. So this requires the
+   * resolved value to be present and {@code false}.
+   */
+  private static void requireAutoCommitDisabled(Properties consumerProps) {
+    Object autoCommit = consumerProps.get(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
+    // Absent is unsafe: kafka-clients defaults enable.auto.commit to true. Require it to be present and explicitly false.
+    if (autoCommit == null || Boolean.parseBoolean(autoCommit.toString().trim())) {
+      throw new IllegalArgumentException(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + " must be set to false for the "
+          + "indexer's document consumer: offsets are committed on batch completion, and auto-commit would commit them "
+          + "at poll time (before indexing), which could skip documents on a crash. It is "
+          + (autoCommit == null ? "unset (kafka-clients defaults it to true)" : "set to " + autoCommit)
+          + "; set " + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + "=false (e.g. in kafka.consumerPropertyFile or via "
+          + "kafka.consumer." + ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG + ").");
+    }
   }
 
   /**
@@ -200,7 +228,7 @@ public class KafkaUtils {
    *               - kafka.bootstrapServers - The bootstrap servers to use for connecting to Kafka.
    *               - kafka.securityProtocol - The security protocol to use when connecting to Kafka.
    *               - kafka.consumerGroupId - The consumer group id to use when subscribing to the event topic.
-   *               - kafka.maxPollIntervalSecs - The maximum amount of time in seconds that the consumer will wait when polling for new messages from Kafka.
+   *               - kafka.maxPollIntervalSecs - The maximum time in seconds allowed between polls before the consumer is evicted from its consumer group (also the rebalance timeout).
    *               - kafka.metadataMaxAgeMs - The maximum amount of time in milliseconds that the consumer will cache metadata about topics and partitions..
    * @param clientId - The id that will be used by the consumer as the client id when communicating with Kafka.
    * @return A Kafka consumer for events. The provided Consumer will *always* be configured to commit offsets automatically.

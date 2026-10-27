@@ -36,7 +36,7 @@ public abstract class DocumentTest {
   public abstract Document createDocumentFromJson(String json, UnaryOperator<String> idUpdater)
       throws DocumentException, JsonProcessingException;
 
-  @Test(expected = NullPointerException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testCreateWithoutId1() {
     createDocument((String) null);
   }
@@ -130,6 +130,62 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testInvalidIdExceptionTypes() throws Exception {
+    // The exception for an invalid id depends on where the id came from; see "Invalid ids" in Document.
+
+    // an id passed as a Java argument is reported with an unchecked IllegalArgumentException, as an invalid field name is
+    assertThrows(IllegalArgumentException.class, () -> createDocument((String) null));
+    assertThrows(IllegalArgumentException.class, () -> createDocument((String) null, "run1"));
+
+    // an id read from data is a DocumentException that callers can catch to skip the record: JSON text and ObjectNodes
+    for (String json : List.of("{\"a\":1}", "{\"id\":null}", "{\"id\":\"\"}", "{\"id\":1}", "{\"id\":{}}", "{\"id\":[\"a\"]}")) {
+      assertThrows(json, DocumentException.class, () -> createDocumentFromJson(json));
+      assertThrows(json, DocumentException.class, () -> createDocument((ObjectNode) new ObjectMapper().readTree(json)));
+    }
+
+    // an existing document's id cannot be changed or removed
+    Document document = createDocument("123");
+    assertThrows(IllegalArgumentException.class, () -> document.setField(Document.ID_FIELD, "456"));
+    assertThrows(IllegalArgumentException.class, () -> document.removeField(Document.ID_FIELD));
+    assertEquals("123", document.getId());
+  }
+
+  @Test
+  public void testCreateFromJsonRequiresObject() {
+    // the declared DocumentException, not a ClassCastException from the ObjectNode cast
+    for (String json : List.of("[{\"id\":\"1\"}]", "\"id\"", "1", "null", "")) {
+      DocumentException e = assertThrows(json, DocumentException.class, () -> createDocumentFromJson(json));
+      assertTrue(e.getMessage(), e.getMessage().contains("must be an object"));
+    }
+  }
+
+  @Test
+  public void testCreateFromJsonIdUpdaterMustReturnId() {
+    // the updated id is validated like a parsed id, so an updater cannot produce an invalid document
+    assertThrows(DocumentException.class, () -> createDocumentFromJson("{\"id\":\"1\"}", id -> ""));
+    assertThrows(DocumentException.class, () -> createDocumentFromJson("{\"id\":\"1\"}", id -> null));
+  }
+
+  @Test
+  public void testDroppedAndSkippedAreReadByValue() throws Exception {
+    // a document whose JSON carries the reserved flag with value false is neither dropped nor skipped
+    Document notFlagged = createDocumentFromJson("{\"id\":\"1\", \"___dropped\":false, \"___skipped\":false}");
+    assertFalse(notFlagged.isDropped());
+    assertFalse(notFlagged.isSkipped());
+
+    Document flagged = createDocumentFromJson("{\"id\":\"1\", \"___dropped\":true, \"___skipped\":true}");
+    assertTrue(flagged.isDropped());
+    assertTrue(flagged.isSkipped());
+
+    // the API round trip still works
+    flagged.setDropped(false);
+    flagged.setSkipped(false);
+    assertFalse(flagged.isDropped());
+    assertFalse(flagged.isSkipped());
+    assertFalse(flagged.has(Document.DROP_FIELD));
+  }
+
+  @Test
   public void testCreateFromJsonString() throws Exception {
     // {"id":"123", "field1":"val1", "field2":"val2"}
     Document document = createDocumentFromJson("{\"id\":\"123\", \"field1\":\"val1\", \"field2\":\"val2\"}");
@@ -205,6 +261,24 @@ public abstract class DocumentTest {
 
     document.removeFromArray("array", 0);
     assertEquals(List.of(), document.getStringList("array"));
+  }
+
+  @Test
+  public void testRemoveFromArrayMissingField() {
+    // must not create the field as an empty array
+    Document document = createDocument("123");
+    document.removeFromArray("missing", 0);
+    assertFalse(document.has("missing"));
+  }
+
+  @Test
+  public void testRemoveFromArraySingleValuedField() {
+    // not an array: nothing to remove, no exception
+    Document document = createDocument("123");
+    document.setField("single", "val1");
+    document.removeFromArray("single", 0);
+    assertEquals("val1", document.getString("single"));
+    assertFalse(document.isMultiValued("single"));
   }
 
   @Test
@@ -292,7 +366,8 @@ public abstract class DocumentTest {
 
     // Note that we do not currently test whether asMap returns a shallow or deep copy of the document data.
     // For example, modifying the contents of an array value inside the Map might or might not affect the contents
-    // of that same array in the original document. Deep copying could be tested as follows but HashMapDocument would not pass:
+    // of that same array in the original document. Deep copying could be tested as follows, but an implementation that
+    // returns a shallow copy of its backing map would not pass:
     // byte[] myBytes = new byte[]{0x3c, 0x4c, 0x5c};
     // document.setField("myBytes", myBytes);
     // ((byte[])docMap.get("myBytes"))[0] = 0x5c;
@@ -787,6 +862,53 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testNullTemporalValuesStoreJsonNull() {
+    // Instant, Date and Timestamp follow the same policy as the String setters: a null argument stores a JSON null
+    // rather than throwing
+    Document document = createDocument("doc");
+    document.setField("instant", (Instant) null);
+    document.setField("date", (Date) null);
+    document.setField("timestamp", (Timestamp) null);
+    for (String field : List.of("instant", "date", "timestamp")) {
+      assertTrue(field, document.has(field));
+      assertFalse(field, document.hasNonNull(field));
+    }
+    assertNull(document.getInstant("instant"));
+    assertNull(document.getDate("date"));
+    assertNull(document.getTimestamp("timestamp"));
+
+    document.addToField("instant", (Instant) null);
+    document.addToField("date", (Date) null);
+    document.addToField("timestamp", (Timestamp) null);
+    List<Object> twoNulls = Arrays.asList(null, null);
+    assertEquals(twoNulls, document.getInstantList("instant"));
+    assertEquals(twoNulls, document.getDateList("date"));
+    assertEquals(twoNulls, document.getTimestampList("timestamp"));
+
+    document.setOrAdd("fresh", (Instant) null);
+    assertFalse(document.isMultiValued("fresh"));
+    assertNull(document.getInstant("fresh"));
+  }
+
+  @Test
+  public void testNullObjectValueStoresJsonNull() {
+    // the Object-typed setters, and update() which dispatches through them, accept null like the typed overloads
+    Document document = createDocument("doc");
+    document.setField("set", (Object) null);
+    document.addToField("add", (Object) null);
+    document.setOrAdd("setOrAdd", (Object) null);
+    document.update("update", UpdateMode.OVERWRITE, (Object) null);
+
+    for (String field : List.of("set", "setOrAdd", "update")) {
+      assertTrue(field, document.has(field));
+      assertFalse(field, document.hasNonNull(field));
+      assertFalse(field, document.isMultiValued(field));
+      assertNull(field, document.getString(field));
+    }
+    assertEquals(Collections.singletonList(null), document.getStringList("add"));
+  }
+
+  @Test
   public void testNullHandling() throws Exception {
     // set a field to null and confirm that we get back a null when we call getString(), not the
     // string "null"
@@ -890,6 +1012,22 @@ public abstract class DocumentTest {
 
   private static List<Object> valueListFromDocument(Document document, String field) {
     return toList(document.asMap().get(field));
+  }
+
+  @Test
+  public void testRenameFieldMissingSource() {
+    // renaming a field that is not present is a no-op in every mode: it must not create the destination, replace an
+    // existing destination with null, or throw
+    for (UpdateMode mode : UpdateMode.values()) {
+      Document document = createDocument("123");
+      document.renameField("missing", "newField", mode);
+      assertFalse(mode.toString(), document.has("newField"));
+
+      document.setField("existing", "keep");
+      document.renameField("missing", "existing", mode);
+      assertEquals(mode.toString(), "keep", document.getString("existing"));
+      assertFalse(mode.toString(), document.isMultiValued("existing"));
+    }
   }
 
   @Test
@@ -1318,6 +1456,21 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testSetOrAddDocumentOtherLacksField() {
+    // when the other document does not have the field, this document is left exactly as it was: still single-valued,
+    // not converted to a list, and no exception
+    Document document = createDocument("id1");
+    document.setField("field1", "val1");
+    Document otherDoc = createDocument("id2");
+
+    document.setOrAdd("field1", otherDoc);
+
+    assertEquals("val1", document.getString("field1"));
+    assertFalse(document.isMultiValued("field1"));
+    assertFalse(otherDoc.has("field1"));
+  }
+
+  @Test
   public void testSetOrAddWithOtherDocument() {
 
     Document d1 = createDocument("id1");
@@ -1344,6 +1497,43 @@ public abstract class DocumentTest {
     }
 
     assertEquals(expected, d1);
+  }
+
+  @Test
+  public void testSetOrAddDocumentDoesNotShareNestedValues() throws Exception {
+    // values copied from another document are independent of it: changing a nested object in either document
+    // afterwards must not change the other, whether the value was set, appended, or copied by setOrAddAll
+    ObjectMapper mapper = new ObjectMapper();
+    Document other = createDocument("other");
+    other.setField("single", mapper.readTree("{\"k\": 1}"));
+    other.addToField("multi", mapper.readTree("{\"k\": 1}"));
+    other.addToField("multi", mapper.readTree("{\"k\": 2}"));
+
+    Document document = createDocument("doc");
+    document.setOrAdd("single", other);
+    document.addToField("multi", mapper.readTree("{\"k\": 0}"));
+    document.setOrAdd("multi", other);
+    Document viaAll = createDocument("all");
+    viaAll.setOrAddAll(other);
+
+    assertEquals(mapper.readTree("{\"k\": 1}"), document.getJson("single"));
+    assertEquals(3, document.length("multi"));
+    assertEquals(mapper.readTree("{\"k\": 1}"), viaAll.getJson("single"));
+    assertEquals(2, viaAll.length("multi"));
+
+    // mutate the other document's nodes
+    ((ObjectNode) other.getJson("single")).put("k", 99);
+    ((ObjectNode) other.getJsonList("multi").get(0)).put("k", 99);
+
+    assertEquals(1, document.getJson("single").get("k").asInt());
+    assertEquals(1, document.getJsonList("multi").get(1).get("k").asInt());
+    assertEquals(1, viaAll.getJson("single").get("k").asInt());
+    assertEquals(1, viaAll.getJsonList("multi").get(0).get("k").asInt());
+
+    // and the other way around
+    ((ObjectNode) document.getJson("single")).put("k", 5);
+    assertEquals(99, other.getJson("single").get("k").asInt());
+    assertEquals(1, viaAll.getJson("single").get("k").asInt());
   }
 
   @Test
@@ -1521,7 +1711,7 @@ public abstract class DocumentTest {
   /**
    * Contract tests that apply only to JSON-node-backed Document implementations (e.g. JsonDocument) — in particular
    * behaviors tied to building a document from literal JSON (empty arrays, nulls, malformed values). They do not apply
-   * to non-node implementations such as HashMapDocument, which stores typed Java objects. Abstract: a concrete subclass
+   * to an implementation that stores typed Java objects rather than JSON nodes. Abstract: a concrete subclass
    * supplies the createDocument factories, and so runs these in addition to the shared DocumentTest contract.
    */
   abstract static class NodeDocumentTest extends DocumentTest {
@@ -1617,6 +1807,77 @@ public abstract class DocumentTest {
       node.remove("id");
       document.deepCopy();
     }
+
+    @Test
+    public void testGetChildrenReturnsIndependentCopies() throws Exception {
+      // The children a caller gets back are copies: changing them must not change the parent, and changing the
+      // parent must not change them. Callers (present and future) may rely on this and must not expect edits to a
+      // returned child to show up in the parent.
+      Document parent = createDocument("parent");
+      Document child = createDocument("child1");
+      child.setField("field1", "val1");
+      parent.addChild(child);
+
+      Document returned = parent.getChildren().get(0);
+      returned.setField("field1", "changed");
+      returned.setField("field2", "new");
+      assertEquals("val1", parent.getChildren().get(0).getString("field1"));
+      assertFalse(parent.getChildren().get(0).has("field2"));
+
+      parent.removeChildren();
+      assertEquals("changed", returned.getString("field1"));
+    }
+
+    @Test
+    public void testHasChildrenAgreesWithGetChildrenForInvalidChild() throws Exception {
+      // A stored child that is no longer a valid Document (here its id was removed after it was added, which is
+      // possible because addChild does not copy) is skipped by getChildren(); hasChildren() must agree without
+      // having to construct the children.
+      Document parent = createDocument("parent");
+      ObjectNode childNode = JsonNodeFactory.instance.objectNode();
+      childNode.put("id", "child1");
+      parent.addChild(createDocument(childNode));
+      assertTrue(parent.hasChildren());
+
+      childNode.remove("id");
+      assertTrue(parent.getChildren().isEmpty());
+      assertFalse(parent.hasChildren());
+
+      childNode.put("id", "");
+      assertFalse(parent.hasChildren());
+
+      childNode.put("id", 7);
+      assertFalse(parent.hasChildren());
+
+      childNode.put("id", "child1");
+      assertTrue(parent.hasChildren());
+    }
+
+    @Test
+    public void testGetBytesListKeepsPositionOfUndecodableElement() throws Exception {
+      // an element that is not valid base64 yields null in place, as getBytes() does, rather than being dropped
+      Document document = createDocumentFromJson("{\"id\":\"1\", \"bytes\":[\"AQID\", \"!!!\", \"AQID\"]}");
+      List<byte[]> bytes = document.getBytesList("bytes");
+      assertEquals(document.length("bytes"), bytes.size());
+      assertArrayEquals(new byte[] {1, 2, 3}, bytes.get(0));
+      assertNull(bytes.get(1));
+      assertArrayEquals(new byte[] {1, 2, 3}, bytes.get(2));
+    }
+
+    @Test
+    public void testGetFloatCoercesLikeGetDouble() throws Exception {
+      // a numeric string or a boolean is converted the same way by the float and double getters
+      Document document = createDocumentFromJson(
+          "{\"id\":\"doc\", \"str\":\"1.5\", \"bool\":true, \"num\":2.25, \"list\":[\"1.5\", true, 2.25, null]}");
+      assertEquals(1.5f, document.getFloat("str"), 0);
+      assertEquals(1.0f, document.getFloat("bool"), 0);
+      assertEquals(2.25f, document.getFloat("num"), 0);
+      assertEquals(Arrays.asList(1.5f, 1.0f, 2.25f, null), document.getFloatList("list"));
+      for (String field : List.of("str", "bool", "num")) {
+        assertEquals(field, document.getDouble(field).floatValue(), document.getFloat(field), 0);
+      }
+    }
+
   }
 
   @Test
