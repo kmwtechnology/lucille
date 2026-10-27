@@ -20,7 +20,6 @@ Supports all OpenSearch parameters, plus parent-child join support:
 | `connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `5000`. |
 | `socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Applies to delete-by-query too, so raise it above the slowest expected request, or set `-1` for no limit. Default: `30000`. |
 | `connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Lower it to rebalance faster. Default: `300000` (5 minutes). |
-| `parentName` | String | No | Parent relation name for join field mappings. |
 
 **Join field support** (for parent-child mappings):
 
@@ -60,7 +59,7 @@ When `isChild: true`, the indexer adds a join field to each document with the ch
 
 ## Routing and Versioning
 
-Same as OpenSearch: supports `indexer.routingField` for custom shard routing and `indexer.versionType` for optimistic concurrency control using Kafka offsets in distributed mode.
+Same as OpenSearch: supports `indexer.routingField` for custom shard routing, and `indexer.versionType` (`external` or `external_gte`) for optimistic concurrency control. The version comes from `indexer.versionField` when it is set and present on the document, otherwise from the Kafka offset in distributed mode; a document with neither is indexed without a version.
 
 ---
 

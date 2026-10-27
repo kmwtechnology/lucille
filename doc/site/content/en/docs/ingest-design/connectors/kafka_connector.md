@@ -49,7 +49,7 @@ connectors: [
 | `kafka.documentDeserializer` | String | No | Fully-qualified class name of a custom `Deserializer<Document>`. Defaults to the built-in JSON deserializer. |
 | `maxMessages` | Long | No | Maximum number of messages to consume before stopping. If omitted, runs until no more messages are available. |
 | `messageTimeout` | Long | No | Kafka poll timeout in milliseconds. Default: `100`. |
-| `offsets` | Map\<Integer, Long\> | No | Map of partition numbers to starting offsets. If omitted, uses the consumer group's committed offset. |
+| `offsets` | Map\<Integer, Long\> | No | Map of partition numbers to starting offsets, applied once when each partition is assigned to the consumer. Partitions not listed start from the consumer group's committed offset. If omitted, all partitions use the committed offset. |
 | `continueOnTimeout` | Boolean | No | If `true`, continue polling after a poll timeout instead of stopping. |
 
 ## Message Format

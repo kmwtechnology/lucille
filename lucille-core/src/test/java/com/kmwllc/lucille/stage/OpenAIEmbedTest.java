@@ -42,8 +42,9 @@ public class OpenAIEmbedTest {
 
   @Test
   public void testOpenAIModelNameMisspelledRetrieval() throws Exception {
-    // if used wrong name or another model not by OpenAI, will use text-embedding-3-small as default model, will not throw exception
-    assertNotNull(factory.get("OpenAIEmbedTest/wrongModelName.conf"));
+    // a misspelled or unsupported model name is a configuration error; it used to fall back silently to
+    // text-embedding-3-small
+    assertThrows(StageException.class, () -> factory.get("OpenAIEmbedTest/wrongModelName.conf"));
   }
 
   @Test

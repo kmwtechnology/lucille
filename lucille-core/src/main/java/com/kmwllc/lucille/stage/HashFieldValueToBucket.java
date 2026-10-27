@@ -19,7 +19,8 @@ import com.typesafe.config.Config;
  * <p>
  * Config Parameters -
  * <ul>
- *   <li>fieldName (String, Required) : Field that will be used as the input for the hashing function.</li>
+ *   <li>fieldName (String, Required) : Field whose value (first value if multi-valued) is hashed; use "id" to hash the document id.
+ *   Documents without the field, or with a null value, are left unchanged.</li>
  *   <li>dest (String, Required) : Field that will contain the hash bucket label.</li>
  *   <li>buckets (List of String, Required) : list of buckets for the hash function.</li>
  * </ul>
@@ -54,7 +55,12 @@ public class HashFieldValueToBucket extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    int hashIndex = Math.abs(doc.getId().hashCode() % numBuckets);
+    // "id" is the document id; any other field is read as a string (first value of a multi-valued field)
+    String value = Document.ID_FIELD.equals(fieldName) ? doc.getId() : doc.getString(fieldName);
+    if (value == null) {
+      return null;
+    }
+    int hashIndex = Math.abs(value.hashCode() % numBuckets);
     doc.setField(destField, buckets.get(hashIndex));
     return null;
   }

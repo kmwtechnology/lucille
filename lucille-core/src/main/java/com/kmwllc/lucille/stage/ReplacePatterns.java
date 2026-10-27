@@ -66,8 +66,8 @@ public class ReplacePatterns extends Stage {
     this.sourceFields = config.getStringList("source");
     this.destFields = config.getStringList("dest");
     this.regexExprs = config.getStringList("regex");
-    this.replacement = ConfigUtils.getOrDefault(config, "replacement", null);
-    this.replacementField = ConfigUtils.getOrDefault(config, "replacementField", null);
+    this.replacement = ConfigUtils.getStringOrDefault(config, "replacement", null);
+    this.replacementField = ConfigUtils.getStringOrDefault(config, "replacementField", null);
 
     if (replacement == null && replacementField == null) {
       throw new StageException("Did not provide a replacement String or a replacementField.");
