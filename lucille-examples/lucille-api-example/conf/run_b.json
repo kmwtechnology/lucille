@@ -1,0 +1,61 @@
+{
+  "connectors": [
+    {
+      "class": "com.kmwllc.lucille.connector.SequenceConnector",
+      "name": "sequence_connector",
+      "pipeline": "simple_pipeline",
+      "numDocs": 500,
+      "docIdPrefix": "b-"
+    }
+  ],
+  "pipelines": [
+    {
+      "name": "simple_pipeline",
+      "stages": [
+        {
+          "class": "com.kmwllc.lucille.stage.SetStaticValues",
+          "staticValues": {
+            "run": "b",
+            "scratch": "to be deleted"
+          }
+        },
+        {
+          "class": "com.kmwllc.lucille.stage.CopyFields",
+          "fieldMapping": {
+            "id": "num"
+          }
+        },
+        {
+          "class": "com.kmwllc.lucille.stage.ReplacePatterns",
+          "source": ["num"],
+          "dest": ["num"],
+          "regex": ["^[a-z]+-"],
+          "replacement": ""
+        },
+        {
+          "class": "com.kmwllc.lucille.stage.Concatenate",
+          "dest": "label",
+          "formatString": "{run}:{id}"
+        },
+        {
+          "class": "com.kmwllc.lucille.stage.RenameFields",
+          "fieldMapping": {
+            "label": "run_label"
+          }
+        },
+        {
+          "class": "com.kmwllc.lucille.stage.DeleteFields",
+          "fields": ["scratch"]
+        }
+      ]
+    }
+  ],
+  "indexer": {
+    "type": "CSV"
+  },
+  "csv": {
+    "columns": ["id", "run", "num", "run_label", "scratch"],
+    "path": "/output/run_b.csv",
+    "includeHeader": false
+  }
+}

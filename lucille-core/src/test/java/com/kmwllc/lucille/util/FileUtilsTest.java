@@ -1,10 +1,13 @@
 package com.kmwllc.lucille.util;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.file.Paths;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class FileUtilsTest {
@@ -58,5 +61,15 @@ public class FileUtilsTest {
   public void testAppendStringToFileName() {
     assertEquals("/Users/Desktop/hello-FILE-1.txt", FileUtils.appendStringToFileName("/Users/Desktop/hello.txt", "-FILE-1"));
     assertEquals("/Users/Desktop/hello-FILE-1", FileUtils.appendStringToFileName("/Users/Desktop/hello", "-FILE-1"));
+  }
+
+  @Test
+  public void testReadAllBytes() throws IOException {
+    byte[] content = new byte[100];
+
+    assertEquals(100, FileUtils.readAllBytes(new ByteArrayInputStream(content), null).length);
+    assertEquals(100, FileUtils.readAllBytes(new ByteArrayInputStream(content), 100L).length);
+    assertEquals(100, FileUtils.readAllBytes(new ByteArrayInputStream(content), 1000L).length);
+    assertThrows(FileUtils.ContentTooLargeException.class, () -> FileUtils.readAllBytes(new ByteArrayInputStream(content), 99L));
   }
 }
