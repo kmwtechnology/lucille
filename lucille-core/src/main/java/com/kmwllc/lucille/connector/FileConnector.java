@@ -66,6 +66,10 @@ import com.typesafe.config.Config;
  *   Requires state and publishMode 'incremental'; the connector fails to start if either is missing.</li>
  *   <li>filterOptions.publishMode (String, Optional) : Set as 'incremental' or 'full' to choose mode of publishing.</li>
  *   <li>fileOptions.getFileContent (Boolean, Optional) : Fetch file content during traversal. Defaults to true.</li>
+ *   <li>fileOptions.maxSizeBytes (Long, Optional) : The maximum size, in bytes, of file content to fetch. Must be positive and at
+ *   most Integer.MAX_VALUE - 9. A file larger than this is not published and is handled as a processing error (e.g. moved to
+ *   moveToErrorFolder, if set). An oversized archive entry is skipped, and the rest of the archive is still processed. Does
+ *   not apply to files processed by a file handler; see the handler's own limits. No limit by default.</li>
  *   <li>fileOptions.handleArchivedFiles (Boolean, Optional) : Process archive files. Defaults to false.</li>
  *   <li>fileOptions.handleCompressedFiles (Boolean, Optional) : Process compressed files. Defaults to false.</li>
  *   <li>fileOptions.moveToAfterProcessing (String, Optional) : URI to move files after successful processing (single input path only).</li>
@@ -123,6 +127,7 @@ public class FileConnector extends AbstractConnector {
 
   // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
+  public static final String MAX_SIZE_BYTES = "maxSizeBytes";
   public static final String HANDLE_ARCHIVED_FILES = "handleArchivedFiles";
   public static final String HANDLE_COMPRESSED_FILES = "handleCompressedFiles";
   public static final String MOVE_TO_AFTER_PROCESSING = "moveToAfterProcessing";
@@ -155,6 +160,7 @@ public class FileConnector extends AbstractConnector {
               .optionalBoolean("sendTombstones").build(),
           SpecBuilder.parent("fileOptions")
               .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+              .optionalNumber(MAX_SIZE_BYTES)
               .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
           SpecBuilder.parent("state")
               .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")

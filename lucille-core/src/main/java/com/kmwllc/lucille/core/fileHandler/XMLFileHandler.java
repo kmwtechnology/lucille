@@ -18,6 +18,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.xpath.XPathExpressionException;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
@@ -41,6 +42,11 @@ import org.xml.sax.XMLReader;
  *   <li><code>outputField</code> (String, Optional): The field you want to put the extracted XML text into. Defaults to "xml".</li>
  *   <li><code>skipEmptyId</code> (Boolean, Optional): Whether you want to skip a document when your <code>xmlIdPath</code> or <code>xpathIdPath</code>
  *   evaluates to an empty or null String. You should enable if using an <code>xpathIdPath</code> that is a qualifier. Defaults to false.</li>
+ *   <li><code>maxRecordBytes</code> (Integer, Optional): The maximum number of bytes the handler may hold in memory while
+ *   reading a single record at <code>xmlRootPath</code>. If exceeded, processing of the file stops with an error; documents
+ *   from earlier records will already have been published. The limit is approximate, since bytes read ahead by the parser
+ *   are counted too, and it also applies to any content before the first record (so a file where <code>xmlRootPath</code>
+ *   never matches will hit it). No limit by default.</li>
  * </ul>
  *
  * <b>Note:</b> You cannot specify both an <code>xmlIdPath</code> and an <code>xpathIdPath</code>. <code>xmlIdPath</code> runs
@@ -51,6 +57,7 @@ public class XMLFileHandler extends BaseFileHandler {
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .requiredString("xmlRootPath")
       .optionalString("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding")
+      .optionalNumber("maxRecordBytes")
       .optionalBoolean("skipEmptyId").build();
 
   private static final Logger log = LoggerFactory.getLogger(XMLFileHandler.class);
@@ -61,6 +68,8 @@ public class XMLFileHandler extends BaseFileHandler {
   private final String encoding;
   private final String outputField;
   private final boolean skipEmptyId;
+  // 0 means no limit
+  private final int maxRecordBytes;
 
   private SAXParserFactory spf = null;
   private SAXParser saxParser = null;
@@ -75,6 +84,11 @@ public class XMLFileHandler extends BaseFileHandler {
     this.encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
     this.outputField = config.hasPath("outputField") ? config.getString("outputField") : "xml";
     this.skipEmptyId = ConfigUtils.getOrDefault(config, "skipEmptyId", false);
+
+    this.maxRecordBytes = config.hasPath("maxRecordBytes") ? config.getInt("maxRecordBytes") : 0;
+    if (config.hasPath("maxRecordBytes") && maxRecordBytes <= 0) {
+      throw new IllegalArgumentException("maxRecordBytes must be positive, got " + maxRecordBytes);
+    }
 
     if (config.hasPath("xmlIdPath") == config.hasPath("xpathIdPath")) {
       throw new IllegalArgumentException("Must specify exactly one of xmlIdPath and xpathIdPath.");
@@ -91,7 +105,7 @@ public class XMLFileHandler extends BaseFileHandler {
     // set up Factory, parser, reader and handler
     ChunkingXMLHandler xmlHandler = setUpParserReaderAndHandlerIfNeeded(publisher, pathStr);
 
-    RecordingInputStream ris = new RecordingInputStream(inputStream);
+    RecordingInputStream ris = new RecordingInputStream(inputStream, maxRecordBytes);
 
     setEncodingAndParse(xmlHandler, ris, pathStr);
   }
@@ -105,6 +119,10 @@ public class XMLFileHandler extends BaseFileHandler {
     } catch (UnsupportedEncodingException e) {
       throw new FileHandlerException(String.format("%s is not supported as an encoding. (%s)", encoding, path), e);
     } catch (SAXException | IOException e) {
+      // the parser may wrap the IOException thrown by the RecordingInputStream
+      if (ExceptionUtils.indexOfType(e, RecordingInputStream.BufferLimitExceededException.class) != -1) {
+        throw new FileHandlerException(String.format("XML record exceeds maxRecordBytes of %d bytes. (%s)", maxRecordBytes, path), e);
+      }
       throw new FileHandlerException(String.format("Unable to parse. (%s)", path), e);
     }
   }

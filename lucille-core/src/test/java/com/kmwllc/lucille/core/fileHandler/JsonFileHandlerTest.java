@@ -413,4 +413,28 @@ public class JsonFileHandlerTest {
     assertEquals("PREFIX-three_3", docs.next().getId());
     assertFalse(docs.hasNext());
   }
+
+  @Test
+  public void testMaxRecordBytes() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("json", Map.of("maxRecordBytes", 30)));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String input = "{\"id\": \"1\", \"a\": \"short\"}\n"
+        + "{\"id\": \"2\", \"a\": \"this line is longer than the limit\"}\n"
+        + "{\"id\": \"3\", \"a\": \"short\"}\n";
+
+    Iterator<Document> docs = handler.processFile(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), "test.jsonl");
+    assertEquals("1", docs.next().getId());
+
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::hasNext);
+    assertTrue(e.getMessage().contains("line 2"));
+    assertTrue(e.getMessage().contains("test.jsonl"));
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testInvalidMaxRecordBytes() {
+    Config config = ConfigFactory.parseMap(Map.of("json", Map.of("maxRecordBytes", 0)));
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("json", config));
+  }
 }
