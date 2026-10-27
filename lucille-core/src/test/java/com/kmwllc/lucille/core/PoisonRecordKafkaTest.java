@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -51,7 +52,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 /**
@@ -72,8 +72,8 @@ public class PoisonRecordKafkaTest {
 
   @BeforeClass
   public static void startKafka() throws Exception {
-    embeddedKafka = new EmbeddedKafkaKraftBroker(1, 1);
-    embeddedKafka.afterPropertiesSet();
+    // a warmed-up broker, so the one-time creation of __consumer_offsets does not land inside a test's time budget
+    embeddedKafka = EmbeddedKafkaUtils.startBroker();
   }
 
   @AfterClass
