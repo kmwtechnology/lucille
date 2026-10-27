@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.util;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Path;
 import org.apache.commons.io.FilenameUtils;
@@ -54,5 +56,38 @@ public class FileUtils {
     String newFileNameWithExtension = newFileName + (extension.isEmpty() ? "" : "." + extension);
 
     return parentPath + newFileNameWithExtension;
+  }
+
+  /**
+   * Reads the remaining contents of the given InputStream into a byte[], failing instead of reading more than
+   * <code>maxBytes</code>. Does not close the InputStream.
+   *
+   * @param in The InputStream to read.
+   * @param maxBytes The maximum number of bytes to read, or null for no limit. Must fit in a byte[], i.e. be at most
+   *                 Integer.MAX_VALUE - 9.
+   * @return The contents of the InputStream.
+   * @throws ContentTooLargeException If the InputStream contains more than <code>maxBytes</code> bytes.
+   * @throws IOException If an error occurs reading the InputStream.
+   */
+  public static byte[] readAllBytes(InputStream in, Long maxBytes) throws IOException {
+    if (maxBytes == null) {
+      return in.readAllBytes();
+    }
+
+    byte[] bytes = in.readNBytes(Math.toIntExact(maxBytes));
+    if (in.read() != -1) {
+      throw new ContentTooLargeException("Content exceeds the maximum size of " + maxBytes + " bytes.");
+    }
+    return bytes;
+  }
+
+  /**
+   * Thrown when content exceeds a configured maximum size.
+   */
+  public static class ContentTooLargeException extends IOException {
+
+    public ContentTooLargeException(String message) {
+      super(message);
+    }
   }
 }
