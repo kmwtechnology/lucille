@@ -216,7 +216,7 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.kmwllc.lucille.APIApplication</mainClass>
+                                    <mainClass>com.kmwllc.lucille.api.APIApplication</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
