@@ -57,7 +57,7 @@ import com.typesafe.config.Config;
  */
 public class FileConnectorStateManager {
 
-  private static final LockRegistry LOCK_REGISTRY = new LockRegistry();
+  private static final LockRegistry lockRegistry = new LockRegistry();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnectorStateManager.class);
 
@@ -118,7 +118,7 @@ public class FileConnectorStateManager {
    * appropriate schema if it doesn't. After connecting to the table, sets encountered=FALSE for all rows.
    */
   public void init() throws ClassNotFoundException, SQLException {
-    LOCK_REGISTRY.acquire(registryKey);
+    lockRegistry.acquire(registryKey);
     holdsLock.set(true);
 
     // An important note: we do *not* release the lock in a "finally" block
@@ -273,7 +273,7 @@ public class FileConnectorStateManager {
       closeConnection(jdbcConnection);
 
       if (holdsLock.getAndSet(false)) {
-        LOCK_REGISTRY.release(registryKey);
+        lockRegistry.release(registryKey);
       }
     }
   }
