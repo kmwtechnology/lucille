@@ -127,6 +127,12 @@ Attached children are flattened into the parent document as nested objects. They
 
 ---
 
+## Bulk Request Body
+
+Each document's body is written straight from the document's JSON tree into the client's JSON generator while the bulk request is serialized, rather than copied into a map first. The JSON sent is the same as before: fields excluded by `indexer.whitelist`/`indexer.blacklist` are left out, the `id` field carries the document's id (or its `indexer.idOverrideField` value), children go under `childDocumentsField`, and fields with a null value are left out at every depth, while nulls inside arrays are kept. This saves building a copy of every document in the batch, which matters for large batches. It requires the client's default Jackson JSON mapper.
+
+---
+
 ## Troubleshooting
 
 **"index not found":**

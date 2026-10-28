@@ -16,6 +16,7 @@ import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.StringWriter;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.ErrorCause;
 import org.opensearch.client.opensearch._types.FieldValue;
@@ -1022,7 +1024,8 @@ public class OpenSearchIndexerTest {
     assertEquals("doc1", indexRequest.id());
     assertEquals(Long.valueOf(12345L), indexRequest.version());
     assertEquals(VersionType.ExternalGte, indexRequest.versionType());
-    assertEquals(Map.of("id", "doc1", "my_version_field", 12345L, "field1", "value1"), map);
+    // asSent parses the JSON sent, which reads a number that fits in an int as an Integer
+    assertEquals(Map.of("id", "doc1", "my_version_field", 12345, "field1", "value1"), map);
   }
 
   @Test
@@ -2518,7 +2521,17 @@ public class OpenSearchIndexerTest {
    * Converts the document handed to the client into plain Java values. The indexer may pass the document's own
    * JsonNodes as map values, which the client serializes the same way as the converted values.
    */
+  // the document as the client sends it, serialized by its JacksonJsonpMapper
   private static Map<String, Object> asSent(Object document) {
-    return new ObjectMapper().convertValue(document, new TypeReference<Map<String, Object>>() {});
+    JacksonJsonpMapper mapper = new JacksonJsonpMapper();
+    StringWriter json = new StringWriter();
+    try (jakarta.json.stream.JsonGenerator generator = mapper.jsonProvider().createGenerator(json)) {
+      mapper.serialize(document, generator);
+    }
+    try {
+      return new ObjectMapper().readValue(json.toString(), new TypeReference<Map<String, Object>>() {});
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 }
