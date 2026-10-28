@@ -57,6 +57,11 @@ public class ZKRetryCounter implements RetryCounter {
     }
   }
 
+  @Override
+  public void close() {
+    curatorFramework.close();
+  }
+
   private String getCounterPath(Document document) {
     if (document instanceof KafkaDocument) {
       KafkaDocument doc = (KafkaDocument) document;

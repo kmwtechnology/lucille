@@ -12,13 +12,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.IndexerMessenger;
-import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.util.FieldFilter;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -37,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
-import sun.misc.Signal;
 
 /**
  * Indexes documents into a target destination.
@@ -832,33 +828,13 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     return false;
   }
 
+  /**
+   * Starts an Indexer reading from Kafka for the pipeline named by the first argument (or by
+   * <code>indexer.pipeline</code>). The process runs until it is told to stop (SIGINT or SIGTERM); if the indexer
+   * thread stops on its own, the process exits 1. The body of this entry point is {@link Launch#indexer}.
+   */
   public static void main(String[] args) throws Exception {
-    Config config = ConfigFactory.load();
-    String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
-    log.info("Starting Indexer for pipeline: " + pipelineName);
-    IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
-    Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName, null);
-
-    if (!indexer.validateConnection()) {
-      log.error("Indexer could not connect");
-      System.exit(1);
-    }
-
-    Thread indexerThread = new Thread(indexer);
-    indexerThread.start();
-
-    Signal.handle(
-        new Signal("INT"),
-        signal -> {
-          indexer.terminate();
-          log.info("Indexer shutting down");
-          try {
-            indexerThread.join();
-          } catch (InterruptedException e) {
-            log.error("Interrupted", e);
-          }
-          System.exit(0);
-        });
+    Launch.indexer(args);
   }
 
   public Spec getImplementationSpec() {
@@ -873,9 +849,9 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     Config indexerConfig = config.getConfig("indexer");
     SpecBuilder.withoutDefaults()
-        .optionalString("type", "class", "idOverrideField", "indexOverrideField", "deletionMarkerField", "deletionMarkerFieldValue",
-            "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
-        .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "logRate", "maxRetries", "retryWaitDurationMs",
+        .optionalString("type", "class", "pipeline", "idOverrideField", "indexOverrideField", "deletionMarkerField",
+            "deletionMarkerFieldValue", "deleteByFieldField", "deleteByFieldValue", "versionType", "versionField", "routingField")
+        .optionalNumber("batchSize", "batchByteSize", "batchTimeout", "maxRetries", "retryWaitDurationMs",
             "retryMaxWaitDurationMs", "retryRandomizationFactor", "maxConcurrentBatches")
         .optionalBoolean("sendEnabled")
         .optionalList("whitelist", new TypeReference<List<String>>(){})

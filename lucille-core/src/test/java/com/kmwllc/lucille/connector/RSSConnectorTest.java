@@ -138,6 +138,30 @@ public class RSSConnectorTest {
   }
 
   @Test
+  public void testBlankGuidFallsBackToUuid() throws Exception {
+    Item blankGuid = new Item(parser);
+    blankGuid.setGuid("   ");
+    blankGuid.setTitle("An item whose guid is only whitespace");
+    Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/default.conf");
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "xmlRun", "xmlPipeline");
+
+    try (MockedConstruction<RssReader> mockReaderConst = Mockito.mockConstruction(RssReader.class, (mockReader, context) -> {
+      when(mockReader.read(any(String.class))).thenReturn(Stream.of(blankGuid));
+    })) {
+      RSSConnector connector = new RSSConnector(config);
+      connector.execute(publisher);
+    }
+
+    List<Document> publishedDocs = messenger.getDocsSentForProcessing();
+    assertEquals(1, publishedDocs.size());
+    // a blank guid is no guid: the item gets a generated UUID id, as an item without a guid does
+    assertEquals(UUID.randomUUID().toString().length(), publishedDocs.get(0).getId().length());
+    assertEquals("An item whose guid is only whitespace", publishedDocs.get(0).getString("title"));
+  }
+
+  @Test
   public void testRSSConnectorWithIdField() throws Exception {
     Config config = ConfigFactory.parseResourcesAnySyntax("RSSConnectorTest/noUseGuid.conf");
 

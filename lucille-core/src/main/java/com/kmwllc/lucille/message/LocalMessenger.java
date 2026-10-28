@@ -63,23 +63,28 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   }
 
   @Override
-  public void sendForIndexing(Document document) throws Exception {
-    pipelineDest.put(document);
+  public void sendForIndexing(Document document) throws MessengerException {
+    try {
+      pipelineDest.put(document);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while queueing document " + document.getId() + " for indexing", e);
+    }
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
+  public void sendFailed(Document document) {
 
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
     Event event = new Event(document, message, type);
     sendEvent(event);
   }
 
   @Override
-  public void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws MessengerException {
     pipelineEvents.add(event);
   }
 

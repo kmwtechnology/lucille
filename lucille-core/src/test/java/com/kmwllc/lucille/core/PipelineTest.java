@@ -1,4 +1,5 @@
 package com.kmwllc.lucille.core;
+import com.kmwllc.lucille.stage.StartStopCaptureStage;
 
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -399,6 +400,45 @@ public class PipelineTest {
       children.add(child2);
       return children.iterator();
     }
+  }
+
+
+  @Test
+  public void testStartFailureStopsTheStagesAlreadyStarted() throws Exception {
+    // RUN-16
+    StartStopCaptureStage.reset();
+    Config config = ConfigFactory.parseString("pipelines: [{name: p, stages: ["
+        + "{class: \"com.kmwllc.lucille.stage.StartStopCaptureStage\"},"
+        + "{class: \"com.kmwllc.lucille.stage.ErrorStage\", exceptionOnStart: true}]}]");
+    assertThrows(StageException.class, () -> Pipeline.fromConfig(config, "p", "metrics"));
+    assertTrue(StartStopCaptureStage.startCalled);
+    assertTrue(StartStopCaptureStage.stopCalled);
+    StartStopCaptureStage.reset();
+  }
+
+  @Test
+  public void testStopContinuesPastAFailingStage() throws Exception {
+    // STG-32: the stages after a stage whose stop() throws must still be stopped
+    StartStopCaptureStage.reset();
+    Config config = ConfigFactory.parseString("pipelines: [{name: p, stages: ["
+        + "{class: \"com.kmwllc.lucille.stage.ThrowingStage\", throwOnStop: true},"
+        + "{class: \"com.kmwllc.lucille.stage.StartStopCaptureStage\"}]}]");
+    Pipeline pipeline = Pipeline.fromConfig(config, "p", "metrics");
+    assertThrows(StageException.class, pipeline::stopStages);
+    assertTrue(StartStopCaptureStage.stopCalled);
+    StartStopCaptureStage.reset();
+  }
+
+  @Test
+  public void testValidationStopsTheStagesItConstructs() throws Exception {
+    // RUN-06: a stage constructed only for validation must be released again
+    StartStopCaptureStage.reset();
+    Config config = ConfigFactory.parseString("pipelines: [{name: p, stages: ["
+        + "{class: \"com.kmwllc.lucille.stage.StartStopCaptureStage\"}]}]");
+    assertTrue(Pipeline.validateStages(config, "p").isEmpty());
+    assertFalse(StartStopCaptureStage.startCalled);
+    assertTrue(StartStopCaptureStage.stopCalled);
+    StartStopCaptureStage.reset();
   }
 
 }

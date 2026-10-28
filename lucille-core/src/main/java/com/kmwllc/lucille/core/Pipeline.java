@@ -25,15 +25,49 @@ public class Pipeline {
     return stages;
   }
 
+  /**
+   * Starts every stage in order. If a stage fails to start, the stages started before it are stopped again so they do
+   * not leak the resources they opened, and the failure is rethrown.
+   */
   public void startStages() throws StageException {
-    for (Stage stage : stages) {
-      stage.start();
+    List<Stage> started = new ArrayList<>();
+    try {
+      for (Stage stage : stages) {
+        stage.start();
+        started.add(stage);
+      }
+    } catch (StageException | RuntimeException e) {
+      for (Stage stage : started) {
+        try {
+          stage.stop();
+        } catch (Exception stopException) {
+          log.error("Error stopping stage {} after a later stage failed to start", stage.getName(), stopException);
+        }
+      }
+      throw e;
     }
   }
 
+  /**
+   * Stops every stage. A stage that fails to stop does not prevent the stages after it from being stopped; the first
+   * failure is rethrown once every stage has been given the chance to stop.
+   */
   public void stopStages() throws StageException {
+    Exception first = null;
     for (Stage stage : stages) {
-      stage.stop();
+      try {
+        stage.stop();
+      } catch (Exception e) {
+        log.error("Error stopping stage {}", stage.getName(), e);
+        if (first == null) {
+          first = e;
+        }
+      }
+    }
+    if (first instanceof StageException) {
+      throw (StageException) first;
+    } else if (first != null) {
+      throw new StageException("Error stopping stage", first);
     }
   }
 
@@ -61,10 +95,20 @@ public class Pipeline {
   public static List<Exception> validateStages(List<? extends Config> stages) {
     List<Exception> exceptions = new ArrayList<>();
     for (Config c : stages) {
+      Stage stage = null;
       try {
-        Stage.fromConfig(c);
+        stage = Stage.fromConfig(c);
       } catch (Exception e) {
         exceptions.add(e);
+      } finally {
+        // the stage was constructed only to validate its config; release anything its constructor opened
+        if (stage != null) {
+          try {
+            stage.stop();
+          } catch (Exception e) {
+            log.debug("Error stopping stage {} constructed for validation", stage.getName(), e);
+          }
+        }
       }
     }
     return exceptions;

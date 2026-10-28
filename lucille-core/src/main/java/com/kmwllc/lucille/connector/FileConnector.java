@@ -46,8 +46,9 @@ import com.typesafe.config.Config;
  * State tracks file paths and last publish timestamps to support filterOptions.lastPublishedCutoff and to avoid duplicate publications
  * across runs. You can connect to your own JDBC database by providing driver, connectionString, jdbcUser, and tableName. If
  * connectionString is omitted, an embedded database is created at ./state/{CONNECTOR_NAME}. With state enabled, traversal may be
- * slower, and files that are moved or renamed are always republished. The lastPublishedCutoff setting has no effect unless state is
- * configured. You may enable state without lastPublishCutoff and publish times will still be updated.
+ * slower, and files that are moved or renamed are always republished. The lastPublishedCutoff setting requires state and
+ * incremental publishMode; configuring it without them is an error. You may enable state without lastPublishedCutoff and publish
+ * times will still be updated.
  * <p>
  * Config Parameters -
  * <ul>
@@ -61,7 +62,8 @@ import com.typesafe.config.Config;
  *   <li>filterOptions.excludes (List&lt;String&gt;, Optional) : Regex patterns to exclude files.</li>
  *   <li>filterOptions.pathsToSkip (List&lt;String&gt;, Optional) : URIs of paths to directories that should be skipped and not traversed.</li>
  *   <li>filterOptions.lastModifiedCutoff (String, Optional) : Duration string to include only files modified within this period (e.g., "1h").</li>
- *   <li>filterOptions.lastPublishedCutoff (String, Optional) : Duration string to include only files not published within this period.</li>
+ *   <li>filterOptions.lastPublishedCutoff (String, Optional) : Duration string to include only files not published within this period.
+ *   Requires state and publishMode 'incremental'; the connector fails to start if either is missing.</li>
  *   <li>filterOptions.publishMode (String, Optional) : Set as 'incremental' or 'full' to choose mode of publishing.</li>
  *   <li>fileOptions.getFileContent (Boolean, Optional) : Fetch file content during traversal. Defaults to true.</li>
  *   <li>fileOptions.maxSizeBytes (Long, Optional) : The maximum size, in bytes, of file content to fetch. Must be positive and at
@@ -154,7 +156,8 @@ public class FileConnector extends AbstractConnector {
               .optionalList("excludes", new TypeReference<List<String>>(){})
               .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
               // durations are strings.
-              .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode", "sendTombstones").build(),
+              .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode")
+              .optionalBoolean("sendTombstones").build(),
           SpecBuilder.parent("fileOptions")
               .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
               .optionalNumber(MAX_SIZE_BYTES)
@@ -236,8 +239,16 @@ public class FileConnector extends AbstractConnector {
       validateNonOverlappingPaths();
     }
 
-    if (config.hasPath("filterOptions.lastPublishedCutoff") && !config.hasPath("state")) {
-      log.warn("filterOptions.lastPublishedCutoff was specified, but no state configuration was provided. It will not be enforced.");
+    // lastPublishedCutoff is only applied in incremental mode with state; anywhere else it would be silently ignored
+    if (config.hasPath("filterOptions.lastPublishedCutoff")) {
+      if (!config.hasPath("state")) {
+        throw new IllegalArgumentException("filterOptions.lastPublishedCutoff requires state configuration.");
+      }
+      if (!config.hasPath("filterOptions.publishMode")
+          || PublishMode.fromString(config.getString("filterOptions.publishMode")) == PublishMode.FULL) {
+        throw new IllegalArgumentException(
+            "filterOptions.lastPublishedCutoff requires filterOptions.publishMode of 'incremental'; it is not applied in full mode.");
+      }
     }
   }
 
