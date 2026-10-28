@@ -367,6 +367,25 @@ public class ParseFilePathTest {
     assertEquals("A\u2215B", parse(stage, "/dir/file.a\u2215b").getString("file_extension"));
   }
 
+  @Test
+  public void testRootedHierarchy() throws StageException {
+    Stage unix = factory.get(Map.of("fileSep", "/", "rootedHierarchy", true));
+    assertEquals(List.of("/a", "/a/b"), parse(unix, "/a/b/file.txt").getStringList("file_paths"));
+    assertEquals(List.of("/a", "/a/b"), parse(unix, "a//b/file.txt").getStringList("file_paths"));
+    assertFalse(parse(unix, "/file.txt").has("file_paths"));
+
+    // only file_paths is rooted
+    Document doc = parse(unix, "a/b/file.txt");
+    assertEquals("a/b/file.txt", doc.getString("path"));
+    assertEquals("a/b", doc.getString("folder"));
+
+    Stage windows = factory.get(Map.of("fileSep", "\\", "rootedHierarchy", true));
+    assertEquals(List.of("\\C:", "\\C:\\a"), parse(windows, "C:\\a\\file.txt").getStringList("file_paths"));
+
+    Stage relative = factory.get(Map.of("fileSep", "/", "rootedHierarchy", true, "createRelativeHierarchy", true));
+    assertEquals(List.of("/a", "/a/b"), parse(relative, "s3://bucket/a/b/file.txt").getStringList("file_paths"));
+  }
+
   private static Document parse(Stage stage, String filePath) throws StageException {
     Document doc = Document.create("doc");
     doc.setField("file_path", filePath);

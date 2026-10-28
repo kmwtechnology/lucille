@@ -13,7 +13,7 @@ Parses the file path in `filePathField` and adds these fields to the Document:
 - `folder`: the parent directory.
 - `path`: the normalized path.
 - `file_extension`: the extension.
-- `file_paths`: each parent directory of the file as a separate value, without a leading separator. For `/a/b/c.txt` the values are `a` and `a/b`. Only written when `includeHierarchy` is `true`.
+- `file_paths`: each parent directory of the file as a separate value, without a leading separator unless `rootedHierarchy` is `true`. For `/a/b/c.txt` the values are `a` and `a/b`. Only written when `includeHierarchy` is `true`.
 - `level`: the number of segments in the path, including the file name. `3` for `/a/b/c.txt` and for `C:\a\c.txt`. Segments are counted the same way as for `file_paths`, so `createRelativeHierarchy` applies here too. Only written when `includeLevel` is `true`.
 
 Values are added to any existing values in these fields rather than replacing them. Windows and Unix paths are both parsed, whatever the operating system. Documents without `filePathField` are left unchanged.
@@ -28,3 +28,4 @@ Values are added to any existing values in these fields rather than replacing th
 | `createRelativeHierarchy` | Boolean | No | For a URI, build `file_paths` from the path without the scheme and authority: `s3://bucket/a/b/c.txt` gives `a` and `a/b`. `path` and `folder` are not affected, and neither are paths that are not URIs. Default: `false`. |
 | `includeLevel` | Boolean | No | Populate `level`. Default: `false`. |
 | `clearInvalidExtension` | Boolean | No | Set `file_extension` to `""` when the extension contains a control character or a character that looks like a slash: `/`, `\`, U+2215, U+2044, U+29F8, U+FF0F, U+FE68, U+2216, U+29F9 or U+FF3C. Default: `false`. |
+| `rootedHierarchy` | Boolean | No | Start each `file_paths` value with `fileSep`: `/a/b/c.txt` gives `/a` and `/a/b`. Windows paths get one too: `C:\a\c.txt` gives `\C:` and `\C:\a`. Default: `false`. |

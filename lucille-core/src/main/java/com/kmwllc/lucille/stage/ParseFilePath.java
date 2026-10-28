@@ -50,6 +50,9 @@ import org.slf4j.LoggerFactory;
  *   <li>clearInvalidExtension (Boolean, Optional) : If true, "file_extension" is set to "" when the extension contains a control
  *   character or a character that looks like a slash (like U+2215 DIVISION SLASH or U+FF3C FULLWIDTH REVERSE SOLIDUS), which is
  *   not a real extension. Defaults to false.</li>
+ *   <li>rootedHierarchy (Boolean, Optional) : If true, each value in "file_paths" starts with fileSep, so /a/b/file.txt gives "/a"
+ *   and "/a/b" instead of "a" and "a/b". A Windows path gets one too: C:\a\file.txt gives "\C:" and "\C:\a". Defaults to
+ *   false.</li>
  * </ul>
  */
 public class ParseFilePath extends Stage {
@@ -57,7 +60,7 @@ public class ParseFilePath extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileSep")
       .optionalBoolean("uppercaseExtension", "includeHierarchy", "decodeFilePath", "createRelativeHierarchy", "includeLevel",
-          "clearInvalidExtension")
+          "clearInvalidExtension", "rootedHierarchy")
       .build();
 
   // A URI scheme followed by "://". Schemes of one letter are not matched, so that a Windows drive (C://dir) is not taken for one.
@@ -74,6 +77,7 @@ public class ParseFilePath extends Stage {
   private final boolean createRelativeHierarchy;
   private final boolean includeLevel;
   private final boolean clearInvalidExtension;
+  private final boolean rootedHierarchy;
   private final boolean useUnix;
   private final char sepChar;
 
@@ -94,6 +98,7 @@ public class ParseFilePath extends Stage {
     this.createRelativeHierarchy = ConfigUtils.getOrDefault(config, "createRelativeHierarchy", false);
     this.includeLevel = ConfigUtils.getOrDefault(config, "includeLevel", false);
     this.clearInvalidExtension = ConfigUtils.getOrDefault(config, "clearInvalidExtension", false);
+    this.rootedHierarchy = ConfigUtils.getOrDefault(config, "rootedHierarchy", false);
     this.useUnix = fileSep.equals("/");
     this.sepChar = fileSep.charAt(0);
   }
@@ -207,10 +212,14 @@ public class ParseFilePath extends Stage {
    * Adds each proper prefix of the path's segments to "file_paths". Segments are split the same way as
    * StringUtils.split(path, fileSep): runs of separators never yield an empty segment, and leading or trailing
    * separators are dropped. The prefixes are built in one growing StringBuilder, with one append per segment,
-   * instead of re-joining all of the earlier segments for every prefix.
+   * instead of re-joining all of the earlier segments for every prefix. If rootedHierarchy is set, each prefix starts with
+   * fileSep.
    */
   private void addHierarchy(Document doc, String path) {
-    StringBuilder prefix = new StringBuilder(path.length());
+    StringBuilder prefix = new StringBuilder(path.length() + 1);
+    if (rootedHierarchy) {
+      prefix.append(sepChar);
+    }
     int start = skipSeparators(path, 0);
     int emitted = 0;
 
