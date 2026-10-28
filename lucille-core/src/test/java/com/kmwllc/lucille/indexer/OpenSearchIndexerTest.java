@@ -3,6 +3,7 @@ package com.kmwllc.lucille.indexer;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -48,6 +49,7 @@ import org.opensearch.client.opensearch.core.DeleteByQueryRequest;
 import org.opensearch.client.opensearch.core.DeleteByQueryResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkOperation;
 import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
+import org.opensearch.client.opensearch.core.bulk.DeleteOperation;
 import org.opensearch.client.opensearch.core.bulk.IndexOperation;
 import org.opensearch.client.opensearch.core.bulk.UpdateOperation;
 import org.opensearch.client.transport.OpenSearchTransport;
@@ -1110,6 +1112,93 @@ public class OpenSearchIndexerTest {
     Long expectedVersion = Long.valueOf(100);
     assertEquals("doc1", indexRequest.id());
     assertEquals(expectedVersion, indexRequest.version());
+  }
+
+  private static Config versionedDeleteConfig() {
+    return ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
+        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"))
+        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("deleted"))
+        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
+  }
+
+  // A delete by id carries the document's indexer.versionField value, with indexer.versionType.
+  @Test
+  public void testVersionedDeleteById() throws Exception {
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("deleted", "true");
+    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    DeleteOperation delete = captor.getValue().operations().get(0).delete();
+    assertEquals("doc1", delete.id());
+    assertEquals(Long.valueOf(12345L), delete.version());
+    assertEquals(VersionType.ExternalGte, delete.versionType());
+  }
+
+  // A delete without indexer.versionField is unversioned, and never takes its version from the Kafka offset, which is
+  // not comparable to a versionField value.
+  @Test
+  public void testUnversionedDeleteById() throws Exception {
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("deleted", "true");
+    KafkaDocument kafkaDoc = new KafkaDocument(
+        new ObjectMapper().createObjectNode()
+            .put("id", "doc2")
+            .put("deleted", "true"));
+    kafkaDoc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+    assertTrue(indexer.sendToIndex(List.of(doc, kafkaDoc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    List<BulkOperation> operations = captor.getValue().operations();
+    assertEquals(2, operations.size());
+    for (BulkOperation operation : operations) {
+      assertNull(operation.delete().version());
+      assertNull(operation.delete().versionType());
+    }
+  }
+
+  // Without indexer.versionType, a delete is unversioned even when the document has a version-like field.
+  @Test
+  public void testDeleteByIdWithoutVersionType() throws Exception {
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("deleted", "true");
+    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    assertNull(captor.getValue().operations().get(0).delete().version());
+    assertNull(captor.getValue().operations().get(0).delete().versionType());
+  }
+
+  // A versioned delete that OpenSearch rejects as stale (409, the index holds a newer version) is a failure.
+  @Test
+  public void testStaleVersionedDeleteFails() throws Exception {
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    BulkResponseItem item = Mockito.mock(BulkResponseItem.class);
+    when(item.id()).thenReturn("doc1");
+    when(item.status()).thenReturn(409);
+    when(item.error()).thenReturn(new ErrorCause.Builder().reason("version conflict").type("version_conflict_engine_exception").build());
+    when(response.errors()).thenReturn(true);
+    when(response.items()).thenReturn(List.of(item));
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(response);
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 1L);
+    doc.setField("deleted", "true");
+
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(doc)));
   }
 
   @Test

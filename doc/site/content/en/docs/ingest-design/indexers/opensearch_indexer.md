@@ -58,6 +58,12 @@ indexer {
 
 If `versionField` is set but the field is absent on a particular document, and the document is not a `KafkaDocument`, the version is omitted and the document is indexed without optimistic concurrency control.
 
+### Versioned Deletes
+
+A delete by id (a document marked with `indexer.deletionMarkerField`) is versioned too, when `versionType` is `external` or `external_gte` and the delete document has `versionField`. OpenSearch rejects the delete with a 409 if the index holds a newer version (or, for `external`, the same version), and keeps a tombstone at the delete's version that rejects an older upload arriving after it, for as long as the index keeps tombstones (`index.gc_deletes`, 60 seconds by default). Without this, an older delete could remove a newer document, and a late upload could bring back a deleted one.
+
+A delete document without `versionField` is sent unversioned, as before. Deletes never use the Kafka offset as their version, because an offset is not comparable to a version taken from `versionField`. Delete-by-query is never versioned.
+
 ---
 
 ## Partial Update Mode

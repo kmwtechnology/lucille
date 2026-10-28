@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,7 +58,11 @@ import org.slf4j.LoggerFactory;
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
- *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
+ *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions. With External or ExternalGte,
+ *   an upload carries the document's indexer.versionField value, or else its Kafka offset.</li>
+ *   <li>indexer.versionField (String, Optional) : Document field holding the external version. Requires
+ *   indexer.versionType. With External or ExternalGte, a delete by id carries this field's value too; a delete without it
+ *   is unversioned, and never uses the Kafka offset.</li>
  * </ul>
  */
 public class OpenSearchIndexer extends Indexer {
@@ -171,7 +174,8 @@ public class OpenSearchIndexer extends Indexer {
     }
 
     Map<Pair<String, String>, Document> documentsToUpload = new LinkedHashMap<>();
-    Set<Pair<String, String>> idsToDelete = new LinkedHashSet<>();
+    // the document that marked each (index, id) for deletion, so deleteById can send its version
+    Map<Pair<String, String>, Document> idsToDelete = new LinkedHashMap<>();
     Map<Pair<String, String>, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
 
     // populate which collection each document belongs to
@@ -193,7 +197,7 @@ public class OpenSearchIndexer extends Indexer {
       } else {
         documentsToUpload.remove(indexAndId);
         if (!hasDeleteByFieldValues(doc)) {
-          idsToDelete.add(indexAndId);
+          idsToDelete.put(indexAndId, doc);
         } else {
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
           // deletion, so we need to do doc.getString(deleteByFieldField).
@@ -207,24 +211,31 @@ public class OpenSearchIndexer extends Indexer {
     }
 
     Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload);
-    deleteById(new ArrayList<>(idsToDelete));
+    deleteById(idsToDelete);
     deleteByQuery(termsToDeleteByQuery);
 
     return failedDocs;
   }
 
-  private void deleteById(List<Pair<String, String>> idsToDelete) throws Exception {
+  private void deleteById(Map<Pair<String, String>, Document> idsToDelete) throws Exception {
     if (idsToDelete.isEmpty()) {
       return;
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
-    for (Pair<String, String> indexAndId : idsToDelete) {
+    for (Map.Entry<Pair<String, String>, Document> entry : idsToDelete.entrySet()) {
+      Pair<String, String> indexAndId = entry.getKey();
+      Long versionNum = getDeleteVersionNum(entry.getValue());
       br.operations(op -> op
-          .delete(d -> d
-              .index(indexAndId.getLeft())
-              .id(indexAndId.getRight())
-          )
+          .delete(d -> {
+            d.index(indexAndId.getLeft()).id(indexAndId.getRight());
+            // a versioned delete is rejected (409) when the index holds a newer version, and leaves a tombstone that
+            // rejects an older upload arriving after it, for as long as the index keeps tombstones (index.gc_deletes)
+            if (versionNum != null) {
+              d.versionType(versionType).version(versionNum);
+            }
+            return d;
+          })
       );
     }
 
@@ -474,6 +485,17 @@ public class OpenSearchIndexer extends Indexer {
     }
     if (doc instanceof KafkaDocument) {
       return ((KafkaDocument) doc).getOffset();
+    }
+    return null;
+  }
+
+  // The version to send with a delete by id, or null for an unversioned delete. Unlike getVersionNum, this never falls
+  // back to the Kafka offset: the offset of a delete is not comparable to a version taken from indexer.versionField, so
+  // only a document that carries indexer.versionField gets a versioned delete.
+  private Long getDeleteVersionNum(Document doc) {
+    if ((versionType == VersionType.External || versionType == VersionType.ExternalGte)
+        && versionField != null && doc.has(versionField)) {
+      return doc.getLong(versionField);
     }
     return null;
   }
