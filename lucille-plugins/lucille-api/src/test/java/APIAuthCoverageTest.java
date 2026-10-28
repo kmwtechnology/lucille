@@ -39,6 +39,12 @@ public class APIAuthCoverageTest {
   // anonymously reachable surface of the API, so it should not happen without a good reason.
   private static final Set<String> PUBLIC_ENDPOINTS = Set.of("/swagger", "/openapi.json", "/v1/readyz", "/v1/livez");
 
+  // Endpoints this generic probe cannot classify, because their own request-body validation returns 401
+  // for the empty body the probe sends. /v1/login is public (it issues tokens) but answers 401 to a
+  // request without valid credentials, which this test would otherwise misread as "auth required".
+  // Its behavior is covered directly by LoginResourceTest and APIBearerAuthTest instead.
+  private static final Set<String> UNVERIFIABLE_ENDPOINTS = Set.of("/v1/login");
+
   // Substituted for any path parameter, for example /v1/config/{configId}.
   private static final String PATH_PARAMETER_VALUE = "auth-coverage-test";
 
@@ -55,6 +61,9 @@ public class APIAuthCoverageTest {
   @Test
   public void testAuthRequiredUnlessPublic() {
     for (Endpoint endpoint : discoverEndpoints()) {
+      if (UNVERIFIABLE_ENDPOINTS.contains(endpoint.path())) {
+        continue;
+      }
       Response response = request(endpoint, false);
       int status = response.getStatus();
 
@@ -69,6 +78,9 @@ public class APIAuthCoverageTest {
   @Test
   public void testEveryEndpointAcceptsValidCredentials() {
     for (Endpoint endpoint : discoverEndpoints()) {
+      if (UNVERIFIABLE_ENDPOINTS.contains(endpoint.path())) {
+        continue;
+      }
       assertNotEquals(endpoint + " rejected valid credentials.", 401, request(endpoint, true).getStatus());
     }
   }

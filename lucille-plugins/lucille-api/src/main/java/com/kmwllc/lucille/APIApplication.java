@@ -2,23 +2,30 @@ package com.kmwllc.lucille;
 
 import com.typesafe.config.Config;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.kmwllc.lucille.auth.BasicAuthenticator;
+import com.kmwllc.lucille.auth.JwtAuthenticator;
+import com.kmwllc.lucille.auth.JwtService;
 import com.kmwllc.lucille.auth.RequireAuthDynamicFeature;
 import com.kmwllc.lucille.config.AuthConfiguration.AuthType;
 import com.kmwllc.lucille.config.LucilleAPIConfiguration;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.kmwllc.lucille.endpoints.ConfigInfo;
 import com.kmwllc.lucille.endpoints.LivenessResource;
+import com.kmwllc.lucille.endpoints.LoginResource;
 import com.kmwllc.lucille.endpoints.LucilleResource;
 import com.kmwllc.lucille.endpoints.ReadinessResource;
 import com.kmwllc.lucille.endpoints.SystemStatsResource;
+import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.auth.PrincipalImpl;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
+import io.dropwizard.auth.chained.ChainedAuthFilter;
+import io.dropwizard.auth.oauth.OAuthCredentialAuthFilter;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
@@ -110,9 +117,11 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
 
     RunnerManager runnerManager = RunnerManager.getInstance();
 
+    // shared by the login endpoint and the bearer filter so they use the same key
+    JwtService jwtService = new JwtService();
+
     boolean authEnabled = config.getAuthConfig().isEnabled();
 
-    // Enable Basic Auth only if it's enabled in the configuration
     if (authEnabled) {
       AuthType authType = config.getAuthConfig().getType();
 
@@ -120,12 +129,9 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
         throw new IllegalArgumentException("auth.type must be set to basicAuth when auth.enabled is true.");
       }
 
-      env.jersey()
-          .register(new RequireAuthDynamicFeature(new BasicCredentialAuthFilter.Builder<PrincipalImpl>()
-              .setAuthenticator(new BasicAuthenticator(config.getAuthConfig().getPassword()))
-              .buildAuthFilter(), AUTH_EXEMPT_PACKAGES));
+      env.jersey().register(new RequireAuthDynamicFeature(buildAuthFilter(config, jwtService), AUTH_EXEMPT_PACKAGES));
       env.jersey().register(new AuthValueFactoryProvider.Binder<>(PrincipalImpl.class));
-      log.info("Basic authentication has been enabled.");
+      log.info("Authentication has been enabled (Basic and Bearer accepted).");
     } else {
       log.info("Authentication is disabled.");
     }
@@ -140,7 +146,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     // may throw an exception for IO errors
     Map<String, Config> presetConfigs = presetConfigHandler.fetchConfigs();
 
-    // Register our 3 Resources
+    // Register our Resources
     env.jersey().register(new LucilleResource(runnerManager, config.isPreventConcurrentRuns(), presetConfigs));
     env.jersey().register(new LivenessResource());
     env.jersey().register(new ReadinessResource());
@@ -148,6 +154,31 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     // Register SystemStatsResource
     env.jersey().register(new SystemStatsResource());
     env.jersey().register(new ConfigInfo());
+
+    env.jersey().register(new LoginResource(jwtService, config.getAuthConfig().getPassword()));
+  }
+
+  /**
+   * Builds the authentication filter applied to protected resources: a chain accepting either HTTP
+   * Basic credentials or a Bearer token.
+   * @param config the application configuration
+   * @param jwtService the service used to verify bearer tokens
+   * @return a chained Basic-or-Bearer authentication filter
+   */
+  private static AuthFilter<?, PrincipalImpl> buildAuthFilter(LucilleAPIConfiguration config, JwtService jwtService) {
+    AuthFilter<?, PrincipalImpl> basicFilter = new BasicCredentialAuthFilter.Builder<PrincipalImpl>()
+        .setAuthenticator(new BasicAuthenticator(config.getAuthConfig().getPassword()))
+        .buildAuthFilter();
+
+    AuthFilter<?, PrincipalImpl> bearerFilter = new OAuthCredentialAuthFilter.Builder<PrincipalImpl>()
+        .setAuthenticator(new JwtAuthenticator(jwtService))
+        .setPrefix("Bearer")
+        .buildAuthFilter();
+
+    // ChainedAuthFilter takes a raw List<AuthFilter> and tries each until one authenticates
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    AuthFilter<?, PrincipalImpl> chained = new ChainedAuthFilter(List.of(basicFilter, bearerFilter));
+    return chained;
   }
 
   /**

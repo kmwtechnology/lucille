@@ -19,6 +19,7 @@
       <!-- Dropwizard 5.0.2 drags in Jetty 12.1.9, which has CVEs in jetty-security/jetty-server.
            Pin the whole Jetty 12.1.x set to 12.1.13 via the Jetty BOMs (modules must share one version). -->
       <jetty.version>12.1.13</jetty.version>
+      <jjwt.version>0.12.6</jjwt.version>
     </properties>
 
     <dependencyManagement>
@@ -183,6 +184,25 @@
         <groupId>org.freemarker</groupId>
         <artifactId>freemarker</artifactId>
         <version>2.3.35</version>
+      </dependency>
+
+      <!-- jjwt: signs and verifies the bearer tokens issued by POST /v1/login. -->
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-api</artifactId>
+        <version>${jjwt.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-impl</artifactId>
+        <version>${jjwt.version}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-jackson</artifactId>
+        <version>${jjwt.version}</version>
+        <scope>runtime</scope>
       </dependency>
     </dependencies>
 

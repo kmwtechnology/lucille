@@ -1,10 +1,13 @@
 import { NavLink } from "react-router-dom"
 import { cn } from "@/lib/utils"
-import { Database, ExternalLink } from "lucide-react"
+import { Database, ExternalLink, LogOut } from "lucide-react"
 import { NAV_LINKS } from "@/lib/constants"
+import { useAuth } from "@/lib/auth-context"
 import styles from "./sidebar.module.css"
 
 export default function Sidebar() {
+  const { logout } = useAuth()
+
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brandHeader}>
@@ -47,6 +50,12 @@ export default function Sidebar() {
             )
           })}
         </nav>
+      </div>
+      <div className={styles.footer}>
+        <button type="button" className={styles.logout} onClick={logout}>
+          <LogOut className="h-5 w-5" />
+          Sign out
+        </button>
       </div>
     </aside>
   )
