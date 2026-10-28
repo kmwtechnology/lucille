@@ -56,7 +56,7 @@ Local paths can be given as `file://` URIs or as plain file system paths, includ
 
 **Custom storage client classes**
 
-Each of `s3`, `azure`, and `gcp` accepts an optional `class`: the fully qualified name of a subclass of that provider's built-in client (`S3StorageClient`, `AzureStorageClient`, or `GoogleStorageClient`) to use in its place. The class must have a public constructor that takes a `Config`, and receives the provider's config block, including any extra settings it needs. When `class` is not set, the built-in client is used.
+Each of `s3`, `azure`, and `gcp` accepts an optional `class`: the fully qualified name of a subclass of that provider's built-in client (`S3StorageClient`, `AzureStorageClient`, or `GoogleStorageClient`) to use in its place. The class must have a public constructor that takes a `Config`, and receives the provider's config block. When `class` is not set, the built-in client is used. The `FileConnector` only accepts the settings listed for each provider, so a subclass can't read additional settings from that block.
 
 ```hocon
 s3 {
@@ -69,7 +69,7 @@ The same settings apply to stages that read files by URI, such as `FetchFileCont
 
 **Azure hosts for single-file reads**
 
-When a stage reads a single file by URI (for example, the script for `ApplyJavascript` or the dictionaries for `ExtractEntitiesFST`), an `https` URI is only read with the Azure client if its host contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. Set it to read from an Azure-compatible endpoint on another hostname. The list replaces the default, so include `blob.core.windows.net` if you still need it. The `FileConnector` itself does not check the host: it uses the Azure client for every `https` path.
+When a stage reads a single file by URI (for example, the script for `ApplyJavascript` or the dictionaries for `ExtractEntitiesFST`), an `https` URI is only read with the Azure client if its authority (host and port) contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. This is a substring match. Set it to read from an Azure-compatible endpoint on another hostname. The setting only selects the Azure client: requests go to the endpoint given by the Azure credentials, so that endpoint must also be in `connectionString`. The list replaces the default, so include `blob.core.windows.net` if you still need it. The `FileConnector` itself does not check the host: it uses the Azure client for every `https` path.
 
 ```hocon
 azure {

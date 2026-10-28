@@ -145,6 +145,11 @@ public class StorageClientTest {
     assertTrue(e.getMessage().contains(S3StorageClient.class.getName()));
     assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(wrongType));
 
+    // class is abstract
+    Config abstractClass = s3Config.withValue("s3.class", ConfigValueFactory.fromAnyRef(AbstractS3StorageClient.class.getName()));
+    e = assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("s3://bucket/"), abstractClass));
+    assertTrue(e.getMessage().contains("abstract"));
+
     // class has no (Config) constructor
     Config noConstructor = s3Config.withValue("s3.class", ConfigValueFactory.fromAnyRef(NoConfigConstructorS3StorageClient.class.getName()));
     assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("s3://bucket/"), noConstructor));
@@ -203,6 +208,12 @@ public class StorageClientTest {
 
   public static class CustomAzureStorageClient extends AzureStorageClient {
     public CustomAzureStorageClient(Config config) {
+      super(config);
+    }
+  }
+
+  public abstract static class AbstractS3StorageClient extends S3StorageClient {
+    public AbstractS3StorageClient(Config config) {
       super(config);
     }
   }

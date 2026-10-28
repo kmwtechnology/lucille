@@ -10,6 +10,7 @@ import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -80,7 +81,8 @@ public interface StorageClient {
   /**
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config. If the
    * cloud provider's options contain "class", that class is created instead of the provider's default client. An https URI
-   * is only supported if its authority contains one of azure.allowedHosts, which defaults to "blob.core.windows.net".
+   * is only supported if its authority contains one of azure.allowedHosts (a substring match), which defaults to
+   * "blob.core.windows.net".
    * @param pathToStorage A URI to storage - either local or cloud - that you need a StorageClient for.
    * @param connectorConfig Configuration for your connector, which should contain configuration for cloud storage clients
    *                        as needed.
@@ -215,6 +217,10 @@ public interface StorageClient {
 
     if (!defaultClass.isAssignableFrom(clazz)) {
       throw new IllegalArgumentException("Storage client class " + className + " must extend " + defaultClass.getName() + ".");
+    }
+
+    if (Modifier.isAbstract(clazz.getModifiers())) {
+      throw new IllegalArgumentException("Storage client class " + className + " must not be abstract.");
     }
 
     try {

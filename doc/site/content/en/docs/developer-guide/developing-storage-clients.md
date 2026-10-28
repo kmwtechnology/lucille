@@ -25,7 +25,7 @@ The `FileConnector` determines which StorageClient to use based on the URI schem
 
 When you add a new StorageClient, you add a new case to this mapping for your URI scheme (e.g., `sftp`).
 
-For `https`, `StorageClient.create()` (used to read single files by URI, e.g. a stage's dictionary file) only accepts hosts containing one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. `StorageClient.createClients()`, which the `FileConnector` uses, maps every `https` URI to the Azure client.
+For `https`, `StorageClient.create()` (used to read single files by URI, e.g. a stage's dictionary file) only accepts URIs whose authority contains one of `azure.allowedHosts` (a substring match), which defaults to `["blob.core.windows.net"]`. The URI's host only selects the client; `AzureStorageClient` sends requests to the endpoint in its credentials. `StorageClient.createClients()`, which the `FileConnector` uses, maps every `https` URI to the Azure client.
 
 ---
 
@@ -46,7 +46,7 @@ s3 {
 | `azure.class` | `AzureStorageClient` | `AzureStorageClient` |
 | `gcp.class` | `GoogleStorageClient` | `GoogleStorageClient` |
 
-The class must have a public constructor that takes a `Config`. It receives the provider's config block (the same Config the built-in client would get), so it can read its own extra settings from it. `StorageClient.create()` and `StorageClient.createClients()` throw an `IllegalArgumentException` if the class can't be found, doesn't extend the built-in client, or has no public `(Config)` constructor. When `class` is not set, the built-in client is used.
+The class must have a public constructor that takes a `Config`. It receives the provider's config block (the same Config the built-in client would get). Components that validate their config against a spec, such as the `FileConnector`, only accept the provider's built-in settings in that block, so a subclass can't currently read additional settings from it. `StorageClient.create()` and `StorageClient.createClients()` throw an `IllegalArgumentException` if the class can't be found, doesn't extend the built-in client, is abstract, or has no public `(Config)` constructor. When `class` is not set, the built-in client is used.
 
 ```java
 public class MyS3StorageClient extends S3StorageClient {
