@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 
 import com.kmwllc.lucille.connector.storageclient.LocalStorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClientTest;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -448,6 +449,24 @@ public class FileConnectorTest {
         .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"))
         .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
     new FileConnector(config);
+  }
+
+  @Test
+  public void testCustomStorageClientClasses() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("name", "connector", "paths", List.of("s3://bucket/prefix/")))
+        .withValue("s3.region", ConfigValueFactory.fromAnyRef("us-east-1"))
+        .withValue("s3.class", ConfigValueFactory.fromAnyRef(StorageClientTest.CustomS3StorageClient.class.getName()))
+        .withValue("azure.connectionString", ConfigValueFactory.fromAnyRef("connectionString"))
+        .withValue("azure.class", ConfigValueFactory.fromAnyRef(StorageClientTest.CustomAzureStorageClient.class.getName()))
+        .withValue("azure.allowedHosts", ConfigValueFactory.fromIterable(List.of("storage.example.internal")))
+        .withValue("gcp.pathToServiceKey", ConfigValueFactory.fromAnyRef("example/path/here"))
+        .withValue("gcp.class", ConfigValueFactory.fromAnyRef(StorageClientTest.CustomGoogleStorageClient.class.getName()));
+    connector = new FileConnector(config);
+
+    // a class that doesn't extend the default client is rejected when the connector is built
+    Config wrongType = config.withValue("s3.class",
+        ConfigValueFactory.fromAnyRef(StorageClientTest.CustomAzureStorageClient.class.getName()));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(wrongType));
   }
 
   // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.

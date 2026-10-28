@@ -54,6 +54,30 @@ For S3 paths, percent-encode special characters in `paths` (e.g., `s3://bucket/f
 
 Local paths can be given as `file://` URIs or as plain file system paths, including Windows paths such as `C:/data` or `C:\\data` (backslashes must be escaped in HOCON).
 
+**Custom storage client classes**
+
+Each of `s3`, `azure`, and `gcp` accepts an optional `class`: the fully qualified name of a subclass of that provider's built-in client (`S3StorageClient`, `AzureStorageClient`, or `GoogleStorageClient`) to use in its place. The class must have a public constructor that takes a `Config`, and receives the provider's config block, including any extra settings it needs. When `class` is not set, the built-in client is used.
+
+```hocon
+s3 {
+  class: "com.mycompany.lucille.MyS3StorageClient"
+  region: "us-east-1"
+}
+```
+
+The same settings apply to stages that read files by URI, such as `FetchFileContent` and `ApplyJavascript`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
+
+**Azure hosts for single-file reads**
+
+When a stage reads a single file by URI (for example, the script for `ApplyJavascript` or the dictionaries for `ExtractEntitiesFST`), an `https` URI is only read with the Azure client if its host contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. Set it to read from an Azure-compatible endpoint on another hostname. The list replaces the default, so include `blob.core.windows.net` if you still need it. The `FileConnector` itself does not check the host: it uses the Azure client for every `https` path.
+
+```hocon
+azure {
+  connectionString: "..."
+  allowedHosts: ["blob.core.windows.net", "storage.example.internal"]
+}
+```
+
 A single connector can traverse multiple paths across providers:
 
 ```hocon

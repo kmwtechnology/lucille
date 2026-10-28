@@ -1,13 +1,20 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.FileConnector.AZURE_ALLOWED_HOSTS;
+import static com.kmwllc.lucille.connector.FileConnector.DEFAULT_AZURE_ALLOWED_HOSTS;
+import static com.kmwllc.lucille.connector.FileConnector.STORAGE_CLIENT_CLASS;
+
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Interface for storage clients. Implementations of this interface should be able to traverse a storage system
@@ -71,14 +78,16 @@ public interface StorageClient {
   void moveFile(URI filePath, URI folder) throws IOException;
 
   /**
-   * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config.
+   * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config. If the
+   * cloud provider's options contain "class", that class is created instead of the provider's default client. An https URI
+   * is only supported if its authority contains one of azure.allowedHosts, which defaults to "blob.core.windows.net".
    * @param pathToStorage A URI to storage - either local or cloud - that you need a StorageClient for.
    * @param connectorConfig Configuration for your connector, which should contain configuration for cloud storage clients
    *                        as needed.
    * @return The appropriate, configured storage client to use for your traversal.
    *
    * @throws IllegalArgumentException If your path to storage requires support for a cloud storage client that you did not provide,
-   * or you provided a URI with an unsupported scheme.
+   * you provided a URI with an unsupported scheme, or a configured "class" could not be created.
    */
   static StorageClient create(URI pathToStorage, Config connectorConfig) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
@@ -88,23 +97,27 @@ public interface StorageClient {
           throw new IllegalArgumentException("Path is to Google Cloud but no options provided.");
         }
         Config gcpOptions = connectorConfig.getConfig("gcp");
-        return new GoogleStorageClient(gcpOptions);
+        return createCloudClient(gcpOptions, GoogleStorageClient.class, GoogleStorageClient::new);
       }
       case "s3" -> {
         if (!connectorConfig.hasPath("s3")) {
           throw new IllegalArgumentException("Path is to S3 but no options provided.");
         }
         Config s3Options = connectorConfig.getConfig("s3");
-        return new S3StorageClient(s3Options);
+        return createCloudClient(s3Options, S3StorageClient.class, S3StorageClient::new);
       }
       case "https" -> {
         String authority = pathToStorage.getAuthority();
-        if (authority != null && authority.contains("blob.core.windows.net")) {
+        List<String> allowedHosts = connectorConfig.hasPath("azure." + AZURE_ALLOWED_HOSTS)
+            ? connectorConfig.getStringList("azure." + AZURE_ALLOWED_HOSTS)
+            : DEFAULT_AZURE_ALLOWED_HOSTS;
+
+        if (authority != null && allowedHosts.stream().anyMatch(authority::contains)) {
           if (!connectorConfig.hasPath("azure")) {
             throw new IllegalArgumentException("Path is to Azure but no options provided.");
           }
           Config azureOptions = connectorConfig.getConfig("azure");
-          return new AzureStorageClient(azureOptions);
+          return createCloudClient(azureOptions, AzureStorageClient.class, AzureStorageClient::new);
         } else {
           throw new IllegalArgumentException("Unsupported client type: " + activeClient + " with authority: " + authority);
         }
@@ -140,10 +153,17 @@ public interface StorageClient {
    * "accountName" : azure account name
    * "accountKey" : azure account key
    * "maxResultsPerPage" : number of results returned per listing request (page size). Optional, defaults to 100
+   * "allowedHosts" : hosts accepted for https URIs by {@link #create(URI, Config)}. Optional, defaults to ["blob.core.windows.net"].
+   * Not checked here: the azure client is keyed by "https" for any host.
+   *
+   * <br> Each of gcp, s3, and azure may also contain:
+   * "class" : fully qualified name of a subclass of the provider's default client (GoogleStorageClient, S3StorageClient, or
+   * AzureStorageClient) to create instead. It must have a public constructor that takes a Config. Optional.
    *
    * @param config The configuration which potentially contains cloud options that you want to use to build storage clients.
    * @return A map of Strings to StorageClients. StorageClients are keyed by their URI scheme (gs, https, s3, file). Always
    * includes the LocalStorageClient, keyed by "file".
+   * @throws IllegalArgumentException If a configured "class" could not be created.
    */
   static Map<String, StorageClient> createClients(Config config) {
     Map<String, StorageClient> results = new HashMap<>();
@@ -152,20 +172,62 @@ public interface StorageClient {
 
     if (config.hasPath("gcp")) {
       Config gCloudOptions = config.getConfig("gcp");
-      results.put("gs", new GoogleStorageClient(gCloudOptions));
+      results.put("gs", createCloudClient(gCloudOptions, GoogleStorageClient.class, GoogleStorageClient::new));
     }
 
     if (config.hasPath("azure")) {
       Config azureOptions = config.getConfig("azure");
-      results.put("https", new AzureStorageClient(azureOptions));
+      results.put("https", createCloudClient(azureOptions, AzureStorageClient.class, AzureStorageClient::new));
     }
 
     if (config.hasPath("s3")) {
       Config s3Options = config.getConfig("s3");
-      results.put("s3", new S3StorageClient(s3Options));
+      results.put("s3", createCloudClient(s3Options, S3StorageClient.class, S3StorageClient::new));
     }
 
     return results;
+  }
+
+  /**
+   * Creates a cloud storage client from the given options. If the options contain "class", that class is created with its
+   * (Config) constructor; it must be a subclass of the given default class. Otherwise, the default client is created.
+   *
+   * @param options Configuration for the cloud storage client.
+   * @param defaultClass The class of the provider's default client, which a configured class must extend.
+   * @param defaultConstructor Creates the provider's default client from the options.
+   * @return The configured storage client.
+   * @throws IllegalArgumentException If the configured class can't be found, doesn't extend the default class, or can't be created.
+   */
+  private static StorageClient createCloudClient(Config options, Class<? extends StorageClient> defaultClass,
+      Function<Config, StorageClient> defaultConstructor) {
+    if (!options.hasPath(STORAGE_CLIENT_CLASS)) {
+      return defaultConstructor.apply(options);
+    }
+
+    String className = options.getString(STORAGE_CLIENT_CLASS);
+    Class<?> clazz;
+
+    try {
+      clazz = Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new IllegalArgumentException("Couldn't find storage client class " + className + ".", e);
+    }
+
+    if (!defaultClass.isAssignableFrom(clazz)) {
+      throw new IllegalArgumentException("Storage client class " + className + " must extend " + defaultClass.getName() + ".");
+    }
+
+    try {
+      return (StorageClient) clazz.getConstructor(Config.class).newInstance(options);
+    } catch (InvocationTargetException e) {
+      // surface errors from the constructor, such as invalid options, the same way as for the default client
+      if (e.getCause() instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      throw new IllegalArgumentException("Couldn't create storage client " + className + ".", e.getCause());
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalArgumentException("Couldn't create storage client " + className + ". It must have a public (Config) constructor.", e);
+    }
   }
 
   /**

@@ -86,6 +86,8 @@ import com.typesafe.config.Config;
  *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 768. A longer path fails the run.</li>
  *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
  *   <li>gcp.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
+ *   <li>gcp.class (String, Optional) : Fully qualified name of a GoogleStorageClient subclass to use instead of GoogleStorageClient.
+ *   It must have a public constructor that takes a Config, and receives the gcp config.</li>
  *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
  *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
  *   <li>s3.region (String, Optional) : AWS region for S3.</li>
@@ -95,10 +97,17 @@ import com.typesafe.config.Config;
  *   <li>s3.maxResultsPerPage (Int, Optional) : Maximum number of results returned per S3 LIST call (page size). Defaults to 1000, which is also
  *   the most S3 will return per call; larger values have no further effect. Without filterOptions.pathsToSkip, every key under the
  *   path is listed in one paginated listing, so files may be published in a different order than a directory-by-directory walk.</li>
+ *   <li>s3.class (String, Optional) : Fully qualified name of an S3StorageClient subclass to use instead of S3StorageClient.
+ *   It must have a public constructor that takes a Config, and receives the s3 config.</li>
  *   <li>azure.connectionString (String, Optional) : Azure connection string.</li>
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
  *   <li>azure.accountKey (String, Optional) : Azure account key.</li>
  *   <li>azure.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
+ *   <li>azure.class (String, Optional) : Fully qualified name of an AzureStorageClient subclass to use instead of AzureStorageClient.
+ *   It must have a public constructor that takes a Config, and receives the azure config.</li>
+ *   <li>azure.allowedHosts (List&lt;String&gt;, Optional) : When a single file is fetched by URI (e.g. by stages that read
+ *   dictionaries or scripts), an https URI is only read with the azure client if its host contains one of these values.
+ *   Replaces the default rather than adding to it. Defaults to ["blob.core.windows.net"].</li>
  *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).
  *   Supply a class to override the default handler. Otherwise the built-in handler for csv/json/xml is used. Configure docIdPrefix inside
  *   each handler's config as needed.</li>
@@ -118,12 +127,15 @@ public class FileConnector extends AbstractConnector {
   public static final String AZURE_CONNECTION_STRING = "connectionString";
   public static final String AZURE_ACCOUNT_NAME = "accountName";
   public static final String AZURE_ACCOUNT_KEY = "accountKey";
+  public static final String AZURE_ALLOWED_HOSTS = "allowedHosts";
+  public static final List<String> DEFAULT_AZURE_ALLOWED_HOSTS = List.of("blob.core.windows.net");
   public static final String S3_REGION = "region";
   public static final String S3_ACCESS_KEY_ID = "accessKeyId";
   public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
   public static final String S3_ANONYMOUS = "anonymous";
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
   public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
+  public static final String STORAGE_CLIENT_CLASS = "class";
 
   // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
@@ -136,13 +148,15 @@ public class FileConnector extends AbstractConnector {
   // parent specs for cloud provider configs
   public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
       .requiredString("pathToServiceKey")
+      .optionalString(STORAGE_CLIENT_CLASS)
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
-      .optionalString("accessKeyId", "secretAccessKey", "region")
+      .optionalString("accessKeyId", "secretAccessKey", "region", STORAGE_CLIENT_CLASS)
       .optionalBoolean("anonymous")
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
-      .optionalString("connectionString", "accountName", "accountKey")
+      .optionalString("connectionString", "accountName", "accountKey", STORAGE_CLIENT_CLASS)
+      .optionalList(AZURE_ALLOWED_HOSTS, new TypeReference<List<String>>(){})
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
