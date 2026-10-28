@@ -31,6 +31,7 @@
     <module>lucille-s3-ingest-example</module>
     <module>lucille-rss-example</module>
     <module>lucille-document-generation-example</module>
+    <module>lucille-docling-example</module>
   </modules>
 
   <dependencies>
