@@ -32,21 +32,22 @@ import opennlp.tools.util.Span;
  *   <li>textField (String): The name of the field containing text you want to get names from.</li>
  *   <li>tokenizerPath (String): A path to the binaries of the tokenizer model you want to use. Can be a classpath file or a local file.</li>
  *   <li>models (Map&lt;String, String&gt;): A map of "name types" to paths to OpenNLP model binaries. The keys for this map will become the field names containing the names extracted by that model. Can be a classpath file or a local file.</li>
+ *   <li>confidenceThreshold (Double, optional): Minimum confidence threshold for entity extraction (0.0-1.0). Entities below this threshold will be filtered out. Default: 0.7</li>
  * </ul>
  */
 public class ApplyOpenNLPNameFinders extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("textField", "tokenizerPath")
-      .requiredParent("models", new TypeReference<Map<String, String>>(){}).build();
+      .requiredParent("models", new TypeReference<Map<String, String>>(){})
+      .optionalNumber("confidenceThreshold").build();
 
   private final String textField;
   private final String tokenizerPath;
   private final Map<String, Object> modelPathMap;
-
-  // Built in start()
+  private final double confidenceThreshold;
+  private Map<String, NameFinderME> finderMap;
   private TokenizerME tokenizer;
-  private final Map<String, NameFinderME> finderMap;
 
   public ApplyOpenNLPNameFinders(Config config) {
     super(config);
@@ -54,6 +55,9 @@ public class ApplyOpenNLPNameFinders extends Stage {
     this.textField = config.getString("textField");
     this.tokenizerPath = config.getString("tokenizerPath");
     this.modelPathMap = config.getConfig("models").root().unwrapped();
+    // Default confidence threshold of 0.7, can be overridden in config
+    this.confidenceThreshold = config.hasPath("confidenceThreshold") ? 
+        config.getDouble("confidenceThreshold") : 0.7;
 
     this.finderMap = new HashMap<>();
   }
@@ -97,18 +101,21 @@ public class ApplyOpenNLPNameFinders extends Stage {
 
       Span[] spans = finder.find(tokens);
       for (Span span : spans) {
-        StringBuilder entity = new StringBuilder();
+        // Only keep entities above confidence threshold
+        if (span.getProb() >= confidenceThreshold) {
+          StringBuilder entity = new StringBuilder();
 
-        for (int i = span.getStart(); i < span.getEnd(); i++) {
-          entity.append(tokens[i]);
+          for (int i = span.getStart(); i < span.getEnd(); i++) {
+            entity.append(tokens[i]);
 
-          // appending a space if it is not the final token
-          if (i < span.getEnd() - 1) {
-            entity.append(" ");
+            // appending a space if it is not the final token
+            if (i < span.getEnd() - 1) {
+              entity.append(" ");
+            }
           }
-        }
 
-        names.add(entity.toString());
+          names.add(entity.toString());
+        }
       }
 
       names.forEach(name -> doc.setOrAdd(modelKey, name));
