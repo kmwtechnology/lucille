@@ -1,12 +1,14 @@
 package com.kmwllc.lucille.solr.indexer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.solr.util.SolrUtils;
 import com.kmwllc.lucille.util.SSLUtils;
@@ -49,9 +51,9 @@ import org.slf4j.LoggerFactory;
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  * </ul>
  */
+@AutoService(Indexer.class)
+@IndexerType("Solr")
 public class SolrIndexer extends Indexer {
-
-  public static final String INDEXER_TYPE = "Solr";
 
   public static final Spec SPEC = SpecBuilder.indexer()
       .optionalStringOrList("url")
@@ -77,6 +79,12 @@ public class SolrIndexer extends Indexer {
     // If the SolrIndexer is creating its own client it needs to happen after the Indexer has validated its config
     // to avoid problems where a client is created with no way to close it.
     this.solrClient = getSolrClient(config, bypass);
+  }
+
+  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link com.kmwllc.lucille.core.Indexer#Indexer()}. */
+  public SolrIndexer() {
+    super();
+    this.solrClient = null;
   }
 
   // Convenience Constructors

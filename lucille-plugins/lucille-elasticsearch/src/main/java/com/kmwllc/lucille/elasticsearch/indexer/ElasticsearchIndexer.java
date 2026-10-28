@@ -15,6 +15,7 @@ import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
@@ -24,6 +25,7 @@ import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.elasticsearch.util.ElasticsearchUtils;
+import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -76,9 +78,9 @@ import java.util.Optional;
  *   <li>elasticsearch.join.parentName (String, Optional) : Parent relation name when isChild is false.</li>
  * </ul>
  */
+@AutoService(Indexer.class)
+@IndexerType("Elasticsearch")
 public class ElasticsearchIndexer extends Indexer {
-
-  public static final String INDEXER_TYPE = "Elasticsearch";
 
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index")
@@ -153,6 +155,19 @@ public class ElasticsearchIndexer extends Indexer {
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
+  }
+
+  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link com.kmwllc.lucille.core.Indexer#Indexer()}. */
+  public ElasticsearchIndexer() {
+    super();
+    this.client = null;
+    this.index = null;
+    this.update = false;
+    this.joinData = null;
+    this.routingField = null;
+    this.versionType = null;
+    this.childDocumentsField = null;
+    this.versionField = null;
   }
 
   // Convenience Constructors

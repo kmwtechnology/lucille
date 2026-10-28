@@ -22,7 +22,7 @@
     to build the "lucille-all" Docker image. The Admin API (lucille-api) is excluded.
 
     Each plugin jar is kept separate (not shaded together), so that per-jar
-    META-INF/services/com.kmwllc.lucille.indexer.IndexerTypeProvider files merge naturally via
+    META-INF/services/com.kmwllc.lucille.core.Indexer files merge naturally via
     ServiceLoader at runtime, and so native/platform-specific dependencies do not collide.
   </description>
 

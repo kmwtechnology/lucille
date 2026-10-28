@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.indexer;
 
+import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -16,9 +17,9 @@ import org.slf4j.LoggerFactory;
  * The NopIndexer performs no operations and does not send documents to any index. It is intended to be used for testing or
  * validating that a pipeline is properly configured without ingesting content.
  */
+@AutoService(Indexer.class)
+@IndexerType("Nop")
 public class NopIndexer extends Indexer {
-
-  public static final String INDEXER_TYPE = "Nop";
 
   public static final Spec SPEC = SpecBuilder.indexer().build();
 
@@ -30,6 +31,11 @@ public class NopIndexer extends Indexer {
 
   public NopIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix) {
     this(config, messenger, bypass, metricsPrefix, null);
+  }
+
+  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link Indexer#Indexer()}. */
+  public NopIndexer() {
+    super();
   }
 
   @Override

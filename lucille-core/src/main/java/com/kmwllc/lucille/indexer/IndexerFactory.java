@@ -4,7 +4,6 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,14 +14,6 @@ import org.slf4j.LoggerFactory;
 public class IndexerFactory {
 
   private static final Logger log = LoggerFactory.getLogger(IndexerFactory.class);
-
-  /**
-   * Name of the {@code public static final String} field an Indexer declares to register a
-   * {@code indexer.type} name (e.g. "Solr"). Discovered reflectively, mirroring the existing
-   * {@code public static Spec SPEC} convention. Indexers without this field simply cannot be selected
-   * by {@code indexer.type} and must be selected by {@code indexer.class}.
-   */
-  private static final String INDEXER_TYPE_FIELD = "INDEXER_TYPE";
 
   /**
    * Instantiates an Indexer from the designated Config.
@@ -81,16 +72,21 @@ public class IndexerFactory {
   // implementations discovered on the classpath via ServiceLoader. This is what allows backends that live in
   // separate plugin modules (Solr, OpenSearch, Elasticsearch) to keep the "indexer.type" shortcut working without
   // lucille-core referencing their classes by name.
+  //
+  // Each implementation declares its type name with @IndexerType and is registered in
+  // META-INF/services/com.kmwllc.lucille.core.Indexer, which Google AutoService generates at compile time from the
+  // @AutoService(Indexer.class) annotation. ServiceLoader instantiates each via its public no-arg constructor purely so we can read its @IndexerType.
+  // That discovery instance is discarded and the real Indexer is built by construct() through the standard (Config, ...) constructor.
   private static Indexer indexerFromType(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     String typeName = config.getString("indexer.type");
 
     List<String> known = new ArrayList<>();
-    for (IndexerTypeProvider provider : ServiceLoader.load(IndexerTypeProvider.class)) {
-      Class<? extends Indexer> indexerClass = provider.getIndexerClass();
+    for (Indexer discovered : ServiceLoader.load(Indexer.class)) {
+      Class<? extends Indexer> indexerClass = discovered.getClass();
       String registeredType = readIndexerType(indexerClass);
       if (registeredType == null) {
-        log.warn("IndexerTypeProvider {} provides {} which has no {} field; it cannot be selected by indexer.type.",
-            provider.getClass().getName(), indexerClass.getName(), INDEXER_TYPE_FIELD);
+        log.warn("Indexer {} is registered as a service but has no @IndexerType annotation; it cannot be selected by "
+            + "indexer.type.", indexerClass.getName());
         continue;
       }
       known.add(registeredType);
@@ -104,19 +100,10 @@ public class IndexerFactory {
         + "is on the classpath, or specify a fully-qualified indexer.class instead.");
   }
 
-  // Reads the static INDEXER_TYPE field from an Indexer class, or null if it does not declare one.
+  // Reads the indexer.type name from an Indexer class's @IndexerType annotation, or null if it does not declare one.
   private static String readIndexerType(Class<? extends Indexer> indexerClass) {
-    try {
-      Field field = indexerClass.getDeclaredField(INDEXER_TYPE_FIELD);
-      Object value = field.get(null);
-      return value == null ? null : value.toString();
-    } catch (NoSuchFieldException e) {
-      return null;
-    } catch (IllegalAccessException e) {
-      log.warn("Indexer {} declares a {} field that is not accessible; ignoring for indexer.type resolution.",
-          indexerClass.getName(), INDEXER_TYPE_FIELD, e);
-      return null;
-    }
+    IndexerType annotation = indexerClass.getAnnotation(IndexerType.class);
+    return annotation == null ? null : annotation.value();
   }
 
   // Instantiates an Indexer via its standard (Config, IndexerMessenger, boolean, String, String) constructor.

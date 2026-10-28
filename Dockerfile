@@ -60,7 +60,7 @@ ENTRYPOINT ["/lucille/docker-entrypoint.sh"]
 #
 # lucille-all's copy-dependencies build places lucille-core, every plugin jar, and all of their
 # transitive runtime dependencies into target/lib. Keeping each jar separate (rather than shading)
-# lets the per-plugin META-INF/services/IndexerTypeProvider files merge naturally via ServiceLoader.
+# lets the per-plugin META-INF/services/com.kmwllc.lucille.core.Indexer files merge naturally via ServiceLoader.
 # ---------------------------------------------------------------------------------------------------
 FROM base AS all
 LABEL description="Lucille Search ETL batteries-included image (lucille-core + all component plugins)"

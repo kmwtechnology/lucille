@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.indexer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -31,9 +32,9 @@ import java.util.List;
  *   <li>append (Boolean, Optional) : Open the CSV in append mode instead of overwriting. Defaults to false.</li>
  * </ul>
  */
+@AutoService(Indexer.class)
+@IndexerType("CSV")
 public class CSVIndexer extends Indexer {
-
-  public static final String INDEXER_TYPE = "CSV";
 
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("path")
@@ -83,6 +84,14 @@ public class CSVIndexer extends Indexer {
    */
   public CSVIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, localRunId);
+  }
+
+  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link Indexer#Indexer()}. */
+  public CSVIndexer() {
+    super();
+    this.writer = null;
+    this.columns = null;
+    this.includeHeader = false;
   }
 
   // Convenience Constructors - No localRunId needs to be specified, uses "null".

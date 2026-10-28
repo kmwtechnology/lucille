@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.opensearch.indexer;
 
+import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
@@ -8,6 +9,7 @@ import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.kmwllc.lucille.opensearch.util.OpenSearchUtils;
 import com.typesafe.config.Config;
@@ -62,9 +64,9 @@ import org.slf4j.LoggerFactory;
  *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
  * </ul>
  */
+@AutoService(Indexer.class)
+@IndexerType("OpenSearch")
 public class OpenSearchIndexer extends Indexer {
-
-  public static final String INDEXER_TYPE = "OpenSearch";
 
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index")
@@ -110,6 +112,18 @@ public class OpenSearchIndexer extends Indexer {
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
     this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
+  }
+
+  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link com.kmwllc.lucille.core.Indexer#Indexer()}. */
+  public OpenSearchIndexer() {
+    super();
+    this.client = null;
+    this.index = null;
+    this.routingField = null;
+    this.versionType = null;
+    this.versionField = null;
+    this.update = false;
+    this.childDocumentsField = null;
   }
 
   // Convenience Constructors
