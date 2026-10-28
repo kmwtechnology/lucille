@@ -512,11 +512,14 @@ public class RunnerTest {
     RunResult result =
         Runner.run(ConfigFactory.load("RunnerTest/singleDoc.conf"), Runner.RunType.TEST);
     assertTrue(result.getStatus());
+    assertFalse(result.hasFailingDocs());
 
     // successful run with failing documents
     result =
         Runner.run(ConfigFactory.load("RunnerTest/threeDocsOneFailure.conf"), Runner.RunType.TEST);
     assertTrue(result.getStatus());
+    assertTrue(result.hasFailingDocs());
+    assertTrue(result.getMessage().contains("Partial success."));
 
     // failing run
     result =
@@ -1119,6 +1122,8 @@ public class RunnerTest {
     RunResult result = Runner.run(invalid, Runner.RunType.TEST);
 
     assertFalse(result.getStatus());
+    // validation failed before any connector ran, so there are no connector results to report failing docs
+    assertFalse(result.hasFailingDocs());
     assertNotNull(result.getHistory());
     assertTrue(result.getHistory().isEmpty());
   }
