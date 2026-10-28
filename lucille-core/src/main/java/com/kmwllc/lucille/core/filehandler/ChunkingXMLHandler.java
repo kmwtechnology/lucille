@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.xml;
+package com.kmwllc.lucille.core.filehandler;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -23,7 +23,7 @@ import org.xml.sax.SAXException;
 import java.io.IOException;
 import java.util.Stack;
 
-public class ChunkingXMLHandler implements ContentHandler {
+class ChunkingXMLHandler implements ContentHandler {
 
   private static final Logger log = LoggerFactory.getLogger(ChunkingXMLHandler.class);
 

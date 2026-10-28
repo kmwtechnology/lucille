@@ -39,7 +39,7 @@ public class JsonFileHandlerTest {
     String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
     File file = new File(filePath);
 
-    // contents of JSONConnectorTest/config.conf
+    // contents of FileHandlerTest/JsonFileHandlerTest/default.jsonl
     // {"id": "1", "field1":"val1-1", "field2":["val2-1a", "val2-1b"]}
     // {"id": "2", "field3":"val3", "field2":["val2-2a", "val2-2b"]}
     // {"id": "3", "field4":"val4", "field5":"val5"}
@@ -69,7 +69,7 @@ public class JsonFileHandlerTest {
     String filePath = "src/test/resources/FileHandlerTest/JsonFileHandlerTest/default.jsonl";
     File file = new File(filePath);
 
-    // contents of JSONConnectorTest/config.conf
+    // contents of FileHandlerTest/JsonFileHandlerTest/default.jsonl
     // {"id": "1", "field1":"val1-1", "field2":["val2-1a", "val2-1b"]}
     // {"id": "2", "field3":"val3", "field2":["val2-2a", "val2-2b"]}
     // {"id": "3", "field4":"val4", "field5":"val5"}

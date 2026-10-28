@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.connector.xml;
+package com.kmwllc.lucille.core.filehandler;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
@@ -7,7 +7,7 @@ import java.io.InputStream;
 
 // extended from example at:
 // https://bytes.com/topic/net/answers/818268-java-sax-parser-how-get-raw-xml-code-currently-parsingevent
-public class RecordingInputStream extends FilterInputStream {
+class RecordingInputStream extends FilterInputStream {
 
   protected ByteArrayOutputStream sink;
   private String encoding;

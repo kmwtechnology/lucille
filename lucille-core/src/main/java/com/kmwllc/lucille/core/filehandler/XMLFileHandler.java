@@ -1,7 +1,5 @@
 package com.kmwllc.lucille.core.filehandler;
 
-import com.kmwllc.lucille.connector.xml.ChunkingXMLHandler;
-import com.kmwllc.lucille.connector.xml.RecordingInputStream;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
