@@ -4,11 +4,9 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.io.File;
-import java.util.Arrays;
 import java.util.Iterator;
 
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -48,6 +46,8 @@ public class ParseFilePath extends Stage {
   private final String fileSep;
   private final boolean uppercaseExtension;
   private final boolean includeHierarchy;
+  private final boolean useUnix;
+  private final char sepChar;
 
   private static final Logger log = LoggerFactory.getLogger(ParseFilePath.class);
   
@@ -62,6 +62,8 @@ public class ParseFilePath extends Stage {
 
     this.uppercaseExtension = ConfigUtils.getOrDefault(config, "uppercaseExtension", true);
     this.includeHierarchy = ConfigUtils.getOrDefault(config, "includeHierarchy", true);
+    this.useUnix = fileSep.equals("/");
+    this.sepChar = fileSep.charAt(0);
   }
 
   @Override
@@ -70,9 +72,7 @@ public class ParseFilePath extends Stage {
       return null;
     }
 
-    String filePath = doc.getString(filePathField);
-    boolean useUnix = fileSep.equals("/");
-    filePath = FilenameUtils.normalizeNoEndSeparator(filePath, useUnix);
+    String filePath = FilenameUtils.normalizeNoEndSeparator(doc.getString(filePathField), useUnix);
 
     doc.addToField("filename", FilenameUtils.getName(filePath));
     doc.addToField("folder", FilenameUtils.getFullPathNoEndSeparator(filePath));
@@ -85,14 +85,46 @@ public class ParseFilePath extends Stage {
     }
 
     if (includeHierarchy) {
-      String[] paths = StringUtils.split(FilenameUtils.normalizeNoEndSeparator(filePath, useUnix), fileSep);
-      for (int i = 1; i < paths.length; i++) {
-        String subPath = StringUtils.join(Arrays.copyOfRange(paths, 0, i), fileSep);
-        doc.addToField("file_paths", subPath);
-      }
+      addHierarchy(doc, filePath);
     }
 
     return null;
+  }
+
+  /**
+   * Adds each proper prefix of the path's segments to "file_paths". Segments are split the same way as
+   * StringUtils.split(path, fileSep): runs of separators never yield an empty segment, and leading or trailing
+   * separators are dropped. The prefixes are built in one growing StringBuilder, with one append per segment,
+   * instead of re-joining all of the earlier segments for every prefix.
+   */
+  private void addHierarchy(Document doc, String path) {
+    StringBuilder prefix = new StringBuilder(path.length());
+    int start = skipSeparators(path, 0);
+    int emitted = 0;
+
+    while (start < path.length()) {
+      int end = path.indexOf(sepChar, start);
+      int next = end < 0 ? path.length() : skipSeparators(path, end);
+      // the last segment is the full path, which is not part of the hierarchy
+      if (next == path.length()) {
+        break;
+      }
+
+      if (emitted > 0) {
+        prefix.append(sepChar);
+      }
+      prefix.append(path, start, end);
+      doc.addToField("file_paths", prefix.toString());
+      emitted++;
+      start = next;
+    }
+  }
+
+  private int skipSeparators(String path, int pos) {
+    while (pos < path.length() && path.charAt(pos) == sepChar) {
+      pos++;
+    }
+    return pos;
   }
 }
 
