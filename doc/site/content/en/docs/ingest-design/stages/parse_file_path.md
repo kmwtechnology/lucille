@@ -14,6 +14,7 @@ Parses the file path in `filePathField` and adds these fields to the Document:
 - `path`: the normalized path.
 - `file_extension`: the extension.
 - `file_paths`: each parent directory of the file as a separate value, without a leading separator. For `/a/b/c.txt` the values are `a` and `a/b`. Only written when `includeHierarchy` is `true`.
+- `level`: the number of segments in the path, including the file name. `3` for `/a/b/c.txt` and for `C:\a\c.txt`. Segments are counted the same way as for `file_paths`, so `createRelativeHierarchy` applies here too. Only written when `includeLevel` is `true`.
 
 Values are added to any existing values in these fields rather than replacing them. Windows and Unix paths are both parsed, whatever the operating system. Documents without `filePathField` are left unchanged.
 
@@ -25,3 +26,4 @@ Values are added to any existing values in these fields rather than replacing th
 | `includeHierarchy` | Boolean | No | Populate `file_paths`. Default: `true`. |
 | `decodeFilePath` | Boolean | No | URL-decode (UTF-8) the path before parsing it, and keep the `://` after a URI scheme (`s3://bucket/key`) in `path` and `folder` instead of collapsing it to `:/`. `+` is kept as is, and a path with an invalid escape such as `100%.txt` is parsed without decoding. `file_paths` still splits on runs of separators, so it starts `s3:`, `s3:/bucket`; see `createRelativeHierarchy`. Default: `false`. |
 | `createRelativeHierarchy` | Boolean | No | For a URI, build `file_paths` from the path without the scheme and authority: `s3://bucket/a/b/c.txt` gives `a` and `a/b`. `path` and `folder` are not affected, and neither are paths that are not URIs. Default: `false`. |
+| `includeLevel` | Boolean | No | Populate `level`. Default: `false`. |

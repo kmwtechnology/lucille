@@ -44,13 +44,17 @@ import org.slf4j.LoggerFactory;
  *   <li>createRelativeHierarchy (Boolean, Optional) : If true, the "file_paths" of a URI are built from its path without the scheme
  *   and authority, so s3://bucket/a/b/file.txt gives "a" and "a/b" instead of "s3:", "s3:/bucket", "s3:/bucket/a" and
  *   "s3:/bucket/a/b". Other paths are not affected. Defaults to false.</li>
+ *   <li>includeLevel (Boolean, Optional) : If true, a field ("level") will be populated with the number of segments in the path,
+ *   including the file name: 3 for /a/b/file.txt and for C:\a\file.txt. Segments are counted the same way as for "file_paths", so
+ *   createRelativeHierarchy applies to the level too. Defaults to false.</li>
  * </ul>
  */
 public class ParseFilePath extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileSep")
-      .optionalBoolean("uppercaseExtension", "includeHierarchy", "decodeFilePath", "createRelativeHierarchy").build();
+      .optionalBoolean("uppercaseExtension", "includeHierarchy", "decodeFilePath", "createRelativeHierarchy", "includeLevel")
+      .build();
 
   // A URI scheme followed by "://". Schemes of one letter are not matched, so that a Windows drive (C://dir) is not taken for one.
   private static final Pattern URI_SCHEME = Pattern.compile("[a-zA-Z][a-zA-Z0-9+.-]+://");
@@ -61,6 +65,7 @@ public class ParseFilePath extends Stage {
   private final boolean includeHierarchy;
   private final boolean decodeFilePath;
   private final boolean createRelativeHierarchy;
+  private final boolean includeLevel;
   private final boolean useUnix;
   private final char sepChar;
 
@@ -79,6 +84,7 @@ public class ParseFilePath extends Stage {
     this.includeHierarchy = ConfigUtils.getOrDefault(config, "includeHierarchy", true);
     this.decodeFilePath = ConfigUtils.getOrDefault(config, "decodeFilePath", false);
     this.createRelativeHierarchy = ConfigUtils.getOrDefault(config, "createRelativeHierarchy", false);
+    this.includeLevel = ConfigUtils.getOrDefault(config, "includeLevel", false);
     this.useUnix = fileSep.equals("/");
     this.sepChar = fileSep.charAt(0);
   }
@@ -108,8 +114,14 @@ public class ParseFilePath extends Stage {
       doc.addToField("file_extension", FilenameUtils.getExtension(filePath));
     }
 
+    String hierarchyPath = createRelativeHierarchy ? relativeHierarchyPath(rawPath, filePath) : filePath;
+
+    if (includeLevel) {
+      doc.addToField("level", countSegments(hierarchyPath));
+    }
+
     if (includeHierarchy) {
-      addHierarchy(doc, createRelativeHierarchy ? relativeHierarchyPath(rawPath, filePath) : filePath);
+      addHierarchy(doc, hierarchyPath);
     }
 
     return null;
@@ -189,6 +201,23 @@ public class ParseFilePath extends Stage {
       emitted++;
       start = next;
     }
+  }
+
+  // Counts the segments the same way addHierarchy splits them.
+  private int countSegments(String path) {
+    int count = 0;
+    int pos = skipSeparators(path, 0);
+
+    while (pos < path.length()) {
+      count++;
+      int end = path.indexOf(sepChar, pos);
+      if (end < 0) {
+        break;
+      }
+      pos = skipSeparators(path, end);
+    }
+
+    return count;
   }
 
   private int skipSeparators(String path, int pos) {

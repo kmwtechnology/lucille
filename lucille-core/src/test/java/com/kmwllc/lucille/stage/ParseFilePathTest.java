@@ -304,6 +304,44 @@ public class ParseFilePathTest {
     assertEquals(List.of("a", "a\\b"), parse(windows, "s3://bucket\\a\\b\\file.txt").getStringList("file_paths"));
   }
 
+  @Test
+  public void testIncludeLevel() throws StageException {
+    Stage unix = factory.get(Map.of("fileSep", "/", "includeLevel", true, "includeHierarchy", false));
+    assertEquals(Integer.valueOf(3), parse(unix, "/a/b/file.txt").getInt("level"));
+    assertEquals(Integer.valueOf(3), parse(unix, "a//b///file.txt/").getInt("level"));
+    assertEquals(Integer.valueOf(1), parse(unix, "file.txt").getInt("level"));
+    assertEquals(Integer.valueOf(0), parse(unix, "/").getInt("level"));
+    assertEquals(Integer.valueOf(0), parse(unix, "").getInt("level"));
+    assertEquals(Integer.valueOf(4), parse(unix, "s3://bucket/a/file.txt").getInt("level"));
+    assertFalse(parse(unix, "/a/b/file.txt").has("file_paths"));
+
+    Stage windows = factory.get(Map.of("fileSep", "\\", "includeLevel", true));
+    assertEquals(Integer.valueOf(3), parse(windows, "C:\\a\\file.txt").getInt("level"));
+
+    Stage relative = factory.get(Map.of("fileSep", "/", "includeLevel", true, "createRelativeHierarchy", true));
+    assertEquals(Integer.valueOf(2), parse(relative, "s3://bucket/a/file.txt").getInt("level"));
+    assertEquals(Integer.valueOf(0), parse(relative, "s3://bucket").getInt("level"));
+
+    Stage defaults = factory.get(Map.of("fileSep", "/"));
+    assertFalse(parse(defaults, "/a/b/file.txt").has("level"));
+  }
+
+  @Test
+  public void testLevelMatchesHierarchy() throws StageException {
+    for (String fileSep : List.of("/", "\\")) {
+      Stage stage = factory.get(Map.of("fileSep", fileSep, "includeLevel", true, "uppercaseExtension", false));
+      for (String path : equivalencePaths()) {
+        if (FilenameUtils.normalizeNoEndSeparator(path, fileSep.equals("/")) == null) {
+          continue;
+        }
+        Document doc = parse(stage, path);
+        int hierarchySize = doc.has("file_paths") ? doc.getStringList("file_paths").size() : 0;
+        int level = doc.getInt("level");
+        assertEquals("fileSep=" + fileSep + ", path=" + path, Math.max(level - 1, 0), hierarchySize);
+      }
+    }
+  }
+
   private static Document parse(Stage stage, String filePath) throws StageException {
     Document doc = Document.create("doc");
     doc.setField("file_path", filePath);
