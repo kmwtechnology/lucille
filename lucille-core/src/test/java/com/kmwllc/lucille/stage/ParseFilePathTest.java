@@ -208,6 +208,70 @@ public class ParseFilePathTest {
   }
 
   @Test
+  public void testDecodeFilePath() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "/", "decodeFilePath", true));
+
+    Document doc1 = Document.create("doc1");
+    doc1.setField("file_path", "s3://bucket/my%20folder/caf%C3%A9.txt");
+    stage.processDocument(doc1);
+    assertEquals("s3://bucket/my folder/caf\u00e9.txt", doc1.getString("path"));
+    assertEquals("caf\u00e9.txt", doc1.getString("filename"));
+    assertEquals("s3://bucket/my folder", doc1.getString("folder"));
+    assertEquals("TXT", doc1.getString("file_extension"));
+    // the hierarchy splits on runs of separators, as without decodeFilePath
+    assertEquals(List.of("s3:", "s3:/bucket", "s3:/bucket/my folder"), doc1.getStringList("file_paths"));
+
+    // "://" is kept for an empty authority too, and ".." is resolved after the scheme
+    Document doc2 = Document.create("doc2");
+    doc2.setField("file_path", "file:///a/b/../c.txt");
+    stage.processDocument(doc2);
+    assertEquals("file:///a/c.txt", doc2.getString("path"));
+    assertEquals("file:///a", doc2.getString("folder"));
+
+    // "+" is kept, unlike form decoding
+    Document doc3 = Document.create("doc3");
+    doc3.setField("file_path", "/dir/c++%20notes.txt");
+    stage.processDocument(doc3);
+    assertEquals("/dir/c++ notes.txt", doc3.getString("path"));
+
+    // an invalid escape sequence leaves the path undecoded
+    Document doc4 = Document.create("doc4");
+    doc4.setField("file_path", "/dir/100%.txt");
+    stage.processDocument(doc4);
+    assertEquals("/dir/100%.txt", doc4.getString("path"));
+    assertEquals("100%.txt", doc4.getString("filename"));
+
+    // a drive letter is not a URI scheme
+    Document doc5 = Document.create("doc5");
+    doc5.setField("file_path", "C://dir/a%20b.txt");
+    stage.processDocument(doc5);
+    assertEquals("C:/dir/a b.txt", doc5.getString("path"));
+  }
+
+  @Test
+  public void testDecodeFilePathWindowsSeparator() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "\\", "decodeFilePath", true));
+    Document doc = Document.create("doc");
+    doc.setField("file_path", "C:%5Cmy%20folder%5Cfile.txt");
+    stage.processDocument(doc);
+
+    assertEquals("C:\\my folder\\file.txt", doc.getString("path"));
+    assertEquals("C:\\my folder", doc.getString("folder"));
+    assertEquals(List.of("C:", "C:\\my folder"), doc.getStringList("file_paths"));
+  }
+
+  @Test
+  public void testDecodeFilePathDisabledByDefault() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "/"));
+    Document doc = Document.create("doc");
+    doc.setField("file_path", "s3://bucket/my%20folder/file.txt");
+    stage.processDocument(doc);
+
+    assertEquals("s3:/bucket/my%20folder/file.txt", doc.getString("path"));
+    assertEquals("s3:/bucket/my%20folder", doc.getString("folder"));
+  }
+
+  @Test
   public void testOutputMatchesLegacyImplementation() throws StageException {
     List<String> paths = equivalencePaths();
 

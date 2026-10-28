@@ -23,3 +23,4 @@ Values are added to any existing values in these fields rather than replacing th
 | `fileSep` | String | No | Separator used in the output paths. Must be `/` or `\` (escape it as `"\\"` in HOCON). Default: the operating system's separator. |
 | `uppercaseExtension` | Boolean | No | Write `file_extension` in uppercase. Default: `true`. |
 | `includeHierarchy` | Boolean | No | Populate `file_paths`. Default: `true`. |
+| `decodeFilePath` | Boolean | No | URL-decode (UTF-8) the path before parsing it, and keep the `://` after a URI scheme (`s3://bucket/key`) in `path` and `folder` instead of collapsing it to `:/`. `+` is kept as is, and a path with an invalid escape such as `100%.txt` is parsed without decoding. `file_paths` still splits on runs of separators, so it starts `s3:`, `s3:/bucket`; see `createRelativeHierarchy`. Default: `false`. |

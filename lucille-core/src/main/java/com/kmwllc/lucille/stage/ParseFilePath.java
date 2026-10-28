@@ -4,7 +4,11 @@ import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.io.File;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.io.FilenameUtils;
 
@@ -34,18 +38,25 @@ import org.slf4j.LoggerFactory;
  *   true.</li>
  *   <li>includeHierarchy (Boolean, Optional) : If true, a field ("file_paths") will be populated with all of the normalized subpaths
  *   leading up to the full file path (to aid in building a hierarchical aggregator/facet for a search engine).</li>
+ *   <li>decodeFilePath (Boolean, Optional) : If true, the file path is URL-decoded (UTF-8) before it is parsed, and the "://" after a
+ *   URI scheme (like s3://bucket/key) is kept in the normalized path instead of being collapsed to ":/". A "+" is kept as is, and a
+ *   path with an invalid escape sequence is parsed without decoding. Defaults to false.</li>
  * </ul>
  */
 public class ParseFilePath extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileSep")
-      .optionalBoolean("uppercaseExtension", "includeHierarchy").build();
+      .optionalBoolean("uppercaseExtension", "includeHierarchy", "decodeFilePath").build();
+
+  // A URI scheme followed by "://". Schemes of one letter are not matched, so that a Windows drive (C://dir) is not taken for one.
+  private static final Pattern URI_SCHEME = Pattern.compile("[a-zA-Z][a-zA-Z0-9+.-]+://");
 
   private final String filePathField;
   private final String fileSep;
   private final boolean uppercaseExtension;
   private final boolean includeHierarchy;
+  private final boolean decodeFilePath;
   private final boolean useUnix;
   private final char sepChar;
 
@@ -62,6 +73,7 @@ public class ParseFilePath extends Stage {
 
     this.uppercaseExtension = ConfigUtils.getOrDefault(config, "uppercaseExtension", true);
     this.includeHierarchy = ConfigUtils.getOrDefault(config, "includeHierarchy", true);
+    this.decodeFilePath = ConfigUtils.getOrDefault(config, "decodeFilePath", false);
     this.useUnix = fileSep.equals("/");
     this.sepChar = fileSep.charAt(0);
   }
@@ -72,7 +84,12 @@ public class ParseFilePath extends Stage {
       return null;
     }
 
-    String filePath = FilenameUtils.normalizeNoEndSeparator(doc.getString(filePathField), useUnix);
+    String filePath = doc.getString(filePathField);
+    if (decodeFilePath) {
+      filePath = normalizeUri(decode(filePath));
+    } else {
+      filePath = FilenameUtils.normalizeNoEndSeparator(filePath, useUnix);
+    }
 
     doc.addToField("filename", FilenameUtils.getName(filePath));
     doc.addToField("folder", FilenameUtils.getFullPathNoEndSeparator(filePath));
@@ -89,6 +106,30 @@ public class ParseFilePath extends Stage {
     }
 
     return null;
+  }
+
+  private static String decode(String filePath) {
+    try {
+      // URLDecoder decodes "+" to a space, which is only correct for form data. Encode it so it is kept in the path.
+      return URLDecoder.decode(filePath.replace("+", "%2B"), StandardCharsets.UTF_8);
+    } catch (IllegalArgumentException e) {
+      log.warn("Could not URL-decode file path {}, parsing it without decoding: {}", filePath, e.getMessage());
+      return filePath;
+    }
+  }
+
+  /**
+   * Normalizes the path. If it starts with a URI scheme, only the part after the "://" is normalized, so the "://" is not
+   * collapsed to ":/".
+   */
+  private String normalizeUri(String filePath) {
+    Matcher scheme = URI_SCHEME.matcher(filePath);
+    if (!scheme.lookingAt()) {
+      return FilenameUtils.normalizeNoEndSeparator(filePath, useUnix);
+    }
+
+    String rest = FilenameUtils.normalizeNoEndSeparator(filePath.substring(scheme.end()), useUnix);
+    return rest == null ? null : filePath.substring(0, scheme.end()) + rest;
   }
 
   /**
