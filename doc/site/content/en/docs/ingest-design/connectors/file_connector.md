@@ -102,7 +102,7 @@ All File Handlers support `docIdPrefix` (prepended to every generated Document I
 
 ### CSV File Handler
 
-`com.kmwllc.lucille.core.fileHandler.CSVFileHandler`
+`com.kmwllc.lucille.core.filehandler.CSVFileHandler`
 
 Extracts one Document per row from a CSV file.
 
@@ -137,7 +137,7 @@ fileHandlers: {
 
 ### JSON File Handler
 
-`com.kmwllc.lucille.core.fileHandler.JSONFileHandler`
+`com.kmwllc.lucille.core.filehandler.JsonFileHandler`
 
 Extracts one Document per JSON object. Supports both standard JSON files (a single object or array) and JSON Lines (`.jsonl`) format where each line is a separate JSON object.
 
@@ -163,7 +163,7 @@ fileHandlers: {
 
 ### XML File Handler
 
-`com.kmwllc.lucille.core.fileHandler.XMLFileHandler`
+`com.kmwllc.lucille.core.filehandler.XMLFileHandler`
 
 Extracts Documents from an XML file by selecting elements matching an XPath expression. Each matched element becomes a Document; element child text content and attributes become Document fields.
 

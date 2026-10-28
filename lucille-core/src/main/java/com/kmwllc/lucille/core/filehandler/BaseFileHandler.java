@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandler;
+package com.kmwllc.lucille.core.filehandler;
 
 import static com.kmwllc.lucille.core.Document.ID_FIELD;
 

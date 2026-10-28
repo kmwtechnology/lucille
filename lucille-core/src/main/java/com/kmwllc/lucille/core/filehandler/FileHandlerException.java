@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandler;
+package com.kmwllc.lucille.core.filehandler;
 
 public class FileHandlerException extends Exception {
 

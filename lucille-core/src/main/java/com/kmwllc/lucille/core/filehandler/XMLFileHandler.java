@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandler;
+package com.kmwllc.lucille.core.filehandler;
 
 import com.kmwllc.lucille.connector.xml.ChunkingXMLHandler;
 import com.kmwllc.lucille.connector.xml.RecordingInputStream;

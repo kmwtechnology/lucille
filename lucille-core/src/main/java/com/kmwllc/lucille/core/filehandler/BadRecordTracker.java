@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandler;
+package com.kmwllc.lucille.core.filehandler;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

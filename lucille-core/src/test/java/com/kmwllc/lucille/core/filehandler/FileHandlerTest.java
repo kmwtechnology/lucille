@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandler;
+package com.kmwllc.lucille.core.filehandler;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
@@ -48,7 +48,7 @@ public class FileHandlerTest {
     // A bit weird, but an easy way to make sure reflection works
     Config withCSVOnOtherType = ConfigFactory.parseMap(Map.of(
         "tsv", Map.of(
-            "class", "com.kmwllc.lucille.core.fileHandler.CSVFileHandler",
+            "class", "com.kmwllc.lucille.core.filehandler.CSVFileHandler",
             "useTabs", true
         )));
     assertInstanceOf(CSVFileHandler.class, FileHandler.create("tsv", withCSVOnOtherType));
@@ -68,7 +68,7 @@ public class FileHandlerTest {
     assertInstanceOf(CSVFileHandler.class, result.get("csv"));
     assertInstanceOf(JsonFileHandler.class, result.get("json"));
     assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
-    // small detail... when you only specify one (json, jsonl), they are the *same* JSONFileHandler.
+    // small detail... when you only specify one (json, jsonl), they are the *same* JsonFileHandler.
     assertEquals(result.get("json"), result.get("jsonl"));
     assertInstanceOf(XMLFileHandler.class, result.get("xml"));
 
@@ -84,7 +84,7 @@ public class FileHandlerTest {
     assertEquals(2, result.size());
     assertInstanceOf(JsonFileHandler.class, result.get("json"));
     assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
-    // small detail... when you explicitly specify both, each is its own unique JSONFileHandler... in case you want to
+    // small detail... when you explicitly specify both, each is its own unique JsonFileHandler... in case you want to
     // handle one differently than the other.
     assertNotEquals(result.get("json"), result.get("jsonl"));
 

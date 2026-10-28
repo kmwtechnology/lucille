@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandler;
+package com.kmwllc.lucille.core.filehandler;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
@@ -43,11 +43,11 @@ public interface FileHandler {
   /**
    * From the given Config, returns a map of supported file extensions to their FileHandlers.The returned map is not modifiable.
    * Configs mapped to <code>csv</code>, <code>xml</code>, <code>json</code>, and <code>jsonl</code> without a <code>class</code>
-   * specified will use Lucille's <code>CSVFileHandler</code>, <code>XMLFileHandler</code>, or <code>JSONFileHandler</code>, respectively.
+   * specified will use Lucille's <code>CSVFileHandler</code>, <code>XMLFileHandler</code>, or <code>JsonFileHandler</code>, respectively.
    * Configs mapped to another file extension (a custom <code>FileHandler</code>) must include <code>class</code> in their Config, or an Exception will be thrown.
    *
    * <br> <b>Note:</b> If <code>json</code> config is included, but <code>jsonl</code> is not (or vice versa), both extensions will
-   * map to the same JSONFileHandler in the Config. If both are included, however, they will map to unique JSONFileHandlers,
+   * map to the same JsonFileHandler in the Config. If both are included, however, they will map to unique JsonFileHandlers,
    * created using their respective Configs.
    *
    * @param fileHandlersConfig The Config, typically under the key <code>fileHandlers</code>, which potentially contains Configs for various FileHandlers.

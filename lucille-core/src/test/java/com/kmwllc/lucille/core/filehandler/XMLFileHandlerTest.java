@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandler;
+package com.kmwllc.lucille.core.filehandler;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;

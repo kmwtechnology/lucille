@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.core.fileHandler;
+package com.kmwllc.lucille.core.filehandler;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

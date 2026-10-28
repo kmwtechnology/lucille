@@ -7,7 +7,7 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.fileHandler.XMLFileHandler;
+import com.kmwllc.lucille.core.filehandler.XMLFileHandler;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import org.slf4j.Logger;
