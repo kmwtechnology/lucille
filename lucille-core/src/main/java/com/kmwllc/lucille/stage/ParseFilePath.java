@@ -26,6 +26,8 @@ import org.slf4j.LoggerFactory;
  *   <br> - folder: The parent of the file.
  *   <br> - path: The path to the file. (Normalized)
  *   <br> - file_extension: The extension of the file.
+ *   <br> - file_paths: The parent directories of the file (see includeHierarchy).
+ *   <br> - level: The number of segments in the path (see includeLevel).
  * <p>
  * Config Parameters -
  * <ul>
@@ -37,7 +39,7 @@ import org.slf4j.LoggerFactory;
  *   <li>uppercaseExtension (Boolean, Optional) : If true, the extracted file extension will be in all uppercase letters. Defaults to
  *   true.</li>
  *   <li>includeHierarchy (Boolean, Optional) : If true, a field ("file_paths") will be populated with all of the normalized subpaths
- *   leading up to the full file path (to aid in building a hierarchical aggregator/facet for a search engine).</li>
+ *   leading up to the full file path (to aid in building a hierarchical aggregator/facet for a search engine). Defaults to true.</li>
  *   <li>decodeFilePath (Boolean, Optional) : If true, the file path is URL-decoded (UTF-8) before it is parsed, and the "://" after a
  *   URI scheme (like s3://bucket/key) is kept in the normalized path instead of being collapsed to ":/". A "+" is kept as is, and a
  *   path with an invalid escape sequence is parsed without decoding. Defaults to false.</li>
