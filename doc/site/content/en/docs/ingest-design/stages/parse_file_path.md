@@ -24,3 +24,4 @@ Values are added to any existing values in these fields rather than replacing th
 | `uppercaseExtension` | Boolean | No | Write `file_extension` in uppercase. Default: `true`. |
 | `includeHierarchy` | Boolean | No | Populate `file_paths`. Default: `true`. |
 | `decodeFilePath` | Boolean | No | URL-decode (UTF-8) the path before parsing it, and keep the `://` after a URI scheme (`s3://bucket/key`) in `path` and `folder` instead of collapsing it to `:/`. `+` is kept as is, and a path with an invalid escape such as `100%.txt` is parsed without decoding. `file_paths` still splits on runs of separators, so it starts `s3:`, `s3:/bucket`; see `createRelativeHierarchy`. Default: `false`. |
+| `createRelativeHierarchy` | Boolean | No | For a URI, build `file_paths` from the path without the scheme and authority: `s3://bucket/a/b/c.txt` gives `a` and `a/b`. `path` and `folder` are not affected, and neither are paths that are not URIs. Default: `false`. |

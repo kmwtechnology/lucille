@@ -41,13 +41,16 @@ import org.slf4j.LoggerFactory;
  *   <li>decodeFilePath (Boolean, Optional) : If true, the file path is URL-decoded (UTF-8) before it is parsed, and the "://" after a
  *   URI scheme (like s3://bucket/key) is kept in the normalized path instead of being collapsed to ":/". A "+" is kept as is, and a
  *   path with an invalid escape sequence is parsed without decoding. Defaults to false.</li>
+ *   <li>createRelativeHierarchy (Boolean, Optional) : If true, the "file_paths" of a URI are built from its path without the scheme
+ *   and authority, so s3://bucket/a/b/file.txt gives "a" and "a/b" instead of "s3:", "s3:/bucket", "s3:/bucket/a" and
+ *   "s3:/bucket/a/b". Other paths are not affected. Defaults to false.</li>
  * </ul>
  */
 public class ParseFilePath extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileSep")
-      .optionalBoolean("uppercaseExtension", "includeHierarchy", "decodeFilePath").build();
+      .optionalBoolean("uppercaseExtension", "includeHierarchy", "decodeFilePath", "createRelativeHierarchy").build();
 
   // A URI scheme followed by "://". Schemes of one letter are not matched, so that a Windows drive (C://dir) is not taken for one.
   private static final Pattern URI_SCHEME = Pattern.compile("[a-zA-Z][a-zA-Z0-9+.-]+://");
@@ -57,6 +60,7 @@ public class ParseFilePath extends Stage {
   private final boolean uppercaseExtension;
   private final boolean includeHierarchy;
   private final boolean decodeFilePath;
+  private final boolean createRelativeHierarchy;
   private final boolean useUnix;
   private final char sepChar;
 
@@ -74,6 +78,7 @@ public class ParseFilePath extends Stage {
     this.uppercaseExtension = ConfigUtils.getOrDefault(config, "uppercaseExtension", true);
     this.includeHierarchy = ConfigUtils.getOrDefault(config, "includeHierarchy", true);
     this.decodeFilePath = ConfigUtils.getOrDefault(config, "decodeFilePath", false);
+    this.createRelativeHierarchy = ConfigUtils.getOrDefault(config, "createRelativeHierarchy", false);
     this.useUnix = fileSep.equals("/");
     this.sepChar = fileSep.charAt(0);
   }
@@ -84,11 +89,13 @@ public class ParseFilePath extends Stage {
       return null;
     }
 
-    String filePath = doc.getString(filePathField);
+    String rawPath = doc.getString(filePathField);
+    String filePath;
     if (decodeFilePath) {
-      filePath = normalizeUri(decode(filePath));
+      rawPath = decode(rawPath);
+      filePath = normalizeUri(rawPath);
     } else {
-      filePath = FilenameUtils.normalizeNoEndSeparator(filePath, useUnix);
+      filePath = FilenameUtils.normalizeNoEndSeparator(rawPath, useUnix);
     }
 
     doc.addToField("filename", FilenameUtils.getName(filePath));
@@ -102,7 +109,7 @@ public class ParseFilePath extends Stage {
     }
 
     if (includeHierarchy) {
-      addHierarchy(doc, filePath);
+      addHierarchy(doc, createRelativeHierarchy ? relativeHierarchyPath(rawPath, filePath) : filePath);
     }
 
     return null;
@@ -130,6 +137,29 @@ public class ParseFilePath extends Stage {
 
     String rest = FilenameUtils.normalizeNoEndSeparator(filePath.substring(scheme.end()), useUnix);
     return rest == null ? null : filePath.substring(0, scheme.end()) + rest;
+  }
+
+  /**
+   * Returns the normalized path without the scheme and authority if the path is a URI (s3://bucket/a/b becomes /a/b), or the
+   * given normalized path otherwise.
+   */
+  private String relativeHierarchyPath(String rawPath, String filePath) {
+    Matcher scheme = URI_SCHEME.matcher(rawPath);
+    if (!scheme.lookingAt()) {
+      return filePath;
+    }
+
+    for (int i = scheme.end(); i < rawPath.length(); i++) {
+      char ch = rawPath.charAt(i);
+      if (ch == '/' || ch == '\\') {
+        String relativePath = FilenameUtils.normalizeNoEndSeparator(rawPath.substring(i), useUnix);
+        // a path that leaves the root, like s3://bucket/../a, has no hierarchy
+        return relativePath == null ? "" : relativePath;
+      }
+    }
+
+    // only a scheme and authority, like s3://bucket
+    return "";
   }
 
   /**

@@ -272,6 +272,46 @@ public class ParseFilePathTest {
   }
 
   @Test
+  public void testCreateRelativeHierarchy() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "/", "createRelativeHierarchy", true));
+
+    assertEquals(List.of("a", "a/b"), parse(stage, "s3://bucket/a/b/file.txt").getStringList("file_paths"));
+    assertEquals(List.of("a"), parse(stage, "file:///a/file.txt").getStringList("file_paths"));
+    assertEquals(List.of("a", "a/c"), parse(stage, "https://host:8080/a/b/../c/file.txt").getStringList("file_paths"));
+    assertFalse(parse(stage, "s3://bucket/file.txt").has("file_paths"));
+    assertFalse(parse(stage, "s3://bucket").has("file_paths"));
+    assertFalse(parse(stage, "s3://bucket/../a/file.txt").has("file_paths"));
+
+    // only the hierarchy is relative
+    Document doc = parse(stage, "s3://bucket/a/b/file.txt");
+    assertEquals("s3:/bucket/a/b/file.txt", doc.getString("path"));
+    assertEquals("s3:/bucket/a/b", doc.getString("folder"));
+
+    // paths that are not URIs are not affected
+    assertEquals(List.of("x", "x/y"), parse(stage, "/x/y/file.txt").getStringList("file_paths"));
+    assertEquals(List.of("C:", "C:/x"), parse(stage, "C://x/file.txt").getStringList("file_paths"));
+  }
+
+  @Test
+  public void testCreateRelativeHierarchyWithDecodeAndWindowsSeparator() throws StageException {
+    Stage decoding = factory.get(Map.of("fileSep", "/", "createRelativeHierarchy", true, "decodeFilePath", true));
+    Document doc = parse(decoding, "s3://bucket/my%20folder/sub/file.txt");
+    assertEquals(List.of("my folder", "my folder/sub"), doc.getStringList("file_paths"));
+    assertEquals("s3://bucket/my folder/sub/file.txt", doc.getString("path"));
+
+    Stage windows = factory.get(Map.of("fileSep", "\\", "createRelativeHierarchy", true));
+    assertEquals(List.of("a", "a\\b"), parse(windows, "s3://bucket/a/b/file.txt").getStringList("file_paths"));
+    assertEquals(List.of("a", "a\\b"), parse(windows, "s3://bucket\\a\\b\\file.txt").getStringList("file_paths"));
+  }
+
+  private static Document parse(Stage stage, String filePath) throws StageException {
+    Document doc = Document.create("doc");
+    doc.setField("file_path", filePath);
+    stage.processDocument(doc);
+    return doc;
+  }
+
+  @Test
   public void testOutputMatchesLegacyImplementation() throws StageException {
     List<String> paths = equivalencePaths();
 
