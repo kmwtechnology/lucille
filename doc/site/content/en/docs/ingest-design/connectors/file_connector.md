@@ -67,6 +67,23 @@ s3 {
 
 The same settings apply to stages that read files by URI, such as `FetchFileContent` and `ApplyJavascript`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
 
+**Storage clients for other URI schemes**
+
+To traverse a storage system Lucille doesn't support out of the box, register a custom StorageClient for its URI scheme in `storageClients`. Each entry is keyed by the scheme and must set `class` to a `StorageClient` implementation with a public constructor that takes a `Config`. The client receives its entry, which can contain any other settings it needs.
+
+```hocon
+paths: ["sftp://files.example.com/data/incoming/"]
+storageClients {
+  sftp {
+    class: "com.mycompany.lucille.storage.SftpStorageClient"
+    host: "files.example.com"
+    username: "ingest"
+  }
+}
+```
+
+Schemes must be at least two characters long, and the built-in schemes (`file`, `s3`, `gs`, `https`) can't be configured here. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
+
 **Azure hosts for single-file reads**
 
 When a stage reads a single file by URI (for example, the script for `ApplyJavascript` or the dictionaries for `ExtractEntitiesFST`), an `https` URI is only read with the Azure client if its authority (host and port) contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. This is a substring match. Set it to read from an Azure-compatible endpoint on another hostname. The setting only selects the Azure client: requests go to the endpoint given by the Azure credentials, so that endpoint must also be in `connectionString`. The list replaces the default, so include `blob.core.windows.net` if you still need it. The `FileConnector` itself does not check the host: it uses the Azure client for every `https` path.
@@ -390,7 +407,7 @@ private void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws
 }
 ```
 
-`StorageClient` is an interface with implementations for each backend. Each implementation handles listing/paginating files, applying filter criteria, reading file content, publishing documents, and updating state. The `createClients(config)` factory method inspects the config for cloud provider blocks and instantiates the appropriate clients.
+`StorageClient` is an interface with implementations for each backend. Each implementation handles listing/paginating files, applying filter criteria, reading file content, publishing documents, and updating state. The `createClients(config)` factory method inspects the config for cloud provider blocks and `storageClients` entries, and instantiates the appropriate clients.
 
 ### Lifecycle: execute → close
 

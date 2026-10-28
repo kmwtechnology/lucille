@@ -6,6 +6,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.kmwllc.lucille.connector.storageclient.StorageClientTest;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -13,6 +14,7 @@ import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
@@ -36,6 +38,17 @@ public class FetchFileContentTest {
   public FetchFileContentTest() throws IOException {
     helloContents = Files.readAllBytes(helloPath);
     goodbyeContents = Files.readAllBytes(goodbyePath);
+  }
+
+  @Test
+  public void testCustomSchemeStorageClient() throws StageException {
+    Stage stage = factory.get(StorageClientTest.memoryClientConfig("mem"));
+
+    Document doc = Document.create("test_mem");
+    doc.setField("file_path", "mem://host/path/file.txt");
+    stage.processDocument(doc);
+
+    assertArrayEquals("hello".getBytes(StandardCharsets.UTF_8), doc.getBytes("file_content"));
   }
 
   @Test

@@ -53,6 +53,7 @@ The extracted text is added to `textField`; if the field already has a value, th
 | `s3` | Object | No | S3 credentials for reading `filePathField` paths from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `azure` | Object | No | Azure credentials for reading `filePathField` paths from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `gcp` | Object | No | Google Cloud credentials for reading `filePathField` paths from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `storageClients` | Object | No | Custom StorageClients, keyed by URI scheme, for reading `filePathField` paths from other storage systems. See [Storage clients for other URI schemes]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 
 ## OCR
 

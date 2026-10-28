@@ -112,6 +112,10 @@ import com.typesafe.config.Config;
  *   dictionaries or scripts), an https URI is only read with the azure client if its authority contains one of these values
  *   (a substring match). Only selects the client: requests go to the endpoint in the azure credentials, such as connectionString.
  *   Replaces the default rather than adding to it. Defaults to ["blob.core.windows.net"].</li>
+ *   <li>storageClients (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Custom StorageClients for other URI schemes, keyed
+ *   by scheme (e.g. sftp). Each entry must contain "class", the fully qualified name of a StorageClient implementation with a
+ *   public constructor that takes a Config. The client receives its entry, which may contain any other settings it needs.
+ *   Schemes must be at least two characters long, and the built-in schemes (file, s3, gs, https) can't be configured here.</li>
  *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).
  *   Supply a class to override the default handler. Otherwise the built-in handler for csv/json/xml is used. Configure docIdPrefix inside
  *   each handler's config as needed.</li>
@@ -140,6 +144,7 @@ public class FileConnector extends AbstractConnector {
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
   public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
   public static final String STORAGE_CLIENT_CLASS = "class";
+  public static final String STORAGE_CLIENTS = "storageClients";
 
   // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
@@ -162,6 +167,8 @@ public class FileConnector extends AbstractConnector {
       .optionalString("connectionString", "accountName", "accountKey", STORAGE_CLIENT_CLASS)
       .optionalList(AZURE_ALLOWED_HOSTS, new TypeReference<List<String>>(){})
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
+  // custom storage clients, keyed by URI scheme. Each client's settings are not validated here.
+  public static final TypeReference<Map<String, Map<String, Object>>> STORAGE_CLIENTS_TYPE = new TypeReference<Map<String, Map<String, Object>>>(){};
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
@@ -187,6 +194,7 @@ public class FileConnector extends AbstractConnector {
           GCP_PARENT_SPEC,
           AZURE_PARENT_SPEC,
           S3_PARENT_SPEC)
+      .optionalParent(STORAGE_CLIENTS, STORAGE_CLIENTS_TYPE)
       .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
 
   private final List<URI> storageURIs;

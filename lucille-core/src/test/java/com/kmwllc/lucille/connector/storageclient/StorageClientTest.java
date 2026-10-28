@@ -183,6 +183,74 @@ public class StorageClientTest {
     assertEquals(CustomAzureStorageClient.class, StorageClient.create(customHostURI, customClass).getClass());
   }
 
+  @Test
+  public void testCustomSchemeClient() throws Exception {
+    Config config = memoryClientConfig("mem");
+
+    MemoryStorageClient client = (MemoryStorageClient) StorageClient.create(new URI("mem://host/path/file.txt"), config);
+    assertEquals("hello", client.getConfig().getString("content"));
+
+    Map<String, StorageClient> results = StorageClient.createClients(config);
+    assertEquals(2, results.size());
+    assertEquals(MemoryStorageClient.class, results.get("mem").getClass());
+    assertEquals(LocalStorageClient.class, results.get("file").getClass());
+
+    // custom clients sit alongside the built-in ones
+    Map<String, StorageClient> withCloud = StorageClient.createClients(ConfigFactory.load("StorageClientTest/fullClients.conf").withFallback(config));
+    assertEquals(5, withCloud.size());
+    assertEquals(S3StorageClient.class, withCloud.get("s3").getClass());
+    assertEquals(MemoryStorageClient.class, withCloud.get("mem").getClass());
+
+    // other schemes are still unsupported
+    assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("other://host/file.txt"), config));
+  }
+
+  @Test
+  public void testCustomSchemeClientOptionsValidated() {
+    // the client's own validateOptions applies
+    Config config = ConfigFactory.parseString("storageClients.mem.class: \"" + MemoryStorageClient.class.getName() + "\"");
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(config));
+    assertTrue(e.getMessage().contains("MemoryStorageClient requires 'content'"));
+  }
+
+  @Test
+  public void testInvalidCustomSchemeClients() {
+    // built-in schemes can't be configured
+    for (String scheme : List.of("file", "s3", "gs", "https")) {
+      Config builtIn = memoryClientConfig(scheme);
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(builtIn));
+      assertTrue(e.getMessage().contains("built-in scheme " + scheme));
+      assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("/path/to/file"), builtIn));
+    }
+
+    // single-letter schemes are Windows drive letters
+    assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(memoryClientConfig("c")));
+
+    // class is required
+    Config noClass = ConfigFactory.parseString("storageClients.mem.content: hello");
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(noClass));
+    assertTrue(e.getMessage().contains("storageClients.mem"));
+
+    // each entry must be a map
+    Config notMap = ConfigFactory.parseString("storageClients.mem: hello");
+    assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(notMap));
+
+    // class must implement StorageClient
+    Config notStorageClient = memoryClientConfig("mem").withValue("storageClients.mem.class", ConfigValueFactory.fromAnyRef(String.class.getName()));
+    e = assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(notStorageClient));
+    assertTrue(e.getMessage().contains("must implement " + StorageClient.class.getName()));
+  }
+
+  /**
+   * Returns a config registering a MemoryStorageClient for the given scheme in storageClients, with content "hello".
+   */
+  public static Config memoryClientConfig(String scheme) {
+    return ConfigFactory.empty()
+        .withValue("storageClients." + scheme + ".class", ConfigValueFactory.fromAnyRef(MemoryStorageClient.class.getName()))
+        .withValue("storageClients." + scheme + ".content", ConfigValueFactory.fromAnyRef("hello"));
+  }
+
   private static Config customClassesConfig() {
     return ConfigFactory.load("StorageClientTest/fullClients.conf")
         .withValue("gcp.class", ConfigValueFactory.fromAnyRef(CustomGoogleStorageClient.class.getName()))

@@ -469,6 +469,26 @@ public class FileConnectorTest {
     assertThrows(IllegalArgumentException.class, () -> new FileConnector(wrongType));
   }
 
+  @Test
+  public void testCustomSchemeStorageClient() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("name", "connector", "paths", List.of("mem://host/path/")))
+        .withFallback(StorageClientTest.memoryClientConfig("mem"));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(1, docs.size());
+    assertEquals("mem://host/path/", docs.get(0).getId());
+    assertEquals("hello", docs.get(0).getString("content"));
+
+    // a built-in scheme can't be configured in storageClients
+    Config builtIn = config.withFallback(StorageClientTest.memoryClientConfig("s3"));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(builtIn));
+  }
+
   // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
 
   // Testing with an embedded H2 database that the connector creates on first use. Only the location is set

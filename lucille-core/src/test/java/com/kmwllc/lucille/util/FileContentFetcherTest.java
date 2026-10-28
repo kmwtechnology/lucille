@@ -14,8 +14,10 @@ import static org.mockito.Mockito.when;
 import com.kmwllc.lucille.connector.storageclient.GoogleStorageClient;
 import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClientTest;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +29,25 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 
 public class FileContentFetcherTest {
+
+  @Test
+  public void testCustomSchemeStorageClient() throws Exception {
+    Config config = StorageClientTest.memoryClientConfig("mem");
+
+    // one-time reads, as used by stages that read a script or dictionary
+    try (BufferedReader reader = FileContentFetcher.getOneTimeReader("mem://host/path/file.txt", config)) {
+      assertEquals("hello", reader.readLine());
+    }
+
+    // a FileContentFetcher instance
+    FileContentFetcher fetcher = FileContentFetcher.create(config);
+    fetcher.startup();
+    try (InputStream stream = fetcher.getInputStream("mem://host/path/file.txt")) {
+      assertEquals("hello", IOUtils.toString(stream, "UTF-8"));
+    } finally {
+      fetcher.shutdown();
+    }
+  }
 
   @Test
   public void testGetInputStream() throws Exception {

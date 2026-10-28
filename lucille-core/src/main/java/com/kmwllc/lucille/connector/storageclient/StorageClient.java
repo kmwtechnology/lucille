@@ -2,11 +2,14 @@ package com.kmwllc.lucille.connector.storageclient;
 
 import static com.kmwllc.lucille.connector.FileConnector.AZURE_ALLOWED_HOSTS;
 import static com.kmwllc.lucille.connector.FileConnector.DEFAULT_AZURE_ALLOWED_HOSTS;
+import static com.kmwllc.lucille.connector.FileConnector.STORAGE_CLIENTS;
 import static com.kmwllc.lucille.connector.FileConnector.STORAGE_CLIENT_CLASS;
 
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigObject;
+import com.typesafe.config.ConfigValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -15,6 +18,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -82,17 +86,19 @@ public interface StorageClient {
    * Gets the appropriate client based on the URI scheme and validate with authentication/settings from the Config. If the
    * cloud provider's options contain "class", that class is created instead of the provider's default client. An https URI
    * is only supported if its authority contains one of azure.allowedHosts (a substring match), which defaults to
-   * "blob.core.windows.net".
+   * "blob.core.windows.net". A URI with any other scheme uses the client configured for that scheme in "storageClients", if any.
    * @param pathToStorage A URI to storage - either local or cloud - that you need a StorageClient for.
    * @param connectorConfig Configuration for your connector, which should contain configuration for cloud storage clients
    *                        as needed.
    * @return The appropriate, configured storage client to use for your traversal.
    *
    * @throws IllegalArgumentException If your path to storage requires support for a cloud storage client that you did not provide,
-   * you provided a URI with an unsupported scheme, or a configured "class" could not be created.
+   * you provided a URI with an unsupported scheme, "storageClients" is invalid, or a configured "class" could not be created.
    */
   static StorageClient create(URI pathToStorage, Config connectorConfig) {
     String activeClient = pathToStorage.getScheme() != null ? pathToStorage.getScheme() : "file";
+    Map<String, Config> customClientOptions = getCustomClientOptions(connectorConfig);
+
     switch (activeClient) {
       case "gs" -> {
         if (!connectorConfig.hasPath("gcp")) {
@@ -127,7 +133,12 @@ public interface StorageClient {
       case "file" -> {
         return new LocalStorageClient();
       }
-      default -> throw new IllegalArgumentException("Unsupported client type: " + activeClient);
+      default -> {
+        if (!customClientOptions.containsKey(activeClient)) {
+          throw new IllegalArgumentException("Unsupported client type: " + activeClient);
+        }
+        return createClientFromClass(customClientOptions.get(activeClient), StorageClient.class);
+      }
     }
   }
 
@@ -162,10 +173,16 @@ public interface StorageClient {
    * "class" : fully qualified name of a subclass of the provider's default client (GoogleStorageClient, S3StorageClient, or
    * AzureStorageClient) to create instead. It must have a public constructor that takes a Config. Optional.
    *
+   * <br> storageClients:
+   * A map from a URI scheme (e.g. "sftp") to the config for a custom StorageClient for that scheme. Each config must contain
+   * "class", the fully qualified name of a StorageClient implementation with a public constructor that takes a Config. The
+   * client is created with that config, which may contain any other settings it needs. The scheme must be at least two
+   * characters long and can't be a built-in scheme (file, s3, gs, https).
+   *
    * @param config The configuration which potentially contains cloud options that you want to use to build storage clients.
    * @return A map of Strings to StorageClients. StorageClients are keyed by their URI scheme (gs, https, s3, file). Always
    * includes the LocalStorageClient, keyed by "file".
-   * @throws IllegalArgumentException If a configured "class" could not be created.
+   * @throws IllegalArgumentException If "storageClients" is invalid or a configured "class" could not be created.
    */
   static Map<String, StorageClient> createClients(Config config) {
     Map<String, StorageClient> results = new HashMap<>();
@@ -187,6 +204,47 @@ public interface StorageClient {
       results.put("s3", createCloudClient(s3Options, S3StorageClient.class, S3StorageClient::new));
     }
 
+    for (Map.Entry<String, Config> entry : getCustomClientOptions(config).entrySet()) {
+      results.put(entry.getKey(), createClientFromClass(entry.getValue(), StorageClient.class));
+    }
+
+    return results;
+  }
+
+  /**
+   * Returns the config for each custom StorageClient in the given config's "storageClients", keyed by URI scheme.
+   *
+   * @param config Configuration which may contain "storageClients".
+   * @return A map of URI schemes to the config for their custom StorageClient. Empty if "storageClients" is not present.
+   * @throws IllegalArgumentException If a scheme is invalid or built-in, or a client's config is not a map containing "class".
+   */
+  private static Map<String, Config> getCustomClientOptions(Config config) {
+    Map<String, Config> results = new HashMap<>();
+
+    if (!config.hasPath(STORAGE_CLIENTS)) {
+      return results;
+    }
+
+    for (Map.Entry<String, ConfigValue> entry : config.getObject(STORAGE_CLIENTS).entrySet()) {
+      String scheme = entry.getKey();
+
+      // single-letter schemes are treated as Windows drive letters, so they can't be used
+      if (!scheme.matches("[a-zA-Z][a-zA-Z0-9+.-]+")) {
+        throw new IllegalArgumentException(STORAGE_CLIENTS + " contains an invalid URI scheme: " + scheme + ".");
+      }
+
+      if (Set.of("file", "s3", "gs", "https").contains(scheme)) {
+        throw new IllegalArgumentException(STORAGE_CLIENTS + " can't configure the built-in scheme " + scheme
+            + ". Use the s3, gcp, or azure config (and its \"class\") instead.");
+      }
+
+      if (!(entry.getValue() instanceof ConfigObject clientOptions) || !clientOptions.toConfig().hasPath(STORAGE_CLIENT_CLASS)) {
+        throw new IllegalArgumentException(STORAGE_CLIENTS + "." + scheme + " must be a map containing \"" + STORAGE_CLIENT_CLASS + "\".");
+      }
+
+      results.put(scheme, clientOptions.toConfig());
+    }
+
     return results;
   }
 
@@ -206,6 +264,18 @@ public interface StorageClient {
       return defaultConstructor.apply(options);
     }
 
+    return createClientFromClass(options, defaultClass);
+  }
+
+  /**
+   * Creates the StorageClient named by "class" in the given options, using its (Config) constructor.
+   *
+   * @param options Configuration for the storage client, containing "class".
+   * @param requiredType The type the class must extend or implement.
+   * @return The configured storage client.
+   * @throws IllegalArgumentException If the class can't be found, isn't a requiredType, is abstract, or can't be created.
+   */
+  private static StorageClient createClientFromClass(Config options, Class<? extends StorageClient> requiredType) {
     String className = options.getString(STORAGE_CLIENT_CLASS);
     Class<?> clazz;
 
@@ -215,8 +285,9 @@ public interface StorageClient {
       throw new IllegalArgumentException("Couldn't find storage client class " + className + ".", e);
     }
 
-    if (!defaultClass.isAssignableFrom(clazz)) {
-      throw new IllegalArgumentException("Storage client class " + className + " must extend " + defaultClass.getName() + ".");
+    if (!requiredType.isAssignableFrom(clazz)) {
+      throw new IllegalArgumentException("Storage client class " + className + " must "
+          + (requiredType.isInterface() ? "implement " : "extend ") + requiredType.getName() + ".");
     }
 
     if (Modifier.isAbstract(clazz.getModifiers())) {
