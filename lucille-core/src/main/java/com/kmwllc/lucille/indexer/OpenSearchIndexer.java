@@ -13,8 +13,11 @@ import com.kmwllc.lucille.util.OpenSearchUtils;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +36,7 @@ import org.opensearch.client.opensearch.core.BulkResponse;
 import org.opensearch.client.opensearch.core.DeleteByQueryRequest;
 import org.opensearch.client.opensearch.core.DeleteByQueryResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
+import org.opensearch.client.transport.httpclient5.ResponseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,6 +61,12 @@ import org.slf4j.LoggerFactory;
  *   <li>childDocumentsField (String, Optional) : Field name under which attached child documents are nested in the
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
+ *   <li>versionConflictIsSuccess (Boolean, Optional) : Treat a 409 version conflict on an upload or a versioned delete by id
+ *   as success, since with external versioning it means the index already holds a version at least as new. Requires
+ *   indexer.versionType External or ExternalGte. Defaults to false.</li>
+ *   <li>splitOnRequestTooLarge (Boolean, Optional) : When OpenSearch rejects a bulk upload with HTTP 413 (a body over
+ *   http.max_content_length), split it in half and send each half on its own. A single document that still gets a 413
+ *   fails permanently. Defaults to false.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
  *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions. With External or ExternalGte,
  *   an upload carries the document's indexer.versionField value, or else its Kafka offset.</li>
@@ -64,18 +74,26 @@ import org.slf4j.LoggerFactory;
  *   indexer.versionType. With External or ExternalGte, a delete by id carries this field's value too; a delete without it
  *   is unversioned, and never uses the Kafka offset.</li>
  * </ul>
+ * <p>
+ * When indexer.maxRetries is set, a retry of a batch doesn't send again the uploads OpenSearch accepted or the ones that
+ * failed permanently, and once part of a batch is accepted, an exception from a later request fails only the documents
+ * in that request.
  */
 public class OpenSearchIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
       .requiredString("index")
       .requiredStringOrList("url")
-      .optionalBoolean("update", "acceptInvalidCert", "useCompression")
+      .optionalBoolean("update", "acceptInvalidCert", "useCompression", "versionConflictIsSuccess",
+          "splitOnRequestTooLarge")
       .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal",
           "connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
       .optionalString("childDocumentsField").build();
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
+
+  private static final int HTTP_CONFLICT = 409;
+  private static final int HTTP_REQUEST_TOO_LARGE = 413;
 
   private final OpenSearchClient client;
   private final String index;
@@ -89,6 +107,15 @@ public class OpenSearchIndexer extends Indexer {
   private final boolean update;
 
   private final String childDocumentsField;
+
+  // treat a 409 version conflict on an upload or delete by id as success
+  private final boolean versionConflictIsSuccess;
+
+  // split a bulk upload OpenSearch rejects with HTTP 413 in half, and retry each half
+  private final boolean splitOnRequestTooLarge;
+
+  // the attempts at the batch this thread is sending, when indexer.maxRetries is set. See sendAttempt.
+  private final ThreadLocal<BatchAttempt> batchAttempt = new ThreadLocal<>();
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
       String metricsPrefix,String localRunId, OpenSearchClient client) {
@@ -107,6 +134,13 @@ public class OpenSearchIndexer extends Indexer {
     if (this.versionField != null && this.versionType == null) {
       throw new IllegalArgumentException("indexer.versionType must be set if indexer.versionField is set");
     }
+
+    this.versionConflictIsSuccess = ConfigUtils.getOrDefault(config, "opensearch.versionConflictIsSuccess", false);
+    if (versionConflictIsSuccess && versionType != VersionType.External && versionType != VersionType.ExternalGte) {
+      throw new IllegalArgumentException(
+          "opensearch.versionConflictIsSuccess requires indexer.versionType to be External or ExternalGte");
+    }
+    this.splitOnRequestTooLarge = ConfigUtils.getOrDefault(config, "opensearch.splitOnRequestTooLarge", false);
   }
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
@@ -177,6 +211,9 @@ public class OpenSearchIndexer extends Indexer {
     // the document that marked each (index, id) for deletion, so deleteById can send its version
     Map<Pair<String, String>, Document> idsToDelete = new LinkedHashMap<>();
     Map<Pair<String, String>, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
+    // the documents whose values are in termsToDeleteByQuery
+    List<Document> docsToDeleteByQuery = new ArrayList<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
@@ -201,20 +238,157 @@ public class OpenSearchIndexer extends Indexer {
         } else {
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
           // deletion, so we need to do doc.getString(deleteByFieldField).
-          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
+          String field = doc.getString(deleteByFieldField);
+          String value = doc.getString(deleteByFieldValue);
+          // a null field or value can't go in a terms query, and would fail the whole batch when the query is built
+          if (field == null || value == null) {
+            failedDocs.add(Pair.of(doc, new IndexerException("Document " + doc.getId() + " is marked for delete by query "
+                + "but has a null " + (field == null ? deleteByFieldField : deleteByFieldValue))));
+            continue;
+          }
+          Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, field);
           if (!termsToDeleteByQuery.containsKey(indexAndDeleteByField)) {
             termsToDeleteByQuery.put(indexAndDeleteByField, new ArrayList<>());
           }
-          termsToDeleteByQuery.get(indexAndDeleteByField).add(doc.getString(deleteByFieldValue));
+          termsToDeleteByQuery.get(indexAndDeleteByField).add(value);
+          docsToDeleteByQuery.add(doc);
         }
       }
     }
 
-    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload);
-    deleteById(idsToDelete);
-    deleteByQuery(termsToDeleteByQuery);
+    // Without retries this sends everything and fails the whole batch on a thrown exception, as it always has.
+    BatchAttempt attempt = startAttempt(documents);
+    if (attempt == null) {
+      failedDocs.addAll(uploadDocuments(documentsToUpload));
+      deleteById(idsToDelete);
+      deleteByQuery(termsToDeleteByQuery);
+      return failedDocs;
+    }
 
+    Throwable thrown = null;
+    try {
+      sendAttempt(attempt, documentsToUpload, idsToDelete, termsToDeleteByQuery, docsToDeleteByQuery, failedDocs);
+      return failedDocs;
+    } catch (Throwable t) {
+      thrown = t;
+      throw t;
+    } finally {
+      finishAttempt(attempt, thrown, failedDocs);
+    }
+  }
+
+  /**
+   * One attempt at sending a batch when indexer.maxRetries is set. The base Indexer retries a batch by calling
+   * sendToIndex again with the same List, so this remembers, across the attempts at one batch, which uploads OpenSearch
+   * accepted and which failed in a way a retry can't fix:
+   * <ul>
+   *   <li>An upload accepted on an earlier attempt is not sent again, and counts as succeeded. Re-sending it is not
+   *   harmless: with ExternalGte, an equal version is a real write, and it can re-create a document that a newer delete
+   *   removed once that delete's tombstone has expired (index.gc_deletes).</li>
+   *   <li>An upload that failed with a non-retryable error is not sent again, and its failure is reported again.</li>
+   *   <li>Once any upload in the batch is accepted, an exception thrown by the uploads or either delete is returned as a
+   *   failure of each document that request was sending, instead of failing the whole batch, accepted documents
+   *   included. A retryable exception still makes the base Indexer retry the batch.</li>
+   * </ul>
+   * Deletes are sent again on every attempt.
+   */
+  private void sendAttempt(BatchAttempt attempt, Map<Pair<String, String>, Document> documentsToUpload,
+      Map<Pair<String, String>, Document> idsToDelete, Map<Pair<String, String>, List<String>> termsToDeleteByQuery,
+      List<Document> docsToDeleteByQuery, Set<Pair<Document, Exception>> failedDocs) throws Exception {
+    Map<Pair<String, String>, Document> pendingUploads = new LinkedHashMap<>();
+    for (Map.Entry<Pair<String, String>, Document> entry : documentsToUpload.entrySet()) {
+      Document doc = entry.getValue();
+      if (attempt.permanentFailures.containsKey(doc)) {
+        failedDocs.add(Pair.of(doc, attempt.permanentFailures.get(doc)));
+      } else if (!attempt.accepted.contains(doc)) {
+        pendingUploads.put(entry.getKey(), doc);
+      }
+    }
+
+    Set<Pair<Document, Exception>> uploadFailures;
+    try {
+      uploadFailures = uploadDocuments(pendingUploads);
+    } catch (IndexerException e) {
+      if (attempt.accepted.isEmpty()) {
+        throw e;
+      }
+      uploadFailures = failEach(pendingUploads.values(), e);
+    }
+    Set<Document> failedUploads = Collections.newSetFromMap(new IdentityHashMap<>());
+    for (Pair<Document, Exception> failure : uploadFailures) {
+      failedUploads.add(failure.getLeft());
+      if (!isRetryable(failure.getRight())) {
+        attempt.permanentFailures.put(failure.getLeft(), failure.getRight());
+      }
+    }
+    for (Document doc : pendingUploads.values()) {
+      if (!failedUploads.contains(doc)) {
+        attempt.accepted.add(doc);
+      }
+    }
+    failedDocs.addAll(uploadFailures);
+
+    try {
+      deleteById(idsToDelete);
+    } catch (IndexerException e) {
+      if (attempt.accepted.isEmpty()) {
+        throw e;
+      }
+      failedDocs.addAll(failEach(idsToDelete.values(), e));
+    }
+    try {
+      deleteByQuery(termsToDeleteByQuery);
+    } catch (IndexerException e) {
+      if (attempt.accepted.isEmpty()) {
+        throw e;
+      }
+      failedDocs.addAll(failEach(docsToDeleteByQuery, e));
+    }
+  }
+
+  // Returns the state of the attempts at this batch, or null when retries are disabled. Each sending thread runs its
+  // batch's attempts in turn (sendWithRetry), so concurrent batches each have their own.
+  private BatchAttempt startAttempt(List<Document> documents) {
+    if (getMaxRetries() == 0) {
+      return null;
+    }
+    BatchAttempt attempt = batchAttempt.get();
+    if (attempt == null || attempt.batch != documents) {
+      attempt = new BatchAttempt(documents);
+      batchAttempt.set(attempt);
+    }
+    attempt.attempts++;
+    return attempt;
+  }
+
+  // Forgets the batch once the base Indexer won't retry it, by the same rule it uses, so the documents aren't kept.
+  private void finishAttempt(BatchAttempt attempt, Throwable thrown, Set<Pair<Document, Exception>> failedDocs) {
+    boolean willRetry = attempt.attempts <= getMaxRetries()
+        && (thrown != null ? isRetryable(thrown) : failedDocs.stream().anyMatch(p -> isRetryable(p.getRight())));
+    if (!willRetry) {
+      batchAttempt.remove();
+    }
+  }
+
+  private static Set<Pair<Document, Exception>> failEach(Collection<Document> docs, Exception e) {
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
+    for (Document doc : docs) {
+      failedDocs.add(Pair.of(doc, e));
+    }
     return failedDocs;
+  }
+
+  private static final class BatchAttempt {
+    private final List<Document> batch;
+    // the number of times the batch has been sent, this attempt included
+    private int attempts;
+    // identity sets, so documents are never hashed
+    private final Set<Document> accepted = Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Map<Document, Exception> permanentFailures = new IdentityHashMap<>();
+
+    private BatchAttempt(List<Document> batch) {
+      this.batch = batch;
+    }
   }
 
   private void deleteById(Map<Pair<String, String>, Document> idsToDelete) throws Exception {
@@ -249,12 +423,21 @@ public class OpenSearchIndexer extends Indexer {
     }
 
     if (response.errors()) {
+      boolean failed = false;
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
+          if (isVersionConflictSuccess(item)) {
+            log.debug("Delete of id: {} superseded by a newer version (409), treating as success: {}", item.id(),
+                item.error().reason());
+            continue;
+          }
+          failed = true;
           log.debug("Error while deleting id: {} because: {}", item.id(), item.error().reason());
         }
       }
-      throw new IndexerException("encountered errors while deleting documents");
+      if (failed) {
+        throw new IndexerException("encountered errors while deleting documents");
+      }
     }
   }
 
@@ -351,12 +534,55 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, Exception>> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IOException, IndexerException {
-
+  /**
+   * Uploads the documents in one bulk request. With opensearch.splitOnRequestTooLarge, a request OpenSearch rejects as
+   * too large (HTTP 413, a body over http.max_content_length) is split in half and each half is uploaded on its own, so
+   * one oversized document doesn't fail the rest of its batch. A single document that still gets a 413 fails
+   * permanently. Once a request is split, each half's exception is returned as a failure of each of its documents, since
+   * the other half may already be indexed.
+   */
+  private Set<Pair<Document, Exception>> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IndexerException {
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }
 
+    try {
+      return sendUploadBatch(documentsToUpload);
+    } catch (IndexerRetryableException e) {
+      if (!splitOnRequestTooLarge || e.getStatusCode() != HTTP_REQUEST_TOO_LARGE) {
+        throw e;
+      }
+      if (documentsToUpload.size() == 1) {
+        Map.Entry<Pair<String, String>, Document> only = documentsToUpload.entrySet().iterator().next();
+        log.error("OpenSearch rejected document {} for index {} on its own with HTTP 413: it exceeds http.max_content_length.",
+            only.getKey().getRight(), only.getKey().getLeft());
+        return Set.of(Pair.of(only.getValue(), new IndexerException(
+            "Document exceeds OpenSearch http.max_content_length (HTTP 413) when sent on its own", e)));
+      }
+
+      List<Map.Entry<Pair<String, String>, Document>> entries = new ArrayList<>(documentsToUpload.entrySet());
+      int mid = entries.size() / 2;
+      log.warn("OpenSearch rejected a bulk request of {} documents with HTTP 413; splitting it into {} and {}.",
+          entries.size(), mid, entries.size() - mid);
+      Set<Pair<Document, Exception>> failedDocs = new HashSet<>(uploadSplitPart(entries.subList(0, mid)));
+      failedDocs.addAll(uploadSplitPart(entries.subList(mid, entries.size())));
+      return failedDocs;
+    }
+  }
+
+  private Set<Pair<Document, Exception>> uploadSplitPart(List<Map.Entry<Pair<String, String>, Document>> entries) {
+    Map<Pair<String, String>, Document> part = new LinkedHashMap<>();
+    for (Map.Entry<Pair<String, String>, Document> entry : entries) {
+      part.put(entry.getKey(), entry.getValue());
+    }
+    try {
+      return uploadDocuments(part);
+    } catch (IndexerException e) {
+      return failEach(part.values(), e);
+    }
+  }
+
+  private Set<Pair<Document, Exception>> sendUploadBatch(Map<Pair<String, String>, Document> documentsToUpload) throws IndexerException {
     Map<String, Document> uploadedDocuments = new HashMap<>();
     BulkRequest.Builder br = new BulkRequest.Builder();
 
@@ -424,13 +650,19 @@ public class OpenSearchIndexer extends Indexer {
       // HTTP-level error with a known status code — wrap so the base Indexer can apply retry policy
       throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
     } catch (IOException e) {
-      // Transport-level failure (connection refused, timeout, etc.) — no status code available
-      throw new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+      // Transport-level failure (connection refused, timeout, etc.) — no status code available, except for a 413 when
+      // opensearch.splitOnRequestTooLarge is set
+      throw transportFailure(e);
     }
 
     if (response != null) {
       for (BulkResponseItem item : response.items()) {
         if (item.error() != null) {
+          if (isVersionConflictSuccess(item)) {
+            log.debug("Upload of id: {} superseded by a newer version (409), treating as success: {}", item.id(),
+                item.error().reason());
+            continue;
+          }
           // For the error - if the id is a document's id, then it failed, and we add it to the set.
           // If not, we don't know what the error is, and opt to throw an actual IndexerException instead.
           if (uploadedDocuments.containsKey(item.id())) {
@@ -449,6 +681,27 @@ public class OpenSearchIndexer extends Indexer {
     }
 
     return failedDocs;
+  }
+
+  // With opensearch.splitOnRequestTooLarge, recovers the status of a 413 from the cause chain. OpenSearch's 413 for a
+  // body over http.max_content_length has no error body the client can parse, so it arrives as an IOException carrying
+  // an httpclient5 ResponseException, not as an OpenSearchException. Other statuses stay unknown, as before.
+  private IndexerRetryableException transportFailure(IOException e) {
+    if (splitOnRequestTooLarge) {
+      for (Throwable t = e; t != null; t = (t.getCause() == t ? null : t.getCause())) {
+        if (t instanceof ResponseException responseException && responseException.status() == HTTP_REQUEST_TOO_LARGE) {
+          return new IndexerRetryableException(HTTP_REQUEST_TOO_LARGE,
+              "OpenSearch returned HTTP 413: request body exceeds http.max_content_length", e);
+        }
+      }
+    }
+    return new IndexerRetryableException("Transport failure communicating with OpenSearch", e);
+  }
+
+  // With opensearch.versionConflictIsSuccess, a 409 means the index already holds a version at least as new as the
+  // operation's (the option requires External or ExternalGte), so a newer write superseded it.
+  private boolean isVersionConflictSuccess(BulkResponseItem item) {
+    return versionConflictIsSuccess && item.status() == HTTP_CONFLICT;
   }
 
   /** Only call on documents that have children. */

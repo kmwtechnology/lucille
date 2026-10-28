@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.LinkedHashMap;
 import java.util.TreeMap;
 import java.util.Map;
 import java.util.Set;
@@ -1199,6 +1200,305 @@ public class OpenSearchIndexerTest {
     doc.setField("deleted", "true");
 
     assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(doc)));
+  }
+
+  private static BulkResponse bulkResponse(Map<String, Integer> statusById) {
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    List<BulkResponseItem> items = new ArrayList<>();
+    boolean errors = false;
+    for (Map.Entry<String, Integer> entry : statusById.entrySet()) {
+      BulkResponseItem item = Mockito.mock(BulkResponseItem.class);
+      when(item.id()).thenReturn(entry.getKey());
+      when(item.status()).thenReturn(entry.getValue());
+      if (entry.getValue() >= 300) {
+        when(item.error()).thenReturn(new ErrorCause.Builder().reason("status " + entry.getValue()).type("mock").build());
+        errors = true;
+      }
+      items.add(item);
+    }
+    when(response.items()).thenReturn(items);
+    when(response.errors()).thenReturn(errors);
+    return response;
+  }
+
+  private static List<String> operationIds(BulkRequest request) {
+    List<String> ids = new ArrayList<>();
+    for (BulkOperation operation : request.operations()) {
+      ids.add(operation.isDelete() ? operation.delete().id() : operation.index().id());
+    }
+    return ids;
+  }
+
+  private static Event.Type eventType(TestMessenger messenger, String docId) {
+    return messenger.getSentEvents().stream().filter(e -> docId.equals(e.getDocumentId())).findFirst().orElseThrow().getType();
+  }
+
+  private static Config versionConflictIsSuccessConfig() {
+    return versionedDeleteConfig().withValue("opensearch.versionConflictIsSuccess", ConfigValueFactory.fromAnyRef(true));
+  }
+
+  // With opensearch.versionConflictIsSuccess, an upload rejected with a 409 succeeded; other errors still fail.
+  @Test
+  public void testVersionConflictIsSuccessForUpload() throws Exception {
+    Map<String, Integer> statuses = new LinkedHashMap<>();
+    statuses.put("doc1", 409);
+    statuses.put("doc2", 400);
+    statuses.put("doc3", 201);
+    BulkResponse response = bulkResponse(statuses);
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(response);
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    Document doc3 = Document.create("doc3");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionConflictIsSuccessConfig(), new TestMessenger(), "testing", mockClient);
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc1, doc2, doc3));
+    assertEquals(1, failedDocs.size());
+    assertEquals(doc2, failedDocs.iterator().next().getLeft());
+
+    // without the option, the 409 is a failure, as before
+    OpenSearchIndexer defaultIndexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+    failedDocs = defaultIndexer.sendToIndex(List.of(doc1, doc2, doc3));
+    assertEquals(2, failedDocs.size());
+    assertTrue(failedDocs.stream().anyMatch(p -> p.getLeft() == doc1
+        && ((IndexerRetryableException) p.getRight()).getStatusCode() == 409));
+  }
+
+  // With opensearch.versionConflictIsSuccess, a versioned delete rejected as stale (409) succeeded; other errors still fail.
+  @Test
+  public void testVersionConflictIsSuccessForDelete() throws Exception {
+    BulkResponse conflict = bulkResponse(Map.of("doc1", 409));
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(conflict);
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 1L);
+    doc.setField("deleted", "true");
+
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionConflictIsSuccessConfig(), new TestMessenger(), "testing", mockClient);
+    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+
+    BulkResponse notFound = bulkResponse(Map.of("doc1", 404));
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(notFound);
+    Document missing = Document.create("doc1");
+    missing.setField("deleted", "true");
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(missing)));
+  }
+
+  // A 409 only means "already newer" with external versioning, so the option requires it.
+  @Test
+  public void testVersionConflictIsSuccessRequiresExternalVersionType() {
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("opensearch.versionConflictIsSuccess", ConfigValueFactory.fromAnyRef(true));
+    assertThrows(IllegalArgumentException.class, () -> new OpenSearchIndexer(config, new TestMessenger(), "testing", mockClient));
+    Config internal = config.withValue("indexer.versionType", ConfigValueFactory.fromAnyRef("internal"));
+    assertThrows(IllegalArgumentException.class, () -> new OpenSearchIndexer(internal, new TestMessenger(), "testing", mockClient));
+  }
+
+  // A retry of a batch doesn't re-send the documents OpenSearch accepted, nor one that failed permanently, whose failure
+  // is reported again.
+  @Test
+  public void testRetrySendsOnlyUnacceptedDocuments() throws Exception {
+    Map<String, Integer> first = new LinkedHashMap<>();
+    first.put("doc1", 201);
+    first.put("doc2", 429);
+    first.put("doc3", 400);
+    BulkResponse firstResponse = bulkResponse(first);
+    BulkResponse secondResponse = bulkResponse(Map.of("doc2", 429));
+    BulkResponse thirdResponse = bulkResponse(Map.of("doc2", 201));
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(firstResponse, secondResponse, thirdResponse);
+
+    TestMessenger messenger = new TestMessenger();
+    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/retry.conf"), messenger,
+        "testing", mockClient);
+    messenger.sendForIndexing(Document.create("doc1"));
+    messenger.sendForIndexing(Document.create("doc2"));
+    messenger.sendForIndexing(Document.create("doc3"));
+    indexer.run(3);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(3)).bulk(captor.capture());
+    assertEquals(List.of("doc1", "doc2", "doc3"), operationIds(captor.getAllValues().get(0)));
+    assertEquals(List.of("doc2"), operationIds(captor.getAllValues().get(1)));
+    assertEquals(List.of("doc2"), operationIds(captor.getAllValues().get(2)));
+
+    assertEquals(3, messenger.getSentEvents().size());
+    assertEquals(Event.Type.FINISH, eventType(messenger, "doc1"));
+    assertEquals(Event.Type.FINISH, eventType(messenger, "doc2"));
+    assertEquals(Event.Type.FAIL, eventType(messenger, "doc3"));
+  }
+
+  // Without indexer.maxRetries, a batch is sent as it always was: a thrown delete failure fails the whole batch.
+  @Test
+  public void testDeleteFailureFailsWholeBatchWithoutRetries() throws Exception {
+    BulkResponse uploaded = bulkResponse(Map.of("doc1", 201));
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(uploaded).thenThrow(new IOException("connection reset"));
+    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf"),
+        new TestMessenger(), "testing", mockClient);
+    Document doc1 = Document.create("doc1");
+    Document doc2 = Document.create("doc2");
+    doc2.setField("deleted", "true");
+    assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc1, doc2)));
+  }
+
+  // Once part of a batch is accepted, a delete that keeps failing fails only the delete, not the accepted upload, and
+  // the retries send only the delete.
+  @Test
+  public void testFailureAfterPartialAcceptanceIsPerDocument() throws Exception {
+    BulkResponse uploaded = bulkResponse(Map.of("doc1", 201));
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(uploaded).thenThrow(new IOException("connection reset"));
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/retry.conf")
+        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("deleted"))
+        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", mockClient);
+    Document doc2 = Document.create("doc2");
+    doc2.setField("deleted", "true");
+    messenger.sendForIndexing(Document.create("doc1"));
+    messenger.sendForIndexing(doc2);
+    indexer.run(2);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    // the upload, then the delete on the first attempt and each of the 3 retries
+    verify(mockClient, times(5)).bulk(captor.capture());
+    assertEquals(List.of("doc1"), operationIds(captor.getAllValues().get(0)));
+    for (BulkRequest request : captor.getAllValues().subList(1, 5)) {
+      assertEquals(List.of("doc2"), operationIds(request));
+    }
+    assertEquals(Event.Type.FINISH, eventType(messenger, "doc1"));
+    assertEquals(Event.Type.FAIL, eventType(messenger, "doc2"));
+  }
+
+  // A document marked for delete by query with a null field value fails on its own, without failing its batch.
+  @Test
+  public void testDeleteByQueryWithNullValueFailsDocument() throws Exception {
+    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/testDeleteByQuery.conf"),
+        new TestMessenger(), "testing", mockClient);
+    Document nullValue = Document.create("doc1");
+    nullValue.setField("deleted", "true");
+    nullValue.setField("field", "author");
+    nullValue.setField("value", (String) null);
+    Document valid = Document.create("doc2");
+    valid.setField("deleted", "true");
+    valid.setField("field", "author");
+    valid.setField("value", "someone");
+
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(nullValue, valid));
+    assertEquals(1, failedDocs.size());
+    assertEquals(nullValue, failedDocs.iterator().next().getLeft());
+
+    ArgumentCaptor<DeleteByQueryRequest> captor = ArgumentCaptor.forClass(DeleteByQueryRequest.class);
+    verify(mockClient, times(1)).deleteByQuery(captor.capture());
+    TermsQuery terms = captor.getValue().query().bool().should().get(0).terms();
+    assertEquals("author", terms.field());
+    assertEquals(List.of("someone"), terms.terms().value().stream().map(FieldValue::stringValue).toList());
+  }
+
+  // Starts a server that indexes any bulk request without "big" in it, and rejects one with "big" with HTTP 413 and a
+  // non-JSON body, as OpenSearch does for a body over http.max_content_length unless it is the only document.
+  private static HttpServer startRequestTooLargeServer(List<List<String>> requests, boolean rejectBigAlone) throws IOException {
+    HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+    server.createContext("/", exchange -> {
+      String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+      List<String> ids = new ArrayList<>();
+      java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\"_id\":\"([^\"]+)\"").matcher(body);
+      while (matcher.find()) {
+        ids.add(matcher.group(1));
+      }
+      requests.add(ids);
+      byte[] response;
+      if (ids.contains("big") && (rejectBigAlone || ids.size() > 1)) {
+        response = "<html><body>413 Request Entity Too Large</body></html>".getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "text/html");
+        exchange.sendResponseHeaders(413, response.length);
+      } else {
+        StringBuilder items = new StringBuilder();
+        for (String id : ids) {
+          items.append(items.length() == 0 ? "" : ",").append("{\"index\":{\"_index\":\"lucille-default\",\"_id\":\"")
+              .append(id).append("\",\"result\":\"created\",\"status\":201}}");
+        }
+        response = ("{\"took\":1,\"errors\":false,\"items\":[" + items + "]}").getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, response.length);
+      }
+      try (OutputStream os = exchange.getResponseBody()) {
+        os.write(response);
+      }
+      exchange.close();
+    });
+    server.start();
+    return server;
+  }
+
+  private static List<Event> indexAgainst(HttpServer server, boolean split, String... ids) throws Exception {
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/config.conf")
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(ids.length))
+        .withValue("opensearch.url", ConfigValueFactory.fromAnyRef("http://localhost:" + server.getAddress().getPort()))
+        .withValue("opensearch.splitOnRequestTooLarge", ConfigValueFactory.fromAnyRef(split));
+    TestMessenger messenger = new TestMessenger();
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, false, "testing", "run1");
+    try {
+      for (String id : ids) {
+        messenger.sendForIndexing(Document.create(id));
+      }
+      indexer.run(ids.length);
+    } finally {
+      indexer.closeConnection();
+    }
+    return messenger.getSentEvents();
+  }
+
+  // With opensearch.splitOnRequestTooLarge, a 413 splits the batch in half until each part is accepted, and the
+  // document that is too large on its own fails by itself.
+  @Test
+  public void testRequestTooLargeIsSplit() throws Exception {
+    List<List<String>> requests = Collections.synchronizedList(new ArrayList<>());
+    HttpServer server = startRequestTooLargeServer(requests, true);
+    List<Event> events;
+    try {
+      events = indexAgainst(server, true, "doc1", "doc2", "big", "doc4");
+    } finally {
+      server.stop(0);
+    }
+
+    assertEquals(List.of(List.of("doc1", "doc2", "big", "doc4"), List.of("doc1", "doc2"), List.of("big", "doc4"),
+        List.of("big"), List.of("doc4")), requests);
+    assertEquals(4, events.size());
+    for (Event event : events) {
+      assertEquals(event.getDocumentId(), "big".equals(event.getDocumentId()) ? Type.FAIL : Type.FINISH, event.getType());
+    }
+  }
+
+  // A 413 that the split resolves fails nothing.
+  @Test
+  public void testRequestTooLargeSplitSucceeds() throws Exception {
+    List<List<String>> requests = Collections.synchronizedList(new ArrayList<>());
+    HttpServer server = startRequestTooLargeServer(requests, false);
+    List<Event> events;
+    try {
+      events = indexAgainst(server, true, "doc1", "big", "doc3");
+    } finally {
+      server.stop(0);
+    }
+
+    assertEquals(List.of(List.of("doc1", "big", "doc3"), List.of("doc1"), List.of("big", "doc3"), List.of("big"),
+        List.of("doc3")), requests);
+    assertTrue(events.stream().allMatch(e -> e.getType() == Type.FINISH));
+  }
+
+  // Without the option, a 413 fails the whole batch, as before.
+  @Test
+  public void testRequestTooLargeNotSplitByDefault() throws Exception {
+    List<List<String>> requests = Collections.synchronizedList(new ArrayList<>());
+    HttpServer server = startRequestTooLargeServer(requests, true);
+    List<Event> events;
+    try {
+      events = indexAgainst(server, false, "doc1", "big");
+    } finally {
+      server.stop(0);
+    }
+
+    assertEquals(1, requests.size());
+    assertEquals(2, events.size());
+    assertTrue(events.stream().allMatch(e -> e.getType() == Type.FAIL));
   }
 
   @Test

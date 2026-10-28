@@ -18,6 +18,8 @@ Config block: `opensearch { ... }`
 | `connectTimeoutMs` | Long | No | Maximum time to establish a connection, in ms. Default: `5000`. |
 | `socketTimeoutMs` | Long | No | Maximum time to wait for data on an open connection, including a response, in ms. Applies to delete-by-query too, so raise it above the slowest expected request, or set `-1` for no limit. Default: `30000`. |
 | `connectionTimeToLiveMs` | Long | No | Maximum lifetime of a pooled connection, in ms, so long-running clients behind a load balancer or Kubernetes Service reconnect and reach new nodes. Lower it to rebalance faster. Default: `300000` (5 minutes). |
+| `versionConflictIsSuccess` | Boolean | No | Treat a 409 version conflict on an upload or a versioned delete by id as success. Requires `indexer.versionType` `external` or `external_gte`. See [Version Conflicts](#version-conflicts). Default: `false`. |
+| `splitOnRequestTooLarge` | Boolean | No | Split a bulk upload that OpenSearch rejects with HTTP 413 in half, and send each half on its own. See [Request Too Large](#request-too-large). Default: `false`. |
 
 Also supports `indexer.routingField` and `indexer.versionType` (via the generic indexer block).
 
@@ -64,6 +66,12 @@ A delete by id (a document marked with `indexer.deletionMarkerField`) is version
 
 A delete document without `versionField` is sent unversioned, as before. Deletes never use the Kafka offset as their version, because an offset is not comparable to a version taken from `versionField`. Delete-by-query is never versioned.
 
+### Version Conflicts
+
+With external versioning, OpenSearch rejects an operation with a 409 when the index already holds a version at least as new as the operation's: the operation was superseded by a newer write. By default a 409 is a failure: an upload's 409 fails that document, and a delete's 409 fails the batch, as any delete error does.
+
+Set `opensearch.versionConflictIsSuccess: true` to treat a 409 as success instead, for uploads and versioned deletes by id alike. This suits a pipeline that may send the same or an older version again (for example, when reprocessing), where a superseded write isn't an error. Setting it without `indexer.versionType` `external` or `external_gte` is a configuration error, because without external versioning a 409 doesn't mean the index is already up to date.
+
 ---
 
 ## Partial Update Mode
@@ -94,6 +102,22 @@ OpenSearch supports `indexer.indexOverrideField` for routing documents to differ
 OpenSearchIndexer wraps both transport-level failures (connection refused, timeout) and HTTP-level failures (e.g., 429, 503) as `IndexerRetryableException`. This enables the base class retry machinery when `indexer.maxRetries` is configured.
 
 Per-document failures in the bulk response are also wrapped with the item's HTTP status code, allowing the retry logic to distinguish between retryable failures (e.g., 429 Too Many Requests) and permanent failures (e.g., 400 Bad Request).
+
+When `indexer.maxRetries` is set, a retry of a batch is aware of what the earlier attempts did:
+
+- A document OpenSearch already accepted is not sent again, and counts as succeeded. With `external_gte`, re-sending an accepted document is a real write, and once a newer delete's tombstone has expired (`index.gc_deletes`) it can re-create the deleted document.
+- A document that failed with a non-retryable error is not sent again, and its failure is reported again.
+- Once any upload in the batch has been accepted, an exception from a later request (the uploads, the delete by id, or the delete by query) fails the documents in that request, not the whole batch. A retryable exception still triggers a retry.
+
+Deletes are sent again on each attempt. Without `indexer.maxRetries`, every attempt sends the whole batch and an exception fails the whole batch, as before.
+
+A document marked for delete by query whose `deleteByFieldField` or `deleteByFieldValue` field is null fails on its own; it can't be part of a terms query.
+
+### Request Too Large
+
+OpenSearch rejects a request body over `http.max_content_length` (100MB by default) with HTTP 413. `indexer.batchByteSize` keeps bulk requests below a size, but it is an estimate. By default, a 413 fails the whole batch; it arrives without a parseable error body, so it is reported as a transport failure without a status code, and it is retried with the `-1` status code when that is in `indexer.retryableStatusCodes`.
+
+With `opensearch.splitOnRequestTooLarge: true`, a 413 on a bulk upload is recognized from the response, and the batch is split in half and each half sent on its own, recursively, until each part is accepted. A single document that still gets a 413 fails permanently by itself and is not retried. Once a batch is split, each half's failures stay with that half's documents.
 
 ---
 
