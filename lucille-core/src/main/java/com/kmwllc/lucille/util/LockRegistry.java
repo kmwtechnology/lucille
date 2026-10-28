@@ -4,7 +4,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Maps String keys to fair, non-reentrant locks. Keeps reference counts to
@@ -19,11 +22,14 @@ public class LockRegistry {
   private final ConcurrentMap<String, LockInfo> locks =
       new ConcurrentHashMap<>();
 
+  private static final Logger log = LoggerFactory.getLogger(LockRegistry.class);
+
   /**
-   * Acquire a lock from this registry. This is a blocking call.
+   * Acquire a lock from this registry. This is a blocking call, but it can be interrupted.
    * @param key The key for the lock.
+   * @throws InterruptedException If the thread is interrupted while waiting. The lock is not held in that case.
    */
-  public void acquire(String key) {
+  public void acquire(String key) throws InterruptedException {
     LockInfo lockInfo =
         locks.compute(key, (k, existing) -> {
           if (existing == null) {
@@ -34,7 +40,18 @@ public class LockRegistry {
           return existing;
         });
 
-    lockInfo.lock.acquireUninterruptibly();
+    try {
+      // using timed tryAcquire respects ordering on fair semaphores; untimed does not.
+      if (!lockInfo.lock.tryAcquire(0, TimeUnit.SECONDS)) {
+        log.warn("Waiting for lock \"{}\", held by another FileConnector in the JVM.", key);
+        lockInfo.lock.acquire();
+      }
+    } catch (InterruptedException e) {
+      // interrupted during acquire means refCount was incremented but the permit
+      // (lock) was never actually acquired - so we just remove ourselves from the refCount
+      dereference(key);
+      throw e;
+    }
   }
 
   /**
@@ -55,6 +72,17 @@ public class LockRegistry {
           ? null
           : existing;
     });
+  }
+
+  /**
+   * Drops a reference to the lock for the given key without releasing it, removing the lock from the map
+   * when no references remain.
+   */
+  private void dereference(String key) {
+    locks.computeIfPresent(key, (k, existing) ->
+        existing.refCount.decrementAndGet() == 0
+            ? null
+            : existing);
   }
 
   /**

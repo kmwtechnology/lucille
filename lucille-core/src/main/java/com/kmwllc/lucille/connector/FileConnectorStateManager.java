@@ -116,8 +116,10 @@ public class FileConnectorStateManager {
   /**
    * Connects to the database specified by your Config, and ensure a table with tableName exists, building it with the
    * appropriate schema if it doesn't. After connecting to the table, sets encountered=FALSE for all rows.
+   * Blocks while another FileConnectorStateManager in this JVM holds the same table.
+   * @throws InterruptedException If the thread is interrupted while waiting for the table.
    */
-  public void init() throws ClassNotFoundException, SQLException {
+  public void init() throws ClassNotFoundException, SQLException, InterruptedException {
     lockRegistry.acquire(registryKey);
     holdsLock.set(true);
 
