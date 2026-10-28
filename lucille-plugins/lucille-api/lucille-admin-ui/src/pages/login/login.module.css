@@ -1,0 +1,38 @@
+@reference "../../index.css";
+
+.page {
+  @apply flex min-h-screen items-center justify-center bg-gray-50 p-4;
+}
+
+.card {
+  @apply w-full max-w-sm;
+}
+
+.header {
+  @apply space-y-2;
+}
+
+.brand {
+  @apply flex items-center gap-2 font-bold text-lg text-primary-600;
+}
+
+.form {
+  @apply flex flex-col gap-4;
+}
+
+.field {
+  @apply flex flex-col gap-1.5;
+}
+
+.label {
+  @apply text-sm font-medium text-gray-700;
+}
+
+.input {
+  @apply rounded-md border border-gray-300 px-3 py-2 text-sm
+    focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500;
+}
+
+.error {
+  @apply rounded-md bg-red-50 px-3 py-2 text-sm text-red-700;
+}
