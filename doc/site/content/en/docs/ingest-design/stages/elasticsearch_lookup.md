@@ -31,7 +31,7 @@ Fetches the Elasticsearch document in `elasticsearch.index` whose ID matches the
 | `dest` | List\<String\> | Yes | Fields to write to, matched to `source` by position. |
 | `updateMode` | String | No | `overwrite`, `append`, or `skip`. Default: `overwrite`. |
 
-The `elasticsearch` block also accepts `update`, `parentName`, and `join` because it is shared with the [Elasticsearch Indexer]({{< relref "docs/ingest-design/indexers/elasticsearch_indexer" >}}). This stage ignores them.
+The `elasticsearch` block also accepts `update` and `join` because it is shared with the [Elasticsearch Indexer]({{< relref "docs/ingest-design/indexers/elasticsearch_indexer" >}}). This stage ignores them.
 
 ```hocon
 {

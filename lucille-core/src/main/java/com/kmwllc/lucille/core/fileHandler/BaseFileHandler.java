@@ -49,27 +49,34 @@ public abstract class BaseFileHandler implements FileHandler {
       throw new FileHandlerException("Unable to set up iterator for this file " + pathStr, e);
     }
 
-    // once docIterator.hasNext() is false, it will close its resources in handler and return
-    while (docIterator.hasNext()) {
-      Document doc;
-      try {
-        doc = docIterator.next();
-      } catch (Exception e) {
-        log.error("Error reading next document from file {}", pathStr, e);
-        continue;
-      }
-      if (doc != null) {
-        if (docLogger.isInfoEnabled()) {
-          try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
-            docLogger.info("FileHandler is now publishing Document {}", doc.getId());
+    try {
+      // once docIterator.hasNext() is false, it will close its resources in handler and return
+      while (docIterator.hasNext()) {
+        Document doc;
+        try {
+          doc = docIterator.next();
+        } catch (BadRecordTracker.TooManyBadRecordsException e) {
+          // the file is not in the expected format or is misconfigured: do not carry on reading it
+          throw e;
+        } catch (Exception e) {
+          log.error("Error reading next document from file {}", pathStr, e);
+          continue;
+        }
+        if (doc != null) {
+          if (docLogger.isInfoEnabled()) {
+            try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, doc.getId())) {
+              docLogger.info("FileHandler is now publishing Document {}", doc.getId());
+            }
+          }
+          try {
+            publisher.publish(doc);
+          } catch (Exception e) {
+            throw new FileHandlerException("Error publishing file " + pathStr, e);
           }
         }
-        try {
-          publisher.publish(doc);
-        } catch (Exception e) {
-          throw new FileHandlerException("Error publishing file " + pathStr, e);
-        }
       }
+    } catch (BadRecordTracker.TooManyBadRecordsException e) {
+      throw new FileHandlerException("Too many consecutive records could not be read from file " + pathStr, e);
     }
   }
 

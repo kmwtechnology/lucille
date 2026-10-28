@@ -82,8 +82,8 @@ public class SolrConnector extends AbstractConnector {
 
     // These parameters should only be set when a pipeline is also supplied
     Set<Map.Entry<String, ConfigValue>> paramSet =
-        config.hasPath("pipeline") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
-    this.idField = config.hasPath("pipeline") ? config.getString("idField") : Document.ID_FIELD;
+        config.hasPath("pipeline") && config.hasPath("solrParams") ? config.getConfig("solrParams").entrySet() : new HashSet<>();
+    this.idField = ConfigUtils.getOrDefault(config, "idField", Document.ID_FIELD);
     this.replacedPreActions = new ArrayList<>();
     this.replacedPostActions = new ArrayList<>();
 
@@ -128,9 +128,19 @@ public class SolrConnector extends AbstractConnector {
       throw new ConnectorException("Unable to query Solr.", e);
     }
 
+    long numRead = 0;
+    long numSkipped = 0;
     while (true) {
       for (SolrDocument solrDoc : resp.getResults()) {
-        String id = createDocId((String) solrDoc.get(idField));
+        numRead++;
+        String sourceId = (String) solrDoc.get(idField);
+        if (!Document.isValidId(sourceId)) {
+          // without an id the document cannot be told apart from others like it, so skip it and carry on with the next
+          numSkipped++;
+          log.error("Skipping Solr document {}: its id field \"{}\" is null or blank.", numRead, idField);
+          continue;
+        }
+        String id = createDocId(sourceId);
         Document doc = Document.create(id);
 
         for (String fieldName : solrDoc.getFieldNames()) {
@@ -161,6 +171,10 @@ public class SolrConnector extends AbstractConnector {
       } catch (Exception e) {
         throw new ConnectorException("Unable to query Solr", e);
       }
+    }
+
+    if (numSkipped > 0) {
+      log.warn("Skipped {} of {} Solr documents because their id was null or blank.", numSkipped, numRead);
     }
   }
 

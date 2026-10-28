@@ -46,8 +46,8 @@ public class ApplyJSONata extends Stage {
 
   public ApplyJSONata(Config config) throws StageException {
     super(config);
-    this.source = ConfigUtils.getOrDefault(config, "source", null);
-    this.destination = ConfigUtils.getOrDefault(config, "destination", null);
+    this.source = ConfigUtils.getStringOrDefault(config, "source", null);
+    this.destination = ConfigUtils.getStringOrDefault(config, "destination", null);
     this.expressionStr = config.getString("expression");
   }
 

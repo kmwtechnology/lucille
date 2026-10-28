@@ -15,13 +15,20 @@ public enum OpenAIEmbeddingModel {
     this.modelName = text;
   }
 
+  /**
+   * Returns the model named by the given String, matched case-insensitively.
+   *
+   * @throws IllegalArgumentException if the String names no supported model (a misspelled name used to fall back to
+   * the default model silently).
+   */
   public static OpenAIEmbeddingModel fromString(String modelName) {
     for (OpenAIEmbeddingModel mode : OpenAIEmbeddingModel.values()) {
-      if (modelName.toLowerCase().equals(mode.modelName)) {
+      if (modelName != null && modelName.trim().equalsIgnoreCase(mode.modelName)) {
         return mode;
       }
     }
-    return DEFAULT;
+    throw new IllegalArgumentException("Unknown " + CONFIG_PATH + " \"" + modelName
+        + "\"; expected one of text-embedding-3-small, text-embedding-3-large, text-embedding-ada-002");
   }
 
   public static OpenAIEmbeddingModel fromConfig(Config config) {

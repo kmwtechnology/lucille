@@ -20,6 +20,15 @@ import org.junit.Test;
 
 public class APIIntegrationTest {
 
+  // configs are validated when they are created, so the posted body must be a valid Lucille config
+  private static final String MINIMAL_CONFIG = """
+  {
+    "connectors": [{"class": "com.kmwllc.lucille.connector.SleepConnector", "name": "sleep", "pipeline": "pipeline1", "duration": 1}],
+    "pipelines": [{"name": "pipeline1", "stages": []}],
+    "indexer": {"type": "NoOpIndexer", "class": "com.kmwllc.lucille.indexer.NopIndexer"}
+  }
+  """;
+
   @ClassRule
   public static final DropwizardAppRule<LucilleAPIConfiguration> RULE = new DropwizardAppRule<>(
       APIApplication.class, ResourceHelpers.resourceFilePath("test-conf.yml"));
@@ -108,7 +117,7 @@ public class APIIntegrationTest {
   @Test
   public void testConfigGenerationAndRunId() {
     Response configStatus = client.target(url + "v1/config").request()
-        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
+        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity(MINIMAL_CONFIG, MediaType.APPLICATION_JSON));
     CreateConfigResult configResponse = configStatus.readEntity(CreateConfigResult.class);
     String configId = configResponse.getConfigId();
 
@@ -153,7 +162,7 @@ public class APIIntegrationTest {
   @Test
   public void testDeleteConfig() {
     Response configStatus = client.target(url + "v1/config").request()
-        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity("{}", MediaType.APPLICATION_JSON));
+        .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity(MINIMAL_CONFIG, MediaType.APPLICATION_JSON));
     CreateConfigResult configResponse = configStatus.readEntity(CreateConfigResult.class);
     String configId = configResponse.getConfigId();
 

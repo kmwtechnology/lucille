@@ -11,8 +11,8 @@ Sets one or more fields to fixed, static values.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `staticValues` | Map\<String, Object\> | Yes | Map of field name to the static value to set. Values must be strings, numbers, or booleans; a list or object value makes processing fail with an exception. |
-| `updateMode` | String | No | `overwrite`, `append`, or `skip`. An unrecognized value falls back to `overwrite`. Default: `overwrite`. |
+| `staticValues` | Map\<String, Object\> | Yes | Map of field name to the static value to set. Values may be strings, numbers, booleans, or lists of those; a list sets a multi-valued field. An object value is not supported. |
+| `updateMode` | String | No | `overwrite`, `append`, or `skip`. Any other value fails at startup. Default: `overwrite`. |
 | `skipDocument` | Boolean | No | If `true`, marks the document as skipped after setting values, whether or not any field changed. The document bypasses downstream stages but still reaches the Indexer. Useful for combining field-setting and skipping in a single stage with one set of conditions. Default: `false`. |
 
 ```hocon

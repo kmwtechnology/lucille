@@ -34,7 +34,7 @@ import org.apache.commons.lang3.StringUtils;
  *   the field value before parsing.</li>
  *   <li>jsonFieldPaths (Map&lt;String, Object&gt;) : Defines the mapping from JsonPath expressions to the destination fields in the
  *   processed document. Omit this property if you want all fields from the JSON to be copied to the top level of the document.</li>
- *   <li>update_mode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
+ *   <li>updateMode (String, Optional) : Determines how writing will be handling if the destination field is already populated. Can
  *   be 'overwrite', 'append' or 'skip'. Defaults to 'overwrite'.</li>
  * </ul>
  */

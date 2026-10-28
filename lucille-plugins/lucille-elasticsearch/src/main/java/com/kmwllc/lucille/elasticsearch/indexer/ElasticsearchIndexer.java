@@ -85,7 +85,7 @@ public class ElasticsearchIndexer extends Indexer {
       .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalNumber("connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
-      .optionalString("parentName", "childDocumentsField")
+      .optionalString("childDocumentsField")
       .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>() {}).build();
 
@@ -100,6 +100,7 @@ public class ElasticsearchIndexer extends Indexer {
   private final String routingField;
   private final VersionType versionType;
   private final String childDocumentsField;
+  private final String versionField;
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass,
       String metricsPrefix, String localRunId, ElasticsearchClient client) {
@@ -118,9 +119,36 @@ public class ElasticsearchIndexer extends Indexer {
     this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
 
     joinData = ElasticJoinData.fromConfig(config);
-    this.routingField = ConfigUtils.getOrDefault(config, "indexer.routingField", null);
-    this.versionType = config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
-    this.childDocumentsField = ConfigUtils.getOrDefault(config, "elasticsearch.childDocumentsField", null);
+    this.routingField = ConfigUtils.getStringOrDefault(config, "indexer.routingField", null);
+    this.versionType = config.hasPath("indexer.versionType") ? parseVersionType(config.getString("indexer.versionType")) : null;
+    this.versionField = ConfigUtils.getStringOrDefault(config, "indexer.versionField", null);
+    if (this.versionField != null && this.versionType == null) {
+      throw new IllegalArgumentException("indexer.versionType must be set if indexer.versionField is set");
+    }
+    this.childDocumentsField = ConfigUtils.getStringOrDefault(config, "elasticsearch.childDocumentsField", null);
+  }
+
+  // Accepts both the enum constant name (External, ExternalGte) and the JSON spelling (external, external_gte).
+  private static VersionType parseVersionType(String name) {
+    for (VersionType type : VersionType.values()) {
+      if (type.name().equalsIgnoreCase(name) || type.jsonValue().equalsIgnoreCase(name)) {
+        return type;
+      }
+    }
+    throw new IllegalArgumentException("Unknown indexer.versionType \"" + name + "\"; expected one of "
+        + java.util.Arrays.toString(VersionType.values()));
+  }
+
+  // The version to send with a document: the configured versionField if present, else the Kafka offset for a
+  // document read from Kafka, else none.
+  private Long getVersionNum(Document doc) {
+    if (versionField != null && doc.has(versionField)) {
+      return doc.getLong(versionField);
+    }
+    if (doc instanceof KafkaDocument) {
+      return ((KafkaDocument) doc).getOffset();
+    }
+    return null;
   }
 
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
@@ -359,7 +387,7 @@ public class ElasticsearchIndexer extends Indexer {
       }
 
       Long versionNum = (versionType == VersionType.External || versionType == VersionType.ExternalGte)
-          ? ((KafkaDocument) doc).getOffset()
+          ? getVersionNum(doc)
           : null;
 
       if (update) {

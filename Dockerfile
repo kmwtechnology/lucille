@@ -31,8 +31,8 @@ RUN groupadd -r lucille \
 
 # Environment variables with sensible defaults
 # LUCILLE_CONF: path to the Lucille config file (required)
-# LUCILLE_ROLE: which Lucille component to run: runner, worker, or indexer. Defaults to runner (which is the component to use for local runs)
-# LUCILLE_PIPELINE: pipeline name to process; use only (required) when LUCILLE_ROLE is worker or indexer
+# LUCILLE_ROLE: which Lucille component to run: runner, worker, indexer or worker-indexer. Defaults to runner (which is the component to use for local runs)
+# LUCILLE_PIPELINE: pipeline name to process; use only (required) when LUCILLE_ROLE is worker, indexer or worker-indexer
 # JAVA_OPTS: JVM flags such as heap size and GC settings
 # LUCILLE_OPTS: Runner CLI flags, used only when LUCILLE_ROLE=runner (e.g. -distributed, -external)
 ENV LUCILLE_CONF=""
