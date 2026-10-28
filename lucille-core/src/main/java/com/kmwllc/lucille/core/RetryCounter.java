@@ -1,13 +1,13 @@
 package com.kmwllc.lucille.core;
 
 /**
- * Tracks how many times processing has been attempted for each document, across all Workers, so that a document
- * that keeps failing can be sent to the dead letter queue. Used when worker.maxRetries is set.
+ * Counts how many times a document has been retried, so that a document which keeps failing can be sent to the
+ * dead letter queue instead of being redelivered forever. Used by Kafka messengers when worker.maxRetries is set.
  *
  * <p> The implementation is chosen with worker.retryCounter.class and defaults to {@link ZKRetryCounter}.
  * Implementations must have a public constructor that takes the full Lucille Config.
  */
-public interface RetryCounter {
+public interface RetryCounter extends AutoCloseable {
 
   /**
    * Records an attempt to process the given document.
@@ -23,4 +23,12 @@ public interface RetryCounter {
    * @param document The document whose count should be removed.
    */
   void remove(Document document);
+
+  /**
+   * Releases any resources held by this counter, such as a ZooKeeper client. Called once by the Worker that owns the
+   * counter when that Worker stops. Does nothing by default.
+   */
+  @Override
+  default void close() throws Exception {
+  }
 }

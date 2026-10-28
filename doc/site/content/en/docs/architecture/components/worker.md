@@ -98,7 +98,7 @@ The run does not stop on a per-document failure. Individual document failures ar
 
 A "poison pill" is a document that repeatedly causes the Worker process itself to crash. If `worker.maxRetries` is configured (requires ZooKeeper), the retry counter tracks crash counts across all Worker instances. When a document exceeds the retry limit, it is routed to a dead-letter queue, and the rest of the ingest continues.
 
-By default, retry counts are stored in ZooKeeper by `ZKRetryCounter`. To store them elsewhere, set `worker.retryCounter.class` to a class that implements `com.kmwllc.lucille.core.RetryCounter` and has a public constructor that takes a `Config`. The Worker passes it the full config, so the class can read its own settings from a top-level block of its own. If the class can't be found or created, the Worker fails at startup.
+By default, retry counts are stored in ZooKeeper by `ZKRetryCounter`. To store them elsewhere, set `worker.retryCounter.class` to a class that implements `com.kmwllc.lucille.core.RetryCounter` and has a public constructor that takes a `Config`. The Worker passes it the full config, so the class can read its own settings from a top-level block of its own. The Worker calls the counter's `close()` when it stops, so release any connections there. If the class can't be found or created, the Worker fails at startup.
 
 ## Metrics
 

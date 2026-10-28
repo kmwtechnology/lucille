@@ -85,7 +85,7 @@ public class JsonDocument implements Document {
    * not defensively copy the given ObjectNode, so it must not be modified after creation
    *
    * @param data the data to be stored in the document
-   * @throws DocumentException if the {@link Document#ID_FIELD} is missing, null, empty, or not a string. The id is data
+   * @throws DocumentException if the {@link Document#ID_FIELD} is missing, null, empty, blank, or not a string. The id is data
    * here, so a bad one is reported as a checked exception that callers can catch in order to skip the record. See the
    * "Invalid ids" section of {@link Document}.
    */
@@ -96,9 +96,9 @@ public class JsonDocument implements Document {
     }
 
     JsonNode id = data.get(ID_FIELD);
-    if (!id.isTextual() || id.asText().isEmpty()) {
-      throw new DocumentException("id must be a non-empty string but was "
-          + (id.isTextual() ? "an empty string" : "a " + describe(id)));
+    if (!id.isTextual() || !Document.isValidId(id.asText())) {
+      throw new DocumentException("id must be a non-blank string but was "
+          + (id.isTextual() ? "an empty or blank string" : "a " + describe(id)));
     }
 
     this.data = data;
@@ -109,17 +109,15 @@ public class JsonDocument implements Document {
    *
    * <p>The id is a Java argument here, so an invalid one is reported as an unchecked IllegalArgumentException, as
    * invalid field names are. This constructor assumes a valid id: code that obtains ids from external data is
-   * responsible for validating them first and deciding whether to skip the record or fail. See the "Invalid ids"
-   * section of {@link Document}.
-   *
-   * <p>Known gap: an empty id is currently accepted here, although the ObjectNode and JSON paths reject it.
+   * responsible for validating them first, with {@link Document#isValidId(String)}, and deciding whether to skip the
+   * record or fail. See the "Invalid ids" section of {@link Document}.
    *
    * @param id the document id
-   * @throws IllegalArgumentException if the id is null
+   * @throws IllegalArgumentException if the id is null, empty or blank
    */
   public JsonDocument(String id) {
-    if (id == null) {
-      throw new IllegalArgumentException("ID cannot be null");
+    if (!Document.isValidId(id)) {
+      throw new IllegalArgumentException(id == null ? "ID cannot be null" : "ID cannot be empty or blank");
     }
     this.data = MAPPER.createObjectNode();
     this.data.put(ID_FIELD, id);
@@ -171,8 +169,8 @@ public class JsonDocument implements Document {
     JsonDocument doc = new JsonDocument(node);
     if (idUpdater != null) {
       String updatedId = idUpdater.apply(doc.getId());
-      if (updatedId == null || updatedId.isEmpty()) {
-        throw new DocumentException("idUpdater returned a null or empty id for document " + doc.getId());
+      if (!Document.isValidId(updatedId)) {
+        throw new DocumentException("idUpdater returned a null, empty or blank id for the document with id '" + doc.getId() + "'");
       }
       doc.data.put(ID_FIELD, updatedId);
     }
@@ -1069,7 +1067,7 @@ public class JsonDocument implements Document {
       return false;
     }
     JsonNode id = child.get(ID_FIELD);
-    return id != null && id.isTextual() && !id.asText().isEmpty();
+    return id != null && id.isTextual() && Document.isValidId(id.asText());
   }
 
   /**

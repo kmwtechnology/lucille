@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.message;
 
+import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -45,7 +46,6 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 
 /**
  * End-to-end test of a concurrent ({@code indexer.maxConcurrentBatches > 1}) indexer driven through a real
@@ -69,12 +69,8 @@ public class KafkaConcurrentIndexerEndToEndTest {
 
   @BeforeClass
   public static void startKafka() {
-    embeddedKafka = new EmbeddedKafkaKraftBroker(1, 1);
-    // Speeds up consumer-group startup. With the default 50-partition __consumer_offsets topic, a consumer's first join
-    // retries "not the correct coordinator" for about 2.5s while the broker creates and loads the topic; one partition
-    // makes that near-instant. The initial rebalance delay (default 3s) is dropped so a new group joins immediately.
-    embeddedKafka.brokerProperties(Map.of("group.initial.rebalance.delay.ms", "0", "offsets.topic.num.partitions", "1"));
-    embeddedKafka.afterPropertiesSet();
+    // a warmed-up broker, so the one-time creation of __consumer_offsets does not land inside a test's time budget
+    embeddedKafka = EmbeddedKafkaUtils.startBroker();
     Properties props = new Properties();
     props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, embeddedKafka.getBrokersAsString());
     admin = Admin.create(props);

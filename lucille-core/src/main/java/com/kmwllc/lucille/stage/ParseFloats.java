@@ -39,7 +39,7 @@ public class ParseFloats extends Stage {
   public ParseFloats(Config config) {
     super(config);
     this.field = config.getString("field");
-    this.dest = ConfigUtils.getOrDefault(config, "dest", null);
+    this.dest = ConfigUtils.getStringOrDefault(config, "dest", null);
   }
 
   @Override

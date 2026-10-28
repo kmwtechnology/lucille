@@ -51,6 +51,10 @@ public class SolrUtilsTest {
     Tuple nullId = new Tuple();
     nullId.put(Document.ID_FIELD, null);
     assertThrows(DocumentException.class, () -> SolrUtils.toDocument(nullId));
+
+    Tuple blankId = new Tuple();
+    blankId.put(Document.ID_FIELD, "   ");
+    assertThrows(DocumentException.class, () -> SolrUtils.toDocument(blankId));
   }
 
   @Test

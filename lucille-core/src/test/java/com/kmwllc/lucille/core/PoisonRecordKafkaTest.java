@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -12,6 +13,7 @@ import com.kmwllc.lucille.message.HybridWorkerMessenger;
 import com.kmwllc.lucille.message.KafkaIndexerMessenger;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.kmwllc.lucille.message.KafkaWorkerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.util.StoringAppender;
 import com.typesafe.config.Config;
@@ -51,7 +53,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 /**
@@ -72,8 +73,8 @@ public class PoisonRecordKafkaTest {
 
   @BeforeClass
   public static void startKafka() throws Exception {
-    embeddedKafka = new EmbeddedKafkaKraftBroker(1, 1);
-    embeddedKafka.afterPropertiesSet();
+    // a warmed-up broker, so the one-time creation of __consumer_offsets does not land inside a test's time budget
+    embeddedKafka = EmbeddedKafkaUtils.startBroker();
   }
 
   @AfterClass
@@ -489,22 +490,22 @@ public class PoisonRecordKafkaTest {
     }
 
     @Override
-    public void sendForIndexing(Document document) throws Exception {
+    public void sendForIndexing(Document document) throws MessengerException {
       delegate.sendForIndexing(document);
     }
 
     @Override
-    public void sendFailed(Document document) throws Exception {
+    public void sendFailed(Document document) throws MessengerException {
       delegate.sendFailed(document);
     }
 
     @Override
-    public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+    public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
       delegate.sendEvent(document, message, type);
     }
 
     @Override
-    public void sendEvent(Event event) throws Exception {
+    public void sendEvent(Event event) throws MessengerException {
       delegate.sendEvent(event);
     }
 

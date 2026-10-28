@@ -17,7 +17,7 @@ The connection and prepared statement are created at startup. For each document,
 | `connectionString` | String | Yes | JDBC connection URL. |
 | `jdbcUser` | String | Yes | Database username. |
 | `jdbcPassword` | String | Yes | Database password. |
-| `sql` | String | No | SQL query with `?` placeholders for parameters. Not enforced by the Spec, but the stage fails at startup without it. |
+| `sql` | String | Yes | SQL query with `?` placeholders for parameters. |
 | `keyFields` | List\<String\> | Yes | Document field names whose values are substituted for `?` in the SQL, in order. |
 | `inputTypes` | List\<String\> | Yes | Type of each key field: `String`, `Integer`, `Long`, `Double`, `Boolean`, or `Date` (case-sensitive). Must match `keyFields` length, or the stage fails at startup. |
 | `fieldMapping` | Map\<String, String\> | Yes | Maps result-set column names to document field names. |
