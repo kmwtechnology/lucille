@@ -2,3 +2,7 @@ node_modules/
 dist/
 *.local
 .DS_Store
+
+# Maven build output and the Node toolchain installed by frontend-maven-plugin
+target/
+.mvn-node/
