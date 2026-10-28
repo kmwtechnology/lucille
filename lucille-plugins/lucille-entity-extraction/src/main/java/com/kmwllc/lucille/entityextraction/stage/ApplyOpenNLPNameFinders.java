@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.stage;
+package com.kmwllc.lucille.entityextraction.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Document;
