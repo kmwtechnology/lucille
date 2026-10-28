@@ -47,17 +47,24 @@ import org.slf4j.LoggerFactory;
  *   <li>includeLevel (Boolean, Optional) : If true, a field ("level") will be populated with the number of segments in the path,
  *   including the file name: 3 for /a/b/file.txt and for C:\a\file.txt. Segments are counted the same way as for "file_paths", so
  *   createRelativeHierarchy applies to the level too. Defaults to false.</li>
+ *   <li>clearInvalidExtension (Boolean, Optional) : If true, "file_extension" is set to "" when the extension contains a control
+ *   character or a character that looks like a slash (like U+2215 DIVISION SLASH or U+FF3C FULLWIDTH REVERSE SOLIDUS), which is
+ *   not a real extension. Defaults to false.</li>
  * </ul>
  */
 public class ParseFilePath extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .optionalString("filePathField", "fileSep")
-      .optionalBoolean("uppercaseExtension", "includeHierarchy", "decodeFilePath", "createRelativeHierarchy", "includeLevel")
+      .optionalBoolean("uppercaseExtension", "includeHierarchy", "decodeFilePath", "createRelativeHierarchy", "includeLevel",
+          "clearInvalidExtension")
       .build();
 
   // A URI scheme followed by "://". Schemes of one letter are not matched, so that a Windows drive (C://dir) is not taken for one.
   private static final Pattern URI_SCHEME = Pattern.compile("[a-zA-Z][a-zA-Z0-9+.-]+://");
+
+  // "/", "\" and the Unicode characters that look like them
+  private static final String SLASH_LIKE_CHARACTERS = "/\\\u2215\u2044\u29F8\uFF0F\uFE68\u2216\u29F9\uFF3C";
 
   private final String filePathField;
   private final String fileSep;
@@ -66,6 +73,7 @@ public class ParseFilePath extends Stage {
   private final boolean decodeFilePath;
   private final boolean createRelativeHierarchy;
   private final boolean includeLevel;
+  private final boolean clearInvalidExtension;
   private final boolean useUnix;
   private final char sepChar;
 
@@ -85,6 +93,7 @@ public class ParseFilePath extends Stage {
     this.decodeFilePath = ConfigUtils.getOrDefault(config, "decodeFilePath", false);
     this.createRelativeHierarchy = ConfigUtils.getOrDefault(config, "createRelativeHierarchy", false);
     this.includeLevel = ConfigUtils.getOrDefault(config, "includeLevel", false);
+    this.clearInvalidExtension = ConfigUtils.getOrDefault(config, "clearInvalidExtension", false);
     this.useUnix = fileSep.equals("/");
     this.sepChar = fileSep.charAt(0);
   }
@@ -108,10 +117,15 @@ public class ParseFilePath extends Stage {
     doc.addToField("folder", FilenameUtils.getFullPathNoEndSeparator(filePath));
     doc.addToField("path", filePath);
 
+    String extension = FilenameUtils.getExtension(filePath);
+    if (clearInvalidExtension && isInvalidExtension(extension)) {
+      extension = "";
+    }
+
     if (uppercaseExtension) {
-      doc.addToField("file_extension", FilenameUtils.getExtension(filePath).toUpperCase());
+      doc.addToField("file_extension", extension.toUpperCase());
     } else {
-      doc.addToField("file_extension", FilenameUtils.getExtension(filePath));
+      doc.addToField("file_extension", extension);
     }
 
     String hierarchyPath = createRelativeHierarchy ? relativeHierarchyPath(rawPath, filePath) : filePath;
@@ -135,6 +149,21 @@ public class ParseFilePath extends Stage {
       log.warn("Could not URL-decode file path {}, parsing it without decoding: {}", filePath, e.getMessage());
       return filePath;
     }
+  }
+
+  private static boolean isInvalidExtension(String extension) {
+    if (extension == null) {
+      return false;
+    }
+
+    for (int i = 0; i < extension.length(); i++) {
+      char ch = extension.charAt(i);
+      if (Character.isISOControl(ch) || SLASH_LIKE_CHARACTERS.indexOf(ch) >= 0) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**

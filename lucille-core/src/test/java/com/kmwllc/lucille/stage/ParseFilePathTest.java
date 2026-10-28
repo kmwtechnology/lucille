@@ -342,6 +342,31 @@ public class ParseFilePathTest {
     }
   }
 
+  @Test
+  public void testClearInvalidExtension() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "/", "clearInvalidExtension", true));
+
+    for (char ch : "\u2215\u2044\u29F8\uFF0F\uFE68\u2216\u29F9\uFF3C\n\t\u0001\u007F\u009F".toCharArray()) {
+      Document doc = parse(stage, "/dir/file.a" + ch + "b");
+      assertEquals("U+" + Integer.toHexString(ch), "", doc.getString("file_extension"));
+      assertEquals("file.a" + ch + "b", doc.getString("filename"));
+    }
+
+    assertEquals("TXT", parse(stage, "/dir/file.txt").getString("file_extension"));
+    assertEquals("", parse(stage, "/dir/no_extension").getString("file_extension"));
+    assertEquals("\u00C9T\u00C9", parse(stage, "/dir/file.\u00E9t\u00E9").getString("file_extension"));
+
+    Stage lowercase = factory.get(Map.of("fileSep", "/", "clearInvalidExtension", true, "uppercaseExtension", false));
+    assertEquals("", parse(lowercase, "/dir/file.a\uFF0Fb").getString("file_extension"));
+    assertEquals("txt", parse(lowercase, "/dir/file.txt").getString("file_extension"));
+  }
+
+  @Test
+  public void testInvalidExtensionKeptByDefault() throws StageException {
+    Stage stage = factory.get(Map.of("fileSep", "/"));
+    assertEquals("A\u2215B", parse(stage, "/dir/file.a\u2215b").getString("file_extension"));
+  }
+
   private static Document parse(Stage stage, String filePath) throws StageException {
     Document doc = Document.create("doc");
     doc.setField("file_path", filePath);
