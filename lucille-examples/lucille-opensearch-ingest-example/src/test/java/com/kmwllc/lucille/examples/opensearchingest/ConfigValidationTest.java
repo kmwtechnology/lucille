@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.distributed;
+package com.kmwllc.lucille.examples.opensearchingest;
 
 import com.kmwllc.lucille.test.ConfigValidationUtils;
 import org.junit.Test;

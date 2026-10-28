@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.rss;
+package com.kmwllc.lucille.examples.vectoringest;
 
 import com.kmwllc.lucille.test.ConfigValidationUtils;
 import org.junit.Test;
@@ -9,5 +9,4 @@ public class ConfigValidationTest {
   public void testConf() throws Exception {
     ConfigValidationUtils.validateConfigs();
   }
-
 }

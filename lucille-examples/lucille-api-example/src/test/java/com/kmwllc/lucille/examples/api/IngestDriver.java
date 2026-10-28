@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.api;
+package com.kmwllc.lucille.examples.api;
 
 import java.net.http.HttpResponse;
 import java.nio.file.Files;

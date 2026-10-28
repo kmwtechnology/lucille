@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.vectorIngest;
+package com.kmwllc.lucille.examples.simplecsvsolr;
 
 import com.kmwllc.lucille.test.ConfigValidationUtils;
 import org.junit.Test;

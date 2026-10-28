@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.distributed;
+package com.kmwllc.lucille.examples.distributed;
 
 import static org.junit.Assert.*;
 

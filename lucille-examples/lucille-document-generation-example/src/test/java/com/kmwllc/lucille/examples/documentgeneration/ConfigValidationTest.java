@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.joiningDbConnector;
+package com.kmwllc.lucille.examples.documentgeneration;
 
 import com.kmwllc.lucille.test.ConfigValidationUtils;
 import org.junit.Test;

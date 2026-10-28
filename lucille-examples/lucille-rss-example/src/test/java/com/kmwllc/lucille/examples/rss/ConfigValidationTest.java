@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.simpleCsvSolr;
+package com.kmwllc.lucille.examples.rss;
 
 import com.kmwllc.lucille.test.ConfigValidationUtils;
 import org.junit.Test;
@@ -9,4 +9,5 @@ public class ConfigValidationTest {
   public void testConf() throws Exception {
     ConfigValidationUtils.validateConfigs();
   }
+
 }

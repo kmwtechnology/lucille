@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.api;
+package com.kmwllc.lucille.examples.api;
 
 import java.net.URI;
 import java.net.http.HttpClient;

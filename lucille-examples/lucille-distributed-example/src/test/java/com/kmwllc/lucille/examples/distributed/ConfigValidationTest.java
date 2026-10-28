@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.documentGeneration;
+package com.kmwllc.lucille.examples.distributed;
 
 import com.kmwllc.lucille.test.ConfigValidationUtils;
 import org.junit.Test;

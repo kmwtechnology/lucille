@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.fileToFile;
+package com.kmwllc.lucille.examples.filetofile;
 
 import com.kmwllc.lucille.test.ConfigValidationUtils;
 import java.util.List;

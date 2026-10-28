@@ -1,4 +1,4 @@
-package com.kmwllc.lucille.opensearchIngest;
+package com.kmwllc.lucille.examples.joiningdbconnector;
 
 import com.kmwllc.lucille.test.ConfigValidationUtils;
 import org.junit.Test;
