@@ -8,7 +8,7 @@ import com.typesafe.config.Config;
 /**
  * Used to determine if the correct behavior happens when an Exception is thrown during postExecute().
  */
-public class FailingPostExecuteCSVConnector extends CSVConnector {
+public class FailingPostExecuteCSVConnector extends CSVTestConnector {
 
   public static final Spec SPEC = SpecBuilder.connector().requiredString("path").build();
 

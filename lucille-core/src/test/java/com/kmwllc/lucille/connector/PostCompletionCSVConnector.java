@@ -11,7 +11,7 @@ import java.time.Instant;
 /**
  * This Class is only for test purposes! Used to determine if post completion actions occur how/when they are expected.
  */
-public class PostCompletionCSVConnector extends CSVConnector {
+public class PostCompletionCSVConnector extends CSVTestConnector {
 
   // Create static fields on the class that we can access from within our tests.
   private static boolean completionActionsOccurred = false;

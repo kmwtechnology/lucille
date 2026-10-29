@@ -9,7 +9,7 @@ import com.typesafe.config.Config;
 /**
  * Used to determine if the correct behavior happens when an Exception is thrown during execute().
  */
-public class FailingExecuteCSVConnector extends CSVConnector {
+public class FailingExecuteCSVConnector extends CSVTestConnector {
 
   public static final Spec SPEC = SpecBuilder.connector().requiredString("path").build();
 

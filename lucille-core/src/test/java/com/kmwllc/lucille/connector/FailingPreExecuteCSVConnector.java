@@ -8,7 +8,7 @@ import com.typesafe.config.Config;
 /**
  * Used to determine if the correct behavior happens when an Exception is thrown in preExecute().
  */
-public class FailingPreExecuteCSVConnector extends CSVConnector {
+public class FailingPreExecuteCSVConnector extends CSVTestConnector {
 
   public static final Spec SPEC = SpecBuilder.connector().requiredString("path").build();
 

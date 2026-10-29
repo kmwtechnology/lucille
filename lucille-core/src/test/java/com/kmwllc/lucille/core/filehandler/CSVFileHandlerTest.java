@@ -144,7 +144,7 @@ public class CSVFileHandlerTest {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("separatorChar",  ";")));
     FileHandler handler = FileHandler.create("csv", config);
 
-    // contents of CSVConnectorTest/semicolons.conf
+    // contents of FileHandlerTest/CSVFileHandlerTest/semicolons.csv
     //  field1	field2	field3
     //  a	b	c
     //  d	f	g
@@ -196,7 +196,7 @@ public class CSVFileHandlerTest {
     )));
     FileHandler handler = FileHandler.create("csv", config);
 
-    // contents of CSVConnectorTest/config.conf
+    // contents of FileHandlerTest/CSVFileHandlerTest/tabs.csv
     //  field1	field2	field3
     //  a	b	c
     //  d	"e,f	g
@@ -225,7 +225,7 @@ public class CSVFileHandlerTest {
     File file = new File(filePath);
     Iterator<Document> docs = csvFileHandler.processFile(new FileInputStream(file), filePath);
 
-    // contents of CSVConnectorTest/config.conf
+    // contents of FileHandlerTest/CSVFileHandlerTest/defaults.csv
     // field1, field2, field3
     //  a, b, c
     //  d, "e,f", g
@@ -262,7 +262,7 @@ public class CSVFileHandlerTest {
     try (FileInputStream fis = new FileInputStream(file)) {
       docs = csvFileHandler.processFile(fis, "src/test/resources/FileHandlerTest/CSVFileHandlerTest/defaults.csv");
 
-      // contents of CSVConnectorTest/config.conf
+      // contents of FileHandlerTest/CSVFileHandlerTest/defaults.csv
       // field1, field2, field3
       //  a, b, c
       //  d, "e,f", g
