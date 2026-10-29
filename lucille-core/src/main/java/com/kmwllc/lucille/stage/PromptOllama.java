@@ -81,7 +81,6 @@ public class PromptOllama extends Stage {
   private final boolean requireJSON;
 
   private OllamaAPI ollamaAPI;
-  private OllamaChatRequestBuilder chatBuilder;
 
   private final UpdateMode updateMode;
 
@@ -102,11 +101,6 @@ public class PromptOllama extends Stage {
   @Override
   public void start() throws StageException {
     this.ollamaAPI = new OllamaAPI(hostURL);
-    this.chatBuilder = OllamaChatRequestBuilder.getInstance(modelName);
-
-    if (systemPrompt != null) {
-      chatBuilder = chatBuilder.withMessage(OllamaChatMessageRole.SYSTEM, systemPrompt);
-    }
 
     if (timeout != null) {
       ollamaAPI.setRequestTimeoutSeconds(timeout);
@@ -115,6 +109,7 @@ public class PromptOllama extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
+    // Build a fresh request for each document to avoid state issues
     OllamaChatRequest request = createRequestWithSpecifiedFields(doc);
     request.setReturnFormatJson(requireJSON);
 
@@ -128,9 +123,19 @@ public class PromptOllama extends Stage {
     // Always try to get JSON from the response, even if requireJSON is false.
     try {
       JsonNode node = mapper.readTree(chatResult.getResponseModel().getMessage().getContent());
-      // put all the fields from the JSON onto the Lucille Document.
-      node.fields().forEachRemaining(entry -> doc.update(entry.getKey(), updateMode, entry.getValue()));
-    } catch (JsonProcessingException e) {
+
+      // Require that the response is a JSON object, not an array or scalar
+      if (!node.isObject()) {
+        throw new StageException("Response was not valid JSON.");
+      }
+
+      // Put all the fields from the JSON onto the Lucille Document, filtering reserved fields
+      node.fieldNames().forEachRemaining(fieldName -> {
+        if (!Document.RESERVED_FIELDS.contains(fieldName)) {
+          doc.update(fieldName, updateMode, node.get(fieldName));
+        }
+      });
+    } catch (JsonProcessingException | StageException e) {
       if (requireJSON) {
         throw new StageException("Error getting JSON from response (requireJSON was set to true):", e);
       } else {
@@ -142,11 +147,19 @@ public class PromptOllama extends Stage {
     return null;
   }
 
-  // Creates an OllamaChatRequest using all the fields, if fields is null, or only the specified fields from the document, as Strings.
+  // Creates a fresh OllamaChatRequest for each document, using all fields or only the specified fields.
   private OllamaChatRequest createRequestWithSpecifiedFields(Document doc) {
+    // Build a fresh request for each document
+    OllamaChatRequestBuilder builder = OllamaChatRequestBuilder.getInstance(modelName);
+
+    // Add system message if configured
+    if (systemPrompt != null) {
+      builder = builder.withMessage(OllamaChatMessageRole.SYSTEM, systemPrompt);
+    }
+
     if (fields.isEmpty()) {
       // If no fields specified, default to just using the entire Document.
-      return chatBuilder.withMessage(OllamaChatMessageRole.USER, doc.toString()).build();
+      return builder.withMessage(OllamaChatMessageRole.USER, doc.toString()).build();
     } else {
       ObjectNode requestNode = mapper.createObjectNode();
 
@@ -154,7 +167,7 @@ public class PromptOllama extends Stage {
         requestNode.set(field, doc.getJson(field));
       }
 
-      return chatBuilder.withMessage(OllamaChatMessageRole.USER, requestNode.toString()).build();
+      return builder.withMessage(OllamaChatMessageRole.USER, requestNode.toString()).build();
     }
   }
 }
