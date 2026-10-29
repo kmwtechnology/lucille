@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,6 +18,8 @@ import java.io.FileReader;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -299,6 +302,22 @@ public class RunnerManagerTest {
     runnerManager.createConfigWithKey(ConfigFactory.load("RunnerManagerTest/noop.conf"), "test-config-2");
     assertFalse(runnerManager.deleteConfig("test-config"));
     assertTrue(runnerManager.deleteConfig("test-config-2"));
+  }
+
+  @Test
+  public void testConfigSnapshotsUnaffectedByDelete() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    String configId = runnerManager.createConfig(ConfigFactory.load("RunnerManagerTest/noop.conf")).getConfigId();
+
+    Set<String> keys = runnerManager.getConfigKeys();
+    Map<String, Config> configs = runnerManager.getConfigs();
+    assertTrue(runnerManager.deleteConfig(configId));
+
+    // the snapshots still have the deleted config, and its value is non-null
+    assertTrue(keys.contains(configId));
+    assertNotNull(configs.get(configId));
+    assertFalse(runnerManager.getConfigKeys().contains(configId));
+    assertFalse(runnerManager.getConfigs().containsKey(configId));
   }
 
   @Test

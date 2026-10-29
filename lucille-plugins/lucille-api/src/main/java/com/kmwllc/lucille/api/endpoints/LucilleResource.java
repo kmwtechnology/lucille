@@ -137,8 +137,9 @@ public class LucilleResource {
       security = @SecurityRequirement(name = "basicAuth"))
   public Response getAllConfigs() {
     Map<String, Object> ret = new HashMap<>();
-    for (String configId : runnerManager.getConfigKeys  ()) {
-      ret.put(configId, runnerManager.getConfig(configId).root().unwrapped());
+    // Grabbing a snapshot --> concurrent delete while building map does not cause issues
+    for (Map.Entry<String, Config> entry : runnerManager.getConfigs().entrySet()) {
+      ret.put(entry.getKey(), entry.getValue().root().unwrapped());
     }
     return Response.ok(ret).build();
   }

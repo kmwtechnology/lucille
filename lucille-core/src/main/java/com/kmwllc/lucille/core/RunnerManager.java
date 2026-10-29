@@ -266,12 +266,21 @@ public class RunnerManager {
   }
 
   /**
-   * Returns the key set for all configs
-   * 
-   * @return
+   * Returns a snapshot of the keys of all configs.
+   *
+   * @return A copy of the config key set, unaffected by later creates or deletes.
    */
   public synchronized Set<String> getConfigKeys() {
-    return configMap.keySet();
+    return new HashSet<>(configMap.keySet());
+  }
+
+  /**
+   * Returns a snapshot of all configs, keyed by config ID.
+   *
+   * @return A copy of the config map, unaffected by later creates or deletes.
+   */
+  public synchronized Map<String, Config> getConfigs() {
+    return new HashMap<>(configMap);
   }
 
   public synchronized Config getConfig(String configId) {
