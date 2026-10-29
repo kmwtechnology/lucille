@@ -116,6 +116,7 @@ public class ApplyOpenNLPNameFinders extends Stage {
       }
 
       names.forEach(name -> doc.setOrAdd(modelKey, name));
+      finder.clearAdaptiveData();
     }
 
     return null;
