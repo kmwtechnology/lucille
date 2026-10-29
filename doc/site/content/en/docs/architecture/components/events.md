@@ -20,6 +20,14 @@ As a Document passes through the Lucille pipeline, Event messages are generated 
 
 Events include the document's `id` and `run_id`, allowing the Publisher to match each event to its corresponding accounting entry.
 
+## Event Messages
+
+An event can also carry a `message`. Act on an event's type, not its message:
+
+- **`FAIL`:** the message is a human-readable reason for the failure, such as the error a stage or the search backend reported. A child document that fails because its parent failed gets `parent <id> failed: <reason>`. The wording is meant for people and may change between versions, so don't parse it.
+- **`FAIL` after too many retries:** when a document has been delivered to a Worker more times than `worker.maxRetries` allows, the Worker sends it to the dead letter queue instead of processing it again, and the message is always `WORKER_MAX_RETRIES_EXCEEDED`. This value is stable and safe to match on.
+- **Other types:** `FINISH` events carry `SUCCEEDED`; `CREATE` and `DROP` events carry no message.
+
 ## Event Flow
 
 ```

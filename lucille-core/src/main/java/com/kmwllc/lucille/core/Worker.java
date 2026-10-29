@@ -245,7 +245,7 @@ class Worker implements Runnable {
       }
       docLogger.error("Document {} could not be sent to the dead letter queue.", doc.getId(), e);
     }
-    messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
+    messenger.sendEvent(doc, Event.WORKER_MAX_RETRIES_EXCEEDED, Event.Type.FAIL);
   }
 
   /**
@@ -314,13 +314,14 @@ class Worker implements Runnable {
   private void failDocument(Document doc, Document announcedChild, Throwable cause) throws MessengerException {
     docLogger.error("Document FAILED during pipeline processing: {}", doc.getId(), cause);
     failedDocLogger.atError().setMessage(() -> doc.toString()).log();
+    String reason = Event.failureMessage(cause);
     if (announcedChild != null) {
       Document child = announcedChild;
       docLogger.error("Child document {} of {} FAILED: its parent failed after the child was announced.", child.getId(),
           doc.getId());
-      messenger.sendEvent(child, null, Event.Type.FAIL);
+      messenger.sendEvent(child, "parent " + doc.getId() + " failed: " + reason, Event.Type.FAIL);
     }
-    messenger.sendEvent(doc, null, Event.Type.FAIL);
+    messenger.sendEvent(doc, reason, Event.Type.FAIL);
   }
 
   public void logMetrics() {

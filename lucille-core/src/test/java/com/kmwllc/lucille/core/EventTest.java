@@ -267,6 +267,19 @@ public class EventTest {
   }
 
   @Test
+  public void testFailureMessage() {
+    assertEquals("boom", Event.failureMessage(new IllegalStateException("boom")));
+    // no message: the class name
+    assertEquals(IllegalStateException.class.getName(), Event.failureMessage(new IllegalStateException()));
+    // a wrapper with no message of its own is described by its cause, however deeply nested
+    StageException stageException = new StageException("stage failed");
+    assertEquals("stage failed", Event.failureMessage(new RuntimeException(stageException)));
+    assertEquals("stage failed", Event.failureMessage(new RuntimeException(new RuntimeException(stageException))));
+    // a wrapper with its own message keeps it
+    assertEquals("while indexing", Event.failureMessage(new RuntimeException("while indexing", stageException)));
+  }
+
+  @Test
   public void testMaxValuesPerFieldDoesNotAffectSingleValuedField() throws Exception {
     Document doc = Document.create("id1", "runId1");
     doc.setField("single", "only");
