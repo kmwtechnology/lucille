@@ -144,7 +144,7 @@ Every File Handler accepts `class` (a custom handler class, see [Custom File Han
 
 ### CSV File Handler
 
-`com.kmwllc.lucille.core.fileHandler.CSVFileHandler`
+`com.kmwllc.lucille.core.filehandler.CSVFileHandler`
 
 Extracts one Document per row from a CSV file, read as UTF-8 (a leading byte order mark is removed). The first row is the header, and each column becomes a field named after its header. Blank rows are skipped with a warning. A row whose number of columns differs from the header, or whose ID is blank as a whole, is skipped and logged as an error; if 10 consecutive rows are skipped this way, the file fails. Columns named after a reserved field (such as `id`) are not copied.
 
@@ -181,7 +181,7 @@ fileHandlers: {
 
 ### JSON File Handler
 
-`com.kmwllc.lucille.core.fileHandler.JsonFileHandler`
+`com.kmwllc.lucille.core.filehandler.JsonFileHandler`
 
 Reads a file as JSON Lines: each non-blank line must be a single JSON object, which becomes one Document. A pretty-printed JSON object or a JSON array spanning several lines is not supported. A line that is not valid JSON, or not a JSON object, is skipped and logged as an error; if 10 consecutive lines are skipped this way, the file fails. The handler is used for both `.json` and `.jsonl` files (see above).
 
@@ -209,7 +209,7 @@ fileHandlers: {
 
 ### XML File Handler
 
-`com.kmwllc.lucille.core.fileHandler.XMLFileHandler`
+`com.kmwllc.lucille.core.filehandler.XMLFileHandler`
 
 Streams an XML file and publishes one Document per element found at `xmlRootPath`. The element's raw XML text, including its own tags, is stored in `outputField`.
 

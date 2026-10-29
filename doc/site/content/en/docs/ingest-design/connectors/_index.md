@@ -67,8 +67,6 @@ connectors: [
 | Connector | Replacement |
 |---|---|
 | [CSV Connector *(Deprecated)*](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/CSVConnector.java) | FileConnector with `csv` FileHandler |
-| [JSON Connector *(Deprecated)*](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/JSONConnector.java) | FileConnector with `json` FileHandler |
-| [XML Connector *(Deprecated)*](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/xml/XMLConnector.java) | FileConnector with `xml` FileHandler |
 
 ## Lucille Connectors (Plugins)
 
