@@ -213,8 +213,6 @@ public class RunnerManager {
         // For now, we will always use local mode without Kafka
         runDetails.setRunType(Runner.getRunType(false, false));
 
-        log.debug(config.entrySet().toString());
-
         // the config was validated when it was created
         runDetails.setRunResult(Runner.runAndLogResult(config, runDetails.getRunType(), runId, false, false));
       } catch (Exception e) {
