@@ -140,6 +140,18 @@
         <version>${slf4j.version}</version>
       </dependency>
 
+      <!-- ConfigInfo scans the classpath for components and parses their javadoc. Versions match lucille-core's. -->
+      <dependency>
+        <groupId>io.github.classgraph</groupId>
+        <artifactId>classgraph</artifactId>
+        <version>4.8.158</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jsoup</groupId>
+        <artifactId>jsoup</artifactId>
+        <version>1.23.2</version>
+      </dependency>
+
       <!-- OSHI for system-level stats -->
       <dependency>
         <groupId>com.github.oshi</groupId>

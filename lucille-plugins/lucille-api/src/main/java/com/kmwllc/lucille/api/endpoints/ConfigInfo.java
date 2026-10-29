@@ -11,7 +11,7 @@ import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.spec.Spec;
 
 import io.github.classgraph.ClassGraph;
-import io.github.classgraph.ClassInfoList;
+import io.github.classgraph.ClassInfo;
 import io.github.classgraph.ScanResult;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.GET;
@@ -26,6 +26,8 @@ import java.util.stream.Stream;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * API endpoint to provide available connectors, stages, and indexers,
@@ -35,6 +37,8 @@ import org.jsoup.select.Elements;
 @Tag(name = "Config")
 @Produces(MediaType.APPLICATION_JSON)
 public class ConfigInfo {
+
+  private static final Logger log = LoggerFactory.getLogger(ConfigInfo.class);
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
@@ -170,8 +174,7 @@ public class ConfigInfo {
   }
 
   // Builds an array of specs for the subclasses of a base class
-  private ArrayNode buildSpecArrayForSubclasses(String baseClassName, Map<String, ComponentDoc> docs)
-      throws NoSuchFieldException, IllegalAccessException {
+  private ArrayNode buildSpecArrayForSubclasses(String baseClassName, Map<String, ComponentDoc> docs) {
     ArrayNode array = mapper.createArrayNode();
 
     String extraPackages = System.getProperty("scan.extra.packages", "");
@@ -185,20 +188,23 @@ public class ConfigInfo {
 
     // Use ClassGraph to scan the classpath
     try (ScanResult scanResult = new ClassGraph().enableClassInfo().acceptPackages(packages).scan()) {
-      // Find every class that is a subclass of the provided class name
-      ClassInfoList classes = scanResult.getSubclasses(baseClassName);
-      // Load whatever matches were found as class objects
-      List<Class<?>> refs = classes.loadClasses();
-
-      // Iterate over each subclass
-      for (Class<?> c : refs) {
-        // Get the specs
-        ObjectNode specNode = (ObjectNode) ((Spec) c.getDeclaredField("SPEC").get(null)).toJson();
-        specNode.put("class", c.getName());
+      // Iterate over every subclass of the provided class name
+      for (ClassInfo classInfo : scanResult.getSubclasses(baseClassName)) {
+        // Load the class and get its spec. A class that can't be loaded or has no accessible SPEC (e.g. an abstract
+        // base class) is left out, rather than failing the whole list.
+        ObjectNode specNode;
+        try {
+          Class<?> c = classInfo.loadClass();
+          specNode = (ObjectNode) ((Spec) c.getDeclaredField("SPEC").get(null)).toJson();
+        } catch (Exception | LinkageError e) {
+          log.warn("Leaving {} out of the {} list: couldn't get its SPEC ({}).", classInfo.getName(), baseClassName, e.toString());
+          continue;
+        }
+        specNode.put("class", classInfo.getName());
         array.add(specNode);
 
         // If the class has javadoc descriptions, merge them in to the spec
-        ComponentDoc d = docs.get(c.getName());
+        ComponentDoc d = docs.get(classInfo.getName());
         mergeJavadocIntoFields(specNode, (d != null ? d.description: null));
       }
     }
@@ -209,7 +215,7 @@ public class ConfigInfo {
   @GET
   @Path("/connector-list")
   public Response getConnectors()
-      throws IOException, NoSuchFieldException, IllegalAccessException {
+      throws IOException {
     if (cachedConnectorListJson == null) {
       Map<String, ComponentDoc> connectorDocs = loadDocs("connector-javadocs.json");
       cachedConnectorListJson = buildSpecArrayForSubclasses(AbstractConnector.class.getName(), connectorDocs);
@@ -221,7 +227,7 @@ public class ConfigInfo {
   @GET
   @Path("/stage-list")
   public Response getStages()
-      throws IOException, NoSuchFieldException, IllegalAccessException {
+      throws IOException {
     if (cachedStageListJson == null) {
       Map<String, ComponentDoc> stageDocs = loadDocs("stage-javadocs.json");
       cachedStageListJson = buildSpecArrayForSubclasses(Stage.class.getName(), stageDocs);
@@ -233,7 +239,7 @@ public class ConfigInfo {
   @GET
   @Path("/indexer-list")
   public Response getIndexers()
-      throws IOException, NoSuchFieldException, IllegalAccessException {
+      throws IOException {
     if (cachedIndexerListJson == null) {
       Map<String, ComponentDoc> indexerDocs = loadDocs("indexer-javadocs.json");
       cachedIndexerListJson = buildSpecArrayForSubclasses(Indexer.class.getName(), indexerDocs);

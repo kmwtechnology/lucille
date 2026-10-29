@@ -68,6 +68,19 @@ public class ConfigInfoTest {
     }
   }
 
+  @Test
+  public void testStages_classWithoutSpecSkipped() throws Exception {
+    Response resp = resource.getStages();
+    assertEquals(200, resp.getStatus());
+
+    ArrayNode arr = mapper.valueToTree(resp.getEntity());
+    assertTrue(arr.size() > 0);
+
+    for (JsonNode n : arr) {
+      assertNotEquals(NoSpecStage.class.getName(), n.get("class").asText());
+    }
+  }
+
   // THIS TEST WILL NOT PASS MANUALLY UNLESS YOU HAVE RUN THE DOCLET THROUGH MVN CLEAN INSTALL
   @Test
   public void testStages_AddRandomBoolean_containsFields() throws Exception {
