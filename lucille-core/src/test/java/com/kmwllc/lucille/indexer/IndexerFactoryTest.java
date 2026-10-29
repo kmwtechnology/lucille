@@ -47,4 +47,14 @@ public class IndexerFactoryTest {
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
     Assert.assertTrue(indexer instanceof NopIndexer);
   }
+
+  @Test
+  public void testDefaultsToNopIndexerWhenNoIndexerBlock() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("IndexerFactoryTest/config_no_indexer_block.conf");
+
+    // should still default to NopIndexer rather than throwing ConfigException.Missing when indexer block is missing
+    Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
+    Assert.assertTrue(indexer instanceof NopIndexer);
+  }
 }

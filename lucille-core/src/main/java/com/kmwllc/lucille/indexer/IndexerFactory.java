@@ -4,6 +4,7 @@ import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.message.IndexerMessenger;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValueFactory;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +39,11 @@ public class IndexerFactory {
    */
   public static Indexer fromConfig(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId)
       throws IndexerException {
+
+    // If indexer block does not exist, add blank one so that it defaults to NopIndexer.
+    if (!config.hasPath("indexer")) {
+      config = config.withValue("indexer", ConfigValueFactory.fromMap(Map.of()));
+    }
 
     if (bypass == false) {
       if (config.hasPath("indexer.sendEnabled") && !config.getBoolean("indexer.sendEnabled")) {
