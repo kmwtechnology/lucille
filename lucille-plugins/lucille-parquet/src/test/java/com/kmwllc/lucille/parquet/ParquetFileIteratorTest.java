@@ -73,7 +73,8 @@ public class ParquetFileIteratorTest {
     java.nio.file.Path dir = Files.createTempDirectory("parquet-ids");
     Path file = new Path(dir.resolve("ids.parquet").toUri());
     try {
-      // LocalOutputFile writes with java.nio, because writing through Hadoop's local file system fails on Windows
+      // LocalOutputFile writes with java.nio, because writing through Hadoop's local file system
+      // fails on Windows unless winutils.exe is present
       try (ParquetWriter<Group> writer =
           ExampleParquetWriter.builder(new LocalOutputFile(dir.resolve("ids.parquet"))).withType(schema).build()) {
         writer.write(groups.newGroup().append("id", "1").append("name", "a"));
