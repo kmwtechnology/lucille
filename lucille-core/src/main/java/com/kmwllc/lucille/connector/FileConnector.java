@@ -332,9 +332,6 @@ public class FileConnector extends AbstractConnector {
     if (stateManager != null) {
       try {
         stateManager.init();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new ConnectorException("Interrupted while waiting for the state table lock.", e);
       } catch (Exception e) {
         throw new ConnectorException("Error occurred initializing StorageClientStateManager.", e);
       }

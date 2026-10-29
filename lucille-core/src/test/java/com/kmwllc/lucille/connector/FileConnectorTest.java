@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -504,49 +503,35 @@ public class FileConnectorTest {
 
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
 
-    CountDownLatch tStarted = new CountDownLatch(1);
-    CountDownLatch mainFinished = new CountDownLatch(1);
-
-    Thread t = new Thread(() -> {
-      try {
-        TestMessenger messenger = new TestMessenger();
-        Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
-        Connector conn = new FileConnector(config);
-
-        tStarted.countDown();
-
-        conn.execute(publisher);
-
-        if (mainFinished.getCount() == 1) {
-          fail("Connector in Thread T finished executing before mainFinished was decreased...");
-        }
-
-        conn.close();
-        assertEquals(18, messenger.getDocsSentForProcessing().size());
-      } catch (Exception e) {
-        fail("Error in thread: " + e.getMessage());
-      }
-    });
-
     try {
       TestMessenger messenger = new TestMessenger();
       Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
       Connector conn = new FileConnector(config);
 
-      // the stateManager doesn't get initialized until execution begins.
+      // the stateManager doesn't get initialized until execution begins, and isn't shut down until close().
       conn.execute(publisher);
 
-      // second connector tries to start,
-      // should be blocked until we close this connector
-      t.start();
-      tStarted.await(1, TimeUnit.SECONDS);
+      // a second connector on the same table fails while the first is still open
+      TestMessenger messenger2 = new TestMessenger();
+      Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
+      Connector conn2 = new FileConnector(config);
 
-      mainFinished.countDown();
+      ConnectorException e = assertThrows(ConnectorException.class, () -> conn2.execute(publisher2));
+      assertTrue(e.getCause().getMessage().contains("is in use by another run in this JVM"));
+      conn2.close();
+      assertEquals(0, messenger2.getDocsSentForProcessing().size());
+
       conn.close();
-
       assertEquals(18, messenger.getDocsSentForProcessing().size());
 
-      t.join();
+      // once the first connector is closed, the table can be used again
+      TestMessenger messenger3 = new TestMessenger();
+      Publisher publisher3 = new PublisherImpl(config, messenger3, "run", "pipeline1");
+      Connector conn3 = new FileConnector(config);
+
+      conn3.execute(publisher3);
+      conn3.close();
+      assertEquals(18, messenger3.getDocsSentForProcessing().size());
     } finally {
       FileUtils.deleteDirectory(stateDirectory);
     }

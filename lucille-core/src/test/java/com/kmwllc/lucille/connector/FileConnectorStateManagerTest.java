@@ -27,8 +27,6 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.h2.tools.RunScript;
@@ -62,8 +60,8 @@ public class FileConnectorStateManagerTest {
   @Rule
   public final DBTestHelper dbHelper = new DBTestHelper("sm-db-test-start.sql");
 
-  // Note that there is no manipulation of the LockRegistry even though each FCSM
-  // is using the same (static) one - because calls to init / shutdown should be made appropriately...
+  // Note that every FCSM shares the same (static) set of tables in use, so each test must shut down every manager it
+  // initializes.
 
   // The publish time is taken right after start, and can equal it on a coarse clock.
   private static void assertPublishedDuringTest(Instant start, Instant published) {
@@ -652,23 +650,10 @@ public class FileConnectorStateManagerTest {
 
     manager.shutdown();
 
-    // a later run against the same table must not be blocked by a lock that was never released
+    // a later run against the same table must not be rejected by a key that was never released
     FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
-    CountDownLatch initCompleted = new CountDownLatch(1);
-
-    Thread t = new Thread(() -> {
-      try {
-        manager2.init();
-        initCompleted.countDown();
-        manager2.shutdown();
-      } catch (Exception e) {
-        fail("Error in thread: " + e.getMessage());
-      }
-    });
-    t.start();
-
-    assertTrue(initCompleted.await(5, TimeUnit.SECONDS));
-    t.join();
+    manager2.init();
+    manager2.shutdown();
   }
 
   // FileConnector.close() calls shutdown() even when init() never ran, e.g. when preExecute fails. With deletions on
@@ -706,9 +691,9 @@ public class FileConnectorStateManagerTest {
   }
 
   // FileConnector.close() calls shutdown() even when execute() - and so init() - never ran, e.g. when preExecute fails.
-  // That shutdown() must not release a lock that another manager holds.
+  // That shutdown() must not release a table that another manager is using.
   @Test
-  public void testShutdownWithoutInitDoesNotReleaseOtherLock() throws Exception {
+  public void testShutdownWithoutInitDoesNotReleaseOtherClaim() throws Exception {
     final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf")
         .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
 
@@ -718,57 +703,34 @@ public class FileConnectorStateManagerTest {
     FileConnectorStateManager neverInitialized = new FileConnectorStateManager(config, null);
     neverInitialized.shutdown();
 
+    // still in use by the first manager
     FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
-    CountDownLatch initCompleted = new CountDownLatch(1);
-
-    Thread t = new Thread(() -> {
-      try {
-        manager2.init();
-        initCompleted.countDown();
-        manager2.shutdown();
-      } catch (Exception e) {
-        fail("Error in thread: " + e.getMessage());
-      }
-    });
-    t.start();
-
-    // still blocked by the first manager
-    assertFalse(initCompleted.await(500, TimeUnit.MILLISECONDS));
+    assertThrows(IllegalStateException.class, manager2::init);
 
     manager.shutdown();
-    assertTrue(initCompleted.await(5, TimeUnit.SECONDS));
-    t.join();
   }
 
   @Test
-  public void testBlockConcurrentConnections() throws Exception {
+  public void testRejectConcurrentConnections() throws Exception {
     final Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
 
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
     manager.init();
 
-    CountDownLatch initCompleted = new CountDownLatch(1);
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    IllegalStateException e = assertThrows(IllegalStateException.class, manager2::init);
+    assertTrue(e.getMessage().contains("is in use by another run in this JVM"));
 
-    Thread t = new Thread(() -> {
-      try {
-        FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
-
-        // blocking as long as first manager is up
-        manager2.init();
-        initCompleted.countDown();
-        manager2.shutdown();
-      } catch (Exception e) {
-        fail("Error in thread: " + e.getMessage());
-      }
-    });
-
-    t.start();
-
-    assertEquals(1, initCompleted.getCount());
+    // the rejected manager is still shut down as part of the Connector lifecycle, and must not release the first's claim
+    manager2.shutdown();
+    FileConnectorStateManager manager3 = new FileConnectorStateManager(config, null);
+    assertThrows(IllegalStateException.class, manager3::init);
 
     manager.shutdown();
-    assertTrue(initCompleted.await(1, TimeUnit.SECONDS));
-    t.join();
+
+    FileConnectorStateManager manager4 = new FileConnectorStateManager(config, null);
+    manager4.init();
+    manager4.shutdown();
   }
 
   // for the two below tests, they are allowed to run concurrently
@@ -816,32 +778,6 @@ public class FileConnectorStateManagerTest {
         .withValue("performDeletions", ConfigValueFactory.fromAnyRef(false));
 
     FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
-    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
-    FileConnectorStateManager manager3 = new FileConnectorStateManager(config, null);
-
-    CountDownLatch threadsStarted = new CountDownLatch(2);
-
-    Thread m2Thread = new Thread(() -> {
-      try {
-        threadsStarted.countDown();
-        manager2.init();
-        manager2.markFileEncountered(helloFile);
-        manager2.shutdown();
-      } catch (Exception e) {
-        fail("Error in thread: " + e.getMessage());
-      }
-    });
-
-    Thread m3Thread = new Thread(() -> {
-      try {
-        threadsStarted.countDown();
-        manager3.init();
-        manager3.markFileEncountered(helloFile);
-        manager3.shutdown();
-      } catch (Exception e) {
-        fail("Error in thread: " + e.getMessage());
-      }
-    });
 
     Connection connection = mock(Connection.class);
 
@@ -857,20 +793,17 @@ public class FileConnectorStateManagerTest {
       assertThrows(SQLException.class, manager::init);
     }
 
-    // start other threads, they are blocked for a bit
-    m2Thread.start();
-    m3Thread.start();
+    // the table stays in use until shutdown is called
+    FileConnectorStateManager manager2 = new FileConnectorStateManager(config, null);
+    assertThrows(IllegalStateException.class, manager2::init);
 
-    threadsStarted.await(1, TimeUnit.SECONDS);
-    // we call shutdown outside the mocked static
-    // 1. the shutdown doesn't need the mocked static
-    // 2. we want the other threads to have no risk
-    // of using the mocked static since they are acting as "normal" runs
     manager.shutdown();
 
-    // now, they should be able to run normally.
-    m2Thread.join();
-    m3Thread.join();
+    // now, a new run should be able to start normally.
+    FileConnectorStateManager manager3 = new FileConnectorStateManager(config, null);
+    manager3.init();
+    manager3.markFileEncountered(helloFile);
+    manager3.shutdown();
   }
 
   @Test

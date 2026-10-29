@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.util.LockRegistry;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -12,6 +11,8 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -51,13 +52,13 @@ import com.typesafe.config.Config;
  *   {@link TraversalState}.</li>
  *   <li>The paths a FileConnector traverses do not overlap.</li>
  * </ol>
- * <p> Regardless, the FileConnectorStateManager will lock access by <code>connectionString</code> and <code>tableName</code>. Only one
- * FileConnectorStateManager within the same JVM will be allowed to connect to the same <code>connectionString</code> and
- * <code>tableName</code> at a time.
+ * <p> Regardless, only one FileConnectorStateManager within the same JVM may use a given <code>connectionString</code> and
+ * <code>tableName</code> at a time. {@link #init()} fails if another FileConnectorStateManager is already using them.
  */
 public class FileConnectorStateManager {
 
-  private static final LockRegistry lockRegistry = new LockRegistry();
+  // connectionString:tableName keys of the state tables currently in use in this JVM.
+  private static final Set<String> tablesInUse = ConcurrentHashMap.newKeySet();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnectorStateManager.class);
 
@@ -84,12 +85,13 @@ public class FileConnectorStateManager {
   // init() binds one for the thread that calls it, and each additional traversal thread binds its own with openStateForThread().
   private final ThreadLocal<TraversalState> threadState = new ThreadLocal<>();
 
-  private final String registryKey;
+  private final String tableKey;
 
-  // Whether this instance currently holds the registry lock. init() and shutdown() can run on different threads
-  // (Runner calls execute() on a ConnectorThread but close() on its own thread), and shutdown() can be called
-  // without a successful init() - so only release a lock this instance actually acquired, and only once.
-  private final AtomicBoolean holdsLock = new AtomicBoolean(false);
+  // Whether this instance has claimed tableKey in tablesInUse. shutdown() is also called when init() never ran or was
+  // rejected, and must not release a table another instance is using. Atomic because init() and shutdown() can run
+  // on different threads (Runner calls execute() on a ConnectorThread but close() on its own thread), and so the table
+  // is released at most once.
+  private final AtomicBoolean claimedTable = new AtomicBoolean(false);
 
   /**
    * Creates a FileConnectorStateManager from the given config.
@@ -110,23 +112,20 @@ public class FileConnectorStateManager {
     }
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", DEFAULT_PATH_LENGTH);
 
-    this.registryKey = connectionString + ":" + tableName;
+    this.tableKey = connectionString + ":" + tableName;
   }
 
   /**
    * Connects to the database specified by your Config, and ensure a table with tableName exists, building it with the
    * appropriate schema if it doesn't. After connecting to the table, sets encountered=FALSE for all rows.
-   * Blocks while another FileConnectorStateManager in this JVM holds the same table.
-   * @throws InterruptedException If the thread is interrupted while waiting for the table.
+   * @throws IllegalStateException If another FileConnectorStateManager in this JVM is using the same table.
    */
-  public void init() throws ClassNotFoundException, SQLException, InterruptedException {
-    lockRegistry.acquire(registryKey);
-    holdsLock.set(true);
-
-    // An important note: we do *not* release the lock in a "finally" block
-    // in the event of an exception here. This is because we expect
-    // shutdown() to still be called in the event of an error -
-    // so we release the lock there instead.
+  public void init() throws ClassNotFoundException, SQLException {
+    if (!tablesInUse.add(tableKey)) {
+      throw new IllegalStateException("State table " + tableKey + " is in use by another run in this JVM.");
+    }
+    // released in shutdown(), which is still called if the rest of init() fails
+    claimedTable.set(true);
 
     traversalInstant = Instant.now();
 
@@ -274,8 +273,8 @@ public class FileConnectorStateManager {
       // close even if the deletion failed, so the connection isn't leaked
       closeConnection(jdbcConnection);
 
-      if (holdsLock.getAndSet(false)) {
-        lockRegistry.release(registryKey);
+      if (claimedTable.getAndSet(false)) {
+        tablesInUse.remove(tableKey);
       }
     }
   }
