@@ -6,6 +6,7 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.util.List;
 import org.apache.commons.io.FileUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -56,5 +57,29 @@ public class IndexerFactoryTest {
     // should still default to NopIndexer rather than throwing ConfigException.Missing when indexer block is missing
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
     Assert.assertTrue(indexer instanceof NopIndexer);
+  }
+
+  @Test
+  public void testSelectIndexerClassRejectsDuplicateTypes() {
+    List<Class<? extends Indexer>> matches = List.of(CSVIndexer.class, CSVIndexer.class);
+    Exception exception = assertThrows(IndexerException.class,
+        () -> IndexerFactory.selectIndexerClass("Dup", matches, List.of("Dup")));
+    Assert.assertTrue(exception.getMessage().contains("Ambiguous indexer.type configuration of:"));
+    // The message lists the names of the conflicting class(es) so the user can find them.
+    Assert.assertTrue(exception.getMessage().contains(CSVIndexer.class.getName()));
+  }
+
+  @Test
+  public void testSelectIndexerClassRejectsUnknownType() {
+    Exception exception = assertThrows(IndexerException.class,
+        () -> IndexerFactory.selectIndexerClass("Missing", List.of(), List.of("CSV", "Nop")));
+    Assert.assertTrue(exception.getMessage().contains("Unknown indexer.type configuration of:"));
+  }
+
+  @Test
+  public void testSelectIndexerClassReturnsSingleMatch() throws Exception {
+    Class<? extends Indexer> selected =
+        IndexerFactory.selectIndexerClass("CSV", List.of(CSVIndexer.class), List.of("CSV"));
+    Assert.assertEquals(CSVIndexer.class, selected);
   }
 }

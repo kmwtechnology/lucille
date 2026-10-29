@@ -101,6 +101,9 @@ public class IndexerFactory {
     String typeName = config.getString("indexer.type");
 
     List<String> known = new ArrayList<>();
+    // Collect every class that registers the requested type rather than returning on the first match, so two indexers claiming the same indexer.type is reported as an error
+    // instead of silently resolving to whichever the classpath scan happened to hit first.
+    List<Class<? extends Indexer>> matches = new ArrayList<>();
     for (String className : readRegisteredIndexerClassNames()) {
       Class<? extends Indexer> indexerClass;
       try {
@@ -122,13 +125,33 @@ public class IndexerFactory {
       }
       known.add(registeredType);
       if (registeredType.equalsIgnoreCase(typeName)) {
-        return construct(indexerClass, config, messenger, bypass, metricsPrefix, localRunId);
+        matches.add(indexerClass);
       }
     }
 
-    throw new IndexerException("Unknown indexer.type configuration of: '" + typeName + "'. Available types on the classpath: "
-        + known + ". Ensure the module providing this indexer (e.g. lucille-solr, lucille-opensearch, lucille-elasticsearch) "
-        + "is on the classpath, or specify a fully-qualified indexer.class instead.");
+    Class<? extends Indexer> indexerClass = selectIndexerClass(typeName, matches, known);
+    return construct(indexerClass, config, messenger, bypass, metricsPrefix, localRunId);
+  }
+
+  // Resolves the configured indexer.type to exactly one Indexer class from the candidates that registered that type.
+  // Throws if none match (unknown type) or more than one matches (ambiguous registration — two indexers claiming the
+  // same type). Package-private so it can be unit-tested directly without wiring up service files.
+  static Class<? extends Indexer> selectIndexerClass(String typeName, List<Class<? extends Indexer>> matches, List<String> known)
+      throws IndexerException {
+    if (matches.isEmpty()) {
+      throw new IndexerException("Unknown indexer.type configuration of: '" + typeName + "'. Available types on the classpath: "
+          + known + ". Ensure the module providing this indexer is on the classpath, or specify a fully-qualified indexer.class instead.");
+    }
+    if (matches.size() > 1) {
+      List<String> conflicting = new ArrayList<>();
+      for (Class<? extends Indexer> match : matches) {
+        conflicting.add(match.getName());
+      }
+      throw new IndexerException("Ambiguous indexer.type configuration of: '" + typeName + "'. It is registered by more "
+          + "than one Indexer on the classpath: " + conflicting + ". Remove the conflicting module, or select the "
+          + "intended implementation with a fully-qualified indexer.class instead.");
+    }
+    return matches.get(0);
   }
 
   // Reads the fully-qualified Indexer class names from every META-INF/services/com.kmwllc.lucille.core.Indexer on the
