@@ -9,7 +9,7 @@ Runs the `lucille-api` Docker image (the same Dockerfile published as `kmwtechno
 
 ### What it checks
 
-The `api` service has a healthcheck on its readiness probe, so `/v1/readyz` must return 200 before anything else starts. Then the `verifier` container starts, and runs the following, in order. The code is in `src/test/java/com/kmwllc/lucille/api/`, and none of it runs as part of normal Lucille builds.
+The `api` service has a healthcheck on its readiness probe, so `/v1/readyz` must return 200 before anything else starts. Then the `verifier` container starts, and runs the following, in order. The code is in `src/test/java/com/kmwllc/lucille/examples/api/`, and none of it runs as part of normal Lucille builds.
 
 **`IngestDriver`** drives the ingest through the API. It uploads `conf/run_a.conf` as HOCON and `conf/run_b.json` as JSON, so both of `/v1/config`'s content types are covered, and starts both runs at the same time. Each config uses a SequenceConnector to generate 500 docs, with its own doc ID prefix, a `run` field, and an output CSV on a volume shared with the verifier. Both runs must succeed with 500 docs, with distinct run IDs. If an upload or run fails, it fails, and the JUnit classes below don't run. It reports whether the runs overlapped in time, but doesn't fail if they didn't.
 

@@ -11,7 +11,7 @@ import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.util.FileUtils;
 import com.kmwllc.lucille.util.FileUtils.ContentTooLargeException;

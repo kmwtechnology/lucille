@@ -1,8 +1,8 @@
 package com.kmwllc.lucille.video;
 
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandler.BaseFileHandler;
-import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
+import com.kmwllc.lucille.core.filehandler.BaseFileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandlerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
