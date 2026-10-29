@@ -5,7 +5,18 @@ date: 2025-06-09
 description: A Connector that queries Solr and publishes each result document into a Lucille pipeline. Supports pre/post actions for setup and cleanup.
 ---
 
-[Source Code](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SolrConnector.java)
+[Source Code](https://github.com/kmwtechnology/lucille/blob/main/lucille-plugins/lucille-solr/src/main/java/com/kmwllc/lucille/solr/connector/SolrConnector.java)
+
+`com.kmwllc.lucille.solr.connector.SolrConnector`
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-solr</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
 
 `com.kmwllc.lucille.connector.SolrConnector`
 
@@ -19,7 +30,7 @@ Internally, the connector uses cursor-based pagination (`cursorMark`) to iterate
 connectors: [
   {
     name: "solr-source"
-    class: "com.kmwllc.lucille.connector.SolrConnector"
+    class: "com.kmwllc.lucille.solr.connector.SolrConnector"
     pipeline: "my-pipeline"
 
     solr {
@@ -109,7 +120,7 @@ The request format is controlled by `useXml`:
 connectors: [
   {
     name: "solr-source"
-    class: "com.kmwllc.lucille.connector.SolrConnector"
+    class: "com.kmwllc.lucille.solr.connector.SolrConnector"
     pipeline: "process-pipeline"
 
     solr {

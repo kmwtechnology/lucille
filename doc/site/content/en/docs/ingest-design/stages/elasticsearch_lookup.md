@@ -5,7 +5,16 @@ date: 2025-06-09
 description: Looks up a document in Elasticsearch by the Lucille document's ID and copies selected fields onto the document.
 ---
 
-`com.kmwllc.lucille.stage.ElasticsearchLookup`
+`com.kmwllc.lucille.elasticsearch.stage.ElasticsearchLookup`
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-elasticsearch</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
 
 Fetches the Elasticsearch document in `elasticsearch.index` whose ID matches the Lucille document's ID, then copies each field in `source` to the field at the same position in `dest`. `source` and `dest` should have the same length. If no matching Elasticsearch document exists, or a source field is missing from it, nothing is written for that field. Values are converted to text, so object and array values are written as empty strings and a JSON `null` is written as the string `"null"`. The stage pings Elasticsearch at startup and fails if the cluster is unreachable.
 
@@ -26,7 +35,7 @@ The `elasticsearch` block also accepts `update` and `join` because it is shared 
 
 ```hocon
 {
-  class: "com.kmwllc.lucille.stage.ElasticsearchLookup"
+  class: "com.kmwllc.lucille.elasticsearch.stage.ElasticsearchLookup"
   elasticsearch {
     url: "http://localhost:9200"
     index: "products"

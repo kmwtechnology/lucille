@@ -5,9 +5,20 @@ date: 2025-06-09
 description: Configuration reference for the Solr Indexer, for single-node Solr and SolrCloud.
 ---
 
-`com.kmwllc.lucille.indexer.SolrIndexer`
+`com.kmwllc.lucille.solr.indexer.SolrIndexer`
 
 Config block: `solr { ... }`
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-solr</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
+
+Selecting the indexer with `indexer.type: "Solr"` works once `lucille-solr` is on the classpath.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

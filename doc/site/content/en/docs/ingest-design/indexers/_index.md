@@ -26,7 +26,9 @@ solr {
 }
 ```
 
-`indexer.type` is shorthand for a built-in indexer: `"Solr"`, `"OpenSearch"`, `"Elasticsearch"`, or `"CSV"`. For plugin indexers, use `indexer.class` with the fully qualified class name instead.
+`indexer.type` is a shorthand that is resolved at runtime from the classpath: `"Solr"`, `"OpenSearch"`, `"Elasticsearch"`, `"CSV"`, or `"Nop"`. 
+`Solr`, `OpenSearch`, and `Elasticsearch` live in their own plugin modules and the `type` shortcut only resolves when that module is on the classpath (see the per-indexer pages below for the exact Maven dependency). 
+For plugin indexers that do not register a `type` (e.g., Pinecone, Weaviate), use `indexer.class` with the fully qualified class name instead. `indexer.class` also works for any of the backends above if you prefer to be explicit.
 
 Both blocks are validated when the indexer is constructed: an unknown key in the `indexer` block or in the backend block fails at startup. After construction, Lucille calls the indexer's connection check (for example a ping) and the run fails at startup if it does not succeed.
 
@@ -34,7 +36,7 @@ Both blocks are validated when the indexer is constructed: an unknown key in the
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `type` | String | No | Shorthand for built-in indexers: `Solr`, `OpenSearch`, `Elasticsearch`, `CSV` (case-insensitive). One of `type` or `class` must be set, or the indexer fails at startup. Any other value fails at startup. |
+| `type` | String | No | Shorthand from the classpath (case-insensitive): `Solr`, `OpenSearch`, `Elasticsearch` (each requires its plugin module on the classpath), or `CSV` / `Nop` (in `lucille-core`). Defaults to Nop. |
 | `class` | String | No | Fully qualified class name for plugin or custom indexers. Takes precedence over `type` if both are set. |
 | `batchSize` | Integer | No | Number of documents a batch holds before it is sent. If only `batchByteSize` is set, count-based batching is disabled. Default: `100`. |
 | `batchByteSize` | Long | No | Estimated size in bytes a batch may hold before it is sent. The size is estimated from the document's JSON structure, not measured from the serialized request. When set alone, count-based batching is disabled. When set alongside `batchSize`, whichever limit is reached first sends the batch. Default: disabled. |
@@ -140,13 +142,13 @@ A record on the destination topic that cannot be deserialized stops the indexer,
 
 ### Core Indexers
 
-- [Solr Indexer]({{< relref "docs/ingest-design/indexers/solr_indexer" >}}) — Single-node and SolrCloud.
-- [OpenSearch Indexer]({{< relref "docs/ingest-design/indexers/opensearch_indexer" >}}) — OpenSearch with optional partial updates.
-- [Elasticsearch Indexer]({{< relref "docs/ingest-design/indexers/elasticsearch_indexer" >}}) — Elasticsearch with join field support.
 - [CSV Indexer]({{< relref "docs/ingest-design/indexers/csv_indexer" >}}) — Write pipeline output to a CSV file.
-- [NopIndexer]({{< relref "docs/ingest-design/indexers/nop_indexer" >}}) — No-op indexer for testing.
+- [NopIndexer]({{< relref "docs/ingest-design/indexers/nop_indexer" >}}) — No-op indexer for testing (default).
 
 ### Plugin Indexers
 
+- [Solr Indexer]({{< relref "docs/ingest-design/indexers/solr_indexer" >}}) — Single-node and SolrCloud.
+- [OpenSearch Indexer]({{< relref "docs/ingest-design/indexers/opensearch_indexer" >}}) — OpenSearch with optional partial updates.
+- [Elasticsearch Indexer]({{< relref "docs/ingest-design/indexers/elasticsearch_indexer" >}}) — Elasticsearch with join field support.
 - [Pinecone Indexer]({{< relref "docs/ingest-design/indexers/pinecone_indexer" >}}) — Index vector embeddings into Pinecone.
 - [Weaviate Indexer]({{< relref "docs/ingest-design/indexers/weaviate_indexer" >}}) — Index documents and vectors into Weaviate.

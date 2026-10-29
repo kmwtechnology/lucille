@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.indexer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -31,6 +32,8 @@ import java.util.List;
  *   <li>append (Boolean, Optional) : Open the CSV in append mode instead of overwriting. Defaults to false.</li>
  * </ul>
  */
+@AutoService(Indexer.class)
+@IndexerType("CSV")
 public class CSVIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
