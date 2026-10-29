@@ -86,6 +86,10 @@ public class ApplyOpenNLPNameFinders extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) {
+    if (!doc.has(textField)) {
+      return null;
+    }
+
     String text = doc.getString(textField);
     String[] tokens = tokenizer.tokenize(text);
 
