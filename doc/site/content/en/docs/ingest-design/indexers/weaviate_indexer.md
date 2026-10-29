@@ -2,7 +2,7 @@
 title: Weaviate Indexer
 weight: 7
 date: 2025-06-09
-description: Configuration reference for the Weaviate Indexer — index documents and vectors into Weaviate.
+description: Configuration reference for the Weaviate Indexer, which indexes documents and vectors into Weaviate.
 ---
 
 `com.kmwllc.lucille.weaviate.indexer.WeaviateIndexer`
@@ -20,11 +20,11 @@ Indexes documents into [Weaviate](https://weaviate.io/). Config block: `weaviate
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `apiKey` | String | Yes | Weaviate API key for authentication. Use `${?WEAVIATE_API_KEY}` for environment variable substitution. |
-| `host` | String | Yes | Weaviate instance hostname (e.g., `my-cluster.weaviate.network`). Do not include the protocol — HTTPS is used automatically. |
-| `className` | String | No | The Weaviate class (object type) to create or update. Default: `"Document"`. |
-| `idDestinationName` | String | No | Field name under which the document's original Lucille ID is stored in Weaviate (since Weaviate's `id` field must be a UUID). Default: `"id_original"`. |
-| `vectorField` | String | No | Document field containing the vector embedding to index. If omitted, no vector is sent (useful if Weaviate is configured to generate its own embeddings). |
+| `apiKey` | String | Yes | Weaviate API key for authentication. Use `${WEAVIATE_API_KEY}` for environment variable substitution. |
+| `host` | String | Yes | Weaviate instance hostname (e.g., `my-cluster.weaviate.network`). Do not include the protocol. HTTPS is always used. |
+| `className` | String | No | The Weaviate class (object type) that objects are written to. Default: `Document`. |
+| `idDestinationName` | String | No | Property under which the document's ID (its Lucille ID, or the `indexer.idOverrideField` value when present) is stored in Weaviate, since Weaviate's `id` must be a UUID. Default: `id_original`. |
+| `vectorField` | String | No | Document field containing the vector embedding to index, as a list of floats. If omitted, no vector is sent (useful if Weaviate is configured to generate its own embeddings). |
 
 ```hocon
 indexer {
@@ -48,10 +48,18 @@ The generic `indexer.whitelist` and `indexer.blacklist` options control which fi
 
 ## UUID Generation
 
-Weaviate requires UUIDs for its internal `id` field. The WeaviateIndexer generates a deterministic UUID from the document's Lucille ID using `UUID.nameUUIDFromBytes(id.getBytes())`. This means:
+Weaviate requires UUIDs for its internal `id` field. The WeaviateIndexer generates a deterministic UUID from the document's ID (the `indexer.idOverrideField` value when it is set and present, otherwise the Lucille ID) using `UUID.nameUUIDFromBytes(id.getBytes())`. This means:
 
-- The same Lucille ID always maps to the same Weaviate UUID, enabling idempotent upserts.
-- The original Lucille ID is stored under `idDestinationName` (default: `"id_original"`) so it can be retrieved later.
+- The same ID always maps to the same Weaviate UUID, enabling idempotent upserts.
+- That ID is stored under `idDestinationName` (default: `id_original`) so it can be retrieved later.
+
+---
+
+## Properties Sent
+
+Every document field except `id` (and the vector field, see below) is sent as an object property, after `indexer.whitelist` and `indexer.blacklist` are applied. This includes `run_id` unless the filter excludes it. Child documents are not sent, either as a property or as separate objects.
+
+WeaviateIndexer does not support `indexer.maxConcurrentBatches` greater than 1; setting it fails at startup.
 
 ---
 
@@ -61,9 +69,15 @@ WeaviateIndexer logs a warning if `deletionMarkerField` or `deleteByFieldField` 
 
 ---
 
+## sendEnabled and Test Mode
+
+With `indexer.sendEnabled: false`, or when Lucille runs in test mode, no Weaviate client is created, connection validation passes, and batches are not sent; the documents are reported as indexed.
+
+---
+
 ## Vector Field Handling
 
-If `vectorField` is set and the document has that field, the vector is sent alongside the object properties. The vector field is removed from the properties map to avoid storing it twice (once as a vector, once as a property).
+If `vectorField` is set and the document has that field, its values are read as floats and sent as the object's vector. Values are not checked: a non-numeric value is sent as `0.0`. The vector field is removed from the properties map to avoid storing it twice (once as a vector, once as a property).
 
 If `vectorField` is omitted, no vector is sent. This is useful when Weaviate is configured to generate its own embeddings via vectorizer modules (e.g., `text2vec-openai`).
 
@@ -77,26 +91,31 @@ All writes use `ConsistencyLevel.ALL` (strongest consistency). This is not curre
 
 ## Connection Timeouts
 
-The Weaviate client is configured with 6-second timeouts for connection, read, and write operations. These are not currently configurable via the Lucille config. If you experience timeout errors with large batches or slow networks, reduce `indexer.batchSize`.
+The Weaviate client is created with connection, connection request, and response timeouts of `6000` each, which the Weaviate client library interprets as seconds (100 minutes each). These are not configurable via the Lucille config.
+
+---
+
+## Errors
+
+- If the batch request itself fails, the whole batch fails.
+- If Weaviate reports an error for an individual object, only that document is marked as failed.
+- These failures are not retryable, so `indexer.maxRetries` has no effect. The Weaviate client itself resends a batch up to 3 times after a connection error or timeout before reporting it as failed.
 
 ---
 
 ## Class/Schema Requirements
 
-The `className` parameter determines which Weaviate class (schema type) objects are created under. The class must already exist in the Weaviate schema — the indexer does not create it. If the class doesn't exist, the batch write will fail.
+The `className` parameter determines which Weaviate class (schema type) objects are created under. The indexer does not create the class or its schema.
 
 ---
 
 ## Troubleshooting
 
-**AuthException ("Couldn't connect to Weaviate instance"):**
-The API key is invalid or the host is unreachable. Verify `WEAVIATE_API_KEY` and that the `host` value is correct (hostname only, no `https://` prefix).
+**"Couldn't connect to Weaviate instance":**
+The Weaviate client could not be created at startup. Verify `apiKey` and that the `host` value is correct (hostname only, no `https://` prefix).
 
-**Class not found in schema:**
-Create the Weaviate class via the Weaviate console or REST API before running Lucille.
+**Connection validation fails:**
+At startup the indexer requests Weaviate's meta endpoint. Errors from that request are logged and the run stops. Check the host and API key.
 
 **Vector dimension mismatch:**
-If using a Weaviate vectorizer module, ensure the vector field dimensions match what the module expects. If sending vectors directly, ensure they match the class's configured vector dimensions.
-
-**Timeout errors:**
-Reduce `indexer.batchSize` to send smaller batches. The 6-second timeout is fixed.
+If sending vectors directly, ensure they match the class's configured vector dimensions.
