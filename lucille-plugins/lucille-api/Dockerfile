@@ -49,14 +49,15 @@ WORKDIR /lucille-api
 # remove pebble due to CVE with go. unused.
 RUN apt-get update && apt-get upgrade -y && rm -f /usr/bin/pebble /bin/pebble
 
-# we copy local build artifacts and configuration into the image that we're building
-COPY conf/ /lucille-api/conf/
-COPY target/ /lucille-api/target/
-
-# non-root user
+# non-root user. Created before the COPYs so they can set ownership with --chown: a "chown -R" after them
+# would store a second copy of every file (including the jar) in its own layer.
 RUN groupadd -r lucille \
  && useradd -r -g lucille -d /lucille-api -s /usr/sbin/nologin lucille \
- && chown -R lucille:lucille /lucille-api
+ && chown lucille:lucille /lucille-api
+
+# we copy local build artifacts and configuration into the image that we're building
+COPY --chown=lucille:lucille conf/ /lucille-api/conf/
+COPY --chown=lucille:lucille target/lucille-api-plugin.jar /lucille-api/target/lucille-api-plugin.jar
 
 # Set the necessary environment variables
 ENV JAVA_OPTS=""
