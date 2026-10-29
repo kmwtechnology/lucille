@@ -15,6 +15,9 @@ import java.util.Objects;
  * Represents something that happened relating to a particular document in the context of a particular "run."
  * For example, a document may have been created during pipeline execution, or a document may have been indexed
  * in a search engine.
+ *
+ * <p> Two events are equal only if all of their fields are equal, including the instant at which each was created,
+ * so events that record the same thing at different moments are not equal.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Event {
@@ -77,16 +80,6 @@ public class Event {
     this.runId = runId;
     this.message = message;
     this.type = type;
-  }
-
-  public Event(ObjectNode node) throws Exception {
-    this.documentId = node.get("documentId").asText();
-    this.message = node.get("message").asText();
-    this.runId = node.get("runId").asText();
-    this.type = Type.valueOf(node.get("type").asText());
-    if (node.get("documentFields") instanceof ObjectNode) {
-      this.documentFields = (ObjectNode) node.get("documentFields");
-    }
   }
 
   public String getDocumentId() {

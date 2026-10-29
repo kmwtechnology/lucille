@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -257,13 +256,14 @@ public class EventTest {
   }
 
   @Test
-  public void testObjectNodeConstructorKeepsDocumentFields() throws Exception {
-    Document doc = Document.create("id1", "runId1");
-    doc.setField("source", "s3://b/k");
-    Event event = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("source"), null));
+  public void testFromJsonStringWithNullMessage() throws Exception {
+    // a null message is omitted from the JSON, as on the Worker's FAIL events
+    Event event = new Event(Document.create("id1", "runId1"), null, Event.Type.FAIL);
+    assertFalse(event.toString().contains("\"message\""));
 
-    Event fromNode = new Event((ObjectNode) new ObjectMapper().readTree(event.toString()));
-    assertEquals("s3://b/k", fromNode.getDocumentFields().get("source").asText());
+    Event roundTripped = Event.fromJsonString(event.toString());
+    assertNull(roundTripped.getMessage());
+    assertEquals(event, roundTripped);
   }
 
   @Test
