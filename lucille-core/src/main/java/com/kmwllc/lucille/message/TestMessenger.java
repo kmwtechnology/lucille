@@ -8,8 +8,13 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Wrapper around LocalMessenger that stores message traffic so that it can be retrieved later.
- * Intended for use in a testing context.
+ * The recording of a test-mode run ({@link com.kmwllc.lucille.core.Runner#runInTestMode(com.typesafe.config.Config)}):
+ * the documents sent for processing and for indexing, and the events sent, in the order they occurred.
+ *
+ * <p> This class ships in lucille-core rather than a test artifact so that test mode is available wherever
+ * Lucille is, for pipeline development as well as for tests. Its supported API is
+ * {@link #getDocsSentForProcessing()}, {@link #getDocsSentForIndexing()} and {@link #getSentEvents()}; the
+ * messenger methods it implements are internal to Lucille and may change.
  */
 public class TestMessenger implements IndexerMessenger, PublisherMessenger,
     WorkerMessenger {
