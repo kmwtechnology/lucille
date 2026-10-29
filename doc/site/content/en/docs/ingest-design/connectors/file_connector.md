@@ -303,6 +303,7 @@ A few constraints to be aware of when using state:
 - Similarly, remember that the files in a directory that is skipped (by `pathsToSkip`), since they are not traversed, are also not tracked at all during a stateful run.
 - Capitalise directory names in `paths` consistently across runs. State lookups are case-sensitive.
 - Each database table should be used by only one connector configuration. Sharing a table across connectors will corrupt state. This can happen in several ways: reusing the same explicit `tableName` across multiple connectors in the same config file; running two separate configs concurrently where both reference the same `tableName`; or omitting `tableName` in two different configs that happen to use the same connector name (since `tableName` defaults to the connector name). In all cases, two connectors writing to the same state table will overwrite each other's records, leading to incorrect incremental behavior — files may be skipped or reprocessed unexpectedly.
+- Only one run at a time (within a JVM) can use a given `connectionString` **and** `tableName` for state. A run fails at startup if another run is already using them.
 
 ---
 

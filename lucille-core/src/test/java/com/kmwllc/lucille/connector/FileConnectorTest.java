@@ -39,6 +39,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.MockedStatic;
 import org.slf4j.Logger;
@@ -487,6 +489,51 @@ public class FileConnectorTest {
       assertEquals(18, messenger.getDocsSentForProcessing().size());
     } finally {
       FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  @Test
+  @Execution(ExecutionMode.SAME_THREAD)
+  public void testConcurrentTraversalsWithState() throws Exception {
+    File stateDirectory = new File("state");
+    File dbFile = new File("state/file-connector.mv.db");
+
+    assertFalse(stateDirectory.exists());
+    assertFalse(dbFile.exists());
+
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
+
+    try {
+      TestMessenger messenger = new TestMessenger();
+      Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+      Connector conn = new FileConnector(config);
+
+      // the stateManager doesn't get initialized until execution begins, and isn't shut down until close().
+      conn.execute(publisher);
+
+      // a second connector on the same table fails while the first is still open
+      TestMessenger messenger2 = new TestMessenger();
+      Publisher publisher2 = new PublisherImpl(config, messenger2, "run", "pipeline1");
+      Connector conn2 = new FileConnector(config);
+
+      ConnectorException e = assertThrows(ConnectorException.class, () -> conn2.execute(publisher2));
+      assertTrue(e.getCause().getMessage().contains("is in use by another run in this JVM"));
+      conn2.close();
+      assertEquals(0, messenger2.getDocsSentForProcessing().size());
+
+      conn.close();
+      assertEquals(18, messenger.getDocsSentForProcessing().size());
+
+      // once the first connector is closed, the table can be used again
+      TestMessenger messenger3 = new TestMessenger();
+      Publisher publisher3 = new PublisherImpl(config, messenger3, "run", "pipeline1");
+      Connector conn3 = new FileConnector(config);
+
+      conn3.execute(publisher3);
+      conn3.close();
+      assertEquals(18, messenger3.getDocsSentForProcessing().size());
+    } finally {
+      FileUtils.deleteDirectory(stateDirectory);
     }
   }
 
@@ -1067,6 +1114,24 @@ public class FileConnectorTest {
     assertEquals(documentIds(sequentialDocs), documentIds(concurrentDocs));
   }
 
+  // Verifies a concurrent traversal with state run the way Runner runs it: execute() on a ConnectorThread and close() on
+  // the calling thread. The state lock taken in execute() must be released by close(), or the next run blocks forever.
+  @Test
+  public void testConcurrentTraversalWithStateExecuteAndCloseOnDifferentThreads() throws Exception {
+    // DB_CLOSE_DELAY=-1 keeps the in-memory database between runs, so the second run sees the first run's state
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/stateMultiplePaths.conf")
+        .withValue("maxThreads", ConfigValueFactory.fromAnyRef(-1))
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef("jdbc:h2:mem:executeAndCloseThreads;DB_CLOSE_DELAY=-1"));
+
+    List<Document> firstRunDocs = publishedDocumentsExecutingOnOtherThread(config);
+    assertFalse(firstRunDocs.isEmpty());
+
+    // incremental: everything was published within lastPublishedCutoff, so the second run publishes nothing
+    List<Document> secondRunDocs = publishedDocumentsExecutingOnOtherThread(config);
+    assertEquals(0, secondRunDocs.size());
+  }
+
   // Verifies that with fewer threads than paths, the queued paths are still traversed, and a thread reused for a second
   // path can open state again.
   @Test
@@ -1209,6 +1274,30 @@ public class FileConnectorTest {
     Connector conn = new FileConnector(config);
     try {
       conn.execute(publisher);
+    } finally {
+      conn.close();
+    }
+
+    return messenger.getDocsSentForProcessing();
+  }
+
+  // Like publishedDocuments(), but calls execute() on a separate thread and close() on this one, as Runner does.
+  private List<Document> publishedDocumentsExecutingOnOtherThread(Config config) throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    Connector conn = new FileConnector(config);
+    try {
+      Thread connectorThread = new Thread(() -> {
+        try {
+          conn.execute(publisher);
+        } catch (ConnectorException e) {
+          throw new RuntimeException(e);
+        }
+      });
+      connectorThread.start();
+      connectorThread.join(TimeUnit.SECONDS.toMillis(10));
+      assertFalse("execute() did not finish - is the state lock still held?", connectorThread.isAlive());
     } finally {
       conn.close();
     }
