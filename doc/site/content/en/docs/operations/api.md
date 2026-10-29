@@ -36,7 +36,7 @@ The server listens on port `8080` by default. Swagger UI is available at `http:/
 ### Using a Plugin
 
 The `lucille-api` JAR bundles only `lucille-core`. 
-Lucille discovers indexer types via the `ServiceLoader` mechanism, so making a plugin indexer available to the API is just a matter of putting the plugin JAR on the classpath. 
+Lucille discovers indexer types from the classpath, so making a plugin indexer available to the API is just a matter of putting the plugin JAR on the classpath. 
 You can append the plugin's shaded JAR. Here is an example for OpenSearch:
 
 Build the plugin's shaded JAR first with the `shaded-plugin-jars` profile, e.g.:

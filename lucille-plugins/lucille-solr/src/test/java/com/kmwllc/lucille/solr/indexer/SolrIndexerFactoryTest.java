@@ -10,8 +10,8 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 /**
- * Verifies that {@code indexer.type: "Solr"} resolves to {@link SolrIndexer} through the {@link IndexerFactory}
- * ServiceLoader mechanism now that the Solr backend lives in this plugin module rather than in lucille-core. This is the
+ * Verifies that {@code indexer.type: "Solr"} resolves to {@link SolrIndexer} through {@link IndexerFactory}
+ * now that the Solr backend lives in this plugin module rather than in lucille-core. This is the
  * plugin-side counterpart to core's IndexerFactoryTest, which no longer references SolrIndexer.
  */
 public class SolrIndexerFactoryTest {

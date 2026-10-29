@@ -10,9 +10,9 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 /**
- * Verifies that {@code indexer.type: "OpenSearch"} resolves to {@link OpenSearchIndexer} through the
- * {@link IndexerFactory} ServiceLoader mechanism now that the OpenSearch backend lives in this plugin module rather than
- * in lucille-core. This is the plugin-side counterpart to core's IndexerFactoryTest, which no longer references
+ * Verifies that {@code indexer.type: "OpenSearch"} resolves to {@link OpenSearchIndexer} through {@link IndexerFactory}
+ * now that the OpenSearch backend lives in this plugin module rather than in
+ * lucille-core. This is the plugin-side counterpart to core's IndexerFactoryTest, which no longer references
  * OpenSearchIndexer.
  */
 public class OpenSearchIndexerFactoryTest {

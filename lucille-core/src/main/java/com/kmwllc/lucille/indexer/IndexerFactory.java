@@ -170,8 +170,8 @@ public class IndexerFactory {
     } catch (InvocationTargetException e) {
       // The constructor threw. Unwrap so the underlying cause (e.g. an IllegalArgumentException from Spec validation
       // with a message like "Config is missing required property index") surfaces with its own message instead of a
-      // generic "Problem initializing" wrapper. This matches the behavior before indexers were constructed reflectively
-      // via ServiceLoader: Spec/config validation throws unchecked exceptions, which we rethrow as-is.
+      // generic "Problem initializing" wrapper. Spec/config validation throws unchecked exceptions, which we rethrow
+      // as-is to preserve the original message.
       if (e.getCause() instanceof RuntimeException re) {
         throw re;
       }

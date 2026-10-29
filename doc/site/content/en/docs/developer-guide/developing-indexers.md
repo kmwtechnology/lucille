@@ -146,9 +146,7 @@ Use `com.kmwllc.lucille.<name>.indexer.<Name>Indexer` (e.g. `com.kmwllc.lucille.
 
 ### 3. Register the `indexer.type` (optional)
 
-The `indexer.type: "..."` shortcut is resolved at runtime via Java's `ServiceLoader`, which discovers `Indexer` implementations registered on the classpath — so a plugin can register its type name without `lucille-core` referencing the class. You never hand-write a `META-INF/services` file: [Google AutoService](https://github.com/google/auto/tree/main/service) generates it at compile time from annotations. AutoService is already wired into the build (`auto-service-annotations` on the compile classpath and the `auto-service` processor in the compiler plugin's `annotationProcessorPaths`, both inherited from `lucille-parent`), so you only annotate the class. Two annotations plus a constructor:
-
-**a.** Annotate your indexer with `@IndexerType` (the `indexer.type` name) and `@AutoService(Indexer.class)` (which makes AutoService generate the service-file entry):
+The `indexer.type: "..."` shortcut is resolved at runtime from a service file on the classpath, so a plugin can register its type name without `lucille-core` referencing the class. You never hand-write that file: [Google AutoService](https://github.com/google/auto/tree/main/service) generates it at compile time from annotations. AutoService is already wired into the build (`auto-service-annotations` on the compile classpath and the `auto-service` processor in the compiler plugin's `annotationProcessorPaths`, both inherited from `lucille-parent`), so the only thing you write is the annotation:
 
 ```java
 import com.google.auto.service.AutoService;
@@ -162,24 +160,15 @@ public class NameIndexer extends Indexer {
 }
 ```
 
-**b.** Add a `public` no-arg constructor that calls `super()`. `ServiceLoader` requires a public no-arg constructor to instantiate the class for discovery. `IndexerFactory` uses that instance to read the `@IndexerType` annotation, then builds the real indexer through the standard `(Config, IndexerMessenger, boolean, String, String)` constructor. The base `Indexer` provides an inert no-arg constructor for this purpose, so yours just needs to chain to it and null any fields your class declares `final`:
+`@IndexerType` declares the `indexer.type` name; `@AutoService(Indexer.class)` makes AutoService list this class in `META-INF/services/com.kmwllc.lucille.core.Indexer` at compile time. At runtime `IndexerFactory` reads the class names from those service files (merged across all jars on the classpath), resolves each with `Class.forName(name, false, loader)` which loads the class and reads its `@IndexerType` **without instantiating it**, and matches the annotation value case-insensitively against the configured `indexer.type`. Only the matching indexer is constructed, through its normal `(Config, IndexerMessenger, boolean, String, String)` constructor.
 
-```java
-/** Inert no-arg constructor for ServiceLoader discovery only; see Indexer#Indexer(). */
-public NameIndexer() {
-  super();
-  // set any final fields this class declares to null / defaults
-}
-```
-
-At compile time AutoService writes `META-INF/services/com.kmwllc.lucille.core.Indexer` listing your class. At runtime `IndexerFactory` reads the `@IndexerType` value off each discovered indexer class and matches it case-insensitively against the configured `indexer.type`.
 If you skip this step, your indexer is still usable, but users must use the fully-qualified `indexer.class` instead of `indexer.type`.
 
 > **Note:** AutoService runs as an annotation processor during compilation. If you add or change an `@IndexerType` and the generated service file seems stale (the type won't resolve), do a clean build (`mvn clean ...`). Incremental compilation can skip the processor when it considers the class files up to date.
 
 #### External projects
 
-A third-party project that uses Lucille as a dependency registers a custom indexer the same way. It already depends on `lucille-core` (which provides `@IndexerType` and the `Indexer` base class). It additionally needs AutoService on its own build's annotation-processor path — either the `auto-service` processor in its `maven-compiler-plugin` `annotationProcessorPaths`, or the equivalent for its build tool — plus `auto-service-annotations` on the compile classpath for the `@AutoService` annotation. With those in place, annotating the class makes its jar carry its own generated service file, and dropping that jar on the classpath makes `indexer.type` resolve through the same `ServiceLoader` scan, with no change to Lucille.
+A third-party project that uses Lucille as a dependency registers a custom indexer the same way. It already depends on `lucille-core` (which provides `@IndexerType` and the `Indexer` base class). It additionally needs AutoService on its own build's annotation-processor path — either the `auto-service` processor in its `maven-compiler-plugin` `annotationProcessorPaths`, or the equivalent for its build tool — plus `auto-service-annotations` on the compile classpath for the `@AutoService` annotation. With those in place, annotating the class makes its jar carry its own generated service file, and dropping that jar on the classpath makes `indexer.type` resolve the same way, with no change to Lucille.
 
 ### 4. Add the module to the BOM
 

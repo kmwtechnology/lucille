@@ -13,9 +13,9 @@ import java.lang.annotation.Target;
  * <p>Registration is automatic: annotate the Indexer with {@code @IndexerType} <b>and</b> with
  * {@code @com.google.auto.service.AutoService(Indexer.class)}. Google AutoService finds the {@code @AutoService} class
  * at compile time and generates that module's {@code META-INF/services/com.kmwllc.lucille.core.Indexer} service file,
- * so no service file is written or maintained by hand. At runtime {@link IndexerFactory} discovers the registered
- * Indexers via {@link java.util.ServiceLoader}, reads this annotation's {@link #value()}, and matches it
- * case-insensitively against the configured {@code indexer.type}.
+ * so no service file is written or maintained by hand. At runtime {@link IndexerFactory} reads the registered class
+ * names from those service files on the classpath, loads each class without instantiating it, reads this annotation's
+ * {@link #value()}, and matches it case-insensitively against the configured {@code indexer.type}.
  *
  * <p>Retention is {@link RetentionPolicy#RUNTIME} because {@code IndexerFactory} reads the type name from this
  * annotation at runtime; it is the single source of truth for the name (there is no separate field).

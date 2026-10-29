@@ -73,7 +73,7 @@ To use a component from a plugin module, add that module as a Maven dependency (
 Then reference the component in your config. Indexers that register an `indexer.type` (`Solr`, `OpenSearch`, `Elasticsearch`) can be selected either way:
 
 ```hocon
-# By type, resolved at runtime via ServiceLoader. Works only when lucille-solr is on the classpath.
+# By type, resolved at runtime from the classpath. Works only when lucille-solr is on the classpath.
 indexer { type: "Solr" }
 
 # Or by fully-qualified class. This always works, and is required for plugins without a registered type.
@@ -82,7 +82,7 @@ indexer { class: "com.kmwllc.lucille.solr.indexer.SolrIndexer" }
 
 Stages and connectors are always referenced by their fully-qualified `class` (e.g. `com.kmwllc.lucille.opensearch.stage.QueryOpensearch`). Each component's documentation page lists its exact `class`, module, and Maven dependency.
 
-> **Classpath note for command-line runs:** the `indexer.type` shortcut is resolved via Java's `ServiceLoader`, so the plugin JAR must be on the runtime classpath, not just a compile dependency. When you build from source, each module's `target/lib/` already contains the plugin JARs it needs (see below); when you assemble a classpath yourself, make sure the plugin JAR and its dependencies are included.
+> **Classpath note for command-line runs:** the `indexer.type` shortcut is resolved from a service file on the classpath, so the plugin JAR must be on the runtime classpath, not just a compile dependency. When you build from source, each module's `target/lib/` already contains the plugin JARs it needs (see below); when you assemble a classpath yourself, make sure the plugin JAR and its dependencies are included.
 
 ### Running Lucille from the Command Line (Runner, Worker, Indexer)
 

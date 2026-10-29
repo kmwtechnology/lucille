@@ -24,7 +24,7 @@ solr {
 }
 ```
 
-`indexer.type` is a shorthand that is resolved at runtime via `ServiceLoader`: `"Solr"`, `"OpenSearch"`, `"Elasticsearch"`, `"CSV"`, or `"Nop"`. 
+`indexer.type` is a shorthand that is resolved at runtime from the classpath: `"Solr"`, `"OpenSearch"`, `"Elasticsearch"`, `"CSV"`, or `"Nop"`. 
 `Solr`, `OpenSearch`, and `Elasticsearch` live in their own plugin modules and the `type` shortcut only resolves when that module is on the classpath (see the per-indexer pages below for the exact Maven dependency). 
 For plugin indexers that do not register a `type` (e.g., Pinecone, Weaviate), use `indexer.class` with the fully qualified class name instead. `indexer.class` also works for any of the backends above if you prefer to be explicit.
 
@@ -32,7 +32,7 @@ For plugin indexers that do not register a `type` (e.g., Pinecone, Weaviate), us
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `type` | String | — | Shorthand resolved via `ServiceLoader`: `Solr`, `OpenSearch`, `Elasticsearch` (each requires its plugin module on the classpath), or `CSV` / `Nop` (in `lucille-core`). |
+| `type` | String | — | Shorthand resolved from the classpath: `Solr`, `OpenSearch`, `Elasticsearch` (each requires its plugin module on the classpath), or `CSV` / `Nop` (in `lucille-core`). |
 | `class` | String | — | Fully qualified class name. Works for any indexer (built-in, backend plugin, or custom) and is required for plugin indexers that do not register a `type`. |
 | `batchSize` | Integer | 100 | Number of documents to accumulate before sending a batch. |
 | `batchByteSize` | Long | — (disabled) | Estimated cumulative byte size of documents in a batch before flushing. The size is approximated by traversing the document's JSON structure, not by measuring exact serialized bytes. When set alone, document-count batching is disabled. When set alongside `batchSize`, whichever limit is reached first triggers a flush. |

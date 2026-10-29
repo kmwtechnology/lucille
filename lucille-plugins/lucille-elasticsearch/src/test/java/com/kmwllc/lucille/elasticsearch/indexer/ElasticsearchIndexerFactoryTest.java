@@ -10,8 +10,8 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 /**
- * Verifies that {@code indexer.type: "Elasticsearch"} resolves to {@link ElasticsearchIndexer} through the
- * {@link IndexerFactory} ServiceLoader mechanism now that the Elasticsearch backend lives in this plugin module rather
+ * Verifies that {@code indexer.type: "Elasticsearch"} resolves to {@link ElasticsearchIndexer} through
+ * {@link IndexerFactory} now that the Elasticsearch backend lives in this plugin module rather
  * than in lucille-core. This is the plugin-side counterpart to core's IndexerFactoryTest, which no longer references
  * ElasticsearchIndexer.
  */
