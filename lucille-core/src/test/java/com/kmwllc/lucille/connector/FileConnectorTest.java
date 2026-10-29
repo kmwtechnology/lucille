@@ -493,15 +493,13 @@ public class FileConnectorTest {
   }
 
   @Test
-  @Execution(ExecutionMode.SAME_THREAD)
-  public void testConcurrentTraversalsWithState() throws Exception {
-    File stateDirectory = new File("state");
-    File dbFile = new File("state/file-connector.mv.db");
+  public void testConcurrentTraversalsWithStateFailFast() throws Exception {
+    File dbFile = new File(STATE_DIR, "file-connector.mv.db");
 
-    assertFalse(stateDirectory.exists());
     assertFalse(dbFile.exists());
 
-    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf");
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING));
 
     try {
       TestMessenger messenger = new TestMessenger();
@@ -533,7 +531,7 @@ public class FileConnectorTest {
       conn3.close();
       assertEquals(18, messenger3.getDocsSentForProcessing().size());
     } finally {
-      FileUtils.deleteDirectory(stateDirectory);
+      FileUtils.deleteDirectory(STATE_DIR);
     }
   }
 
