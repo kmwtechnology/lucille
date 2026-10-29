@@ -257,8 +257,8 @@ public class EventTest {
 
   @Test
   public void testFromJsonStringWithNullMessage() throws Exception {
-    // a null message is omitted from the JSON, as on the Worker's FAIL events
-    Event event = new Event(Document.create("id1", "runId1"), null, Event.Type.FAIL);
+    // a null message is omitted from the JSON, as on the Worker's CREATE and DROP events
+    Event event = new Event(Document.create("id1", "runId1"), null, Event.Type.DROP);
     assertFalse(event.toString().contains("\"message\""));
 
     Event roundTripped = Event.fromJsonString(event.toString());
