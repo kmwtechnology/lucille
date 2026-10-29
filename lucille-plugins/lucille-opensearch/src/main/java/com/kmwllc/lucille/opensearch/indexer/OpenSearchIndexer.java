@@ -114,18 +114,6 @@ public class OpenSearchIndexer extends Indexer {
     this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
   }
 
-  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link com.kmwllc.lucille.core.Indexer#Indexer()}. */
-  public OpenSearchIndexer() {
-    super();
-    this.client = null;
-    this.index = null;
-    this.routingField = null;
-    this.versionType = null;
-    this.versionField = null;
-    this.update = false;
-    this.childDocumentsField = null;
-  }
-
   // Convenience Constructors
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, OpenSearchClient client) {
     this(config, messenger, false, metricsPrefix, null, client);

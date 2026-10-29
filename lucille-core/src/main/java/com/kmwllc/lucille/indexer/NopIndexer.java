@@ -33,11 +33,6 @@ public class NopIndexer extends Indexer {
     this(config, messenger, bypass, metricsPrefix, null);
   }
 
-  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link Indexer#Indexer()}. */
-  public NopIndexer() {
-    super();
-  }
-
   @Override
   protected String getIndexerConfigKey() { return null; }
 

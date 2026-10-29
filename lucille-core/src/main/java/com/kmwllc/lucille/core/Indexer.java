@@ -337,37 +337,6 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     }
   }
 
-  /**
-   * Inert no-arg constructor used only for {@link java.util.ServiceLoader} discovery of the {@code indexer.type}
-   * registered on each implementation. {@code IndexerFactory} instantiates an Indexer through this constructor solely
-   * to read its {@code @IndexerType} annotation; the instance is otherwise never used (no config is parsed, no
-   * connection is opened, no metrics are registered). The real Indexer is then built through the standard
-   * {@code (Config, IndexerMessenger, boolean, String, String)} constructor.
-   *
-   * <p>Each concrete Indexer must declare a trivial {@code public} no-arg constructor that calls {@code super()} so that
-   * ServiceLoader can instantiate it (ServiceLoader requires a public no-arg constructor on the concrete class).
-   */
-  protected Indexer() {
-    this.messenger = null;
-    this.batch = null;
-    this.logSeconds = 0;
-    this.meter = null;
-    this.histogram = null;
-    this.idOverrideField = null;
-    this.indexOverrideField = null;
-    this.deletionMarkerField = null;
-    this.deletionMarkerFieldValue = null;
-    this.deleteByFieldField = null;
-    this.deleteByFieldValue = null;
-    this.fieldFilter = null;
-    this.localRunId = null;
-    this.bypass = false;
-    this.retry = null;
-    this.retryableStatusCodes = List.of();
-    this.maxConcurrentBatches = 1;
-    this.dispatcher = null;
-  }
-
   // Flushes the open batch and drains every in-flight batch, so all polled-but-not-yet-completed documents complete
   // (events emitted, offsets committed) now rather than being re-delivered after a rebalance. Runs on the indexer
   // thread, from the messenger's partition-revocation callback. Never throws an Exception: a failure here must not break

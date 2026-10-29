@@ -86,14 +86,6 @@ public class CSVIndexer extends Indexer {
     this(config, messenger, getCsvWriter(config, bypass), bypass, metricsPrefix, localRunId);
   }
 
-  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link Indexer#Indexer()}. */
-  public CSVIndexer() {
-    super();
-    this.writer = null;
-    this.columns = null;
-    this.includeHeader = false;
-  }
-
   // Convenience Constructors - No localRunId needs to be specified, uses "null".
 
   /**

@@ -81,12 +81,6 @@ public class SolrIndexer extends Indexer {
     this.solrClient = getSolrClient(config, bypass);
   }
 
-  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link com.kmwllc.lucille.core.Indexer#Indexer()}. */
-  public SolrIndexer() {
-    super();
-    this.solrClient = null;
-  }
-
   // Convenience Constructors
   public SolrIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, SolrClient solrClient) {
     this(config, messenger, false, metricsPrefix, null, solrClient);

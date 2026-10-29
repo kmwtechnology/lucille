@@ -157,19 +157,6 @@ public class ElasticsearchIndexer extends Indexer {
     this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
   }
 
-  /** Inert no-arg constructor for ServiceLoader discovery only; see {@link com.kmwllc.lucille.core.Indexer#Indexer()}. */
-  public ElasticsearchIndexer() {
-    super();
-    this.client = null;
-    this.index = null;
-    this.update = false;
-    this.joinData = null;
-    this.routingField = null;
-    this.versionType = null;
-    this.childDocumentsField = null;
-    this.versionField = null;
-  }
-
   // Convenience Constructors
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, String metricsPrefix, ElasticsearchClient client) {
     this(config, messenger, false, metricsPrefix, null, client);

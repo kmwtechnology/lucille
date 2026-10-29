@@ -1,18 +1,14 @@
 package com.kmwllc.lucille.all;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.indexer.IndexerFactory;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.ServiceLoader;
 import org.junit.Test;
 
 /**
@@ -26,8 +22,8 @@ import org.junit.Test;
  *   <li>Conflicting transitive dependencies across plugins can make classes fail to load at runtime.</li>
  * </ul>
  *
- * <p>These tests assert that, with the whole bundle on the classpath, every {@code indexer.type} resolves to the
- * expected implementation through {@link IndexerFactory}. They construct indexers in bypass mode, so no external
+ * <p>This test asserts that, with the whole bundle on the classpath, every {@code indexer.type} resolves to the
+ * expected implementation through {@link IndexerFactory}. It constructs indexers in bypass mode, so no external
  * service (Solr, OpenSearch, Elasticsearch) is contacted.
  */
 public class PackagingTest {
@@ -59,32 +55,6 @@ public class PackagingTest {
       // bypass=true so no client is created / no network call is made. Only check the resolved type.
       Indexer indexer = IndexerFactory.fromConfig(config, new TestMessenger(), true, "packaging-test");
       assertEquals(expectedClass, indexer.getClass().getName());
-    }
-  }
-
-  /**
-   * Directly asserts the ServiceLoader sees every backend Indexer once the whole bundle is on the classpath. This is
-   * the registration layer underneath {@link IndexerFactory}: each Indexer is registered via the AutoService-generated
-   * {@code META-INF/services/com.kmwllc.lucille.core.Indexer} and declares a public no-arg constructor so ServiceLoader
-   * can instantiate it for discovery.
-   */
-  @Test
-  public void testAllBackendIndexersAreDiscovered() {
-    List<String> discoveredTypes = new ArrayList<>();
-    for (Indexer discovered : ServiceLoader.load(Indexer.class)) {
-      discoveredTypes.add(discovered.getClass().getName());
-    }
-
-    List<String> expected = List.of(
-        "com.kmwllc.lucille.indexer.CSVIndexer",
-        "com.kmwllc.lucille.indexer.NopIndexer",
-        "com.kmwllc.lucille.solr.indexer.SolrIndexer",
-        "com.kmwllc.lucille.opensearch.indexer.OpenSearchIndexer",
-        "com.kmwllc.lucille.elasticsearch.indexer.ElasticsearchIndexer");
-
-    for (String expectedIndexer : expected) {
-      assertTrue("Expected Indexer " + expectedIndexer + " to be discoverable on the combined "
-          + "classpath, but only found: " + discoveredTypes, discoveredTypes.contains(expectedIndexer));
     }
   }
 }
