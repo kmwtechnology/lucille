@@ -28,10 +28,10 @@ import com.typesafe.config.Config;
  */
 public abstract class AbstractConnector implements Connector {
 
-  private String name;
-  private String pipelineName;
-  private String docIdPrefix;
-  private boolean collapse;
+  private final String name;
+  private final String pipelineName;
+  private final String docIdPrefix;
+  private final boolean collapse;
   private String message = null;
   protected final Config config;
 

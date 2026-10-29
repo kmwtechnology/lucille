@@ -46,18 +46,18 @@ public class QueryDatabase extends Stage {
       .optionalNumber("connectionRetries", "connectionRetryPause")
       .requiredParent("fieldMapping", new TypeReference<Map<String, String>>(){}).build();
 
-  private String driver;
-  private String connectionString;
-  private String jdbcUser;
-  private String jdbcPassword;
-  private String sql;
-  private List<String> keyFields;
-  private List<PreparedStatementParameterType> inputTypes;
-  private Map<String, Object> fieldMapping;
+  private final String driver;
+  private final String connectionString;
+  private final String jdbcUser;
+  private final String jdbcPassword;
+  private final String sql;
+  private final List<String> keyFields;
+  private final List<PreparedStatementParameterType> inputTypes;
+  private final Map<String, Object> fieldMapping;
   protected Connection connection = null;
   private PreparedStatement preparedStatement;
-  private Integer connectionRetries;
-  private Integer connectionRetryPause;
+  private final Integer connectionRetries;
+  private final Integer connectionRetryPause;
   private static final Logger log = LoggerFactory.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {

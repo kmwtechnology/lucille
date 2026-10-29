@@ -12,4 +12,7 @@ public class LogUtils {
 
   // name of default metrics registry
   public static final String METRICS_REG = "default";
+
+  private LogUtils() {
+  }
 }

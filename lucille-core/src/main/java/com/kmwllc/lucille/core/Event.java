@@ -15,11 +15,26 @@ import java.util.Objects;
  * Represents something that happened relating to a particular document in the context of a particular "run."
  * For example, a document may have been created during pipeline execution, or a document may have been indexed
  * in a search engine.
+ *
+ * <p> The {@link #getType() type} says what happened. On a FAIL event the {@link #getMessage() message} is a
+ * human-readable reason for the failure; its text is for people and may change between versions, so consumers should
+ * act on the type rather than parse the message. The one exception is a document delivered to a Worker more times
+ * than {@code worker.maxRetries} allows: its FAIL event always carries the message
+ * {@value #WORKER_MAX_RETRIES_EXCEEDED}.
+ *
+ * <p> Two events are equal only if all of their fields are equal, including the instant at which each was created,
+ * so events that record the same thing at different moments are not equal.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Event {
 
   public enum Type {CREATE, FINISH, FAIL, DROP}
+
+  /**
+   * The message of the FAIL event for a document delivered to a Worker more times than {@code worker.maxRetries}
+   * allows. The Worker sends such a document to the dead letter queue instead of processing it again.
+   */
+  public static final String WORKER_MAX_RETRIES_EXCEEDED = "WORKER_MAX_RETRIES_EXCEEDED";
 
   private Type type;
   private String documentId;
@@ -79,16 +94,6 @@ public class Event {
     this.type = type;
   }
 
-  public Event(ObjectNode node) throws Exception {
-    this.documentId = node.get("documentId").asText();
-    this.message = node.get("message").asText();
-    this.runId = node.get("runId").asText();
-    this.type = Type.valueOf(node.get("type").asText());
-    if (node.get("documentFields") instanceof ObjectNode) {
-      this.documentFields = (ObjectNode) node.get("documentFields");
-    }
-  }
-
   public String getDocumentId() {
     return documentId;
   }
@@ -144,6 +149,17 @@ public class Event {
 
   public static Event fromJsonString(String json) throws Exception {
     return MAPPER.readValue(json, Event.class);
+  }
+
+  /**
+   * Describes a failure for the message of a FAIL event: the throwable's message, or its class name when it has none.
+   * A wrapper that adds no message of its own, such as {@code new RuntimeException(cause)}, is described by its cause.
+   */
+  static String failureMessage(Throwable t) {
+    while (t.getCause() != null && t.getCause().toString().equals(t.getMessage())) {
+      t = t.getCause();
+    }
+    return t.getMessage() != null ? t.getMessage() : t.getClass().getName();
   }
 
   public boolean equals(Object o) {

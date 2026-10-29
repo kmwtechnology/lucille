@@ -130,12 +130,30 @@ public class WorkerTest {
     waitUntil(() -> messenger.getDocsSentForIndexing().size() == 1 && count(messenger, Event.Type.FAIL) == 1);
     assertEquals("doc2", messenger.getDocsSentForIndexing().get(0).getId());
     assertEquals("doc1", messenger.getSentEvents().get(0).getDocumentId());
+    assertEquals("Expected (java.lang.StackOverflowError)", messenger.getSentEvents().get(0).getMessage());
     assertTrue(thread.isAlive());
     assertNull(thread.getThrowable());
 
     thread.terminate();
     thread.join(5000);
     assertFalse(thread.isAlive());
+    assertNull(thread.getThrowable());
+  }
+
+  @Test
+  public void testStageExceptionMessageIsTheFailEventMessage() throws Exception {
+    // the FAIL event carries the stage's own message, not that of the RuntimeException the Stage wraps it in
+    TestMessenger messenger = new TestMessenger();
+    WorkerThread thread = startWorker(PIPELINES, messenger, "stageExceptionForDoc1");
+    messenger.sendForProcessing(Document.create("doc1"));
+
+    waitUntil(() -> count(messenger, Event.Type.FAIL) == 1);
+    Event fail = messenger.getSentEvents().get(0);
+    assertEquals("doc1", fail.getDocumentId());
+    assertEquals("Expected (" + StageException.class.getName() + ")", fail.getMessage());
+
+    thread.terminate();
+    thread.join(5000);
     assertNull(thread.getThrowable());
   }
 
@@ -190,6 +208,10 @@ public class WorkerTest {
     List<String> events = messenger.getSentEvents().stream().map(e -> e.getType() + ":" + e.getDocumentId()).toList();
     assertEquals(List.of("CREATE:doc1_child1", "FAIL:doc1_child1", "FAIL:doc1",
         "CREATE:doc2_child1", "FAIL:doc2_child1", "FAIL:doc2"), events);
+    List<String> failMessages = messenger.getSentEvents().stream()
+        .filter(e -> e.getType() == Event.Type.FAIL).map(Event::getMessage).toList();
+    assertEquals(List.of("parent doc1 failed: too large", "too large", "parent doc2 failed: too large", "too large"),
+        failMessages);
     assertTrue(thread.isAlive());
     assertNull(thread.getThrowable());
 
@@ -223,7 +245,7 @@ public class WorkerTest {
 
     waitUntil(() -> count(messenger, Event.Type.FAIL) == 1);
     Mockito.verify(messenger).sendFailed(Mockito.any());
-    assertEquals("SENT_TO_DLQ", messenger.getSentEvents().get(0).getMessage());
+    assertEquals("WORKER_MAX_RETRIES_EXCEEDED", messenger.getSentEvents().get(0).getMessage());
     assertEquals(0, messenger.getDocsSentForIndexing().size());
     assertTrue(thread.isAlive());
 

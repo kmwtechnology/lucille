@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.core;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -257,13 +256,27 @@ public class EventTest {
   }
 
   @Test
-  public void testObjectNodeConstructorKeepsDocumentFields() throws Exception {
-    Document doc = Document.create("id1", "runId1");
-    doc.setField("source", "s3://b/k");
-    Event event = new Event(doc, "msg", Event.Type.FINISH, fieldConfigFor(List.of("source"), null));
+  public void testFromJsonStringWithNullMessage() throws Exception {
+    // a null message is omitted from the JSON, as on the Worker's CREATE and DROP events
+    Event event = new Event(Document.create("id1", "runId1"), null, Event.Type.DROP);
+    assertFalse(event.toString().contains("\"message\""));
 
-    Event fromNode = new Event((ObjectNode) new ObjectMapper().readTree(event.toString()));
-    assertEquals("s3://b/k", fromNode.getDocumentFields().get("source").asText());
+    Event roundTripped = Event.fromJsonString(event.toString());
+    assertNull(roundTripped.getMessage());
+    assertEquals(event, roundTripped);
+  }
+
+  @Test
+  public void testFailureMessage() {
+    assertEquals("boom", Event.failureMessage(new IllegalStateException("boom")));
+    // no message: the class name
+    assertEquals(IllegalStateException.class.getName(), Event.failureMessage(new IllegalStateException()));
+    // a wrapper with no message of its own is described by its cause, however deeply nested
+    StageException stageException = new StageException("stage failed");
+    assertEquals("stage failed", Event.failureMessage(new RuntimeException(stageException)));
+    assertEquals("stage failed", Event.failureMessage(new RuntimeException(new RuntimeException(stageException))));
+    // a wrapper with its own message keeps it
+    assertEquals("while indexing", Event.failureMessage(new RuntimeException("while indexing", stageException)));
   }
 
   @Test
