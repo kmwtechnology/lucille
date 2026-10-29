@@ -25,8 +25,8 @@ public class Base64Decode extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredString("inputField", "outputField").build();
 
-  private String inputField;
-  private String outputField;
+  private final String inputField;
+  private final String outputField;
 
   public Base64Decode(Config config) {
     super(config);

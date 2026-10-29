@@ -40,10 +40,10 @@ class DeserializationErrorHandler {
 
   private static final Logger log = LoggerFactory.getLogger(DeserializationErrorHandler.class);
 
-  static final String MODE_FAIL = "fail";
-  static final String MODE_SKIP = "skip";
-  static final int DEFAULT_MAX_CONSECUTIVE = 10;
-  static final int UNLIMITED = -1;
+  private static final String MODE_FAIL = "fail";
+  private static final String MODE_SKIP = "skip";
+  private static final int DEFAULT_MAX_CONSECUTIVE = 10;
+  private static final int UNLIMITED = -1;
 
   private final Consumer<?, ?> consumer;
   private final boolean skip;

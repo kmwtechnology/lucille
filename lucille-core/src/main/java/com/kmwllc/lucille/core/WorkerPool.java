@@ -56,16 +56,16 @@ public class WorkerPool {
   public static final String HEARTBEAT_LOG_NAME = "com.kmwllc.lucille.core.Heartbeat";
   private static final Logger heartbeatLog = LoggerFactory.getLogger(HEARTBEAT_LOG_NAME);
 
-  private boolean enableHeartbeat;
-  private int maxProcessingSecs;
-  private boolean exitOnTimeout;
+  private final boolean enableHeartbeat;
+  private final int maxProcessingSecs;
+  private final boolean exitOnTimeout;
 
   private final Config config;
   private final String pipelineName;
   // The current runId, if in a local mode.
   private final String localRunId;
   private Integer numWorkers = null;
-  private WorkerMessengerFactory workerMessengerFactory;
+  private final WorkerMessengerFactory workerMessengerFactory;
   private boolean started = false;
   private final int logSeconds;
   private final String metricsPrefix;

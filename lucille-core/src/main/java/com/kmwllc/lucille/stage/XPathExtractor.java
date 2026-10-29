@@ -39,10 +39,10 @@ public class XPathExtractor extends Stage {
 
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
-  private DocumentBuilderFactory factory;
-  private XPath xpath;
+  private final DocumentBuilderFactory factory;
+  private final XPath xpath;
   private final String xmlField;
-  private Map<XPathExpression, List<String>> expressionMapping;
+  private final Map<XPathExpression, List<String>> expressionMapping;
   private static final Logger log = LoggerFactory.getLogger(XPathExtractor.class);
 
   /**
