@@ -50,7 +50,7 @@ public class AddRandomString extends Stage {
 
   private final String inputDataPath;
   private final String fieldName;
-  private Integer rangeSize;
+  private final Integer rangeSize;
   private Integer minNumOfTerms;
   private Integer maxNumOfTerms;
   private final boolean isNested;

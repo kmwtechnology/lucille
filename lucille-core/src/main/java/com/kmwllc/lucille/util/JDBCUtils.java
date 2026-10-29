@@ -13,6 +13,9 @@ import java.util.Map;
 
 public class JDBCUtils {
 
+  private JDBCUtils() {
+  }
+
   /**
    * Thrown when a result set column has a SQL type that Lucille cannot represent faithfully on a Document.
    * An unsupported type is treated as a misconfiguration (select a different column or cast it in SQL) and

@@ -9,7 +9,7 @@ public enum OpenAIEmbeddingModel {
   public static final String CONFIG_PATH = "modelName";
   public static final OpenAIEmbeddingModel DEFAULT = TEXT_EMBEDDING_3_SMALL;
 
-  private String modelName;
+  private final String modelName;
 
   OpenAIEmbeddingModel(String text) {
     this.modelName = text;
