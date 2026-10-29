@@ -75,13 +75,21 @@ public class ApplyJavascript extends Stage {
 
     if (inlineScript != null) {
       try {
-        this.source = Source.newBuilder("js", inlineScript, "<inline>").build();
+        String wrappedScript = wrapScriptInIIFE(inlineScript);
+        this.source = Source.newBuilder("js", wrappedScript, "<inline>").build();
       } catch (Exception e) {
         throw new StageException("Failed to build inline JavaScript source.", e);
       }
     } else {
       try (Reader reader = FileContentFetcher.getOneTimeReader(scriptPath, config)) {
-        this.source = Source.newBuilder("js", reader, scriptPath).build();
+        StringBuilder scriptContent = new StringBuilder();
+        char[] buffer = new char[1024];
+        int length;
+        while ((length = reader.read(buffer)) != -1) {
+          scriptContent.append(buffer, 0, length);
+        }
+        String wrappedScript = wrapScriptInIIFE(scriptContent.toString());
+        this.source = Source.newBuilder("js", wrappedScript, scriptPath).build();
       } catch (Exception e) {
         throw new StageException("Failed to read JavaScript from '" + scriptPath + "'.", e);
       }
@@ -111,6 +119,12 @@ public class ApplyJavascript extends Stage {
     if (engine != null) {
       engine.close();
     }
+  }
+
+  private String wrapScriptInIIFE(String script) {
+    // Wraps user defined script in an IIFE (Immediately Invoked Function Express) which avoids variable declaration collisions when
+    // rerunning the script in the same GraalVM instance for each document.
+    return "(function() {\n" + script + "\n})();";
   }
 
   @Override
