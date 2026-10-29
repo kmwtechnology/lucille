@@ -86,7 +86,7 @@ public class ApplyOpenNLPNameFinders extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) {
-    if (!doc.has(textField)) {
+    if (!doc.has(textField) || doc.getString(textField).isBlank()) {
       return null;
     }
 
