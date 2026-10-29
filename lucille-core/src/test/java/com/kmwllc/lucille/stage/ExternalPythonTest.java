@@ -3,9 +3,11 @@ package com.kmwllc.lucille.stage;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.stage.util.Py4JRuntime;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -13,9 +15,16 @@ public class ExternalPythonTest {
 
   private final StageFactory factory = StageFactory.of(ExternalPython.class);
   private Stage stage;
+  private long originalTimeout;
+
+  @Before
+  public void setUp() {
+    originalTimeout = Py4JRuntime.PYTHON_STARTUP_TIMEOUT_MS;
+  }
 
   @After
   public void tearDown() throws Exception {
+    Py4JRuntime.PYTHON_STARTUP_TIMEOUT_MS = originalTimeout;
     if (stage != null) {
       stage.stop();
       stage = null;
@@ -197,5 +206,32 @@ public class ExternalPythonTest {
     assertTrue(doc.has("field1"));
     assertEquals("field1Value", doc.getString("field1"));
     assertFalse(doc.has("field2"));
+  }
+
+  @Test
+  public void testPythonStartupTimeout() throws Exception {
+    // Set a very short timeout (1 second) to trigger timeout on slow_startup.py
+    // which sleeps for 5 seconds before reporting readiness
+    Py4JRuntime.PYTHON_STARTUP_TIMEOUT_MS = 1000;
+
+    String confPath = "ExternalPythonTest/slow_startup.conf";
+
+    // Attempting to create the stage should throw StageException due to timeout
+    StageException ex = assertThrows(StageException.class,
+        () -> {
+          try {
+            stage = factory.get(confPath);
+          } catch (Exception e) {
+            throw e;
+          }
+        });
+
+    String errorMessage = ex.getMessage();
+    assertNotNull("Exception message should not be null", errorMessage);
+
+    // The exception message should indicate a startup failure or timeout
+    assertTrue("Exception should mention timeout or failure",
+        errorMessage.toLowerCase().contains("timeout") ||
+        errorMessage.toLowerCase().contains("failed"));
   }
 }

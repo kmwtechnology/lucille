@@ -29,6 +29,12 @@ public final class Py4JRuntime {
   public static final String PYTHON_CLIENT_COPY_NAME = "Py4jClientCopy.py";
 
   /**
+   * Overall timeout for Python process startup in milliseconds. Configurable for testing.
+   * Default is 30 seconds.
+   */
+  public static volatile long PYTHON_STARTUP_TIMEOUT_MS = 30000;
+
+  /**
    * Defines methods that can be called on the python client via Py4J.
    *
    * Here, exec() represents Py4jClient.exec(self, json_msg) in Py4jClient.py
@@ -212,16 +218,29 @@ public final class Py4JRuntime {
         throw new RuntimeException("Failed to resolve Python server entry point", e);
       }
 
+      long startTime = System.currentTimeMillis();
       while (!pythonProcessOutputConsumer.isMessageSeen()) {
-        // if process is no longer alive and exited with code 1, stop waiting.
-        if (!pythonProcess.isAlive() && pythonProcess.exitValue() == 1) {
-          throw new StageException();
+        // if process is no longer alive stop waiting.
+        if (!pythonProcess.isAlive()) {
+          throw new StageException("Python process exited before reporting JavaGateway startup");
+        }
+
+        // Check overall timeout
+        if (PYTHON_STARTUP_TIMEOUT_MS > 0) {
+          long elapsed = System.currentTimeMillis() - startTime;
+          if (elapsed > PYTHON_STARTUP_TIMEOUT_MS) {
+            String capturedOutput = String.join("\n", pythonProcessOutputConsumer.getCapturedOutput());
+            String errorMessage = "Python process startup exceeded timeout of " + PYTHON_STARTUP_TIMEOUT_MS
+                + " ms. Process may be hung or slow to initialize.\nCaptured output:\n" + capturedOutput;
+            throw new StageException(errorMessage);
+          }
         }
 
         try {
           Thread.sleep(100);
         } catch (InterruptedException e) {
-          e.printStackTrace();
+          Thread.currentThread().interrupt();
+          throw new StageException("Python startup interrupted", e);
         }
       }
     } catch (Exception e) {
