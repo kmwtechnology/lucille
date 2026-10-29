@@ -404,6 +404,7 @@ A few constraints to be aware of when using state:
 - Each database table should be used by only one connector configuration. Sharing a table across connectors will corrupt state. This can happen in several ways: reusing the same explicit `tableName` across multiple connectors in the same config file; running two separate configs concurrently where both reference the same `tableName`; or omitting `tableName` in two different configs that happen to use the same connector name (since `tableName` defaults to the connector name). In all cases, two connectors writing to the same state table will overwrite each other's records, leading to incorrect incremental behavior — files may be skipped or reprocessed unexpectedly.
 - The startup checks for `incremental` mode only look for a `state` block, so `state { enabled: false }` passes them. With state disabled, `incremental` mode publishes every file, `lastPublishedCutoff` is ignored without a warning, and no tombstones are sent.
 - A file's publish time is recorded as the time the run started.
+- Only one run at a time (within a JVM) can use a given `connectionString` **and** `tableName` for state. A run fails at startup if another run is already using them.
 
 ---
 
