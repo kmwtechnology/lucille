@@ -20,8 +20,16 @@ public final class Py4JRuntimeManager {
   public synchronized Py4JRuntime acquire(String pythonExecutable, String scriptPath, String requirementsPath, Integer port)
       throws StageException {
     if (runtime == null) {
-      runtime = new Py4JRuntime(pythonExecutable, scriptPath, requirementsPath, port);
-      runtime.start();
+      try {
+        runtime = new Py4JRuntime(pythonExecutable, scriptPath, requirementsPath, port);
+        runtime.start();
+      } catch (StageException e) {
+        // Cleanup the runtime before rethrowing the error, so future invocations can retry Runtime creation instead of inheriting
+        // a broken runtime
+        runtime.stop();
+        runtime = null;
+        throw e;
+      }
     } else {
       if (!(Objects.equals(pythonExecutable, runtime.getPythonExecutable()) && Objects.equals(scriptPath, runtime.getScriptPath()) &&
       Objects.equals(requirementsPath, runtime.getRequirementsPath()) && Objects.equals(port, runtime.getRequestedPort()))) {
