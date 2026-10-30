@@ -170,23 +170,23 @@ public class TextExtractor extends Stage {
         }
       });
 
-  private String textField;
+  private final String textField;
   protected String filePathField;
-  private String tikaConfigPath;
+  private final String tikaConfigPath;
   protected String byteArrayField;
-  private String metadataPrefix;
-  private String fieldNamesField;
-  private boolean replaceDotsInMetadataNames;
-  private Integer textContentLimit;
-  private Long parseTimeout;
+  private final String metadataPrefix;
+  private final String fieldNamesField;
+  private final boolean replaceDotsInMetadataNames;
+  private final Integer textContentLimit;
+  private final Long parseTimeout;
   private final boolean enableOcr;
   // where the global Tika config honoured by Tika's default constructors comes from (e.g. "tika.config system
   // property"), or null if there is none; a description for messages, not the config itself
   private final String globalTikaConfigSource;
-  private boolean forkEnabled;
-  private int forkPoolSize;
+  private final boolean forkEnabled;
+  private final int forkPoolSize;
   private List<String> forkJvmArgs;
-  private long forkServerPulseMillis;
+  private final long forkServerPulseMillis;
   private Parser parser;
   private ForkParser forkParser;
   private TikaConfig tikaConfig;

@@ -25,6 +25,9 @@ public class IndexerFactory {
 
   private static final Logger log = LoggerFactory.getLogger(IndexerFactory.class);
 
+  private IndexerFactory() {
+  }
+
   /**
    * Instantiates an Indexer from the designated Config.
    *

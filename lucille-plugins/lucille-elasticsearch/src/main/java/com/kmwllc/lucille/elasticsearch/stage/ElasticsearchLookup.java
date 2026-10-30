@@ -48,7 +48,7 @@ public class ElasticsearchLookup extends Stage {
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchLookup.class);
 
-  private ElasticsearchClient client;
+  private final ElasticsearchClient client;
   private final String index;
 
   private final List<String> sourceFields;

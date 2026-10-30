@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
-import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
+import com.kmwllc.lucille.connector.PostCompletionFileConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
 import com.kmwllc.lucille.connector.SequenceConnector;
 import com.kmwllc.lucille.core.Runner.RunType;
@@ -546,12 +546,12 @@ public class RunnerTest {
    */
   @Test
   public void testPostCompletionActions() throws Exception {
-    PostCompletionCSVConnector.reset();
+    PostCompletionFileConnector.reset();
     TestMessenger messenger = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
-    assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
+    assertTrue(PostCompletionFileConnector.didPostCompletionActionsOccur());
     List<Document> docs = messenger.getDocsSentForIndexing();
     Instant stageInstant = Instant.parse(docs.get(0).getString("timestamp"));
-    Instant postCompletionInstant = PostCompletionCSVConnector.getPostCompletionInstant();
+    Instant postCompletionInstant = PostCompletionFileConnector.getPostCompletionInstant();
     assertTrue(postCompletionInstant.isAfter(stageInstant));
   }
 
@@ -560,9 +560,9 @@ public class RunnerTest {
    */
   @Test
   public void testPostCompletionActionsWithoutPipeline() throws Exception {
-    PostCompletionCSVConnector.reset();
+    PostCompletionFileConnector.reset();
     Runner.runInTestMode("RunnerTest/postCompletionActionsWithoutPipeline.conf").get("connector1");
-    assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
+    assertTrue(PostCompletionFileConnector.didPostCompletionActionsOccur());
   }
 
   /**
