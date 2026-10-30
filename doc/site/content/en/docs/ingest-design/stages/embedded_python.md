@@ -65,7 +65,7 @@ doc["title"] = doc["title"].upper()
 | `azure` | Object | No | Azure credentials for reading `scriptPath` from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 
-The script is read once at startup and evaluated once per document in the same interpreter context, so top-level variables persist between documents. Fields can be read and written as `doc["field"]` or `doc.field`, including nested objects and list indices. Reading a field that does not exist raises an error. Any error raised by the script fails the document.
+The script is read once at startup and run once per document. Each document gets a fresh global namespace, so variables assigned at the top level do not persist between documents. Fields can be read and written as `doc["field"]` or `doc.field`, including nested objects and list indices. Reading a field that does not exist raises an error. Any error raised by the script fails the document.
 
 ```hocon
 {
