@@ -23,12 +23,12 @@ public class ExternalPythonTest {
 
   @Before
   public void setUp() {
-    originalTimeout = Py4JRuntime.PYTHON_STARTUP_TIMEOUT_MS;
+    originalTimeout = Py4JRuntime.pythonStartupTimeoutMs;
   }
 
   @After
   public void tearDown() throws Exception {
-    Py4JRuntime.PYTHON_STARTUP_TIMEOUT_MS = originalTimeout;
+    Py4JRuntime.pythonStartupTimeoutMs = originalTimeout;
     if (stage != null) {
       stage.stop();
       stage = null;
@@ -216,7 +216,7 @@ public class ExternalPythonTest {
   public void testPythonStartupTimeout() throws Exception {
     // Set a very short timeout (1 second) to trigger timeout on slow_startup.py
     // which sleeps for 5 seconds before reporting readiness
-    Py4JRuntime.PYTHON_STARTUP_TIMEOUT_MS = 1000;
+    Py4JRuntime.pythonStartupTimeoutMs = 1000;
 
     String confPath = "ExternalPythonTest/slow_startup.conf";
 

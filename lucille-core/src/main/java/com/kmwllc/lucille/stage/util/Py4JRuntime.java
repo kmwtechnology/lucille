@@ -38,7 +38,7 @@ public final class Py4JRuntime {
    * Overall timeout for Python process startup in milliseconds. Configurable for testing.
    * Default is 30 seconds.
    */
-  public static volatile long PYTHON_STARTUP_TIMEOUT_MS = 30000;
+  public static volatile long pythonStartupTimeoutMs = 30000;
 
   /**
    * Defines methods that can be called on the python client via Py4J.
@@ -330,11 +330,11 @@ public final class Py4JRuntime {
         }
 
         // Check overall timeout
-        if (PYTHON_STARTUP_TIMEOUT_MS > 0) {
+        if (pythonStartupTimeoutMs > 0) {
           long elapsed = System.currentTimeMillis() - startTime;
-          if (elapsed > PYTHON_STARTUP_TIMEOUT_MS) {
+          if (elapsed > pythonStartupTimeoutMs) {
             String capturedOutput = String.join("\n", pythonProcessOutputConsumer.getCapturedOutput());
-            String errorMessage = "Python process startup exceeded timeout of " + PYTHON_STARTUP_TIMEOUT_MS
+            String errorMessage = "Python process startup exceeded timeout of " + pythonStartupTimeoutMs
                 + " ms. Process may be hung or slow to initialize.\nCaptured output:\n" + capturedOutput;
             throw new StageException(errorMessage);
           }
