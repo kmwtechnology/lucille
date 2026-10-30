@@ -217,21 +217,29 @@ public class ExternalPythonTest {
     String confPath = "ExternalPythonTest/slow_startup.conf";
 
     // Attempting to create the stage should throw StageException due to timeout
-    StageException ex = assertThrows(StageException.class,
-        () -> {
-          try {
-            stage = factory.get(confPath);
-          } catch (Exception e) {
-            throw e;
-          }
-        });
+    StageException ex = assertThrows(StageException.class, () -> stage = factory.get(confPath));
 
-    String errorMessage = ex.getMessage();
-    assertNotNull("Exception message should not be null", errorMessage);
+    // The timeout message is wrapped by outer exceptions, so search the cause chain for it
+    String expectedPrefix = "Python process startup exceeded timeout of 1000 ms";
+    StageException timeoutEx = findInCauseChain(ex, expectedPrefix);
+    assertNotNull("Expected a timeout StageException starting with \"" + expectedPrefix + "\" in the cause chain of: "
+        + ex, timeoutEx);
 
-    // The exception message should indicate a startup failure or timeout
-    assertTrue("Exception should mention timeout or failure",
-        errorMessage.toLowerCase().contains("timeout") ||
-        errorMessage.toLowerCase().contains("failed"));
+    // The timeout fired after the script started, not because the launch failed before it ran
+    String timeoutMessage = timeoutEx.getMessage();
+    assertTrue("Timeout message should include captured output from the script",
+        timeoutMessage.contains("Python process started, initializing..."));
+    assertFalse("Process should not have exited before startup was reported",
+        timeoutMessage.contains("Python process exited before reporting JavaGateway startup"));
+  }
+
+  private static StageException findInCauseChain(Throwable t, String messagePrefix) {
+    for (Throwable current = t; current != null; current = current.getCause()) {
+      if (current instanceof StageException && current.getMessage() != null
+          && current.getMessage().startsWith(messagePrefix)) {
+        return (StageException) current;
+      }
+    }
+    return null;
   }
 }
