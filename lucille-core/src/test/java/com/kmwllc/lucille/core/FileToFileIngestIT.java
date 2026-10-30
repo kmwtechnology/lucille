@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
@@ -21,7 +22,8 @@ public class FileToFileIngestIT {
       f = new File("tempIntegrationTestOutput/dest.csv");
       f.delete();
       f.createNewFile();
-      Runner.runInTestMode(config);
+      // a local run, not test mode: test mode skips indexing, so nothing would be written to the CSV
+      assertTrue(Runner.run(config, Runner.RunType.LOCAL).getStatus());
       List<String> lines = Files.readAllLines(f.toPath());
       assertEquals("\"my_name\",\"my_country\",\"my_price\"", lines.get(0));
       assertEquals("\"Carbonara\",\"Italy\",\"30\"", lines.get(1));
