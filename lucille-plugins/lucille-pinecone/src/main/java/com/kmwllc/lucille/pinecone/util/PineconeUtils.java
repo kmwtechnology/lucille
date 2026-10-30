@@ -6,6 +6,9 @@ import org.openapitools.control.client.model.IndexModelStatus.StateEnum;
 public class PineconeUtils {
   private static final String DEFAULT_NAMESPACE = "default";
 
+  private PineconeUtils() {
+  }
+
   public static String getDefaultNamespace() {
     return DEFAULT_NAMESPACE;
   }

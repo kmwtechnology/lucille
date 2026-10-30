@@ -6,6 +6,9 @@ import org.apache.parquet.example.data.simple.SimpleGroup;
 import org.apache.parquet.schema.Type;
 
 public class ParquetDocUtils {
+  private ParquetDocUtils() {
+  }
+
   public static void setDocField(Document doc, Type field, SimpleGroup simpleGroup, int j) {
     // check if we have a field value before setting it.
     if (simpleGroup.getFieldRepetitionCount(j) == 0) {

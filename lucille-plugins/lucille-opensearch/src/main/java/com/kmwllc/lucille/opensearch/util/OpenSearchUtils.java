@@ -31,6 +31,9 @@ public class OpenSearchUtils {
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchUtils.class);
 
+  private OpenSearchUtils() {
+  }
+
   /**
    * Generate a RestHighLevelClient from the given config file. Supports Apache Http OpenSearchClient
    *
