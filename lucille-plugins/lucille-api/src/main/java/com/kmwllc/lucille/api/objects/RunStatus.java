@@ -17,7 +17,7 @@ public class RunStatus {
   /**
    * Indicates if the process is currently running.
    */
-  private boolean isRunning;
+  private final boolean isRunning;
 
   /**
    * Constructs a RunStatus with the given run ID and running state.
