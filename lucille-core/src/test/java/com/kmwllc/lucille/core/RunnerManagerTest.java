@@ -23,12 +23,14 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.time.StopWatch;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigUtil;
 
 
 public class RunnerManagerTest {
@@ -302,6 +304,34 @@ public class RunnerManagerTest {
     runnerManager.createConfigWithKey(ConfigFactory.load("RunnerManagerTest/noop.conf"), "test-config-2");
     assertFalse(runnerManager.deleteConfig("test-config"));
     assertTrue(runnerManager.deleteConfig("test-config-2"));
+  }
+
+  @Test
+  public void testRunFailingBeforeStartRecordsThrowable() throws Exception {
+    RunnerManager runnerManager = RunnerManager.getInstance();
+    File requiredFile = File.createTempFile("RunnerManagerTest", ".txt");
+
+    Config config = ConfigFactory.load("RunnerManagerTest/noop.conf").withValue("connectors", ConfigFactory.parseString(
+        "connectors: [{class: \"com.kmwllc.lucille.connector.RequiredFileConnector\", name: \"required-file\", "
+            + "pipeline: \"pipeline1\", requiredFile: " + ConfigUtil.quoteString(requiredFile.getAbsolutePath()) + "}]")
+        .getValue("connectors"));
+
+    // validation passes while the file exists; deleting it makes the connector's constructor throw during the run
+    String configId = runnerManager.createConfig(config).getConfigId();
+    assertTrue(requiredFile.delete());
+
+    String runId = Runner.generateRunId();
+    runnerManager.runWithConfig(runId, configId);
+    runnerManager.waitForRunCompletion(runId);
+
+    RunDetails details = runnerManager.getRunDetails(runId);
+    assertNull(details.getRunResult());
+    assertTrue(details.hasThrowable());
+    assertNotNull(details.getEndTime());
+
+    Throwable rootCause = ExceptionUtils.getRootCause(details.getThrowable());
+    assertTrue(rootCause instanceof ConnectorException);
+    assertTrue(rootCause.getMessage().contains(requiredFile.getAbsolutePath()));
   }
 
   @Test

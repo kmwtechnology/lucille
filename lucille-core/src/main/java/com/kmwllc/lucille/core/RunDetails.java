@@ -3,7 +3,6 @@ package com.kmwllc.lucille.core;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.kmwllc.lucille.core.Runner.RunType;
@@ -106,6 +105,13 @@ public class RunDetails {
   
   public boolean hasThrowable() {
     return throwable != null;
+  }
+
+  /**
+   * @return The Throwable that ended this run before it produced a RunResult, or null if there was none.
+   */
+  public Throwable getThrowable() {
+    return throwable;
   }
 
   @Override

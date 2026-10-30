@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
-import com.kmwllc.lucille.core.RunDetails;
+import com.kmwllc.lucille.api.objects.RunDetailsResponse;
 import com.kmwllc.lucille.core.RunnerManager;
 
 public class LucilleResourceTest {
@@ -137,7 +137,7 @@ public class LucilleResourceTest {
     runRequest.setConfigId(configId);
     Response runResponse = lucilleResource.startRun(runRequest);
     assertEquals(Response.Status.OK.getStatusCode(), runResponse.getStatus());
-    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    RunDetailsResponse runDetails = (RunDetailsResponse) runResponse.getEntity();
     assertNotNull(runDetails);
     assertEquals(configId, runDetails.getConfigId());
   }
@@ -181,12 +181,12 @@ public class LucilleResourceTest {
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
     Response runResponse = lucilleResource.startRun(runRequest);
-    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    RunDetailsResponse runDetails = (RunDetailsResponse) runResponse.getEntity();
     String runId = runDetails.getRunId();
     // Fetch run details
     Response fetchedRunResponse = lucilleResource.getRunById(runId);
     assertEquals(Response.Status.OK.getStatusCode(), fetchedRunResponse.getStatus());
-    RunDetails fetchedRunDetails = (RunDetails) fetchedRunResponse.getEntity();
+    RunDetailsResponse fetchedRunDetails = (RunDetailsResponse) fetchedRunResponse.getEntity();
     assertEquals(runId, fetchedRunDetails.getRunId());
     assertEquals(configId, fetchedRunDetails.getConfigId());
   }
@@ -200,12 +200,12 @@ public class LucilleResourceTest {
     RunRequest runRequest = new RunRequest();
     runRequest.setConfigId(configId);
     Response runResponse = lucilleResource.startRun(runRequest);
-    RunDetails runDetails = (RunDetails) runResponse.getEntity();
+    RunDetailsResponse runDetails = (RunDetailsResponse) runResponse.getEntity();
     String runId = runDetails.getRunId();
     // Fetch run details
     Response fetchedRunResponse = lucilleResource.getRunById(runId);
     assertEquals(Response.Status.OK.getStatusCode(), fetchedRunResponse.getStatus());
-    RunDetails fetchedRunDetails = (RunDetails) fetchedRunResponse.getEntity();
+    RunDetailsResponse fetchedRunDetails = (RunDetailsResponse) fetchedRunResponse.getEntity();
     assertEquals(runId, fetchedRunDetails.getRunId());
     assertEquals(configId, fetchedRunDetails.getConfigId());
   }

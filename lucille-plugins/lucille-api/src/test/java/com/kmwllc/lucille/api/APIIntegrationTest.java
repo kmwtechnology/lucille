@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.api;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.api.config.LucilleAPIConfiguration;
@@ -129,13 +130,14 @@ public class APIIntegrationTest {
     Response runPostStatus = client.target(url + "v1/run").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).post(Entity.entity(configResponse, MediaType.APPLICATION_JSON));
     assertEquals(200, runPostStatus.getStatus());
-    String runResponse = runPostStatus.readEntity(String.class);
+    Map<String, Object> runResponse = runPostStatus.readEntity(Map.class);
 
-    // This is the runResponse structure, and we just need the id part:
-    // {"runId":"3944a016-9d95-487f-b47e-0030442a0251","configId":"340a7c70-c3e0-4c0c-af96-1414caf3623f","startTime":1779139586.541141000,
-    // "endTime":null,"runResult":null,"runType":"LOCAL","done":false,"future":{"completedExceptionally":false,
-    // "numberOfDependents":0,"done":false,"cancelled":false}}
-    String runId = runResponse.substring(10, 46);
+    // {"runId":"3944a016-...","configId":"340a7c70-...","startTime":1779139586.541141000,"endTime":null,
+    // "runResult":null,"runType":"LOCAL","done":false,"error":null}
+    String runId = (String) runResponse.get("runId");
+    assertEquals(configId, runResponse.get("configId"));
+    assertTrue(runResponse.containsKey("error"));
+    assertFalse(runResponse.containsKey("future"));
 
     Response runStatus = client.target(url + "v1/run").request()
         .header(HttpHeaders.AUTHORIZATION, authHeader).get();

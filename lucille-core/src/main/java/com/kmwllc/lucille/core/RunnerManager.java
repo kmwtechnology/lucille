@@ -215,7 +215,8 @@ public class RunnerManager {
 
         // the config was validated when it was created
         runDetails.setRunResult(Runner.runAndLogResult(config, runDetails.getRunType(), runId, false, false));
-      } catch (Exception e) {
+      } catch (Throwable e) {
+        // Throwable, not Exception: an Error (e.g. NoClassDefFoundError from a plugin) should also be recorded
         log.error("Failed to run lucille with ID '{}' via the Runner Manager.", runId, e);
         runDetails.setThrowable(e);
       } finally {
