@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kmwllc.lucille.message.TestMessenger;
 
 import java.util.List;
@@ -43,6 +44,7 @@ public class RunResult {
    * Returns true if any connector in the run reported a failed document, regardless of {@link #getStatus()}. A run
    * whose status is true but which has failing documents is a partial success.
    */
+  @JsonProperty("hasFailingDocs")
   public boolean hasFailingDocs() {
     return failingDocs;
   }
