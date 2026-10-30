@@ -20,16 +20,20 @@ public final class Py4JRuntimeManager {
   public synchronized Py4JRuntime acquire(String pythonExecutable, String scriptPath, String requirementsPath, Integer port)
       throws StageException {
     if (runtime == null) {
+      // only publish the runtime to the shared field once it has started, so a failed start can never leave a broken runtime behind
+      Py4JRuntime newRuntime = new Py4JRuntime(pythonExecutable, scriptPath, requirementsPath, port);
       try {
-        runtime = new Py4JRuntime(pythonExecutable, scriptPath, requirementsPath, port);
-        runtime.start();
-      } catch (StageException e) {
-        // Cleanup the runtime before rethrowing the error, so future invocations can retry Runtime creation instead of inheriting
-        // a broken runtime
-        runtime.stop();
-        runtime = null;
+        newRuntime.start();
+      } catch (Exception e) {
+        // Cleanup the runtime before rethrowing the error, so future invocations can retry Runtime creation
+        try {
+          newRuntime.stop();
+        } catch (StageException stopError) {
+          e.addSuppressed(stopError);
+        }
         throw e;
       }
+      runtime = newRuntime;
     } else {
       if (!(Objects.equals(pythonExecutable, runtime.getPythonExecutable()) && Objects.equals(scriptPath, runtime.getScriptPath()) &&
       Objects.equals(requirementsPath, runtime.getRequirementsPath()) && Objects.equals(port, runtime.getRequestedPort()))) {

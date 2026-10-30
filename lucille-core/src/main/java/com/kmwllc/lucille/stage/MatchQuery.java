@@ -100,11 +100,17 @@ public class MatchQuery extends Stage {
 
   @Override
   public void stop() throws StageException {
+    // start() may have failed before these were assigned, so guard against nulls and always close the analyzer
     try {
-      monitor.close();
-      analyzer.close();
+      if (monitor != null) {
+        monitor.close();
+      }
     } catch (IOException e) {
       throw new StageException("Unable to close the Lucene Monitor", e);
+    } finally {
+      if (analyzer != null) {
+        analyzer.close();
+      }
     }
   }
 
