@@ -94,7 +94,7 @@ public final class Py4JRuntime {
     return gateway == null ? null : gateway.getListeningPort();
   }
 
-  // Null until started. Interpreter inside the managed venv (Scripts\python.exe on Windows, bin/python elsewhere).
+  // Null until start() reaches venv setup. Interpreter inside the managed venv (Scripts\python.exe on Windows, bin/python elsewhere).
   String getVenvPythonPath() {
     return venvPythonPath;
   }
@@ -318,7 +318,15 @@ public final class Py4JRuntime {
       while (!pythonProcessOutputConsumer.isMessageSeen()) {
         // if process is no longer alive stop waiting.
         if (!pythonProcess.isAlive()) {
-          throw new StageException("Python process exited before reporting JavaGateway startup");
+          // The output reader finishes once the process closes its stream, so give it a moment to drain the last lines.
+          try {
+            pythonProcessOutputConsumer.join(1000);
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+          }
+          String capturedOutput = String.join("\n", pythonProcessOutputConsumer.getCapturedOutput());
+          throw new StageException("Python process exited before reporting JavaGateway startup.\nCaptured output:\n"
+              + capturedOutput);
         }
 
         // Check overall timeout
@@ -376,8 +384,8 @@ public final class Py4JRuntime {
     return FileChannel.open(pythonDir.resolve(VENV_LOCK_NAME), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
   }
 
-  // Note: python/venv is intentionally not removed by Maven clean.
-  // Rebuilding the venv is slow and expensive with many libraries so only Py4jClientCopy.py is deleted.
+  // Note: python/venv is intentionally not removed by Maven clean, which only deletes Py4jClientCopy.py.
+  // Rebuilding the venv is slow and expensive with many libraries, so it is only recreated when missing or when its pip cannot run.
   private void ensureVenv() throws StageException {
     Path pythonDir = Paths.get("python").toAbsolutePath();
     try {

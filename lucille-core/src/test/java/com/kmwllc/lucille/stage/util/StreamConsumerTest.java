@@ -48,6 +48,24 @@ public class StreamConsumerTest {
   }
 
   @Test
+  public void testStreamConsumerKeepsOnlyMostRecentLines() throws InterruptedException {
+    StringBuilder testOutput = new StringBuilder();
+    for (int i = 1; i <= 600; i++) {
+      testOutput.append("Line ").append(i).append("\n");
+    }
+    InputStream inputStream = new ByteArrayInputStream(testOutput.toString().getBytes());
+
+    StreamConsumer consumer = new StreamConsumer(inputStream, "JavaGateway STARTED");
+    consumer.start();
+    consumer.join();
+
+    List<String> captured = consumer.getCapturedOutput();
+    assertEquals("Should keep only the most recent 500 lines", 500, captured.size());
+    assertEquals("Oldest kept line should be line 101", "Line 101", captured.get(0));
+    assertEquals("Newest line should be line 600", "Line 600", captured.get(499));
+  }
+
+  @Test
   public void testStreamConsumerEmptyOutput() throws InterruptedException {
     String testOutput = "";
     InputStream inputStream = new ByteArrayInputStream(testOutput.getBytes());

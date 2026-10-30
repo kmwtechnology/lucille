@@ -69,6 +69,26 @@ public class Py4JRuntimeTest {
     assertTrue("Callback port should be released after a failed start", awaitBindable(requested + 1));
   }
 
+  @Test
+  public void testFailedStartIncludesPythonOutput() throws Exception {
+    Py4JRuntime runtime = new Py4JRuntime("python3", "src/test/resources/ExternalPythonTest/does_not_exist.py", null, null);
+    runtimes.add(runtime);
+
+    StageException ex = assertThrows(StageException.class, runtime::start);
+    String message = messageInCauseChain(ex, "Python process exited before reporting JavaGateway startup");
+    assertNotNull("Expected the exit error in the cause chain of: " + ex, message);
+    assertTrue("Exit error should include the captured Python output", message.contains("does_not_exist.py"));
+  }
+
+  private static String messageInCauseChain(Throwable t, String text) {
+    for (Throwable current = t; current != null; current = current.getCause()) {
+      if (current.getMessage() != null && current.getMessage().contains(text)) {
+        return current.getMessage();
+      }
+    }
+    return null;
+  }
+
   private Py4JRuntime startRuntime(Integer requestedPort, String script) throws StageException {
     Py4JRuntime runtime = new Py4JRuntime("python3", script, null, requestedPort);
     runtimes.add(runtime);
