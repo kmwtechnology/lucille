@@ -105,8 +105,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
    */
   @Override
   public void run(LucilleAPIConfiguration config, Environment env) throws Exception {
-    log.info(String.format("starting lucille-api from %s config %s env %s",
-        System.getProperty("user.dir"), config, env));
+    log.info("starting lucille-api from {} config {} env {}", System.getProperty("user.dir"), config, env);
 
     RunnerManager runnerManager = RunnerManager.getInstance();
 
@@ -156,8 +155,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
    * @throws Exception if startup fails
    */
   public static void main(String[] args) throws Exception {
-    log.info(String.format("starting lucille-api from %s args %s",
-        System.getProperty("user.dir"), Arrays.toString(args)));
+    log.info("starting lucille-api from {} args {}", System.getProperty("user.dir"), Arrays.toString(args));
 
     // Use default config if no arguments are provided
     if (args.length == 0) {

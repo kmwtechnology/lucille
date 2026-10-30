@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -36,10 +37,10 @@ public class CreateChildrenStage extends Stage {
 
   public CreateChildrenStage(Config config) {
     super(config);
-    this.numChildren = config.hasPath("numChildren") ? config.getInt("numChildren") : 3;
-    this.dropParent = config.hasPath("dropParent") ? config.getBoolean("dropParent") : false;
-    this.failAfter = config.hasPath("failAfter") ? config.getInt("failAfter") : null;
-    this.dropChild = config.hasPath("dropChild") ? config.getInt("dropChild") : null;
+    this.numChildren = ConfigUtils.getIntOrDefault(config, "numChildren", 3);
+    this.dropParent = ConfigUtils.getBooleanOrDefault(config, "dropParent", false);
+    this.failAfter = ConfigUtils.getIntOrDefault(config, "failAfter", null);
+    this.dropChild = ConfigUtils.getIntOrDefault(config, "dropChild", null);
   }
 
   @Override

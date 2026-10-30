@@ -120,7 +120,7 @@ public final class Launch {
   static void worker(String[] args) throws Exception {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    log.info("Starting Workers for pipeline: " + pipelineName);
+    log.info("Starting Workers for pipeline: {}", pipelineName);
 
     WorkerMessengerFactory workerMessengerFactory = WorkerMessengerFactory.getKafkaFactory(config, pipelineName);
 
@@ -162,7 +162,7 @@ public final class Launch {
   static void indexer(String[] args) throws Exception {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
-    log.info("Starting Indexer for pipeline: " + pipelineName);
+    log.info("Starting Indexer for pipeline: {}", pipelineName);
     IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName, null);
 

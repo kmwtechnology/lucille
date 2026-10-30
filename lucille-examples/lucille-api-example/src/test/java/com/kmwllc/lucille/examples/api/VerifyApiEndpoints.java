@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.examples.api;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.net.http.HttpResponse;
 
@@ -36,7 +37,7 @@ public class VerifyApiEndpoints {
     HttpResponse<String> response = ApiClient.get("/v1/config-info/connector-list", true);
     assertEquals(200, response.statusCode());
     JsonNode connectors = ApiClient.json(response);
-    assertTrue("connector-list returned no connectors", connectors.isArray() && connectors.size() > 0);
+    assertTrue("connector-list returned no connectors", connectors.isArray() && !connectors.isEmpty());
   }
 
   @Test

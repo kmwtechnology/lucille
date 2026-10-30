@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.JsonDocument;
@@ -71,7 +72,7 @@ public class JsonFileHandler extends BaseFileHandler {
   public JsonFileHandler(Config config) {
     super(config);
 
-    this.maxRecordBytes = config.hasPath("maxRecordBytes") ? config.getInt("maxRecordBytes") : null;
+    this.maxRecordBytes = ConfigUtils.getIntOrDefault(config, "maxRecordBytes", null);
     if (maxRecordBytes != null && maxRecordBytes <= 0) {
       throw new IllegalArgumentException("maxRecordBytes must be positive, got " + maxRecordBytes);
     }
@@ -82,7 +83,7 @@ public class JsonFileHandler extends BaseFileHandler {
       this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : List.of();
     }
 
-    this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
+    this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
 
     // returning null for a blank id makes fromJsonString reject the line, so it is skipped like any other bad record
     this.idUpdater = (id) -> Document.isValidId(id) ? docIdPrefix + id : null;
@@ -193,8 +194,8 @@ public class JsonFileHandler extends BaseFileHandler {
       /** Whether there is another line to read, enforcing maxRecordBytes on it. */
       private boolean readLine() {
         // each line is its own record. LineIterator only reads when it has no cached line, so this is safe to call repeatedly
-        if (reader instanceof BoundedLineReader) {
-          ((BoundedLineReader) reader).startRecord();
+        if (reader instanceof BoundedLineReader boundedReader) {
+          boundedReader.startRecord();
         }
         try {
           return it.hasNext();

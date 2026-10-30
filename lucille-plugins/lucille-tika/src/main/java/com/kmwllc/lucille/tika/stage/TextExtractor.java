@@ -198,14 +198,14 @@ public class TextExtractor extends Stage {
   public TextExtractor(Config config) throws StageException {
     super(config);
 
-    textField = config.hasPath("textField") ? config.getString("textField") : "text";
-    filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : null;
-    byteArrayField = config.hasPath("byteArrayField") ? config.getString("byteArrayField") : null;
-    metadataPrefix = config.hasPath("metadataPrefix") ? config.getString("metadataPrefix") : "tika";
-    tikaConfigPath = config.hasPath("tikaConfigPath") ? config.getString("tikaConfigPath") : null;
-    textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
-    parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
-    fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
+    textField = ConfigUtils.getStringOrDefault(config, "textField", "text");
+    filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", null);
+    byteArrayField = ConfigUtils.getStringOrDefault(config, "byteArrayField", null);
+    metadataPrefix = ConfigUtils.getStringOrDefault(config, "metadataPrefix", "tika");
+    tikaConfigPath = ConfigUtils.getStringOrDefault(config, "tikaConfigPath", null);
+    textContentLimit = ConfigUtils.getIntOrDefault(config, "textContentLimit", Integer.MAX_VALUE);
+    parseTimeout = ConfigUtils.getLongOrDefault(config, "parseTimeout", null);
+    fieldNamesField = ConfigUtils.getStringOrDefault(config, "fieldNamesField", null);
     replaceDotsInMetadataNames = config.hasPath("replaceDotsInMetadataNames") && config.getBoolean("replaceDotsInMetadataNames");
     metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
     skipEmbeddedContentTypePrefixes = config.hasPath("skipEmbeddedContentTypePrefixes")

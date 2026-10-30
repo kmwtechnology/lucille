@@ -151,9 +151,7 @@ public class KafkaConnector extends AbstractConnector {
    */
   public void enhanceConsumerProperties(Properties props, Config config) {
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-    String deserializerClass = config.hasPath("kafka.documentDeserializer")
-        ? config.getString("kafka.documentDeserializer")
-        : KafkaConnectorDefaultDeserializer.class.getName();
+    String deserializerClass = ConfigUtils.getStringOrDefault(config, "kafka.documentDeserializer", KafkaConnectorDefaultDeserializer.class.getName());
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
     if (idField != null) {
       props.put("idField", idField);
