@@ -142,6 +142,19 @@ public class KafkaUtils {
     props.putAll(merged);
   }
 
+  /**
+   * Returns the max.poll.interval.ms the document consumer built from this config resolves to: from
+   * <code>kafka.maxPollIntervalSecs</code>, a <code>kafka.consumerPropertyFile</code>, or a
+   * <code>kafka.consumer.max.poll.interval.ms</code> override, else the kafka-clients default.
+   */
+  static Duration getMaxPollInterval(Config config) {
+    Object value = createConsumerProps(config, "max-poll-interval").get(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG);
+    if (value == null) {
+      value = ConsumerConfig.configDef().defaultValues().get(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG);
+    }
+    return Duration.ofMillis(Long.parseLong(value.toString().trim()));
+  }
+
   //access set to public so KafkaConnector can create consumer props from config.
   // unit tests can also validate created properties without initializing a Consumer
   public static Properties createConsumerProps(Config config, String clientId) {
