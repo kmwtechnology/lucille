@@ -179,47 +179,26 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   public Indexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) {
     this.messenger = messenger;
     this.bypass = bypass;
-    this.idOverrideField =
-        config.hasPath("indexer.idOverrideField")
-            ? config.getString("indexer.idOverrideField")
-            : null;
-    this.indexOverrideField =
-        config.hasPath("indexer.indexOverrideField")
-            ? config.getString("indexer.indexOverrideField")
-            : null;
-    this.deletionMarkerField =
-        config.hasPath("indexer.deletionMarkerField")
-            ? config.getString("indexer.deletionMarkerField")
-            : null;
-    this.deletionMarkerFieldValue =
-        config.hasPath("indexer.deletionMarkerFieldValue")
-            ? config.getString("indexer.deletionMarkerFieldValue")
-            : null;
-    this.deleteByFieldField =
-        config.hasPath("indexer.deleteByFieldField")
-            ? config.getString("indexer.deleteByFieldField")
-            : null;
-    this.deleteByFieldValue =
-        config.hasPath("indexer.deleteByFieldValue")
-            ? config.getString("indexer.deleteByFieldValue")
-            : null;
+    this.idOverrideField = ConfigUtils.getStringOrDefault(config, "indexer.idOverrideField", null);
+    this.indexOverrideField = ConfigUtils.getStringOrDefault(config, "indexer.indexOverrideField", null);
+    this.deletionMarkerField = ConfigUtils.getStringOrDefault(config, "indexer.deletionMarkerField", null);
+    this.deletionMarkerFieldValue = ConfigUtils.getStringOrDefault(config, "indexer.deletionMarkerFieldValue", null);
+    this.deleteByFieldField = ConfigUtils.getStringOrDefault(config, "indexer.deleteByFieldField", null);
+    this.deleteByFieldValue = ConfigUtils.getStringOrDefault(config, "indexer.deleteByFieldValue", null);
 
     int batchSize;
     long batchByteSize;
 
     if (config.hasPath("indexer.batchSize") || config.hasPath("indexer.batchByteSize")) {
       // when only one is set, the other is disabled so the configured one governs
-      batchSize = config.hasPath("indexer.batchSize") ? config.getInt("indexer.batchSize") : NO_BATCH_SIZE;
-      batchByteSize = config.hasPath("indexer.batchByteSize") ? config.getLong("indexer.batchByteSize") : NO_BATCH_SIZE_BYTES;
+      batchSize = ConfigUtils.getIntOrDefault(config, "indexer.batchSize", NO_BATCH_SIZE);
+      batchByteSize = ConfigUtils.getLongOrDefault(config, "indexer.batchByteSize", NO_BATCH_SIZE_BYTES);
     } else {
       batchSize = DEFAULT_BATCH_SIZE;
       batchByteSize = NO_BATCH_SIZE_BYTES;
     }
 
-    int batchTimeout =
-        config.hasPath("indexer.batchTimeout")
-            ? config.getInt("indexer.batchTimeout")
-            : DEFAULT_BATCH_TIMEOUT;
+    int batchTimeout = ConfigUtils.getIntOrDefault(config, "indexer.batchTimeout", DEFAULT_BATCH_TIMEOUT);
     this.batch =
         (indexOverrideField == null)
             ? new SingleBatch(batchSize, batchByteSize, batchTimeout)
@@ -260,10 +239,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
             "indexer.maxRetries must be greater than 0 when specified. Remove the parameter to disable retries.");
       }
       int retryInitialWaitDurationMs = ConfigUtils.getOrDefault(config, "indexer.retryWaitDurationMs", DEFAULT_RETRY_INITIAL_WAIT_DURATION_MS);
-      long retryMaxWaitDurationMs = config.hasPath("indexer.retryMaxWaitDurationMs")
-          ? config.getLong("indexer.retryMaxWaitDurationMs") : DEFAULT_RETRY_MAX_WAIT_DURATION_MS;
-      double retryRandomizationFactor = config.hasPath("indexer.retryRandomizationFactor")
-          ? config.getDouble("indexer.retryRandomizationFactor") : DEFAULT_RETRY_RANDOMIZATION_FACTOR;
+      long retryMaxWaitDurationMs = ConfigUtils.getLongOrDefault(config, "indexer.retryMaxWaitDurationMs", DEFAULT_RETRY_MAX_WAIT_DURATION_MS);
+      double retryRandomizationFactor = ConfigUtils.getDoubleOrDefault(config, "indexer.retryRandomizationFactor", DEFAULT_RETRY_RANDOMIZATION_FACTOR);
       if (!config.hasPath("indexer.retryableStatusCodes")) {
         this.retryableStatusCodes = DEFAULT_RETRYABLE_STATUS_CODES;
       } else {
@@ -365,8 +342,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    */
   public static int getMaxConcurrentBatches(Config config) {
     // getInt, unlike ConfigUtils.getOrDefault, converts a string value such as an environment substitution.
-    return config.hasPath("indexer.maxConcurrentBatches")
-        ? config.getInt("indexer.maxConcurrentBatches") : DEFAULT_MAX_CONCURRENT_BATCHES;
+    return ConfigUtils.getIntOrDefault(config, "indexer.maxConcurrentBatches", DEFAULT_MAX_CONCURRENT_BATCHES);
   }
 
   /**
@@ -630,9 +606,9 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       // An Error (OutOfMemoryError, etc.) must never be swallowed, and must not mark the batch complete — the documents
       // were not indexed, so committing their offsets would lose them. FAIL events were still sent just above, so the
       // run does not hang; the uncommitted offsets let a Kafka/Hybrid messenger re-deliver the batch on restart.
-      if (t instanceof Error) {
+      if (t instanceof Error error) {
         markComplete = false;
-        throw (Error) t;
+        throw error;
       }
     } finally {
       // Mark the batch complete for a normal outcome or a (handled) Exception, where the batch ran to a defined
@@ -739,11 +715,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * values, and the Document must not be modified until the map has been serialized.
    */
   protected Map<String, Object> getRawIndexerDoc(Document doc) {
-    if (!(doc instanceof JsonDocument)) {
+    if (!(doc instanceof JsonDocument jsonDoc)) {
       return getConvertedIndexerDoc(doc);
     }
 
-    ObjectNode data = ((JsonDocument) doc).data;
+    ObjectNode data = jsonDoc.data;
     Map<String, Object> indexerDoc = new LinkedHashMap<>();
     for (Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext(); ) {
       Map.Entry<String, JsonNode> field = it.next();

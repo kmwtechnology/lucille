@@ -79,11 +79,11 @@ public class XMLFileHandler extends BaseFileHandler {
     this.xmlRootPath = config.getString("xmlRootPath");
     this.xmlIdPath = ConfigUtils.getStringOrDefault(config, "xmlIdPath", null);
     this.xpathIdPath = ConfigUtils.getStringOrDefault(config, "xpathIdPath", null);
-    this.encoding = config.hasPath("encoding") ? config.getString("encoding") : "utf-8";
-    this.outputField = config.hasPath("outputField") ? config.getString("outputField") : "xml";
+    this.encoding = ConfigUtils.getStringOrDefault(config, "encoding", "utf-8");
+    this.outputField = ConfigUtils.getStringOrDefault(config, "outputField", "xml");
     this.skipEmptyId = ConfigUtils.getOrDefault(config, "skipEmptyId", false);
 
-    this.maxRecordBytes = config.hasPath("maxRecordBytes") ? config.getInt("maxRecordBytes") : 0;
+    this.maxRecordBytes = ConfigUtils.getIntOrDefault(config, "maxRecordBytes", 0);
     if (config.hasPath("maxRecordBytes") && maxRecordBytes <= 0) {
       throw new IllegalArgumentException("maxRecordBytes must be positive, got " + maxRecordBytes);
     }

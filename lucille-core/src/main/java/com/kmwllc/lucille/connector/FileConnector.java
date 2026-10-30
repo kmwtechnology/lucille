@@ -208,7 +208,7 @@ public class FileConnector extends AbstractConnector {
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
-    this.maxThreads = config.hasPath("maxThreads") ? config.getInt("maxThreads") : 1;
+    this.maxThreads = ConfigUtils.getIntOrDefault(config, "maxThreads", 1);
 
     if (maxThreads < 1 && maxThreads != -1) {
       throw new IllegalArgumentException("maxThreads must be -1 or >= 1.");

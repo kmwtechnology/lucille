@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Indexer;
 import com.typesafe.config.Config;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
@@ -59,7 +60,7 @@ public class AsyncConnectionPoolUtils {
 
   // getInt, unlike ConfigUtils.getOrDefault, converts a string value such as an environment substitution.
   private static int getInt(Config config, String path, int fallback) {
-    return config.hasPath(path) ? config.getInt(path) : fallback;
+    return ConfigUtils.getIntOrDefault(config, path, fallback);
   }
 
   private static int positive(int value, String path) {

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.connector;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -37,10 +38,10 @@ public abstract class AbstractConnector implements Connector {
 
   public AbstractConnector(Config config) {
     this.config = config;
-    this.name = config.hasPath("name") ? config.getString("name") : "noname";
-    this.pipelineName = config.hasPath("pipeline") ? config.getString("pipeline") : null;
-    this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
-    this.collapse = config.hasPath("collapse") ? config.getBoolean("collapse") : false;
+    this.name = ConfigUtils.getStringOrDefault(config, "name", "noname");
+    this.pipelineName = ConfigUtils.getStringOrDefault(config, "pipeline", null);
+    this.docIdPrefix = ConfigUtils.getStringOrDefault(config, "docIdPrefix", "");
+    this.collapse = ConfigUtils.getBooleanOrDefault(config, "collapse", false);
 
     getSpec().validate(config, name);
   }

@@ -3,7 +3,9 @@ package com.kmwllc.lucille.core;
 import static com.kmwllc.lucille.core.Document.ID_FIELD;
 import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
-import com.codahale.metrics.*;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
@@ -89,8 +91,8 @@ class Worker implements Runnable {
       // ZooKeeper connection per worker thread
       if (messenger instanceof KafkaWorkerMessenger || messenger instanceof HybridWorkerMessenger) {
         this.counter = createRetryCounter(config);
-        log.info("Retries will be tracked by " + counter.getClass().getName() + " with a configured maximum of: "
-            + config.getInt("worker.maxRetries"));
+        log.info("Retries will be tracked by {} with a configured maximum of: {}",
+            counter.getClass().getName(), config.getInt("worker.maxRetries"));
         this.trackRetries = true;
       } else {
         log.warn("worker.maxRetries is set but retries are only tracked for Kafka messengers; ignoring it.");
@@ -222,8 +224,8 @@ class Worker implements Runnable {
       failure = t;
       commitOnExit = false;
       log.error("Worker stopping after a fatal error", t);
-      if (t instanceof Error) {
-        rethrow = (Error) t;
+      if (t instanceof Error error) {
+        rethrow = error;
       }
     } finally {
       // This thread is about to end, so an interrupt (for example from the pool's exitOnTimeout watcher) has done its

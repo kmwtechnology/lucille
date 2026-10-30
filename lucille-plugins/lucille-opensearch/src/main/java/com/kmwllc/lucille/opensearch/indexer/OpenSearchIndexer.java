@@ -97,12 +97,12 @@ public class OpenSearchIndexer extends Indexer {
 
     this.client = client;
     this.index = OpenSearchUtils.getOpenSearchIndex(config);
-    this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
-    this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
+    this.routingField = ConfigUtils.getStringOrDefault(config, "indexer.routingField", null);
+    this.update = ConfigUtils.getBooleanOrDefault(config, "opensearch.update", false);
     this.versionType =
         config.hasPath("indexer.versionType") ? parseVersionType(config.getString("indexer.versionType")) : null;
     this.childDocumentsField = ConfigUtils.getStringOrDefault(config, "opensearch.childDocumentsField", null);
-    this.versionField = config.hasPath("indexer.versionField") ? config.getString("indexer.versionField") : null;
+    this.versionField = ConfigUtils.getStringOrDefault(config, "indexer.versionField", null);
 
     // validate config indexer.versionType that must be set if config indexer.versionField is set
     if (this.versionField != null && this.versionType == null) {
@@ -150,7 +150,7 @@ public class OpenSearchIndexer extends Indexer {
       return false;
     }
     if (!response) {
-      log.error("Non true response when pinging OpenSearch: " + response);
+      log.error("Non true response when pinging OpenSearch: {}", response);
       return false;
     }
     return true;
@@ -476,8 +476,8 @@ public class OpenSearchIndexer extends Indexer {
     if (versionField != null && doc.has(versionField)) {
       return doc.getLong(versionField);
     }
-    if (doc instanceof KafkaDocument) {
-      return ((KafkaDocument) doc).getOffset();
+    if (doc instanceof KafkaDocument kafkaDoc) {
+      return kafkaDoc.getOffset();
     }
     return null;
   }
