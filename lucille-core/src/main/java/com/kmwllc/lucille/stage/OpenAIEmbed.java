@@ -189,6 +189,8 @@ public class OpenAIEmbed extends Stage {
     for (int i = 0; i < embeddings.size(); i++) {
       float[] vectors = embeddings.get(i).vector();
       Document doc = docsToEmbed.get(i);
+      // clear any preexisting content once, then append each dimension of the vector
+      doc.removeField(dest);
       for (Float vector : vectors) {
         doc.setOrAdd(dest, vector);
       }
