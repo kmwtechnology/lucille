@@ -13,7 +13,7 @@ import { useFetch } from "@/hooks/use-fetch"
 import { useStartRun } from "@/hooks/use-start-run"
 import { formatDuration, formatInstant } from "@/lib/utils"
 import { RUN_POLL_INTERVAL_MS } from "@/lib/constants"
-import type { ConfigMap, Run } from "@/types/api"
+import type { ConfigMap, Run, RunError } from "@/types/api"
 import { RunStatusBadge } from "@/components/run-status/run-status"
 import { BackLink } from "@/components/back-link/back-link"
 import { LoadingText } from "@/components/loading-text/loading-text"
@@ -108,6 +108,15 @@ export function StartRun() {
   )
 }
 
+// "Class: message", plus a "Caused by" line when the root cause differs.
+function formatRunError(error: RunError): string {
+  const describe = (className: string, message: string | null) =>
+    message ? `${className}: ${message}` : className
+  const top = describe(error.className, error.message)
+  const root = describe(error.rootCauseClassName, error.rootCauseMessage)
+  return root === top ? top : `${top}\nCaused by: ${root}`
+}
+
 function RunView({ id }: { id: string }) {
   const run = useFetch<Run>(`/v1/run/${encodeURIComponent(id)}`, {
     pollIntervalMs: RUN_POLL_INTERVAL_MS,
@@ -178,6 +187,17 @@ function RunView({ id }: { id: string }) {
               </CardHeader>
               <CardContent>
                 <pre className={styles.resultPre}>{run.data.runResult.message}</pre>
+              </CardContent>
+            </Card>
+          )}
+
+          {run.data.error && (
+            <Card className={styles.sectionCard}>
+              <CardHeader className={styles.sectionHeader}>
+                <CardTitle className={styles.sectionTitle}>Error</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className={styles.resultPre}>{formatRunError(run.data.error)}</pre>
               </CardContent>
             </Card>
           )}
