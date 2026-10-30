@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kmwllc.lucille.message.TestMessenger;
 
 import java.util.List;
@@ -12,6 +13,8 @@ public class RunResult {
 
   // true indicates success, false indicates failure
   private final boolean status;
+  // true if any connector reported a failed document
+  private final boolean failingDocs;
   private final String message;
   private Map<String, TestMessenger> history = null;
   private final String runId;
@@ -19,7 +22,8 @@ public class RunResult {
   public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults, String runId) {
     this.runId = runId;
     this.status = status;
-    this.message = formatMessage(status, connectors, connectorResults);
+    this.failingDocs = connectorResults.stream().anyMatch(cr -> cr.hasFailingDocs());
+    this.message = formatMessage(status, failingDocs, connectors, connectorResults);
   }
 
   public RunResult(boolean status, List<Connector> connectors, List<ConnectorResult> connectorResults,
@@ -36,6 +40,15 @@ public class RunResult {
     return status;
   }
 
+  /**
+   * Returns true if any connector in the run reported a failed document, regardless of {@link #getStatus()}. A run
+   * whose status is true but which has failing documents is a partial success.
+   */
+  @JsonProperty("hasFailingDocs")
+  public boolean hasFailingDocs() {
+    return failingDocs;
+  }
+
   public String getMessage() {
     return message; 
   }
@@ -44,9 +57,8 @@ public class RunResult {
     return message;
   }
 
-  private static String formatMessage(boolean status, List<Connector> connectors,
+  private static String formatMessage(boolean status, boolean failingDocs, List<Connector> connectors,
       List<ConnectorResult> connectorResults) {
-    boolean failingDocs = connectorResults.stream().anyMatch(cr -> cr.hasFailingDocs());
     boolean anyDocs = connectorResults.stream().anyMatch(cr -> cr.hasDocs());
     StringBuffer sb = new StringBuffer();
     sb.append("\n\nRUN SUMMARY: ");
