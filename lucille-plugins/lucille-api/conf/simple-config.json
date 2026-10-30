@@ -1,8 +1,11 @@
 {
     "connectors": [
       {
-        "class": "com.kmwllc.lucille.connector.CSVConnector",
-        "path": "conf/dummy.csv",
+        "class": "com.kmwllc.lucille.connector.FileConnector",
+        "paths": ["conf/dummy.csv"],
+        "fileHandlers": {
+          "csv": {}
+        },
         "name": "connector1",
         "pipeline": "pipeline1"
       }

@@ -110,7 +110,7 @@ public class SolrIndexer extends Indexer {
         SolrPingResponse resp = solrClient.ping();
         int status = resp.getStatus();
         if (status != 0) {
-          log.error("Non zero response when checking solr cluster status: " + status);
+          log.error("Non zero response when checking solr cluster status: {}", status);
           return false;
         }
         log.debug("SolrIndexer connection successfully validated: {}", resp);
@@ -137,7 +137,7 @@ public class SolrIndexer extends Indexer {
       }
       Integer status = (Integer) ((SimpleOrderedMap) response.get("responseHeader")).get("status");
       if (status != 0) {
-        log.error("Non zero response when checking solr cluster status: " + status);
+        log.error("Non zero response when checking solr cluster status: {}", status);
         return false;
       }
       log.debug("SolrIndexer connection successfully validated: {}", response);
@@ -161,7 +161,7 @@ public class SolrIndexer extends Indexer {
   @Override
   protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
     if (bypass) {
-      log.debug("sendToSolr bypassed for documents: " + documents);
+      log.debug("sendToSolr bypassed for documents: {}", documents);
       return Set.of();
     }
 

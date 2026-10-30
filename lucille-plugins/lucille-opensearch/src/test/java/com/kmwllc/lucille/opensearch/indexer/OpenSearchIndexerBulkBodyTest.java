@@ -263,8 +263,8 @@ public class OpenSearchIndexerBulkBodyTest {
     Iterator<?> values = value._serializables();
     while (values.hasNext()) {
       Object item = values.next();
-      if (item instanceof NdJsonpSerializable && item != value) {
-        collect((NdJsonpSerializable) item, items);
+      if (item instanceof NdJsonpSerializable serializable && item != value) {
+        collect(serializable, items);
       } else {
         items.add(item);
       }

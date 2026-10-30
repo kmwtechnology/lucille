@@ -7,6 +7,7 @@ import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
 import static com.kmwllc.lucille.connector.FileConnector.SIZE;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -68,7 +69,7 @@ public abstract class BaseStorageClient implements StorageClient {
     this.config = config;
 
     // only matters for traversals
-    this.maxResultsPerPage = config.hasPath(MAX_RESULTS_PER_PAGE) ? config.getInt(MAX_RESULTS_PER_PAGE) : defaultMaxResultsPerPage;
+    this.maxResultsPerPage = ConfigUtils.getIntOrDefault(config, MAX_RESULTS_PER_PAGE, defaultMaxResultsPerPage);
   }
 
   /**

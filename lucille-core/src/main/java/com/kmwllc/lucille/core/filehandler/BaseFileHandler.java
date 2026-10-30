@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core.filehandler;
 
 import static com.kmwllc.lucille.core.Document.ID_FIELD;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -26,7 +27,7 @@ public abstract class BaseFileHandler implements FileHandler {
   public BaseFileHandler(Config config) {
     getSpec().validate(config, this.getClass().getName());
 
-    this.docIdPrefix = config.hasPath("docIdPrefix") ? config.getString("docIdPrefix") : "";
+    this.docIdPrefix = ConfigUtils.getStringOrDefault(config, "docIdPrefix", "");
   }
 
   /**

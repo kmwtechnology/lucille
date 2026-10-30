@@ -17,7 +17,7 @@ public class RunStatus {
   /**
    * Indicates if the process is currently running.
    */
-  private boolean isRunning;
+  private final boolean isRunning;
 
   /**
    * Constructs a RunStatus with the given run ID and running state.
@@ -66,11 +66,10 @@ public class RunStatus {
    */
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof RunStatus)) {
+    if (!(o instanceof RunStatus status)) {
       return false;
     }
 
-    RunStatus status = (RunStatus) o;
 
     return this.isRunning == status.isRunning && Objects.equals(this.runId, status.runId);
   }

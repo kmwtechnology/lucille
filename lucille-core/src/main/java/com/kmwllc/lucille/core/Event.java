@@ -74,8 +74,7 @@ public class Event {
     this.runId = document.getRunId();
     this.message = message;
     this.type = type;
-    if (document instanceof KafkaDocument) {
-      KafkaDocument kafkaDocument = (KafkaDocument) document;
+    if (document instanceof KafkaDocument kafkaDocument) {
       this.topic = kafkaDocument.getTopic();
       this.partition = kafkaDocument.getPartition();
       this.offset = kafkaDocument.getOffset();
@@ -166,11 +165,10 @@ public class Event {
       return true;
     }
 
-    if (!(o instanceof Event)) {
+    if (!(o instanceof Event e)) {
       return false;
     }
 
-    Event e = (Event) o;
     return Objects.equals(documentId, e.documentId) &&
         Objects.equals(runId, e.runId) &&
         Objects.equals(message, e.message) &&

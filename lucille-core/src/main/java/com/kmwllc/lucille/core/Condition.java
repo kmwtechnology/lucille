@@ -59,7 +59,7 @@ public class Condition implements Predicate<Document> {
     }
 
     String path = config.getString("valuesPath");
-    HashSet<String> set = new HashSet<>();
+    Set<String> set = new HashSet<>();
 
     try (BufferedReader reader = FileContentFetcher.getOneTimeReader(path, config)) {
       String line;
@@ -84,7 +84,7 @@ public class Condition implements Predicate<Document> {
     }
 
     ConfigList list = config.getList("values");
-    HashSet<String> mySet = new HashSet<>();
+    Set<String> mySet = new HashSet<>();
     for (ConfigValue val : list) {
       if (val.valueType() == ConfigValueType.NULL) {
         mySet.add(null);

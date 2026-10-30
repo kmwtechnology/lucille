@@ -3,6 +3,7 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -45,7 +46,7 @@ public class EmitNestedChildren extends Stage {
   public EmitNestedChildren(Config config) {
     super(config);
 
-    this.dropParent = config.hasPath("dropParent") ? config.getBoolean("dropParent") : false;
+    this.dropParent = ConfigUtils.getBooleanOrDefault(config, "dropParent", false);
     this.fieldsToCopy = config.hasPath("fieldsToCopy") ? config.getConfig("fieldsToCopy").root().unwrapped() : Map.of();
     this.updateMode = UpdateMode.fromConfig(config);
   }

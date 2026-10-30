@@ -110,14 +110,14 @@ public class LucilleResource {
   public Response createConfig(@RequestBody(description = "Run configuration as a HOCON string", required = true,
           content = @Content(mediaType = "application/hocon", schema = @Schema(
               type = "object",
-              example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
+              example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.FileConnector\",\"paths\":[\"conf/dummy2.csv\"],\"fileHandlers\":{\"csv\":{}},\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
 
     try {
       // no includes or env vars, so a POSTed config can't read data off the host
       Config config = ConfigFactory.parseString(configBody, ConfigParseOptions.defaults().setIncluder(new RejectingIncluder()))
           .resolve(ConfigResolveOptions.defaults().setUseSystemEnvironment(false));
       CreateConfigResult result = runnerManager.createConfig(config);
-      log.info("a lucille config has been created. Config ID: " + result.getConfigId());
+      log.info("a lucille config has been created. Config ID: {}", result.getConfigId());
       return Response.ok(result).build();
     } catch (Exception e) {
       return Response.status(Response.Status.BAD_REQUEST)
@@ -221,7 +221,7 @@ public class LucilleResource {
 
       String runId = Runner.generateRunId();
       RunDetails details = runnerManager.runWithConfig(runId, configId, preventConcurrentRuns);
-      log.debug("Lucille run has been triggered. Run ID: " + runId);
+      log.debug("Lucille run has been triggered. Run ID: {}", runId);
       log.debug("details: {}", details);
       return Response.ok(details).build();
       

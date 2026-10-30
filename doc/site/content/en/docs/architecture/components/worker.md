@@ -56,17 +56,22 @@ worker {
   exitOnTimeout: true
 
   # Maximum number of processing attempts for any document across all workers.
-  # Requires zookeeper.connectString to be configured.
+  # With the default retry counter, requires zookeeper.connectString to be configured.
   # Documents exceeding this limit are routed to a dead-letter queue and
   # do not block the rest of the run. Omit to disable retry tracking entirely.
   maxRetries: 3
+
+  # Optional RetryCounter implementation used when maxRetries is set
+  # (default: com.kmwllc.lucille.core.ZKRetryCounter).
+  # The class must have a public constructor that takes a Config.
+  # retryCounter.class: "com.example.MyRetryCounter"
 
   # Write a heartbeat.log file periodically for liveness checks.
   # Frequency is controlled by log.seconds.
   enableHeartbeat: true
 }
 
-# Required when worker.maxRetries is set
+# Required when worker.maxRetries is set and the default retry counter is used
 zookeeper {
   connectString: "localhost:2181"
 }
@@ -92,6 +97,8 @@ The run does not stop on a per-document failure. Individual document failures ar
 ### Poison Pills
 
 A "poison pill" is a document that repeatedly causes the Worker process itself to crash. If `worker.maxRetries` is configured (requires ZooKeeper), the retry counter tracks crash counts across all Worker instances. When a document exceeds the retry limit, it is routed to a dead-letter queue, and the rest of the ingest continues.
+
+By default, retry counts are stored in ZooKeeper by `ZKRetryCounter`. To store them elsewhere, set `worker.retryCounter.class` to a class that implements `com.kmwllc.lucille.core.RetryCounter` and has a public constructor that takes a `Config`. The Worker passes it the full config, so the class can read its own settings from a top-level block of its own. The Worker calls the counter's `close()` when it stops, so release any connections there. If the class can't be found or created, the Worker fails at startup.
 
 ## Metrics
 

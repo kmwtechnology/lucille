@@ -10,7 +10,12 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
 import org.apache.commons.text.StringSubstitutor;
 
 /**
@@ -66,7 +71,7 @@ public class Concatenate extends Stage {
   // NOTE : If a given field is multivalued, this Stage will only operate on the first value
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    HashMap<String, String> replacements = new HashMap<>();
+    Map<String, String> replacements = new HashMap<>();
     for (String source : fields) {
       String value;
       if (!doc.has(source)) {

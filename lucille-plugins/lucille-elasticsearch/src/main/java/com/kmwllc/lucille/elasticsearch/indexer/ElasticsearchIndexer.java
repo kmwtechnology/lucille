@@ -118,7 +118,7 @@ public class ElasticsearchIndexer extends Indexer {
 
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
-    this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
+    this.update = ConfigUtils.getBooleanOrDefault(config, "elasticsearch.update", false);
 
     joinData = ElasticJoinData.fromConfig(config);
     this.routingField = ConfigUtils.getStringOrDefault(config, "indexer.routingField", null);
@@ -147,8 +147,8 @@ public class ElasticsearchIndexer extends Indexer {
     if (versionField != null && doc.has(versionField)) {
       return doc.getLong(versionField);
     }
-    if (doc instanceof KafkaDocument) {
-      return ((KafkaDocument) doc).getOffset();
+    if (doc instanceof KafkaDocument kafkaDoc) {
+      return kafkaDoc.getOffset();
     }
     return null;
   }
@@ -193,7 +193,7 @@ public class ElasticsearchIndexer extends Indexer {
       return false;
     }
     if (response == null || !response.value()) {
-      log.error("Non true response when pinging Elasticsearch: " + response);
+      log.error("Non true response when pinging Elasticsearch: {}", response);
       return false;
     }
     return true;

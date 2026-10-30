@@ -60,7 +60,7 @@ public class SystemStatsResource {
   /**
    * Returns system statistics: CPU load, RAM, JVM heap, and storage usage.
    * Samples CPU load over {@link #CPU_SAMPLE_INTERVAL_MS} ms and rounds values to two decimals.
-   * InterruptedException during sleep is ignored.
+   * If the thread is interrupted during the sample, the interrupt flag is restored and the shorter sample is used.
    * @return Response with JSON map of system metrics.
    */
   public Response getSystemStats() {
@@ -69,7 +69,11 @@ public class SystemStatsResource {
     HardwareAbstractionLayer hal = si.getHardware();
     CentralProcessor cpu = hal.getProcessor();
     long[] prevTicks = cpu.getSystemCpuLoadTicks();
-    try { Thread.sleep(CPU_SAMPLE_INTERVAL_MS); } catch (InterruptedException ignored) {}
+    try {
+      Thread.sleep(CPU_SAMPLE_INTERVAL_MS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
     double cpuLoad = cpu.getSystemCpuLoadBetweenTicks(prevTicks) * 100;
     GlobalMemory mem = hal.getMemory();
     long totalPhysical = mem.getTotal();

@@ -14,7 +14,7 @@ public class SpecBuilder {
 
   SpecBuilder(String name) {
     this.name = name;
-    this.properties = new HashSet();
+    this.properties = new HashSet<>();
   }
 
   SpecBuilder(Set<Property> defaultLegalProperties) {
