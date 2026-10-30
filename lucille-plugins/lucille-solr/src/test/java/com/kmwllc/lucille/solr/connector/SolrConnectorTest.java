@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.solr.connector;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.kmwllc.lucille.core.Connector;
@@ -17,6 +18,7 @@ import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
+import org.apache.solr.common.params.CursorMarkParams;
 import org.apache.solr.common.util.NamedList;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
@@ -40,10 +42,13 @@ public class SolrConnectorTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
+    // the connector reuses one SolrQuery and moves its cursor, so record the cursor as each query is sent
+    List<String> cursorMarksSent = new ArrayList<>();
     when(mockClient.query(any(SolrQuery.class))).then(new Answer<>() {
       @Override
       public QueryResponse answer(InvocationOnMock invocationOnMock) throws Throwable {
         SolrQuery q = invocationOnMock.getArgument(0);
+        cursorMarksSent.add(q.get(CursorMarkParams.CURSOR_MARK_PARAM));
 
         SolrDocument doc = new SolrDocument();
         doc.setField(Document.ID_FIELD, "doc");
@@ -63,6 +68,10 @@ public class SolrConnectorTest {
 
     Connector connector = new SolrConnector(config, mockClient);
     connector.execute(publisher);
+
+    // the first query starts the cursor with "*", the value Solr expects
+    verify(mockClient, times(2)).query(any(SolrQuery.class));
+    assertEquals(List.of("*", "**"), cursorMarksSent);
 
     Document testDoc = Document.create("doc", "run");
     testDoc.update("q", UpdateMode.DEFAULT, "type:product");

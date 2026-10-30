@@ -20,6 +20,7 @@ import org.apache.solr.client.solrj.request.RequestWriter;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
+import org.apache.solr.common.params.CursorMarkParams;
 import org.apache.solr.common.util.NamedList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,7 +130,7 @@ public class SolrConnector extends AbstractConnector {
       q.add(e.getKey(), vals);
     }
     q.add("sort", idField + " asc");
-    q.set("cursorMark", "\\*");
+    q.set(CursorMarkParams.CURSOR_MARK_PARAM, CursorMarkParams.CURSOR_MARK_START);
 
     QueryResponse resp;
     try {
@@ -171,11 +172,11 @@ public class SolrConnector extends AbstractConnector {
         }
       }
 
-      if (q.get("cursorMark").equals(resp.getNextCursorMark())) {
+      if (q.get(CursorMarkParams.CURSOR_MARK_PARAM).equals(resp.getNextCursorMark())) {
         break;
       }
 
-      q.set("cursorMark", resp.getNextCursorMark());
+      q.set(CursorMarkParams.CURSOR_MARK_PARAM, resp.getNextCursorMark());
       try {
         resp = client.query(q);
       } catch (Exception e) {
