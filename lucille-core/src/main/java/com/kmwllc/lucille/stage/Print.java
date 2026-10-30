@@ -57,9 +57,9 @@ public class Print extends Stage {
   public Print(Config config) throws StageException {
     super(config);
 
-    this.outputFilePath = config.hasPath("outputFile") ? config.getString("outputFile") : null;
-    this.shouldLog = config.hasPath("shouldLog") ? config.getBoolean("shouldLog") : true;
-    this.overwriteFile = config.hasPath("overwriteFile") ? config.getBoolean("overwriteFile") : true;
+    this.outputFilePath = ConfigUtils.getStringOrDefault(config, "outputFile", null);
+    this.shouldLog = ConfigUtils.getBooleanOrDefault(config, "shouldLog", true);
+    this.overwriteFile = ConfigUtils.getBooleanOrDefault(config, "overwriteFile", true);
     this.appendThreadName = ConfigUtils.getOrDefault(config, "appendThreadName", true);
 
     this.fieldFilter = new FieldFilter(config);

@@ -35,7 +35,7 @@ public class HybridWorkerMessengerTest {
     Config config = ConfigFactory.parseString("kafka.events: false");
     consumer = mock(KafkaConsumer.class);
     offsets = new LinkedBlockingQueue<>();
-    messenger = new HybridWorkerMessenger(config, "pipeline1", new LinkedBlockingQueue<Document>(), offsets, consumer);
+    messenger = new HybridWorkerMessenger(config, "pipeline1", new LinkedBlockingQueue<>(), offsets, consumer);
   }
 
   @Test

@@ -45,10 +45,10 @@ import com.typesafe.config.Config;
  *
  * State tracks file paths and last publish timestamps to support filterOptions.lastPublishedCutoff and to avoid duplicate publications
  * across runs. You can connect to your own JDBC database by providing driver, connectionString, jdbcUser, and tableName. If
- * connectionString is omitted, an embedded database is created at ./state/{CONNECTOR_NAME}. With state enabled, traversal may be
- * slower, and files that are moved or renamed are always republished. The lastPublishedCutoff setting requires state and
- * incremental publishMode; configuring it without them is an error. You may enable state without lastPublishedCutoff and publish
- * times will still be updated.
+ * connectionString is omitted, an embedded database is created at ./state/{CONNECTOR_NAME}. A run fails at startup if another run
+ * in the same JVM is already using the same connectionString and tableName. With state enabled, traversal may be slower, and
+ * files that are moved or renamed are always republished. The lastPublishedCutoff setting requires state and incremental publishMode;
+ * configuring it without them is an error. You may enable state without lastPublishedCutoff and publish times will still be updated.
  * <p>
  * Config Parameters -
  * <ul>
@@ -182,7 +182,7 @@ public class FileConnector extends AbstractConnector {
   public FileConnector(Config config) throws ConnectorException {
     super(config);
 
-    this.maxThreads = config.hasPath("maxThreads") ? config.getInt("maxThreads") : 1;
+    this.maxThreads = ConfigUtils.getIntOrDefault(config, "maxThreads", 1);
 
     if (maxThreads < 1 && maxThreads != -1) {
       throw new IllegalArgumentException("maxThreads must be -1 or >= 1.");

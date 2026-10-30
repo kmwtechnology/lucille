@@ -7,7 +7,11 @@ import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class WorkerIndexerPool {
 
@@ -15,7 +19,7 @@ public class WorkerIndexerPool {
 
   private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
 
-  private final List<WorkerIndexer> workerIndexers = new ArrayList();
+  private final List<WorkerIndexer> workerIndexers = new ArrayList<>();
 
   private final Config config;
   private final String pipelineName;
@@ -37,7 +41,7 @@ public class WorkerIndexerPool {
       log.error("Error reading pipeline config", e);
     }
     if (this.numWorkers == null) {
-      this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
+      this.numWorkers = ConfigUtils.getIntOrDefault(config, "worker.threads", DEFAULT_POOL_SIZE);
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     this.idSet = idSet;
@@ -48,7 +52,7 @@ public class WorkerIndexerPool {
       throw new IllegalStateException("WorkerIndexerPool can be started at most once");
     }
     started = true;
-    log.info("Starting " + numWorkers + " WorkerIndexer thread pairs for pipeline " + pipelineName);
+    log.info("Starting {} WorkerIndexer thread pairs for pipeline {}", numWorkers, pipelineName);
 
     for (int i = 0; i < numWorkers; i++) {
       try {
@@ -83,7 +87,7 @@ public class WorkerIndexerPool {
   }
 
   public void stop() throws Exception {
-    log.debug("Stopping " + workerIndexers.size() + " worker threads");
+    log.debug("Stopping {} worker threads", workerIndexers.size());
     if (logTimer != null) {
       logTimer.cancel();
     }
@@ -98,7 +102,7 @@ public class WorkerIndexerPool {
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    if (workerIndexers.size() > 0) {
+    if (!workerIndexers.isEmpty()) {
       workerIndexers.get(0).getWorker().logMetrics();
     }
   }

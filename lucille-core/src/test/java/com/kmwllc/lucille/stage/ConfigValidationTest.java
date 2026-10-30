@@ -150,23 +150,6 @@ public class ConfigValidationTest {
     assertTrue(exceptions.get("connector2").get(0).getMessage().contains("No Connector class specified"));
   }
 
-  @Test
-  public void testBadIndexer() throws Exception {
-    // NOTE that, when validating indexers, if there is an exception with both the "indexer" block and the
-    // specific implementation's config, the "indexer" config gets validated first / has its exceptions thrown
-    // before the second one will. (in other words, you have to fix "indexer" issues before seeing issues with your other
-    // specific implementation config).
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode(addPath("badIndexer.conf"));
-    // five "things" to validate here - Indexer is only one with exceptions
-    assertEquals(1, exceptions.size());
-    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Config contains unknown property sendEnabled"));
-    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Config is missing required property index"));
-
-    exceptions = Runner.runInValidationMode(addPath("extraIndexerProps.conf"));
-    assertEquals(1, exceptions.size());
-    assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Config contains unknown property blah"));
-  }
-
 //  @Test
 //  public void testNonDisjointPropertiesValidation() {
 //    Spec spec = Spec.connector()

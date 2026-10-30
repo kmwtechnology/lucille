@@ -1,14 +1,20 @@
 package com.kmwllc.lucille.stage;
 
-import com.kmwllc.lucille.connector.xml.XMLConnector;
-import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.PublisherImpl;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.kmwllc.lucille.message.TestMessenger;
-import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
@@ -109,17 +115,23 @@ public class XPathExtractorTest {
   }
 
   @Test
-  public void withXMLConnectorTest() throws Exception {
-    // pass XML document through XMLConnector first
-    Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:XMLConnectorTest/staff.conf"));
+  public void withXMLFileHandlerTest() throws Exception {
+    // pass XML document through XMLFileHandler first
+    Config config = ConfigFactory.parseMap(Map.of("xml", Map.of(
+        "xmlRootPath", "/Company/staff",
+        "xmlIdPath", "/Company/staff/id",
+        "encoding", "utf-8",
+        "outputField", "xml"
+    )));
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
-    Connector connector = new XMLConnector(config);
-    connector.execute(publisher);
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    String filePath = "src/test/resources/FileHandlerTest/XMLFileHandlerTest/staff.xml";
+    xmlHandler.processFileAndPublish(publisher, new FileInputStream(new File(filePath)), filePath);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
 
-    Stage stage = factory.get("XMLConnectorTest/joint.conf");
+    Stage stage = factory.get("XPathExtractorTest/joint.conf");
     stage.processDocument(docs.get(0));
     stage.processDocument(docs.get(1));
 

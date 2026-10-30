@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -34,7 +35,7 @@ public class ThrowingStage extends Stage {
 
   public ThrowingStage(Config config) {
     super(config);
-    this.throwableClass = config.hasPath("throwable") ? config.getString("throwable") : StageException.class.getName();
+    this.throwableClass = ConfigUtils.getStringOrDefault(config, "throwable", StageException.class.getName());
     this.onlyForIds = config.hasPath("onlyForIds") ? config.getStringList("onlyForIds") : null;
     this.throwOnStop = config.hasPath("throwOnStop") && config.getBoolean("throwOnStop");
   }
