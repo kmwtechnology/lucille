@@ -1088,6 +1088,49 @@ public class SolrIndexerTest {
     }
   }
 
+  @Test
+  public void testTermsQueryKeepsValuesWhole() {
+    assertEquals("(+{!terms f=\"author\" separator=\",\" v=\"Smith,Jones\"})",
+        SolrIndexer.toTermsQuery("author", List.of("Smith", "Jones")));
+
+    // a comma in a value moves the separator to one no value contains
+    assertEquals("(+{!terms f=\"author\" separator=\"|\" v=\"Smith, John|Jones\"})",
+        SolrIndexer.toTermsQuery("author", List.of("Smith, John", "Jones")));
+
+    // quotes, braces and backslashes are escaped inside the quoted value
+    assertEquals("(+{!terms f=\"author\" separator=\",\" v=\"it's \\\"q\\\",\\{!x\\},a\\\\b\"})",
+        SolrIndexer.toTermsQuery("author", List.of("it's \"q\"", "{!x}", "a\\b")));
+
+    // when every candidate separator appears, each value gets its own term query
+    String everySeparator = ",|;^~\t";
+    assertEquals("(+{!term f=\"author\" v=\"" + everySeparator + "\"}) OR (+{!term f=\"author\" v=\"x\"})",
+        SolrIndexer.toTermsQuery("author", List.of(everySeparator, "x")));
+  }
+
+  @Test
+  public void testDeleteByFieldAndIdInOneQuery() throws Exception {
+    Config config = ConfigFactory.empty()
+        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("is_delete"))
+        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"))
+        .withValue("indexer.deleteByFieldField", ConfigValueFactory.fromAnyRef("delete_field"))
+        .withValue("indexer.deleteByFieldValue", ConfigValueFactory.fromAnyRef("delete_value"));
+
+    Document byField = Document.create("doc1", "test_run");
+    byField.setField("is_delete", "true");
+    byField.setField("delete_field", "author");
+    byField.setField("delete_value", "Smith, John");
+    Document byId = Document.create("doc2", "test_run");
+    byId.setField("is_delete", "true");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    SolrIndexer indexer = new SolrIndexer(config, new TestMessenger(), "", solrClient);
+    indexer.sendToIndex(List.of(byField, byId));
+
+    // the pending delete by id joins the same query, as a terms query on the id field
+    verify(solrClient).deleteByQuery(
+        "(+{!terms f=\"id\" separator=\",\" v=\"doc2\"}) OR (+{!terms f=\"author\" separator=\"|\" v=\"Smith, John\"})");
+  }
+
   /**
    * Non-configured status code should not retry.
    */
