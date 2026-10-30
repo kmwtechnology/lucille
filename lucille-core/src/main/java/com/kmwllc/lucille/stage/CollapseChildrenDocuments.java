@@ -28,8 +28,8 @@ public class CollapseChildrenDocuments extends Stage {
       .requiredList("fieldsToCopy", new TypeReference<List<String>>(){})
       .requiredBoolean("dropChildren").build();
 
-  private List<String> fieldsToCopy;
-  private boolean dropChildren;
+  private final List<String> fieldsToCopy;
+  private final boolean dropChildren;
 
   public CollapseChildrenDocuments(Config config) { 
     super(config);

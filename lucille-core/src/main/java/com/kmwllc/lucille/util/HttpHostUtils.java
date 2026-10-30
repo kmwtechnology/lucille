@@ -9,8 +9,11 @@ import org.apache.hc.core5.http.HttpHost;
 
 /**
  * Shared parsing of search-engine endpoint URLs into Apache HttpClient 5 hosts.
+ *
+ * <p>Public so that extracted backend plugins (e.g. lucille-opensearch, lucille-elasticsearch) can
+ * reuse it through their provided-scoped dependency on lucille-core.
  */
-class HttpHostUtils {
+public class HttpHostUtils {
 
   private HttpHostUtils() {
   }
@@ -24,7 +27,7 @@ class HttpHostUtils {
    * @param credentialsProvider receives the credentials found in the URLs
    * @return the hosts, in the order given
    */
-  static HttpHost[] toHttpHosts(List<String> urls, BasicCredentialsProvider credentialsProvider) {
+  public static HttpHost[] toHttpHosts(List<String> urls, BasicCredentialsProvider credentialsProvider) {
     if (urls.isEmpty()) {
       throw new IllegalArgumentException("At least one URL is required.");
     }

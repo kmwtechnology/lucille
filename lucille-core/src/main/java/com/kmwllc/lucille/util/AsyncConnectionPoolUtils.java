@@ -26,6 +26,9 @@ public class AsyncConnectionPoolUtils {
   public static final int DEFAULT_MAX_CONNECTIONS_PER_ROUTE = 5;
   public static final int DEFAULT_MAX_CONNECTIONS_TOTAL = 25;
 
+  private AsyncConnectionPoolUtils() {
+  }
+
   /**
    * Builds a connection manager for the given client config block, sized for concurrent sends and carrying the client's
    * default connection config (connect/socket timeouts and connection time-to-live from {@link HttpClientConfigUtils}).

@@ -56,7 +56,7 @@ public class ReplacePatterns extends Stage {
   private final boolean dotall;
   private final boolean literal;
 
-  private List<Pattern> patterns;
+  private final List<Pattern> patterns;
 
   public ReplacePatterns(Config config) throws StageException {
     super(config);

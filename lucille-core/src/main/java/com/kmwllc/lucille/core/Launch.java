@@ -37,10 +37,10 @@ import org.slf4j.LoggerFactory;
 public final class Launch {
 
   /** How long a shutdown hook waits for started threads to finish before letting the JVM exit. */
-  static final long SHUTDOWN_JOIN_TIMEOUT_MS = Runner.DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT;
+  private static final long SHUTDOWN_JOIN_TIMEOUT_MS = Runner.DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT;
 
   /** How often a process checks whether the threads it started are still alive. */
-  static final long POLL_MILLIS = 500;
+  private static final long POLL_MILLIS = 500;
 
   private static final Logger log = LoggerFactory.getLogger(Launch.class);
 

@@ -1,0 +1,303 @@
+package com.kmwllc.lucille.api.endpoints;
+
+import com.kmwllc.lucille.core.CreateConfigResult;
+import com.kmwllc.lucille.core.RunnerManagerException;
+import com.kmwllc.lucille.api.objects.RunRequest;
+import jakarta.ws.rs.DELETE;
+import java.util.HashMap;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.kmwllc.lucille.core.RunDetails;
+import com.kmwllc.lucille.core.Runner;
+import com.kmwllc.lucille.core.RunnerManager;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigIncludeContext;
+import com.typesafe.config.ConfigIncluder;
+import com.typesafe.config.ConfigIncluderClasspath;
+import com.typesafe.config.ConfigIncluderFile;
+import com.typesafe.config.ConfigIncluderURL;
+import com.typesafe.config.ConfigObject;
+import com.typesafe.config.ConfigParseOptions;
+import com.typesafe.config.ConfigResolveOptions;
+import java.io.File;
+import java.net.URL;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+
+/**
+ * Lucille Admin API Endpoint.
+ * <p>
+ * Provides endpoints for managing Lucille configurations and triggering runs via the Admin API.
+ * <ul>
+ *   <li>Create and retrieve Lucille configs</li>
+ *   <li>Start and retrieve Lucille runs</li>
+ * </ul>
+ */
+@Path("/v1")
+@Produces(MediaType.APPLICATION_JSON)
+public class LucilleResource {
+
+  /**
+   * Logger for the LucilleResource.
+   */
+  private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
+
+  /**
+   * Runner manager instance for handling Lucille runs.
+   */
+  private final RunnerManager runnerManager;
+
+  /**
+   * Whether concurrent runs of the same <code>configId</code> should be prevented.
+   */
+  private final boolean preventConcurrentRuns;
+
+  /**
+   * Constructs a new LucilleResource that does not prevent concurrent runs and has no preset configs.
+   * @param runnerManager the runner manager instance
+   */
+  public LucilleResource(RunnerManager runnerManager) {
+    this(runnerManager, false, Map.of());
+  }
+
+  /**
+   * Constructs a new LucilleResource.
+   * @param runnerManager the runner manager instance
+   * @param preventConcurrentRuns whether to prevent runs of the same config.
+   * @param presetConfigs A non-null mapping of names to configs that should be added to the runner manager.
+   */
+  public LucilleResource(RunnerManager runnerManager, boolean preventConcurrentRuns, Map<String, Config> presetConfigs) {
+    this.runnerManager = runnerManager;
+    this.preventConcurrentRuns = preventConcurrentRuns;
+
+    try {
+      for (Map.Entry<String, Config> entry : presetConfigs.entrySet()) {
+        runnerManager.createConfigWithKey(entry.getValue(), entry.getKey());
+      }
+    } catch (RunnerManagerException e) {
+      // a preset that is invalid, or more presets than the config limit, is a deployment error: fail startup
+      throw new IllegalStateException("Could not load preset configs: " + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Creates a new Lucille config, which can be used later by its referenced UUID.
+   * @param configBody the config as a string
+   * @return HTTP 200 with config ID, or error if invalid
+   */
+  @POST
+  @Tag(name = "Config")
+  @Path("/config")
+  @Consumes({MediaType.APPLICATION_JSON, "application/hocon"})
+  @Operation(summary = "Create a new Lucille config to be run later",
+      description = "Creates a new Lucille config, which can be used later by its referenced uuid.")
+  public Response createConfig(@RequestBody(description = "Run configuration as a HOCON string", required = true,
+          content = @Content(mediaType = "application/hocon", schema = @Schema(
+              type = "object",
+              example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
+
+    try {
+      // no includes or env vars, so a POSTed config can't read data off the host
+      Config config = ConfigFactory.parseString(configBody, ConfigParseOptions.defaults().setIncluder(new RejectingIncluder()))
+          .resolve(ConfigResolveOptions.defaults().setUseSystemEnvironment(false));
+      CreateConfigResult result = runnerManager.createConfig(config);
+      log.info("a lucille config has been created. Config ID: " + result.getConfigId());
+      return Response.ok(result).build();
+    } catch (Exception e) {
+      return Response.status(Response.Status.BAD_REQUEST)
+          .entity("Invalid configuration provided: " + e.getMessage()).build();
+    }
+  }
+
+  /**
+   * Retrieves all Lucille configurations.
+   * @return HTTP 200 with all configs, or error if unauthorized
+   */
+  @GET
+  @Tag(name = "Config", description = "Retrieve Lucille configuration details.")
+  @Path("/config")
+  @Operation(summary = "Get all Lucille configs",
+      description = "Retrieves all Lucille configurations.",
+      security = @SecurityRequirement(name = "basicAuth"))
+  public Response getAllConfigs() {
+    Map<String, Object> ret = new HashMap<>();
+    for (String configId : runnerManager.getConfigKeys  ()) {
+      ret.put(configId, runnerManager.getConfig(configId).root().unwrapped());
+    }
+    return Response.ok(ret).build();
+  }
+
+  /**
+   * Retrieves a specific Lucille configuration by its ID.
+   * @param configId the UUID of the configuration to retrieve
+   * @return HTTP 200 with config details, 404 if not found, or error if unauthorized
+   */
+  @GET
+  @Tag(name = "Config", description = "Retrieve Lucille configuration details.")
+  @Path("/config/{configId}")
+  @Operation(summary = "Get a specific Lucille config",
+      description = "Retrieves a specific Lucille configuration by its ID.",
+      security = @SecurityRequirement(name = "basicAuth"))
+  public Response getConfig(@Parameter(description = "The UUID of the configuration to retrieve.", required = false,
+          example = "fca83cb6-c2c2-4cbf-93ef-41c08d5d4b58") @PathParam("configId") String configId) {
+    try {
+      Config config = runnerManager.getConfig(configId);
+      if (config == null) {
+        return ResponseUtils.buildErrorResponse(Response.Status.NOT_FOUND,
+            "Configuration with ID " + configId + " not found.");
+      }
+      return Response.ok(config.root().unwrapped()).build();
+    } catch (Exception e) {
+      return ResponseUtils.buildErrorResponse(Response.Status.INTERNAL_SERVER_ERROR,
+          "Error retrieving configuration: " + e.getMessage());
+    }
+  }
+
+  @DELETE
+  @Tag(name = "Config", description = "Delete a Lucille configuration.")
+  @Path("/config/{configId}")
+  @Operation(
+      summary = "Delete a Lucille config.",
+      description = "Delete a specific Lucille configuration by its ID.",
+      security = @SecurityRequirement(name = "basicAuth")
+  )
+  public Response deleteConfig(
+      @Parameter(
+          description = "The UUID of the configuration to delete.",
+          required = true,
+          example = "fca83cb6-c2c2-4cbf-93ef-41c08d5d4b58"
+      )
+      @PathParam("configId")
+      String configId
+  ) {
+    boolean success = runnerManager.deleteConfig(configId);
+
+    if (success) {
+      return Response.ok().build();
+    } else {
+      return ResponseUtils.buildErrorResponse(Response.Status.NOT_FOUND,
+          "Configuration with ID " + configId + " not found.");
+    }
+  }
+
+  /**
+   * Starts a new Lucille run with the specified configuration.
+   * @param runRequest request body containing the configuration ID
+   * @return HTTP 200 with run details, or error if invalid or unauthorized
+   */
+  @POST
+  @Tag(name = "Run")
+  @Path("/run")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Start a new Lucille run",
+      description = "Triggers a new Lucille run with the specified configuration.")
+  public Response startRun(@RequestBody(description = "Request body containing the configuration ID", required = true,
+          content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(
+              type = "object",
+              example = "{\"configId\": \"550e8400-e29b-41d4-a716-446655440000\"}"))) RunRequest runRequest) {
+    try {
+      String configId = runRequest.getConfigId();
+      // Extract configId from the request body
+      if (configId == null || configId.isBlank()) {
+        return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
+            "configId is required in the request body.");
+      }
+
+      String runId = Runner.generateRunId();
+      RunDetails details = runnerManager.runWithConfig(runId, configId, preventConcurrentRuns);
+      log.debug("Lucille run has been triggered. Run ID: " + runId);
+      log.debug("details: {}", details);
+      return Response.ok(details).build();
+      
+    } catch (Exception e) {
+      return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
+          "Invalid configuration provided: " + e.getMessage());
+    }
+  }
+
+  /**
+   * Retrieves a list of all Lucille runs.
+   * @return HTTP 200 with all run details, or error if unauthorized
+   */
+  @GET
+  @Tag(name = "Run", description = "Retrieve Lucille run details")
+  @Path("/run")
+  @Operation(summary = "Get all runs", description = "Retrieves a list of all Lucille runs.",
+      security = @SecurityRequirement(name = "basicAuth"))
+  public Response getAllRuns() {
+    return Response.ok(runnerManager.getRunDetails()).build();
+  }
+
+  /**
+   * Retrieves the details of a specific Lucille run by its run ID.
+   * @param runId the ID of the run to retrieve
+   * @return HTTP 200 with run details, 400 if not found, or error if unauthorized
+   */
+  @GET
+  @Tag(name = "Run", description = "Retrieve a specific Lucille run")
+  @Path("/run/{runId}")
+  @Operation(summary = "Get a specific run",
+      description = "Retrieves the details of a specific Lucille run by its run ID.",
+      security = @SecurityRequirement(name = "basicAuth"))
+  public Response getRunById(@Parameter(description = "The ID of the run to retrieve.", required = true,
+          example = "550e8400-e29b-41d4-a716-446655440000") @PathParam("runId") String runId) {
+    RunDetails details = runnerManager.getRunDetails(runId);
+    if (details == null) {
+
+      return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
+          "No run with the given ID was found.");
+    }
+
+    return Response.ok(details).build();
+  }
+
+  // Rejects all includes. Implements each includer interface, since Typesafe uses its default for any that are missing.
+  private static final class RejectingIncluder
+      implements ConfigIncluder, ConfigIncluderFile, ConfigIncluderURL, ConfigIncluderClasspath {
+
+    @Override
+    public ConfigIncluder withFallback(ConfigIncluder fallback) {
+      return this;
+    }
+
+    @Override
+    public ConfigObject include(ConfigIncludeContext context, String what) {
+      throw includesDisabledException();
+    }
+
+    @Override
+    public ConfigObject includeFile(ConfigIncludeContext context, File what) {
+      throw includesDisabledException();
+    }
+
+    @Override
+    public ConfigObject includeURL(ConfigIncludeContext context, URL what) {
+      throw includesDisabledException();
+    }
+
+    @Override
+    public ConfigObject includeResources(ConfigIncludeContext context, String what) {
+      throw includesDisabledException();
+    }
+
+    private static ConfigException includesDisabledException() {
+      return new ConfigException.Generic("Includes are not allowed in configs POSTed to the API.");
+    }
+  }
+}

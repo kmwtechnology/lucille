@@ -6,7 +6,7 @@ import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES
 import static com.kmwllc.lucille.connector.FileConnector.MAX_SIZE_BYTES;
 
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;

@@ -11,7 +11,7 @@ public enum ChunkingMethod {
   public static final String CONFIG_PATH = "chunkingMethod";
   public static final ChunkingMethod DEFAULT = SENTENCE;
 
-  private String text;
+  private final String text;
 
   ChunkingMethod(String text) {
     this.text = text;

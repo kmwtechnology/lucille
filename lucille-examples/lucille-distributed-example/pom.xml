@@ -26,6 +26,11 @@
       <artifactId>lucille-core</artifactId>
       <version>${project.version}</version>
     </dependency>
+      <dependency>
+      <groupId>com.kmwllc</groupId>
+      <artifactId>lucille-solr</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 
   <profiles>

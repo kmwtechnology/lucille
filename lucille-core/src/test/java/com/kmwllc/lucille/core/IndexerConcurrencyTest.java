@@ -707,6 +707,22 @@ public class IndexerConcurrencyTest {
   }
 
   @Test
+  public void testFailEventMessageIsTheReason() throws Exception {
+    RecordingMessenger messenger = new RecordingMessenger();
+    ControlledIndexer controlled = new ControlledIndexer(config(1), messenger);
+    indexer = controlled;
+    // rejectedDoc is reported failed with a reason; noMessageDoc's send throws an exception that has no message
+    controlled.failDocument("rejectedDoc");
+    controlled.failSend("noMessageDoc", new IllegalStateException());
+    messenger.queueDoc(Document.create("rejectedDoc"));
+    messenger.queueDoc(Document.create("noMessageDoc"));
+
+    controlled.run(2);
+    assertEquals("rejected rejectedDoc", messenger.lastFailMessage("rejectedDoc"));
+    assertEquals(IllegalStateException.class.getName(), messenger.lastFailMessage("noMessageDoc"));
+  }
+
+  @Test
   public void testSlowSynchronousSendDoesNotSplitBatches() throws Exception {
     assertFullBatchesDespiteSlowSends(1);
   }
@@ -1144,6 +1160,8 @@ public class IndexerConcurrencyTest {
     private final AtomicInteger pollCount = new AtomicInteger();
     // Events sent, as "TYPE:docId", in order.
     private final List<String> sentEvents = Collections.synchronizedList(new ArrayList<>());
+    // The message of the last FAIL event sent for each document id.
+    private final Map<String, String> failMessages = new ConcurrentHashMap<>();
     // Completed batches, each rendered as the comma-joined ids of its documents, in completion order.
     private final List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
 
@@ -1165,6 +1183,11 @@ public class IndexerConcurrencyTest {
       return new ArrayList<>(completedBatches);
     }
 
+    /** The message of the last FAIL event sent for the given document id, or null if none was sent. */
+    String lastFailMessage(String docId) {
+      return failMessages.get(docId);
+    }
+
     @Override
     public Document pollDocToIndex() throws Exception {
       pollCount.incrementAndGet();
@@ -1179,6 +1202,9 @@ public class IndexerConcurrencyTest {
     @Override
     public void sendEvent(Document document, String message, Type type) {
       sentEvents.add(type + ":" + document.getId());
+      if (type == Type.FAIL && message != null) {
+        failMessages.put(document.getId(), message);
+      }
     }
 
     @Override

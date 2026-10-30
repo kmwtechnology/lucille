@@ -5,7 +5,16 @@ date: 2025-06-06
 description: Execute an OpenSearch Template using information from a Document, and add the response to it.
 ---
 
-`com.kmwllc.lucille.stage.QueryOpensearch`
+`com.kmwllc.lucille.opensearch.stage.QueryOpensearch`
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-opensearch</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
 
 ### OpenSearch Templates
 
@@ -59,7 +68,7 @@ The stage connects to OpenSearch via the same `opensearch` config block used by 
 ```hocon
 {
   name: "QueryOpensearch-Example"
-  class: "com.kmwllc.lucille.stage.QueryOpensearch"
+  class: "com.kmwllc.lucille.opensearch.stage.QueryOpensearch"
 
   opensearch {
     url: "https://admin:admin@localhost:9200"

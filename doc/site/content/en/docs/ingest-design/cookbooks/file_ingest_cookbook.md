@@ -72,7 +72,7 @@ connectors: [
 ]
 ```
 
-For `.jsonl` files (one JSON object per line), no extra configuration is needed — the `JSONFileHandler` handles both formats automatically.
+For `.jsonl` files (one JSON object per line), no extra configuration is needed — the `JsonFileHandler` handles both formats automatically.
 
 ## Recipe 3: Ingest XML Files
 

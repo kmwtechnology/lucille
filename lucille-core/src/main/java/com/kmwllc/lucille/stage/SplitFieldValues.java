@@ -28,9 +28,9 @@ public class SplitFieldValues extends Stage {
       .requiredBoolean("trimWhitespace").build();
 
   private boolean trimWhitespace = true;
-  private String inputField;
-  private String outputField;
-  private String delimiter;
+  private final String inputField;
+  private final String outputField;
+  private final String delimiter;
 
   public SplitFieldValues(Config config) {
     super(config);

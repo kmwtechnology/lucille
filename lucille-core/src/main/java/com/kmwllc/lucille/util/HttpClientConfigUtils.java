@@ -45,6 +45,9 @@ public class HttpClientConfigUtils {
   /** The socketTimeoutMs value that disables the socket timeout. */
   public static final long NO_SOCKET_TIMEOUT = -1;
 
+  private HttpClientConfigUtils() {
+  }
+
   /** Builds the default {@link ConnectionConfig} for a client from the given config block (e.g. "opensearch"). */
   public static ConnectionConfig buildConnectionConfig(Config config, String configKey) {
     ConnectionConfig.Builder builder = ConnectionConfig.custom()

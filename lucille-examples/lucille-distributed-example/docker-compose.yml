@@ -1,17 +1,21 @@
 name: distributed-lucille
 
-# We use the lucille-core image to create our Runner, Worker, and Indexer.
-# However, we only build the image once, instead of per-service.
+# We use the lucille-all image to create our Runner, Worker, and Indexer, building it once and sharing it across the services.
+#
+# This example indexes to Solr (indexer.type: "Solr" in main.conf). We build the "all" stage of the multi-stage Dockerfile, which bundles
+# lucille-core plus every component plugin (including lucille-solr), so the Solr indexer.type resolves at runtime via ServiceLoader.
+
 #
 # working_dir overrides the image's default WORKDIR (/lucille) back to `/`, matching where
 # the old per-role Dockerfiles ran from. main.conf's FileConnector paths are relative
 # ("conf/source.csv") and get resolved (and recorded in indexed docs) against the process's
 # cwd, so this keeps VerifyIngestResult's hardcoded "file:///conf/source.csv" assertions valid.
-x-lucille-core: &lucille-core
+x-lucille: &lucille
   build:
     context: ../..
     dockerfile: Dockerfile
-  image: lucille-core:distributed-example
+    target: all
+  image: lucille-all:distributed-example
   working_dir: /
   volumes:
     - ./conf:/conf:ro
@@ -56,7 +60,7 @@ services:
       - "http://solr:8983/solr/admin/collections?action=CREATE&name=quickstart&numShards=1&collection.configName=_default"
 
   worker:
-    <<: *lucille-core
+    <<: *lucille
     depends_on:
       kafka:
         condition: service_healthy
@@ -66,7 +70,7 @@ services:
       LUCILLE_PIPELINE: simple_pipeline
 
   indexer:
-    <<: *lucille-core
+    <<: *lucille
     depends_on:
       kafka:
         condition: service_healthy
@@ -80,7 +84,7 @@ services:
       LUCILLE_PIPELINE: simple_pipeline
 
   runner:
-    <<: *lucille-core
+    <<: *lucille
     depends_on:
       kafka:
         condition: service_healthy
