@@ -17,10 +17,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -63,6 +63,9 @@ public class SolrIndexer extends Indexer {
       .optionalList("zkHosts", new TypeReference<List<String>>(){}).build();
 
   private static final Logger log = LoggerFactory.getLogger(SolrIndexer.class);
+
+  // separators tried in turn for a terms query; "," is the terms parser's default
+  private static final List<String> TERMS_SEPARATORS = List.of(",", "|", ";", "^", "~", "\t");
 
   private final SolrClient solrClient;
 
@@ -166,7 +169,6 @@ public class SolrIndexer extends Indexer {
     }
 
     Map<String, SolrDocRequests> solrDocRequestsByCollection = new HashMap<>();
-    Map<String, Document> docsUploaded = new LinkedHashMap<>();
 
     for (Document doc : documents) {
 
@@ -205,9 +207,7 @@ public class SolrIndexer extends Indexer {
         }
 
       } else {
-        docsUploaded.put(solrId, doc);
-        // note that solrDoc after this code block does not guarantee that "id" field is in document
-        SolrInputDocument solrDoc = toSolrDoc(doc, idOverride, collection);
+        SolrInputDocument solrDoc = toSolrDoc(doc, solrId, collection);
 
         // if the delete requests contain the ID of this document, send the deletes immediately so
         // the delete is
@@ -218,31 +218,25 @@ public class SolrIndexer extends Indexer {
           sendDeletionBatch(collection, solrDocRequests);
           solrDocRequests.resetDeletes();
         }
-        solrDocRequests.addDocForAddUpdate(solrDoc, solrId);
+        solrDocRequests.addDocForAddUpdate(solrDoc, doc, solrId);
       }
     }
 
     Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     for (String collection : solrDocRequestsByCollection.keySet()) {
-      List<SolrInputDocument> collectionDocs = solrDocRequestsByCollection.get(collection).getAddUpdateDocs();
+      SolrDocRequests requests = solrDocRequestsByCollection.get(collection);
 
       try {
-        sendAddUpdateBatch(collection, collectionDocs);
+        sendAddUpdateBatch(collection, requests.getAddUpdateDocs());
       } catch (Exception e) {
         // Add all the docs to failed docs
-        for (SolrInputDocument d : collectionDocs) {
-          String docId = d.getFieldValue(Document.ID_FIELD).toString();
-
-          if (docsUploaded.containsKey(docId)) {
-            failedDocs.add(Pair.of(docsUploaded.get(docId), e));
-          } else {
-            throw e;
-          }
+        for (Document d : requests.getAddUpdateSourceDocs()) {
+          failedDocs.add(Pair.of(d, e));
         }
       }
 
-      sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
+      sendDeletionBatch(collection, requests);
     }
 
     return failedDocs;
@@ -288,19 +282,12 @@ public class SolrIndexer extends Indexer {
         // terms queries.
         List<String> termsQueries = new ArrayList<>();
         if (!requests.getDeleteIds().isEmpty()) {
-          termsQueries.add(
-              String.format("(+{!terms f='id' v='%s'})", String.join(",", requests.getDeleteIds())));
+          termsQueries.add(toTermsQuery(Document.ID_FIELD, requests.getDeleteIds()));
         }
 
         requests
             .getValuesToDeleteByField()
-            .entrySet()
-            .forEach(
-                entry ->
-                    termsQueries.add(
-                        String.format(
-                            "(+{!terms f='%s' v='%s'})",
-                            entry.getKey(), String.join(",", entry.getValue()))));
+            .forEach((field, values) -> termsQueries.add(toTermsQuery(field, values)));
 
         String queryToDelete = String.join(" OR ", termsQueries);
 
@@ -317,6 +304,40 @@ public class SolrIndexer extends Indexer {
     }
   }
 
+  /**
+   * Builds a query clause matching documents whose field has any of the given values exactly. The values are joined
+   * with a separator that none of them contains, so a value such as "Smith, John" stays whole, and are quoted so a
+   * quote or brace in a value cannot end the local params early.
+   */
+  static String toTermsQuery(String field, List<String> values) {
+    String separator = TERMS_SEPARATORS.stream()
+        .filter(sep -> values.stream().noneMatch(v -> v.contains(sep)))
+        .findFirst()
+        .orElse(null);
+
+    if (separator == null) {
+      // every candidate separator appears in some value: match each value with its own term query instead
+      return values.stream()
+          .map(v -> String.format("(+{!term f=%s v=%s})", quoteLocalParam(field), quoteLocalParam(v)))
+          .collect(Collectors.joining(" OR "));
+    }
+
+    return String.format("(+{!terms f=%s separator=%s v=%s})",
+        quoteLocalParam(field), quoteLocalParam(separator), quoteLocalParam(String.join(separator, values)));
+  }
+
+  // escapes the characters that would otherwise end a double-quoted local param value, or the local params themselves
+  private static String quoteLocalParam(String value) {
+    StringBuilder sb = new StringBuilder("\"");
+    for (char c : value.toCharArray()) {
+      if (c == '\\' || c == '"' || c == '{' || c == '}') {
+        sb.append('\\');
+      }
+      sb.append(c);
+    }
+    return sb.append('"').toString();
+  }
+
   private static IndexerRetryableException toRetryableException(SolrException e) {
     int code = e.code();
     if (code > 0) {
@@ -326,15 +347,16 @@ public class SolrIndexer extends Indexer {
     return new IndexerRetryableException("Solr error with no HTTP status code", e);
   }
 
-  private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
+  private SolrInputDocument toSolrDoc(Document doc, String solrId, String indexOverride)
       throws IndexerException {
     // removes fields specified by fieldFilter config, including id
     Map<String, Object> map = getConvertedIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
+    // Solr needs the id (or its override) on every document, so it is set even when the field filter removes it
+    solrDoc.setField(Document.ID_FIELD, solrId);
 
     for (String key : map.keySet()) {
-      if (idOverride != null && Document.ID_FIELD.equals(key)) {
-        solrDoc.setField(Document.ID_FIELD, idOverride);
+      if (Document.ID_FIELD.equals(key)) {
         continue;
       }
 
@@ -367,8 +389,13 @@ public class SolrIndexer extends Indexer {
       Map<String, Object> map = getConvertedIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();
+      // as for the parent, the id is set even when the field filter removes it
+      solrChild.setField(Document.ID_FIELD, child.getId());
       // getConvertedIndexerDoc omits CHILDREN_FIELD, so children nested inside a child are not sent
       for (String key : map.keySet()) {
+        if (Document.ID_FIELD.equals(key)) {
+          continue;
+        }
         Object value = map.get(key);
         if (value instanceof Map) {
           throw new IndexerException(

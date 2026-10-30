@@ -21,6 +21,8 @@ import java.util.Set;
 public class SolrDocRequests {
 
   private final List<SolrInputDocument> docsToAddOrUpdate;
+  // the Lucille Document each entry of docsToAddOrUpdate was built from, at the same position
+  private final List<Document> sourceDocsToAddOrUpdate = new ArrayList<>();
   private final Set<String> idsToAddOrUpdate;
   private final Set<String> idsToDelete;
   private final Map<String,List<String>> valuesToDeleteByField;
@@ -40,9 +42,9 @@ public class SolrDocRequests {
     this.valuesToDeleteByField = valuesToDeleteByField;
   }
 
-  // we are explicitly using another argument for docId as the SolrInputDocument may no longer have the "id" field
-  public void addDocForAddUpdate(SolrInputDocument doc, String id) {
-    docsToAddOrUpdate.add(doc);
+  public void addDocForAddUpdate(SolrInputDocument solrDoc, Document sourceDoc, String id) {
+    docsToAddOrUpdate.add(solrDoc);
+    sourceDocsToAddOrUpdate.add(sourceDoc);
     idsToAddOrUpdate.add(id);
   }
 
@@ -71,6 +73,7 @@ public class SolrDocRequests {
 
   public void resetAddUpdates() {
     docsToAddOrUpdate.clear();
+    sourceDocsToAddOrUpdate.clear();
     idsToAddOrUpdate.clear();
   }
 
@@ -81,6 +84,10 @@ public class SolrDocRequests {
 
   public List<SolrInputDocument> getAddUpdateDocs() {
     return docsToAddOrUpdate;
+  }
+
+  public List<Document> getAddUpdateSourceDocs() {
+    return sourceDocsToAddOrUpdate;
   }
 
   public List<String> getDeleteIds() {

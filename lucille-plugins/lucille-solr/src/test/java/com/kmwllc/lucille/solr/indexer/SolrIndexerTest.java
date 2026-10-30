@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertEquals;
@@ -44,6 +45,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
@@ -193,12 +195,13 @@ public class SolrIndexerTest {
 
 
   /**
-   * Tests that id would be deleted if stated in blacklist
+   * Tests that the id override is still sent as the Solr id when the blacklist removes id, since Solr needs an id on
+   * every document.
    *
    * @throws Exception
    */
   @Test
-  public void testIgnoreIdInBlacklist() throws Exception {
+  public void testIdOverrideSentWhenIdInBlacklist() throws Exception {
     Config config = ConfigFactory.load("SolrIndexerTest/blacklistId.conf");
     TestMessenger messenger = new TestMessenger();
 
@@ -216,17 +219,17 @@ public class SolrIndexerTest {
     assertEquals(1, captor.getAllValues().size());
     assertEquals(1, messenger.getSentEvents().size());
 
-    // confirm that the document id has been removed
+    // the blacklist does not remove the id Solr needs; the override supplies it
     SolrInputDocument solrDoc = (SolrInputDocument) captor.getAllValues().get(0).toArray()[0];
-    assertNull(solrDoc.getFieldValue("id"));
+    assertEquals("my_new_id", solrDoc.getFieldValue("id"));
     assertEquals("my_new_id", solrDoc.getFieldValue("myid"));
   }
 
   /**
-   * test that children documents would obey blacklist configurations
+   * test that children documents keep their id under a blacklist that removes it, as Solr needs an id on every child
    */
   @Test
-  public void testBlacklistInChildren() throws Exception {
+  public void testIdKeptInChildrenWhenIdInBlacklist() throws Exception {
     Config config = ConfigFactory.load("SolrIndexerTest/blacklistId.conf");
     TestMessenger messenger = new TestMessenger();
 
@@ -245,10 +248,9 @@ public class SolrIndexerTest {
     assertEquals(1, captor.getAllValues().size());
     assertEquals(1, messenger.getSentEvents().size());
 
-    // confirm that the document id has been removed
     SolrInputDocument solrDoc = (SolrInputDocument) captor.getAllValues().get(0).toArray()[0];
     SolrInputDocument childDoc = solrDoc.getChildDocuments().get(0);
-    assertNull(childDoc.getFieldValue("id"));
+    assertEquals("child", childDoc.getFieldValue("id"));
   }
 
   /**
@@ -1086,6 +1088,86 @@ public class SolrIndexerTest {
     if (originalCheckPeerName != null) {
       System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
     }
+  }
+
+  @Test
+  public void testFailedDocsReportedWithSolrErrorWhenWhitelistOmitsId() throws Exception {
+    Config config = ConfigFactory.empty()
+        .withValue("indexer.whitelist", ConfigValueFactory.fromIterable(List.of("name")))
+        .withValue("indexer.idOverrideField", ConfigValueFactory.fromAnyRef("other_id"));
+
+    Document doc1 = Document.create("doc1", "test_run");
+    doc1.setField("name", "one");
+    Document doc2 = Document.create("doc2", "test_run");
+    doc2.setField("other_id", "overridden");
+    // a second document with the same Solr id must still be reported on its own
+    Document doc3 = Document.create("doc3", "test_run");
+    doc3.setField("other_id", "overridden");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    RemoteSolrException solrError = new RemoteSolrException("http://solr", 400, "bad field value", null);
+    when(solrClient.add(any(Collection.class))).thenThrow(solrError);
+
+    SolrIndexer indexer = new SolrIndexer(config, new TestMessenger(), "", solrClient);
+    Set<Pair<Document, Exception>> failedDocs = indexer.sendToIndex(List.of(doc1, doc2, doc3));
+
+    // each document is reported once, with the error Solr returned
+    assertEquals(Set.of(doc1, doc2, doc3), failedDocs.stream().map(Pair::getLeft).collect(Collectors.toSet()));
+    assertEquals(3, failedDocs.size());
+    for (Pair<Document, Exception> failed : failedDocs) {
+      assertTrue(failed.getRight() instanceof IndexerRetryableException);
+      assertEquals(400, ((IndexerRetryableException) failed.getRight()).getStatusCode());
+      assertSame(solrError, failed.getRight().getCause());
+    }
+
+    // the id, or its override, is set even though the whitelist leaves it out
+    ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
+    verify(solrClient).add(captor.capture());
+    List<Object> ids = captor.getValue().stream().map(d -> d.getFieldValue("id")).toList();
+    assertEquals(List.of("doc1", "overridden", "overridden"), ids);
+  }
+
+  @Test
+  public void testTermsQueryKeepsValuesWhole() {
+    assertEquals("(+{!terms f=\"author\" separator=\",\" v=\"Smith,Jones\"})",
+        SolrIndexer.toTermsQuery("author", List.of("Smith", "Jones")));
+
+    // a comma in a value moves the separator to one no value contains
+    assertEquals("(+{!terms f=\"author\" separator=\"|\" v=\"Smith, John|Jones\"})",
+        SolrIndexer.toTermsQuery("author", List.of("Smith, John", "Jones")));
+
+    // quotes, braces and backslashes are escaped inside the quoted value
+    assertEquals("(+{!terms f=\"author\" separator=\",\" v=\"it's \\\"q\\\",\\{!x\\},a\\\\b\"})",
+        SolrIndexer.toTermsQuery("author", List.of("it's \"q\"", "{!x}", "a\\b")));
+
+    // when every candidate separator appears, each value gets its own term query
+    String everySeparator = ",|;^~\t";
+    assertEquals("(+{!term f=\"author\" v=\"" + everySeparator + "\"}) OR (+{!term f=\"author\" v=\"x\"})",
+        SolrIndexer.toTermsQuery("author", List.of(everySeparator, "x")));
+  }
+
+  @Test
+  public void testDeleteByFieldAndIdInOneQuery() throws Exception {
+    Config config = ConfigFactory.empty()
+        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("is_delete"))
+        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"))
+        .withValue("indexer.deleteByFieldField", ConfigValueFactory.fromAnyRef("delete_field"))
+        .withValue("indexer.deleteByFieldValue", ConfigValueFactory.fromAnyRef("delete_value"));
+
+    Document byField = Document.create("doc1", "test_run");
+    byField.setField("is_delete", "true");
+    byField.setField("delete_field", "author");
+    byField.setField("delete_value", "Smith, John");
+    Document byId = Document.create("doc2", "test_run");
+    byId.setField("is_delete", "true");
+
+    SolrClient solrClient = mock(SolrClient.class);
+    SolrIndexer indexer = new SolrIndexer(config, new TestMessenger(), "", solrClient);
+    indexer.sendToIndex(List.of(byField, byId));
+
+    // the pending delete by id joins the same query, as a terms query on the id field
+    verify(solrClient).deleteByQuery(
+        "(+{!terms f=\"id\" separator=\",\" v=\"doc2\"}) OR (+{!terms f=\"author\" separator=\"|\" v=\"Smith, John\"})");
   }
 
   /**

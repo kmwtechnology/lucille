@@ -20,13 +20,16 @@ import org.apache.solr.client.solrj.request.RequestWriter;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
+import org.apache.solr.common.params.CursorMarkParams;
 import org.apache.solr.common.util.NamedList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -66,6 +69,9 @@ public class SolrConnector extends AbstractConnector {
   private final Map<String, List<String>> solrParams;
   private final String idField;
   private final String actionFormat;
+
+  private static final Set<Class<?>> DOCUMENT_VALUE_TYPES =
+      Set.of(String.class, Long.class, Integer.class, Double.class, Float.class, Boolean.class, Date.class, byte[].class);
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredParent(SolrUtils.SOLR_PARENT_SPEC)
@@ -129,7 +135,7 @@ public class SolrConnector extends AbstractConnector {
       q.add(e.getKey(), vals);
     }
     q.add("sort", idField + " asc");
-    q.set("cursorMark", "\\*");
+    q.set(CursorMarkParams.CURSOR_MARK_PARAM, CursorMarkParams.CURSOR_MARK_START);
 
     QueryResponse resp;
     try {
@@ -143,7 +149,9 @@ public class SolrConnector extends AbstractConnector {
     while (true) {
       for (SolrDocument solrDoc : resp.getResults()) {
         numRead++;
-        String sourceId = (String) solrDoc.get(idField);
+        // the unique key may be numeric, or another non-string type
+        Object rawId = solrDoc.getFirstValue(idField);
+        String sourceId = rawId == null ? null : String.valueOf(rawId);
         if (!Document.isValidId(sourceId)) {
           // without an id the document cannot be told apart from others like it, so skip it and carry on with the next
           numSkipped++;
@@ -156,12 +164,12 @@ public class SolrConnector extends AbstractConnector {
         for (String fieldName : solrDoc.getFieldNames()) {
           // TODO : we might want an option to preserve the id under its original field name
           // TODO : Add configurable field blacklist (not necessarily here)
-          fieldName = fieldName.toLowerCase();
           if (fieldName.equals(idField) || fieldName.equals(Document.ID_FIELD)) {
             continue;
           }
 
-          doc.update(fieldName, UpdateMode.DEFAULT, solrDoc.getFieldValues(fieldName).toArray(new String[0]));
+          // read the field by its own name; only the name it is given on the Document is lower-cased
+          doc.update(fieldName.toLowerCase(), UpdateMode.DEFAULT, toDocumentValues(solrDoc.getFieldValues(fieldName)));
         }
 
         try {
@@ -171,11 +179,11 @@ public class SolrConnector extends AbstractConnector {
         }
       }
 
-      if (q.get("cursorMark").equals(resp.getNextCursorMark())) {
+      if (q.get(CursorMarkParams.CURSOR_MARK_PARAM).equals(resp.getNextCursorMark())) {
         break;
       }
 
-      q.set("cursorMark", resp.getNextCursorMark());
+      q.set(CursorMarkParams.CURSOR_MARK_PARAM, resp.getNextCursorMark());
       try {
         resp = client.query(q);
       } catch (Exception e) {
@@ -210,6 +218,13 @@ public class SolrConnector extends AbstractConnector {
 
   public List<String> getLastExecutedPostActions() {
     return replacedPostActions;
+  }
+
+  // Solr returns some field types, such as enum fields, as classes a Document cannot hold; those keep their string form
+  private static Object[] toDocumentValues(Collection<Object> values) {
+    return values.stream()
+        .map(v -> v == null || DOCUMENT_VALUE_TYPES.contains(v.getClass()) ? v : String.valueOf(v))
+        .toArray();
   }
 
   private void executeActions(List<String> actions) throws ConnectorException {

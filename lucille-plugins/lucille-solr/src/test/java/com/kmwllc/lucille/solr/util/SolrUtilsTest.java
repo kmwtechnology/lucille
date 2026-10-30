@@ -3,6 +3,7 @@ package com.kmwllc.lucille.solr.util;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -43,6 +44,30 @@ public class SolrUtilsTest {
     // would like to inspect the solr client to confirm credentials are configured, but can’t do that so just checking it’s non-null
     assertNotNull(client);
     client.close();
+  }
+
+  @Test
+  public void testStandaloneClientUsesFirstUrlAndDefaultCollection() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of(
+        "solr.url", List.of("http://solr1:8983/solr", "http://solr2:8983/solr"),
+        "solr.defaultCollection", "products"));
+
+    try (SolrClient client = SolrUtils.getSolrClient(config)) {
+      assertTrue(client instanceof HttpJdkSolrClient);
+      assertEquals("http://solr1:8983/solr", ((HttpJdkSolrClient) client).getBaseURL());
+      assertEquals("products", client.getDefaultCollection());
+    }
+  }
+
+  @Test
+  public void testStandaloneClientWithoutDefaultCollection() throws Exception {
+    // a url that already names the core needs no defaultCollection
+    Config config = ConfigFactory.parseMap(Map.of("solr.url", "http://solr1:8983/solr/products"));
+
+    try (SolrClient client = SolrUtils.getSolrClient(config)) {
+      assertEquals("http://solr1:8983/solr/products", ((HttpJdkSolrClient) client).getBaseURL());
+      assertNull(client.getDefaultCollection());
+    }
   }
 
   @Test
