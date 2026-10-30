@@ -177,3 +177,7 @@ if __name__ == "__main__":
     print(f"[Py4jClient] Started client successfully with script_name: {args.script_name}, "
           f"script_dir: {args.script_dir}, port: {args.port}")
     # client.stop()
+    # returning from main starts interpreter shutdown even though py4j threads keep the process up, after which
+    # concurrent.futures rejects new work; user scripts using thread pools (e.g. Docling) would then fail
+    while client.running:
+        time.sleep(1)
