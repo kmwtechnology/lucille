@@ -58,7 +58,7 @@ public class FetchFileContent extends Stage {
     this.filePathField = ConfigUtils.getOrDefault(config, "filePathField", "file_path");
     this.fileContentField = ConfigUtils.getOrDefault(config, "fileContentField", "file_content");
 
-    this.maxSizeBytes = config.hasPath("maxSizeBytes") ? config.getLong("maxSizeBytes") : null;
+    this.maxSizeBytes = ConfigUtils.getLongOrDefault(config, "maxSizeBytes", null);
     if (maxSizeBytes != null && maxSizeBytes <= 0) {
       throw new IllegalArgumentException("maxSizeBytes must be positive, but was " + maxSizeBytes);
     }

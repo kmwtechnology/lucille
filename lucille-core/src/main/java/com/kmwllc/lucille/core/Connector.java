@@ -96,10 +96,10 @@ public interface Connector extends AutoCloseable {
   static List<Connector> fromConfig(Config config) throws ReflectiveOperationException, ConnectorException {
     List<? extends Config> connectorConfigs = config.getConfigList("connectors");
 
-    List<Connector> connectors = new ArrayList();
+    List<Connector> connectors = new ArrayList<>();
     int index = 1;
     for (Config c : connectorConfigs) {
-      final String name = c.hasPath("name") ? c.getString("name") : ("connector_" + index);
+      final String name = ConfigUtils.getStringOrDefault(c, "name", ("connector_" + index));
       if (!c.hasPath("name")) {
         c = c.withValue("name", ConfigValueFactory.fromAnyRef(name));
       }

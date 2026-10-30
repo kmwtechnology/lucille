@@ -40,7 +40,7 @@ public class DictionaryManager {
 
   // a map of dictionary names to dictionary instances
   // a dictionary is named according to its CSV path plus a suffix indicating whether case is ignored
-  private static final HashMap<String, Map<String, List<String>>> dictionaries = new HashMap<>();
+  private static final Map<String, Map<String, List<String>>> dictionaries = new HashMap<>();
 
   private static final List<String> PRESENT = List.of();
 
@@ -81,7 +81,7 @@ public class DictionaryManager {
     }
 
     try {
-      HashMap<String, List<String>> dictionary = buildHashMap(path, ignoreCase, setOnly, config);
+      Map<String, List<String>> dictionary = buildHashMap(path, ignoreCase, setOnly, config);
 
       // We create an unmodifiable view of the dictionary, which is represented as a HashMap;
       // This unmodifiable Map may be shared across Stage instances running in different threads;
@@ -106,7 +106,7 @@ public class DictionaryManager {
    * @param dictPath  the path of the dictionary file
    * @return the populated HashMap
    */
-  private static HashMap<String, List<String>> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config config) throws IOException {
+  private static Map<String, List<String>> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config config) throws IOException {
     FileContentFetcher fetcher = FileContentFetcher.create(config);
     fetcher.startup();
 
@@ -115,7 +115,7 @@ public class DictionaryManager {
       // for files with >= 1K lines we observed a 10% time reduction in time to populate the HashMap when the
       // initial capacity was set, even accounting for the overhead of the extra pass over the file to count the lines
       int lineCount = fetcher.countLines(dictPath);
-      HashMap<String, List<String>> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
+      Map<String, List<String>> dict = new HashMap<>((int) Math.ceil(lineCount / 0.75));
 
       // For each line of the dictionary file, add a keyword/payload pair
       String[] line;

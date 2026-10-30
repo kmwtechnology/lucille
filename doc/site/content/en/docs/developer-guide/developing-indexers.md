@@ -120,6 +120,70 @@ public class ExampleIndexer extends Indexer {
 }
 ```
 
+## Packaging an Indexer in a Plugin Module
+
+Indexers that pull in a heavy or backend-specific dependency (a search client, a vector-store SDK, native libraries) do **not** live in `lucille-core`. 
+They live in their own plugin module under `lucille-plugins/`, so that `lucille-core` stays lightweight and users only pull in the client stacks they actually use. 
+The Solr, OpenSearch, and Elasticsearch indexers are packaged this way. `CSVIndexer` and `NopIndexer` are still built-in.
+
+If your indexer needs no third-party dependency, put it in `lucille-core` and you are done, skip this section. 
+Otherwise, follow the checklist below to add a new plugin module. The same module mechanics apply to a plugin stage or connector. Only the `indexer.type` registration step is indexer-specific.
+
+### 1. Create the module
+
+Create `lucille-plugins/lucille-<name>/` with a `pom.xml` modeled on an existing backend plugin (for example `lucille-solr`). Key points:
+
+- Parent is `lucille-plugins`.
+- Depend on `lucille-core` with `<scope>provided</scope>`
+- Declare your backend client dependency.
+- Include the `maven-shade-plugin` block bound to `${shaded-plugin-jar.phase}` with the `ServicesResourceTransformer` (copy it verbatim from `lucille-solr`); this keeps the shaded `*-plugin.jar` option working and merges service files correctly.
+
+Register the module in `lucille-plugins/pom.xml`.
+
+### 2. Put the indexer in a backend-specific package
+
+Use `com.kmwllc.lucille.<name>.indexer.<Name>Indexer` (e.g. `com.kmwllc.lucille.solr.indexer.SolrIndexer`), not `com.kmwllc.lucille.indexer`. Shared HTTP helpers like `SSLUtils`, `HttpHostUtils`, `HttpClientConfigUtils`, and `AsyncConnectionPoolUtils` stay in `lucille-core`'s `util` package — import them from there.
+
+### 3. Register the `indexer.type` (optional)
+
+The `indexer.type: "..."` shortcut is resolved at runtime from a service file on the classpath, so a plugin can register its type name without `lucille-core` referencing the class. You never hand-write that file: [Google AutoService](https://github.com/google/auto/tree/main/service) generates it at compile time from annotations. AutoService is already wired into the build (`auto-service-annotations` on the compile classpath and the `auto-service` processor in the compiler plugin's `annotationProcessorPaths`, both inherited from `lucille-parent`), so the only thing you write is the annotation:
+
+```java
+import com.google.auto.service.AutoService;
+import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.indexer.IndexerType;
+
+@AutoService(Indexer.class)
+@IndexerType("<name>")
+public class NameIndexer extends Indexer {
+  ...
+}
+```
+
+`@IndexerType` declares the `indexer.type` name; `@AutoService(Indexer.class)` makes AutoService list this class in `META-INF/services/com.kmwllc.lucille.core.Indexer` at compile time. At runtime `IndexerFactory` reads the class names from those service files (merged across all jars on the classpath), resolves each with `Class.forName(name, false, loader)` which loads the class and reads its `@IndexerType` **without instantiating it**, and matches the annotation value case-insensitively against the configured `indexer.type`. Only the matching indexer is constructed, through its normal `(Config, IndexerMessenger, boolean, String, String)` constructor.
+
+If you skip this step, your indexer is still usable, but users must use the fully-qualified `indexer.class` instead of `indexer.type`.
+
+> **Note:** AutoService runs as an annotation processor during compilation. If you add or change an `@IndexerType` and the generated service file seems stale (the type won't resolve), do a clean build (`mvn clean ...`). Incremental compilation can skip the processor when it considers the class files up to date.
+
+#### External projects
+
+A third-party project that uses Lucille as a dependency registers a custom indexer the same way. It already depends on `lucille-core` (which provides `@IndexerType` and the `Indexer` base class). It additionally needs AutoService on its own build's annotation-processor path — either the `auto-service` processor in its `maven-compiler-plugin` `annotationProcessorPaths`, or the equivalent for its build tool — plus `auto-service-annotations` on the compile classpath for the `@AutoService` annotation. With those in place, annotating the class makes its jar carry its own generated service file, and dropping that jar on the classpath makes `indexer.type` resolve the same way, with no change to Lucille.
+
+### 4. Add the module to the BOM
+
+Add your module to `lucille-bom/pom.xml` so that examples and downstream projects can depend on it without specifying a version.
+
+### 5. Add it to `lucille-all`
+
+Add your module as a dependency in `lucille-all/pom.xml`. `lucille-all` bundles every component plugin into one classpath for the batteries-included Docker image, and its `PackagingTest` verifies that all `indexer.type` names still resolve once everything is on the classpath together — which catches `META-INF/services` merge problems and cross-plugin dependency conflicts. Add your expected type to that test.
+
+### 6. Document it
+
+Add a page under `doc/site/content/en/docs/ingest-design/indexers/` following the convention of the existing backend pages: the fully-qualified class name, a `*(requires lucille-<name>)*` note, and a **Maven dependency** block. List it in the indexers `_index.md` catalogue.
+
+---
+
 ## Concurrent Sends
 
 `indexer.maxConcurrentBatches` (default 1) lets the base class keep several bulk requests in flight at once. At 1, each batch is sent on the indexer thread and completed before the next. Above 1, the base class calls your `sendToIndex()` from a pool of threads. It guarantees that no two batches in flight write the same destination id, that a batch containing a delete-by-query runs alone, and that batches are completed in the order they were dispatched. Your `sendToIndex()` still handles one batch and does not change.

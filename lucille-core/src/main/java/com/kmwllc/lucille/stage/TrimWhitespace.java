@@ -34,7 +34,7 @@ public class TrimWhitespace extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fields.size() == 0) {
+    if (fields.isEmpty()) {
       throw new StageException("Must supply at least one field to trim whitespace from.");
     }
   }

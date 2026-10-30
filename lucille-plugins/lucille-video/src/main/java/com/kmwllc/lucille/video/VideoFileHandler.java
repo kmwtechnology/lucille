@@ -1,8 +1,9 @@
 package com.kmwllc.lucille.video;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
-import com.kmwllc.lucille.core.fileHandler.BaseFileHandler;
-import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
+import com.kmwllc.lucille.core.filehandler.BaseFileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandlerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
@@ -65,16 +66,16 @@ public class VideoFileHandler extends BaseFileHandler {
   public VideoFileHandler(Config config) {
     super(config);
 
-    this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
-    this.frameStride = Math.max(1, config.hasPath("frameStride") ? config.getInt("frameStride") : 1);
-    this.sourceField = config.hasPath("sourceField") ? config.getString("sourceField") : "source";
-    this.fileNameField = config.hasPath("fileNameField") ? config.getString("fileNameField") : "file_name";
-    this.frameIndexField = config.hasPath("frameIndexField") ? config.getString("frameIndexField") : "frame_index";
-    this.frameTimeMsField = config.hasPath("frameTimeMsField") ? config.getString("frameTimeMsField") : "frame_time_ms";
-    this.frameTimecodeField = config.hasPath("frameTimecodeField") ? config.getString("frameTimecodeField") : "frame_timecode";
-    this.imageWidthField = config.hasPath("imageWidthField") ? config.getString("imageWidthField") : "image_width";
-    this.imageHeightField = config.hasPath("imageHeightField") ? config.getString("imageHeightField") : "image_height";
-    this.frameImageField = config.hasPath("frameImageField") ? config.getString("frameImageField") : "frame_image";
+    this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
+    this.frameStride = Math.max(1, ConfigUtils.getIntOrDefault(config, "frameStride", 1));
+    this.sourceField = ConfigUtils.getStringOrDefault(config, "sourceField", "source");
+    this.fileNameField = ConfigUtils.getStringOrDefault(config, "fileNameField", "file_name");
+    this.frameIndexField = ConfigUtils.getStringOrDefault(config, "frameIndexField", "frame_index");
+    this.frameTimeMsField = ConfigUtils.getStringOrDefault(config, "frameTimeMsField", "frame_time_ms");
+    this.frameTimecodeField = ConfigUtils.getStringOrDefault(config, "frameTimecodeField", "frame_timecode");
+    this.imageWidthField = ConfigUtils.getStringOrDefault(config, "imageWidthField", "image_width");
+    this.imageHeightField = ConfigUtils.getStringOrDefault(config, "imageHeightField", "image_height");
+    this.frameImageField = ConfigUtils.getStringOrDefault(config, "frameImageField", "frame_image");
   }
 
   @Override

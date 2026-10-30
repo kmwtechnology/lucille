@@ -38,7 +38,7 @@ public class AbstractConnectorTest {
 
   @Test
   public void testCreateDocId() throws Exception {
-    Map<String, String> map = new HashMap();
+    Map<String, String> map = new HashMap<>();
     map.put("name", "connector1");
     map.put("pipeline", "pipeline1");
     map.put("docIdPrefix", "myprefix_");
@@ -51,7 +51,7 @@ public class AbstractConnectorTest {
   @Test
   public void testCreateDocIdRejectsNullAndBlank() throws Exception {
     // a null source id would otherwise become the text "null", shared by every such record
-    Map<String, String> map = new HashMap();
+    Map<String, String> map = new HashMap<>();
     map.put("name", "connector1");
     map.put("pipeline", "pipeline1");
     map.put("docIdPrefix", "myprefix_");

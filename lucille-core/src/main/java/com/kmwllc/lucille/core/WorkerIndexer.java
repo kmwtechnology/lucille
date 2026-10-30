@@ -71,7 +71,7 @@ public class WorkerIndexer {
       boolean bypassSearchEngine,
       Set<String> idSet) throws Exception {
 
-    log.info("Starting WorkerIndexer for pipeline: " + pipelineName);
+    log.info("Starting WorkerIndexer for pipeline: {}", pipelineName);
 
     HybridWorkerMessenger workerMessageManager =
         new HybridWorkerMessenger(config, pipelineName, pipelineDest, offsets);
