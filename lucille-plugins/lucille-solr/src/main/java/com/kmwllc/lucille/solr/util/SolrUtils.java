@@ -60,7 +60,7 @@ public class SolrUtils {
     if (cloud) {
       return getCloudClient(config);
     } else {
-      return getHttpClientAndSetCheckPeerName(config);
+      return getStandaloneClient(config);
     }
   }
 
@@ -106,7 +106,21 @@ public class SolrUtils {
   }
 
   /**
-   * Generates a HttpClient with preemptive authentication if required.
+   * Builds the standalone client, which sends every request to the first solr.url and to solr.defaultCollection
+   * when a request names no collection.
+   */
+  static HttpJdkSolrClient getStandaloneClient(Config config) {
+    HttpJdkSolrClient.Builder clientBuilder = getHttpClientBuilderAndSetCheckPeerName(config)
+        .withBaseSolrUrl(ConfigUtils.getStringOrList(config, "solr.url").get(0));
+    if (config.hasPath("solr.defaultCollection")) {
+      clientBuilder.withDefaultCollection(config.getString("solr.defaultCollection"));
+    }
+    return clientBuilder.build();
+  }
+
+  /**
+   * Generates a HttpClient with preemptive authentication if required, and no base URL, as used under the cloud
+   * client, which chooses the node for each request.
    * This method has SIDE EFFECTS. It will set SSL system properties if corresponding properties
    * are found in the config.
    *
@@ -114,6 +128,10 @@ public class SolrUtils {
    * @return the HttpClient
    */
   static HttpJdkSolrClient getHttpClientAndSetCheckPeerName(Config config) {
+    return getHttpClientBuilderAndSetCheckPeerName(config).build();
+  }
+
+  private static HttpJdkSolrClient.Builder getHttpClientBuilderAndSetCheckPeerName(Config config) {
     HttpJdkSolrClient.Builder clientBuilder = new HttpJdkSolrClient.Builder();
 
     if (getAllowInvalidCert(config)) {
@@ -127,7 +145,7 @@ public class SolrUtils {
       clientBuilder.withBasicAuthCredentials(userName, password);
     }
     
-    return clientBuilder.build();
+    return clientBuilder;
   }
 
   /**
