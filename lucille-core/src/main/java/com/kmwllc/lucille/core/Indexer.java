@@ -152,6 +152,8 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
   // Non-null only when indexer.maxRetries is configured; null means retries are disabled (the default).
   private final Retry retry;
+  // The configured indexer.maxRetries, or 0 when retries are disabled.
+  private final int maxRetries;
   // Empty when retries are disabled; otherwise the set of HTTP status codes (and -1 for no-status) that trigger a retry.
   private final List<Integer> retryableStatusCodes;
 
@@ -231,9 +233,10 @@ public abstract class Indexer implements Runnable, BatchProcessor {
                 + "and indexer.retryableStatusCodes require indexer.maxRetries to be set.");
       }
       this.retry = null;
+      this.maxRetries = 0;
       this.retryableStatusCodes = List.of();
     } else {
-      int maxRetries = config.getInt("indexer.maxRetries");
+      this.maxRetries = config.getInt("indexer.maxRetries");
       if (maxRetries <= 0) {
         throw new IllegalArgumentException(
             "indexer.maxRetries must be greater than 0 when specified. Remove the parameter to disable retries.");
@@ -260,17 +263,10 @@ public abstract class Indexer implements Runnable, BatchProcessor {
             // Retry the batch if any per-document failure has a retryable status code.
             @SuppressWarnings("unchecked")
             Set<Pair<Document, Exception>> pairs = (Set<Pair<Document, Exception>>) result;
-            return pairs.stream().anyMatch(p ->
-                p.getRight() instanceof IndexerRetryableException e
-                    && retryableStatusCodes.contains(e.getStatusCode()));
+            return pairs.stream().anyMatch(p -> isRetryable(p.getRight()));
           })
-          .retryOnException(e -> {
-            if (e instanceof IndexerRetryableException retryable) {
-              return retryableStatusCodes.contains(retryable.getStatusCode());
-            }
-            // Plain IndexerException (non-HTTP failure) — do not retry
-            return false;
-          })
+          // A plain IndexerException (non-HTTP failure), or a status not in retryableStatusCodes, is not retried
+          .retryOnException(this::isRetryable)
           .build());
       this.retry.getEventPublisher().onRetry(event -> {
         Throwable lastThrowable = event.getLastThrowable();
@@ -402,6 +398,23 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();
+
+  /**
+   * Whether the retry policy retries a batch when {@link #sendToIndex} throws the given exception or returns it for a
+   * document: it is an {@link IndexerRetryableException} whose status code is in indexer.retryableStatusCodes. Always
+   * false when indexer.maxRetries is not set.
+   */
+  protected final boolean isRetryable(Throwable e) {
+    return e instanceof IndexerRetryableException retryable && retryableStatusCodes.contains(retryable.getStatusCode());
+  }
+
+  /**
+   * The configured indexer.maxRetries, or 0 when retries are disabled. A retried batch is passed to
+   * {@link #sendToIndex} again as the same List instance, up to this many times.
+   */
+  protected final int getMaxRetries() {
+    return maxRetries;
+  }
 
   private void close() {
     // The dispatcher is closed before the messenger. A Kafka messenger's close() can run the pre-revocation hook
