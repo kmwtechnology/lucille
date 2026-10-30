@@ -151,4 +151,5 @@ A record on the destination topic that cannot be deserialized stops the indexer,
 - [OpenSearch Indexer]({{< relref "docs/ingest-design/indexers/opensearch_indexer" >}}) — OpenSearch with optional partial updates.
 - [Elasticsearch Indexer]({{< relref "docs/ingest-design/indexers/elasticsearch_indexer" >}}) — Elasticsearch with join field support.
 - [Pinecone Indexer]({{< relref "docs/ingest-design/indexers/pinecone_indexer" >}}) — Index vector embeddings into Pinecone.
+- [Relevan Indexer]({{< relref "docs/ingest-design/indexers/relevan_indexer" >}}) — Index documents into a Relevan search index.
 - [Weaviate Indexer]({{< relref "docs/ingest-design/indexers/weaviate_indexer" >}}) — Index documents and vectors into Weaviate.
