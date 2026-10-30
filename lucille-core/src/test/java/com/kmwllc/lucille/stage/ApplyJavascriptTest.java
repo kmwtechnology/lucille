@@ -435,7 +435,7 @@ public class ApplyJavascriptTest {
     Stage stage = stageWithInlineScript("""
       doc.val1 = doc.tags[1];
       doc.a.b.c.d = doc.val1;
-      delete doc.val1;      
+      delete doc.val1;
     """); // parents not auto created
 
     Document d = Document.create("doc1");
@@ -445,4 +445,25 @@ public class ApplyJavascriptTest {
     assertNull(d.getNestedJson("a.b.c.d"));
   }
 
+  @Test
+  public void testTopLevelLetWithMultipleDocuments() throws StageException {
+    Stage stage = stageWithInlineScript("""
+      let value = doc.title;
+      doc.processed = value ? value.toUpperCase() : "EMPTY";
+    """);
+
+    Document d1 = Document.create("d1");
+    d1.setField("title", "hello");
+    stage.processDocument(d1);
+    assertEquals("HELLO", d1.getString("processed"));
+
+    Document d2 = Document.create("d2");
+    d2.setField("title", "world");
+    stage.processDocument(d2);
+    assertEquals("WORLD", d2.getString("processed"));
+
+    Document d3 = Document.create("d3");
+    stage.processDocument(d3);
+    assertEquals("EMPTY", d3.getString("processed"));
+  }
 }

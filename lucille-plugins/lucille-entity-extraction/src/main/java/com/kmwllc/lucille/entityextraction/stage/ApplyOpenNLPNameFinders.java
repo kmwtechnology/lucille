@@ -85,6 +85,10 @@ public class ApplyOpenNLPNameFinders extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) {
+    if (!doc.hasNonNull(textField) || doc.getString(textField).isBlank()) {
+      return null;
+    }
+
     String text = doc.getString(textField);
     String[] tokens = tokenizer.tokenize(text);
 
@@ -94,23 +98,28 @@ public class ApplyOpenNLPNameFinders extends Stage {
       String modelKey = entry.getKey();
       NameFinderME finder = entry.getValue();
 
-      Span[] spans = finder.find(tokens);
-      for (Span span : spans) {
-        StringBuilder entity = new StringBuilder();
+      try {
+        Span[] spans = finder.find(tokens);
+        for (Span span : spans) {
+          StringBuilder entity = new StringBuilder();
 
-        for (int i = span.getStart(); i < span.getEnd(); i++) {
-          entity.append(tokens[i]);
+          for (int i = span.getStart(); i < span.getEnd(); i++) {
+            entity.append(tokens[i]);
 
-          // appending a space if it is not the final token
-          if (i < span.getEnd() - 1) {
-            entity.append(" ");
+            // appending a space if it is not the final token
+            if (i < span.getEnd() - 1) {
+              entity.append(" ");
+            }
           }
+
+          names.add(entity.toString());
         }
 
-        names.add(entity.toString());
+        names.forEach(name -> doc.setOrAdd(modelKey, name));
+      } finally {
+        // always clear, so a failure here cannot leak this document's context into the next one
+        finder.clearAdaptiveData();
       }
-
-      names.forEach(name -> doc.setOrAdd(modelKey, name));
     }
 
     return null;

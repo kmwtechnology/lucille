@@ -56,6 +56,7 @@ public class MatchQuery extends Stage {
   private final String matchedQueriesField;
 
   private Monitor monitor;
+  private Analyzer analyzer;
 
 
   public MatchQuery(Config config) {
@@ -78,7 +79,7 @@ public class MatchQuery extends Stage {
     }
 
     try {
-      Analyzer analyzer = new StandardAnalyzer();
+      analyzer = new StandardAnalyzer();
       monitor = new Monitor(analyzer);
 
       // TODO:: default field is the 1st field configured
@@ -95,6 +96,22 @@ public class MatchQuery extends Stage {
       throw new StageException("Failed to start MatchQuery stage.", e);
     }
 
+  }
+
+  @Override
+  public void stop() throws StageException {
+    // start() may have failed before these were assigned, so guard against nulls and always close the analyzer
+    try {
+      if (monitor != null) {
+        monitor.close();
+      }
+    } catch (IOException e) {
+      throw new StageException("Unable to close the Lucene Monitor", e);
+    } finally {
+      if (analyzer != null) {
+        analyzer.close();
+      }
+    }
   }
 
   @Override

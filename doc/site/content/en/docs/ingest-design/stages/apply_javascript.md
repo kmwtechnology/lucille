@@ -9,6 +9,8 @@ description: Runs a JavaScript snippet per document using GraalVM's JavaScript e
 
 Runs a JavaScript snippet per document using GraalVM's JavaScript engine. The script is read once at startup and evaluated once per document. The document is bound as `doc` (a proxy for reading and writing fields) and as `rawDoc` (the underlying Java `Document`).
 
+The script is wrapped in a function, so top-level `var`, `let`, `const`, and `function` declarations do not collide when the script runs again for the next document.
+
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `script` | String | No | Inline JavaScript code. |

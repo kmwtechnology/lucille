@@ -13,7 +13,9 @@ ExternalPython delegates per-document processing to an external Python process u
 
 The returned object replaces the document's fields: every field in the response is set on the document, and every field not in the response is removed. Reserved fields such as `id` are never changed or removed. If the function returns `None`, the document is left unchanged. The function may return a dict or a JSON string. An error in the Python function fails the document.
 
-At startup, Lucille creates a virtual environment at `./python/venv` (relative to the working directory) if one does not exist, installs `py4j` into it, installs `requirementsPath` if set, and launches the script in a separate Python process. The venv is reused across runs. Python output is also logged to `./python/py4jclient.log`. Lucille copies its Py4J client script to `./python/Py4jClientCopy.py`; an existing copy is kept, not replaced.
+At startup, Lucille creates a virtual environment at `./python/venv` (relative to the working directory) if one does not exist, installs `py4j` into it, installs `requirementsPath` if set, and launches the script in a separate Python process. The venv is reused across runs. If the venv exists but its pip cannot run (for example, after an interrupted earlier build), Lucille deletes and recreates it, which also removes any previously installed packages. Setup is serialized across processes that share the working directory with a lock file at `./python/.venv.lock`. If a `pip install` fails, the startup error includes pip's output. Python output is also logged to `./python/py4jclient.log`. Lucille copies its Py4J client script to `./python/Py4jClientCopy.py` on every startup, overwriting any existing copy.
+
+The Py4J gateway and callback server listen only on the loopback address (`127.0.0.1`). Each run generates two random authentication tokens, which are passed to the Python process through environment variables rather than command-line arguments. The Python client removes them from its environment before your script runs, and refuses to start without them. Python startup must finish within 30 seconds. If it times out or the Python process exits first, the error includes the captured Python output. A failed startup stops the Python process, so a later attempt can retry. The Python process is also stopped when the JVM shuts down.
 
 All ExternalPython stages in one JVM share a single Python process. They must use the same `scriptPath`, `pythonExecutable`, `requirementsPath`, and `port`, or startup fails. They can call different functions in that script via `functionName`.
 
@@ -86,7 +88,7 @@ def process_document(doc):
 | `pythonExecutable` | String | No | Python executable used to create the virtual environment. Default: `python3`. |
 | `requirementsPath` | String | No | Path to a `requirements.txt` file installed into the virtual environment with `pip install -r` at startup. |
 | `functionName` | String | No | Name of the Python function called for each document. Default: `process_document`. |
-| `port` | Integer | No | Py4J gateway port. Lucille also uses `port + 1` for the callback server. Startup fails if either port is in use. If not set, Lucille uses the first free pair starting at `25333`. |
+| `port` | Integer | No | Py4J gateway port. Lucille also uses `port + 1` for the callback server. Startup fails if either port is in use. If not set, the OS assigns a free gateway port and Lucille picks a free port for the callback server. |
 
 ```hocon
 {
