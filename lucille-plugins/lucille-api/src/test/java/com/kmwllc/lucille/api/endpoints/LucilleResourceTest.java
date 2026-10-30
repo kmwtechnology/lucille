@@ -1,11 +1,16 @@
 package com.kmwllc.lucille.api.endpoints;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeNotNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.kmwllc.lucille.api.objects.RunRequest;
+import io.dropwizard.jackson.Jackson;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import com.typesafe.config.Config;
@@ -13,11 +18,18 @@ import com.typesafe.config.ConfigFactory;
 import com.kmwllc.lucille.core.CreateConfigResult;
 import java.io.File;
 import java.net.URL;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
 import com.kmwllc.lucille.api.objects.RunDetailsResponse;
+import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorResult;
+import com.kmwllc.lucille.core.RunDetails;
+import com.kmwllc.lucille.core.RunResult;
 import com.kmwllc.lucille.core.RunnerManager;
 
 public class LucilleResourceTest {
@@ -208,6 +220,57 @@ public class LucilleResourceTest {
     RunDetailsResponse fetchedRunDetails = (RunDetailsResponse) fetchedRunResponse.getEntity();
     assertEquals(runId, fetchedRunDetails.getRunId());
     assertEquals(configId, fetchedRunDetails.getConfigId());
+  }
+
+  @Test
+  public void testRunDetailsJsonIncludesHasFailingDocs() throws Exception {
+    // a run whose connector had failing documents, so that hasFailingDocs() is true
+    Connector connector = mock(Connector.class);
+    when(connector.getName()).thenReturn("connector1");
+    ConnectorResult connectorResult = mock(ConnectorResult.class);
+    when(connectorResult.getStatus()).thenReturn(true);
+    when(connectorResult.hasFailingDocs()).thenReturn(true);
+    when(connectorResult.hasDocs()).thenReturn(true);
+    RunResult runResult = new RunResult(true, List.of(connector), List.of(connectorResult), "run1");
+    assertTrue(runResult.hasFailingDocs());
+
+    // only RunnerManager creates RunDetails, so mock one that has this result
+    RunDetails details = mock(RunDetails.class);
+    when(details.getRunId()).thenReturn("run1");
+    when(details.getConfigId()).thenReturn("config1");
+    when(details.getRunResult()).thenReturn(runResult);
+
+    // serialize what the API returns for the run
+    JsonNode json = Jackson.newObjectMapper().valueToTree(RunDetailsResponse.from(details));
+    Set<String> fields = new HashSet<>();
+    json.get("runResult").fieldNames().forEachRemaining(fields::add);
+    assertEquals(Set.of("runId", "status", "hasFailingDocs", "message", "history"), fields);
+    assertEquals("run1", json.get("runResult").get("runId").asText());
+    assertTrue(json.get("runResult").get("status").asBoolean());
+    assertTrue(json.get("runResult").get("hasFailingDocs").asBoolean());
+    assertTrue(json.get("runResult").get("message").asText().contains("Partial success."));
+  }
+
+  @Test
+  public void testRunDetailsJsonHasFailingDocsFalse() throws Exception {
+    Connector connector = mock(Connector.class);
+    when(connector.getName()).thenReturn("connector1");
+    ConnectorResult connectorResult = mock(ConnectorResult.class);
+    when(connectorResult.getStatus()).thenReturn(true);
+    when(connectorResult.hasFailingDocs()).thenReturn(false);
+    when(connectorResult.hasDocs()).thenReturn(true);
+    RunResult runResult = new RunResult(true, List.of(connector), List.of(connectorResult), "run1");
+
+    // only RunnerManager creates RunDetails, so mock one that has this result
+    RunDetails details = mock(RunDetails.class);
+    when(details.getRunId()).thenReturn("run1");
+    when(details.getConfigId()).thenReturn("config1");
+    when(details.getRunResult()).thenReturn(runResult);
+
+    // serialize what the API returns for the run
+    JsonNode json = Jackson.newObjectMapper().valueToTree(RunDetailsResponse.from(details));
+    assertTrue(json.get("runResult").has("hasFailingDocs"));
+    assertFalse(json.get("runResult").get("hasFailingDocs").asBoolean());
   }
 
   @Test

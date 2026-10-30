@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core.filehandler;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -20,6 +21,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -73,18 +75,18 @@ public class CSVFileHandler extends BaseFileHandler {
   public CSVFileHandler(Config config) {
     super(config);
 
-    this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
-    this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
-    this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";
-    String idField = config.hasPath("idField") ? config.getString("idField") : null;
+    this.lineNumField = ConfigUtils.getStringOrDefault(config, "lineNumberField", "csvLineNumber");
+    this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "filename");
+    this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "source");
+    String idField = ConfigUtils.getStringOrDefault(config, "idField", null);
     // Either specify the idField, or idFields
     if (idField != null) {
-      this.idFields = new ArrayList<String>();
+      this.idFields = new ArrayList<>();
       this.idFields.add(idField);
     } else {
-      this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<String>();
+      this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<>();
     }
-    this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
+    this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
     // if both a separator char and useTabs is specified, useTabs takes precedence
     char separator = config.hasPath("separatorChar") ? CharUtils.toChar(config.getString("separatorChar")) : ',';
     this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : separator;
@@ -92,10 +94,10 @@ public class CSVFileHandler extends BaseFileHandler {
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
     this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ?
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
-    this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
+    this.lowercaseFields = ConfigUtils.getBooleanOrDefault(config, "lowercaseFields", false);
     this.ignoredTerms = config.hasPath("ignoredTerms") ? Set.copyOf(config.getStringList("ignoredTerms")) : Set.of();
 
-    this.maxRecordBytes = config.hasPath("maxRecordBytes") ? config.getInt("maxRecordBytes") : null;
+    this.maxRecordBytes = ConfigUtils.getIntOrDefault(config, "maxRecordBytes", null);
     if (maxRecordBytes != null && maxRecordBytes <= 0) {
       throw new IllegalArgumentException("maxRecordBytes must be positive, got " + maxRecordBytes);
     }
@@ -121,7 +123,7 @@ public class CSVFileHandler extends BaseFileHandler {
       final CSVReader csvReader = reader;
       final BadRecordTracker tracker = new BadRecordTracker(path);
       final String[] header = getHeaderFromCSV(csvReader, path);
-      final HashMap<String, Integer> columnIndexMap = getColumnIndexMap(header, path);
+      final Map<String, Integer> columnIndexMap = getColumnIndexMap(header, path);
       final List<Integer> idColumns = getIdColumns(columnIndexMap, path);
       Integer lineNum = 0;
       // read lazily in hasNext(), not with CSVIterator: it reads one row ahead, so a failure on row N would lose row N-1
@@ -138,8 +140,8 @@ public class CSVFileHandler extends BaseFileHandler {
         }
 
         // each row is its own record, even if a quoted value makes it span several physical lines
-        if (lineReader instanceof BoundedLineReader) {
-          ((BoundedLineReader) lineReader).startRecord();
+        if (lineReader instanceof BoundedLineReader boundedReader) {
+          boundedReader.startRecord();
         }
 
         try {
@@ -225,7 +227,7 @@ public class CSVFileHandler extends BaseFileHandler {
     String docId = "";
     if (!idColumns.isEmpty()) {
       // let's get the columns with the values for the id.
-      ArrayList<String> idColumnData = new ArrayList<String>();
+      List<String> idColumnData = new ArrayList<>();
       for (Integer idx : idColumns) {
         idColumnData.add(line[idx]);
       }
@@ -270,8 +272,8 @@ public class CSVFileHandler extends BaseFileHandler {
    * Maps the configured idFields to column positions. An idField that is not in the header is a configuration error that
    * would otherwise make every row unusable, so it fails the file up front instead of being reported row by row.
    */
-  private List<Integer> getIdColumns(HashMap<String, Integer> columnIndexMap, String path) throws FileHandlerException {
-    List<Integer> idColumns = new ArrayList<Integer>();
+  private List<Integer> getIdColumns(Map<String, Integer> columnIndexMap, String path) throws FileHandlerException {
+    List<Integer> idColumns = new ArrayList<>();
     // an empty file has no header; there are no rows to build ids for, so there is nothing to check
     if (columnIndexMap.isEmpty()) {
       return idColumns;
@@ -289,8 +291,8 @@ public class CSVFileHandler extends BaseFileHandler {
     return idColumns;
   }
 
-  private HashMap<String, Integer> getColumnIndexMap(String[] header, String path) {
-    HashMap<String, Integer> columnIndexMap = new HashMap<String, Integer>();
+  private Map<String, Integer> getColumnIndexMap(String[] header, String path) {
+    Map<String, Integer> columnIndexMap = new HashMap<>();
 
     // If header is null, just return an empty map. (Allows for graceful handling of empty files)
     if (header == null) {
@@ -363,7 +365,7 @@ public class CSVFileHandler extends BaseFileHandler {
   }
 
   // builds the id from the values of the id columns, before the doc id prefix is added
-  private String rawDocId(ArrayList<String> idColumnData) {
+  private String rawDocId(List<String> idColumnData) {
     if (docIdFormat != null) {
       return String.format(docIdFormat, idColumnData.toArray());
     } else {

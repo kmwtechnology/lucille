@@ -134,7 +134,7 @@ public class RunnerManagerTest {
     Config config = ConfigFactory.load("RunnerManagerTest/sleep.conf");
     RunnerManager runnerManager = RunnerManager.getInstance();
     String configId = runnerManager.createConfig(config).getConfigId();
-    List<String> runIds = new ArrayList();
+    List<String> runIds = new ArrayList<>();
     List<CompletableFuture<Void>> futures = new ArrayList<>();
 
     for (int i = 0; i < 5; i++) {

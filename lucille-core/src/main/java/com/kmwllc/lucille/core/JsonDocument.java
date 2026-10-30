@@ -22,7 +22,17 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 
 /**
@@ -703,8 +713,8 @@ public class JsonDocument implements Document {
     if (this == other) {
       return true;
     }
-    if (other instanceof JsonDocument) {
-      return data.equals(((JsonDocument) other).data);
+    if (other instanceof JsonDocument otherDoc) {
+      return data.equals(otherDoc.data);
     }
     return false;
   }
@@ -1088,7 +1098,7 @@ public class JsonDocument implements Document {
       return new ArrayList<>();
     }
     ArrayNode node = data.withArray(CHILDREN_FIELD);
-    ArrayList<Document> children = new ArrayList<>();
+    List<Document> children = new ArrayList<>();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
       if (!element.isObject()) {
@@ -1126,7 +1136,7 @@ public class JsonDocument implements Document {
 
   @Override
   public Set<String> getFieldNames() {
-    LinkedHashSet<String> fieldNames = new LinkedHashSet<String>();
+    LinkedHashSet<String> fieldNames = new LinkedHashSet<>();
     // ObjectNode uses a LinkedHashMap internally, so this iteration will follow insertion order into the ObjectNode.
     data.fieldNames().forEachRemaining(fieldNames::add);
     return fieldNames;
@@ -1205,7 +1215,7 @@ public class JsonDocument implements Document {
     // Jsonata-java outputs a Map, converting to ObjectNode so we can update data.
     ObjectNode transformedNode = MAPPER.valueToTree(transformed);
 
-    HashMap<String, JsonNode> reserved = new HashMap<>();
+    Map<String, JsonNode> reserved = new HashMap<>();
     RESERVED_FIELDS.stream().filter(this::has).forEach(field -> reserved.put(field, data.get(field)));
     for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
       if (!entry.getValue().equals(transformedNode.get(entry.getKey()))) {
@@ -1276,10 +1286,10 @@ public class JsonDocument implements Document {
     if (other == null) {
       throw new IllegalStateException("Document is null");
     }
-    if (!(other instanceof JsonDocument)) {
+    if (!(other instanceof JsonDocument otherDoc)) {
       throw new IllegalStateException("Documents are not of the same type");
     }
-    return ((JsonDocument) other).data;
+    return otherDoc.data;
   }
 
   @Override

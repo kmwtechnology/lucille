@@ -119,7 +119,7 @@ public class LucilleResource {
       Config config = ConfigFactory.parseString(configBody, ConfigParseOptions.defaults().setIncluder(new RejectingIncluder()))
           .resolve(ConfigResolveOptions.defaults().setUseSystemEnvironment(false));
       CreateConfigResult result = runnerManager.createConfig(config);
-      log.info("a lucille config has been created. Config ID: " + result.getConfigId());
+      log.info("a lucille config has been created. Config ID: {}", result.getConfigId());
       return Response.ok(result).build();
     } catch (Exception e) {
       return Response.status(Response.Status.BAD_REQUEST)
@@ -224,7 +224,7 @@ public class LucilleResource {
 
       String runId = Runner.generateRunId();
       RunDetails details = runnerManager.runWithConfig(runId, configId, preventConcurrentRuns);
-      log.debug("Lucille run has been triggered. Run ID: " + runId);
+      log.debug("Lucille run has been triggered. Run ID: {}", runId);
       log.debug("details: {}", details);
       return Response.ok(RunDetailsResponse.from(details)).build();
       

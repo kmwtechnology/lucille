@@ -38,7 +38,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   // will handle, and we can't know whether a document will be indexed more than once
   // (reprocessing can happen when there's a kafka consumer group rebalance that happens
   // before all offsets have been committed)
-  private final Set idSet;
+  private final Set<String> idSet;
 
   public HybridIndexerMessenger(Config config,
       LinkedBlockingQueue<Document> pipelineDest,
@@ -137,11 +137,10 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     Map<TopicPartition, OffsetAndMetadata> batchOffsets = new HashMap<>();
     for (Document doc : batch) {
 
-      if (!(doc instanceof KafkaDocument)) {
+      if (!(doc instanceof KafkaDocument kDoc)) {
         continue;
       }
 
-      KafkaDocument kDoc = (KafkaDocument) doc;
       TopicPartition topicPartition = new TopicPartition(kDoc.getTopic(), kDoc.getPartition());
       // per the kafka docs:
       // "Note: The committed offset should always be the offset of the next message that your application will read.

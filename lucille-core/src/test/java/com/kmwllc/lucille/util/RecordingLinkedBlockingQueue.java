@@ -1,12 +1,13 @@
 package com.kmwllc.lucille.util;
 
+import java.util.List;
 import java.util.ArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public class RecordingLinkedBlockingQueue<E> extends LinkedBlockingQueue<E> {
 
-  ArrayList history = new ArrayList<E>();
+  List<E> history = new ArrayList<>();
 
   public void put(E e) throws InterruptedException {
     super.put(e);
@@ -30,7 +31,7 @@ public class RecordingLinkedBlockingQueue<E> extends LinkedBlockingQueue<E> {
     return result;
   }
 
-  public ArrayList<E> getHistory() {
+  public List<E> getHistory() {
     return history;
   }
 }
