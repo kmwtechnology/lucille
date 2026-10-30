@@ -63,7 +63,7 @@ See [Stages]({{< relref "docs/ingest-design/stages" >}}) for the full catalogue 
 
 An Indexer sends processed Documents to a destination — typically a search engine. Only one Indexer can be configured per run; every pipeline uses the same indexer configuration (destination, batching, and retry settings).
 
-A full indexer configuration has two separate config blocks: the generic `indexer` block and a backend-specific block (e.g., `solr`, `opensearch`, `elastic`).
+A full indexer configuration has two separate config blocks: the generic `indexer` block and a backend-specific block (e.g., `solr`, `opensearch`, `elasticsearch`).
 
 ```hocon
 indexer {
