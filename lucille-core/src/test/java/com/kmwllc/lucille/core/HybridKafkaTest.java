@@ -249,7 +249,7 @@ public class HybridKafkaTest {
     KafkaConsumer<String, KafkaDocument> consumer = KafkaUtils.createDocumentConsumer(config, "test-client");
     TopicPartition p0 = new TopicPartition(topicName, 0);
     TopicPartition p1 = new TopicPartition(topicName, 1);
-    List partitions = new ArrayList<>();
+    List<TopicPartition> partitions = new ArrayList<>();
     partitions.add(p0);
     partitions.add(p1);
     consumer.assign(partitions);

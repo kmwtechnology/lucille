@@ -154,7 +154,7 @@ public class ApplyJavascript extends Stage {
     }
 
     static JsDocProxy root(Document d) {
-      return new JsDocProxy(d, new ArrayList());
+      return new JsDocProxy(d, new ArrayList<>());
     }
 
     private boolean isRoot() {
@@ -165,7 +165,7 @@ public class ApplyJavascript extends Stage {
       if (isRoot()) {
         return List.of(new Document.Segment(key));
       }
-      List<Document.Segment> result = new ArrayList(segments);
+      List<Document.Segment> result = new ArrayList<>(segments);
       // assume an all-digit key is an array index
       if (key.chars().allMatch(c -> c >= '0' && c <= '9')) {
         result.add(new Document.Segment(Integer.parseInt(key)));
@@ -388,7 +388,7 @@ public class ApplyJavascript extends Stage {
       for (int i = 0; i < n; i++) {
         JsonNode child = jsonArray.get(i);
         if (child.isContainerNode()) {
-          List<Document.Segment> extendedKey = new ArrayList(baseKey);
+          List<Document.Segment> extendedKey = new ArrayList<>(baseKey);
           extendedKey.add(new Document.Segment(i));
           arr[i] = new JsDocProxy(doc, extendedKey);
         } else {

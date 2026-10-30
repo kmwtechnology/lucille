@@ -386,7 +386,7 @@ public class PublisherImplTest {
     PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
 
     // create, start, and join 10 threads, each of which publishes 10K documents
-    List<Thread> threads = new ArrayList();
+    List<Thread> threads = new ArrayList<>();
     for (int i = 0; i < 10; i++) {
       final int i2 = i;
       threads.add(new Thread(() -> {
@@ -435,7 +435,7 @@ public class PublisherImplTest {
 
     // keep a list of all threads we'll start in this test;
     // the event handling thread will be added at position 0, followed by publishing threads
-    List<Thread> threads = new ArrayList();
+    List<Thread> threads = new ArrayList<>();
 
     // the publishing threads will publish exactly 10000 docs combined and add their ids to the publishedIds queue
     // this event handling thread tries to consume 10000 ids from the publishedIds queue and stops when that number is reached
@@ -553,7 +553,7 @@ public class PublisherImplTest {
     AtomicBoolean stop = new AtomicBoolean(false);
 
     // each thread attempts to publish up to 10000 docs with a pause in between; stopping when told to
-    List<Thread> threads = new ArrayList();
+    List<Thread> threads = new ArrayList<>();
     for (int i = 0; i < 10; i++) {
       final int i2 = i;
       threads.add(new Thread(() -> {

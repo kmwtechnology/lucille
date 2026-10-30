@@ -146,7 +146,7 @@ public class AddRandomString extends Stage {
   }
 
   private static List<String> getRandomIntegerStringList(int length, int rangeSize) {
-    List<String> result = new ArrayList();
+    List<String> result = new ArrayList<>();
     for (int i = 0; i < length; i++) {
       result.add(String.valueOf(ThreadLocalRandom.current().nextInt(0, rangeSize)));
     }

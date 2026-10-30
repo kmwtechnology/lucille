@@ -81,10 +81,10 @@ public class CSVFileHandler extends BaseFileHandler {
     String idField = ConfigUtils.getStringOrDefault(config, "idField", null);
     // Either specify the idField, or idFields
     if (idField != null) {
-      this.idFields = new ArrayList<String>();
+      this.idFields = new ArrayList<>();
       this.idFields.add(idField);
     } else {
-      this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<String>();
+      this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<>();
     }
     this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
     // if both a separator char and useTabs is specified, useTabs takes precedence
@@ -227,7 +227,7 @@ public class CSVFileHandler extends BaseFileHandler {
     String docId = "";
     if (!idColumns.isEmpty()) {
       // let's get the columns with the values for the id.
-      List<String> idColumnData = new ArrayList<String>();
+      List<String> idColumnData = new ArrayList<>();
       for (Integer idx : idColumns) {
         idColumnData.add(line[idx]);
       }
@@ -273,7 +273,7 @@ public class CSVFileHandler extends BaseFileHandler {
    * would otherwise make every row unusable, so it fails the file up front instead of being reported row by row.
    */
   private List<Integer> getIdColumns(Map<String, Integer> columnIndexMap, String path) throws FileHandlerException {
-    List<Integer> idColumns = new ArrayList<Integer>();
+    List<Integer> idColumns = new ArrayList<>();
     // an empty file has no header; there are no rows to build ids for, so there is nothing to check
     if (columnIndexMap.isEmpty()) {
       return idColumns;
@@ -292,7 +292,7 @@ public class CSVFileHandler extends BaseFileHandler {
   }
 
   private Map<String, Integer> getColumnIndexMap(String[] header, String path) {
-    Map<String, Integer> columnIndexMap = new HashMap<String, Integer>();
+    Map<String, Integer> columnIndexMap = new HashMap<>();
 
     // If header is null, just return an empty map. (Allows for graceful handling of empty files)
     if (header == null) {

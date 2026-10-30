@@ -163,7 +163,7 @@ public class EmbeddedPython extends Stage {
     }
 
     static PyDocProxy root(Document d) {
-      return new PyDocProxy(d, new ArrayList());
+      return new PyDocProxy(d, new ArrayList<>());
     }
 
     private boolean isRoot() {
@@ -174,7 +174,7 @@ public class EmbeddedPython extends Stage {
       if (isRoot()) {
         return List.of(new Document.Segment(key));
       }
-      List<Document.Segment> result = new ArrayList(segments);
+      List<Document.Segment> result = new ArrayList<>(segments);
       // assume an all-digit key is an array index
       if (key.chars().allMatch(c -> c >= '0' && c <= '9')) {
         result.add(new Document.Segment(Integer.parseInt(key)));

@@ -407,7 +407,7 @@ public abstract class DocumentTest {
     // is needed later in the workflow for accounting.
     Document document = createDocument("123");
     document.setField("myField", "hello");
-    Map docMap = document.asMap();
+    Map<String, Object> docMap = document.asMap();
     docMap.remove(Document.ID_FIELD);
     docMap.remove("myField");
     docMap.put("myField2", "hello2");

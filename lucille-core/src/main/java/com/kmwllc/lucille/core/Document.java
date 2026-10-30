@@ -791,7 +791,7 @@ public interface Document {
     }
 
     public static List<Segment> parse(String name) {
-      List<Segment> segments = new ArrayList();
+      List<Segment> segments = new ArrayList<>();
       StringBuffer current = new StringBuffer();
       boolean insideBrackets = false;
       for (int i = 0; i < name.length(); i++) {

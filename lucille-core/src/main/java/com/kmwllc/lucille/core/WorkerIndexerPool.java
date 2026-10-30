@@ -19,7 +19,7 @@ public class WorkerIndexerPool {
 
   private static final Logger log = LoggerFactory.getLogger(WorkerPool.class);
 
-  private final List<WorkerIndexer> workerIndexers = new ArrayList();
+  private final List<WorkerIndexer> workerIndexers = new ArrayList<>();
 
   private final Config config;
   private final String pipelineName;
