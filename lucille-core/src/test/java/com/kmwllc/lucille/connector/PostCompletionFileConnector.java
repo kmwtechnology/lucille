@@ -3,7 +3,6 @@ package com.kmwllc.lucille.connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 import java.time.Instant;
@@ -11,15 +10,15 @@ import java.time.Instant;
 /**
  * This Class is only for test purposes! Used to determine if post completion actions occur how/when they are expected.
  */
-public class PostCompletionCSVConnector extends CSVTestConnector {
+public class PostCompletionFileConnector extends FileConnector {
 
   // Create static fields on the class that we can access from within our tests.
   private static boolean completionActionsOccurred = false;
   private static Instant postCompletionInstant = null;
 
-  public static final Spec SPEC = SpecBuilder.connector().requiredString("path").build();
+  public static final Spec SPEC = FileConnector.SPEC;
 
-  public PostCompletionCSVConnector(Config config) {
+  public PostCompletionFileConnector(Config config) throws ConnectorException {
     super(config);
   }
 
