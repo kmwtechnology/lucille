@@ -1,7 +1,16 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.*;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileContentFetcher;
@@ -10,12 +19,18 @@ import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
-import org.graalvm.polyglot.*;
+import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Engine;
+import org.graalvm.polyglot.Source;
+import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyArray;
 import org.graalvm.polyglot.proxy.ProxyObject;
 
 import java.io.Reader;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Executes a JavaScript program (via GraalVM) against each document. The stage exposes a structured
@@ -63,8 +78,8 @@ public class ApplyJavascript extends Stage {
 
   public ApplyJavascript(Config config) {
     super(config);
-    this.scriptPath = config.hasPath("scriptPath") ? config.getString("scriptPath") : null;
-    this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
+    this.scriptPath = ConfigUtils.getStringOrDefault(config, "scriptPath", null);
+    this.inlineScript = ConfigUtils.getStringOrDefault(config, "script", null);
   }
 
   @Override
@@ -153,7 +168,7 @@ public class ApplyJavascript extends Stage {
     }
 
     static JsDocProxy root(Document d) {
-      return new JsDocProxy(d, new ArrayList());
+      return new JsDocProxy(d, new ArrayList<>());
     }
 
     private boolean isRoot() {
@@ -164,7 +179,7 @@ public class ApplyJavascript extends Stage {
       if (isRoot()) {
         return List.of(new Document.Segment(key));
       }
-      List<Document.Segment> result = new ArrayList(segments);
+      List<Document.Segment> result = new ArrayList<>(segments);
       // assume an all-digit key is an array index
       if (key.chars().allMatch(c -> c >= '0' && c <= '9')) {
         result.add(new Document.Segment(Integer.parseInt(key)));
@@ -387,7 +402,7 @@ public class ApplyJavascript extends Stage {
       for (int i = 0; i < n; i++) {
         JsonNode child = jsonArray.get(i);
         if (child.isContainerNode()) {
-          List<Document.Segment> extendedKey = new ArrayList(baseKey);
+          List<Document.Segment> extendedKey = new ArrayList<>(baseKey);
           extendedKey.add(new Document.Segment(i));
           arr[i] = new JsDocProxy(doc, extendedKey);
         } else {

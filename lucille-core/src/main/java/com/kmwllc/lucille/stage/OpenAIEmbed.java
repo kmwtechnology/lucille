@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -78,9 +79,9 @@ public class OpenAIEmbed extends Stage {
     this.embedDocument = config.getBoolean("embedDocument");
     this.embedChildren = config.getBoolean("embedChildren");
     this.API_KEY = config.getString("apiKey");
-    this.dest = config.hasPath("dest") ? config.getString("dest") : "embeddings";
+    this.dest = ConfigUtils.getStringOrDefault(config, "dest", "embeddings");
     this.modelName = OpenAIEmbeddingModel.fromConfig(config);
-    this.dimensions = config.hasPath("dimensions") ? config.getInt("dimensions") : null;
+    this.dimensions = ConfigUtils.getIntOrDefault(config, "dimensions", null);
     if (!this.embedDocument && !this.embedChildren) {
       throw new StageException("Both embedDocument and embedChildren are false.");
     }

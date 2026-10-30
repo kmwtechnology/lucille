@@ -1,6 +1,8 @@
 package com.kmwllc.lucille.indexer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.auto.service.AutoService;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Indexer;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -31,6 +33,8 @@ import java.util.List;
  *   <li>append (Boolean, Optional) : Open the CSV in append mode instead of overwriting. Defaults to false.</li>
  * </ul>
  */
+@AutoService(Indexer.class)
+@IndexerType("CSV")
 public class CSVIndexer extends Indexer {
 
   public static final Spec SPEC = SpecBuilder.indexer()
@@ -70,7 +74,7 @@ public class CSVIndexer extends Indexer {
     
     this.writer = writer;
     this.columns = config.getStringList("csv.columns");
-    this.includeHeader = config.hasPath("csv.includeHeader") ? config.getBoolean("csv.includeHeader") : true;
+    this.includeHeader = ConfigUtils.getBooleanOrDefault(config, "csv.includeHeader", true);
   }
 
   /**
@@ -107,7 +111,7 @@ public class CSVIndexer extends Indexer {
   protected String getIndexerConfigKey() { return "csv"; }
 
   private static ICSVWriter getCsvWriter(Config config, boolean bypass) {
-    boolean append = config.hasPath("csv.append") ? config.getBoolean("csv.append") : false;
+    boolean append = ConfigUtils.getBooleanOrDefault(config, "csv.append", false);
     try {
       File file = new File(config.getString("csv.path")).getAbsoluteFile();
       if (!file.getParentFile().exists()) {

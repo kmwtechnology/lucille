@@ -5,9 +5,20 @@ date: 2025-06-09
 description: Configuration reference for the OpenSearch Indexer.
 ---
 
-`com.kmwllc.lucille.indexer.OpenSearchIndexer`
+`com.kmwllc.lucille.opensearch.indexer.OpenSearchIndexer`
 
 Config block: `opensearch { ... }`. Select it with `indexer.type: "OpenSearch"`.
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-opensearch</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
+
+Selecting the indexer with `indexer.type: "OpenSearch"` works once `lucille-opensearch` is on the classpath.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

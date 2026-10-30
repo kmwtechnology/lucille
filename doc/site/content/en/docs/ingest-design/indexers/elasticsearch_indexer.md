@@ -5,9 +5,18 @@ date: 2025-06-09
 description: Configuration reference for the Elasticsearch Indexer, including join field support.
 ---
 
-`com.kmwllc.lucille.indexer.ElasticsearchIndexer`
+`com.kmwllc.lucille.elasticsearch.indexer.ElasticsearchIndexer`
 
-Config block: `elasticsearch { ... }`. Select it with `indexer.type: "Elasticsearch"`.
+Config block: `elasticsearch { ... }`. Select it with `indexer.type: "Elasticsearch"`. Works when `lucille-elasticsearch` is on the classpath.
+
+**Maven dependency:**
+```xml
+<dependency>
+  <groupId>com.kmwllc</groupId>
+  <artifactId>lucille-elasticsearch</artifactId>
+  <version>${lucille.version}</version>
+</dependency>
+```
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

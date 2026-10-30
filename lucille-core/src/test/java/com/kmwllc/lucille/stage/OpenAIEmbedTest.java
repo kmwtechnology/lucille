@@ -93,7 +93,7 @@ public class OpenAIEmbedTest {
 
     // Child should have embeddings applied
     List<Float> actualEmbedding = processedChild.getFloatList("embeddings");
-    assertEquals(vectors.length, actualEmbedding.size());
+g    assertEquals(vectors.length, actualEmbedding.size());
     for (int i = 0; i < vectors.length; i++) {
       assertEquals(vectors[i], actualEmbedding.get(i), DELTA);
     }

@@ -27,7 +27,7 @@ class ChunkingXMLHandler implements ContentHandler {
 
   private static final Logger log = LoggerFactory.getLogger(ChunkingXMLHandler.class);
 
-  Stack<String> currentPath = new Stack<String>();
+  private final Stack<String> currentPath = new Stack<String>();
 
   private final XPath xpath;
   private final DocumentBuilder builder;

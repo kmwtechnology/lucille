@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -37,11 +38,11 @@ public class ExtractFirstCharacter extends Stage {
     super(config);
 
     this.fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
-    this.replacement = config.hasPath("replacement") ? config.getString("replacement") : "nonalpha";
+    this.replacement = ConfigUtils.getStringOrDefault(config, "replacement", "nonalpha");
   }
 
   public void start() throws StageException {
-    if (fieldMapping.size() == 0) {
+    if (fieldMapping.isEmpty()) {
       throw new StageException("field mapping must contain at least one entry");
     }
   }

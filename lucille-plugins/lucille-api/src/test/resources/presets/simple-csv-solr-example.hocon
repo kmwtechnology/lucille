@@ -19,11 +19,10 @@ pipelines: [
 ]
 
 indexer {
-  type: "Solr"
+  type: "CSV"
 }
 
-solr {
-  useCloudClient: true
-  defaultCollection: "quickstart"
-  url: ["http://localhost:8983/solr"]
+csv {
+  path: "output.csv"
+  columns: ["id"]
 }

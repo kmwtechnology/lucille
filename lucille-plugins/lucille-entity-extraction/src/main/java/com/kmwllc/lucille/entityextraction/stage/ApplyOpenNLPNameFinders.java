@@ -69,11 +69,10 @@ public class ApplyOpenNLPNameFinders extends Stage {
 
     try {
       for (Entry<String, Object> modelEntry : modelPathMap.entrySet()) {
-        if (!(modelEntry.getValue() instanceof String)) {
+        if (!(modelEntry.getValue() instanceof String modelPath)) {
           throw new IllegalArgumentException("Model entry " + modelEntry.getKey() + " was set to a non-String value.");
         }
 
-        String modelPath = (String) modelEntry.getValue();
         InputStream modelInputStream = FileContentFetcher.getOneTimeInputStream(modelPath);
         NameFinderME nameFinder = new NameFinderME(new TokenNameFinderModel(modelInputStream));
 

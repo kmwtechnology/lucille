@@ -199,7 +199,7 @@ public final class Py4JRuntime {
 
     try {
       Object res = pythonClient.exec(requestJson);
-      return (res instanceof String) ? (String) res : (res == null ? null : String.valueOf(res));
+      return (res instanceof String str) ? str : (res == null ? null : String.valueOf(res));
     } catch (Exception e) {
       throw new StageException("Error calling Python via Py4J", e);
     }
@@ -268,7 +268,7 @@ public final class Py4JRuntime {
       Path clientPath = pythonDir.resolve(PYTHON_CLIENT_COPY_NAME);
 
       synchronized (Py4JRuntime.class) {
-        log.info("Copying python client script to: " + clientPath);
+        log.info("Copying python client script to: {}", clientPath);
         Files.copy(in, clientPath, StandardCopyOption.REPLACE_EXISTING);
       }
 

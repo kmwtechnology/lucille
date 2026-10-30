@@ -8,7 +8,14 @@ import com.codahale.metrics.Slf4jReporter;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.indexer.IndexerFactory;
-import com.kmwllc.lucille.message.*;
+import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.IndexerMessengerFactory;
+import com.kmwllc.lucille.message.KafkaUtils;
+import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.message.PublisherMessenger;
+import com.kmwllc.lucille.message.PublisherMessengerFactory;
+import com.kmwllc.lucille.message.TestMessenger;
+import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.kmwllc.lucille.util.LogUtils;
 import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.typesafe.config.Config;
@@ -16,7 +23,10 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import com.typesafe.config.ConfigValue;
 import java.util.Map.Entry;
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionGroup;
+import org.apache.commons.cli.Options;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -25,7 +35,15 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.MDC;
 
@@ -87,7 +105,7 @@ public class Runner {
 
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory queues
-    TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after the run
+    TEST, // same as LOCAL, but skip sending to the search backend, and record message traffic so it can be inspected after the run (see runInTestMode)
     EXTERNAL, // launch Worker(s) and Indexer as threads; have all components communicate via Kafka
     DISTRIBUTED// assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
   }
@@ -225,20 +243,25 @@ public class Runner {
   }
 
   /**
-   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
-   * config file. Stop the run if any of the connectors fails.
-   * <p>
-   * Run in a local mode where message traffic is kept in memory and there is no
-   * communication with external systems like Kafka. Sending to solr is bypassed.
-   * <p>
-   * Return a TestMessenger for each connector that
-   * can be used to review the messages that were sent between various components during that connector's execution.
+   * Loads the named config and runs it in test mode. See {@link #runInTestMode(Config)}.
    */
   public static Map<String, TestMessenger> runInTestMode(String configName) throws Exception {
     Config config = ConfigFactory.load(configName);
     return runInTestMode(config);
   }
 
+  /**
+   * Runs the given config end to end in this JVM as a local run would, except that the indexer does not send
+   * documents to the search backend, and every document and event passing between components is recorded.
+   * Returns the recording for each connector, keyed by connector name. Like a local run, it stops if a connector fails.
+   *
+   * <p> Test mode is a supported way to develop and check pipelines, not only a unit-testing aid: try a pipeline
+   * on sample data, inspect what it produces, or assert on its output in a test, then run the same config for real
+   * with {@code Runner.run(config, RunType.LOCAL)} without changing it.
+   *
+   * <p> Only indexing is skipped. Connectors and stages still read from and call external systems as configured.
+   * All recorded documents and events are kept in memory, so run test mode on a sample rather than a full load.
+   */
   public static Map<String, TestMessenger> runInTestMode(Config config) throws Exception {
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();
@@ -315,7 +338,7 @@ public class Runner {
 
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
       idx++;
-      String connectorName = connectorConfig.hasPath("name") ? connectorConfig.getString("name") : null;
+      String connectorName = ConfigUtils.getStringOrDefault(connectorConfig, "name", null);
 
       List<Exception> exceptionsForConnector = Connector.getConnectorConfigExceptions(connectorConfig);
       if (connectorName != null && !connectorName.isEmpty()) {
@@ -358,7 +381,7 @@ public class Runner {
       }
       String pipeline = connectorConfig.getString("pipeline");
       if (!pipelineNames.contains(pipeline)) {
-        String connectorName = connectorConfig.hasPath("name") ? connectorConfig.getString("name") : null;
+        String connectorName = ConfigUtils.getStringOrDefault(connectorConfig, "name", null);
         String key = (connectorName != null && !connectorName.isEmpty()) ? connectorName : "connector[" + idx + "]";
         exceptionMap.computeIfAbsent(key, k -> new ArrayList<>()).add(new Exception(
             "Connector " + key + " references pipeline \"" + pipeline + "\", which is not defined. Defined pipelines: "
@@ -585,7 +608,7 @@ public class Runner {
       }
     }
 
-    log.info("Starting run with id " + runId);
+    log.info("Starting run with id {}", runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
@@ -625,7 +648,7 @@ public class Runner {
       connectorResults.add(result);
 
       if (!result.getStatus()) {
-        log.error("Aborting run because " + connector.getName() + " failed.");
+        log.error("Aborting run because {} failed.", connector.getName());
         return new RunResult(false, connectors, connectorResults, history, runId);
       }
     }
@@ -689,8 +712,8 @@ public class Runner {
    */
   private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher,
       WorkerPool workerPool) {
-    log.info("Running connector " + connector.getName() + " feeding to pipeline " +
-        (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
+    log.info("Running connector {} feeding to pipeline {}",
+        connector.getName(), (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
 
@@ -723,8 +746,7 @@ public class Runner {
           workerPool.setFailureListener(cause -> connectorThread.abort("Worker failed.", cause));
         }
         connectorThread.start();
-        final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
-            config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
+        final int connectorTimeout = ConfigUtils.getIntOrDefault(config, "runner.connectorTimeout", DEFAULT_CONNECTOR_TIMEOUT);
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);
@@ -816,7 +838,7 @@ public class Runner {
         try {
           workerPool.start();
         } catch (Exception e) {
-          log.error("Error starting workers for pipeline " + pipelineName, e);
+          log.error("Error starting workers for pipeline {}", pipelineName, e);
           return new ConnectorResult(connector, publisher, false, "Error starting workers for pipeline " + pipelineName);
         }
 
