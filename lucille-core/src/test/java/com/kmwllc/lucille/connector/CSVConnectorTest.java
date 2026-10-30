@@ -1,6 +1,10 @@
 package com.kmwllc.lucille.connector;
 
-import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorException;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.typesafe.config.Config;

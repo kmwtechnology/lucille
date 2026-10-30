@@ -3,7 +3,12 @@ package com.kmwllc.lucille.solr.indexer;
 import com.kmwllc.lucille.core.Document;
 import org.apache.solr.common.SolrInputDocument;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Maintains the list of Solr Add and Update requests that are built up as a SolrIndexer processes a
