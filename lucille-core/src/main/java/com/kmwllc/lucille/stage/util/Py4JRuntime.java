@@ -15,10 +15,14 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.SystemUtils;
 
 
@@ -28,6 +32,7 @@ public final class Py4JRuntime {
 
   public static final String PYTHON_CLIENT_RESOURCE_NAME = "Py4jClient.py";
   public static final String PYTHON_CLIENT_COPY_NAME = "Py4jClientCopy.py";
+  private static final String VENV_LOCK_NAME = ".venv.lock";
 
   /**
    * Overall timeout for Python process startup in milliseconds. Configurable for testing.
@@ -45,6 +50,10 @@ public final class Py4JRuntime {
   }
 
   private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+  // Venv setup writes to a directory shared by every runtime in this working directory (including parallel surefire forks),
+  // so it is serialized by this monitor within a JVM and by a file lock across JVMs.
+  private static final Object VENV_SETUP_LOCK = new Object();
 
   private final String pythonExecutable;
   private final String scriptPath;
@@ -91,11 +100,17 @@ public final class Py4JRuntime {
       return;
     }
 
-    checkPythonInstalled();
-    ensureVenv();
-    logPythonEnvironment();
-    ensurePy4JInVenv();
-    installRequirementsIfNeeded();
+    synchronized (VENV_SETUP_LOCK) {
+      try (FileChannel lockChannel = openVenvLock(); FileLock ignored = lockChannel.lock()) {
+        checkPythonInstalled();
+        ensureVenv();
+        logPythonEnvironment();
+        ensurePy4JInVenv();
+        installRequirementsIfNeeded();
+      } catch (IOException e) {
+        throw new StageException("Failed to lock Python environment", e);
+      }
+    }
 
     int[] ports = allocatePorts();
     String gatewayToken = newAuthToken();
@@ -350,6 +365,12 @@ public final class Py4JRuntime {
     }
   }
 
+  private static FileChannel openVenvLock() throws IOException {
+    Path pythonDir = Paths.get("python").toAbsolutePath();
+    Files.createDirectories(pythonDir);
+    return FileChannel.open(pythonDir.resolve(VENV_LOCK_NAME), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+  }
+
   // Note: python/venv is intentionally not removed by Maven clean.
   // Rebuilding the venv is slow and expensive with many libraries so only Py4jClientCopy.py is deleted.
   private void ensureVenv() throws StageException {
@@ -366,12 +387,13 @@ public final class Py4JRuntime {
         ? venvDir.resolve("Scripts").resolve("python.exe")
         : venvDir.resolve("bin").resolve("python");
     venvPythonPath = venvPython.toAbsolutePath().toString();
-    if (!Files.exists(venvPython)) {
-      log.info("Python venv not found, creating venv in cwd...");
+    // An interrupted earlier build can leave bin/python without a usable pip, so the venv is only trusted if pip runs.
+    if (!Files.exists(venvPython) || !pipAvailable(venvPythonPath)) {
+      log.info("Python venv not found or incomplete, creating venv in cwd...");
       int exitCode;
       StringBuilder output;
       try {
-        Process createVenv = new ProcessBuilder(pythonExecutable, "-m", "venv", venvDir.toString())
+        Process createVenv = new ProcessBuilder(pythonExecutable, "-m", "venv", "--clear", venvDir.toString())
             .redirectErrorStream(true).start();
         output = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(createVenv.getInputStream()))) {
@@ -414,6 +436,7 @@ public final class Py4JRuntime {
 
   private void ensurePy4JInVenv() throws StageException {
     int pipCode;
+    String pipOutput;
     try {
       Process check = new ProcessBuilder(venvPythonPath, "-c", "import py4j,sys;print(py4j.__version__)")
           .redirectErrorStream(true).start();
@@ -429,12 +452,33 @@ public final class Py4JRuntime {
       log.info("Installing py4j into venv...");
       Process pip = new ProcessBuilder(venvPythonPath, "-m", "pip", "install", "py4j")
           .redirectErrorStream(true).start();
+      pipOutput = readOutput(pip);
       pipCode = pip.waitFor();
     } catch (Exception e) {
       throw new StageException("Failed to ensure py4j in venv: " + e.getMessage(), e);
     }
     if (pipCode != 0) {
-      throw new StageException("pip install py4j failed (exit=" + pipCode + ")");
+      log.error("pip install py4j failed. Output:\n{}", pipOutput);
+      throw new StageException("pip install py4j failed (exit=" + pipCode + "). Output: " + pipOutput);
+    }
+  }
+
+  private static boolean pipAvailable(String python) {
+    try {
+      Process process = new ProcessBuilder(python, "-m", "pip", "--version").redirectErrorStream(true).start();
+      readOutput(process);
+      return process.waitFor() == 0;
+    } catch (IOException e) {
+      return false;
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return false;
+    }
+  }
+
+  private static String readOutput(Process process) throws IOException {
+    try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+      return reader.lines().collect(Collectors.joining("\n"));
     }
   }
 
