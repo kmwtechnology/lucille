@@ -65,8 +65,8 @@ public class Py4JRuntimeTest {
     assertThrows(StageException.class, runtime::start);
     assertFalse(runtime.isReady());
     assertNull(runtime.getGatewayPort());
-    assertTrue("Gateway port should be released after a failed start", isBindable(requested));
-    assertTrue("Callback port should be released after a failed start", isBindable(requested + 1));
+    assertTrue("Gateway port should be released after a failed start", awaitBindable(requested));
+    assertTrue("Callback port should be released after a failed start", awaitBindable(requested + 1));
   }
 
   private Py4JRuntime startRuntime(Integer requestedPort, String script) throws StageException {
@@ -93,6 +93,19 @@ public class Py4JRuntimeTest {
     } catch (IOException e) {
       return false;
     }
+  }
+
+  // Other test classes run in parallel forks and may briefly claim the same ephemeral port, so give the port a
+  // short window to become bindable rather than checking it once.
+  private static boolean awaitBindable(int port) throws InterruptedException {
+    long deadline = System.currentTimeMillis() + 5_000;
+    while (!isBindable(port)) {
+      if (System.currentTimeMillis() >= deadline) {
+        return false;
+      }
+      Thread.sleep(100);
+    }
+    return true;
   }
 
   // Finds a port p where both p and p + 1 are free, so both the gateway and callback ports can bind.
