@@ -24,7 +24,7 @@ public class APIPreventConcurrentIntegrationTest {
         "class": "com.kmwllc.lucille.connector.SleepConnector",
         "name": "sleep-connector",
         "pipeline": "pipeline1",
-        "duration": 250
+        "duration": 500
       }
     ],
     "pipelines": [
