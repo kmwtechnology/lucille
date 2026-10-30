@@ -324,7 +324,7 @@
             <configuration>
             <!--
             This configuration causes a Lucille build to fail in the event of invalid JavaDoc - not missing JavaDoc.
-            For example, if the codebase has JavaDoc referencing the CSVConnector (via @see or @link), and you delete it
+            For example, if the codebase has JavaDoc referencing a class (via @see or @link), and you delete that class
             without changing that JavaDoc, *that* will cause a build failure.
             Something else that will cause JavaDoc to fail is bad HTML - for example, if you write a Stage parameter as
             List<String> instead of List&lt;String&gt;.

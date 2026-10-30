@@ -61,12 +61,6 @@ connectors: [
 | [Sequence Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SequenceConnector.java) *(source only)* | Generates `numDocs` (required) empty Documents with numeric IDs `0`, `1`, ..., offset by `startWith` (integer, default `0`) and prefixed with `docIdPrefix`. Requires a `pipeline`. Useful for testing. |
 | [Sleep Connector](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/SleepConnector.java) *(source only)* | Sleeps for `duration` (required) milliseconds and publishes nothing, so it can run without a `pipeline`. Useful for testing. |
 
-**The following connectors are deprecated.** Use FileConnector with a corresponding FileHandler instead.
-
-| Connector | Replacement |
-|---|---|
-| [CSV Connector *(Deprecated)*](https://github.com/kmwtechnology/lucille/blob/main/lucille-core/src/main/java/com/kmwllc/lucille/connector/CSVConnector.java) | FileConnector with `csv` FileHandler |
-
 ## Lucille Connectors (Plugins)
 
 | Connector | Description |
