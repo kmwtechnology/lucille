@@ -1,8 +1,16 @@
 package com.kmwllc.lucille.solr.connector;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.node.BinaryNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.FloatNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -12,11 +20,13 @@ import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.EnumFieldValue;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.params.CursorMarkParams;
 import org.apache.solr.common.util.NamedList;
@@ -27,6 +37,7 @@ import org.mockito.stubbing.Answer;
 import java.io.IOException;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -115,6 +126,79 @@ public class SolrConnectorTest {
     // the mock serves the same page twice, so each usable document arrives twice
     List<String> ids = messenger.getDocsSentForProcessing().stream().map(Document::getId).toList();
     assertEquals(List.of("ok1", "ok2", "ok1", "ok2"), ids);
+  }
+
+  @Test
+  public void testExecuteWithNonStringAndMixedCaseFields() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/execute.conf");
+    SolrClient mockClient = mock(SolrClient.class);
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+    Date created = new Date(1_700_000_000_000L);
+
+    when(mockClient.query(any(SolrQuery.class))).then(invocation -> {
+      SolrDocument doc = new SolrDocument();
+      // a numeric unique key
+      doc.setField(Document.ID_FIELD, 42L);
+      doc.setField("_version_", 1234567890123L);
+      doc.setField("devId", 7);
+      doc.setField("price", 9.5);
+      doc.setField("rating", 4.5f);
+      doc.setField("thumbnail", new byte[] {1, 2, 3});
+      doc.setField("inStock", true);
+      doc.setField("created", created);
+      doc.setField("Tags", List.of("a", "b"));
+      // a type a Document cannot hold, such as an enum field's value, keeps its string form
+      doc.setField("status", new EnumFieldValue(1, "active"));
+      MockQueryResponse resp = new MockQueryResponse();
+      resp.addToResults(doc);
+      return resp;
+    });
+
+    new SolrConnector(config, mockClient).execute(publisher);
+
+    Document doc = messenger.getDocsSentForProcessing().get(0);
+    assertEquals("42", doc.getId());
+    // compare the stored JSON nodes, not the typed getters: getInt, getLong, getDouble and getBoolean also parse a
+    // string, so they would pass if the values were copied as strings
+    assertEquals(LongNode.valueOf(1234567890123L), doc.getJson("_version_"));
+    // the field is read by its own name; only the Document's field name is lower-cased
+    assertEquals(IntNode.valueOf(7), doc.getJson("devid"));
+    assertEquals(DoubleNode.valueOf(9.5), doc.getJson("price"));
+    assertEquals(FloatNode.valueOf(4.5f), doc.getJson("rating"));
+    assertEquals(BinaryNode.valueOf(new byte[] {1, 2, 3}), doc.getJson("thumbnail"));
+    assertEquals(BooleanNode.TRUE, doc.getJson("instock"));
+    // a Document stores a Date as an ISO-8601 instant string
+    assertEquals(TextNode.valueOf(created.toInstant().toString()), doc.getJson("created"));
+    assertEquals(created.toInstant(), doc.getInstant("created"));
+    assertEquals(List.of("a", "b"), doc.getStringList("tags"));
+    assertEquals(TextNode.valueOf("active"), doc.getJson("status"));
+    assertFalse(doc.has("devId"));
+  }
+
+  @Test
+  public void testMixedCaseIdFieldIsNotCopied() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/execute.conf")
+        .withValue("idField", ConfigValueFactory.fromAnyRef("docKey"));
+    SolrClient mockClient = mock(SolrClient.class);
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    when(mockClient.query(any(SolrQuery.class))).then(invocation -> {
+      SolrDocument doc = new SolrDocument();
+      doc.setField("docKey", "k1");
+      doc.setField("name", "n1");
+      MockQueryResponse resp = new MockQueryResponse();
+      resp.addToResults(doc);
+      return resp;
+    });
+
+    new SolrConnector(config, mockClient).execute(publisher);
+
+    Document doc = messenger.getDocsSentForProcessing().get(0);
+    assertEquals("k1", doc.getId());
+    assertFalse(doc.has("dockey"));
+    assertEquals("n1", doc.getString("name"));
   }
 
   @Test(expected = ConnectorException.class)
