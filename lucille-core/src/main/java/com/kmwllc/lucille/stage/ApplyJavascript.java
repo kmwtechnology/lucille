@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.LongNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileContentFetcher;
@@ -77,8 +78,8 @@ public class ApplyJavascript extends Stage {
 
   public ApplyJavascript(Config config) {
     super(config);
-    this.scriptPath = config.hasPath("scriptPath") ? config.getString("scriptPath") : null;
-    this.inlineScript = config.hasPath("script") ? config.getString("script") : null;
+    this.scriptPath = ConfigUtils.getStringOrDefault(config, "scriptPath", null);
+    this.inlineScript = ConfigUtils.getStringOrDefault(config, "script", null);
   }
 
   @Override

@@ -41,7 +41,7 @@ public class WorkerIndexerPool {
       log.error("Error reading pipeline config", e);
     }
     if (this.numWorkers == null) {
-      this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
+      this.numWorkers = ConfigUtils.getIntOrDefault(config, "worker.threads", DEFAULT_POOL_SIZE);
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
     this.idSet = idSet;

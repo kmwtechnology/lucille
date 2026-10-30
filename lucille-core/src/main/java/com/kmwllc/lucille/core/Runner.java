@@ -338,7 +338,7 @@ public class Runner {
 
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
       idx++;
-      String connectorName = connectorConfig.hasPath("name") ? connectorConfig.getString("name") : null;
+      String connectorName = ConfigUtils.getStringOrDefault(connectorConfig, "name", null);
 
       List<Exception> exceptionsForConnector = Connector.getConnectorConfigExceptions(connectorConfig);
       if (connectorName != null && !connectorName.isEmpty()) {
@@ -381,7 +381,7 @@ public class Runner {
       }
       String pipeline = connectorConfig.getString("pipeline");
       if (!pipelineNames.contains(pipeline)) {
-        String connectorName = connectorConfig.hasPath("name") ? connectorConfig.getString("name") : null;
+        String connectorName = ConfigUtils.getStringOrDefault(connectorConfig, "name", null);
         String key = (connectorName != null && !connectorName.isEmpty()) ? connectorName : "connector[" + idx + "]";
         exceptionMap.computeIfAbsent(key, k -> new ArrayList<>()).add(new Exception(
             "Connector " + key + " references pipeline \"" + pipeline + "\", which is not defined. Defined pipelines: "
@@ -746,8 +746,7 @@ public class Runner {
           workerPool.setFailureListener(cause -> connectorThread.abort("Worker failed.", cause));
         }
         connectorThread.start();
-        final int connectorTimeout = config.hasPath("runner.connectorTimeout") ?
-            config.getInt("runner.connectorTimeout") : DEFAULT_CONNECTOR_TIMEOUT;
+        final int connectorTimeout = ConfigUtils.getIntOrDefault(config, "runner.connectorTimeout", DEFAULT_CONNECTOR_TIMEOUT);
         pubResult = publisher.waitForCompletion(connectorThread, connectorTimeout);
       } catch (Exception e) {
         log.error("waitForCompletion failed", e);

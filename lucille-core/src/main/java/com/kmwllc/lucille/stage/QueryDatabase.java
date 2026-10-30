@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -73,7 +74,7 @@ public class QueryDatabase extends Stage {
     jdbcUser = config.getString("jdbcUser");
     jdbcPassword = config.getString("jdbcPassword");
     keyFields = config.getStringList("keyFields");
-    sql = config.hasPath("sql") ? config.getString("sql") : null;
+    sql = ConfigUtils.getStringOrDefault(config, "sql", null);
     fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     List<String> inputTypeList = config.getStringList("inputTypes");
     inputTypes = new ArrayList<>();

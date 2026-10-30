@@ -99,7 +99,7 @@ public interface Connector extends AutoCloseable {
     List<Connector> connectors = new ArrayList();
     int index = 1;
     for (Config c : connectorConfigs) {
-      final String name = c.hasPath("name") ? c.getString("name") : ("connector_" + index);
+      final String name = ConfigUtils.getStringOrDefault(c, "name", ("connector_" + index));
       if (!c.hasPath("name")) {
         c = c.withValue("name", ConfigValueFactory.fromAnyRef(name));
       }

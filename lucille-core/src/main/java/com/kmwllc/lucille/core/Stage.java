@@ -108,7 +108,7 @@ public abstract class Stage {
       return (x -> true);
     }
 
-    String conditionPolicy = config.hasPath("conditionPolicy") ? config.getString("conditionPolicy") : "all";
+    String conditionPolicy = ConfigUtils.getStringOrDefault(config, "conditionPolicy", "all");
 
     if ("any".equalsIgnoreCase(conditionPolicy)) {
       return conditions.stream().reduce(c -> false, Predicate::or);

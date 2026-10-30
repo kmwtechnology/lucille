@@ -118,7 +118,7 @@ public class ElasticsearchIndexer extends Indexer {
 
     this.client = client;
     this.index = ElasticsearchUtils.getElasticsearchIndex(config);
-    this.update = config.hasPath("elasticsearch.update") ? config.getBoolean("elasticsearch.update") : false;
+    this.update = ConfigUtils.getBooleanOrDefault(config, "elasticsearch.update", false);
 
     joinData = ElasticJoinData.fromConfig(config);
     this.routingField = ConfigUtils.getStringOrDefault(config, "indexer.routingField", null);

@@ -82,14 +82,13 @@ public class WorkerPool {
       log.error("Error reading pipeline config", e);
     }
     if (this.numWorkers == null) {
-      this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
+      this.numWorkers = ConfigUtils.getIntOrDefault(config, "worker.threads", DEFAULT_POOL_SIZE);
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    this.enableHeartbeat = config.hasPath("worker.enableHeartbeat") ? config.getBoolean("worker.enableHeartbeat") : false;
+    this.enableHeartbeat = ConfigUtils.getBooleanOrDefault(config, "worker.enableHeartbeat", false);
     // maxProcessingSecs default should be at least 10 minutes
-    this.maxProcessingSecs =
-        config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60;
-    this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
+    this.maxProcessingSecs = ConfigUtils.getIntOrDefault(config, "worker.maxProcessingSecs", 10 * 60);
+    this.exitOnTimeout = ConfigUtils.getBooleanOrDefault(config, "worker.exitOnTimeout", false);
   }
 
   public void start() throws Exception {

@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -61,7 +62,7 @@ public class XPathExtractor extends Stage {
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();
     xpath = xpathFactory.newXPath();
-    xmlField = config.hasPath("xmlField") ? config.getString("xmlField") : "xml";
+    xmlField = ConfigUtils.getStringOrDefault(config, "xmlField", "xml");
     expressionMapping = new HashMap<>();
   }
 

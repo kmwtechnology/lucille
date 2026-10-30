@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.util.FileContentFetcher;
 import com.kmwllc.lucille.core.Publisher;
@@ -70,8 +71,8 @@ public class CSVConnector extends AbstractConnector {
         .withoutPath("collapse")
         .withoutPath("moveToAfterProcessing")
         .withoutPath("moveToErrorFolder"));
-    this.moveToAfterProcessing = config.hasPath("moveToAfterProcessing") ? config.getString("moveToAfterProcessing") : null;
-    this.moveToErrorFolder = config.hasPath("moveToErrorFolder") ? config.getString("moveToErrorFolder") : null;
+    this.moveToAfterProcessing = ConfigUtils.getStringOrDefault(config, "moveToAfterProcessing", null);
+    this.moveToErrorFolder = ConfigUtils.getStringOrDefault(config, "moveToErrorFolder", null);
   }
 
   @Override

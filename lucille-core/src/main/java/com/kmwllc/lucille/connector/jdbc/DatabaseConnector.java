@@ -114,7 +114,7 @@ public class DatabaseConnector extends AbstractConnector {
     sql = config.getString("sql");
     idField = config.getString("idField");
 
-    fetchSize = config.hasPath("fetchSize") ? config.getInt("fetchSize") : null;
+    fetchSize = ConfigUtils.getIntOrDefault(config, "fetchSize", null);
     preSql = ConfigUtils.getStringOrDefault(config, "preSQL", null);
     postSql = ConfigUtils.getStringOrDefault(config, "postSQL", null);
     if (config.hasPath("otherSQLs")) {

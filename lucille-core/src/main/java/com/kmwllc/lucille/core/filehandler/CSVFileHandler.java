@@ -3,6 +3,7 @@ package com.kmwllc.lucille.core.filehandler;
 import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.DocumentException;
 import com.kmwllc.lucille.core.spec.Spec;
@@ -74,10 +75,10 @@ public class CSVFileHandler extends BaseFileHandler {
   public CSVFileHandler(Config config) {
     super(config);
 
-    this.lineNumField = config.hasPath("lineNumberField") ? config.getString("lineNumberField") : "csvLineNumber";
-    this.filenameField = config.hasPath("filenameField") ? config.getString("filenameField") : "filename";
-    this.filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : "source";
-    String idField = config.hasPath("idField") ? config.getString("idField") : null;
+    this.lineNumField = ConfigUtils.getStringOrDefault(config, "lineNumberField", "csvLineNumber");
+    this.filenameField = ConfigUtils.getStringOrDefault(config, "filenameField", "filename");
+    this.filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", "source");
+    String idField = ConfigUtils.getStringOrDefault(config, "idField", null);
     // Either specify the idField, or idFields
     if (idField != null) {
       this.idFields = new ArrayList<String>();
@@ -85,7 +86,7 @@ public class CSVFileHandler extends BaseFileHandler {
     } else {
       this.idFields = config.hasPath("idFields") ? config.getStringList("idFields") : new ArrayList<String>();
     }
-    this.docIdFormat = config.hasPath("docIdFormat") ? config.getString("docIdFormat") : null;
+    this.docIdFormat = ConfigUtils.getStringOrDefault(config, "docIdFormat", null);
     // if both a separator char and useTabs is specified, useTabs takes precedence
     char separator = config.hasPath("separatorChar") ? CharUtils.toChar(config.getString("separatorChar")) : ',';
     this.separatorChar = (config.hasPath("useTabs") && config.getBoolean("useTabs")) ? '\t' : separator;
@@ -93,10 +94,10 @@ public class CSVFileHandler extends BaseFileHandler {
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_QUOTE_CHARACTER;
     this.escapeChar = (config.hasPath("ignoreEscapeChar") && config.getBoolean("ignoreEscapeChar")) ?
         CSVParser.NULL_CHARACTER : CSVParser.DEFAULT_ESCAPE_CHARACTER;
-    this.lowercaseFields = config.hasPath("lowercaseFields") ? config.getBoolean("lowercaseFields") : false;
+    this.lowercaseFields = ConfigUtils.getBooleanOrDefault(config, "lowercaseFields", false);
     this.ignoredTerms = config.hasPath("ignoredTerms") ? Set.copyOf(config.getStringList("ignoredTerms")) : Set.of();
 
-    this.maxRecordBytes = config.hasPath("maxRecordBytes") ? config.getInt("maxRecordBytes") : null;
+    this.maxRecordBytes = ConfigUtils.getIntOrDefault(config, "maxRecordBytes", null);
     if (maxRecordBytes != null && maxRecordBytes <= 0) {
       throw new IllegalArgumentException("maxRecordBytes must be positive, got " + maxRecordBytes);
     }
