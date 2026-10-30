@@ -190,7 +190,7 @@ public class OpenAIEmbed extends Stage {
       float[] vectors = embeddings.get(i).vector();
       Document doc = docsToEmbed.get(i);
       for (Float vector : vectors) {
-        doc.setField(dest, vector);
+        doc.setOrAdd(dest, vector);
       }
       embeddedResults.put(doc.getId(), doc);
     }
