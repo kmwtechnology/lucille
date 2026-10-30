@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -170,7 +169,6 @@ public class SolrIndexer extends Indexer {
     }
 
     Map<String, SolrDocRequests> solrDocRequestsByCollection = new HashMap<>();
-    Map<String, Document> docsUploaded = new LinkedHashMap<>();
 
     for (Document doc : documents) {
 
@@ -209,9 +207,7 @@ public class SolrIndexer extends Indexer {
         }
 
       } else {
-        docsUploaded.put(solrId, doc);
-        // note that solrDoc after this code block does not guarantee that "id" field is in document
-        SolrInputDocument solrDoc = toSolrDoc(doc, idOverride, collection);
+        SolrInputDocument solrDoc = toSolrDoc(doc, solrId, collection);
 
         // if the delete requests contain the ID of this document, send the deletes immediately so
         // the delete is
@@ -222,31 +218,25 @@ public class SolrIndexer extends Indexer {
           sendDeletionBatch(collection, solrDocRequests);
           solrDocRequests.resetDeletes();
         }
-        solrDocRequests.addDocForAddUpdate(solrDoc, solrId);
+        solrDocRequests.addDocForAddUpdate(solrDoc, doc, solrId);
       }
     }
 
     Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     for (String collection : solrDocRequestsByCollection.keySet()) {
-      List<SolrInputDocument> collectionDocs = solrDocRequestsByCollection.get(collection).getAddUpdateDocs();
+      SolrDocRequests requests = solrDocRequestsByCollection.get(collection);
 
       try {
-        sendAddUpdateBatch(collection, collectionDocs);
+        sendAddUpdateBatch(collection, requests.getAddUpdateDocs());
       } catch (Exception e) {
         // Add all the docs to failed docs
-        for (SolrInputDocument d : collectionDocs) {
-          String docId = d.getFieldValue(Document.ID_FIELD).toString();
-
-          if (docsUploaded.containsKey(docId)) {
-            failedDocs.add(Pair.of(docsUploaded.get(docId), e));
-          } else {
-            throw e;
-          }
+        for (Document d : requests.getAddUpdateSourceDocs()) {
+          failedDocs.add(Pair.of(d, e));
         }
       }
 
-      sendDeletionBatch(collection, solrDocRequestsByCollection.get(collection));
+      sendDeletionBatch(collection, requests);
     }
 
     return failedDocs;
@@ -357,15 +347,16 @@ public class SolrIndexer extends Indexer {
     return new IndexerRetryableException("Solr error with no HTTP status code", e);
   }
 
-  private SolrInputDocument toSolrDoc(Document doc, String idOverride, String indexOverride)
+  private SolrInputDocument toSolrDoc(Document doc, String solrId, String indexOverride)
       throws IndexerException {
     // removes fields specified by fieldFilter config, including id
     Map<String, Object> map = getConvertedIndexerDoc(doc);
     SolrInputDocument solrDoc = new SolrInputDocument();
+    // Solr needs the id (or its override) on every document, so it is set even when the field filter removes it
+    solrDoc.setField(Document.ID_FIELD, solrId);
 
     for (String key : map.keySet()) {
-      if (idOverride != null && Document.ID_FIELD.equals(key)) {
-        solrDoc.setField(Document.ID_FIELD, idOverride);
+      if (Document.ID_FIELD.equals(key)) {
         continue;
       }
 
@@ -398,8 +389,13 @@ public class SolrIndexer extends Indexer {
       Map<String, Object> map = getConvertedIndexerDoc(child);
 
       SolrInputDocument solrChild = new SolrInputDocument();
+      // as for the parent, the id is set even when the field filter removes it
+      solrChild.setField(Document.ID_FIELD, child.getId());
       // getConvertedIndexerDoc omits CHILDREN_FIELD, so children nested inside a child are not sent
       for (String key : map.keySet()) {
+        if (Document.ID_FIELD.equals(key)) {
+          continue;
+        }
         Object value = map.get(key);
         if (value instanceof Map) {
           throw new IndexerException(
