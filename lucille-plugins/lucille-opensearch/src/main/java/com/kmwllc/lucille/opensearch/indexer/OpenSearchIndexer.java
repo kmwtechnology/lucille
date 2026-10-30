@@ -150,7 +150,7 @@ public class OpenSearchIndexer extends Indexer {
       return false;
     }
     if (!response) {
-      log.error("Non true response when pinging OpenSearch: " + response);
+      log.error("Non true response when pinging OpenSearch: {}", response);
       return false;
     }
     return true;

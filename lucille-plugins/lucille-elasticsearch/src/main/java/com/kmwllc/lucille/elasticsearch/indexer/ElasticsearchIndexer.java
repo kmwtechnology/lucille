@@ -193,7 +193,7 @@ public class ElasticsearchIndexer extends Indexer {
       return false;
     }
     if (response == null || !response.value()) {
-      log.error("Non true response when pinging Elasticsearch: " + response);
+      log.error("Non true response when pinging Elasticsearch: {}", response);
       return false;
     }
     return true;

@@ -91,8 +91,8 @@ class Worker implements Runnable {
       // ZooKeeper connection per worker thread
       if (messenger instanceof KafkaWorkerMessenger || messenger instanceof HybridWorkerMessenger) {
         this.counter = createRetryCounter(config);
-        log.info("Retries will be tracked by " + counter.getClass().getName() + " with a configured maximum of: "
-            + config.getInt("worker.maxRetries"));
+        log.info("Retries will be tracked by {} with a configured maximum of: {}",
+            counter.getClass().getName(), config.getInt("worker.maxRetries"));
         this.trackRetries = true;
       } else {
         log.warn("worker.maxRetries is set but retries are only tracked for Kafka messengers; ignoring it.");

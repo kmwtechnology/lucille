@@ -96,7 +96,7 @@ public class WorkerPool {
       throw new IllegalStateException("WorkerPool can be started at most once");
     }
     started = true;
-    log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
+    log.info("Starting {} worker threads for pipeline {}", numWorkers, pipelineName);
     List<Worker> workers = new ArrayList<>();
 
     try {
@@ -124,7 +124,7 @@ public class WorkerPool {
   }
 
   public void stop() {
-    log.debug("Stopping " + threads.size() + " worker threads");
+    log.debug("Stopping {} worker threads", threads.size());
     stopRequested = true;
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();

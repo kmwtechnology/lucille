@@ -52,7 +52,7 @@ public class WorkerIndexerPool {
       throw new IllegalStateException("WorkerIndexerPool can be started at most once");
     }
     started = true;
-    log.info("Starting " + numWorkers + " WorkerIndexer thread pairs for pipeline " + pipelineName);
+    log.info("Starting {} WorkerIndexer thread pairs for pipeline {}", numWorkers, pipelineName);
 
     for (int i = 0; i < numWorkers; i++) {
       try {
@@ -87,7 +87,7 @@ public class WorkerIndexerPool {
   }
 
   public void stop() throws Exception {
-    log.debug("Stopping " + workerIndexers.size() + " worker threads");
+    log.debug("Stopping {} worker threads", workerIndexers.size());
     if (logTimer != null) {
       logTimer.cancel();
     }

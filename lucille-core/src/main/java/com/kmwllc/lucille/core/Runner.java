@@ -608,7 +608,7 @@ public class Runner {
       }
     }
 
-    log.info("Starting run with id " + runId);
+    log.info("Starting run with id {}", runId);
 
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
@@ -648,7 +648,7 @@ public class Runner {
       connectorResults.add(result);
 
       if (!result.getStatus()) {
-        log.error("Aborting run because " + connector.getName() + " failed.");
+        log.error("Aborting run because {} failed.", connector.getName());
         return new RunResult(false, connectors, connectorResults, history, runId);
       }
     }
@@ -712,8 +712,8 @@ public class Runner {
    */
   private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher,
       WorkerPool workerPool) {
-    log.info("Running connector " + connector.getName() + " feeding to pipeline " +
-        (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
+    log.info("Running connector {} feeding to pipeline {}",
+        connector.getName(), (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
     StopWatch stopWatch = new StopWatch();
     stopWatch.start();
 
@@ -838,7 +838,7 @@ public class Runner {
         try {
           workerPool.start();
         } catch (Exception e) {
-          log.error("Error starting workers for pipeline " + pipelineName, e);
+          log.error("Error starting workers for pipeline {}", pipelineName, e);
           return new ConnectorResult(connector, publisher, false, "Error starting workers for pipeline " + pipelineName);
         }
 
