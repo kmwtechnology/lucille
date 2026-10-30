@@ -19,7 +19,7 @@ public class Pipeline {
 
   private static final Logger log = LoggerFactory.getLogger(Pipeline.class);
 
-  private final ArrayList<Stage> stages = new ArrayList<>();
+  private final List<Stage> stages = new ArrayList<>();
 
   public List<Stage> getStages() {
     return stages;

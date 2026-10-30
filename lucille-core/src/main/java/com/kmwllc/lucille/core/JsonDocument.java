@@ -1098,7 +1098,7 @@ public class JsonDocument implements Document {
       return new ArrayList<>();
     }
     ArrayNode node = data.withArray(CHILDREN_FIELD);
-    ArrayList<Document> children = new ArrayList<>();
+    List<Document> children = new ArrayList<>();
     for (Iterator<JsonNode> it = node.elements(); it.hasNext(); ) {
       JsonNode element = it.next();
       if (!element.isObject()) {
@@ -1215,7 +1215,7 @@ public class JsonDocument implements Document {
     // Jsonata-java outputs a Map, converting to ObjectNode so we can update data.
     ObjectNode transformedNode = MAPPER.valueToTree(transformed);
 
-    HashMap<String, JsonNode> reserved = new HashMap<>();
+    Map<String, JsonNode> reserved = new HashMap<>();
     RESERVED_FIELDS.stream().filter(this::has).forEach(field -> reserved.put(field, data.get(field)));
     for (Map.Entry<String, JsonNode> entry : reserved.entrySet()) {
       if (!entry.getValue().equals(transformedNode.get(entry.getKey()))) {

@@ -154,7 +154,7 @@ public class AddRandomString extends Stage {
   }
 
   private static List<String> selectRandomElements(List<String> values, int length) {
-    ArrayList<String> fieldData = new ArrayList<>();
+    List<String> fieldData = new ArrayList<>();
     for (int i = 0; i < length; i++) {
       fieldData.add(values.get(ThreadLocalRandom.current().nextInt(values.size())));
     }

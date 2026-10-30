@@ -181,7 +181,7 @@ public class DatabaseConnector extends AbstractConnector {
   @Override
   public void execute(Publisher publisher) throws ConnectorException {
     ResultSet rs = null;
-    ArrayList<ResultSet> otherResults = null;
+    List<ResultSet> otherResults = null;
     Connection connection = null;
     Statement statement = null;
     try {
@@ -200,7 +200,7 @@ public class DatabaseConnector extends AbstractConnector {
       int idColumn = getIdColumnIndex(columns);
 
       otherResults = new ArrayList<>();
-      ArrayList<String[]> otherColumns = new ArrayList<>();
+      List<String[]> otherColumns = new ArrayList<>();
       lastOtherJoinIds.clear();
       lastPrimaryJoinId = null;
 

@@ -85,7 +85,7 @@ public class DatabaseConnectorTest {
   @Test
   public void testDatabaseConnectorMixed() throws Exception {
     // Create the test config
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -122,7 +122,7 @@ public class DatabaseConnectorTest {
   @Test
   public void testDatabaseConnector() throws Exception {
     // Create the test config
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -171,7 +171,7 @@ public class DatabaseConnectorTest {
       statement.execute("insert into blank_ids values ('1', 'a'), (null, 'b'), ('  ', 'c'), ('', 'd'), ('5', 'e')");
     }
 
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -198,7 +198,7 @@ public class DatabaseConnectorTest {
   @Test
   public void testDatabaseConnectionRetry() throws Exception {
     // Create the test config
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -249,7 +249,7 @@ public class DatabaseConnectorTest {
   @Test
   public void testDatabaseConnectionRetryAndConnect() throws Exception {
     // Create the test config
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -298,7 +298,7 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testCompaniesQuery() throws ConnectorException, SQLException {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -334,7 +334,7 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testRetrievingJDBCTypes() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -464,7 +464,7 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testJoiningDatabaseConnector() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
 
@@ -475,10 +475,10 @@ public class DatabaseConnectorTest {
     configValues.put("sql", "select id,name from animal");
     configValues.put("idField", "id");
     // a list of other sql statements
-    ArrayList<String> otherSql = new ArrayList<>();
+    List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id,name from meal order by animal_id");
     // The join fields. id goes to animal_id
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherSQLs", otherSql);
     configValues.put("otherJoinFields", otherJoinFields);
@@ -511,7 +511,7 @@ public class DatabaseConnectorTest {
    */
   @Test
   public void testJoiningDatabaseConnectorGapBetweenParents() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -525,10 +525,10 @@ public class DatabaseConnectorTest {
     // Child result set with a single orphan (animal_id=2) between the parent keys.
     // meal id 1 -> animal_id 1, meal id 4 -> animal_id 2 (orphan), meal ids 6,7 -> animal_id 3.
     // Ordered by animal_id, the child join-key sequence is: 1, 2, 3, 3.
-    ArrayList<String> otherSql = new ArrayList<>();
+    List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id, name from meal where id in (1,4,6,7) order by animal_id");
     configValues.put("otherSQLs", otherSql);
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
 
@@ -567,7 +567,7 @@ public class DatabaseConnectorTest {
    * child queries, joining on animal_id.
    */
   private Config joinConfig(String sql, String otherSql) {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -576,10 +576,10 @@ public class DatabaseConnectorTest {
     configValues.put("jdbcPassword", "");
     configValues.put("sql", sql);
     configValues.put("idField", "id");
-    ArrayList<String> otherSqls = new ArrayList<>();
+    List<String> otherSqls = new ArrayList<>();
     otherSqls.add(otherSql);
     configValues.put("otherSQLs", otherSqls);
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
     return ConfigFactory.parseMap(configValues);
@@ -694,8 +694,8 @@ public class DatabaseConnectorTest {
   }
 
   /** Base config for a joining connector; callers add otherSQLs / otherJoinFields and optional preSQL. */
-  private HashMap<String, Object> baseJoinConfig(String sql) {
-    HashMap<String, Object> configValues = new HashMap<>();
+  private Map<String, Object> baseJoinConfig(String sql) {
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -707,7 +707,7 @@ public class DatabaseConnectorTest {
     return configValues;
   }
 
-  private List<Document> runConnector(HashMap<String, Object> configValues) throws Exception {
+  private List<Document> runConnector(Map<String, Object> configValues) throws Exception {
     DatabaseConnector connector = new DatabaseConnector(ConfigFactory.parseMap(configValues));
     try {
       connector.execute(publisher);
@@ -733,7 +733,7 @@ public class DatabaseConnectorTest {
    */
   @Test
   public void testJoiningDatabaseConnectorTwoOtherSQLs() throws Exception {
-    HashMap<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
+    Map<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
     configValues.put("preSQL",
         "CREATE TABLE toy(id INT, animal_id INT, toy_name VARCHAR(20)); "
             + "INSERT INTO toy VALUES (1, 1, 'ball'), (2, 2, 'mouse'), (3, 2, 'string');");
@@ -771,7 +771,7 @@ public class DatabaseConnectorTest {
    */
   @Test
   public void testJoiningDatabaseConnectorNullChildJoinKeyIsSkipped() throws Exception {
-    HashMap<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
+    Map<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
     configValues.put("preSQL",
         "CREATE TABLE toy(id INT, animal_id INT, toy_name VARCHAR(20)); "
             + "INSERT INTO toy VALUES (1, NULL, 'lost'), (2, 1, 'ball'), (3, NULL, 'unclaimed'), (4, 3, 'bell');");
@@ -795,7 +795,7 @@ public class DatabaseConnectorTest {
    */
   @Test
   public void testJoiningDatabaseConnectorDuplicatePrimaryKeyFailsTheRun() throws Exception {
-    HashMap<String, Object> configValues = baseJoinConfig("select id,name from dup_animal order by id");
+    Map<String, Object> configValues = baseJoinConfig("select id,name from dup_animal order by id");
     configValues.put("preSQL",
         "CREATE TABLE dup_animal(id INT, name VARCHAR(10)); "
             + "INSERT INTO dup_animal VALUES (1, 'Matt'), (1, 'Matt again'), (2, 'Sonny');");
@@ -816,7 +816,7 @@ public class DatabaseConnectorTest {
   /** postSQL runs after the primary query, on the same connection, and its effect is visible afterwards. */
   @Test
   public void testPostSqlRunsAfterQuery() throws Exception {
-    HashMap<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
+    Map<String, Object> configValues = baseJoinConfig("select id,name from animal order by id");
     configValues.put("preSQL", "CREATE TABLE marker(note VARCHAR(20));");
     configValues.put("postSQL", "INSERT INTO marker VALUES ('done');");
 
@@ -834,7 +834,7 @@ public class DatabaseConnectorTest {
   /** ignoreColumns leaves ordinary primary columns off the document; child rows are not filtered by it. */
   @Test
   public void testIgnoreColumnsOmitsPrimaryColumnOnly() throws Exception {
-    HashMap<String, Object> configValues = baseJoinConfig("select id,name,type from animal order by id");
+    Map<String, Object> configValues = baseJoinConfig("select id,name,type from animal order by id");
     configValues.put("ignoreColumns", new ArrayList<>(List.of("TYPE", "name")));
     configValues.put("otherSQLs", new ArrayList<>(List.of(
         "select id as meal_id, animal_id, name from meal order by animal_id, id")));
@@ -856,7 +856,7 @@ public class DatabaseConnectorTest {
    */
   @Test
   public void testJoiningDatabaseConnectorEmptyChildResultSet() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -866,10 +866,10 @@ public class DatabaseConnectorTest {
     configValues.put("sql", "select id,name from animal order by id");
     configValues.put("idField", "id");
     // Child query that is guaranteed to return zero rows.
-    ArrayList<String> otherSql = new ArrayList<>();
+    List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id, name from meal where 1=0 order by animal_id");
     configValues.put("otherSQLs", otherSql);
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
 
@@ -893,7 +893,7 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testJoiningDatabaseConnectorStringType() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -903,11 +903,11 @@ public class DatabaseConnectorTest {
     configValues.put("sql", "select name,type from animal order by name");
     configValues.put("idField", "name");
     // a list of other sql statements
-    ArrayList<String> otherSql = new ArrayList<>();
+    List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as network_id,name,friends_with from network order by name");
     configValues.put("otherSQLs", otherSql);
     // The join fields. id goes to animal_id
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("name");
     configValues.put("otherJoinFields", otherJoinFields);
     // create a config object off that map
@@ -928,7 +928,7 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testJoiningDatabaseConnectorNonComparable() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -938,11 +938,11 @@ public class DatabaseConnectorTest {
     configValues.put("sql", "select name,type from animal order by name");
     configValues.put("idField", "name");
     // a list of other sql statements
-    ArrayList<String> otherSql = new ArrayList<>();
+    List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as _id,name,metadata from nonComparable order by name");
     configValues.put("otherSQLs", otherSql);
     // The join fields. id goes to animal_id
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("metadata");
     configValues.put("otherJoinFields", otherJoinFields);
     // create a config object off that map
@@ -957,7 +957,7 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testJoiningDatabaseConnectorDateType() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -967,11 +967,11 @@ public class DatabaseConnectorTest {
     configValues.put("sql", "select name,type,birthday from animal where id=2");
     configValues.put("idField", "birthday");
     // a list of other sql statements
-    ArrayList<String> otherSql = new ArrayList<>();
+    List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as adoption_id,name,adopted_on from adopted order by adopted_on");
     configValues.put("otherSQLs", otherSql);
     // The join fields. id goes to animal_id
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("adopted_on");
     configValues.put("otherJoinFields", otherJoinFields);
     // create a config object off that map
@@ -1003,7 +1003,7 @@ public class DatabaseConnectorTest {
   // TODO: not implemented yet.
   // @Test
   public void testCollapsingDatabaseConnector() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -1043,7 +1043,7 @@ public class DatabaseConnectorTest {
   @Test
   public void testClose() throws ConnectorException, SQLException {
     // Create a test config
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -1071,7 +1071,7 @@ public class DatabaseConnectorTest {
   @Test
   public void testIdColumnException() throws ConnectorException {
     // Create a test config
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -1095,7 +1095,7 @@ public class DatabaseConnectorTest {
   @Test
   public void testDriverNotFound() throws ConnectorException {
     // Create a test config with a driver class that isn't on the classpath
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "com.nonexistent.Driver");
@@ -1118,7 +1118,7 @@ public class DatabaseConnectorTest {
 
   @Test
   public void testReservedFieldError() throws ConnectorException, SQLException {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -1141,7 +1141,7 @@ public class DatabaseConnectorTest {
   @Test
   public void testTableWithIdColumn() throws ConnectorException, SQLException {
 
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -1236,7 +1236,7 @@ public class DatabaseConnectorTest {
             + "(1, 1, 'world', 7, 8000000000, 2.5, 99.99, 4.75, FALSE, DATE '2023-01-01', "
             + "TIMESTAMP '2023-01-01 00:00:02', X'0C0D', TIME '12:00:00');";
 
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -1248,11 +1248,11 @@ public class DatabaseConnectorTest {
         "select id, str_col, int_col, long_col, dbl_col, dec_col, flt_col, bool_col, date_col, ts_col, "
             + "bin_col, time_col from typed_parent order by id");
     configValues.put("idField", "id");
-    ArrayList<String> otherSql = new ArrayList<>();
+    List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as child_id, parent_id, c_str, c_int, c_long, c_dbl, c_dec, c_flt, c_bool, "
         + "c_date, c_ts, c_bin, c_time from typed_child order by parent_id");
     configValues.put("otherSQLs", otherSql);
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("parent_id");
     configValues.put("otherJoinFields", otherJoinFields);
 
@@ -1316,7 +1316,7 @@ public class DatabaseConnectorTest {
             + "CREATE TABLE dec_child(id INT, parent_id INT, c_big NUMERIC(19,0), c_amount DECIMAL(10,2)); "
             + "INSERT INTO dec_child VALUES (1, 1, " + bigId + ", 99.99);";
 
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -1326,10 +1326,10 @@ public class DatabaseConnectorTest {
     configValues.put("preSQL", setup);
     configValues.put("sql", "select id, big_id, amount from dec_parent order by id");
     configValues.put("idField", "id");
-    ArrayList<String> otherSql = new ArrayList<>();
+    List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as child_id, parent_id, c_big, c_amount from dec_child order by parent_id");
     configValues.put("otherSQLs", otherSql);
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("parent_id");
     configValues.put("otherJoinFields", otherJoinFields);
 
@@ -1427,7 +1427,7 @@ public class DatabaseConnectorTest {
 
     // Primary path: the unsupported column is selected directly by the primary query.
     {
-      HashMap<String, Object> cfg = new HashMap<>();
+      Map<String, Object> cfg = new HashMap<>();
       cfg.put("name", connectorName);
       cfg.put("pipeline", pipelineName);
       cfg.put("driver", "org.h2.Driver");
@@ -1453,7 +1453,7 @@ public class DatabaseConnectorTest {
 
     // Child path: seed animal 1 joined to an otherSQL that selects the unsupported column.
     {
-      HashMap<String, Object> cfg = new HashMap<>();
+      Map<String, Object> cfg = new HashMap<>();
       cfg.put("name", connectorName);
       cfg.put("pipeline", pipelineName);
       cfg.put("driver", "org.h2.Driver");
@@ -1463,10 +1463,10 @@ public class DatabaseConnectorTest {
       cfg.put("preSQL", setup);
       cfg.put("sql", "select id, name from animal where id=1 order by id");
       cfg.put("idField", "id");
-      ArrayList<String> otherSql = new ArrayList<>();
+      List<String> otherSql = new ArrayList<>();
       otherSql.add("select id as probe_id, join_key, bad_col from unsupported_type_probe order by join_key");
       cfg.put("otherSQLs", otherSql);
-      ArrayList<String> otherJoinFields = new ArrayList<>();
+      List<String> otherJoinFields = new ArrayList<>();
       otherJoinFields.add("join_key");
       cfg.put("otherJoinFields", otherJoinFields);
 
@@ -1493,7 +1493,7 @@ public class DatabaseConnectorTest {
    */
   @Test
   public void testJoiningDatabaseConnectorUnorderedChildResultSet() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("name", connectorName);
     configValues.put("pipeline", pipelineName);
     configValues.put("driver", "org.h2.Driver");
@@ -1504,10 +1504,10 @@ public class DatabaseConnectorTest {
     configValues.put("idField", "id");
     // Child query NOT ordered by the join key (animal_id). Ordering by meal id descending yields the
     // animal_id sequence 3,3,2,2,1,1,1 - i.e. join keys in descending order.
-    ArrayList<String> otherSql = new ArrayList<>();
+    List<String> otherSql = new ArrayList<>();
     otherSql.add("select id as meal_id, animal_id, name from meal order by id desc");
     configValues.put("otherSQLs", otherSql);
-    ArrayList<String> otherJoinFields = new ArrayList<>();
+    List<String> otherJoinFields = new ArrayList<>();
     otherJoinFields.add("animal_id");
     configValues.put("otherJoinFields", otherJoinFields);
 
