@@ -8,22 +8,28 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
 
+import com.kmwllc.lucille.connector.AbstractConnector;
 import com.kmwllc.lucille.core.Event.Type;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.LocalMessenger;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.IOException;
 import java.lang.Thread.State;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -695,6 +701,240 @@ public class PublisherImplTest {
     PublisherResult result = publisher.waitForCompletion(thread, 10000);
     assertFalse(result.getStatus());
     assertEquals("Worker failed.", result.getMessage());
+  }
+
+  @Test
+  public void testPublishWrapsMessengerFailure() throws Exception {
+    TestMessenger messenger = new TestMessenger() {
+      @Override
+      public void sendForProcessing(Document document) throws Exception {
+        throw new IOException("broker unavailable");
+      }
+    };
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    PublisherException e = assertThrows(PublisherException.class, () -> publisher.publish(Document.create("doc1")));
+    assertTrue(e.getCause() instanceof IOException);
+    // the document was not sent, so it is not left pending
+    assertEquals(0, publisher.numPending());
+  }
+
+  @Test
+  public void testInterruptedPublishThrowsAndKeepsTheInterrupt() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    publisher.pause();
+
+    AtomicReference<Throwable> thrown = new AtomicReference<>();
+    AtomicBoolean interruptedAfterwards = new AtomicBoolean();
+    Thread publishing = new Thread(() -> {
+      try {
+        publisher.publish(Document.create("doc1"));
+      } catch (Throwable t) {
+        thrown.set(t);
+      }
+      interruptedAfterwards.set(Thread.currentThread().isInterrupted());
+    });
+    publishing.start();
+    waitUntilBlocked(publishing);
+    publishing.interrupt();
+    publishing.join(5000);
+
+    assertTrue(String.valueOf(thrown.get()), thrown.get() instanceof PublisherException);
+    assertTrue(thrown.get().getCause() instanceof InterruptedException);
+    assertTrue(interruptedAfterwards.get());
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
+  }
+
+  @Test
+  public void testCollapsingRejectsOverlappingPublishCalls() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1", "", true);
+    publisher.pause();
+
+    // the first call blocks inside publish() until resume(), so a second call overlaps it
+    AtomicReference<Throwable> firstThrown = new AtomicReference<>();
+    Thread first = publishInThread(publisher, Document.create("doc1"), firstThrown);
+    waitUntilBlocked(first);
+    assertThrows(IllegalStateException.class, () -> publisher.publish(Document.create("doc2")));
+    publisher.resume();
+    first.join(5000);
+    assertTrue(String.valueOf(firstThrown.get()), firstThrown.get() == null);
+
+    // calls that take turns are accepted, whichever thread makes them
+    AtomicReference<Throwable> secondThrown = new AtomicReference<>();
+    publishInThread(publisher, Document.create("doc2"), secondThrown).join(5000);
+    assertTrue(String.valueOf(secondThrown.get()), secondThrown.get() == null);
+    publisher.publish(Document.create("doc3"));
+    publisher.flush();
+    assertEquals(3, publisher.numPublished());
+  }
+
+  @Test
+  public void testFlushPublishesHeldDocument() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1", "", true);
+    publisher.publish(Document.create("doc1"));
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
+
+    publisher.flush();
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
+    // a second flush has nothing left to send
+    publisher.flush();
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
+
+    // after a flush, a document with the same ID is not combined with the one already sent
+    publisher.publish(Document.create("doc1"));
+    publisher.flush();
+    assertEquals(2, publisher.numPublished());
+  }
+
+  @Test
+  public void testFlushWrapsMessengerFailure() throws Exception {
+    TestMessenger messenger = new TestMessenger() {
+      @Override
+      public void flush() throws Exception {
+        throw new IOException("Kafka send failed");
+      }
+    };
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    PublisherException e = assertThrows(PublisherException.class, () -> publisher.flush());
+    assertTrue(e.getCause() instanceof IOException);
+  }
+
+  @Test
+  public void testFlushAfterCloseThrows() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1", "", true);
+    publisher.publish(Document.create("doc1"));
+    publisher.close();
+    assertThrows(IllegalStateException.class, () -> publisher.flush());
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
+  }
+
+  @Test
+  public void testCollapsingRejectsFlushOverlappingPublish() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1", "", true);
+    publisher.pause();
+
+    AtomicReference<Throwable> thrown = new AtomicReference<>();
+    Thread publishing = publishInThread(publisher, Document.create("doc1"), thrown);
+    waitUntilBlocked(publishing);
+    assertThrows(IllegalStateException.class, () -> publisher.flush());
+    publisher.resume();
+    publishing.join(5000);
+    assertTrue(String.valueOf(thrown.get()), thrown.get() == null);
+
+    // once the publish() call has returned, flush() is accepted
+    publisher.flush();
+    assertEquals(1, publisher.numPublished());
+  }
+
+  @Test
+  public void testIsPaused() throws Exception {
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), new TestMessenger(), "run1", "pipeline1");
+    assertFalse(publisher.isPaused());
+    publisher.pause();
+    assertTrue(publisher.isPaused());
+    publisher.resume();
+    assertFalse(publisher.isPaused());
+  }
+
+  @Test
+  public void testPublishingState() throws Exception {
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), new TestMessenger(), "run1", "pipeline1");
+    BlockingConnector connector = new BlockingConnector(ConfigFactory.parseString("name: c"));
+    ConnectorThread thread = new ConnectorThread(connector, publisher, "run1", "Lucille-Test-Connector");
+
+    // before the connector thread is attached, and after it is attached but not started, the publisher is neither
+    assertFalse(publisher.isPublishing());
+    assertFalse(publisher.hasFinishedPublishing());
+    publisher.setConnectorThread(thread);
+    assertFalse(publisher.isPublishing());
+    assertFalse(publisher.hasFinishedPublishing());
+
+    // while execute() is running, including while publishing is paused
+    publisher.pause();
+    thread.start();
+    connector.started.await(5, TimeUnit.SECONDS);
+    assertTrue(publisher.isPublishing());
+    assertFalse(publisher.hasFinishedPublishing());
+    publisher.resume();
+
+    connector.release.countDown();
+    thread.join(5000);
+    assertFalse(publisher.isPublishing());
+    assertTrue(publisher.hasFinishedPublishing());
+  }
+
+  @Test
+  public void testPublishingStateAfterConnectorFails() throws Exception {
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), new TestMessenger(), "run1", "pipeline1");
+    BlockingConnector connector = new BlockingConnector(ConfigFactory.parseString("name: c"));
+    connector.failure = new ConnectorException("source unavailable");
+    ConnectorThread thread = new ConnectorThread(connector, publisher, "run1", "Lucille-Test-Connector");
+    publisher.setConnectorThread(thread);
+    connector.release.countDown();
+    thread.start();
+    thread.join(5000);
+
+    assertTrue(thread.isFailed());
+    assertFalse(publisher.isPublishing());
+    assertTrue(publisher.hasFinishedPublishing());
+  }
+
+  /**
+   * A Connector whose execute() signals that it has started and then waits to be released, optionally failing.
+   */
+  public static class BlockingConnector extends AbstractConnector {
+
+    public static final Spec SPEC = SpecBuilder.connector().build();
+
+    final CountDownLatch started = new CountDownLatch(1);
+    final CountDownLatch release = new CountDownLatch(1);
+    volatile ConnectorException failure;
+
+    public BlockingConnector(Config config) {
+      super(config);
+    }
+
+    @Override
+    public void execute(Publisher publisher) throws ConnectorException {
+      started.countDown();
+      try {
+        release.await();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new ConnectorException("interrupted", e);
+      }
+      if (failure != null) {
+        throw failure;
+      }
+    }
+  }
+
+  private static Thread publishInThread(PublisherImpl publisher, Document doc, AtomicReference<Throwable> thrown) {
+    Thread thread = new Thread(() -> {
+      try {
+        publisher.publish(doc);
+      } catch (Throwable t) {
+        thrown.set(t);
+      }
+    });
+    thread.start();
+    return thread;
+  }
+
+  private static void waitUntilBlocked(Thread thread) throws InterruptedException {
+    long deadline = System.currentTimeMillis() + 5000;
+    while (thread.getState() != State.WAITING && thread.getState() != State.TIMED_WAITING) {
+      if (System.currentTimeMillis() > deadline) {
+        fail("thread did not block within 5 seconds");
+      }
+      Thread.sleep(10);
+    }
   }
 
 }

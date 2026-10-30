@@ -185,7 +185,7 @@ public class RunnerTest {
     Config config = ConfigFactory.load("RunnerTest/singleDocTimeout.conf");
     Connector connector = Connector.fromConfig(config).get(0);
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", connector.getPipelineName());
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", connector.getPipelineName());
     Instant start = Instant.now();
     ConnectorResult result = Runner.runConnector(config, "run1", connector, publisher);
     Instant end = Instant.now();
@@ -706,7 +706,7 @@ public class RunnerTest {
   public void testPublisherException() throws Exception {
     NoOpConnector connector = mock(NoOpConnector.class);
     PublisherImpl publisher = mock(PublisherImpl.class);
-    doThrow(new Exception()).when(publisher).waitForCompletion(any(), anyInt());
+    doThrow(new PublisherException("Simulated messaging failure")).when(publisher).waitForCompletion(any(), anyInt());
 
     // if the publisher throws an exception during execute(), postExecute() should not be called
     // both the publisher and connector should be closed
@@ -736,7 +736,7 @@ public class RunnerTest {
     // runConnector should return false and not propagate the exception
     connector = mock(NoOpConnector.class);
     publisher = mock(PublisherImpl.class);
-    doThrow(new Exception()).when(publisher).close();
+    doThrow(new IllegalStateException("Simulated close failure")).when(publisher).close();
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
 
     verify(connector, times(1)).preExecute(any());
@@ -1191,7 +1191,7 @@ public class RunnerTest {
 
     Runner.RunnerState state = spy(new Runner.RunnerState());
 
-    Publisher publisher = mock(Publisher.class);
+    PublisherImpl publisher = mock(PublisherImpl.class);
     Connector connector = mock(Connector.class);
     WorkerPool workerPool = mock(WorkerPool.class);
     Indexer indexer = mock(Indexer.class);

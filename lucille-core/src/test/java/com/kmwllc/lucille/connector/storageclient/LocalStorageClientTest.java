@@ -38,7 +38,7 @@ public class LocalStorageClientTest {
   @Test
   public void testPublishValidFiles() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_");
@@ -72,7 +72,7 @@ public class LocalStorageClientTest {
   @Test
   public void testPublishFilesWithExclude() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "filterOptions", Map.of(
@@ -111,7 +111,7 @@ public class LocalStorageClientTest {
   @Test
   public void testSkipFileContent() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
 
@@ -133,7 +133,7 @@ public class LocalStorageClientTest {
   @Test
   public void testPublishUsingFileHandler() throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "fileHandlers", Map.of("json", Map.of()),
@@ -193,7 +193,7 @@ public class LocalStorageClientTest {
   public void testPublishOnCompressedAndArchived() throws Exception {
 
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "fileHandlers", Map.of(
@@ -302,7 +302,7 @@ public class LocalStorageClientTest {
     ));
 
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig, URI.create(TEMP_DIR + "/defaults.csv"), "");
 
@@ -343,7 +343,7 @@ public class LocalStorageClientTest {
     ));
 
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig, URI.create(TEMP_DIR + "/defaults.csv"), "");
 
@@ -383,7 +383,7 @@ public class LocalStorageClientTest {
     ));
 
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     // localStorageClient that handles csv files
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig, URI.create(TEMP_DIR + "/faulty.csv"), "");
@@ -427,7 +427,7 @@ public class LocalStorageClientTest {
     Path defaultAbsolutePath = Paths.get("src/test/resources/StorageClientTest/testPublishFilesDefault").toAbsolutePath();
 
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(ConfigFactory.empty(), TraversalParams.parsePathOrURI(defaultAbsolutePath.toString()), "file_");
@@ -455,7 +455,7 @@ public class LocalStorageClientTest {
     assertTrue(newFile.setLastModified(Instant.now().toEpochMilli()));
 
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
     localStorageClient.init();
@@ -578,7 +578,7 @@ public class LocalStorageClientTest {
   // leaving only the 4 root-level json files.
   private void pathsToSkipTesting(Config connectorConfig) throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig,

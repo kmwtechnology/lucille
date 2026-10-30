@@ -9,7 +9,7 @@ import org.slf4j.MDC;
  * A thread that runs a connector, publishing documents to a specified Publisher.
  *
  * <p>Any Throwable thrown by the connector, not only an Exception, is recorded as the thread's failure so that
- * {@link Publisher#waitForCompletion} can fail the run instead of treating a thread that died as one that finished.
+ * {@link PublisherImpl#waitForCompletion} can fail the run instead of treating a thread that died as one that finished.
  * Another component can also {@link #abort} the thread, which records a failure and interrupts the connector.
  */
 public class ConnectorThread extends Thread {
@@ -17,13 +17,13 @@ public class ConnectorThread extends Thread {
   private static final Logger log = LoggerFactory.getLogger(ConnectorThread.class);
 
   private final Connector connector;
-  private final Publisher publisher;
+  private final PublisherImpl publisher;
   private final String runId;
 
   private volatile Throwable failure;
   private volatile String failureMessage;
 
-  public ConnectorThread(Connector connector, Publisher publisher, String runId, String name) {
+  public ConnectorThread(Connector connector, PublisherImpl publisher, String runId, String name) {
     this.setName(name);
     this.connector = connector;
     this.publisher = publisher;
