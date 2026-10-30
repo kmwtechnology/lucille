@@ -254,7 +254,7 @@ public class WorkerTest {
 
     waitUntil(() -> count(messenger, Event.Type.FAIL) == 1);
     Mockito.verify(messenger).sendFailed(Mockito.any());
-    assertEquals("WORKER_MAX_RETRIES_EXCEEDED", messenger.getSentEvents().get(0).getMessage());
+    assertEquals(Event.WORKER_MAX_RETRIES_EXCEEDED, messenger.getSentEvents().get(0).getMessage());
     assertEquals(0, messenger.getDocsSentForIndexing().size());
     assertTrue(thread.isAlive());
 
@@ -357,7 +357,7 @@ public class WorkerTest {
       assertEquals(List.of(doc), counter.removed);
       assertTrue(counter.closed);
       verify(messenger).sendFailed(doc);
-      verify(messenger).sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
+      verify(messenger).sendEvent(doc, Event.WORKER_MAX_RETRIES_EXCEEDED, Event.Type.FAIL);
       verify(messenger, never()).sendForIndexing(any());
     }
   }
