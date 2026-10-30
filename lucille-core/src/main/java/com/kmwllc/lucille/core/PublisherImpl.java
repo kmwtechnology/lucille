@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
@@ -34,6 +35,10 @@ import org.slf4j.MDC;
  * tracking new ones. To achieve a memory of all the documents that were published,
  * a persisting implementation of PublisherMessenger could be given to the Publisher at construction time,
  * and the history could be accessed from the messenger.
+ *
+ * <p> This class is internal to Lucille: the Runner uses it to track a run and wait for it to complete. Connectors
+ * use only the {@link Publisher} interface, and code outside Lucille should not depend on the methods this class
+ * adds to it.
  */
 public class PublisherImpl implements Publisher {
 
@@ -58,16 +63,19 @@ public class PublisherImpl implements Publisher {
   // than the number of calls to publish() if isCollapsing==true
   private final AtomicLong numPublished = new AtomicLong(0);
 
-  private long numCreated = 0;
-  private long numFailed = 0;
-  private long numSucceeded = 0;
-  private long numDropped = 0;
+  // outcome counts, updated by the event-handling thread and readable from any thread
+  private final AtomicLong numCreated = new AtomicLong(0);
+  private final AtomicLong numFailed = new AtomicLong(0);
+  private final AtomicLong numSucceeded = new AtomicLong(0);
+  private final AtomicLong numDropped = new AtomicLong(0);
 
   private Instant start;
   private final Timer timer;
   private final ThreadLocal<Timer.Context> timerContext = ThreadLocal.withInitial(() -> null);
   private final boolean isCollapsing;
   private Document previousDoc = null;
+  // set while a publish() or flush() call is in progress in collapsing mode, so that overlapping calls can be rejected
+  private final AtomicBoolean collapsingPublishInProgress = new AtomicBoolean(false);
   private volatile StopWatch firstDocStopWatch;
 
   private final Integer maxPendingDocs;
@@ -75,6 +83,9 @@ public class PublisherImpl implements Publisher {
   // set by close(); a connector that keeps publishing after the run has ended gets an exception instead of feeding
   // documents into a system that no longer tracks them
   private volatile boolean closed = false;
+
+  // the thread running this publisher's Connector, once the Runner has attached it
+  private volatile ConnectorThread connectorThread;
 
   // lock and condition used for blocking publishing when the number of pending docs exceeds the specified maxPendingDocs
   private final ReentrantLock lockForPendingDocs = new ReentrantLock();
@@ -104,7 +115,7 @@ public class PublisherImpl implements Publisher {
   private final ConcurrentHashMap<String, AtomicInteger> docIdsIndexedBeforeTracking = new ConcurrentHashMap<>();
 
   public PublisherImpl(Config config, PublisherMessenger messenger, String runId,
-      String pipelineName, String metricsPrefix, boolean isCollapsing) throws Exception {
+      String pipelineName, String metricsPrefix, boolean isCollapsing) throws PublisherException {
     this.messenger = messenger;
     this.runId = runId;
     this.pipelineName = pipelineName;
@@ -120,13 +131,22 @@ public class PublisherImpl implements Publisher {
     }
     this.maxPendingDocs = maxPendingDocs;
 
-    messenger.initialize(runId, pipelineName);
+    try {
+      messenger.initialize(runId, pipelineName);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new PublisherException("Interrupted while initializing publisher. (" + pipelineName + ")", e);
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new PublisherException("Error initializing publisher. (" + pipelineName + ")", e);
+    }
     this.firstDocStopWatch = new StopWatch();
     this.firstDocStopWatch.start();
   }
 
   public PublisherImpl(Config config, PublisherMessenger messenger, String runId,
-      String pipelineName) throws Exception {
+      String pipelineName) throws PublisherException {
     this(config, messenger, runId, pipelineName, "default", false);
   }
 
@@ -160,6 +180,11 @@ public class PublisherImpl implements Publisher {
     }
   }
 
+  @Override
+  public boolean isPaused() {
+    return resumeCondition != null;
+  }
+
   /**
    * Submits the given document for processing by any available pipeline worker.
    *
@@ -169,10 +194,42 @@ public class PublisherImpl implements Publisher {
    * it may have been picked up by a worker thread.
    *
    * Thread-safety: multiple threads may safely call publish() on the same Publisher instance, except when
-   * the Publisher is in collapsing mode (isCollapsing=true)
+   * the Publisher is in collapsing mode (isCollapsing=true): there, overlapping calls to publish() or flush() throw
+   * IllegalStateException.
    */
   @Override
-  public void publish(Document document) throws Exception {
+  public void publish(Document document) throws PublisherException {
+    beginCollapsingCall();
+    try {
+      publishAndTrack(document);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new PublisherException("Interrupted while waiting to publish document " + document.getId(), e);
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new PublisherException("Error publishing document " + document.getId(), e);
+    } finally {
+      endCollapsingCall();
+    }
+  }
+
+  // collapsing combines consecutive documents, which is only meaningful when they are published one at a time;
+  // publish() and flush() both read and replace previousDoc, so neither may overlap the other
+  private void beginCollapsingCall() {
+    if (isCollapsing && !collapsingPublishInProgress.compareAndSet(false, true)) {
+      throw new IllegalStateException("A collapsing Publisher does not support overlapping calls to publish() or "
+          + "flush(). (" + pipelineName + ")");
+    }
+  }
+
+  private void endCollapsingCall() {
+    if (isCollapsing) {
+      collapsingPublishInProgress.set(false);
+    }
+  }
+
+  private void publishAndTrack(Document document) throws Exception {
     checkNotClosed();
 
     // check if we should wait until resume() is called
@@ -292,25 +349,51 @@ public class PublisherImpl implements Publisher {
     numPublished.incrementAndGet();
   }
 
+  /**
+   * Publish any documents that the Publisher might not have published immediately when publish() was called.
+   * This applies mainly to a "collapsing mode" where the Publisher combines consecutive documents having the same
+   * ID into a single document. In such a mode, the Publisher would not be able to immediately publish each
+   * incoming document because the next might have the same ID and the two should be collapsed. So the Publisher
+   * would have to save the previous document and only publish it if the _next_ document has a different ID.
+   * At the end of the input, the publisher would be holding on to one previous document and flush() would need
+   * to be called to make sure it gets published. It then flushes the messenger, so that documents it has buffered
+   * are delivered and a failed asynchronous send is reported.
+   */
   @Override
-  public void flush() throws Exception {
-    if (previousDoc != null) {
-      sendForProcessing(previousDoc);
+  public void flush() throws PublisherException {
+    beginCollapsingCall();
+    try {
+      checkNotClosed();
+      if (previousDoc != null) {
+        sendForProcessing(previousDoc);
+      }
+      previousDoc = null;
+      messenger.flush();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new PublisherException("Interrupted while flushing publisher. (" + pipelineName + ")", e);
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new PublisherException("Error flushing publisher. (" + pipelineName + ")", e);
+    } finally {
+      endCollapsingCall();
     }
-    previousDoc = null;
-    messenger.flush();
   }
 
   @Override
-  public void preClose() throws Exception {
+  public void preClose() {
     if (timerContext.get() != null) {
       timerContext.get().stop();
       timerContext.remove();
     }
   }
 
-  @Override
-  public void close() throws Exception {
+  /**
+   * Closes any connections opened by the publisher.
+   *
+   */
+  public void close() {
     closed = true;
     if (timerContext.get() != null) {
       timerContext.get().stop();
@@ -325,7 +408,15 @@ public class PublisherImpl implements Publisher {
     }
   }
 
-  @Override
+  /**
+   * Updates internal accounting based on a received Event: if we learn that a document has
+   * been indexed, we can stop tracking it. If we learn that a child document has been
+   * newly created, we must start tracking it. If we learn that a child document has been
+   * indexed before we began tracking it (i.e. before we received its CREATE event) we need
+   * to store its ID separately so that when the CREATE event is eventually received,
+   * we'll know NOT to begin tracking it.
+   *
+   */
   public void handleEvent(Event event) {
     String docId = event.getDocumentId();
     // the MDC entry only decorates this info-level line, so skip the put/remove when it is disabled
@@ -337,7 +428,7 @@ public class PublisherImpl implements Publisher {
 
     if (event.isCreate()) {
 
-      numCreated++;
+      numCreated.incrementAndGet();
 
       // if we're learning that a child document has been created, we need to begin tracking it unless
       // we have already received an early confirmation that it was indexed
@@ -353,11 +444,11 @@ public class PublisherImpl implements Publisher {
     } else {
 
       if (Event.Type.FINISH.equals(event.getType())) {
-        numSucceeded++;
+        numSucceeded.incrementAndGet();
       } else if (Event.Type.FAIL.equals(event.getType())) {
-        numFailed++;
+        numFailed.incrementAndGet();
       } else if (Event.Type.DROP.equals(event.getType())) {
-        numDropped++;
+        numDropped.incrementAndGet();
       }
 
       // if we're learning that a document has finished processing, or failed, we can stop tracking it;
@@ -393,8 +484,18 @@ public class PublisherImpl implements Publisher {
     }
   }
 
-  @Override
-  public PublisherResult waitForCompletion(ConnectorThread thread, int timeout) throws Exception {
+  /**
+   * Waits until all published Documents and their children are complete and no more Documents are being published.
+   *
+   *
+   * @param thread a reference to the Connector thread that is generating new Documents;
+   *               this thread will be tested for its status via isAlive() to determine when the Connector
+   *               has finished and no more Documents will be published
+   * @param timeout number of milliseconds to wait, after which the method will return false
+   * @throws PublisherException if events cannot be read from the messaging infrastructure, or the thread is
+   *     interrupted while waiting for them (its interrupt flag is restored)
+   */
+  public PublisherResult waitForCompletion(ConnectorThread thread, int timeout) throws PublisherException {
     start = Instant.now();
     Instant lastLog = Instant.now();
 
@@ -410,7 +511,7 @@ public class PublisherImpl implements Publisher {
       // of several milliseconds to several seconds.
       // We want to avoid a busy wait; at the same time, we want to test the termination conditions of the loop
       // periodically even when there are no available events to process
-      Event event = messenger.pollEvent();
+      Event event = pollEvent();
 
       if (event != null) {
         handleEvent(event);
@@ -449,12 +550,12 @@ public class PublisherImpl implements Publisher {
         log.info(String.format("Publisher complete. Mean publishing rate: %.2f docs/sec. Mean connector latency: %.2f ms/doc.",
             timer.getMeanRate(), timer.getSnapshot().getMean() / 1000000));
         log.info("{} docs published{}. {} children created. {} success events. {} failure events. {} drop events.",
-            numReceived.get(), collapseInfo, numCreated, numSucceeded, numFailed, numDropped);
-        if (numPublished.get() > 0 && numFailed == 0) {
+            numReceived.get(), collapseInfo, numCreated.get(), numSucceeded.get(), numFailed.get(), numDropped.get());
+        if (numPublished.get() > 0 && numFailed.get() == 0) {
           log.info("All documents SUCCEEDED.");
         }
-        if (numFailed > 0) {
-          log.error("{} documents FAILED, but run will continue.", numFailed);
+        if (numFailed.get() > 0) {
+          log.error("{} documents FAILED, but run will continue.", numFailed.get());
         }
         return new PublisherResult(!thread.isFailed(), null);
       }
@@ -469,6 +570,19 @@ public class PublisherImpl implements Publisher {
         }
         lastLog = Instant.now();
       }
+    }
+  }
+
+  private Event pollEvent() throws PublisherException {
+    try {
+      return messenger.pollEvent();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new PublisherException("Interrupted while waiting for events. (" + pipelineName + ")", e);
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new PublisherException("Error polling for events. (" + pipelineName + ")", e);
     }
   }
 
@@ -494,26 +608,48 @@ public class PublisherImpl implements Publisher {
 
   @Override
   public long numCreated() {
-    return numCreated;
+    return numCreated.get();
   }
 
   @Override
   public long numSucceeded() {
-    return numSucceeded;
+    return numSucceeded.get();
   }
 
   @Override
   public long numFailed() {
-    return numFailed;
+    return numFailed.get();
   }
 
   @Override
   public long numDropped() {
-    return numDropped;
+    return numDropped.get();
   }
 
+  @Override
   public Integer getMaxPendingDocs() {
     return maxPendingDocs;
+  }
+
+  @Override
+  public boolean isPublishing() {
+    ConnectorThread thread = connectorThread;
+    return thread != null && thread.isAlive();
+  }
+
+  @Override
+  public boolean hasFinishedPublishing() {
+    ConnectorThread thread = connectorThread;
+    // not !isAlive(): a thread that has been attached but not yet started is not alive either
+    return thread != null && thread.getState() == Thread.State.TERMINATED;
+  }
+
+  /**
+   * Attaches the thread that runs this publisher's Connector, for {@link #isPublishing()} and
+   * {@link #hasFinishedPublishing()}. Called by the Runner before it starts the thread.
+   */
+  void setConnectorThread(ConnectorThread thread) {
+    this.connectorThread = thread;
   }
 
   /**

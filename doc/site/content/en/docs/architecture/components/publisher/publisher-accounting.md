@@ -156,7 +156,7 @@ private void publishInternal(Document document) throws Exception {
 
 The Publisher holds onto the previous document. If the next document has the same ID, fields are merged. If the ID differs, the previous document is finally sent for processing. The `flush()` method handles the last held document.
 
-**Thread safety caveat**: Collapsing mode is NOT thread-safe for multiple publishing threads because `previousDoc` is shared mutable state without synchronization.
+**Thread safety caveat**: Collapsing mode only makes sense for documents published one after another from a single thread, since `previousDoc` is shared mutable state without synchronization. Overlapping `publish()` or `flush()` calls on a collapsing Publisher are rejected with `IllegalStateException`.
 
 ## `numPublished` vs `numReceived`
 
@@ -224,9 +224,10 @@ if (resumeCondition != null) {
 | `docIdsIndexedBeforeTracking` | `SynchronizedBag` | event handling thread only (in practice) |
 | `numReceived` | `AtomicLong` | multiple publish threads |
 | `numPublished` | `AtomicLong` | multiple publish threads |
-| `numCreated/Failed/Succeeded/Dropped` | unsynchronized `long` | event handling thread only |
-| `previousDoc` | none (collapsing mode is single-thread only) | single publish thread |
+| `numCreated/Failed/Succeeded/Dropped` | `AtomicLong` | written by the event handling thread, read from any thread |
+| `previousDoc` | `AtomicBoolean` guard that rejects overlapping `publish()`/`flush()` calls | one publish thread at a time |
 | `maxPendingDocs` blocking | `ReentrantLock` + `Condition` | publish thread(s) + event thread |
 | `pause/resume` | `ReentrantLock` + volatile `Condition` | publish thread(s) + external caller |
 | `firstDocStopWatch` | `volatile` + `synchronized` block | publish thread(s) |
 | `timerContext` | `ThreadLocal` | per-thread |
+| `connectorThread` | `volatile`, set by the Runner before the thread starts | read from any thread by `isPublishing()`/`hasFinishedPublishing()` |

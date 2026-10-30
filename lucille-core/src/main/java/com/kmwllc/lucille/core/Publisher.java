@@ -1,36 +1,64 @@
 package com.kmwllc.lucille.core;
 
 /**
- * Provides a way to publish documents for processing by the pipeline. Accepts incoming Events relating to
- * published documents and their children. Provides a way to check how many documents are still in a pending
- * state. (A document would be in a pending state if it has been published via the Publisher,
- * or if it is a child document that was created during pipeline execution, but it has not yet
- * reached an end-state of the workflow, e.g. it has not been indexed and has not errored-out.)
+ * Accepts the documents a {@link Connector} produces and makes them available for processing by the pipeline. This is
+ * the interface a Connector is given in {@link Connector#execute(Publisher)}; tracking the run's documents through
+ * the pipeline and deciding when the run is complete are the framework's job, not the Connector's.
  *
- * A new Publisher should be created for each run of a sequence of Connectors. The Publisher is responsible
- * for stamping a designated run_id on each published Document and maintaining accounting details specific to that run.
+ * <p> A new Publisher is created for each run of a Connector. It stamps the run's ID on each published Document. A
+ * Connector, or another component watching the run, can also read the run's progress ({@link #numReceived()},
+ * {@link #numPublished()}, {@link #numPending()}, {@link #hasPending()}, {@link #numCreated()},
+ * {@link #numSucceeded()}, {@link #numFailed()}, {@link #numDropped()}), see whether the Connector is still publishing
+ * ({@link #isPublishing()}, {@link #hasFinishedPublishing()}), and control the flow of documents with
+ * {@link #pause()} and {@link #resume()}.
  *
- * Publisher implementations may support a collapsing mode where consecutive Documents having the same ID are
- * combined into one Document with multi-valued fields.
- *
+ * <p> Thread safety: the progress and state methods, {@link #pause()} and {@link #resume()} may be called from any
+ * thread. {@link #publish(Document)} and {@link #flush()} may be called from several threads at once, except when the
+ * Publisher is in collapsing mode (the Connector's {@link Connector#requiresCollapsingPublisher()} returns true). In
+ * collapsing mode, consecutive Documents with the same ID are combined into one, which only makes sense for Documents
+ * published one after another from a single thread; overlapping calls fail with an IllegalStateException.
  */
 public interface Publisher {
 
   /**
    * Submits the given document for processing by any available pipeline worker.
    *
-   * Stamps the current Run ID on the document and begins "tracking" events relating the document.
+   * <p> Stamps the current Run ID on the document and begins tracking events relating to it.
    *
-   * IMPORTANT: After calling publish, code should not update the Document or read values from it since at this point
-   * it may have been picked up by a worker thread.
+   * <p> IMPORTANT: After calling publish, code should not update the Document or read values from it, since at this
+   * point it may have been picked up by a worker thread.
    *
-   * Exceptions thrown by this method represent framework-level failures (e.g. the messaging
-   * infrastructure is unavailable) and should be treated as unrecoverable. Connectors must not
-   * catch and swallow these exceptions. Doing so may leave the run in an inconsistent state.
-   * Connectors that need to handle per-document errors (e.g. failures constructing the Document
-   * before calling publish) should do so before this method is called.
+   * <p> May block: when the publisher has been paused, or when the number of documents still in the pipeline has
+   * reached {@code publisher.maxPendingDocs}.
+   *
+   * @throws PublisherException if the document cannot be published: the messaging infrastructure failed, or the
+   *     thread was interrupted while waiting to publish (its interrupt flag is restored). This is a framework-level
+   *     failure: Connectors must not catch it and continue, since doing so may leave the run in an inconsistent
+   *     state. A Connector that needs to handle per-document problems, such as failing to construct a Document,
+   *     should do so before calling publish.
+   * @throws IllegalStateException if the run this Publisher belongs to has ended, or if overlapping calls are made
+   *     in collapsing mode
    */
-  void publish(Document document) throws Exception;
+  void publish(Document document) throws PublisherException;
+
+  /**
+   * Makes sure that every document passed to {@link #publish(Document)} so far has been sent for processing: in
+   * collapsing mode, publishes the document the Publisher is holding back in case the next one has the same ID, and
+   * then waits for the messaging infrastructure to deliver what it has buffered (with Kafka, until the producer has
+   * sent every record).
+   *
+   * <p> The framework flushes once after {@link Connector#execute(Publisher)} returns, so a Connector only needs to
+   * call this when it must be sure documents have been delivered while it is still running, for example before
+   * recording a checkpoint. Calling it more than once is harmless. In collapsing mode, the next document published
+   * after a flush is not combined with the ones before it, even if it has the same ID.
+   *
+   * @throws PublisherException if a document could not be delivered: the messaging infrastructure failed, now or for
+   *     an earlier asynchronous send. Like a failure in publish, this is a framework-level failure that a Connector
+   *     must not catch and continue from.
+   * @throws IllegalStateException if the run this Publisher belongs to has ended, or if the call overlaps a call to
+   *     publish or flush in collapsing mode
+   */
+  void flush() throws PublisherException;
 
   /**
    * Returns the number of documents published so far.
@@ -56,28 +84,10 @@ public interface Publisher {
   long numPending();
 
   /**
-   * Returns the number of child documents that the publisher did not publish but was notified about via
-   * a CREATE event passed to handleEvent().
+   * Returns the limit on the number of pending documents ({@code publisher.maxPendingDocs}) at which
+   * {@link #publish(Document)} blocks until documents complete, or null if there is no limit.
    */
-  long numCreated();
-
-  /**
-   * Returns the number of documents for which the publisher has been notified of successful completion.
-   *
-   */
-  long numSucceeded();
-
-  /**
-   * Returns the number of documents for which the publisher has been notified of a failure.
-   *
-   */
-  long numFailed();
-
-  /**
-   * Returns the number of documents for which the publisher has received a drop notification.
-   *
-   */
-  long numDropped();
+  Integer getMaxPendingDocs();
 
   /**
    * Returns true if there are published documents or generated children than have not yet reached an
@@ -105,57 +115,25 @@ public interface Publisher {
   boolean hasPending();
 
   /**
-   * Updates internal accounting based on a received Event: if we learn that a document has
-   * been indexed, we can stop tracking it. If we learn that a child document has been
-   * newly created, we must start tracking it. If we learn that a child document has been
-   * indexed before we began tracking it (i.e. before we received its CREATE event) we need
-   * to store its ID separately so that when the CREATE event is eventually received,
-   * we'll know NOT to begin tracking it.
-   *
+   * Returns the number of child documents that the publisher did not publish but was notified about via
+   * a CREATE event.
    */
-  void handleEvent(Event event);
+  long numCreated();
 
   /**
-   * Waits until all published Documents and their children are complete and no more Documents are being published.
-   *
-   *
-   * @param thread a reference to the Connector thread that is generating new Documents;
-   *               this thread will be tested for its status via isAlive() to determine when the Connector
-   *               has finished and no more Documents will be published
-   * @param timeout number of milliseconds to wait, after which the method will return false
+   * Returns the number of documents for which the publisher has been notified of successful completion.
    */
-  PublisherResult waitForCompletion(ConnectorThread thread, int timeout) throws Exception;
+  long numSucceeded();
 
   /**
-   * Publish any documents that the Publisher might not have published immediately when publish() was called.
-   * This applies mainly to a "collapsing mode" where the Publisher combines consecutive documents having the same
-   * ID into a single document. In such a mode, the Publisher would not be able to immediately publish each
-   * incoming document because the next might have the same ID and the two should be collapsed. So the Publisher
-   * would have to save the previous document and only publish it if the _next_ document has a different ID.
-   * At the end of the input, the publisher would be holding on to one previous document and flush() would need
-   * to be called to make sure it gets published.
-   *
+   * Returns the number of documents for which the publisher has been notified of a failure.
    */
-  void flush() throws Exception;
+  long numFailed();
 
   /**
-   * Allows a thread to indicate that it is done calling publish() and that
-   * any ThreadLocal resources inside the publisher, maintained for that particular thread,
-   * can be released.
-   *
-   * Should be called by individual publishing threads BEFORE the Runner calls close().
-   *
-   * Intended for use in concurrent scenario where multiple threads are calling
-   * publish() on the same Publisher instance. In general, it should not be
-   * necessary to call preClose() if the Connector is single-threaded.
+   * Returns the number of documents for which the publisher has received a drop notification.
    */
-  void preClose() throws Exception;
-
-  /**
-   * Closes any connections opened by the publisher.
-   *
-   */
-  void close() throws Exception;
+  long numDropped();
 
   /**
    * Causes all threads calling publish() to block until resume() is called.
@@ -174,4 +152,35 @@ public interface Publisher {
    * @throws IllegalStateException if called when publisher is not paused
    */
   void resume();
+
+  /**
+   * Returns whether the publisher is paused: {@link #pause()} has been called and {@link #resume()} has not been
+   * called since.
+   */
+  boolean isPaused();
+
+  /**
+   * Returns whether this publisher's Connector is running, so that it may still publish documents. True from when the
+   * Connector's thread starts until it ends, including while publishing is paused or blocked on
+   * {@code publisher.maxPendingDocs}.
+   */
+  boolean isPublishing();
+
+  /**
+   * Returns whether this publisher's Connector ran and has ended, so it will publish nothing more. Not the opposite of
+   * {@link #isPublishing()}: before its Connector starts, a publisher is neither.
+   *
+   * <p> Finishing publishing does not mean the run is complete: documents may still be pending in the pipeline (see
+   * {@link #hasPending()}).
+   */
+  boolean hasFinishedPublishing();
+
+  /**
+   * Indicates that the calling thread is done calling {@link #publish(Document)}, so that any per-thread resources the
+   * Publisher keeps for it can be released.
+   *
+   * <p> Only needed by Connectors that publish from several threads: each of those threads should call it when it has
+   * finished publishing. A single-threaded Connector does not need to call it.
+   */
+  void preClose();
 }
