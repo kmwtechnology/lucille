@@ -102,7 +102,7 @@ public class WorkerIndexerPool {
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    if (workerIndexers.size() > 0) {
+    if (!workerIndexers.isEmpty()) {
       workerIndexers.get(0).getWorker().logMetrics();
     }
   }

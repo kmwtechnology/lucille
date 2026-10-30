@@ -29,7 +29,7 @@ public class ConfigInfoTest {
     assertEquals(200, resp.getStatus());
 
     ArrayNode arr = mapper.valueToTree(resp.getEntity());
-    assertTrue(arr.size() > 0);
+    assertFalse(arr.isEmpty());
 
     for (JsonNode n : arr) {
       assertTrue(n.has("class"));
@@ -45,7 +45,7 @@ public class ConfigInfoTest {
     assertEquals(200, resp.getStatus());
 
     ArrayNode arr = mapper.valueToTree(resp.getEntity());
-    assertTrue(arr.size() > 0);
+    assertFalse(arr.isEmpty());
 
     for (JsonNode n : arr) {
       assertTrue(n.has("class"));
@@ -61,7 +61,7 @@ public class ConfigInfoTest {
     assertEquals(200, resp.getStatus());
 
     ArrayNode arr = mapper.valueToTree(resp.getEntity());
-    assertTrue(arr.size() > 0);
+    assertFalse(arr.isEmpty());
 
     for (JsonNode n : arr) {
       assertTrue(n.has("class"));
@@ -78,7 +78,7 @@ public class ConfigInfoTest {
     assertEquals(200, resp.getStatus());
 
     ArrayNode arr = mapper.valueToTree(resp.getEntity());
-    assertTrue(arr.size() > 0);
+    assertFalse(arr.isEmpty());
 
     String className = "com.kmwllc.lucille.stage.AddRandomBoolean";
     JsonNode stage = null;

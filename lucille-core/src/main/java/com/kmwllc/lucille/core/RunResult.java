@@ -75,7 +75,7 @@ public class RunResult {
       sb.append(result.toString());
       sb.append("\n");
     }
-    if (connectors.size() > 0 && connectors.size() > connectorResults.size()) {
+    if (connectors.size() > connectorResults.size()) {
       for (int i = connectorResults.size(); i < connectors.size(); i++) {
         sb.append(connectors.get(i).getName() + ": skipped.\n");
       }

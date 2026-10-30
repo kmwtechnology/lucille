@@ -66,7 +66,7 @@ public class SolrDocRequests {
   }
 
   public boolean containsAnyDeleteByField() {
-    return valuesToDeleteByField.size() > 0;
+    return !valuesToDeleteByField.isEmpty();
   }
 
   public void resetAddUpdates() {

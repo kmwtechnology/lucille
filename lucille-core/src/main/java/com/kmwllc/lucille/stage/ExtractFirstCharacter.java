@@ -41,7 +41,7 @@ public class ExtractFirstCharacter extends Stage {
   }
 
   public void start() throws StageException {
-    if (fieldMapping.size() == 0) {
+    if (fieldMapping.isEmpty()) {
       throw new StageException("field mapping must contain at least one entry");
     }
   }

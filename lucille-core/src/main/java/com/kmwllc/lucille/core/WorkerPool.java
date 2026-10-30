@@ -138,7 +138,7 @@ public class WorkerPool {
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    if (threads.size() > 0) {
+    if (!threads.isEmpty()) {
       threads.get(0).logMetrics();
     }
   }

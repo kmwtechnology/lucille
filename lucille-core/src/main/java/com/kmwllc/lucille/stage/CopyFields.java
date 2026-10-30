@@ -66,7 +66,7 @@ public class CopyFields extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fieldMapping.size() == 0) {
+    if (fieldMapping.isEmpty()) {
       throw new StageException("fieldMapping must have at least one source-dest pair for Copy Fields");
     }
 

@@ -36,7 +36,7 @@ public class DeleteFields extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fields.size() == 0) {
+    if (fields.isEmpty()) {
       throw new StageException("Must supply at least one field to be deleted.");
     }
   }
