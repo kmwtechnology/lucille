@@ -60,6 +60,7 @@ import java.util.Set;
  *   <li>s3 (Map, Optional) : If your javascript file is held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your javascript file is held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your javascript file is held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>storageClients (Map, Optional) : If your javascript file is held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
 public class ApplyJavascript extends Stage {
@@ -68,6 +69,7 @@ public class ApplyJavascript extends Stage {
       .optionalString("scriptPath")
       .optionalString("script")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
       .build();
 
   private final String scriptPath;

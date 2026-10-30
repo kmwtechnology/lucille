@@ -8,7 +8,7 @@ description: >
 
 A StorageClient traverses a storage system, discovers files, and provides access to their content. The `FileConnector` uses StorageClients to list and read files from local disk, S3, Azure Blob Storage, and Google Cloud Storage. If you need to read files from a storage system that Lucille doesn't support out of the box (e.g., SFTP, SMB/CIFS, WebDAV), you implement a StorageClient.
 
-> **Note:** It is not currently possible to reference a custom StorageClient from a Lucille config. The mapping from URI scheme to StorageClient implementation is hardcoded in `StorageClient.create()`. Adding a new storage backend today requires a PR to lucille-core — see the [Contributor Guide]({{< relref "docs/contributing" >}}) for project structure and contribution workflow. Config-driven pluggable StorageClients are a roadmap feature. This page is included in the Component Developer Guide because the implementation pattern is the same regardless of how the client is registered.
+Once implemented, you register your StorageClient for a URI scheme in the `storageClients` config; see [Using Your StorageClient](#using-your-storageclient). To change how one of the built-in cloud clients behaves instead, see [Extending a Built-in StorageClient](#extending-a-built-in-storageclient).
 
 ---
 
@@ -23,7 +23,41 @@ The `FileConnector` determines which StorageClient to use based on the URI schem
 | `gs` | `GoogleStorageClient` |
 | `https` (Azure blob) | `AzureStorageClient` |
 
-When you add a new StorageClient, you add a new case to this mapping for your URI scheme (e.g., `sftp`).
+A StorageClient you register in `storageClients` adds a row to this mapping for its URI scheme (e.g., `sftp`). The built-in schemes can't be remapped.
+
+For `https`, `StorageClient.create()` (used to read single files by URI, e.g. a stage's dictionary file) only accepts URIs whose authority contains one of `azure.allowedHosts` (a substring match), which defaults to `["blob.core.windows.net"]`. The URI's host only selects the client; `AzureStorageClient` sends requests to the endpoint in its credentials. `StorageClient.createClients()`, which the `FileConnector` uses, maps every `https` URI to the Azure client.
+
+---
+
+## Extending a Built-in StorageClient
+
+To change how S3, Azure, or Google Cloud Storage files are handled without adding a new URI scheme, extend `S3StorageClient`, `AzureStorageClient`, or `GoogleStorageClient` and set `class` in that provider's config block:
+
+```hocon
+s3 {
+  class: "com.mycompany.lucille.storage.MyS3StorageClient"
+  region: "us-east-1"
+}
+```
+
+| Config | Built-in client | `class` must extend |
+|---|---|---|
+| `s3.class` | `S3StorageClient` | `S3StorageClient` |
+| `azure.class` | `AzureStorageClient` | `AzureStorageClient` |
+| `gcp.class` | `GoogleStorageClient` | `GoogleStorageClient` |
+
+The class must have a public constructor that takes a `Config`. It receives the provider's config block (the same Config the built-in client would get). Components that validate their config against a spec, such as the `FileConnector`, only accept the provider's built-in settings in that block, so a subclass can't currently read additional settings from it. `StorageClient.create()` and `StorageClient.createClients()` throw an `IllegalArgumentException` if the class can't be found, doesn't extend the built-in client, is abstract, or has no public `(Config)` constructor. When `class` is not set, the built-in client is used.
+
+```java
+public class MyS3StorageClient extends S3StorageClient {
+
+  public MyS3StorageClient(Config s3CloudOptions) {
+    super(s3CloudOptions);
+  }
+
+  // override protected methods as needed
+}
+```
 
 ---
 
@@ -56,18 +90,21 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 
 ## What's in `config`
 
-The `Config` passed to your StorageClient constructor is the cloud/storage-provider-specific config block extracted from the connector config. For example, if the connector config contains:
+The `Config` passed to your StorageClient constructor is your scheme's entry in `storageClients`, extracted from the connector config. For example, if the connector config contains:
 
 ```hocon
-sftp: {
-  host: "files.example.com"
-  port: 22
-  username: "ingest"
-  privateKeyPath: "/home/ingest/.ssh/id_rsa"
+storageClients: {
+  sftp: {
+    class: "com.mycompany.lucille.storage.SftpStorageClient"
+    host: "files.example.com"
+    port: 22
+    username: "ingest"
+    privateKeyPath: "/home/ingest/.ssh/id_rsa"
+  }
 }
 ```
 
-...your constructor receives a Config containing `host`, `port`, `username`, and `privateKeyPath`. It does not contain the connector config or the full Lucille config.
+...your constructor receives a Config containing `class`, `host`, `port`, `username`, and `privateKeyPath`. It does not contain the connector config or the full Lucille config. Lucille doesn't validate the settings in the entry beyond `class`, so check them in `validateOptions()`.
 
 ---
 
@@ -238,9 +275,9 @@ public class SftpStorageClient extends BaseStorageClient {
 
 ---
 
-## How It Would Be Used (Once Pluggable)
+## Using Your StorageClient
 
-When config-driven StorageClient registration is available, the config would look like:
+Add an entry to `storageClients`, keyed by your URI scheme, with `class` set to your StorageClient:
 
 ```hocon
 connectors: [{
@@ -248,11 +285,14 @@ connectors: [{
   class: "com.kmwllc.lucille.connector.FileConnector"
   pipeline: "my-pipeline"
   paths: ["sftp://files.example.com/data/incoming/"]
-  sftp: {
-    host: "files.example.com"
-    port: 22
-    username: "ingest"
-    privateKeyPath: "/home/ingest/.ssh/id_rsa"
+  storageClients: {
+    sftp: {
+      class: "com.mycompany.lucille.storage.SftpStorageClient"
+      host: "files.example.com"
+      port: 22
+      username: "ingest"
+      privateKeyPath: "/home/ingest/.ssh/id_rsa"
+    }
   }
   fileHandlers: {
     csv: {}
@@ -261,7 +301,12 @@ connectors: [{
 }]
 ```
 
-Until then, adding a new StorageClient requires modifying the `StorageClient.create()` and `StorageClient.createClients()` factory methods in lucille-core to add a case for your URI scheme.
+- `class` must implement `StorageClient` (usually by extending `BaseStorageClient`), must not be abstract, and must have a public constructor that takes a `Config`. Your class must be on the classpath.
+- The scheme must be a valid URI scheme of at least two characters. One-letter schemes are read as Windows drive letters (e.g. `C:/data`).
+- The built-in schemes (`file`, `s3`, `gs`, `https`) can't be configured in `storageClients`.
+- Stages that read files by URI, such as `FetchFileContent`, `ApplyFileHandlers`, `ApplyJavascript`, and the dictionary-based stages, accept the same `storageClients` config.
+
+`StorageClient.create()` and `StorageClient.createClients()` throw an `IllegalArgumentException` if an entry breaks one of these rules or its class can't be created.
 
 ---
 

@@ -95,6 +95,7 @@ import org.xml.sax.SAXException;
  * s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.
  * azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.
  * gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.
+ * storageClients (Map, Optional) : If your files are held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.
  * metadataFields (Map, Optional) : Maps Tika metadata keys to the names of document fields whose values should be
  * copied into the {@link Metadata} handed to Tika <i>before</i> parsing. This is the input to Tika, and is distinct
  * from the metadata Tika produces <i>after</i> parsing (Both input and output metadata are written back to the document under
@@ -136,6 +137,7 @@ public class TextExtractor extends Stage {
       .optionalList("skipEmbeddedContentTypePrefixes", new TypeReference<List<String>>() {})
       .optionalBoolean("enableOcr")
       .optionalParent(FORK_SPEC, FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
       .optionalParent("metadataFields", new TypeReference<Map<String, Object>>() {})
       .include(FileContentFetcher.SPEC).build();
 

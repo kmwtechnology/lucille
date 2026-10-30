@@ -64,6 +64,7 @@ doc["title"] = doc["title"].upper()
 | `s3` | Object | No | S3 credentials for reading `scriptPath` from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `azure` | Object | No | Azure credentials for reading `scriptPath` from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `gcp` | Object | No | Google Cloud credentials for reading `scriptPath` from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `storageClients` | Object | No | Custom StorageClients, keyed by URI scheme, for reading `scriptPath` from other storage systems. See [Storage clients for other URI schemes]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 
 The script is read once at startup and evaluated once per document in the same interpreter context, so top-level variables persist between documents. Fields can be read and written as `doc["field"]` or `doc.field`, including nested objects and list indices. Reading a field that does not exist raises an error. Any error raised by the script fails the document.
 

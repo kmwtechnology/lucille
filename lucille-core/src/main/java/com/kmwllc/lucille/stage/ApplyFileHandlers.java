@@ -46,6 +46,8 @@ import org.apache.commons.io.FilenameUtils;
  *   See FileConnector for necessary arguments.</li>
  *   <li>azure (Map, Optional) : options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
  *   See FileConnector for necessary arguments.</li>
+ *   <li>storageClients (Map, Optional) : custom StorageClients for other URI schemes. Include if you are going to process documents with
+ *   the filePathField set to a URI with one of those schemes. See FileConnector for necessary arguments.</li>
  * </ul>
  */
 public class ApplyFileHandlers extends Stage {
@@ -53,6 +55,7 @@ public class ApplyFileHandlers extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){})
       .optionalParent(FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.S3_PARENT_SPEC)
+      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
       .optionalString("filePathField", "fileContentField").build();
 
   private final Config fileHandlersConfig;

@@ -84,7 +84,7 @@ public class DictionaryLookupTest {
             "setOnly",
             "useAnyMatch",
             "ignoreMissingSource",
-            "gcp", "azure", "s3"),
+            "gcp", "azure", "s3", "storageClients"),
         stage.getNonDefaultLegalProperties());
   }
 
