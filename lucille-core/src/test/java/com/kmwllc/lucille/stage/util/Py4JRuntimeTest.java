@@ -3,7 +3,6 @@ package com.kmwllc.lucille.stage.util;
 import com.kmwllc.lucille.core.StageException;
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.After;
@@ -84,8 +83,7 @@ public class Py4JRuntimeTest {
         + "g = JavaGateway(gateway_parameters=GatewayParameters(address='127.0.0.1', port=" + runtime.getGatewayPort()
         + ", auth_token=" + tokenArg + ", read_timeout=5, auto_close=True))\n"
         + "g.jvm.System.currentTimeMillis()\n";
-    String venvPython = Paths.get("python", "venv", "bin", "python").toAbsolutePath().toString();
-    Process process = new ProcessBuilder(venvPython, "-c", code).redirectErrorStream(true).start();
+    Process process = new ProcessBuilder(runtime.getVenvPythonPath(), "-c", code).redirectErrorStream(true).start();
     return process.waitFor() == 0;
   }
 

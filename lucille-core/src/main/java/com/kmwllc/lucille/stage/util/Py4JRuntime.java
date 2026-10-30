@@ -94,6 +94,11 @@ public final class Py4JRuntime {
     return gateway == null ? null : gateway.getListeningPort();
   }
 
+  // Null until started. Interpreter inside the managed venv (Scripts\python.exe on Windows, bin/python elsewhere).
+  String getVenvPythonPath() {
+    return venvPythonPath;
+  }
+
   public void start() throws StageException {
     if (isReady()) {
       log.info("Py4J runtime already started");
