@@ -74,8 +74,8 @@ public class CopyFields extends Stage {
     if (isNested) {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
         List<Document.Segment> source = Document.Segment.parse(entry.getKey());
-        if (entry.getValue() instanceof String) {
-          List<Document.Segment> dest = Document.Segment.parse((String) entry.getValue());
+        if (entry.getValue() instanceof String destSpec) {
+          List<Document.Segment> dest = Document.Segment.parse(destSpec);
           nestedFieldPairs.add(Pair.of(source, dest));
         } else if (entry.getValue() instanceof List) {
           for (String val : (List<String>) entry.getValue()) {
@@ -88,8 +88,8 @@ public class CopyFields extends Stage {
       }
     } else {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
-        if (entry.getValue() instanceof String) {
-          nonNestedFieldPairs.add(Pair.of(entry.getKey(), (String) entry.getValue()));
+        if (entry.getValue() instanceof String dest) {
+          nonNestedFieldPairs.add(Pair.of(entry.getKey(), dest));
         } else if (entry.getValue() instanceof List) {
           for (String val : (List<String>) entry.getValue()) {
             nonNestedFieldPairs.add(Pair.of(entry.getKey(), val));

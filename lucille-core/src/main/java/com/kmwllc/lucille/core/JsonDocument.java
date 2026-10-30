@@ -713,8 +713,8 @@ public class JsonDocument implements Document {
     if (this == other) {
       return true;
     }
-    if (other instanceof JsonDocument) {
-      return data.equals(((JsonDocument) other).data);
+    if (other instanceof JsonDocument otherDoc) {
+      return data.equals(otherDoc.data);
     }
     return false;
   }
@@ -1286,10 +1286,10 @@ public class JsonDocument implements Document {
     if (other == null) {
       throw new IllegalStateException("Document is null");
     }
-    if (!(other instanceof JsonDocument)) {
+    if (!(other instanceof JsonDocument otherDoc)) {
       throw new IllegalStateException("Documents are not of the same type");
     }
-    return ((JsonDocument) other).data;
+    return otherDoc.data;
   }
 
   @Override

@@ -122,9 +122,8 @@ public class ClassDescriptor {
   public boolean equals(Object o) {
     if (this == o)
       return true;
-    if (!(o instanceof ClassDescriptor))
+    if (!(o instanceof ClassDescriptor that))
       return false;
-    ClassDescriptor that = (ClassDescriptor) o;
     return isAbstract == that.isAbstract &&
         Objects.equals(className, that.className) &&
         Objects.equals(packageName, that.packageName) &&

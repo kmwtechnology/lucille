@@ -399,8 +399,8 @@ public abstract class Stage {
     try {
       return constructor.newInstance(config);
     } catch (InvocationTargetException e) {
-      if (e.getCause() instanceof Exception) {
-        throw (Exception) e.getCause();
+      if (e.getCause() instanceof Exception cause) {
+        throw cause;
       } else {
         throw e;
       }

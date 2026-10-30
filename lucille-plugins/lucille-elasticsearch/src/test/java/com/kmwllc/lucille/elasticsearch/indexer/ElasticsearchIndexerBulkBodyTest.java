@@ -261,8 +261,8 @@ public class ElasticsearchIndexerBulkBodyTest {
       if (item == null) {
         continue;
       }
-      if (item instanceof NdJsonpSerializable && item != value) {
-        collect((NdJsonpSerializable) item, items);
+      if (item instanceof NdJsonpSerializable serializable && item != value) {
+        collect(serializable, items);
       } else {
         items.add(item);
       }

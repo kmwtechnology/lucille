@@ -630,9 +630,9 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       // An Error (OutOfMemoryError, etc.) must never be swallowed, and must not mark the batch complete — the documents
       // were not indexed, so committing their offsets would lose them. FAIL events were still sent just above, so the
       // run does not hang; the uncommitted offsets let a Kafka/Hybrid messenger re-deliver the batch on restart.
-      if (t instanceof Error) {
+      if (t instanceof Error error) {
         markComplete = false;
-        throw (Error) t;
+        throw error;
       }
     } finally {
       // Mark the batch complete for a normal outcome or a (handled) Exception, where the batch ran to a defined
@@ -739,11 +739,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    * values, and the Document must not be modified until the map has been serialized.
    */
   protected Map<String, Object> getRawIndexerDoc(Document doc) {
-    if (!(doc instanceof JsonDocument)) {
+    if (!(doc instanceof JsonDocument jsonDoc)) {
       return getConvertedIndexerDoc(doc);
     }
 
-    ObjectNode data = ((JsonDocument) doc).data;
+    ObjectNode data = jsonDoc.data;
     Map<String, Object> indexerDoc = new LinkedHashMap<>();
     for (Iterator<Map.Entry<String, JsonNode>> it = data.fields(); it.hasNext(); ) {
       Map.Entry<String, JsonNode> field = it.next();

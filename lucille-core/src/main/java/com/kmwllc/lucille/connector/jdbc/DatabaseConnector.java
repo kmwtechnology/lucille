@@ -255,8 +255,8 @@ public class DatabaseConnector extends AbstractConnector {
           // The merge also requires the primary result set to be ordered by the join key and the keys to be
           // unique: a parent whose key is smaller than, or equal to, the previous parent's would silently get no
           // children, because the child cursors have already moved past that key.
-          if (lastPrimaryJoinId != null && joinId instanceof Comparable) {
-            int order = ((Comparable) joinId).compareTo(lastPrimaryJoinId);
+          if (lastPrimaryJoinId != null && joinId instanceof Comparable comparable) {
+            int order = comparable.compareTo(lastPrimaryJoinId);
             if (order < 0) {
               throw new ConnectorException(String.format(
                   "primary result set is not ordered by id field %s (%s follows %s); add ORDER BY %s when using otherSQLs",

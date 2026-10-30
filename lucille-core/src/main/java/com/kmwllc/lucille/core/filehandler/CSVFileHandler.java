@@ -139,8 +139,8 @@ public class CSVFileHandler extends BaseFileHandler {
         }
 
         // each row is its own record, even if a quoted value makes it span several physical lines
-        if (lineReader instanceof BoundedLineReader) {
-          ((BoundedLineReader) lineReader).startRecord();
+        if (lineReader instanceof BoundedLineReader boundedReader) {
+          boundedReader.startRecord();
         }
 
         try {

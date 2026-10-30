@@ -64,8 +64,8 @@ public class Pipeline {
         }
       }
     }
-    if (first instanceof StageException) {
-      throw (StageException) first;
+    if (first instanceof StageException stageException) {
+      throw stageException;
     } else if (first != null) {
       throw new StageException("Error stopping stage", first);
     }

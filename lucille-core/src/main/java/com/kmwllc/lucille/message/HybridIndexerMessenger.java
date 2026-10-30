@@ -137,11 +137,10 @@ public class HybridIndexerMessenger implements IndexerMessenger {
     Map<TopicPartition, OffsetAndMetadata> batchOffsets = new HashMap<>();
     for (Document doc : batch) {
 
-      if (!(doc instanceof KafkaDocument)) {
+      if (!(doc instanceof KafkaDocument kDoc)) {
         continue;
       }
 
-      KafkaDocument kDoc = (KafkaDocument) doc;
       TopicPartition topicPartition = new TopicPartition(kDoc.getTopic(), kDoc.getPartition());
       // per the kafka docs:
       // "Note: The committed offset should always be the offset of the next message that your application will read.

@@ -193,8 +193,8 @@ public class JsonFileHandler extends BaseFileHandler {
       /** Whether there is another line to read, enforcing maxRecordBytes on it. */
       private boolean readLine() {
         // each line is its own record. LineIterator only reads when it has no cached line, so this is safe to call repeatedly
-        if (reader instanceof BoundedLineReader) {
-          ((BoundedLineReader) reader).startRecord();
+        if (reader instanceof BoundedLineReader boundedReader) {
+          boundedReader.startRecord();
         }
         try {
           return it.hasNext();

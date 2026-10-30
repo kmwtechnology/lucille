@@ -133,7 +133,7 @@ public final class Py4JRuntime {
 
     try {
       Object res = pythonClient.exec(requestJson);
-      return (res instanceof String) ? (String) res : (res == null ? null : String.valueOf(res));
+      return (res instanceof String str) ? str : (res == null ? null : String.valueOf(res));
     } catch (Exception e) {
       throw new StageException("Error calling Python via Py4J", e);
     }

@@ -224,8 +224,8 @@ class Worker implements Runnable {
       failure = t;
       commitOnExit = false;
       log.error("Worker stopping after a fatal error", t);
-      if (t instanceof Error) {
-        rethrow = (Error) t;
+      if (t instanceof Error error) {
+        rethrow = error;
       }
     } finally {
       // This thread is about to end, so an interrupt (for example from the pool's exitOnTimeout watcher) has done its

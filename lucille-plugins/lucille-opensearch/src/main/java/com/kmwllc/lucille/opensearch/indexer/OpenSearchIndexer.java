@@ -476,8 +476,8 @@ public class OpenSearchIndexer extends Indexer {
     if (versionField != null && doc.has(versionField)) {
       return doc.getLong(versionField);
     }
-    if (doc instanceof KafkaDocument) {
-      return ((KafkaDocument) doc).getOffset();
+    if (doc instanceof KafkaDocument kafkaDoc) {
+      return kafkaDoc.getOffset();
     }
     return null;
   }
