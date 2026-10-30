@@ -50,8 +50,8 @@ public class SolrConnector extends AbstractConnector {
   private List<String> replacedPreActions;
   private List<String> replacedPostActions;
 
-  private List<String> postActions;
-  private List<String> preActions;
+  private final List<String> postActions;
+  private final List<String> preActions;
 
   private final Map<String, List<String>> solrParams;
   private final String idField;

@@ -10,6 +10,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 
 public class FormUtils {
+  private FormUtils() {
+  }
+
   // helper method to return a list of rendered pages as images
   public static ArrayList<BufferedImage> loadPdf(String filename) throws IOException {
     // Loading an existing PDF document

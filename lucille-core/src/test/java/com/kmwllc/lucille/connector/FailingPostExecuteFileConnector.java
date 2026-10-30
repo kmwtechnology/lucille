@@ -2,17 +2,16 @@ package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.spec.Spec;
-import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 
 /**
  * Used to determine if the correct behavior happens when an Exception is thrown during postExecute().
  */
-public class FailingPostExecuteCSVConnector extends CSVConnector {
+public class FailingPostExecuteFileConnector extends FileConnector {
 
-  public static final Spec SPEC = SpecBuilder.connector().requiredString("path").build();
+  public static final Spec SPEC = FileConnector.SPEC;
 
-  public FailingPostExecuteCSVConnector(Config config) {
+  public FailingPostExecuteFileConnector(Config config) throws ConnectorException {
     super(config);
   }
 

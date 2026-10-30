@@ -112,7 +112,7 @@ public class LucilleResource {
   public Response createConfig(@RequestBody(description = "Run configuration as a HOCON string", required = true,
           content = @Content(mediaType = "application/hocon", schema = @Schema(
               type = "object",
-              example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
+              example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.FileConnector\",\"paths\":[\"conf/dummy2.csv\"],\"fileHandlers\":{\"csv\":{}},\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
 
     try {
       // no includes or env vars, so a POSTed config can't read data off the host
