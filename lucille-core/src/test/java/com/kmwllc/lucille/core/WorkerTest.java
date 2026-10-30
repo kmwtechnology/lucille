@@ -5,7 +5,14 @@ import static org.junit.Assert.assertFalse;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,11 +21,13 @@ import org.junit.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import com.kmwllc.lucille.message.KafkaWorkerMessenger;
 import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.WorkerMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigValueFactory;
 
 public class WorkerTest {
 
@@ -130,12 +139,30 @@ public class WorkerTest {
     waitUntil(() -> messenger.getDocsSentForIndexing().size() == 1 && count(messenger, Event.Type.FAIL) == 1);
     assertEquals("doc2", messenger.getDocsSentForIndexing().get(0).getId());
     assertEquals("doc1", messenger.getSentEvents().get(0).getDocumentId());
+    assertEquals("Expected (java.lang.StackOverflowError)", messenger.getSentEvents().get(0).getMessage());
     assertTrue(thread.isAlive());
     assertNull(thread.getThrowable());
 
     thread.terminate();
     thread.join(5000);
     assertFalse(thread.isAlive());
+    assertNull(thread.getThrowable());
+  }
+
+  @Test
+  public void testStageExceptionMessageIsTheFailEventMessage() throws Exception {
+    // the FAIL event carries the stage's own message, not that of the RuntimeException the Stage wraps it in
+    TestMessenger messenger = new TestMessenger();
+    WorkerThread thread = startWorker(PIPELINES, messenger, "stageExceptionForDoc1");
+    messenger.sendForProcessing(Document.create("doc1"));
+
+    waitUntil(() -> count(messenger, Event.Type.FAIL) == 1);
+    Event fail = messenger.getSentEvents().get(0);
+    assertEquals("doc1", fail.getDocumentId());
+    assertEquals("Expected (" + StageException.class.getName() + ")", fail.getMessage());
+
+    thread.terminate();
+    thread.join(5000);
     assertNull(thread.getThrowable());
   }
 
@@ -190,6 +217,10 @@ public class WorkerTest {
     List<String> events = messenger.getSentEvents().stream().map(e -> e.getType() + ":" + e.getDocumentId()).toList();
     assertEquals(List.of("CREATE:doc1_child1", "FAIL:doc1_child1", "FAIL:doc1",
         "CREATE:doc2_child1", "FAIL:doc2_child1", "FAIL:doc2"), events);
+    List<String> failMessages = messenger.getSentEvents().stream()
+        .filter(e -> e.getType() == Event.Type.FAIL).map(Event::getMessage).toList();
+    assertEquals(List.of("parent doc1 failed: too large", "too large", "parent doc2 failed: too large", "too large"),
+        failMessages);
     assertTrue(thread.isAlive());
     assertNull(thread.getThrowable());
 
@@ -223,7 +254,7 @@ public class WorkerTest {
 
     waitUntil(() -> count(messenger, Event.Type.FAIL) == 1);
     Mockito.verify(messenger).sendFailed(Mockito.any());
-    assertEquals("SENT_TO_DLQ", messenger.getSentEvents().get(0).getMessage());
+    assertEquals(Event.WORKER_MAX_RETRIES_EXCEEDED, messenger.getSentEvents().get(0).getMessage());
     assertEquals(0, messenger.getDocsSentForIndexing().size());
     assertTrue(thread.isAlive());
 
@@ -301,4 +332,132 @@ public class WorkerTest {
     assertNull(worker.getThrowable());
   }
 
+  // ---------------------------------------------------------------------------------------------------------------
+  // worker.retryCounter.class (LC-977)
+
+  @Test
+  public void testConfiguredRetryCounterIsUsed() throws Exception {
+    Config config = ConfigFactory.load("WorkerTest/retryCounterClass.conf");
+    Document doc = Document.create("doc1", "run1");
+    KafkaWorkerMessenger messenger = mock(KafkaWorkerMessenger.class);
+    when(messenger.pollDocToProcess()).thenReturn(doc).thenThrow(new java.io.IOException("stop"));
+
+    try (MockedConstruction<ZKRetryCounter> zkCounter = Mockito.mockConstruction(ZKRetryCounter.class)) {
+      Worker worker = new Worker(config, messenger, "run1", "pipeline1", "pipeline1");
+      assertTrue(zkCounter.constructed().isEmpty());
+
+      TestRetryCounter counter = TestRetryCounter.lastCreated;
+      assertSame(config, counter.config);
+
+      // TestRetryCounter reports every document as having exceeded the limit, so the worker sends it to the DLQ;
+      // the second poll fails, which stops the worker
+      worker.run();
+
+      assertEquals(List.of(doc), counter.added);
+      assertEquals(List.of(doc), counter.removed);
+      assertTrue(counter.closed);
+      verify(messenger).sendFailed(doc);
+      verify(messenger).sendEvent(doc, Event.WORKER_MAX_RETRIES_EXCEEDED, Event.Type.FAIL);
+      verify(messenger, never()).sendForIndexing(any());
+    }
+  }
+
+  @Test
+  public void testConfiguredRetryCounterIsNotCreatedForNonKafkaMessengers() throws Exception {
+    Config config = ConfigFactory.load("WorkerTest/retryCounterClass.conf");
+    TestRetryCounter.lastCreated = null;
+    new Worker(config, new TestMessenger(), "run1", "pipeline1", "pipeline1");
+    assertNull(TestRetryCounter.lastCreated);
+  }
+
+  @Test
+  public void testDefaultRetryCounterIsZK() throws Exception {
+    Config config = ConfigFactory.load("WorkerTest/retryCounterDefault.conf");
+
+    try (MockedConstruction<ZKRetryCounter> zkCounter = Mockito.mockConstruction(ZKRetryCounter.class, (mock, context) -> {
+      assertEquals(List.of(config), context.arguments());
+    })) {
+      new Worker(config, mock(KafkaWorkerMessenger.class), "run1", "pipeline1", "pipeline1");
+      assertEquals(1, zkCounter.constructed().size());
+
+      // no retry counter is created when maxRetries is not set
+      new Worker(config.withoutPath("worker.maxRetries"), mock(KafkaWorkerMessenger.class), "run1", "pipeline1",
+          "pipeline1");
+      assertEquals(1, zkCounter.constructed().size());
+    }
+  }
+
+  @Test
+  public void testInvalidRetryCounterClassFailsAtStartup() {
+    Config config = ConfigFactory.load("WorkerTest/retryCounterClass.conf");
+
+    Config unknown = config.withValue("worker.retryCounter.class", ConfigValueFactory.fromAnyRef("com.example.NoSuchCounter"));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> new Worker(unknown, mock(KafkaWorkerMessenger.class), "run1", "pipeline1", "pipeline1"));
+    assertEquals("worker.retryCounter.class: could not find class com.example.NoSuchCounter", e.getMessage());
+
+    Config notACounter = config.withValue("worker.retryCounter.class", ConfigValueFactory.fromAnyRef("java.lang.String"));
+    e = assertThrows(IllegalArgumentException.class,
+        () -> new Worker(notACounter, mock(KafkaWorkerMessenger.class), "run1", "pipeline1", "pipeline1"));
+    assertEquals("worker.retryCounter.class: java.lang.String does not implement com.kmwllc.lucille.core.RetryCounter",
+        e.getMessage());
+
+    Config noConfigConstructor = config.withValue("worker.retryCounter.class",
+        ConfigValueFactory.fromAnyRef(NoConfigConstructorRetryCounter.class.getName()));
+    e = assertThrows(IllegalArgumentException.class,
+        () -> new Worker(noConfigConstructor, mock(KafkaWorkerMessenger.class), "run1", "pipeline1", "pipeline1"));
+    assertTrue(e.getMessage().endsWith("must have a public constructor that takes a Config"));
+  }
+
+  @Test
+  public void testSpecAllowsRetryCounterClass() {
+    Config config = ConfigFactory.load("WorkerTest/retryCounterClass.conf");
+    Worker.SPEC.validate(config.getConfig("worker"), "worker");
+
+    Config unknownProperty = config.withValue("worker.retryCounter.foo", ConfigValueFactory.fromAnyRef("bar"));
+    assertThrows(IllegalArgumentException.class, () -> Worker.SPEC.validate(unknownProperty.getConfig("worker"), "worker"));
+  }
+
+  public static class TestRetryCounter implements RetryCounter {
+
+    static TestRetryCounter lastCreated;
+
+    final Config config;
+    final List<Document> added = new ArrayList<>();
+    final List<Document> removed = new ArrayList<>();
+    boolean closed = false;
+
+    public TestRetryCounter(Config config) {
+      this.config = config;
+      lastCreated = this;
+    }
+
+    @Override
+    public boolean add(Document document) {
+      added.add(document);
+      return true;
+    }
+
+    @Override
+    public void remove(Document document) {
+      removed.add(document);
+    }
+
+    @Override
+    public void close() {
+      closed = true;
+    }
+  }
+
+  public static class NoConfigConstructorRetryCounter implements RetryCounter {
+
+    @Override
+    public boolean add(Document document) {
+      return false;
+    }
+
+    @Override
+    public void remove(Document document) {
+    }
+  }
 }

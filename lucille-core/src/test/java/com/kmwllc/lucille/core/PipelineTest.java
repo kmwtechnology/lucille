@@ -26,7 +26,9 @@ import java.util.List;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 
 @RunWith(JUnit4.class)
 public class PipelineTest {
@@ -97,7 +99,7 @@ public class PipelineTest {
     List<Document> results = IteratorUtils.toList(pipeline.processDocument(doc));
     pipeline.stopStages();
 
-    ArrayList<Document> expected = new ArrayList<>();
+    List<Document> expected = new ArrayList<>();
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c1-s3c1\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c1-s3c2\",\"s4\":\"v4\"}"));
     expected.add(Document.createFromJson("{\"id\":\"d1-s2c1\",\"s3\":\"v3\",\"s4\":\"v4\"}"));
@@ -323,7 +325,7 @@ public class PipelineTest {
       doc.setField("s2", "v2");
       Document c1 = Document.create(doc.getId() + "-" + "s2c1");
       Document c2 = Document.create(doc.getId() + "-" + "s2c2");
-      ArrayList<Document> result = new ArrayList<>();
+      List<Document> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);
       return result.iterator();
@@ -343,7 +345,7 @@ public class PipelineTest {
       doc.setField("s3", "v3");
       Document c1 = Document.create(doc.getId() + "-" + "s3c1");
       Document c2 = Document.create(doc.getId() + "-" + "s3c2");
-      ArrayList<Document> result = new ArrayList<>();
+      List<Document> result = new ArrayList<>();
       result.add(c1);
       result.add(c2);
       return result.iterator();
@@ -395,7 +397,7 @@ public class PipelineTest {
       Document child2 = Document.create(doc.getId() + "-" + "child1");
       child2.setField(field, 2);
       child2.setOrAddAll(doc);
-      ArrayList<Document> children = new ArrayList<>();
+      List<Document> children = new ArrayList<>();
       children.add(child1);
       children.add(child2);
       return children.iterator();

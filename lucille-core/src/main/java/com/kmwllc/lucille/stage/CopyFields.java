@@ -51,8 +51,8 @@ public class CopyFields extends Stage {
   private final UpdateMode updateMode;
   private final boolean isNested;
 
-  private List<Pair<List<Document.Segment>,List<Document.Segment>>> nestedFieldPairs = new ArrayList<>();
-  private List<Pair<String,String>> nonNestedFieldPairs = new ArrayList<>();
+  private final List<Pair<List<Document.Segment>,List<Document.Segment>>> nestedFieldPairs = new ArrayList<>();
+  private final List<Pair<String,String>> nonNestedFieldPairs = new ArrayList<>();
 
   public CopyFields(Config config) {
     super(config);
@@ -66,7 +66,7 @@ public class CopyFields extends Stage {
 
   @Override
   public void start() throws StageException {
-    if (fieldMapping.size() == 0) {
+    if (fieldMapping.isEmpty()) {
       throw new StageException("fieldMapping must have at least one source-dest pair for Copy Fields");
     }
 
@@ -74,8 +74,8 @@ public class CopyFields extends Stage {
     if (isNested) {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
         List<Document.Segment> source = Document.Segment.parse(entry.getKey());
-        if (entry.getValue() instanceof String) {
-          List<Document.Segment> dest = Document.Segment.parse((String) entry.getValue());
+        if (entry.getValue() instanceof String destSpec) {
+          List<Document.Segment> dest = Document.Segment.parse(destSpec);
           nestedFieldPairs.add(Pair.of(source, dest));
         } else if (entry.getValue() instanceof List) {
           for (String val : (List<String>) entry.getValue()) {
@@ -88,8 +88,8 @@ public class CopyFields extends Stage {
       }
     } else {
       for (Entry<String, Object> entry : fieldMapping.entrySet()) {
-        if (entry.getValue() instanceof String) {
-          nonNestedFieldPairs.add(Pair.of(entry.getKey(), (String) entry.getValue()));
+        if (entry.getValue() instanceof String dest) {
+          nonNestedFieldPairs.add(Pair.of(entry.getKey(), dest));
         } else if (entry.getValue() instanceof List) {
           for (String val : (List<String>) entry.getValue()) {
             nonNestedFieldPairs.add(Pair.of(entry.getKey(), val));

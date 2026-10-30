@@ -189,8 +189,7 @@ public class JsonDoclet implements Doclet {
 
     // Process methods
     for (Element member : type.getEnclosedElements()) {
-      if (member instanceof ExecutableElement && member.getKind() == ElementKind.METHOD) {
-        ExecutableElement method = (ExecutableElement) member;
+      if (member instanceof ExecutableElement method && member.getKind() == ElementKind.METHOD) {
 
         // Only process public methods
         if (!method.getModifiers().contains(Modifier.PUBLIC)) {
@@ -273,10 +272,9 @@ public class JsonDoclet implements Doclet {
     List<ClassDescriptor> descriptors = new ArrayList<>();
 
     for (Element e : env.getIncludedElements()) {
-      if (!(e instanceof TypeElement)) {
+      if (!(e instanceof TypeElement topLevelType)) {
         continue;
       }
-      TypeElement topLevelType = (TypeElement) e;
 
       // Process the top-level class itself
       ClassDescriptor topLevelDesc = createClassDescriptorFromType(topLevelType, env);

@@ -37,10 +37,10 @@ import org.slf4j.LoggerFactory;
 public final class Launch {
 
   /** How long a shutdown hook waits for started threads to finish before letting the JVM exit. */
-  static final long SHUTDOWN_JOIN_TIMEOUT_MS = Runner.DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT;
+  private static final long SHUTDOWN_JOIN_TIMEOUT_MS = Runner.DEFAULT_WORKER_INDEXER_JOIN_TIMEOUT;
 
   /** How often a process checks whether the threads it started are still alive. */
-  static final long POLL_MILLIS = 500;
+  private static final long POLL_MILLIS = 500;
 
   private static final Logger log = LoggerFactory.getLogger(Launch.class);
 
@@ -120,7 +120,7 @@ public final class Launch {
   static void worker(String[] args) throws Exception {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("worker.pipeline");
-    log.info("Starting Workers for pipeline: " + pipelineName);
+    log.info("Starting Workers for pipeline: {}", pipelineName);
 
     WorkerMessengerFactory workerMessengerFactory = WorkerMessengerFactory.getKafkaFactory(config, pipelineName);
 
@@ -162,7 +162,7 @@ public final class Launch {
   static void indexer(String[] args) throws Exception {
     Config config = ConfigFactory.load();
     String pipelineName = args.length > 0 ? args[0] : config.getString("indexer.pipeline");
-    log.info("Starting Indexer for pipeline: " + pipelineName);
+    log.info("Starting Indexer for pipeline: {}", pipelineName);
     IndexerMessenger messenger = new KafkaIndexerMessenger(config, pipelineName);
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, false, pipelineName, null);
 

@@ -16,7 +16,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.kafka.clients.CommonClientConfigs;
-import org.apache.kafka.clients.admin.*;
+import org.apache.kafka.clients.admin.Admin;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.CreateTopicsOptions;
+import org.apache.kafka.clients.admin.CreateTopicsResult;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -80,9 +84,7 @@ public class KafkaUtils {
    * @throws IllegalArgumentException if <code>kafka.pollIntervalMs</code> is not positive.
    */
   public static Duration getPollInterval(Config config) {
-    int pollIntervalMs = config.hasPath("kafka.pollIntervalMs")
-        ? config.getInt("kafka.pollIntervalMs")
-        : DEFAULT_POLL_INTERVAL_MS;
+    int pollIntervalMs = ConfigUtils.getIntOrDefault(config, "kafka.pollIntervalMs", DEFAULT_POLL_INTERVAL_MS);
     if (pollIntervalMs <= 0) {
       throw new IllegalArgumentException("kafka.pollIntervalMs must be positive, got " + pollIntervalMs);
     }
@@ -192,9 +194,7 @@ public class KafkaUtils {
   public static KafkaConsumer<String, KafkaDocument> createDocumentConsumer(Config config, String clientId) {
     Properties consumerProps = createConsumerProps(config, clientId);
     requireAutoCommitDisabled(consumerProps);
-    String deserializerClass = config.hasPath("kafka.documentDeserializer")
-        ? config.getString("kafka.documentDeserializer")
-        : KafkaDocumentDeserializer.class.getName();
+    String deserializerClass = ConfigUtils.getStringOrDefault(config, "kafka.documentDeserializer", KafkaDocumentDeserializer.class.getName());
     consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializerClass);
     return new KafkaConsumer<>(consumerProps);
   }
@@ -286,9 +286,7 @@ public class KafkaUtils {
 
   public static KafkaProducer<String, Document> createDocumentProducer(Config config) {
     Properties producerProps = createProducerProps(config);
-    String serializerClass = config.hasPath("kafka.documentSerializer")
-        ? config.getString("kafka.documentSerializer")
-        : KafkaDocumentSerializer.class.getName();
+    String serializerClass = ConfigUtils.getStringOrDefault(config, "kafka.documentSerializer", KafkaDocumentSerializer.class.getName());
     producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, serializerClass);
     return new KafkaProducer<>(producerProps);
   }

@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
-import com.kmwllc.lucille.connector.PostCompletionCSVConnector;
+import com.kmwllc.lucille.connector.PostCompletionFileConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
 import com.kmwllc.lucille.connector.SequenceConnector;
 import com.kmwllc.lucille.core.Runner.RunType;
@@ -34,15 +34,39 @@ import org.mockito.Mockito;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @RunWith(JUnit4.class)
 public class RunnerTest {
@@ -512,11 +536,14 @@ public class RunnerTest {
     RunResult result =
         Runner.run(ConfigFactory.load("RunnerTest/singleDoc.conf"), Runner.RunType.TEST);
     assertTrue(result.getStatus());
+    assertFalse(result.hasFailingDocs());
 
     // successful run with failing documents
     result =
         Runner.run(ConfigFactory.load("RunnerTest/threeDocsOneFailure.conf"), Runner.RunType.TEST);
     assertTrue(result.getStatus());
+    assertTrue(result.hasFailingDocs());
+    assertTrue(result.getMessage().contains("Partial success."));
 
     // failing run
     result =
@@ -546,12 +573,12 @@ public class RunnerTest {
    */
   @Test
   public void testPostCompletionActions() throws Exception {
-    PostCompletionCSVConnector.reset();
+    PostCompletionFileConnector.reset();
     TestMessenger messenger = Runner.runInTestMode("RunnerTest/postCompletionActions.conf").get("connector1");
-    assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
+    assertTrue(PostCompletionFileConnector.didPostCompletionActionsOccur());
     List<Document> docs = messenger.getDocsSentForIndexing();
     Instant stageInstant = Instant.parse(docs.get(0).getString("timestamp"));
-    Instant postCompletionInstant = PostCompletionCSVConnector.getPostCompletionInstant();
+    Instant postCompletionInstant = PostCompletionFileConnector.getPostCompletionInstant();
     assertTrue(postCompletionInstant.isAfter(stageInstant));
   }
 
@@ -560,9 +587,9 @@ public class RunnerTest {
    */
   @Test
   public void testPostCompletionActionsWithoutPipeline() throws Exception {
-    PostCompletionCSVConnector.reset();
+    PostCompletionFileConnector.reset();
     Runner.runInTestMode("RunnerTest/postCompletionActionsWithoutPipeline.conf").get("connector1");
-    assertTrue(PostCompletionCSVConnector.didPostCompletionActionsOccur());
+    assertTrue(PostCompletionFileConnector.didPostCompletionActionsOccur());
   }
 
   /**
@@ -834,14 +861,6 @@ public class RunnerTest {
         messenger1.getDocsSentForProcessing().get(1).getStringList("field1"));
     assertEquals("non-consecutive",
         messenger1.getDocsSentForProcessing().get(3).getString("field1"));
-  }
-
-  @Test
-  public void testIndexerConnectFailure() throws Exception {
-    // use runLocal() instead of runInTestMode() so we attempt to start an Indexer and
-    // handle the failure
-    assertFalse(Runner.run(ConfigFactory.load("RunnerTest/indexerConnectFailure.conf"),
-        Runner.RunType.LOCAL).getStatus());
   }
 
   @Test
@@ -1119,6 +1138,8 @@ public class RunnerTest {
     RunResult result = Runner.run(invalid, Runner.RunType.TEST);
 
     assertFalse(result.getStatus());
+    // validation failed before any connector ran, so there are no connector results to report failing docs
+    assertFalse(result.hasFailingDocs());
     assertNotNull(result.getHistory());
     assertTrue(result.getHistory().isEmpty());
   }

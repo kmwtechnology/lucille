@@ -19,7 +19,10 @@ import org.apache.commons.collections4.iterators.IteratorChain;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -105,7 +108,7 @@ public abstract class Stage {
       return (x -> true);
     }
 
-    String conditionPolicy = config.hasPath("conditionPolicy") ? config.getString("conditionPolicy") : "all";
+    String conditionPolicy = ConfigUtils.getStringOrDefault(config, "conditionPolicy", "all");
 
     if ("any".equalsIgnoreCase(conditionPolicy)) {
       return conditions.stream().reduce(c -> false, Predicate::or);
@@ -396,8 +399,8 @@ public abstract class Stage {
     try {
       return constructor.newInstance(config);
     } catch (InvocationTargetException e) {
-      if (e.getCause() instanceof Exception) {
-        throw (Exception) e.getCause();
+      if (e.getCause() instanceof Exception cause) {
+        throw cause;
       } else {
         throw e;
       }

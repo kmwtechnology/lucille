@@ -168,23 +168,23 @@ public class TextExtractor extends Stage {
         }
       });
 
-  private String textField;
+  private final String textField;
   protected String filePathField;
-  private String tikaConfigPath;
+  private final String tikaConfigPath;
   protected String byteArrayField;
-  private String metadataPrefix;
-  private String fieldNamesField;
-  private boolean replaceDotsInMetadataNames;
-  private Integer textContentLimit;
-  private Long parseTimeout;
+  private final String metadataPrefix;
+  private final String fieldNamesField;
+  private final boolean replaceDotsInMetadataNames;
+  private final Integer textContentLimit;
+  private final Long parseTimeout;
   private final boolean enableOcr;
   // where the global Tika config honoured by Tika's default constructors comes from (e.g. "tika.config system
   // property"), or null if there is none; a description for messages, not the config itself
   private final String globalTikaConfigSource;
-  private boolean forkEnabled;
-  private int forkPoolSize;
+  private final boolean forkEnabled;
+  private final int forkPoolSize;
   private List<String> forkJvmArgs;
-  private long forkServerPulseMillis;
+  private final long forkServerPulseMillis;
   private Parser parser;
   private ForkParser forkParser;
   private TikaConfig tikaConfig;
@@ -198,14 +198,14 @@ public class TextExtractor extends Stage {
   public TextExtractor(Config config) throws StageException {
     super(config);
 
-    textField = config.hasPath("textField") ? config.getString("textField") : "text";
-    filePathField = config.hasPath("filePathField") ? config.getString("filePathField") : null;
-    byteArrayField = config.hasPath("byteArrayField") ? config.getString("byteArrayField") : null;
-    metadataPrefix = config.hasPath("metadataPrefix") ? config.getString("metadataPrefix") : "tika";
-    tikaConfigPath = config.hasPath("tikaConfigPath") ? config.getString("tikaConfigPath") : null;
-    textContentLimit = config.hasPath("textContentLimit") ? config.getInt("textContentLimit") : Integer.MAX_VALUE;
-    parseTimeout = config.hasPath("parseTimeout") ? config.getLong("parseTimeout") : null;
-    fieldNamesField = config.hasPath("fieldNamesField") ? config.getString("fieldNamesField") : null;
+    textField = ConfigUtils.getStringOrDefault(config, "textField", "text");
+    filePathField = ConfigUtils.getStringOrDefault(config, "filePathField", null);
+    byteArrayField = ConfigUtils.getStringOrDefault(config, "byteArrayField", null);
+    metadataPrefix = ConfigUtils.getStringOrDefault(config, "metadataPrefix", "tika");
+    tikaConfigPath = ConfigUtils.getStringOrDefault(config, "tikaConfigPath", null);
+    textContentLimit = ConfigUtils.getIntOrDefault(config, "textContentLimit", Integer.MAX_VALUE);
+    parseTimeout = ConfigUtils.getLongOrDefault(config, "parseTimeout", null);
+    fieldNamesField = ConfigUtils.getStringOrDefault(config, "fieldNamesField", null);
     replaceDotsInMetadataNames = config.hasPath("replaceDotsInMetadataNames") && config.getBoolean("replaceDotsInMetadataNames");
     metadataFields = config.hasPath("metadataFields") ? config.getConfig("metadataFields").root().unwrapped() : null;
     skipEmbeddedContentTypePrefixes = config.hasPath("skipEmbeddedContentTypePrefixes")
