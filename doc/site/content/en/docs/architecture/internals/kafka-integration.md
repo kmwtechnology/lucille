@@ -247,7 +247,7 @@ The named fields appear in a nested `documentFields` object, with the same JSON 
   "type": "FINISH",
   "documentId": "doc-123",
   "runId": "c1d9413a-8191-4f4a-92bb-0fc42b5499e3",
-  "message": "indexed",
+  "message": "SUCCEEDED",
   "documentFields": {
     "source": "s3://bucket/key",
     "deleted": true

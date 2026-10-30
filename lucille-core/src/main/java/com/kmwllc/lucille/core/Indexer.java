@@ -596,7 +596,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
       // Mark all the documents in failedDoc as failed
       for (Pair<Document, Exception> pair : failedDocPairs) {
-        sendFailEvent(pair.getLeft(), pair.getRight().getMessage());
+        sendFailEvent(pair.getLeft(), pair.getRight());
       }
 
       Set<Document> failedDocs = failedDocPairs.stream().map(Pair::getLeft).collect(Collectors.toSet());
@@ -625,7 +625,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
       String message = t.getMessage();
       log.error("Error sending documents to index: {}", message, t);
       for (Document d : batchedDocs) {
-        sendFailEvent(d, message);
+        sendFailEvent(d, t);
       }
       // An Error (OutOfMemoryError, etc.) must never be swallowed, and must not mark the batch complete — the documents
       // were not indexed, so committing their offsets would lose them. FAIL events were still sent just above, so the
@@ -649,15 +649,16 @@ public abstract class Indexer implements Runnable, BatchProcessor {
   }
 
   /**
-   * Sends a FAIL event for the given document with the specified reason, setting up MDC context
+   * Sends a FAIL event for the given document, with the cause as its reason, setting up MDC context
    * for structured logging.
    */
-  private void sendFailEvent(Document d, String reason) {
+  private void sendFailEvent(Document d, Throwable cause) {
+    String reason = Event.failureMessage(cause);
     try (MDCCloseable docIdMDC = MDC.putCloseable(ID_FIELD, d.getId())) {
       if (d.getRunId() != null) {
         MDC.pushByKey(RUNID_FIELD, d.getRunId());
       }
-      messenger.sendEvent(d, "FAILED: " + reason, Event.Type.FAIL);
+      messenger.sendEvent(d, reason, Event.Type.FAIL);
       docLogger.error("Document FAILED during indexing: {}. Reason: {}", d.getId(), reason);
       failedDocLogger.atError().setMessage(() -> d.toString()).log();
     } catch (Exception e) {

@@ -87,7 +87,7 @@ public class Runner {
 
   public enum RunType {
     LOCAL, // launch Worker(s) and Indexer as threads; have all components communicate via in-memory queues
-    TEST, // same as LOCAL, but bypass Solr, and store message traffic so it can be inspected after the run
+    TEST, // same as LOCAL, but skip sending to the search backend, and record message traffic so it can be inspected after the run (see runInTestMode)
     EXTERNAL, // launch Worker(s) and Indexer as threads; have all components communicate via Kafka
     DISTRIBUTED// assume Workers/Indexers were started separately (don't launch threads); have all components communicate via Kafka
   }
@@ -225,20 +225,25 @@ public class Runner {
   }
 
   /**
-   * Run Lucille end-to-end using the sequence of Connectors and the pipeline defined in the given
-   * config file. Stop the run if any of the connectors fails.
-   * <p>
-   * Run in a local mode where message traffic is kept in memory and there is no
-   * communication with external systems like Kafka. Sending to solr is bypassed.
-   * <p>
-   * Return a TestMessenger for each connector that
-   * can be used to review the messages that were sent between various components during that connector's execution.
+   * Loads the named config and runs it in test mode. See {@link #runInTestMode(Config)}.
    */
   public static Map<String, TestMessenger> runInTestMode(String configName) throws Exception {
     Config config = ConfigFactory.load(configName);
     return runInTestMode(config);
   }
 
+  /**
+   * Runs the given config end to end in this JVM as a local run would, except that the indexer does not send
+   * documents to the search backend, and every document and event passing between components is recorded.
+   * Returns the recording for each connector, keyed by connector name. Like a local run, it stops if a connector fails.
+   *
+   * <p> Test mode is a supported way to develop and check pipelines, not only a unit-testing aid: try a pipeline
+   * on sample data, inspect what it produces, or assert on its output in a test, then run the same config for real
+   * with {@code Runner.run(config, RunType.LOCAL)} without changing it.
+   *
+   * <p> Only indexing is skipped. Connectors and stages still read from and call external systems as configured.
+   * All recorded documents and events are kept in memory, so run test mode on a sample rather than a full load.
+   */
   public static Map<String, TestMessenger> runInTestMode(Config config) throws Exception {
     RunResult result = run(config, RunType.TEST);
     return result.getHistory();

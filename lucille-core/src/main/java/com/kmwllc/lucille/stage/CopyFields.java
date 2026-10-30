@@ -51,8 +51,8 @@ public class CopyFields extends Stage {
   private final UpdateMode updateMode;
   private final boolean isNested;
 
-  private List<Pair<List<Document.Segment>,List<Document.Segment>>> nestedFieldPairs = new ArrayList<>();
-  private List<Pair<String,String>> nonNestedFieldPairs = new ArrayList<>();
+  private final List<Pair<List<Document.Segment>,List<Document.Segment>>> nestedFieldPairs = new ArrayList<>();
+  private final List<Pair<String,String>> nonNestedFieldPairs = new ArrayList<>();
 
   public CopyFields(Config config) {
     super(config);

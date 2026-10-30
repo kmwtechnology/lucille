@@ -52,11 +52,11 @@ public class PublisherImpl implements Publisher {
   private final int logSeconds;
 
   // the number of times a call to publish() was completed across all publishing threads
-  private AtomicLong numReceived = new AtomicLong(0);
+  private final AtomicLong numReceived = new AtomicLong(0);
 
   // the actual number of documents sent for processing, which may be smaller
   // than the number of calls to publish() if isCollapsing==true
-  private AtomicLong numPublished = new AtomicLong(0);
+  private final AtomicLong numPublished = new AtomicLong(0);
 
   private long numCreated = 0;
   private long numFailed = 0;

@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.io.InputFile;
+import org.apache.parquet.io.LocalOutputFile;
 import org.junit.Test;
 
 public class ParquetFileIteratorTest {
@@ -72,7 +73,10 @@ public class ParquetFileIteratorTest {
     java.nio.file.Path dir = Files.createTempDirectory("parquet-ids");
     Path file = new Path(dir.resolve("ids.parquet").toUri());
     try {
-      try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(file).withType(schema).build()) {
+      // LocalOutputFile writes with java.nio, because writing through Hadoop's local file system
+      // fails on Windows unless winutils.exe is present
+      try (ParquetWriter<Group> writer =
+          ExampleParquetWriter.builder(new LocalOutputFile(dir.resolve("ids.parquet"))).withType(schema).build()) {
         writer.write(groups.newGroup().append("id", "1").append("name", "a"));
         writer.write(groups.newGroup().append("name", "b"));                       // null id
         writer.write(groups.newGroup().append("id", "   ").append("name", "c"));  // blank id

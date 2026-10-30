@@ -7,6 +7,9 @@ import org.apache.commons.lang3.ThreadUtils.ThreadPredicate;
 public class ThreadNameUtils {
   public static final String THREAD_NAME_PREFIX = "Lucille";
 
+  private ThreadNameUtils() {
+  }
+
   /**
    * Create a Thread name with the given name.
    */

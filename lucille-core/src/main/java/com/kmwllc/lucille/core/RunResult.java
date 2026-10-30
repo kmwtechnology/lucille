@@ -98,8 +98,7 @@ public class RunResult {
 
   /**
    * Get the history of the run. History is only tracked for runs with RunType.TEST;
-   * otherwise the return value will be null;
-   *
+   * otherwise the return value will be null. See {@link Runner#runInTestMode(com.typesafe.config.Config)}.
    */
   public Map<String, TestMessenger> getHistory() {
     return history;
