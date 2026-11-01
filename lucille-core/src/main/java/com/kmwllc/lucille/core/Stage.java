@@ -51,6 +51,18 @@ import java.util.stream.Collectors;
  *   <li>operator (String, Optional) : The operator to determine conditional execution.
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
+ *
+ * <p> Errors: a Stage reports that it cannot process a Document by throwing a {@link StageException} from
+ * {@link #processDocument(Document)}. A RuntimeException, or an Error local to the Document such as a
+ * StackOverflowError, is handled the same way: the Worker fails the Document (and any child it has already announced)
+ * with a FAIL event whose message is the exception's message, and carries on with the next Document. Only a fatal Error,
+ * such as an OutOfMemoryError, stops the Worker. Every such failure, including one thrown while producing a child
+ * Document, is counted in the Stage's error metric. A Stage should not throw for ordinary variation in its input, such
+ * as a missing source field; it should leave the Document unchanged instead.
+ *
+ * <p> Threads: each Worker thread has its own instance of each Stage, and calls {@link #start()},
+ * {@link #processDocument(Document)} and {@link #stop()} on it from that thread only, so a Stage's instance fields need
+ * no synchronization. State shared between instances, such as a static field, must be thread-safe.
  */
 public abstract class Stage {
 
@@ -234,7 +246,14 @@ public abstract class Stage {
 
       @Override
       public Document next() {
-        Document child = children.next();
+        Document child;
+        try {
+          child = children.next();
+        } catch (RuntimeException | Error e) {
+          // a failure while producing a child is this stage's failure too
+          countError();
+          throw e;
+        }
 
         if (child != null) {
           if (childCounter != null) {
@@ -297,11 +316,13 @@ public abstract class Stage {
         try {
           current = apply(d);
         } catch (StageException e) {
-          if (errorCounter != null) {
-            errorCounter.inc();
-          }
-
-          throw new RuntimeException(e); // TODO
+          countError();
+          // Iterator.next() cannot throw a checked exception. The Worker fails the document for any exception, and the
+          // FAIL event's message is the StageException's own, since this wrapper adds no message of its own.
+          throw new RuntimeException(e);
+        } catch (RuntimeException | Error e) {
+          countError();
+          throw e;
         }
 
         if (current.hasNext()) {
@@ -316,6 +337,12 @@ public abstract class Stage {
         throw new UnsupportedOperationException();
       }
     };
+  }
+
+  private void countError() {
+    if (errorCounter != null) {
+      errorCounter.inc();
+    }
   }
 
   /**
