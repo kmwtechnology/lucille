@@ -1503,8 +1503,8 @@ public class ElasticsearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
-      throw new Exception("Test that errors when sending to indexer are correctly handled");
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
+      throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }
 

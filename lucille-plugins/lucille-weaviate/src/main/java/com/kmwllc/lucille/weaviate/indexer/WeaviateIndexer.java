@@ -125,7 +125,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
     if (bypass) {
       // no client in bypass mode
       return Set.of();

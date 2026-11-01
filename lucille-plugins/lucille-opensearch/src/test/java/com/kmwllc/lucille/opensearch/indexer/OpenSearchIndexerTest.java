@@ -1986,8 +1986,8 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
-      throw new Exception("Test that errors when sending to indexer are correctly handled");
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
+      throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }
 
@@ -2006,7 +2006,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
       throw new IndexerRetryableException(
           503, "Simulated 503 Service Unavailable", new IOException("backend unavailable"));
     }

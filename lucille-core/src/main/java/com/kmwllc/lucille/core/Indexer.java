@@ -396,9 +396,11 @@ public abstract class Indexer implements Runnable, BatchProcessor {
    *     returned exception whose status code is in the configured retryable set. Use
    *     {@link IndexerException} for permanent per-document failures. Returns an empty set if all
    *     documents succeeded or if per-document failure tracking is not supported. Does not return null.
-   * @throws Exception for errors that prevent the entire batch from being attempted.
+   * @throws IndexerException for errors that prevent the entire batch from being attempted. Throw an
+   *     {@link IndexerRetryableException} when the failure may be transient (for example a transport error), so the
+   *     configured retry policy applies to it.
    */
-  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception;
+  protected abstract Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException;
 
   /** Close the client or connection to the destination search engine. */
   public abstract void closeConnection();

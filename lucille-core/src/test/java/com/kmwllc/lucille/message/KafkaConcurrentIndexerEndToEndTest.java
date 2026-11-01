@@ -7,6 +7,7 @@ import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.Indexer;
+import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
@@ -602,11 +603,14 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(20, 120));
         return Collections.emptySet();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IndexerException("Interrupted while sending", e);
       } finally {
         concurrent.decrementAndGet();
       }
@@ -663,7 +667,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
       peakConcurrent.accumulateAndGet(concurrent.incrementAndGet(), Math::max);
       try {
         Thread.sleep(ThreadLocalRandom.current().nextInt(1, 4));
@@ -679,6 +683,9 @@ public class KafkaConcurrentIndexerEndToEndTest {
           }
         }
         return Collections.emptySet();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IndexerException("Interrupted while sending", e);
       } finally {
         concurrent.decrementAndGet();
       }

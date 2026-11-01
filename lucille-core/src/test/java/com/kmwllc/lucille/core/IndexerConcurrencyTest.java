@@ -1100,7 +1100,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
       String docId = documents.get(0).getId();
       sendAttempts.computeIfAbsent(docId, k -> new AtomicInteger()).incrementAndGet();
       peakConcurrentSends.accumulateAndGet(concurrentSends.incrementAndGet(), Math::max);
@@ -1126,14 +1126,18 @@ public class IndexerConcurrencyTest {
           throw new IndexerRetryableException(503, "retryable failure for " + docId, null);
         }
         // A configured failure is held as a Throwable, which cannot be rethrown directly (sendToIndex declares only
-        // throws Exception, not Throwable). Split by type so each is thrown as itself: Error unchecked, Exception as the
-        // declared checked type. This lets a test simulate either an unchecked Error (e.g. OutOfMemoryError) or a normal
-        // send Exception.
+        // IndexerException). Split by type so each is thrown as itself where it can be: an Error or RuntimeException
+        // unchecked, an IndexerException as the declared type, and any other Exception wrapped in one. This lets a test
+        // simulate either an unchecked Error (e.g. OutOfMemoryError) or a normal send failure.
         Throwable failure = sendFailures.get(docId);
         if (failure instanceof Error error) {
           throw error;
+        } else if (failure instanceof RuntimeException runtimeException) {
+          throw runtimeException;
+        } else if (failure instanceof IndexerException indexerException) {
+          throw indexerException;
         } else if (failure instanceof Exception exception) {
-          throw exception;
+          throw new IndexerException("send failed for " + docId, exception);
         }
         applyToDestination(documents);
         // Report any configured per-document failures as returned pairs (not thrown), as a real sendToIndex does for
@@ -1142,6 +1146,10 @@ public class IndexerConcurrencyTest {
             .filter(d -> failedDocIds.contains(d.getId()))
             .map(d -> Pair.<Document, Exception>of(d, new IndexerException("rejected " + d.getId())))
             .collect(Collectors.toSet());
+      } catch (InterruptedException e) {
+        // the send pool is interrupted when the indexer closes without waiting for in-flight sends
+        Thread.currentThread().interrupt();
+        throw new IndexerException("Interrupted while sending " + docId, e);
       } finally {
         concurrentSends.decrementAndGet();
         if (!sendsFinished.contains(docId)) {
