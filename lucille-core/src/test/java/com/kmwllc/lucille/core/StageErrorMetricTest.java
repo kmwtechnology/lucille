@@ -13,7 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 import org.junit.Test;
 
-public class StageTest {
+public class StageErrorMetricTest {
 
   @Test
   public void testStageExceptionIsCountedAndWrapped() throws Exception {
@@ -70,7 +70,7 @@ public class StageTest {
 
   // a prefix per test, so counts from other tests in the shared registry do not leak in
   private static String prefix(String name) {
-    return "StageTest." + name;
+    return "StageErrorMetricTest." + name;
   }
 
   private static long errors(String name) {
