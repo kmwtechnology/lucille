@@ -9,7 +9,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -23,16 +22,23 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.regex.Pattern;
 
+/**
+ * A WorkerMessenger for hybrid mode: reads documents from a Kafka source topic and hands them to a co-located Indexer
+ * through an in-memory queue, committing the offsets the Indexer queues back once their batches are complete.
+ *
+ * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its queues with a
+ * {@link HybridIndexerMessenger}. It is public only because the two are in different packages.
+ */
 public class HybridWorkerMessenger implements WorkerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
-  private final LinkedBlockingQueue<Document> pipelineDest;
-  private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+  private final BlockingQueue<Document> pipelineDest;
+  private final BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
 
   private final Config config;
   private final Duration pollInterval;
@@ -40,10 +46,11 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
 
-  public HybridWorkerMessenger(Config config, String pipelineName,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
-      KafkaConsumer sourceConsumer) {
+  // takes the source consumer, so tests can supply one
+  HybridWorkerMessenger(Config config, String pipelineName,
+      BlockingQueue<Document> pipelineDest,
+      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+      Consumer<String, KafkaDocument> sourceConsumer) {
     this.config = config;
     this.pollInterval = KafkaUtils.getPollInterval(config);
     this.pipelineName = pipelineName;
@@ -57,16 +64,16 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
+      BlockingQueue<Document> pipelineDest,
+      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets) {
     this(config, pipelineName, pipelineDest, offsets, createSourceConsumer(config, pipelineName));
   }
 
-  private static KafkaConsumer createSourceConsumer(Config config, String pipelineName) {
+  private static Consumer<String, KafkaDocument> createSourceConsumer(Config config, String pipelineName) {
     // append random string to kafka client ID to prevent kafka from issuing a warning when multiple consumers
     // with the same client ID are started in separate worker threads
     String kafkaClientId = "com.kmwllc.lucille-worker-" + pipelineName + "-" + RandomStringUtils.randomAlphanumeric(8);
-    KafkaConsumer consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
+    Consumer<String, KafkaDocument> consumer = KafkaUtils.createDocumentConsumer(config, kafkaClientId);
     String sourceTopicName = KafkaUtils.getSourceTopicName(pipelineName, config);
     consumer.subscribe(Pattern.compile(sourceTopicName));
 

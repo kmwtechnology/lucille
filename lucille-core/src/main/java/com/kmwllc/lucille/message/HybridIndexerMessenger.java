@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -20,13 +20,19 @@ import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+/**
+ * An IndexerMessenger for hybrid mode: takes documents from the in-memory queue a co-located Worker fills, and queues
+ * the offsets of completed batches back for the Worker to commit.
+ *
+ * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its queues with a
+ * {@link HybridWorkerMessenger}. It is public only because the two are in different packages.
+ */
 public class HybridIndexerMessenger implements IndexerMessenger {
 
   private static final Logger log = LoggerFactory.getLogger(HybridIndexerMessenger.class);
 
-  private final LinkedBlockingQueue<Document> pipelineDest;
-  private final LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
+  private final BlockingQueue<Document> pipelineDest;
+  private final BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final String pipelineName;
   private final Config config;
@@ -41,8 +47,8 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   private final Set<String> idSet;
 
   public HybridIndexerMessenger(Config config,
-      LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+      BlockingQueue<Document> pipelineDest,
+      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       Set<String> idSet,
       String pipelineName) {
     this.pipelineDest = pipelineDest;
