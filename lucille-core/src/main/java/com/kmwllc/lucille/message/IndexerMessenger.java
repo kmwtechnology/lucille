@@ -13,6 +13,9 @@ import java.util.List;
  *
  * An Indexer also needs to communicate with a destination system like Solr or Elasticsearch but
  * that communication is not included in this interface.
+ *
+ * <p> Internal to Lucille: not a supported extension point, and it may change in any release. The Runner chooses the
+ * messengers for a run; there is no setting for supplying another implementation.
  */
 public interface IndexerMessenger {
 

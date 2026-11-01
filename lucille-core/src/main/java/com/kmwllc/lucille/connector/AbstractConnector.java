@@ -38,6 +38,8 @@ public abstract class AbstractConnector implements Connector {
 
   public AbstractConnector(Config config) {
     this.config = config;
+    // Connector.fromConfig always supplies a name (connector_N when none is configured), so "noname" only applies to a
+    // connector constructed directly
     this.name = ConfigUtils.getStringOrDefault(config, "name", "noname");
     this.pipelineName = ConfigUtils.getStringOrDefault(config, "pipeline", null);
     this.docIdPrefix = ConfigUtils.getStringOrDefault(config, "docIdPrefix", "");

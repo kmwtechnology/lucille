@@ -9,6 +9,8 @@ import com.kmwllc.lucille.core.Event;
  * A Publisher needs to 1) submit Documents for processing and 2) receive Events
  * relating to Documents it has published and their children.
  *
+ * <p> Internal to Lucille: not a supported extension point, and it may change in any release. The Runner chooses the
+ * messengers for a run; there is no setting for supplying another implementation.
  */
 public interface PublisherMessenger {
 

@@ -10,6 +10,8 @@ description: >
 
 The Messenger layer is the architectural seam that makes Lucille deployment-mode independent. The same Connector, Worker, and Indexer code runs identically whether messages flow through in-memory queues, Kafka topics, or a hybrid of both. This is achieved through three interfaces and a factory pattern that selects the right implementation at runtime.
 
+The messenger interfaces are internal to Lucille: they are not a supported extension point. The Runner chooses the messengers from the run type, and there is no setting for supplying your own, so a new transport means changing Lucille itself. The interfaces may change in any release, including a minor one.
+
 ## The Three Messenger Interfaces
 
 Each Lucille component has its own messenger interface, exposing only the operations that component needs:

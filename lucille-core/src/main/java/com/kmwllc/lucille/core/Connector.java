@@ -63,6 +63,8 @@ public interface Connector extends AutoCloseable {
    *
    * Will not be called if preExecute() throws an exception.
    *
+   * The run ID is passed to preExecute(); a Connector that needs it during execute() should keep it from there.
+   *
    * @param publisher An object that provides a publish() method accepting a document to be published.
    * @throws ConnectorException in the event an error occurs.
    */
@@ -128,7 +130,9 @@ public interface Connector extends AutoCloseable {
     // even though we will only ever add one exception in the body of this method!
     List<Exception> exceptionList = new ArrayList<>();
 
-    // Creates the connector; AbstractConnector runs validation and throws an exception as needed.
+    // Creates the connector; AbstractConnector runs validation and throws an exception as needed. The connector is
+    // constructed rather than only its Spec checked, because a constructor can reject combinations the Spec cannot
+    // express (such as FileConnector's collapse with several threads).
     Connector connector = null;
     try {
       connector = newInstance(withDefaultName(connectorConfig, position));

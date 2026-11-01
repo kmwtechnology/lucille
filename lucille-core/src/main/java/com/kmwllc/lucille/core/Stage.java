@@ -187,6 +187,9 @@ public abstract class Stage {
   /**
    * Process this Document iff it adheres to our conditional requirements.
    *
+   * <p> Public so that a Stage's tests can run a Document through its conditions; the framework calls it through
+   * apply().
+   *
    * @param doc the Document
    * @return a list of child documents resulting from this Stages processing
    * @throws StageException
