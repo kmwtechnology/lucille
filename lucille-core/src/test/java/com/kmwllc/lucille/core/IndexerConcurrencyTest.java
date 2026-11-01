@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
@@ -474,12 +475,20 @@ public class IndexerConcurrencyTest {
     // Nothing in Lucille interrupts the indexer thread (the Runner and WorkerIndexer stop it with terminate() and
     // join()), so this can only arise when other code embeds Lucille and interrupts the thread itself, which is
     // considered unlikely. In that case completion runs with the interrupt set. A messenger whose batchComplete blocks
-    // interruptibly (as the Hybrid messenger's offset handoff does) then throws InterruptedException, which clears the
-    // flag. The indexer must restore it, or the next poll never sees the interrupt and the run keeps going.
+    // interruptibly (as the Hybrid messenger's offset handoff does) is then interrupted, which clears the flag. This one
+    // deliberately breaks the messenger contract by reporting it without restoring the flag, so that the test fails
+    // unless the indexer restores it; otherwise the next poll never sees the interrupt and the run keeps going.
     RecordingMessenger messenger = new RecordingMessenger() {
       @Override
-      public void batchComplete(List<Document> batch) throws InterruptedException {
-        new CountDownLatch(1).await(1, TimeUnit.MILLISECONDS);
+      public void batchComplete(List<Document> batch) throws MessengerException {
+        try {
+          new CountDownLatch(1).await(1, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+          // Do not restore the interrupt here, even though a real messenger must: leaving the flag cleared is what
+          // this test checks the indexer recovers from. Restoring it would let the test pass even if the indexer
+          // did not restore it.
+          throw new MessengerException("Interrupted while completing a batch", e);
+        }
         super.batchComplete(batch);
       }
     };
@@ -1189,9 +1198,14 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public Document pollDocToIndex() throws Exception {
+    public Document pollDocToIndex() throws MessengerException {
       pollCount.incrementAndGet();
-      return docsToIndex.poll(10, TimeUnit.MILLISECONDS);
+      try {
+        return docsToIndex.poll(10, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new MessengerException("Interrupted while polling for a document to index", e);
+      }
     }
 
     @Override
@@ -1219,7 +1233,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public void batchComplete(List<Document> batch) throws InterruptedException {
+    public void batchComplete(List<Document> batch) throws MessengerException {
       completedBatches.add(batch.stream().map(Document::getId).collect(Collectors.joining(",")));
     }
 

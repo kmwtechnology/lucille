@@ -79,7 +79,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    * Does not commit offsets.
    */
   @Override
-  public KafkaDocument pollDocToProcess() throws Exception {
+  public KafkaDocument pollDocToProcess() {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
     try {
       consumerRecords = sourceConsumer.poll(pollInterval);
@@ -134,7 +134,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    * "Known boundary (hybrid + indexOverrideField)" note in docs/operations/indexing-throughput.
    */
   @Override
-  public void commitPendingDocOffsets() throws Exception {
+  public void commitPendingDocOffsets() {
     Map<TopicPartition, OffsetAndMetadata> batchOffsets = offsets.poll();
     if (batchOffsets == null) {
       return;
@@ -196,7 +196,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     if (sourceConsumer != null) {
       sourceConsumer.close();
     }

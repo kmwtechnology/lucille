@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -1336,7 +1337,7 @@ public class SolrIndexerTest {
     List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
     TestMessenger messenger = new TestMessenger() {
       @Override
-      public void batchComplete(List<Document> batch) throws Exception {
+      public void batchComplete(List<Document> batch) throws MessengerException {
         completedBatches.add(batch.get(0).getId());
         super.batchComplete(batch);
       }

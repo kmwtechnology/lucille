@@ -21,37 +21,55 @@ public interface IndexerMessenger {
    * indexed; block if no such Document is available, but apply a timeout of several milliseconds
    * to several seconds so that this method can be called from within a polling loop that
    * periodically checks other conditions even when no Documents are available.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  Document pollDocToIndex() throws Exception;
+  Document pollDocToIndex() throws MessengerException;
 
   /**
    * Make the designated Event available to the Publisher or any other component that is listening for
    * Document-related Events.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void sendEvent(Event event) throws Exception;
+  void sendEvent(Event event) throws MessengerException;
 
   /**
    * Create an Event from the given parameters and make it available to the Publisher or
    * any other component that is listening for Document-related Events.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void sendEvent(Document document, String message, Event.Type type) throws Exception;
+  void sendEvent(Document document, String message, Event.Type type) throws MessengerException;
 
   /**
    * Sends Events of the given type and message for a batch of Documents. Implementations may
    * send the events asynchronously and flush at the end, providing better throughput than
    * calling sendEvent() individually for each document.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception;
+  void sendEvents(List<Document> documents, String message, Event.Type type) throws MessengerException;
 
   /**
    * Close any connections opened by this IndexerMessenger.
+   *
+   * <p> Declares no checked exception: it runs during shutdown, where a caller can only log a failure. An
+   * implementation logs a failure to release a resource itself, or lets an unchecked exception propagate.
    */
-  void close() throws Exception;
+  void close();
 
   /**
    * Provides a way to communicate to other components that a batch of documents has been completed.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void batchComplete(List<Document> batch) throws Exception;
+  void batchComplete(List<Document> batch) throws MessengerException;
 
   /**
    * Registers a hook the messenger runs, on the indexer thread, when it learns a partition is about to be revoked in a

@@ -177,7 +177,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     AtomicInteger pollsSinceRejoin = new AtomicInteger();
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
       @Override
-      public Document pollDocToIndex() throws Exception {
+      public Document pollDocToIndex() {
         Document doc = super.pollDocToIndex();
         if (doc != null) {
           polled.incrementAndGet();
@@ -263,7 +263,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     AtomicInteger pollsSinceRejoin = new AtomicInteger();
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
       @Override
-      public Document pollDocToIndex() throws Exception {
+      public Document pollDocToIndex() {
         Document doc = super.pollDocToIndex();
         if (doc != null) {
           polled.incrementAndGet();
@@ -358,7 +358,7 @@ public class KafkaConcurrentIndexerEndToEndTest {
     List<Document> received = Collections.synchronizedList(new ArrayList<>());
     KafkaIndexerMessenger messenger = new KafkaIndexerMessenger(config, pipeline) {
       @Override
-      public Document pollDocToIndex() throws Exception {
+      public Document pollDocToIndex() {
         Document doc = super.pollDocToIndex();
         if (doc != null) {
           received.add(doc);

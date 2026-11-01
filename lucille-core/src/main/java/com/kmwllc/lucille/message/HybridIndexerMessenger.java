@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
+import java.util.concurrent.ExecutionException;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,24 +55,35 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
-  public Document pollDocToIndex() throws Exception {
-    return pipelineDest.poll(LocalMessenger.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+  public Document pollDocToIndex() throws MessengerException {
+    try {
+      return pipelineDest.poll(LocalMessenger.POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while polling for a document to index", e);
+    }
   }
 
   @Override
-  public void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws MessengerException {
     if (idSet != null) {
       idSet.add(event.getDocumentId());
     }
     if (kafkaEventProducer != null) {
       String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-      RecordMetadata result = (RecordMetadata) kafkaEventProducer.send(
-          new ProducerRecord(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+      try {
+        kafkaEventProducer.send(new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+      } catch (ExecutionException e) {
+        throw KafkaUtils.toMessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId(), e);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new MessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId() + " was interrupted", e);
+      }
     }
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
     if (idSet != null) {
       idSet.add(document.getId());
     }
@@ -83,7 +94,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
   }
 
   @Override
-  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws MessengerException {
     if (documents.isEmpty()) {
       return;
     }
@@ -117,12 +128,12 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
     Exception e = sendException.get();
     if (e != null) {
-      throw new Exception("Failed to send one or more events", e);
+      throw new MessengerException("Failed to send one or more events", e);
     }
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     if (kafkaEventProducer != null) {
       kafkaEventProducer.close();
     }
@@ -130,7 +141,7 @@ public class HybridIndexerMessenger implements IndexerMessenger {
 
   // TODO document assumptions about ordering of documents in batch
   @Override
-  public void batchComplete(List<Document> batch) throws InterruptedException {
+  public void batchComplete(List<Document> batch) throws MessengerException {
     if (batch.isEmpty()) {
       return;
     }
@@ -149,7 +160,12 @@ public class HybridIndexerMessenger implements IndexerMessenger {
       batchOffsets.put(topicPartition, offset);
     }
     if (!batchOffsets.isEmpty()) {
-      offsets.put(batchOffsets);
+      try {
+        offsets.put(batchOffsets);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new MessengerException("Interrupted while queueing the offsets of a completed batch", e);
+      }
     }
   }
 
