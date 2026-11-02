@@ -13,6 +13,7 @@ import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.LocalMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -707,14 +708,15 @@ public class PublisherImplTest {
   public void testPublishWrapsMessengerFailure() throws Exception {
     TestMessenger messenger = new TestMessenger() {
       @Override
-      public void sendForProcessing(Document document) throws Exception {
-        throw new IOException("broker unavailable");
+      public void sendForProcessing(Document document) throws MessengerException {
+        throw new MessengerException("Send failed.", new IOException("broker unavailable"));
       }
     };
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     PublisherException e = assertThrows(PublisherException.class, () -> publisher.publish(Document.create("doc1")));
-    assertTrue(e.getCause() instanceof IOException);
+    assertTrue(e.getCause() instanceof MessengerException);
+    assertTrue(e.getCause().getCause() instanceof IOException);
     // the document was not sent, so it is not left pending
     assertEquals(0, publisher.numPending());
   }
@@ -793,14 +795,15 @@ public class PublisherImplTest {
   public void testFlushWrapsMessengerFailure() throws Exception {
     TestMessenger messenger = new TestMessenger() {
       @Override
-      public void flush() throws Exception {
-        throw new IOException("Kafka send failed");
+      public void flush() throws MessengerException {
+        throw new MessengerException("Flush failed.", new IOException("Kafka send failed"));
       }
     };
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     PublisherException e = assertThrows(PublisherException.class, () -> publisher.flush());
-    assertTrue(e.getCause() instanceof IOException);
+    assertTrue(e.getCause() instanceof MessengerException);
+    assertTrue(e.getCause().getCause() instanceof IOException);
   }
 
   @Test

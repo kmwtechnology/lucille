@@ -4,6 +4,7 @@ import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.PublisherMessenger;
 import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
@@ -133,12 +134,7 @@ public class PublisherImpl implements Publisher {
 
     try {
       messenger.initialize(runId, pipelineName);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new PublisherException("Interrupted while initializing publisher. (" + pipelineName + ")", e);
-    } catch (RuntimeException e) {
-      throw e;
-    } catch (Exception e) {
+    } catch (MessengerException e) {
       throw new PublisherException("Error initializing publisher. (" + pipelineName + ")", e);
     }
     this.firstDocStopWatch = new StopWatch();
@@ -205,9 +201,7 @@ public class PublisherImpl implements Publisher {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new PublisherException("Interrupted while waiting to publish document " + document.getId(), e);
-    } catch (RuntimeException e) {
-      throw e;
-    } catch (Exception e) {
+    } catch (MessengerException e) {
       throw new PublisherException("Error publishing document " + document.getId(), e);
     } finally {
       endCollapsingCall();
@@ -229,7 +223,7 @@ public class PublisherImpl implements Publisher {
     }
   }
 
-  private void publishAndTrack(Document document) throws Exception {
+  private void publishAndTrack(Document document) throws InterruptedException, MessengerException {
     checkNotClosed();
 
     // check if we should wait until resume() is called
@@ -302,7 +296,7 @@ public class PublisherImpl implements Publisher {
     numReceived.incrementAndGet();
   }
 
-  private void publishInternal(Document document) throws Exception {
+  private void publishInternal(Document document) throws MessengerException {
     if (!isCollapsing) {
       sendForProcessing(document);
       return;
@@ -321,7 +315,7 @@ public class PublisherImpl implements Publisher {
     }
   }
 
-  private void sendForProcessing(Document document) throws Exception {
+  private void sendForProcessing(Document document) throws MessengerException {
     document.initializeRunId(runId);
 
     // capture the docId before we make the document available for update by other threads
@@ -369,12 +363,7 @@ public class PublisherImpl implements Publisher {
       }
       previousDoc = null;
       messenger.flush();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new PublisherException("Interrupted while flushing publisher. (" + pipelineName + ")", e);
-    } catch (RuntimeException e) {
-      throw e;
-    } catch (Exception e) {
+    } catch (MessengerException e) {
       throw new PublisherException("Error flushing publisher. (" + pipelineName + ")", e);
     } finally {
       endCollapsingCall();
@@ -576,12 +565,7 @@ public class PublisherImpl implements Publisher {
   private Event pollEvent() throws PublisherException {
     try {
       return messenger.pollEvent();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new PublisherException("Interrupted while waiting for events. (" + pipelineName + ")", e);
-    } catch (RuntimeException e) {
-      throw e;
-    } catch (Exception e) {
+    } catch (MessengerException e) {
       throw new PublisherException("Error polling for events. (" + pipelineName + ")", e);
     }
   }
