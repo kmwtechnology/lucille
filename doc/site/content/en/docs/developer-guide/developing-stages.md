@@ -141,7 +141,7 @@ private FileContentFetcher fileFetcher;
 public void start() throws StageException {
   this.fileFetcher = FileContentFetcher.create(config);
   try {
-    fileFetcher.startup();
+    fileFetcher.start();
   } catch (IOException e) {
     throw new StageException("Failed to initialize file fetcher", e);
   }
@@ -160,7 +160,7 @@ public Iterator<Document> processDocument(Document doc) throws StageException {
 
 @Override
 public void stop() throws StageException {
-  fileFetcher.shutdown();
+  fileFetcher.stop();
 }
 ```
 

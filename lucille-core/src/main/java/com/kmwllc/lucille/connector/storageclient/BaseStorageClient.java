@@ -39,8 +39,8 @@ import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
 /**
- * The base implementation for StorageClients. Must be initialized before traversal / getting a file's contents using
- * {@link BaseStorageClient#init()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
+ * The base implementation for StorageClients. Must be started before traversal / getting a file's contents using
+ * {@link BaseStorageClient#start()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
  * Documents. Call {@link BaseStorageClient#getFileContentStream(URI)} to get the contents of a single file at the given URI.
  */
 public abstract class BaseStorageClient implements StorageClient {
@@ -81,29 +81,29 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected void validateOptions(Config config) { }
 
-  // Wrapping around init, shutdown, and traverse to manage "initialized" before / after doing the actual operations in a
+  // Wrapping around start, stop, and traverse to manage "initialized" before / after doing the actual operations in a
   // StorageClient-specific way.
 
   @Override
-  public final void init() throws IOException {
+  public final void start() throws IOException {
     if (!initialized) {
       initializeStorageClient();
       initialized = true;
     }
   }
 
-  // StorageClient-specific initialization operations
+  // StorageClient-specific operations for start()
   protected abstract void initializeStorageClient() throws IOException;
 
   @Override
-  public final void shutdown() throws IOException {
+  public final void stop() throws IOException {
     if (initialized) {
       initialized = false;
       shutdownStorageClient();
     }
   }
 
-  // StorageClient-specific shutdown operations
+  // StorageClient-specific operations for stop()
   protected abstract void shutdownStorageClient() throws IOException;
 
   public boolean isInitialized() {

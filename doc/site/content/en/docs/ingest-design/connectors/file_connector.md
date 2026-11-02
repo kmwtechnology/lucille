@@ -549,7 +549,7 @@ public void execute(Publisher publisher) throws ConnectorException {
 public void close() {
     if (stateManager != null) stateManager.shutdown();
     for (StorageClient client : storageClientMap.values()) {
-        client.shutdown();
+        client.stop();
     }
 }
 ```

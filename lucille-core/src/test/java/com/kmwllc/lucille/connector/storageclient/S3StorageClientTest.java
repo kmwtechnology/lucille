@@ -80,10 +80,10 @@ public class S3StorageClientTest {
         S3_SECRET_ACCESS_KEY, "secretKey"));
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
 
-    s3StorageClient.init();
+    s3StorageClient.start();
     S3Client mockClient = mock(S3Client.class);
     s3StorageClient.setS3ClientForTesting(mockClient);
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
 
     // verify that the s3 client is closed
     verify(mockClient, times(1)).close();
@@ -333,7 +333,7 @@ public class S3StorageClientTest {
       assertEquals("s3://bucket/obj2.json", fileNames.get(1));
     }
 
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
   }
 
   @Test
@@ -444,7 +444,7 @@ public class S3StorageClientTest {
     assertEquals("zipped.csv-3", doc19.getId());
     assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc19.getString("source"));
 
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
   }
 
   @Test
@@ -512,7 +512,7 @@ public class S3StorageClientTest {
 
     s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
 
     verify(mockClient, times(4)).copyObject(any(CopyObjectRequest.class));
     verify(mockClient, times(4)).deleteObject(any(DeleteObjectRequest.class));
@@ -588,7 +588,7 @@ public class S3StorageClientTest {
     s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
 
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
 
     verify(mockClient, times(4)).copyObject(any(CopyObjectRequest.class));
     verify(mockClient, times(4)).deleteObject(any(DeleteObjectRequest.class));
@@ -696,7 +696,7 @@ public class S3StorageClientTest {
 
     try (MockedStatic<S3Client> mockedS3Client = mockStatic(S3Client.class)) {
       mockedS3Client.when(S3Client::builder).thenReturn(builder);
-      new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true))).init();
+      new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true))).start();
     }
 
     // anonymous requests still need a region, and the default chain cannot supply one

@@ -25,16 +25,18 @@ import java.util.Map;
 public interface StorageClient {
 
   /**
-   * Initialize the client and creates necessary connections and/or resources.
-   * @throws IOException If an error occurs during initialization.
+   * Starts the client, creating any necessary connections and/or resources. Must be called before traversing or getting
+   * a file's contents. Calling it again on a started client has no effect.
+   * @throws IOException If an error occurs while starting.
    */
-  void init() throws IOException;
+  void start() throws IOException;
 
   /**
-   * Shutdown the client, closes any open connections and/or resources.
-   * @throws IOException If an error occurs during shutdown.
+   * Stops the client, closing any open connections and/or resources. Calling it on a client that isn't started has
+   * no effect.
+   * @throws IOException If an error occurs while stopping.
    */
-  void shutdown() throws IOException;
+  void stop() throws IOException;
 
   /**
    * Traverses through the storage client and publish files to Lucille pipeline. Does not update or use state, and

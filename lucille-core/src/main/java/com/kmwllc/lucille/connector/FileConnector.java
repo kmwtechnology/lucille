@@ -354,7 +354,7 @@ public class FileConnector extends AbstractConnector {
   private void initialize() throws ConnectorException {
     try {
       for (StorageClient client : storageClientMap.values()) {
-        client.init();
+        client.start();
       }
     } catch (IOException e) {
       throw new ConnectorException("Error initializing a StorageClient.", e);
@@ -379,7 +379,7 @@ public class FileConnector extends AbstractConnector {
     }
     for (StorageClient client : storageClientMap.values()) {
       try {
-        client.shutdown();
+        client.stop();
       } catch (IOException e) {
         log.warn("Error shutting down StorageClient.", e);
       }

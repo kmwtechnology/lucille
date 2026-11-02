@@ -68,7 +68,7 @@ public class AzureStorageClientTest {
       when(mock.connectionString(anyString())).thenReturn(mock);
       when(mock.buildClient()).thenReturn(mock(BlobServiceClient.class));
     })) {
-      azureStorageClient.init();
+      azureStorageClient.start();
       verify(builder.constructed().get(0), times(1)).connectionString("connectionString");
     }
 
@@ -80,11 +80,11 @@ public class AzureStorageClientTest {
       when(mock.credential((StorageSharedKeyCredential) any())).thenReturn(mock);
       when(mock.buildClient()).thenReturn(mock(BlobServiceClient.class));
     })) {
-      azureStorageClient.init();
+      azureStorageClient.start();
       verify(builder.constructed().get(0), times(1)).credential(any(StorageSharedKeyCredential.class));
     }
 
-    azureStorageClient.shutdown();
+    azureStorageClient.stop();
   }
 
 
@@ -270,7 +270,7 @@ public class AzureStorageClientTest {
     }
 
     // shutdown client and handlers
-    azureStorageClient.shutdown();
+    azureStorageClient.stop();
   }
 
   @Test
@@ -392,7 +392,7 @@ public class AzureStorageClientTest {
     assertEquals("https://storagename.blob.core.windows.net/folder/hello.zip"
         + ARCHIVE_FILE_SEPARATOR + "hello", doc19.getString(FILE_PATH));
 
-    azureStorageClient.shutdown();
+    azureStorageClient.stop();
   }
 
   @Test
@@ -460,7 +460,7 @@ public class AzureStorageClientTest {
 
     verify(mockSourceBlobClient, times(4)).beginCopy(any(), any());
 
-    azureStorageClient.shutdown();
+    azureStorageClient.stop();
     assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
 
@@ -533,7 +533,7 @@ public class AzureStorageClientTest {
 
     verify(mockSourceBlobClient, times(4)).beginCopy(any(), any());
 
-    azureStorageClient.shutdown();
+    azureStorageClient.stop();
     assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
 

@@ -102,12 +102,12 @@ public class BaseStorageClientTest {
 
   private static List<String> traverse(ListStorageClient client, Config config, FileStateTracker state) throws Exception {
     TestMessenger messenger = new TestMessenger();
-    client.init();
+    client.start();
     try {
       client.traverse(new PublisherImpl(ConfigFactory.empty(), messenger, "run", "pipeline"),
           new TraversalParams(config, ROOT, ""), state);
     } finally {
-      client.shutdown();
+      client.stop();
     }
     return messenger.getDocsSentForProcessing().stream()
         .map(doc -> doc.getString(StorageClientFields.FILE_PATH))

@@ -66,7 +66,7 @@ public class MyS3StorageClient extends S3StorageClient {
 
 To create a StorageClient, extend `BaseStorageClient`. The base class manages the heavy lifting so you only provide the storage-specific operations:
 
-- **Lifecycle management** — Tracks initialization state and ensures `init()` is called before traversal.
+- **Lifecycle management** — Tracks initialization state and ensures `start()` is called before traversal.
 - **File filtering** — Applies include/exclude patterns, file size limits, and modification time cutoffs from `TraversalParams`.
 - **Archive handling** — With `handleArchivedFiles`, extracts `.zip` and `.tar` archives (and `.tar.gz`, when `handleCompressedFiles` is also set), processing their entries through the appropriate FileHandlers.
 - **Compressed file handling** — With `handleCompressedFiles`, decompresses `.gz` files before passing them to FileHandlers. No other compression formats are supported.
@@ -81,8 +81,8 @@ To create a StorageClient, extend `BaseStorageClient`. The base class manages th
 | Method | Required | Purpose |
 |---|---|---|
 | `validateOptions(Config config)` | No | Validate that the config has the required credentials/settings for your storage backend. Throw `IllegalArgumentException` if invalid. Has an empty default implementation — override when your backend has config options that necessitate each other (e.g., mutual exclusivity, co-dependency). |
-| `initializeStorageClient()` | Yes | Create the client connection (e.g., open an SFTP session). Called once before traversal begins. |
-| `shutdownStorageClient()` | Yes | Close the client connection. Called after traversal completes. |
+| `initializeStorageClient()` | Yes | Create the client connection (e.g., open an SFTP session). Called by `start()`, once before traversal begins. |
+| `shutdownStorageClient()` | Yes | Close the client connection. Called by `stop()`, after traversal completes. |
 | `traverseStorageClient(Publisher, TraversalParams, FileConnectorStateManager)` | Yes | List files in the storage system and call `processAndPublishFileIfValid()` for each one. |
 | `getFileContentStreamFromStorage(URI uri)` | Yes | Open and return an `InputStream` for a single file at the given URI. |
 | `moveFile(URI filePath, URI folder)` | Yes | Move a file to a different location (used for success/error directories). Throw `UnsupportedOperationException` if your backend doesn't support moves. |

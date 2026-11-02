@@ -49,7 +49,7 @@ public class GoogleStorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "invalidPath"));
     GoogleStorageClient googleStorageClient = new GoogleStorageClient(cloudOptions);
 
-    assertThrows(IOException.class, googleStorageClient::init);
+    assertThrows(IOException.class, googleStorageClient::start);
   }
 
   @Test
@@ -110,7 +110,7 @@ public class GoogleStorageClientTest {
     assertEquals("3", documents.get(2).getString("file_size_bytes"));
 
     // closes storage too
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -138,7 +138,7 @@ public class GoogleStorageClientTest {
     assertFalse(documents.get(0).has(CONTENT));
 
     // closes storage too
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -179,7 +179,7 @@ public class GoogleStorageClientTest {
     assertEquals("gs://bucket/my-object", documents.get(1).getString(FILE_PATH));
 
     // closes storage too
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -225,7 +225,7 @@ public class GoogleStorageClientTest {
     }
 
     // closes storage too
-    gStorageClient.shutdown();
+    gStorageClient.stop();
   }
 
   @Test
@@ -352,7 +352,7 @@ public class GoogleStorageClientTest {
 
 
     // closes storage too
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -409,7 +409,7 @@ public class GoogleStorageClientTest {
     assertEquals("World!", new String(storage.get(movedBlobId3).getContent()));
     assertEquals("foo", new String(storage.get(movedBlobId4).getContent()));
 
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
 
     assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
@@ -464,7 +464,7 @@ public class GoogleStorageClientTest {
     assertEquals("World!", new String(storage.get(movedBlobId3).getContent()));
     assertEquals("foo", new String(storage.get(movedBlobId4).getContent()));
 
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
 
     assertEquals(4, messenger.getDocsSentForProcessing().size());
   }
@@ -486,7 +486,7 @@ public class GoogleStorageClientTest {
 
     assertEquals("Hello there.", new String(results.readAllBytes()));
 
-    storageClient.shutdown();
+    storageClient.stop();
   }
 
 
@@ -521,7 +521,7 @@ public class GoogleStorageClientTest {
     assertEquals(1, docs.size());
     assertEquals("gs://bucket/root-file.txt", docs.get(0).getString(FILE_PATH));
 
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   @Test
@@ -555,7 +555,7 @@ public class GoogleStorageClientTest {
     assertEquals(1, docs.size());
     assertEquals("gs://bucket/root-file.txt", docs.get(0).getString(FILE_PATH));
 
-    googleStorageClient.shutdown();
+    googleStorageClient.stop();
   }
 
   // ** NOTE: There is not a test for the lastModifiedCutoff here. Unfortunately, there doesn't appear to be an easy way
