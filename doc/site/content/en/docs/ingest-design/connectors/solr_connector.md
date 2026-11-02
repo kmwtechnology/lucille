@@ -81,7 +81,9 @@ connectors: [
 
 ## Document Fields
 
-Each Solr result becomes a Document whose ID is `docIdPrefix` (if set) followed by the value of `idField`. Every other returned field is copied to the Document, with its name lowercased. A result whose `idField` value is missing or blank is skipped and logged, and the number of skipped results is logged at the end. The `idField` and `id` fields are not copied. Field values are copied as strings, so `idField` and every returned field must hold string values; a field with a non-string value (for example a number or date), or a field whose name contains uppercase letters, fails the run. Solr also returns its numeric `_version_` field unless `fl` excludes it, so always set `fl` to the string fields you need. Nested child documents are not read.
+Each Solr result becomes a Document whose ID is `docIdPrefix` (if set) followed by the value of `idField`. Every other returned field is copied with its type, under its name lowercased; fields whose names differ only in case overwrite each other. A result whose `idField` value is missing or blank is skipped and logged, and the number of skipped results is logged at the end. The `idField` and `id` fields are not copied. Nested child documents are not read.
+
+Solr returns `_version_` with every document. Remove it with a `DeleteFields` stage before indexing the documents into Solr, or Solr rejects each one with a 409 version conflict.
 
 ## Query Parameters (`solrParams`)
 
@@ -156,6 +158,6 @@ connectors: [
 The connector iterates through results using Solr's `cursorMark` mechanism, which avoids deep pagination performance issues. This requires:
 
 1. Documents to be sorted by the collection's `uniqueKey` field, so `idField` must be that field.
-2. The `idField` to hold a single string value in each document.
+2. The `idField` to hold a single value in each document.
 
 For large collections, tune `rows` in `solrParams` to balance memory use and round-trip count.
