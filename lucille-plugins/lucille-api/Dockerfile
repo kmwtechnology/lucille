@@ -57,7 +57,7 @@ RUN groupadd -r lucille \
 
 # we copy local build artifacts and configuration into the image that we're building
 COPY --chown=lucille:lucille conf/ /lucille-api/conf/
-COPY --chown=lucille:lucille target/lucille-api-plugin.jar /lucille-api/target/lucille-api-plugin.jar
+COPY --chown=lucille:lucille target/lucille-api-plugin.jar /lucille-api/lucille-api-plugin.jar
 
 # Set the necessary environment variables
 ENV JAVA_OPTS=""
