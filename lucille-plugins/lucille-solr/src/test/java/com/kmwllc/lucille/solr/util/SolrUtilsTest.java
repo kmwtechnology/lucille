@@ -52,9 +52,9 @@ public class SolrUtilsTest {
   }
 
   @Test
-  public void testStandaloneClientUsesFirstUrlAndDefaultCollection() throws Exception {
+  public void testStandaloneClientUsesUrlAndDefaultCollection() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of(
-        "solr.url", List.of("http://solr1:8983/solr", "http://solr2:8983/solr"),
+        "solr.url", List.of("http://solr1:8983/solr"),
         "solr.defaultCollection", "products"));
 
     try (SolrClient client = SolrUtils.getSolrClient(config)) {
@@ -62,6 +62,14 @@ public class SolrUtilsTest {
       assertEquals("http://solr1:8983/solr", ((HttpJdkSolrClient) client).getBaseURL());
       assertEquals("products", client.getDefaultCollection());
     }
+  }
+
+  @Test
+  public void testStandaloneClientRejectsMultipleUrls() {
+    Config config = ConfigFactory.parseMap(Map.of("solr.url", List.of("http://solr1:8983/solr", "http://solr2:8983/solr")));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> SolrUtils.getSolrClient(config));
+    assertTrue(e.getMessage(), e.getMessage().contains("useCloudClient"));
   }
 
   @Test

@@ -77,8 +77,8 @@ public class SolrUtils {
   /**
    * Generate a SolrClient from the given config file. Supports both Cloud and Http SolrClients.
    * <p>
-   * This method has SIDE EFFECTS.  It will set SSL system properties if corresponding properties
-   * are found in the config.
+   * This method has SIDE EFFECTS: it sets the javax.net.ssl.* system properties (key store, trust store and their
+   * passwords) found in the config, unless they are already set.
    *
    * @param config The configuration file to generate a client from
    * @return A SolrClient suitable for the given configuration.
@@ -149,8 +149,12 @@ public class SolrUtils {
    * when a request names no collection.
    */
   static HttpJdkSolrClient getStandaloneClient(Config config) {
-    HttpJdkSolrClient.Builder clientBuilder = getHttpClientBuilder(config)
-        .withBaseSolrUrl(ConfigUtils.getStringOrList(config, "solr.url").get(0));
+    List<String> urls = ConfigUtils.getStringOrList(config, "solr.url");
+    if (urls.size() > 1) {
+      throw new IllegalArgumentException("solr.url has " + urls.size() + " URLs, but without useCloudClient only one "
+          + "can be used. Give a single URL, or set useCloudClient: true.");
+    }
+    HttpJdkSolrClient.Builder clientBuilder = getHttpClientBuilder(config).withBaseSolrUrl(urls.get(0));
     if (config.hasPath("solr.defaultCollection")) {
       clientBuilder.withDefaultCollection(config.getString("solr.defaultCollection"));
     }
