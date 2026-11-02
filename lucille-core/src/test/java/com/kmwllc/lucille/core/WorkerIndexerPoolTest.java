@@ -8,6 +8,9 @@ import static org.junit.Assert.assertThrows;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,6 +49,22 @@ public class WorkerIndexerPoolTest {
     assertThrows(Exception.class, () -> { pool.start(); });
 
     assertFalse(areLucilleThreadsRunning());
+  }
+
+  @Test
+  public void testMinRemainingCapacity() throws Exception {
+    LinkedBlockingQueue<Document> roomy = new LinkedBlockingQueue<>(10);
+    LinkedBlockingQueue<Document> tight = new LinkedBlockingQueue<>(3);
+    tight.add(Document.create("doc1"));
+    tight.add(Document.create("doc2"));
+
+    assertEquals(1, WorkerIndexerPool.minRemainingCapacity(List.of(roomy, tight)));
+
+    tight.add(Document.create("doc3"));
+    assertEquals(0, WorkerIndexerPool.minRemainingCapacity(List.of(roomy, tight)));
+
+    assertEquals(10, WorkerIndexerPool.minRemainingCapacity(Arrays.asList(roomy, null)));
+    assertEquals(0, WorkerIndexerPool.minRemainingCapacity(List.of()));
   }
 
 }

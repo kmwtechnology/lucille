@@ -1,9 +1,14 @@
 package com.kmwllc.lucille.message;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.KafkaDocument;
+import com.kmwllc.lucille.util.LogUtils;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -23,6 +28,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
@@ -31,10 +37,32 @@ import java.util.regex.Pattern;
  *
  * <p> Internal to Lucille: {@link com.kmwllc.lucille.core.WorkerIndexer} creates it, sharing its queues with a
  * {@link HybridIndexerMessenger}. It is public only because the two are in different packages.
+ *
+ * <p> Registers these metrics in the shared registry ({@link LogUtils#METRICS_REG}), named with the pipeline name as
+ * prefix. The names are stable; they are shared by every WorkerIndexer pair running the pipeline in this JVM, so the
+ * values cover all of them:
+ * <ul>
+ *   <li>{@code <pipeline>.hybrid.worker.pollTime} (Timer): time spent in each poll of the source topic. A poll that
+ *   finds nothing waits for the poll interval, so an idle worker shows poll times close to that interval.</li>
+ *   <li>{@code <pipeline>.hybrid.worker.commitTime} (Timer): time spent in each offset commit. Calls with nothing to
+ *   commit are not timed.</li>
+ *   <li>{@code <pipeline>.hybrid.worker.commitFailures} (Meter): offset commits that threw.</li>
+ *   <li>{@code <pipeline>.hybrid.indexerQueue.full} (Meter): documents that found the indexer queue full and had to
+ *   wait for space.</li>
+ * </ul>
  */
 public class HybridWorkerMessenger implements WorkerMessenger {
 
-  private static final Logger log = LoggerFactory.getLogger(KafkaWorkerMessenger.class);
+  private static final Logger log = LoggerFactory.getLogger(HybridWorkerMessenger.class);
+
+  public static final String POLL_TIME_SUFFIX = ".hybrid.worker.pollTime";
+  public static final String COMMIT_TIME_SUFFIX = ".hybrid.worker.commitTime";
+  public static final String COMMIT_FAILURES_SUFFIX = ".hybrid.worker.commitFailures";
+  public static final String INDEXER_QUEUE_FULL_SUFFIX = ".hybrid.indexerQueue.full";
+
+  // at most one "indexer queue is full" warning per this interval
+  static final long QUEUE_FULL_WARN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(60);
+
   private final Consumer<String, KafkaDocument> sourceConsumer;
   private final KafkaProducer<String, String> kafkaEventProducer;
   private final BlockingQueue<Document> pipelineDest;
@@ -45,6 +73,14 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final String pipelineName;
   private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
+
+  private final Timer pollTimer;
+  private final Timer commitTimer;
+  private final Meter commitFailures;
+  private final Meter indexerQueueFull;
+  // only the worker thread calls sendForIndexing, so this needs no synchronization
+  private long lastQueueFullWarnNanos;
+  private boolean warnedQueueFull = false;
 
   // takes the source consumer, so tests can supply one
   HybridWorkerMessenger(Config config, String pipelineName,
@@ -61,6 +97,12 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, sourceConsumer);
+
+    MetricRegistry metrics = SharedMetricRegistries.getOrCreate(LogUtils.METRICS_REG);
+    this.pollTimer = metrics.timer(pipelineName + POLL_TIME_SUFFIX);
+    this.commitTimer = metrics.timer(pipelineName + COMMIT_TIME_SUFFIX);
+    this.commitFailures = metrics.meter(pipelineName + COMMIT_FAILURES_SUFFIX);
+    this.indexerQueueFull = metrics.meter(pipelineName + INDEXER_QUEUE_FULL_SUFFIX);
   }
 
   public HybridWorkerMessenger(Config config, String pipelineName,
@@ -88,7 +130,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   @Override
   public KafkaDocument pollDocToProcess() {
     ConsumerRecords<String, KafkaDocument> consumerRecords;
-    try {
+    try (Timer.Context ignored = pollTimer.time()) {
       consumerRecords = sourceConsumer.poll(pollInterval);
     } catch (RecordDeserializationException e) {
       // rethrows unless configured to skip. The skipped offset is committed along with the next document
@@ -139,6 +181,9 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    * offset can skip that record after a crash. Share {@link OffsetCommitTracker} here (as the distributed
    * KafkaIndexerMessenger does), which commits only the contiguous completed prefix and also handles rebalances. See the
    * "Known boundary (hybrid + indexOverrideField)" note in docs/operations/indexing-throughput.
+   *
+   * <p>The commit is timed (<code>commitTime</code>), and a commit that throws marks <code>commitFailures</code> before
+   * the exception is rethrown.
    */
   @Override
   public void commitPendingDocOffsets() {
@@ -155,15 +200,34 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     // offsets are committed synchronously, and only after the indexer has sent the batch, so a successful commit means
     // those documents are already in the destination. Doing it synchronously limits how much is reprocessed and
     // reindexed after a HybridWorker crash/restart or a consumer group rebalance.
-    sourceConsumer.commitSync(highestOffsets);
+    try (Timer.Context ignored = commitTimer.time()) {
+      sourceConsumer.commitSync(highestOffsets);
+    } catch (RuntimeException e) {
+      commitFailures.mark();
+      throw e;
+    }
   }
 
   /**
    * Sends a processed document to the appropriate destination for documents waiting to be indexed.
    *
+   * <p>If the indexer queue is full, marks <code>indexerQueue.full</code>, logs a warning (at most once a minute) and
+   * blocks until there is space.
    */
   @Override
   public void sendForIndexing(Document document) throws MessengerException {
+    if (pipelineDest.offer(document)) {
+      return;
+    }
+    indexerQueueFull.mark();
+    long now = System.nanoTime();
+    if (!warnedQueueFull || now - lastQueueFullWarnNanos >= QUEUE_FULL_WARN_INTERVAL_NANOS) {
+      warnedQueueFull = true;
+      lastQueueFullWarnNanos = now;
+      log.warn("Indexer queue for pipeline {} is full ({} documents); the worker is waiting for the indexer. "
+          + "This warning is logged at most once a minute; see the {} meter for a count.",
+          pipelineName, pipelineDest.size(), pipelineName + INDEXER_QUEUE_FULL_SUFFIX);
+    }
     try {
       pipelineDest.put(document);
     } catch (InterruptedException e) {
