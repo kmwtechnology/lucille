@@ -168,6 +168,11 @@ public class SolrUtils {
     HttpJdkSolrClient.Builder clientBuilder = new HttpJdkSolrClient.Builder();
 
     if (getAllowInvalidCert(config)) {
+      // the trust-all SSLContext has no key managers, so a configured client certificate is not sent
+      if (System.getProperty("javax.net.ssl.keyStore") != null) {
+        log.warn("solr.acceptInvalidCert is true, so the client certificate in javax.net.ssl.keyStore will not be sent. "
+            + "If Solr requires client certificates, use javax.net.ssl.trustStore instead of acceptInvalidCert.");
+      }
       clientBuilder.withSSLContext(buildTrustAllSSLContext());
     }
 
