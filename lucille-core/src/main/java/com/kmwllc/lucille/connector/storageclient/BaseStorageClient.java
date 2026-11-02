@@ -1,13 +1,13 @@
 package com.kmwllc.lucille.connector.storageclient;
 
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CONTENT;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.FILE_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.MODIFIED;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.SIZE;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_RESULTS_PER_PAGE;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
-import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.MODIFIED;
-import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.SIZE;
-import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
 
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
@@ -119,7 +119,7 @@ public abstract class BaseStorageClient implements StorageClient {
   @Override
   public final void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     if (!isInitialized()) {
-      throw new IllegalStateException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
     traverseStorageClient(publisher, params, stateMgr);
@@ -184,7 +184,7 @@ public abstract class BaseStorageClient implements StorageClient {
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
     if (!isInitialized()) {
-      throw new IllegalStateException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
     return getFileContentStreamFromStorage(uri);
