@@ -1,0 +1,46 @@
+name: Azure Storage Client Smoketest (Azurite)
+
+# Exercises AzureStorageClientIT against a live Azurite (Azure Blob Storage emulator). Unlike the mocked
+# AzureStorageClientTest, this builds the real Azure SDK client, which wires up azure-core-http-netty ->
+# reactor-netty -> Netty's event loop. It guards against a reactor-netty / Netty version split reintroducing
+# NoClassDefFoundError: io.netty.channel.MultiThreadIoEventLoopGroup (FC-01 / DEP-01).
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  azurite-smoketest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite
+        ports:
+          - 10000:10000
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      # Build the core jar (and its dependencies) that failsafe runs the IT against, then run only the Azure IT.
+      # AZURITE_CONNECTION_STRING points the test at the Azurite service container above; without it the IT would
+      # skip. -DfailIfNoTests=false keeps the job green if the IT is ever renamed/removed.
+      - name: Build core (skip unit tests)
+        run: mvn -B -pl lucille-core -am package -DskipTests --file pom.xml
+      - name: Run Azure Storage Client IT against Azurite
+        env:
+          AZURITE_CONNECTION_STRING: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+        run: >
+          mvn -B -pl lucille-core
+          failsafe:integration-test failsafe:verify
+          -Dit.test=AzureStorageClientIT -DfailIfNoTests=false
+          --file pom.xml
