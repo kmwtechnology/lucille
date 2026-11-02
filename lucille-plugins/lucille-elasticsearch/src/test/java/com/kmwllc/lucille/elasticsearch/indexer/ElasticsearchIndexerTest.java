@@ -14,9 +14,11 @@ import co.elastic.clients.elasticsearch.core.DeleteByQueryRequest;
 import co.elastic.clients.elasticsearch.core.DeleteByQueryResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
+import co.elastic.clients.elasticsearch.core.bulk.DeleteOperation;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
 import co.elastic.clients.elasticsearch._types.VersionType;
 import co.elastic.clients.elasticsearch.core.bulk.UpdateOperation;
+import co.elastic.clients.elasticsearch.indices.ElasticsearchIndicesClient;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -48,6 +50,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -55,11 +58,13 @@ import java.util.HashMap;
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.List;
+import java.util.function.Function;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -71,6 +76,7 @@ import static org.mockito.Mockito.when;
 public class ElasticsearchIndexerTest {
 
   private ElasticsearchClient mockClient;
+  private ElasticsearchIndicesClient mockIndicesClient;
 
   @Before
   public void setup() throws IOException {
@@ -89,6 +95,9 @@ public class ElasticsearchIndexerTest {
     DeleteByQueryResponse mockDeleteByQueryResponse = Mockito.mock(DeleteByQueryResponse.class);
     when(mockClient.deleteByQuery(any(DeleteByQueryRequest.class))).thenReturn(mockDeleteByQueryResponse);
     when(mockDeleteByQueryResponse.failures()).thenReturn(new ArrayList<>());
+
+    mockIndicesClient = Mockito.mock(ElasticsearchIndicesClient.class);
+    when(mockClient.indices()).thenReturn(mockIndicesClient);
   }
 
   /**
@@ -675,6 +684,37 @@ public class ElasticsearchIndexerTest {
     assertEquals("doc2value", fieldValues2.get(0).stringValue());
   }
 
+  // A delete-by-query applies only to documents before it in the batch: "delete the children of P" followed by P's new
+  // children must not delete the new children.
+  @Test
+  public void testDeleteByQueryKeepsBatchOrder() throws Exception {
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(ConfigFactory.load("ElasticsearchIndexerTest/batching.conf"),
+        new TestMessenger(), "testing", mockClient);
+
+    Document oldChild = Document.create("oldChild");
+    oldChild.setField("parent", "P");
+    Document deleteChildren = Document.create("deleteChildren");
+    deleteChildren.setField("deleted", "true");
+    deleteChildren.setField("field", "parent");
+    deleteChildren.setField("value", "P");
+    Document newChild = Document.create("newChild");
+    newChild.setField("parent", "P");
+    assertTrue(indexer.sendToIndex(List.of(oldChild, deleteChildren, newChild)).isEmpty());
+
+    InOrder inOrder = Mockito.inOrder(mockClient, mockIndicesClient);
+    inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+    inOrder.verify(mockIndicesClient).refresh(any(Function.class));
+    inOrder.verify(mockClient).deleteByQuery(any(DeleteByQueryRequest.class));
+    inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(2)).bulk(captor.capture());
+    verify(mockClient, times(1)).deleteByQuery(any(DeleteByQueryRequest.class));
+    assertEquals("oldChild", captor.getAllValues().get(0).operations().get(0).index().id());
+    assertEquals(1, captor.getAllValues().get(1).operations().size());
+    assertEquals("newChild", captor.getAllValues().get(1).operations().get(0).index().id());
+  }
+
   @Test
   public void testDeleteUsesIdOverride() throws Exception {
     TestMessenger messenger = new TestMessenger();
@@ -930,6 +970,93 @@ public class ElasticsearchIndexerTest {
     assertEquals(Long.valueOf(100), indexRequest.version());
   }
 
+  private static Config versionedDeleteConfig() {
+    return ConfigFactory.load("ElasticsearchIndexerTest/versioning.conf")
+        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"))
+        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("deleted"))
+        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
+  }
+
+  // A delete by id carries the document's indexer.versionField value, with indexer.versionType.
+  @Test
+  public void testVersionedDeleteById() throws Exception {
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("deleted", "true");
+    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    DeleteOperation delete = captor.getValue().operations().get(0).delete();
+    assertEquals("doc1", delete.id());
+    assertEquals(Long.valueOf(12345L), delete.version());
+    assertEquals(VersionType.ExternalGte, delete.versionType());
+  }
+
+  // A delete without indexer.versionField is unversioned, and never takes its version from the Kafka offset, which is
+  // not comparable to a versionField value.
+  @Test
+  public void testUnversionedDeleteById() throws Exception {
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("deleted", "true");
+    KafkaDocument kafkaDoc = new KafkaDocument(
+        new ObjectMapper().createObjectNode()
+            .put("id", "doc2")
+            .put("deleted", "true"));
+    kafkaDoc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+    assertTrue(indexer.sendToIndex(List.of(doc, kafkaDoc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    List<BulkOperation> operations = captor.getValue().operations();
+    assertEquals(2, operations.size());
+    for (BulkOperation operation : operations) {
+      assertNull(operation.delete().version());
+      assertNull(operation.delete().versionType());
+    }
+  }
+
+  // Without indexer.versionType, a delete is unversioned even when the document has a version-like field.
+  @Test
+  public void testDeleteByIdWithoutVersionType() throws Exception {
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/batching.conf");
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("deleted", "true");
+    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    assertNull(captor.getValue().operations().get(0).delete().version());
+    assertNull(captor.getValue().operations().get(0).delete().versionType());
+  }
+
+  // A versioned delete that Elasticsearch rejects as stale (409, the index holds a newer version) is a failure.
+  @Test
+  public void testStaleVersionedDeleteFails() throws Exception {
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    BulkResponseItem item = Mockito.mock(BulkResponseItem.class);
+    when(item.id()).thenReturn("doc1");
+    when(item.status()).thenReturn(409);
+    when(item.error()).thenReturn(new ErrorCause.Builder().reason("version conflict").type("version_conflict_engine_exception").build());
+    when(response.errors()).thenReturn(true);
+    when(response.items()).thenReturn(List.of(item));
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(response);
+
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 1L);
+    doc.setField("deleted", "true");
+
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(doc)));
+  }
+
   private void testJoin(String configPath, Document doc, Map<String, Object> expected) throws Exception {
 
     TestMessenger messenger = new TestMessenger();
@@ -979,6 +1106,26 @@ public class ElasticsearchIndexerTest {
     expected.put("my_join_field", joinData);
 
     testJoin("ElasticsearchIndexerTest/joinChild.conf", doc, expected);
+  }
+
+  // A document that already has the join field fails even when the whitelist leaves the join field out, so a misconfigured
+  // pipeline is caught instead of indexing documents with no join value.
+  @Test
+  public void testJoinFieldCollisionFailsWhenFiltered() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/joinParent.conf")
+        .withValue("indexer.whitelist", ConfigValueFactory.fromIterable(List.of("id")));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", mockClient);
+
+    Document doc = Document.create("doc1", "test_run");
+    doc.setField("my_join_field", "fromUpstream");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    verify(mockClient, never()).bulk(any(BulkRequest.class));
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FAIL, events.get(0).getType());
   }
 
   @Test
@@ -1403,6 +1550,7 @@ public class ElasticsearchIndexerTest {
   public void testDeleteByQueryExceptionRethrownAsRetryableWithStatus() throws Exception {
     ElasticsearchClient throwingClient = Mockito.mock(ElasticsearchClient.class);
     Mockito.when(throwingClient.ping()).thenReturn(new BooleanResponse(true));
+    Mockito.when(throwingClient.indices()).thenReturn(Mockito.mock(ElasticsearchIndicesClient.class));
 
     ErrorResponse errorResponse = ErrorResponse.of(b -> b
         .status(503)
@@ -1455,6 +1603,43 @@ public class ElasticsearchIndexerTest {
     indexer.run(1);
 
     verify(retryClient, times(2)).bulk(any(BulkRequest.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(1, events.size());
+    assertEquals(Event.Type.FINISH, events.get(0).getType());
+  }
+
+  // The join field must not be left on the Document, or the retry finds it already set and fails the batch.
+  @Test
+  public void testJoinRetrySucceedsOnSecondAttempt() throws Exception {
+    ElasticsearchClient retryClient = Mockito.mock(ElasticsearchClient.class);
+    Mockito.when(retryClient.ping()).thenReturn(new BooleanResponse(true));
+
+    ErrorResponse errorResponse = ErrorResponse.of(b -> b
+        .status(503)
+        .error(ec -> ec.type("unavailable_shards_exception").reason("service unavailable")));
+    BulkResponse successResponse = Mockito.mock(BulkResponse.class);
+    Mockito.when(successResponse.items()).thenReturn(List.of());
+
+    Mockito.when(retryClient.bulk(any(BulkRequest.class)))
+        .thenThrow(new ElasticsearchException("es/bulk", errorResponse))
+        .thenReturn(successResponse);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("ElasticsearchIndexerTest/joinParent.conf")
+        .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(3))
+        .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(1));
+    ElasticsearchIndexer indexer = new ElasticsearchIndexer(config, messenger, "testing", retryClient);
+
+    Document doc = Document.create("doc1");
+    messenger.sendForIndexing(doc);
+    indexer.run(1);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(retryClient, times(2)).bulk(captor.capture());
+    assertEquals(Map.of("id", "doc1", "my_join_field", "parentName1"),
+        asSent(captor.getAllValues().get(1).operations().get(0).index().document()));
+    assertFalse(doc.has("my_join_field"));
 
     List<Event> events = messenger.getSentEvents();
     assertEquals(1, events.size());

@@ -22,7 +22,7 @@ Config block: `elasticsearch { ... }`. Select it with `indexer.type: "Elasticsea
 |---|---|---|---|
 | `url` | String or List\<String\> | Yes | Elasticsearch endpoint URL, or a list of endpoints for the same cluster; with a list, requests are spread across the hosts. Credentials in the URL (`https://user:password@host:9200`) are used for basic auth for that host. Only the scheme, host, and port are used; a path in the URL is ignored. |
 | `index` | String | Yes | Target index name. |
-| `update` | Boolean | No | Send partial update operations instead of full index operations. Default: `false`. |
+| `update` | Boolean | No | Send partial update operations instead of full index operations; a document missing from the index is created. Default: `false`. |
 | `acceptInvalidCert` | Boolean | No | Accept invalid TLS certificates and skip hostname verification. Default: `false`. |
 | `useCompression` | Boolean | No | Enable request compression in the HTTP client. Default: `false`. |
 | `connectTimeoutMs` | Long | No | Maximum time to establish a connection, including the TLS handshake, in ms. Must be at least 1. Default: `5000`. |
@@ -73,9 +73,9 @@ A missing required join key fails at startup.
 - When `isChild` is `false`, the join field is set to the `parentName` string.
 - When `isChild` is `true`, the join field is set to `{ "name": <childName>, "parent": <value of parentDocumentIdSource> }`. If the document lacks that field, `parent` is null.
 
-The join field is added to the Lucille document itself before field filtering, so it is subject to `indexer.whitelist` and `indexer.blacklist`: include `joinFieldName` in a whitelist or it is not sent. It is applied in partial update mode too.
+The join field is added to the request sent to Elasticsearch, not to the Lucille document. It still follows `indexer.whitelist` and `indexer.blacklist`: include `joinFieldName` in a whitelist or it is not sent. It is applied in partial update mode too.
 
-If a document already has a field named `joinFieldName`, the indexer throws and the whole batch fails without being retried. Because the join field stays on the document after the first attempt, this also happens whenever a batch is retried, so with `join` set a retry fails the batch instead of resending it.
+If a document already has a field named `joinFieldName`, the indexer throws and the whole batch fails without being retried.
 
 The join settings do not set routing. Elasticsearch requires a child to be on the same shard as its parent, so set `indexer.routingField` to the same field as `parentDocumentIdSource`.
 
@@ -87,13 +87,13 @@ These use the generic `indexer` block:
 
 - `indexer.routingField`: the value of this document field (first value, if multi-valued) is sent as the `_routing` parameter. A document without the field is sent without routing. Routing is not sent with deletes by ID or delete-by-query.
 - `indexer.versionType`: an Elasticsearch `VersionType`, as the constant name (`External`, `ExternalGte`, `Internal`, `Force`) or the JSON spelling (`external`, `external_gte`, `internal`, `force`), case-insensitive. Any other value fails at startup. Only `External` and `ExternalGte` send a version; `Internal` and `Force` send none.
-- `indexer.versionField`: with `External` or `ExternalGte`, the version is this field's value (first value, if multi-valued) read as a Long when it is set and present on the document; a value that is not numeric is read as `0`. Otherwise the Kafka offset is used for a document read from Kafka (distributed mode), and a document with neither is indexed without a version. Setting `indexer.versionField` without `indexer.versionType` fails at startup.
+- `indexer.versionField`: with `External` or `ExternalGte`, the version is this field's value (first value, if multi-valued) read as a Long when it is set and present on the document; a value that is not numeric is read as `0`. Otherwise the Kafka offset is used for a document read from Kafka (distributed mode), and a document with neither is indexed without a version. A delete by ID is sent with this field's value too, but never with the Kafka offset, which is not comparable to it; a delete document without the field is sent without a version. A delete that Elasticsearch rejects for its version (409) fails the whole batch. For as long as the index keeps deleted versions (`index.gc_deletes`, 60 seconds by default), Elasticsearch also rejects an upload with an older version than the delete. Delete-by-query is never versioned. Setting `indexer.versionField` without `indexer.versionType` fails at startup.
 
 ---
 
 ## Partial Update Mode
 
-When `update: true`, each document is sent as a bulk `update` operation with the document's fields as the partial doc, instead of an `index` operation. No upsert is set, so an update to an ID that does not exist in the index fails for that document.
+When `update: true`, each document is sent as a bulk `update` operation with the document's fields as the partial doc, instead of an `index` operation. The update is sent with `doc_as_upsert`, so a document whose ID is not in the index is created from its fields.
 
 ---
 
@@ -119,19 +119,18 @@ Retries follow the generic `indexer.maxRetries` settings (see [Retries]({{< relr
 - A document rejected in the bulk response carries the item's HTTP status code. If any rejected document's status is retryable (for example 429 but not 400), the whole batch is resent; once retries run out, or if none is retryable, only the rejected documents fail.
 - A bulk response error whose ID does not match a document in the batch fails the whole batch and is not retried.
 - An error on any delete-by-ID item, or any failure reported by delete-by-query, fails the whole batch and is not retried. Documents uploaded earlier in the same send were already indexed but still get FAIL events.
-- With `join` set, a retry fails the batch (see [Join Field Support](#join-field-support)).
 
 ---
 
 ## Deletion Support
 
-The ElasticsearchIndexer supports both generic deletion mechanisms. (The indexer logs a warning at startup that deletion is not supported when deletion fields are set; deletion is performed regardless.)
+The ElasticsearchIndexer supports both generic deletion mechanisms.
 
 **Delete by ID:** When a document is marked with `deletionMarkerField`/`deletionMarkerFieldValue` (and does not also have `deleteByFieldField`/`deleteByFieldValue`), the Indexer issues a bulk delete-by-ID operation for that document.
 
 **Delete by query:** When a document is marked for deletion AND contains both `deleteByFieldField` and `deleteByFieldValue`, the Indexer issues a `_delete_by_query` request. The `deleteByFieldField` value on the document identifies which Elasticsearch field to query, and the `deleteByFieldValue` value identifies the term to match (first value, if multi-valued). Multiple delete-by-query documents in a batch are combined into a single `terms` bool/should query, so a document matching any of them is deleted.
 
-**Batch ordering:** Within a batch, only the last document for a given ID is acted on: if the same ID appears in both an upload and a delete by ID, the last occurrence wins, and earlier documents with that ID are not sent but are still reported as succeeded. A document marked for delete-by-query also cancels an earlier upload with the same ID in the batch, but its query is not cancelled by a later upload with that ID, because delete-by-query requests are grouped by field rather than by ID. Each send then runs, in order, one bulk request for uploads, one bulk request for deletes by ID, and one delete-by-query. Because delete-by-query runs last, it deletes matching documents uploaded earlier in the same batch, whatever their order in the batch.
+**Batch ordering:** Delete-by-query documents are sent in batch order: the uploads and deletes by ID before a delete-by-query document are sent before its query, and the ones after it are sent after. Consecutive delete-by-query documents are combined into one delete-by-query. Between two delete-by-query documents, only the last document for a given ID is acted on: if the same ID appears in both an upload and a delete by ID, the last occurrence wins, and earlier documents with that ID are not sent but are still reported as succeeded. A document marked for delete-by-query also cancels an earlier upload with the same ID since the previous delete-by-query document. Each run of uploads and deletes by ID is sent as one bulk request for uploads and one for deletes by ID. Before each delete-by-query, the indexer refreshes the target index, because delete-by-query only matches refreshed documents. So a delete-by-query deletes matching documents uploaded before it, in the same batch or an earlier one, but not documents after it in the batch, such as new children sent after a delete of their parent's old children. Each delete-by-query adds a refresh and more bulk requests to the send, so frequent delete-by-query documents on a large index are slow.
 
 ```hocon
 indexer {
