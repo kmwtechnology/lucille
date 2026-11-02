@@ -30,6 +30,7 @@ import com.kmwllc.lucille.core.IndexerRetryableException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -1502,8 +1503,8 @@ public class ElasticsearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
-      throw new Exception("Test that errors when sending to indexer are correctly handled");
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
+      throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }
 
@@ -1533,7 +1534,7 @@ public class ElasticsearchIndexerTest {
     List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
     TestMessenger messenger = new TestMessenger() {
       @Override
-      public void batchComplete(List<Document> batch) throws Exception {
+      public void batchComplete(List<Document> batch) throws MessengerException {
         completedBatches.add(batch.get(0).getId());
         super.batchComplete(batch);
       }

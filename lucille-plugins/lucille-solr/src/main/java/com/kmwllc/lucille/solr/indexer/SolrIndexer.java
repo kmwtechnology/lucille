@@ -159,7 +159,7 @@ public class SolrIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
     if (bypass) {
       log.debug("sendToSolr bypassed for documents: {}", documents);
       return Set.of();

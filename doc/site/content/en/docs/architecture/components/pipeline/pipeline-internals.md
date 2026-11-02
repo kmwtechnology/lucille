@@ -163,12 +163,12 @@ The one case where copies are needed is child document creation. When a stage ge
 
 ## The Stage.apply() Contract
 
-Each Stage has two `apply` methods that implement the iterator chaining:
+Each Stage has two `apply` methods that implement the iterator chaining. Both are final and package-private: the Pipeline calls them, and a Stage implementation cannot override them.
 
 ### apply(Document doc) — process one document
 
 ```java
-public Iterator<Document> apply(Document doc) throws StageException {
+final Iterator<Document> apply(Document doc) throws StageException {
     Iterator<Document> children = processConditional(doc);
     Iterator<Document> parent = doc.iterator();
 
@@ -191,7 +191,7 @@ Key details:
 ### apply(Iterator\<Document\> docs) — wrap an iterator
 
 ```java
-public Iterator<Document> apply(Iterator<Document> docs) throws StageException {
+final Iterator<Document> apply(Iterator<Document> docs) throws StageException {
     return new Iterator<>() {
         Iterator<Document> current = null;
 

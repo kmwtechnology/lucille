@@ -9,6 +9,7 @@ import com.kmwllc.lucille.core.Event.Type;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.ArrayList;
@@ -474,12 +475,20 @@ public class IndexerConcurrencyTest {
     // Nothing in Lucille interrupts the indexer thread (the Runner and WorkerIndexer stop it with terminate() and
     // join()), so this can only arise when other code embeds Lucille and interrupts the thread itself, which is
     // considered unlikely. In that case completion runs with the interrupt set. A messenger whose batchComplete blocks
-    // interruptibly (as the Hybrid messenger's offset handoff does) then throws InterruptedException, which clears the
-    // flag. The indexer must restore it, or the next poll never sees the interrupt and the run keeps going.
+    // interruptibly (as the Hybrid messenger's offset handoff does) is then interrupted, which clears the flag. This one
+    // deliberately breaks the messenger contract by reporting it without restoring the flag, so that the test fails
+    // unless the indexer restores it; otherwise the next poll never sees the interrupt and the run keeps going.
     RecordingMessenger messenger = new RecordingMessenger() {
       @Override
-      public void batchComplete(List<Document> batch) throws InterruptedException {
-        new CountDownLatch(1).await(1, TimeUnit.MILLISECONDS);
+      public void batchComplete(List<Document> batch) throws MessengerException {
+        try {
+          new CountDownLatch(1).await(1, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+          // Do not restore the interrupt here, even though a real messenger must: leaving the flag cleared is what
+          // this test checks the indexer recovers from. Restoring it would let the test pass even if the indexer
+          // did not restore it.
+          throw new MessengerException("Interrupted while completing a batch", e);
+        }
         super.batchComplete(batch);
       }
     };
@@ -1091,7 +1100,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+    protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
       String docId = documents.get(0).getId();
       sendAttempts.computeIfAbsent(docId, k -> new AtomicInteger()).incrementAndGet();
       peakConcurrentSends.accumulateAndGet(concurrentSends.incrementAndGet(), Math::max);
@@ -1117,14 +1126,18 @@ public class IndexerConcurrencyTest {
           throw new IndexerRetryableException(503, "retryable failure for " + docId, null);
         }
         // A configured failure is held as a Throwable, which cannot be rethrown directly (sendToIndex declares only
-        // throws Exception, not Throwable). Split by type so each is thrown as itself: Error unchecked, Exception as the
-        // declared checked type. This lets a test simulate either an unchecked Error (e.g. OutOfMemoryError) or a normal
-        // send Exception.
+        // IndexerException). Split by type so each is thrown as itself where it can be: an Error or RuntimeException
+        // unchecked, an IndexerException as the declared type, and any other Exception wrapped in one. This lets a test
+        // simulate either an unchecked Error (e.g. OutOfMemoryError) or a normal send failure.
         Throwable failure = sendFailures.get(docId);
         if (failure instanceof Error error) {
           throw error;
+        } else if (failure instanceof RuntimeException runtimeException) {
+          throw runtimeException;
+        } else if (failure instanceof IndexerException indexerException) {
+          throw indexerException;
         } else if (failure instanceof Exception exception) {
-          throw exception;
+          throw new IndexerException("send failed for " + docId, exception);
         }
         applyToDestination(documents);
         // Report any configured per-document failures as returned pairs (not thrown), as a real sendToIndex does for
@@ -1133,6 +1146,10 @@ public class IndexerConcurrencyTest {
             .filter(d -> failedDocIds.contains(d.getId()))
             .map(d -> Pair.<Document, Exception>of(d, new IndexerException("rejected " + d.getId())))
             .collect(Collectors.toSet());
+      } catch (InterruptedException e) {
+        // the send pool is interrupted when the indexer closes without waiting for in-flight sends
+        Thread.currentThread().interrupt();
+        throw new IndexerException("Interrupted while sending " + docId, e);
       } finally {
         concurrentSends.decrementAndGet();
         if (!sendsFinished.contains(docId)) {
@@ -1189,9 +1206,14 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public Document pollDocToIndex() throws Exception {
+    public Document pollDocToIndex() throws MessengerException {
       pollCount.incrementAndGet();
-      return docsToIndex.poll(10, TimeUnit.MILLISECONDS);
+      try {
+        return docsToIndex.poll(10, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new MessengerException("Interrupted while polling for a document to index", e);
+      }
     }
 
     @Override
@@ -1219,7 +1241,7 @@ public class IndexerConcurrencyTest {
     }
 
     @Override
-    public void batchComplete(List<Document> batch) throws InterruptedException {
+    public void batchComplete(List<Document> batch) throws MessengerException {
       completedBatches.add(batch.stream().map(Document::getId).collect(Collectors.joining(",")));
     }
 

@@ -49,17 +49,27 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   private String pipelineName;
 
   @Override
-  public Document pollDocToIndex() throws Exception {
-    return pipelineDest.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+  public Document pollDocToIndex() throws MessengerException {
+    try {
+      return pipelineDest.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while polling for a document to index", e);
+    }
   }
 
   @Override
-  public Document pollDocToProcess() throws Exception {
-    return pipelineSource.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+  public Document pollDocToProcess() throws MessengerException {
+    try {
+      return pipelineSource.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while polling for a document to process", e);
+    }
   }
 
   @Override
-  public void commitPendingDocOffsets() throws Exception {
+  public void commitPendingDocOffsets() {
   }
 
   @Override
@@ -89,14 +99,19 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   }
 
   @Override
-  public Event pollEvent() throws Exception {
-    return pipelineEvents.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+  public Event pollEvent() throws MessengerException {
+    try {
+      return pipelineEvents.poll(POLL_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while polling for an event", e);
+    }
   }
 
   @Override
-  public void initialize(String runId, String pipelineName) throws Exception {
+  public void initialize(String runId, String pipelineName) {
     if (this.runId != null) {
-      throw new Exception("Already initialized.");
+      throw new IllegalStateException("Already initialized.");
     }
     this.runId = runId;
     this.pipelineName = pipelineName;
@@ -108,12 +123,17 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   }
 
   @Override
-  public void sendForProcessing(Document document) throws Exception {
-    pipelineSource.put(document);
+  public void sendForProcessing(Document document) throws MessengerException {
+    try {
+      pipelineSource.put(document);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while queueing document " + document.getId() + " for processing", e);
+    }
   }
 
   @Override
-  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws MessengerException {
     for (Document document : documents) {
       sendEvent(document, message, type);
     }
@@ -124,7 +144,7 @@ public class LocalMessenger implements IndexerMessenger, PublisherMessenger, Wor
   }
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
+  public void batchComplete(List<Document> batch) {
   }
 
   // Holds documents in an in-memory queue and does not commit input, so it is safe for concurrent batches.
