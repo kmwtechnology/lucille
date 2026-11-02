@@ -33,6 +33,7 @@
   <properties>
     <at>@</at>
     <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+    <maven-enforcer-plugin.version>3.6.1</maven-enforcer-plugin.version>
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <auto-service.version>1.1.1</auto-service.version>
@@ -212,6 +213,45 @@
 
   <build>
     <plugins>
+      <!-- Guard the Netty classpath: all io.netty artifacts must stay on the 4.1 line. reactor-netty 1.2.x
+           (required by azure-core-http-netty) is built against Netty 4.1; a stray 4.2 artifact reintroduces the
+           split that breaks the Azure storage client at runtime (DefaultLoopResources needs Netty-4.2-only
+           MultiThreadIoEventLoopGroup). This fails the build if any io.netty dependency resolves outside 4.1.x. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven-enforcer-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce-netty-convergence</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <!-- Ban every io.netty artifact, then allow back only the 4.1 line. The netty-tcnative
+                       native SSL artifacts use an independent 2.0.x versioning scheme (not the 4.1/4.2 core
+                       line), so carve them out of the ban entirely. -->
+                  <excludes>
+                    <exclude>io.netty:*</exclude>
+                  </excludes>
+                  <includes>
+                    <include>io.netty:*:[4.1.0,4.2.0)</include>
+                    <include>io.netty:netty-tcnative-boringssl-static</include>
+                    <include>io.netty:netty-tcnative-classes</include>
+                  </includes>
+                  <message>All io.netty framework dependencies must resolve to the 4.1.x line. A 4.2.x artifact
+                    indicates a reactor-netty (or other) version split that breaks the Azure storage client.
+                    Run 'mvn dependency:tree -Dincludes=io.netty' to find the offending path.</message>
+                  <searchTransitive>true</searchTransitive>
+                </bannedDependencies>
+              </rules>
+              <fail>true</fail>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
