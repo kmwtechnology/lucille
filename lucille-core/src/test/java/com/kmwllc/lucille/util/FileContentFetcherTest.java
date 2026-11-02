@@ -2,6 +2,7 @@ package com.kmwllc.lucille.util;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.kmwllc.lucille.connector.storageclient.AzureStorageClient;
 import com.kmwllc.lucille.connector.storageclient.GoogleStorageClient;
 import com.kmwllc.lucille.connector.storageclient.S3StorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
@@ -23,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Paths;
+import java.util.List;
 import org.apache.commons.io.IOUtils;
 import org.junit.Test;
 import org.mockito.MockedConstruction;
@@ -117,6 +120,33 @@ public class FileContentFetcherTest {
       assertEquals("Hello there - Google.", new String(googleMockInputStream.readAllBytes()));
 
       assertThrows(IOException.class, () -> fetcher.getInputStream("https://storagename.blob.core.windows.net/bucket/hello.txt"));
+    }
+  }
+
+  @Test
+  public void testAzureAllowedHosts() throws Exception {
+    Config config = ConfigFactory.parseString("azure { connectionString: connectionString, allowedHosts: [\"storage.example.internal\"] }");
+    URI allowedURI = URI.create("https://storage.example.internal/container/hello.txt");
+
+    try (MockedConstruction<AzureStorageClient> mockedAzure = mockConstruction(AzureStorageClient.class, (mock, context) -> {
+      when(mock.getFileContentStream(allowedURI)).thenReturn(new ByteArrayInputStream("Hello there - Azure.".getBytes()));
+    })) {
+      DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(config);
+      fetcher.startup();
+
+      // a host in allowedHosts is read with the azure client
+      try (InputStream stream = fetcher.getInputStream(allowedURI.toString())) {
+        assertEquals("Hello there - Azure.", new String(stream.readAllBytes()));
+      }
+
+      // any other https host, including the default, has no client
+      for (String path : List.of("https://example.com/container/hello.txt", "https://storagename.blob.core.windows.net/container/hello.txt")) {
+        IOException e = assertThrows(IOException.class, () -> fetcher.getInputStream(path));
+        assertTrue(e.getMessage().contains("No Storage Client available"));
+      }
+
+      verify(mockedAzure.constructed().get(0), times(1)).getFileContentStream(any());
+      fetcher.shutdown();
     }
   }
 

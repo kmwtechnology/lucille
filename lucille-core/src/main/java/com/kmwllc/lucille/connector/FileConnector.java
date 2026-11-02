@@ -86,9 +86,6 @@ import com.typesafe.config.Config;
  *   <li>state.pathLength (Int, Optional) : Max length for stored file paths when Lucille creates the table. Defaults to 768. A longer path fails the run.</li>
  *   <li>gcp.pathToServiceKey (String, Required) : Path to the Google Cloud service key JSON.</li>
  *   <li>gcp.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
- *   <li>gcp.class (String, Optional) : Fully qualified name of a GoogleStorageClient subclass to use instead of GoogleStorageClient.
- *   It must have a public constructor that takes a Config, and receives the gcp config. Settings other than the gcp
- *   settings listed here are rejected.</li>
  *   <li>s3.accessKeyId (String, Optional) : AWS access key ID (omit to use default credentials).</li>
  *   <li>s3.secretAccessKey (String, Optional) : AWS secret access key (omit to use default credentials).</li>
  *   <li>s3.region (String, Optional) : AWS region for S3.</li>
@@ -98,24 +95,20 @@ import com.typesafe.config.Config;
  *   <li>s3.maxResultsPerPage (Int, Optional) : Maximum number of results returned per S3 LIST call (page size). Defaults to 1000, which is also
  *   the most S3 will return per call; larger values have no further effect. Without filterOptions.pathsToSkip, every key under the
  *   path is listed in one paginated listing, so files may be published in a different order than a directory-by-directory walk.</li>
- *   <li>s3.class (String, Optional) : Fully qualified name of an S3StorageClient subclass to use instead of S3StorageClient.
- *   It must have a public constructor that takes a Config, and receives the s3 config. Settings other than the s3
- *   settings listed here are rejected.</li>
  *   <li>azure.connectionString (String, Optional) : Azure connection string.</li>
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
  *   <li>azure.accountKey (String, Optional) : Azure account key.</li>
  *   <li>azure.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
- *   <li>azure.class (String, Optional) : Fully qualified name of an AzureStorageClient subclass to use instead of AzureStorageClient.
- *   It must have a public constructor that takes a Config, and receives the azure config. Settings other than the azure
- *   settings listed here are rejected.</li>
- *   <li>azure.allowedHosts (List&lt;String&gt;, Optional) : When a single file is fetched by URI (e.g. by stages that read
- *   dictionaries or scripts), an https URI is only read with the azure client if its authority contains one of these values
- *   (a substring match). Only selects the client: requests go to the endpoint in the azure credentials, such as connectionString.
- *   Replaces the default rather than adding to it. Defaults to ["blob.core.windows.net"].</li>
- *   <li>storageClients (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Custom StorageClients for other URI schemes, keyed
- *   by scheme (e.g. sftp). Each entry must contain "class", the fully qualified name of a StorageClient implementation with a
+ *   <li>azure.allowedHosts (List&lt;String&gt;, Optional) : An https URI is only read with the azure client if its authority
+ *   contains one of these values (a substring match). Applies to traversed paths and to files fetched by stages. Only
+ *   selects the client: requests go to the endpoint in the azure credentials, such as connectionString. Replaces the default
+ *   rather than adding to it. Defaults to ["blob.core.windows.net"].</li>
+ *   <li>storageClients (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Custom StorageClients, keyed by URI scheme
+ *   (e.g. sftp, or s3). Each entry must contain "class", the fully qualified name of a StorageClient implementation with a
  *   public constructor that takes a Config. The client receives its entry, which may contain any other settings it needs.
- *   Schemes must be at least two characters long, and the built-in schemes (file, s3, gs, https) can't be configured here.</li>
+ *   A client for s3, gs, or https replaces the built-in client for that scheme, so the scheme's built-in config (s3, gcp,
+ *   or azure) can't also be given, and azure.allowedHosts does not apply to a custom https client. Schemes must be at
+ *   least two characters long, and file can't be configured.</li>
  *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).
  *   Supply a class to override the default handler. Otherwise the built-in handler for csv/json/xml is used. Configure docIdPrefix inside
  *   each handler's config as needed.</li>
@@ -157,14 +150,13 @@ public class FileConnector extends AbstractConnector {
   // parent specs for cloud provider configs
   public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
       .requiredString("pathToServiceKey")
-      .optionalString(STORAGE_CLIENT_CLASS)
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec S3_PARENT_SPEC = SpecBuilder.parent("s3")
-      .optionalString("accessKeyId", "secretAccessKey", "region", STORAGE_CLIENT_CLASS)
+      .optionalString("accessKeyId", "secretAccessKey", "region")
       .optionalBoolean("anonymous")
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
-      .optionalString("connectionString", "accountName", "accountKey", STORAGE_CLIENT_CLASS)
+      .optionalString("connectionString", "accountName", "accountKey")
       .optionalList(AZURE_ALLOWED_HOSTS, new TypeReference<List<String>>(){})
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   // custom storage clients, keyed by URI scheme. Each client's settings are not validated here.
@@ -235,6 +227,14 @@ public class FileConnector extends AbstractConnector {
             : null;
 
     this.storageClientMap = StorageClient.createClients(config);
+
+    // an https path on a host outside azure.allowedHosts would otherwise only fail once traversal starts
+    for (URI uri : storageURIs) {
+      if (StorageClient.clientFor(uri, storageClientMap, config) == null && storageClientMap.containsKey(clientKeyFor(uri))) {
+        throw new IllegalArgumentException("No StorageClient is available for " + uri + ": its host doesn't contain any of azure."
+            + AZURE_ALLOWED_HOSTS + ".");
+      }
+    }
 
 
     // incremental mode requires state tracking in order to function correctly
@@ -465,10 +465,10 @@ public class FileConnector extends AbstractConnector {
       for (int j = i + 1; j < storageURIs.size(); j++) {
         URI first = storageURIs.get(i);
         URI second = storageURIs.get(j);
-        StorageClient client = storageClientMap.get(clientKeyFor(first));
+        StorageClient client = StorageClient.clientFor(first, storageClientMap, config);
 
         // paths handled by different storage providers cannot overlap
-        if (client == null || client != storageClientMap.get(clientKeyFor(second))) {
+        if (client == null || client != StorageClient.clientFor(second, storageClientMap, config)) {
           continue;
         }
 
@@ -485,7 +485,7 @@ public class FileConnector extends AbstractConnector {
   }
 
   private void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
-    StorageClient storageClient = storageClientMap.get(clientKeyFor(pathToTraverse));
+    StorageClient storageClient = StorageClient.clientFor(pathToTraverse, storageClientMap, config);
 
     if (storageClient == null) {
       throw new ConnectorException("No StorageClient was available for (" + pathToTraverse +

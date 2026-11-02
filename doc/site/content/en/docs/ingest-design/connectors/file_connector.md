@@ -26,7 +26,7 @@ The `FileConnector` traverses one or more paths and publishes a Lucille Document
 | `gcp` | Object | No | Google Cloud Storage credentials. Required to traverse `gs://` paths. See [Cloud Storage Configuration](#cloud-storage-configuration). |
 | `azure` | Object | No | Azure Blob Storage credentials. Required to traverse Azure paths. |
 | `s3` | Object | No | Amazon S3 credentials and options. Required to traverse `s3://` paths. |
-| `storageClients` | Object | No | Custom storage clients for other URI schemes, keyed by scheme. See [Storage Clients for Other URI Schemes](#storage-clients-for-other-uri-schemes). |
+| `storageClients` | Object | No | Custom storage clients, keyed by URI scheme, for new schemes or in place of a built-in client. See [Custom Storage Clients](#custom-storage-clients). |
 
 ### Paths
 
@@ -37,10 +37,10 @@ The URI scheme of each path selects the storage backend:
 | Local | `file:///path/to/dir`, or a plain path such as `/data`, `data/files`, `C:/data` or `C:\\data` (backslashes must be escaped in HOCON). |
 | Amazon S3 | `s3://bucket/prefix` |
 | Google Cloud Storage | `gs://bucket/prefix` |
-| Azure Blob Storage | `https://{account}.blob.core.windows.net/{container}/prefix` |
-| Other | Any scheme registered in `storageClients`, e.g. `sftp://host/path`. |
+| Azure Blob Storage | `https://{account}.blob.core.windows.net/{container}/prefix`. Other hosts need [`azure.allowedHosts`](#azure-hosts). |
+| Other | Any scheme registered in [`storageClients`](#custom-storage-clients), e.g. `sftp://host/path`. |
 
-A local filesystem client is always available. A path whose provider block (`s3`, `gcp`, `azure`) is missing fails the run when the connector reaches it. With `maxThreads: 1` (the default), paths are traversed in order, and a path that fails stops the run before the remaining paths are traversed.
+A local filesystem client is always available. A path whose provider block (`s3`, `gcp`, `azure`) is missing fails the run when the connector reaches it. An `https` path whose host isn't in `azure.allowedHosts` fails at startup. With `maxThreads: 1` (the default), paths are traversed in order, and a path that fails stops the run before the remaining paths are traversed.
 
 On S3, GCS, and Azure, a path is a raw key prefix, so `s3://bucket/data` also traverses keys under `data2/`. End the path with `/` to limit it to one folder. For S3 paths, percent-encode special characters (e.g., `s3://bucket/folder%20with%20spaces`). When no `pathsToSkip` filter is set, S3 paths are listed in one flat listing rather than directory by directory, so files are published in S3 key order.
 
@@ -62,8 +62,7 @@ When traversing cloud storage, provide credentials in a block named `s3`, `gcp`,
 | `accountName` | String | No | Storage account name. Used with `accountKey`. |
 | `accountKey` | String | No | Storage account key. Used with `accountName`. |
 | `maxResultsPerPage` | Integer | No | Number of results returned per listing request (page size). Default: `100`. |
-| `allowedHosts` | List\<String\> | No | Hosts an `https` URI must contain to be read with the Azure client when a stage reads a single file. See [Azure Hosts for Single-File Reads](#azure-hosts-for-single-file-reads). Default: `["blob.core.windows.net"]`. |
-| `class` | String | No | Fully qualified name of an `AzureStorageClient` subclass to use instead of the built-in client. See [Custom Storage Client Classes](#custom-storage-client-classes). |
+| `allowedHosts` | List\<String\> | No | Hosts an `https` URI must contain to be read with the Azure client. See [Azure Hosts](#azure-hosts). Default: `["blob.core.windows.net"]`. |
 
 You must provide either `connectionString`, or both `accountName` and `accountKey`. Otherwise the connector fails at startup. If `connectionString` is set, it is used.
 
@@ -83,7 +82,6 @@ azure {
 |---|---|---|---|
 | `pathToServiceKey` | String | Yes | Path to a Google Cloud service account key JSON file. The file is read when the run starts, not at construction. |
 | `maxResultsPerPage` | Integer | No | Number of results returned per listing request (page size). Default: `100`. |
-| `class` | String | No | Fully qualified name of a `GoogleStorageClient` subclass to use instead of the built-in client. See [Custom Storage Client Classes](#custom-storage-client-classes). |
 
 ```hocon
 gcp {
@@ -101,7 +99,6 @@ gcp {
 | `region` | String | No | AWS region. If omitted, the AWS SDK resolves the region, except with `anonymous`, where it defaults to `us-east-1`. |
 | `anonymous` | Boolean | No | Send unsigned requests, for public buckets that need no credentials. Cannot be combined with `accessKeyId`/`secretAccessKey`. Default: `false`. |
 | `maxResultsPerPage` | Integer | No | Number of results returned per listing request (page size). Default: `1000`, which is also the most S3 returns per request. |
-| `class` | String | No | Fully qualified name of an `S3StorageClient` subclass to use instead of the built-in client. See [Custom Storage Client Classes](#custom-storage-client-classes). |
 
 Setting only one of `accessKeyId`/`secretAccessKey`, or combining them with `anonymous: true`, fails at startup.
 
@@ -113,22 +110,22 @@ s3 {
 }
 ```
 
-### Custom Storage Client Classes
+### Azure Hosts
 
-Each of `s3`, `azure`, and `gcp` accepts an optional `class`: the fully qualified name of a subclass of that provider's built-in client (`S3StorageClient`, `AzureStorageClient`, or `GoogleStorageClient`) to use in its place. The class must have a public constructor that takes a `Config`, and receives the provider's config block. When `class` is not set, the built-in client is used. The `FileConnector` only accepts the settings listed for each provider, so a subclass can't read additional settings from that block.
+An `https` URI is only read with the Azure client if its authority (host and port) contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. This is a substring match. It applies both to `paths` and to files read by stages, such as the script for `ApplyJavascript` or the URIs fetched by `FetchFileContent`. An `https` path on any other host fails at startup, and a stage reading one fails with `No Storage Client available`. Set it to read from an Azure-compatible endpoint on another hostname. The setting only selects the Azure client: requests go to the endpoint given by the Azure credentials, so that endpoint must also be in `connectionString`. The list replaces the default, so include `blob.core.windows.net` if you still need it.
 
 ```hocon
-s3 {
-  class: "com.mycompany.lucille.MyS3StorageClient"
-  region: "us-east-1"
+azure {
+  connectionString: "..."
+  allowedHosts: ["blob.core.windows.net", "storage.example.internal"]
 }
 ```
 
-The same settings apply to stages that read files by URI, such as `FetchFileContent` and `ApplyJavascript`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
+### Custom Storage Clients
 
-### Storage Clients for Other URI Schemes
+`storageClients` maps a URI scheme to a custom `StorageClient`. Each entry is keyed by the scheme and must set `class` to the fully qualified name of a `StorageClient` implementation with a public constructor that takes a `Config`. The client receives its whole entry, including `class`, and the entry can contain any other settings the client needs. Lucille doesn't validate those settings; the client does.
 
-To traverse a storage system Lucille doesn't support out of the box, register a custom StorageClient for its URI scheme in `storageClients`. Each entry is keyed by the scheme and must set `class` to a `StorageClient` implementation with a public constructor that takes a `Config`. The client receives its entry, which can contain any other settings it needs.
+Use it to add a storage system Lucille doesn't support out of the box:
 
 ```hocon
 paths: ["sftp://files.example.com/data/incoming/"]
@@ -141,18 +138,28 @@ storageClients {
 }
 ```
 
-Schemes must be at least two characters long, and the built-in schemes (`file`, `s3`, `gs`, `https`) can't be configured here. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
-
-### Azure Hosts for Single-File Reads
-
-When a stage reads a single file by URI (for example, the script for `ApplyJavascript` or the dictionaries for `ExtractEntitiesFST`), an `https` URI is only read with the Azure client if its authority (host and port) contains one of `azure.allowedHosts`, which defaults to `["blob.core.windows.net"]`. This is a substring match. Set it to read from an Azure-compatible endpoint on another hostname. The setting only selects the Azure client: requests go to the endpoint given by the Azure credentials, so that endpoint must also be in `connectionString`. The list replaces the default, so include `blob.core.windows.net` if you still need it. The `FileConnector` itself does not check the host: it uses the Azure client for every `https` path.
+Or to replace the built-in client for `s3`, `gs`, or `https`, for example with a subclass of `S3StorageClient` adapted for an S3-compatible endpoint. The entry holds both the built-in client's settings (see [s3](#s3), [gcp](#gcp), or [azure](#azure)) and any settings of the subclass's own:
 
 ```hocon
-azure {
-  connectionString: "..."
-  allowedHosts: ["blob.core.windows.net", "storage.example.internal"]
+paths: ["s3://bucket/prefix/"]
+storageClients {
+  s3 {
+    class: "com.mycompany.lucille.storage.MyS3StorageClient"
+    region: "us-east-1"
+    # read by MyS3StorageClient
+    endpointOverride: "https://s3.storage.example.internal"
+  }
 }
 ```
+
+Rules:
+
+- A scheme configured in `storageClients` can't also have its built-in block: `storageClients.s3` with `s3`, `storageClients.gs` with `gcp`, or `storageClients.https` with `azure` fails at startup.
+- A custom `https` client handles every `https` URI. `azure.allowedHosts` doesn't apply to it, so it must apply any host rule of its own.
+- `file` can't be configured: local files are always read with the built-in client.
+- Schemes must be at least two characters long, since one-letter schemes are read as Windows drive letters.
+
+The same settings apply to stages that read files by URI, such as `FetchFileContent` and `ApplyJavascript`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients" >}}).
 
 ---
 

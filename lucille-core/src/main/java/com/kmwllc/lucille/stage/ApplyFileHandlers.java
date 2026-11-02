@@ -46,7 +46,7 @@ import org.apache.commons.io.FilenameUtils;
  *   See FileConnector for necessary arguments.</li>
  *   <li>azure (Map, Optional) : options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
  *   See FileConnector for necessary arguments.</li>
- *   <li>storageClients (Map, Optional) : custom StorageClients for other URI schemes. Include if you are going to process documents with
+ *   <li>storageClients (Map, Optional) : custom StorageClients, keyed by URI scheme. Include if you are going to process documents with
  *   the filePathField set to a URI with one of those schemes. See FileConnector for necessary arguments.</li>
  * </ul>
  */

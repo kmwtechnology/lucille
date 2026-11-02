@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -110,19 +111,23 @@ public class StorageClientTest {
   }
 
   @Test
-  public void testCustomClassReceivesProviderConfig() throws Exception {
-    Config config = customClassesConfig().withValue("s3.customSetting", ConfigValueFactory.fromAnyRef("value"));
+  public void testCustomClassReadsOwnSetting() throws Exception {
+    // a subclass of a built-in client reads both the built-in settings and its own from its storageClients entry
+    Config config = customClassesConfig().withValue("storageClients.s3.endpointOverride", ConfigValueFactory.fromAnyRef("https://s3.example.internal"));
     CustomS3StorageClient client = (CustomS3StorageClient) StorageClient.create(new URI("s3://bucket/"), config);
 
-    assertEquals("value", client.getConfig().getString("customSetting"));
+    assertEquals("https://s3.example.internal", client.getConfig().getString("endpointOverride"));
     assertEquals("us-east-1", client.getConfig().getString("region"));
+
+    client = (CustomS3StorageClient) StorageClient.createClients(config).get("s3");
+    assertEquals("https://s3.example.internal", client.getConfig().getString("endpointOverride"));
   }
 
   @Test
   public void testCustomClassOptionsStillValidated() {
-    // the default client's validateOptions still applies to a subclass, and its exception is not wrapped
-    Config config = ConfigFactory.load("StorageClientTest/azureBad.conf")
-        .withValue("azure.class", ConfigValueFactory.fromAnyRef(CustomAzureStorageClient.class.getName()));
+    // the built-in client's validateOptions still applies to a subclass, and its exception is not wrapped
+    Config config = ConfigFactory.parseString("storageClients.https { class: \"" + CustomAzureStorageClient.class.getName()
+        + "\", accountKey: abc123 }");
 
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
         () -> StorageClient.create(new URI("https://storagename.blob.core.windows.net/testblob"), config));
@@ -130,28 +135,44 @@ public class StorageClientTest {
   }
 
   @Test
+  public void testBuiltInSchemeInBothBlocks() {
+    // a scheme in storageClients can't also have its built-in block
+    Map<String, String> builtInBlocks = Map.of("s3", "s3", "gs", "gcp", "https", "azure");
+    Config fullConfig = ConfigFactory.load("StorageClientTest/fullClients.conf");
+
+    for (Map.Entry<String, String> entry : builtInBlocks.entrySet()) {
+      Config both = memoryClientConfig(entry.getKey()).withFallback(fullConfig);
+
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(both));
+      assertTrue(e.getMessage().contains("storageClients." + entry.getKey() + " and " + entry.getValue()));
+      assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("/path/to/file"), both));
+    }
+  }
+
+  @Test
   public void testInvalidCustomClasses() {
-    Config s3Config = ConfigFactory.load("StorageClientTest/s3.conf");
+    Config s3Config = customClassesConfig();
 
     // class doesn't exist
-    Config missing = s3Config.withValue("s3.class", ConfigValueFactory.fromAnyRef("com.example.DoesNotExist"));
+    Config missing = s3Config.withValue("storageClients.s3.class", ConfigValueFactory.fromAnyRef("com.example.DoesNotExist"));
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("s3://bucket/"), missing));
     assertTrue(e.getMessage().contains("com.example.DoesNotExist"));
     assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(missing));
 
-    // class doesn't extend the default client for the scheme
-    Config wrongType = s3Config.withValue("s3.class", ConfigValueFactory.fromAnyRef(CustomAzureStorageClient.class.getName()));
+    // class doesn't implement StorageClient
+    Config wrongType = s3Config.withValue("storageClients.s3.class", ConfigValueFactory.fromAnyRef(String.class.getName()));
     e = assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("s3://bucket/"), wrongType));
-    assertTrue(e.getMessage().contains(S3StorageClient.class.getName()));
+    assertTrue(e.getMessage().contains("must implement " + StorageClient.class.getName()));
     assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(wrongType));
 
     // class is abstract
-    Config abstractClass = s3Config.withValue("s3.class", ConfigValueFactory.fromAnyRef(AbstractS3StorageClient.class.getName()));
+    Config abstractClass = s3Config.withValue("storageClients.s3.class", ConfigValueFactory.fromAnyRef(AbstractS3StorageClient.class.getName()));
     e = assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("s3://bucket/"), abstractClass));
     assertTrue(e.getMessage().contains("abstract"));
 
     // class has no (Config) constructor
-    Config noConstructor = s3Config.withValue("s3.class", ConfigValueFactory.fromAnyRef(NoConfigConstructorS3StorageClient.class.getName()));
+    Config noConstructor = s3Config.withValue("storageClients.s3.class",
+        ConfigValueFactory.fromAnyRef(NoConfigConstructorS3StorageClient.class.getName()));
     assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("s3://bucket/"), noConstructor));
     assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(noConstructor));
   }
@@ -177,10 +198,33 @@ public class StorageClientTest {
     Config onlyCustomHost = azConfig.withValue("azure.allowedHosts", ConfigValueFactory.fromIterable(List.of("storage.example.internal")));
     assertTrue(StorageClient.create(customHostURI, onlyCustomHost) instanceof AzureStorageClient);
     assertThrows(IllegalArgumentException.class, () -> StorageClient.create(azureURI, onlyCustomHost));
+  }
 
-    // works with a custom azure class
-    Config customClass = withCustomHost.withValue("azure.class", ConfigValueFactory.fromAnyRef(CustomAzureStorageClient.class.getName()));
-    assertEquals(CustomAzureStorageClient.class, StorageClient.create(customHostURI, customClass).getClass());
+  @Test
+  public void testClientFor() throws Exception {
+    Config config = ConfigFactory.load("StorageClientTest/fullClients.conf")
+        .withValue("azure.allowedHosts", ConfigValueFactory.fromIterable(List.of("storage.example.internal")))
+        .withFallback(memoryClientConfig("mem"));
+    Map<String, StorageClient> clients = StorageClient.createClients(config);
+
+    assertEquals(clients.get("s3"), StorageClient.clientFor(new URI("s3://bucket/key"), clients, config));
+    assertEquals(clients.get("gs"), StorageClient.clientFor(new URI("gs://bucket/key"), clients, config));
+    assertEquals(clients.get("mem"), StorageClient.clientFor(new URI("mem://host/key"), clients, config));
+    assertEquals(clients.get("file"), StorageClient.clientFor(new URI("/path/to/file"), clients, config));
+    assertEquals(clients.get("https"), StorageClient.clientFor(new URI("https://storage.example.internal/c/key"), clients, config));
+
+    // the built-in azure client only handles https URIs on its allowed hosts
+    assertNull(StorageClient.clientFor(new URI("https://storagename.blob.core.windows.net/c/key"), clients, config));
+    assertNull(StorageClient.clientFor(new URI("https://example.com/c/key"), clients, config));
+
+    // no client for the scheme
+    assertNull(StorageClient.clientFor(new URI("other://host/key"), clients, config));
+
+    // a custom https client handles every https URI
+    Config customHttps = memoryClientConfig("https");
+    Map<String, StorageClient> customClients = StorageClient.createClients(customHttps);
+    assertEquals(customClients.get("https"), StorageClient.clientFor(new URI("https://example.com/c/key"), customClients, customHttps));
+    assertTrue(StorageClient.create(new URI("https://example.com/c/key"), customHttps) instanceof MemoryStorageClient);
   }
 
   @Test
@@ -216,12 +260,16 @@ public class StorageClientTest {
 
   @Test
   public void testInvalidCustomSchemeClients() {
-    // built-in schemes can't be configured
-    for (String scheme : List.of("file", "s3", "gs", "https")) {
-      Config builtIn = memoryClientConfig(scheme);
-      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(builtIn));
-      assertTrue(e.getMessage().contains("built-in scheme " + scheme));
-      assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("/path/to/file"), builtIn));
+    // file can't be configured
+    Config fileScheme = memoryClientConfig("file");
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(fileScheme));
+    assertTrue(e.getMessage().contains("file scheme"));
+    assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("/path/to/file"), fileScheme));
+
+    // built-in cloud schemes can, replacing the built-in client
+    for (String scheme : List.of("s3", "gs", "https")) {
+      Map<String, StorageClient> results = StorageClient.createClients(memoryClientConfig(scheme));
+      assertEquals(MemoryStorageClient.class, results.get(scheme).getClass());
     }
 
     // single-letter schemes are Windows drive letters
@@ -229,7 +277,7 @@ public class StorageClientTest {
 
     // class is required
     Config noClass = ConfigFactory.parseString("storageClients.mem.content: hello");
-    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(noClass));
+    e = assertThrows(IllegalArgumentException.class, () -> StorageClient.createClients(noClass));
     assertTrue(e.getMessage().contains("storageClients.mem"));
 
     // each entry must be a map
@@ -251,11 +299,18 @@ public class StorageClientTest {
         .withValue("storageClients." + scheme + ".content", ConfigValueFactory.fromAnyRef("hello"));
   }
 
-  private static Config customClassesConfig() {
-    return ConfigFactory.load("StorageClientTest/fullClients.conf")
-        .withValue("gcp.class", ConfigValueFactory.fromAnyRef(CustomGoogleStorageClient.class.getName()))
-        .withValue("s3.class", ConfigValueFactory.fromAnyRef(CustomS3StorageClient.class.getName()))
-        .withValue("azure.class", ConfigValueFactory.fromAnyRef(CustomAzureStorageClient.class.getName()));
+  /**
+   * Returns a config replacing the built-in s3, gs, and https clients with the Custom* subclasses below, through storageClients.
+   */
+  public static Config customClassesConfig() {
+    Config fullConfig = ConfigFactory.load("StorageClientTest/fullClients.conf");
+    return ConfigFactory.empty()
+        .withValue("storageClients.gs", fullConfig.getValue("gcp"))
+        .withValue("storageClients.gs.class", ConfigValueFactory.fromAnyRef(CustomGoogleStorageClient.class.getName()))
+        .withValue("storageClients.s3", fullConfig.getValue("s3"))
+        .withValue("storageClients.s3.class", ConfigValueFactory.fromAnyRef(CustomS3StorageClient.class.getName()))
+        .withValue("storageClients.https", fullConfig.getValue("azure"))
+        .withValue("storageClients.https.class", ConfigValueFactory.fromAnyRef(CustomAzureStorageClient.class.getName()));
   }
 
   public static class CustomGoogleStorageClient extends GoogleStorageClient {
