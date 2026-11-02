@@ -1,14 +1,13 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MAX_RESULTS_PER_PAGE;
-import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
-import static com.kmwllc.lucille.connector.FileConnector.SIZE;
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.FILE_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_RESULTS_PER_PAGE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.MODIFIED;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.SIZE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
 
 import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -116,7 +115,7 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   @Override
-  public final void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  public final void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     if (!isInitialized()) {
       throw new IllegalStateException("This StorageClient has not been initialized.");
     }
@@ -124,7 +123,7 @@ public abstract class BaseStorageClient implements StorageClient {
     traverseStorageClient(publisher, params, stateMgr);
   }
 
-  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
+  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception;
 
   /**
    * {@inheritDoc}
@@ -195,7 +194,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorStateManager stateMgr) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileStateTracker stateMgr) {
     URI fullPath = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
@@ -352,7 +351,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @throws IOException If an error regarding file I/O occurs
    * @throws ConnectorException If an error occurs handling subsequent archive entries.
    */
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params, FileConnectorStateManager stateMgr) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params, FileStateTracker stateMgr) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
@@ -548,9 +547,10 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Should only be used for testing. Sets this storage client to be initialized.
+   * Should only be used for testing. Marks this storage client as initialized without calling
+   * {@link #initializeStorageClient()}, for a test that supplies its own mock of the provider's SDK client.
    */
-  void initializeForTesting() {
+  protected void initializeForTesting() {
     this.initialized = true;
   }
 }

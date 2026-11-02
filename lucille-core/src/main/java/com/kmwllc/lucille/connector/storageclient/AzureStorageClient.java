@@ -1,8 +1,8 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_ACCOUNT_KEY;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_ACCOUNT_NAME;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_CONNECTION_STRING;
 
 import com.azure.core.util.polling.SyncPoller;
 import com.azure.storage.blob.BlobClient;
@@ -13,7 +13,6 @@ import com.azure.storage.blob.models.BlobCopyInfo;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -76,11 +75,11 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
   }
 
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileStateTracker stateMgr, String prefix) {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
         .listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxResultsPerPage), Duration.ofSeconds(10))
         .stream()

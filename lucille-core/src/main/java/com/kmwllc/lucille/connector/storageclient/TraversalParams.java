@@ -1,12 +1,13 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
-import static com.kmwllc.lucille.connector.FileConnector.MAX_SIZE_BYTES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.GET_FILE_CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_ARCHIVED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_COMPRESSED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_SIZE_BYTES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
 
 import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -79,8 +80,8 @@ public class TraversalParams {
     }
 
     try {
-      if (fileOptions.hasPath(FileConnector.MOVE_TO_AFTER_PROCESSING)) {
-        this.moveToAfterProcessing = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
+      if (fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING)) {
+        this.moveToAfterProcessing = parsePathOrURI(fileOptions.getString(MOVE_TO_AFTER_PROCESSING));
       } else {
         this.moveToAfterProcessing = null;
       }
@@ -89,8 +90,8 @@ public class TraversalParams {
     }
 
     try {
-      if (fileOptions.hasPath(FileConnector.MOVE_TO_ERROR_FOLDER)) {
-        this.moveToErrorFolder = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
+      if (fileOptions.hasPath(MOVE_TO_ERROR_FOLDER)) {
+        this.moveToErrorFolder = parsePathOrURI(fileOptions.getString(MOVE_TO_ERROR_FOLDER));
       } else {
         this.moveToErrorFolder = null;
       }

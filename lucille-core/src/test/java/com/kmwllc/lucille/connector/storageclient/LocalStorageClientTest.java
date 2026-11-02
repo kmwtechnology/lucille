@@ -69,6 +69,36 @@ public class LocalStorageClientTest {
     localStorageClient.shutdown();
   }
 
+  // A StorageClient can be traversed with state using any FileStateTracker, without a FileConnector or a database.
+  @Test
+  public void testTraverseWithInMemoryState() throws Exception {
+    URI root = URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault");
+    Config config = ConfigFactory.parseMap(Map.of("filterOptions.publishMode", "incremental"));
+    TraversalParams params = new TraversalParams(config, root, "file_");
+    InMemoryFileStateTracker state = new InMemoryFileStateTracker();
+
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    localStorageClient.init();
+
+    try {
+      TestMessenger firstRun = new TestMessenger();
+      localStorageClient.traverse(new PublisherImpl(ConfigFactory.empty(), firstRun, "run1", "pipeline1"), params, state);
+      long published = firstRun.getDocsSentForProcessing().stream()
+          .filter(doc -> !doc.getString(FileConnector.FILE_PATH).endsWith(".DS_Store")).count();
+      assertEquals(8, published);
+      assertEquals(firstRun.getDocsSentForProcessing().size(), state.getLastPublishedMap().size());
+
+      // nothing was modified since it was published, so the second run publishes nothing, but still encounters every file
+      state.startNewRun();
+      TestMessenger secondRun = new TestMessenger();
+      localStorageClient.traverse(new PublisherImpl(ConfigFactory.empty(), secondRun, "run2", "pipeline1"), params, state);
+      assertEquals(0, secondRun.getDocsSentForProcessing().size());
+      assertTrue(state.getEncountered().containsAll(state.getLastPublishedMap().keySet()));
+    } finally {
+      localStorageClient.shutdown();
+    }
+  }
+
   @Test
   public void testPublishFilesWithExclude() throws Exception {
     TestMessenger messenger = new TestMessenger();

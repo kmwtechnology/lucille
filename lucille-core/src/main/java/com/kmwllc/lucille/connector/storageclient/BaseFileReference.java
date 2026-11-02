@@ -1,10 +1,10 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.CREATED;
-import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
-import static com.kmwllc.lucille.connector.FileConnector.SIZE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CREATED;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.FILE_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.MODIFIED;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.SIZE;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.util.FileUtils;
