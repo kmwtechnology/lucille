@@ -201,6 +201,33 @@ public class SolrConnectorTest {
     assertEquals("n1", doc.getString("name"));
   }
 
+  @Test
+  public void testReservedFieldNamesAreNotCopied() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/execute.conf");
+    SolrClient mockClient = mock(SolrClient.class);
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    when(mockClient.query(any(SolrQuery.class))).then(invocation -> {
+      SolrDocument doc = new SolrDocument();
+      doc.setField(Document.ID_FIELD, "doc1");
+      // lower-cased, these are the reserved id and run_id
+      doc.setField("ID", "other");
+      doc.setField(Document.RUNID_FIELD, "oldRun");
+      doc.setField("name", "n1");
+      MockQueryResponse resp = new MockQueryResponse();
+      resp.addToResults(doc);
+      return resp;
+    });
+
+    new SolrConnector(config, mockClient).execute(publisher);
+
+    Document doc = messenger.getDocsSentForProcessing().get(0);
+    assertEquals("doc1", doc.getId());
+    assertEquals("run", doc.getRunId());
+    assertEquals("n1", doc.getString("name"));
+  }
+
   @Test(expected = ConnectorException.class)
   public void testFailingExecute() throws SolrServerException, IOException, ConnectorException {
     Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/execute.conf");

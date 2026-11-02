@@ -164,12 +164,14 @@ public class SolrConnector extends AbstractConnector {
         for (String fieldName : solrDoc.getFieldNames()) {
           // TODO : we might want an option to preserve the id under its original field name
           // TODO : Add configurable field blacklist (not necessarily here)
-          if (fieldName.equals(idField) || fieldName.equals(Document.ID_FIELD)) {
+          // read the field by its own name; only the name it is given on the Document is lower-cased
+          String docFieldName = fieldName.toLowerCase();
+          // reserved names (such as ID, or the run_id Lucille indexes) cannot be set on a Document
+          if (fieldName.equals(idField) || Document.RESERVED_FIELDS.contains(docFieldName)) {
             continue;
           }
 
-          // read the field by its own name; only the name it is given on the Document is lower-cased
-          doc.update(fieldName.toLowerCase(), UpdateMode.DEFAULT, toDocumentValues(solrDoc.getFieldValues(fieldName)));
+          doc.update(docFieldName, UpdateMode.DEFAULT, toDocumentValues(solrDoc.getFieldValues(fieldName)));
         }
 
         try {
