@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 
@@ -66,8 +67,9 @@ public class WorkerIndexer {
     start(config, pipelineName, pipelineDest, offsets, bypassSearchEngine, idSet);
   }
 
-  public void start(Config config, String pipelineName, LinkedBlockingQueue<Document> pipelineDest,
-      LinkedBlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
+  // takes the queues the Worker and Indexer share, so tests can supply queues they inspect
+  void start(Config config, String pipelineName, BlockingQueue<Document> pipelineDest,
+      BlockingQueue<Map<TopicPartition, OffsetAndMetadata>> offsets,
       boolean bypassSearchEngine,
       Set<String> idSet) throws Exception {
 
