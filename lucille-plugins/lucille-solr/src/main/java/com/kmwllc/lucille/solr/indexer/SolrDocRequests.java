@@ -20,32 +20,18 @@ import java.util.Set;
  */
 public class SolrDocRequests {
 
-  private final List<SolrInputDocument> docsToAddOrUpdate;
-  // the Lucille Document each entry of docsToAddOrUpdate was built from, at the same position
-  private final List<Document> sourceDocsToAddOrUpdate = new ArrayList<>();
-  private final Set<String> idsToAddOrUpdate;
-  private final Set<String> idsToDelete;
-  private final Map<String,List<String>> valuesToDeleteByField;
+  // a Solr document to add or update, with the Lucille Document it was built from
+  private record AddUpdate(SolrInputDocument solrDoc, Document sourceDoc) {}
 
-  public SolrDocRequests() {
-    this(new ArrayList<>(), new HashSet<>(), new HashSet<>(), new HashMap<>());
-  }
+  private final List<AddUpdate> addUpdates = new ArrayList<>();
+  private final Set<String> idsToAddOrUpdate = new HashSet<>();
+  private final Set<String> idsToDelete = new HashSet<>();
+  private final Map<String,List<String>> valuesToDeleteByField = new HashMap<>();
 
-  public SolrDocRequests(
-      List<SolrInputDocument> docsToAddOrUpdate,
-      Set<String> idsToAddOrUpdate,
-      Set<String> idsToDelete,
-      Map<String,List<String>> valuesToDeleteByField) {
-    this.docsToAddOrUpdate = docsToAddOrUpdate;
-    this.idsToAddOrUpdate = idsToAddOrUpdate;
-    this.idsToDelete = idsToDelete;
-    this.valuesToDeleteByField = valuesToDeleteByField;
-  }
-
-  public void addDocForAddUpdate(SolrInputDocument solrDoc, Document sourceDoc, String id) {
-    docsToAddOrUpdate.add(solrDoc);
-    sourceDocsToAddOrUpdate.add(sourceDoc);
-    idsToAddOrUpdate.add(id);
+  // solrDoc must have its id set, which SolrIndexer always does
+  public void addDocForAddUpdate(SolrInputDocument solrDoc, Document sourceDoc) {
+    addUpdates.add(new AddUpdate(solrDoc, sourceDoc));
+    idsToAddOrUpdate.add((String) solrDoc.getFieldValue(Document.ID_FIELD));
   }
 
   public void addIdForDeletion(String id) {
@@ -72,8 +58,7 @@ public class SolrDocRequests {
   }
 
   public void resetAddUpdates() {
-    docsToAddOrUpdate.clear();
-    sourceDocsToAddOrUpdate.clear();
+    addUpdates.clear();
     idsToAddOrUpdate.clear();
   }
 
@@ -83,11 +68,11 @@ public class SolrDocRequests {
   }
 
   public List<SolrInputDocument> getAddUpdateDocs() {
-    return docsToAddOrUpdate;
+    return addUpdates.stream().map(AddUpdate::solrDoc).toList();
   }
 
   public List<Document> getAddUpdateSourceDocs() {
-    return sourceDocsToAddOrUpdate;
+    return addUpdates.stream().map(AddUpdate::sourceDoc).toList();
   }
 
   public List<String> getDeleteIds() {

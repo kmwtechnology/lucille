@@ -218,7 +218,7 @@ public class SolrIndexer extends Indexer {
           sendDeletionBatch(collection, solrDocRequests);
           solrDocRequests.resetDeletes();
         }
-        solrDocRequests.addDocForAddUpdate(solrDoc, doc, solrId);
+        solrDocRequests.addDocForAddUpdate(solrDoc, doc);
       }
     }
 
