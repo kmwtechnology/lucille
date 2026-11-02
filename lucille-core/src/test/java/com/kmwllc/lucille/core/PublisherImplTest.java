@@ -851,25 +851,22 @@ public class PublisherImplTest {
     BlockingConnector connector = new BlockingConnector(ConfigFactory.parseString("name: c"));
     ConnectorThread thread = new ConnectorThread(connector, publisher, "run1", "Lucille-Test-Connector");
 
-    // before the connector thread is attached, and after it is attached but not started, the publisher is neither
-    assertFalse(publisher.isPublishing());
-    assertFalse(publisher.hasFinishedPublishing());
-    publisher.setConnectorThread(thread);
-    assertFalse(publisher.isPublishing());
-    assertFalse(publisher.hasFinishedPublishing());
+    // before the connector thread starts, publishing has neither started nor ended
+    assertFalse(publisher.isPublishingStarted());
+    assertFalse(publisher.isPublishingEnded());
 
     // while execute() is running, including while publishing is paused
     publisher.pause();
     thread.start();
     connector.started.await(5, TimeUnit.SECONDS);
-    assertTrue(publisher.isPublishing());
-    assertFalse(publisher.hasFinishedPublishing());
+    assertTrue(publisher.isPublishingStarted());
+    assertFalse(publisher.isPublishingEnded());
     publisher.resume();
 
     connector.release.countDown();
     thread.join(5000);
-    assertFalse(publisher.isPublishing());
-    assertTrue(publisher.hasFinishedPublishing());
+    assertTrue(publisher.isPublishingStarted());
+    assertTrue(publisher.isPublishingEnded());
   }
 
   @Test
@@ -878,14 +875,13 @@ public class PublisherImplTest {
     BlockingConnector connector = new BlockingConnector(ConfigFactory.parseString("name: c"));
     connector.failure = new ConnectorException("source unavailable");
     ConnectorThread thread = new ConnectorThread(connector, publisher, "run1", "Lucille-Test-Connector");
-    publisher.setConnectorThread(thread);
     connector.release.countDown();
     thread.start();
     thread.join(5000);
 
     assertTrue(thread.isFailed());
-    assertFalse(publisher.isPublishing());
-    assertTrue(publisher.hasFinishedPublishing());
+    assertTrue(publisher.isPublishingStarted());
+    assertTrue(publisher.isPublishingEnded());
   }
 
   /**

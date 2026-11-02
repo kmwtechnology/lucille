@@ -33,6 +33,7 @@ public class ConnectorThread extends Thread {
   @Override
   public void run() {
     MDC.put(Document.RUNID_FIELD, runId);
+    publisher.markPublishingStarted();
     try {
       connector.execute(publisher);
       publisher.flush();
@@ -43,6 +44,8 @@ public class ConnectorThread extends Thread {
         throw e;
       }
     } finally {
+      // recorded once execute() and the final flush() have returned or failed
+      publisher.markPublishingEnded();
       MDC.remove(Document.RUNID_FIELD);
     }
   }

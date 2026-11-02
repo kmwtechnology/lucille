@@ -737,8 +737,6 @@ public class Runner {
     } else {
       ConnectorThread connectorThread =
           new ConnectorThread(connector, publisher, runId, ThreadNameUtils.createName("Connector", runId));
-      // attached before the thread starts, so the publisher never reports a running connector as not yet started
-      publisher.setConnectorThread(connectorThread);
       try {
         if (workerPool != null) {
           // a worker that died cannot finish the documents the connector publishes; end the run now rather than after

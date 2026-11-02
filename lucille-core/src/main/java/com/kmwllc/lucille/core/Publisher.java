@@ -8,9 +8,12 @@ package com.kmwllc.lucille.core;
  * <p> A new Publisher is created for each run of a Connector. It stamps the run's ID on each published Document. A
  * Connector, or another component watching the run, can also read the run's progress ({@link #numReceived()},
  * {@link #numPublished()}, {@link #numPending()}, {@link #hasPending()}, {@link #numCreated()},
- * {@link #numSucceeded()}, {@link #numFailed()}, {@link #numDropped()}), see whether the Connector is still publishing
- * ({@link #isPublishing()}, {@link #hasFinishedPublishing()}), and control the flow of documents with
+ * {@link #numSucceeded()}, {@link #numFailed()}, {@link #numDropped()}), see whether publishing has started or ended
+ * ({@link #isPublishingStarted()}, {@link #isPublishingEnded()}), and control the flow of documents with
  * {@link #pause()} and {@link #resume()}.
+ *
+ * <p> The framework records when publishing starts and ends, around the call to
+ * {@link Connector#execute(Publisher)} and the final {@link #flush()}; nothing on this interface records those transitions.
  *
  * <p> Thread safety: the progress and state methods, {@link #pause()} and {@link #resume()} may be called from any
  * thread. {@link #publish(Document)} and {@link #flush()} may be called from several threads at once, except when the
@@ -160,20 +163,22 @@ public interface Publisher {
   boolean isPaused();
 
   /**
-   * Returns whether this publisher's Connector is running, so that it may still publish documents. True from when the
-   * Connector's thread starts until it ends, including while publishing is paused or blocked on
-   * {@code publisher.maxPendingDocs}.
+   * Returns whether publishing to this publisher has started. Once true, remains true.
+   *
+   * <p> Publishing is under way, so more documents may still be published, while this is true and
+   * {@link #isPublishingEnded()} is false, including while publishing is paused or blocked on
+   * {@code publisher.maxPendingDocs}. Before publishing starts, both are false.
    */
-  boolean isPublishing();
+  boolean isPublishingStarted();
 
   /**
-   * Returns whether this publisher's Connector ran and has ended, so it will publish nothing more. Not the opposite of
-   * {@link #isPublishing()}: before its Connector starts, a publisher is neither.
+   * Returns whether publishing to this publisher has ended, successfully or not, so that no more documents will be
+   * published to it. Once true, remains true.
    *
-   * <p> Finishing publishing does not mean the run is complete: documents may still be pending in the pipeline (see
-   * {@link #hasPending()}).
+   * <p> Publishing having ended does not mean the run is complete: documents may still be pending in the pipeline
+   * (see {@link #hasPending()}).
    */
-  boolean hasFinishedPublishing();
+  boolean isPublishingEnded();
 
   /**
    * Indicates that the calling thread is done calling {@link #publish(Document)}, so that any per-thread resources the

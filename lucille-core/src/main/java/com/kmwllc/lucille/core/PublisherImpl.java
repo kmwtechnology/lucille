@@ -85,8 +85,9 @@ public class PublisherImpl implements Publisher {
   // documents into a system that no longer tracks them
   private volatile boolean closed = false;
 
-  // the thread running this publisher's Connector, once the Runner has attached it
-  private volatile ConnectorThread connectorThread;
+  // set by the framework when publishing starts and ends; each changes only from false to true
+  private volatile boolean publishingStarted = false;
+  private volatile boolean publishingEnded = false;
 
   // lock and condition used for blocking publishing when the number of pending docs exceeds the specified maxPendingDocs
   private final ReentrantLock lockForPendingDocs = new ReentrantLock();
@@ -616,24 +617,29 @@ public class PublisherImpl implements Publisher {
   }
 
   @Override
-  public boolean isPublishing() {
-    ConnectorThread thread = connectorThread;
-    return thread != null && thread.isAlive();
+  public boolean isPublishingStarted() {
+    return publishingStarted;
   }
 
   @Override
-  public boolean hasFinishedPublishing() {
-    ConnectorThread thread = connectorThread;
-    // not !isAlive(): a thread that has been attached but not yet started is not alive either
-    return thread != null && thread.getState() == Thread.State.TERMINATED;
+  public boolean isPublishingEnded() {
+    return publishingEnded;
   }
 
   /**
-   * Attaches the thread that runs this publisher's Connector, for {@link #isPublishing()} and
-   * {@link #hasFinishedPublishing()}. Called by the Runner before it starts the thread.
+   * Records that publishing has started, for {@link #isPublishingStarted()}. Called by the framework when the source
+   * of documents begins, before it publishes anything.
    */
-  void setConnectorThread(ConnectorThread thread) {
-    this.connectorThread = thread;
+  void markPublishingStarted() {
+    publishingStarted = true;
+  }
+
+  /**
+   * Records that publishing has ended and no more documents will be published, for {@link #isPublishingEnded()}.
+   * Called by the framework once the source of documents has stopped, whether it succeeded or failed.
+   */
+  void markPublishingEnded() {
+    publishingEnded = true;
   }
 
   /**

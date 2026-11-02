@@ -230,4 +230,4 @@ if (resumeCondition != null) {
 | `pause/resume` | `ReentrantLock` + volatile `Condition` | publish thread(s) + external caller |
 | `firstDocStopWatch` | `volatile` + `synchronized` block | publish thread(s) |
 | `timerContext` | `ThreadLocal` | per-thread |
-| `connectorThread` | `volatile`, set by the Runner before the thread starts | read from any thread by `isPublishing()`/`hasFinishedPublishing()` |
+| `publishingStarted`/`publishingEnded` | `volatile`, set once each by the connector thread when it starts and ends | read from any thread by `isPublishingStarted()`/`isPublishingEnded()` |
