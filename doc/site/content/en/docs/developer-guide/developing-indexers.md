@@ -27,7 +27,7 @@ To create an Indexer, extend the abstract `Indexer` class and implement three me
 
 | Method | Required | Purpose |
 |---|---|---|
-| `sendToIndex(List<Document> docs)` | Yes | Send a batch to the destination. Return a set of `Pair<Document, Exception>` for any per-document failures; return an empty set if all succeeded. |
+| `sendToIndex(List<Document> docs)` | Yes | Send a batch to the destination. Return a set of `Pair<Document, Exception>` for any per-document failures; return an empty set if all succeeded. Throw `IndexerException` if the whole batch could not be attempted, or `IndexerRetryableException` if that failure may be transient, so the retry policy applies. |
 | `validateConnection()` | Yes | Return `true` if the destination is reachable and the target index/collection exists. Called before the consumption loop starts. |
 | `closeConnection()` | Yes | Close the client or connection to the destination. |
 | `supportsConcurrentSends()` | No | Return `true` only if `sendToIndex()` and your destination client are safe to call from several threads at once. The default is `false`, which makes the base class reject `indexer.maxConcurrentBatches` above 1. See [Concurrent Sends](#concurrent-sends). |
@@ -104,8 +104,10 @@ public class ExampleIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
     // Send the batch using your destination client.
+    // Wrap a client failure that stops the whole batch in IndexerException, or in IndexerRetryableException
+    // (with the HTTP status, if there is one) when a retry may succeed.
     // Use getConvertedIndexerDoc(doc) for the filtered field map as plain Java values,
     // or getRawIndexerDoc(doc) if your client serializes it to JSON with Jackson.
     // Use getDocIdOverride(doc) if idOverrideField may be configured.

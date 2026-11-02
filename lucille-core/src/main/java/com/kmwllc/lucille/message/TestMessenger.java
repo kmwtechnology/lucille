@@ -34,17 +34,17 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
-  public Document pollDocToIndex() throws Exception {
+  public Document pollDocToIndex() throws MessengerException {
     return messenger.pollDocToIndex();
   }
 
   @Override
-  public Document pollDocToProcess() throws Exception {
+  public Document pollDocToProcess() throws MessengerException {
     return messenger.pollDocToProcess();
   }
 
   @Override
-  public void commitPendingDocOffsets() throws Exception {
+  public void commitPendingDocOffsets() throws MessengerException {
     messenger.commitPendingDocOffsets();
   }
 
@@ -72,12 +72,12 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
-  public Event pollEvent() throws Exception {
+  public Event pollEvent() throws MessengerException {
     return messenger.pollEvent();
   }
 
   @Override
-  public void initialize(String runId, String pipelineName) throws Exception {
+  public void initialize(String runId, String pipelineName) throws MessengerException {
     messenger.initialize(runId, pipelineName);
   }
 
@@ -88,13 +88,13 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
 
 
   @Override
-  public void sendForProcessing(Document document) throws Exception {
+  public void sendForProcessing(Document document) throws MessengerException {
     savedSourceMessages.add(document);
     messenger.sendForProcessing(document);
   }
 
   @Override
-  public void sendEvents(List<Document> documents, String message, Event.Type type) throws Exception {
+  public void sendEvents(List<Document> documents, String message, Event.Type type) throws MessengerException {
     for (Document document : documents) {
       sendEvent(document, message, type);
     }
@@ -106,7 +106,7 @@ public class TestMessenger implements IndexerMessenger, PublisherMessenger,
   }
 
   @Override
-  public void batchComplete(List<Document> batch) throws Exception {
+  public void batchComplete(List<Document> batch) throws MessengerException {
     messenger.batchComplete(batch);
   }
 

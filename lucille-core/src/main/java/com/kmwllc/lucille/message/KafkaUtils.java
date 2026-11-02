@@ -341,9 +341,9 @@ public class KafkaUtils {
     return pipelineName + "_fail";
   }
 
-  public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) throws Exception {
+  public static void validateAtMostOneRecord(ConsumerRecords<?, ?> consumerRecords) {
     if (consumerRecords.count() > 1) {
-      throw new Exception("Kafka poll returned more than 1 message but this shouldn't happen");
+      throw new IllegalStateException("Kafka poll returned more than 1 message but this shouldn't happen");
     }
   }
 

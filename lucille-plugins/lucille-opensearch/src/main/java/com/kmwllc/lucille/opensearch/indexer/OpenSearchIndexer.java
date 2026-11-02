@@ -168,7 +168,7 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
     // skip indexing if there is no indexer client
     if (bypass) {
       return Set.of();
@@ -217,7 +217,7 @@ public class OpenSearchIndexer extends Indexer {
     return failedDocs;
   }
 
-  private void deleteById(List<Pair<String, String>> idsToDelete) throws Exception {
+  private void deleteById(List<Pair<String, String>> idsToDelete) throws IndexerException {
     if (idsToDelete.isEmpty()) {
       return;
     }
@@ -251,7 +251,7 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private void deleteByQuery(Map<Pair<String, String>, List<String>> termsToDeleteByQuery) throws Exception {
+  private void deleteByQuery(Map<Pair<String, String>, List<String>> termsToDeleteByQuery) throws IndexerException {
     if (termsToDeleteByQuery.isEmpty()) {
       return;
     }
@@ -344,7 +344,7 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, Exception>> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Pair<Document, Exception>> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IndexerException {
 
     if (documentsToUpload.isEmpty()) {
       return Set.of();
