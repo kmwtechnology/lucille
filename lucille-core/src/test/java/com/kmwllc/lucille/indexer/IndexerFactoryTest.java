@@ -29,13 +29,14 @@ public class IndexerFactoryTest {
   public void testFromValidTypeConfigCSV() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("IndexerFactoryTest/config_valid_type_csv.conf");
+    File outputFile = new File(config.getString("csv.path"));
+    FileUtils.deleteQuietly(outputFile);
     Indexer indexer = IndexerFactory.fromConfig(config, messenger, true, "testing");
     Assert.assertTrue(indexer instanceof CSVIndexer);
     indexer.closeConnection();
 
-    // removing the foo file created from test
-    boolean fooIsDeleted = FileUtils.deleteQuietly(new File(config.getString("csv.path")));
-    Assert.assertTrue(fooIsDeleted);
+    // creating the indexer does not create its output file
+    Assert.assertFalse(outputFile.exists());
   }
 
   @Test
