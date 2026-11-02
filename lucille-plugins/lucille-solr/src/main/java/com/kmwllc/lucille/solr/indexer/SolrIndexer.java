@@ -307,7 +307,7 @@ public class SolrIndexer extends Indexer {
   /**
    * Builds a query clause matching documents whose field has any of the given values exactly. The values are joined
    * with a separator that none of them contains, so a value such as "Smith, John" stays whole, and are quoted so a
-   * quote or brace in a value cannot end the local params early.
+   * quote in a value cannot end it early.
    */
   static String toTermsQuery(String field, List<String> values) {
     String separator = TERMS_SEPARATORS.stream()
@@ -326,11 +326,11 @@ public class SolrIndexer extends Indexer {
         quoteLocalParam(field), quoteLocalParam(separator), quoteLocalParam(String.join(separator, values)));
   }
 
-  // escapes the characters that would otherwise end a double-quoted local param value, or the local params themselves
+  // double-quotes a local param value, escaping the quote and the escape character; nothing else ends a quoted value
   private static String quoteLocalParam(String value) {
     StringBuilder sb = new StringBuilder("\"");
     for (char c : value.toCharArray()) {
-      if (c == '\\' || c == '"' || c == '{' || c == '}') {
+      if (c == '\\' || c == '"') {
         sb.append('\\');
       }
       sb.append(c);

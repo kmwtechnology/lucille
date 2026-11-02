@@ -1117,8 +1117,8 @@ public class SolrIndexerTest {
     assertEquals("(+{!terms f=\"author\" separator=\"|\" v=\"Smith, John|Jones\"})",
         SolrIndexer.toTermsQuery("author", List.of("Smith, John", "Jones")));
 
-    // quotes, braces and backslashes are escaped inside the quoted value
-    assertEquals("(+{!terms f=\"author\" separator=\",\" v=\"it's \\\"q\\\",\\{!x\\},a\\\\b\"})",
+    // quotes and backslashes are escaped inside the quoted value; braces need no escaping there
+    assertEquals("(+{!terms f=\"author\" separator=\",\" v=\"it's \\\"q\\\",{!x},a\\\\b\"})",
         SolrIndexer.toTermsQuery("author", List.of("it's \"q\"", "{!x}", "a\\b")));
 
     // when every candidate separator appears, each value gets its own term query
