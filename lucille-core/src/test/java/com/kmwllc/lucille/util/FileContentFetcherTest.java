@@ -161,7 +161,7 @@ public class FileContentFetcherTest {
       DefaultFileContentFetcher fetcher = new DefaultFileContentFetcher(cloudOptions);
       assertThrows(IOException.class, () -> fetcher.start());
 
-      // an error in fetcher.startup() should call shutdown automatically, which will shutdown each storage client.
+      // an error in fetcher.start() should call stop automatically, which will stop each storage client.
       S3StorageClient mockS3 = mockedConstruction.constructed().get(0);
       verify(mockS3, times(1)).stop();
     }

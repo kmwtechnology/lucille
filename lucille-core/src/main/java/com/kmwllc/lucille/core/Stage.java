@@ -51,6 +51,18 @@ import java.util.stream.Collectors;
  *   <li>operator (String, Optional) : The operator to determine conditional execution.
  *       Can be 'must' or 'must_not'. Defaults to must.
  * </ul>
+ *
+ * <p> Errors: a Stage reports that it cannot process a Document by throwing a {@link StageException} from
+ * {@link #processDocument(Document)}. A RuntimeException, or an Error local to the Document such as a
+ * StackOverflowError, is handled the same way: the Worker fails the Document (and any child it has already announced)
+ * with a FAIL event whose message is the exception's message, and carries on with the next Document. Only a fatal Error,
+ * such as an OutOfMemoryError, stops the Worker. Every such failure, including one thrown while producing a child
+ * Document, is counted in the Stage's error metric. A Stage should not throw for ordinary variation in its input, such
+ * as a missing source field; it should leave the Document unchanged instead.
+ *
+ * <p> Threads: each Worker thread has its own instance of each Stage, and calls {@link #start()},
+ * {@link #processDocument(Document)} and {@link #stop()} on it from that thread only, so a Stage's instance fields need
+ * no synchronization. State shared between instances, such as a static field, must be thread-safe.
  */
 public abstract class Stage {
 
@@ -68,7 +80,7 @@ public abstract class Stage {
       new StringProperty("conditionPolicy", false)
   );
 
-  protected Config config;
+  protected final Config config;
   private final Predicate<Document> condition;
   private String name;
 
@@ -144,7 +156,7 @@ public abstract class Stage {
   /**
    * Log metrics relating to the stage's performance, if metrics have been initialized.
    */
-  public void logMetrics() {
+  final void logMetrics() {
     if (timer == null || childCounter == null || errorCounter == null) {
       LoggerFactory.getLogger(Stage.class).error("Metrics not initialized");
     } else {
@@ -165,7 +177,7 @@ public abstract class Stage {
    * @param doc the doc to determine processing for
    * @return boolean representing - should we process this doc according to its conditionals?
    */
-  public boolean shouldProcess(Document doc) {
+  final boolean shouldProcess(Document doc) {
     if (doc.isDropped() || doc.isSkipped()) {
       return false;
     }
@@ -175,11 +187,14 @@ public abstract class Stage {
   /**
    * Process this Document iff it adheres to our conditional requirements.
    *
+   * <p> Public so that a Stage's tests can run a Document through its conditions; the framework calls it through
+   * apply().
+   *
    * @param doc the Document
    * @return a list of child documents resulting from this Stages processing
    * @throws StageException
    */
-  public Iterator<Document> processConditional(Document doc) throws StageException {
+  public final Iterator<Document> processConditional(Document doc) throws StageException {
     if (shouldProcess(doc)) {
       if (timer != null) {
         context = timer.time();
@@ -215,7 +230,7 @@ public abstract class Stage {
    * value will always be non-null and will at least contain the input document.
    * If the input document has a run ID, this ID will be copied to any children that do not have it.
    */
-  public Iterator<Document> apply(Document doc) throws StageException {
+  final Iterator<Document> apply(Document doc) throws StageException {
 
     Iterator<Document> children = processConditional(doc);
     Iterator<Document> parent = doc.iterator();
@@ -234,7 +249,14 @@ public abstract class Stage {
 
       @Override
       public Document next() {
-        Document child = children.next();
+        Document child;
+        try {
+          child = children.next();
+        } catch (RuntimeException | Error e) {
+          // a failure while producing a child is this stage's failure too
+          countError();
+          throw e;
+        }
 
         if (child != null) {
           if (childCounter != null) {
@@ -267,7 +289,7 @@ public abstract class Stage {
    * @return An iterator of documents, wrapping around the given iterator, calling apply on each as they are returned.
    * @throws StageException in the event an error occurs.
    */
-  public Iterator<Document> apply(Iterator<Document> docs) throws StageException {
+  final Iterator<Document> apply(Iterator<Document> docs) throws StageException {
 
     return new Iterator<>() {
 
@@ -297,11 +319,13 @@ public abstract class Stage {
         try {
           current = apply(d);
         } catch (StageException e) {
-          if (errorCounter != null) {
-            errorCounter.inc();
-          }
-
-          throw new RuntimeException(e); // TODO
+          countError();
+          // Iterator.next() cannot throw a checked exception. The Worker fails the document for any exception, and the
+          // FAIL event's message is the StageException's own, since this wrapper adds no message of its own.
+          throw new RuntimeException(e);
+        } catch (RuntimeException | Error e) {
+          countError();
+          throw e;
         }
 
         if (current.hasNext()) {
@@ -316,6 +340,12 @@ public abstract class Stage {
         throw new UnsupportedOperationException();
       }
     };
+  }
+
+  private void countError() {
+    if (errorCounter != null) {
+      errorCounter.inc();
+    }
   }
 
   /**
@@ -340,7 +370,7 @@ public abstract class Stage {
    * @param metricsPrefix The metricsPrefix associated with this stage.
    * @throws StageException In the event of an error.
    */
-  public void initialize(int position, String metricsPrefix) throws StageException {
+  final void initialize(int position, String metricsPrefix) throws StageException {
     if (name == null) {
       this.name = "stage_" + position;
     }
@@ -363,7 +393,7 @@ public abstract class Stage {
    * @return The unique property names for this Stage declared in its Spec. Does not return the default properties
    * for a Stage (such as "name" and "conditions").
    */
-  public Set<String> getNonDefaultLegalProperties() {
+  public final Set<String> getNonDefaultLegalProperties() {
     Set<String> propNames = getSpec().getLegalProperties();
 
     Set<String> defaultPropNames = DEFAULT_LEGAL_PROPERTIES.stream().map(Property::getName).collect(Collectors.toSet());
@@ -373,9 +403,14 @@ public abstract class Stage {
   }
 
   /**
-   * Construct a Stage from a config that includes a clas property.
+   * Construct a Stage from a config that includes a class property.
+   *
+   * @throws StageException if the class cannot be found or instantiated, or its constructor throws a StageException
+   *     or another checked exception
+   * @throws IllegalArgumentException if the config is null, names no class or names a class that is not a Stage, or
+   *     if the Stage's constructor rejects the config
    */
-  public static Stage fromConfig(Config config) throws Exception {
+  public static Stage fromConfig(Config config) throws StageException {
     if (config == null) {
       throw new IllegalArgumentException("Config cannot be null");
     }
@@ -384,26 +419,46 @@ public abstract class Stage {
     }
 
     String className = config.getString("class");
-    Class<?> raw = Class.forName(className);
+    Class<?> raw;
+    try {
+      raw = Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new StageException("Stage class not found: " + className, e);
+    }
     if (!Stage.class.isAssignableFrom(raw)) {
       throw new IllegalArgumentException("Class " + className + " is not a Stage");
     }
 
     Class<? extends Stage> cls = (Class<? extends Stage>) raw;
-    Constructor<? extends Stage> constructor = cls.getConstructor(Config.class);
+    Constructor<? extends Stage> constructor;
+    try {
+      constructor = cls.getConstructor(Config.class);
+    } catch (NoSuchMethodException e) {
+      throw new StageException("Stage class " + className + " has no public constructor taking a Config", e);
+    }
 
     return newInstance(constructor, config);
   }
 
-  private static Stage newInstance(Constructor<? extends Stage> constructor, Config config) throws Exception {
+  private static Stage newInstance(Constructor<? extends Stage> constructor, Config config) throws StageException {
+    String className = constructor.getDeclaringClass().getName();
     try {
       return constructor.newInstance(config);
     } catch (InvocationTargetException e) {
-      if (e.getCause() instanceof Exception cause) {
-        throw cause;
-      } else {
-        throw e;
+      // rethrow what the constructor threw, so a validation error reaches the caller unwrapped
+      Throwable cause = e.getCause();
+      if (cause instanceof StageException stageException) {
+        throw stageException;
       }
+      if (cause instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      if (cause instanceof Error error) {
+        throw error;
+      }
+      throw new StageException("Error creating stage " + className, cause);
+    } catch (InstantiationException | IllegalAccessException e) {
+      throw new StageException("Could not instantiate stage class " + className, e);
     }
   }
 }

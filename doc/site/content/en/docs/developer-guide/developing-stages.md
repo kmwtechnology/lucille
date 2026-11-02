@@ -14,7 +14,7 @@ To create a Stage, extend the abstract `Stage` class and implement `processDocum
 - **Condition evaluation** — If the user configures `conditions` on your stage, the base class evaluates them before calling `processDocument()`. If conditions are not met, your method is never invoked for that document. You write `processDocument()` as if conditions are always satisfied.
 - **Thread isolation** — Each worker thread gets its own instance of your stage. Instance fields are effectively thread-local; no synchronization is needed.
 - **Metrics** — The base class tracks per-stage document count, latency, error count, and child count automatically.
-- **Error handling** — If `processDocument()` throws a `StageException`, the framework catches it, marks the document as failed, and continues processing other documents.
+- **Error handling** — If `processDocument()` throws a `StageException`, the framework catches it, marks the document as failed, and continues processing other documents. A `RuntimeException` (or an `Error` local to the document, such as a `StackOverflowError`) is handled the same way; only a fatal `Error` such as `OutOfMemoryError` stops the worker. Every failure, including one thrown while producing a child document, is counted in the stage's error metric.
 
 **What you implement:**
 
