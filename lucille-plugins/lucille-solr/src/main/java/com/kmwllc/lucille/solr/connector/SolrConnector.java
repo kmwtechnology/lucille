@@ -29,7 +29,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -69,9 +68,6 @@ public class SolrConnector extends AbstractConnector {
   private final Map<String, List<String>> solrParams;
   private final String idField;
   private final String actionFormat;
-
-  private static final Set<Class<?>> DOCUMENT_VALUE_TYPES =
-      Set.of(String.class, Long.class, Integer.class, Double.class, Float.class, Boolean.class, Date.class, byte[].class);
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredParent(SolrUtils.SOLR_PARENT_SPEC)
@@ -222,10 +218,10 @@ public class SolrConnector extends AbstractConnector {
     return replacedPostActions;
   }
 
-  // Solr returns some field types, such as enum fields, as classes a Document cannot hold; those keep their string form
+  // values a Document cannot hold, such as an enum field's EnumFieldValue, keep their string form
   private static Object[] toDocumentValues(Collection<Object> values) {
     return values.stream()
-        .map(v -> v == null || DOCUMENT_VALUE_TYPES.contains(v.getClass()) ? v : String.valueOf(v))
+        .map(v -> Document.isSupportedValue(v) ? v : String.valueOf(v))
         .toArray();
   }
 

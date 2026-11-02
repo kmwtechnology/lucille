@@ -711,6 +711,16 @@ public interface Document {
     return id != null && !id.isBlank();
   }
 
+  /**
+   * Returns whether the given value can be stored in a field: null, or one of the types {@link #setField(String, Object)}
+   * accepts (String, Long, Double, Boolean, Integer, Float, Instant, byte[], JsonNode, Timestamp or Date).
+   */
+  static boolean isSupportedValue(Object value) {
+    return value == null || value instanceof String || value instanceof Long || value instanceof Double
+        || value instanceof Boolean || value instanceof Integer || value instanceof Float || value instanceof Instant
+        || value instanceof byte[] || value instanceof JsonNode || value instanceof Date;
+  }
+
   /* --- CREATORS --- */
 
   // These factories are the designated way to construct a Document outside this package. They are the single
