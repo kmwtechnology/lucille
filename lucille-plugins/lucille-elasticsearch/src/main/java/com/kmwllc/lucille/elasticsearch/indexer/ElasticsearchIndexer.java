@@ -238,15 +238,19 @@ public class ElasticsearchIndexer extends Indexer {
       String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
 
       if (!isMarkedForDeletion(doc)) {
+        // send any buffered delete-by-queries now, so they apply before this write rather than after it
         sendDeleteByQuerySegment(termsToDeleteByQuery);
         idsToDelete.remove(id);
         documentsToUpload.put(id, doc);
       } else {
         documentsToUpload.remove(id);
         if (!hasDeleteByFieldValues(doc)) {
+          // same as above: buffered delete-by-queries go before this delete by id
           sendDeleteByQuerySegment(termsToDeleteByQuery);
           idsToDelete.put(id, doc);
         } else {
+          // this doc is a delete-by-query, so flush the writes buffered before it first: send the pending uploads and
+          // deletes by id, clear both maps, and collect their per-doc failures
           failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
           // deletion, so we need to do doc.getString(deleteByFieldField).
@@ -288,9 +292,12 @@ public class ElasticsearchIndexer extends Indexer {
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
+    // whether each delete, in request order, was sent with a version; the response items come back in the same order
+    List<Boolean> versioned = new ArrayList<>();
     for (Map.Entry<String, Document> entry : idsToDelete.entrySet()) {
       String id = entry.getKey();
       Long versionNum = getDeleteVersionNum(entry.getValue());
+      versioned.add(versionNum != null);
       br.operations(op -> op
           .delete(d -> {
             d.index(index).id(id);
@@ -314,12 +321,25 @@ public class ElasticsearchIndexer extends Indexer {
     }
 
     if (response.errors()) {
-      for (BulkResponseItem item : response.items()) {
-        if (item.error() != null) {
-          log.debug("Error while deleting id: {} because: {}", item.id(), item.error().reason());
+      boolean failed = false;
+      List<BulkResponseItem> items = response.items();
+      for (int i = 0; i < items.size(); i++) {
+        BulkResponseItem item = items.get(i);
+        if (item.error() == null) {
+          continue;
         }
+        // a 409 on a versioned delete means the index already holds this version or a newer one: either this delete
+        // was applied on an earlier attempt of the batch (a retry resends it), or a newer document superseded it
+        if (item.status() == 409 && i < versioned.size() && versioned.get(i)) {
+          log.debug("Versioned delete of id: {} already applied or superseded: {}", item.id(), item.error().reason());
+          continue;
+        }
+        log.debug("Error while deleting id: {} because: {}", item.id(), item.error().reason());
+        failed = true;
       }
-      throw new IndexerException("encountered errors while deleting documents");
+      if (failed) {
+        throw new IndexerException("encountered errors while deleting documents");
+      }
     }
   }
 
@@ -454,6 +474,8 @@ public class ElasticsearchIndexer extends Indexer {
               return updateBuilder
                   .id(docId)
                   .index(index)
+                  // doc_as_upsert: an update to an id not yet in the index creates it instead of failing with
+                  // document_missing_exception
                   .action(upx -> upx
                       .doc(indexerDoc)
                       .docAsUpsert(true)

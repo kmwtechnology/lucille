@@ -77,7 +77,7 @@ indexer {
 
 Setting `indexer.versionField` without `indexer.versionType` fails at startup.
 
-Deletes by ID with `External` or `ExternalGte` use only step 1: a delete document with `indexer.versionField` is sent with that version, and one without it is sent without a version. The Kafka offset is never used for a delete, because it is not comparable to a `versionField` value. OpenSearch checks a delete's version the same way as a write's, and a rejected delete (409) fails the whole batch. For as long as the index keeps deleted versions (`index.gc_deletes`, 60 seconds by default), OpenSearch also rejects an upload with an older version than the delete. Delete-by-query is never versioned.
+Deletes by ID with `External` or `ExternalGte` use only step 1: a delete document with `indexer.versionField` is sent with that version, and one without it is sent without a version. The Kafka offset is never used for a delete, because it is not comparable to a `versionField` value. OpenSearch checks a delete's version the same way as a write's. A delete it rejects (409) is reported as succeeded, because the index already holds that version or a newer one: either a newer document superseded the delete, or a retry of the batch resent a delete that was already applied. For as long as the index keeps deleted versions (`index.gc_deletes`, 60 seconds by default), OpenSearch also rejects an upload with an older version than the delete. Delete-by-query is never versioned.
 
 ---
 
@@ -111,7 +111,7 @@ Retries follow the generic `indexer.maxRetries` settings (see [Retries]({{< relr
 - A request that fails with an HTTP error carries that status code; a transport failure (connection refused, socket timeout) carries `-1`. The batch is retried if the code is in `indexer.retryableStatusCodes`, and otherwise fails as a whole.
 - A document rejected in the bulk response carries the item's HTTP status code. If any rejected document's status is retryable (for example 429 but not 400), the whole batch is resent; once retries run out, or if none is retryable, only the rejected documents fail.
 - A bulk response error whose ID does not match a document in the batch fails the whole batch and is not retried.
-- An error on any delete-by-ID item, or any failure reported by delete-by-query, fails the whole batch and is not retried. Documents uploaded earlier in the same send were already indexed but still get FAIL events.
+- An error on any delete-by-ID item, or any failure reported by delete-by-query, fails the whole batch and is not retried. A 409 on a versioned delete is not an error (see [Version Type](#version-type)). Documents uploaded earlier in the same send were already indexed but still get FAIL events.
 
 ---
 
