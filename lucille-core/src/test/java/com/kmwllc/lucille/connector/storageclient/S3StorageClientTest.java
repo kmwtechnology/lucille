@@ -226,6 +226,35 @@ public class S3StorageClientTest {
     assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes(CONTENT));
   }
 
+  // filter patterns match the whole object key, including its folder prefix, even though getName() is the leaf name
+  @Test
+  public void testExcludesMatchObjectKey() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of("excludes", List.of("files/obj[34]")),
+        "fileOptions", Map.of(GET_FILE_CONTENT, false)
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    S3StorageClient s3StorageClient = new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1")));
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "prefix-");
+
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
+    ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
+    when(responseWithinStream.contents()).thenReturn(getMockedNestedS3Objects());
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
+    when(response.stream()).thenReturn(Stream.of(responseWithinStream));
+    when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
+
+    s3StorageClient.initializeForTesting();
+    s3StorageClient.traverse(publisher, params);
+
+    List<String> paths = messenger.getDocsSentForProcessing().stream().map(doc -> doc.getString(FILE_PATH)).toList();
+    assertEquals(List.of("s3://bucket/files/obj1", "s3://bucket/files/obj2"), paths);
+  }
+
   @Test
   public void testSkipFileContent() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",

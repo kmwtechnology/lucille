@@ -3,6 +3,8 @@ package com.kmwllc.lucille.connector.storageclient;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CONTENT;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.FILE_PATH;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_RESULTS_PER_PAGE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.MODIFIED;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.SIZE;
 import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
@@ -212,7 +214,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // Skip files that don't pass the filter options
-      if (!params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)) {
+      if (!params.includeFile(fileReference.getFilterName(), fileReference.getLastModified(), lastPublished)) {
         // If this is a previously-published archive or compressed file, its entries won't be traversed
         // this run. Mark all entries as encountered so they are not incorrectly marked as tombstones
         if (stateMgr != null && lastPublished != null) {
@@ -321,8 +323,10 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       afterProcessingFile(fullPath, params);
-    } catch (UnsupportedOperationException e) {
-      throw new UnsupportedOperationException("Encountered unsupported operation", e);
+    } catch (MoveNotSupportedException e) {
+      // every file would fail the same way, so stop the traversal. Any other UnsupportedOperationException is
+      // handled like other errors processing a single file, below.
+      throw e;
     } catch (StatePathTooLongException e) {
       throw e;
     } catch (Exception e) {
@@ -369,8 +373,10 @@ public abstract class BaseStorageClient implements StorageClient {
         }
 
         Instant archiveLastPublished = stateMgr == null ? null : stateMgr.getLastPublished(entryFullPathStr);
+        // some archive formats and entries have no modification date
+        Instant entryLastModified = entry.getLastModifiedDate() == null ? null : entry.getLastModifiedDate().toInstant();
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), archiveLastPublished)) {
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entryLastModified, archiveLastPublished)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportsFileExtension(entryExtension)) {
             handleStreamExtensionFiles(publisher, entryExtension, params, in, entryFullPathStr);
@@ -379,7 +385,9 @@ public abstract class BaseStorageClient implements StorageClient {
             // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
             Document doc = Document.create(StorageClient.createDocId(DigestUtils.md5Hex(entryFullPathStr), params));
             doc.setField(FILE_PATH, entryFullPathStr);
-            doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
+            if (entryLastModified != null) {
+              doc.setField(MODIFIED, entryLastModified);
+            }
             // entry does not have creation date
             // note that some ArchiveEntry implementations may not have a size so will return -1
             doc.setField(SIZE, entry.getSize());
@@ -488,7 +496,7 @@ public abstract class BaseStorageClient implements StorageClient {
   private void afterProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToAfterProcessing() != null) {
       // move to processed folder
-      moveFile(filePath, params.getMoveToAfterProcessing());
+      moveFileOrFail(filePath, params.getMoveToAfterProcessing(), MOVE_TO_AFTER_PROCESSING);
     }
   }
 
@@ -500,7 +508,28 @@ public abstract class BaseStorageClient implements StorageClient {
   private void errorProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToErrorFolder() != null) {
       // move to error folder
-      moveFile(filePath, params.getMoveToErrorFolder());
+      moveFileOrFail(filePath, params.getMoveToErrorFolder(), MOVE_TO_ERROR_FOLDER);
+    }
+  }
+
+  // Moves the file, throwing a MoveNotSupportedException, which stops the traversal, if this client doesn't support
+  // moving files.
+  private void moveFileOrFail(URI filePath, URI folder, String option) throws IOException {
+    try {
+      moveFile(filePath, folder);
+    } catch (UnsupportedOperationException e) {
+      throw new MoveNotSupportedException(getClass().getName() + " does not support moving files, which fileOptions."
+          + option + " requires.", e);
+    }
+  }
+
+  /**
+   * Thrown when fileOptions.moveToAfterProcessing or fileOptions.moveToErrorFolder is set but this client's
+   * {@link #moveFile(URI, URI)} throws an UnsupportedOperationException. Stops the traversal.
+   */
+  private static class MoveNotSupportedException extends UnsupportedOperationException {
+    MoveNotSupportedException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 

@@ -171,6 +171,11 @@ public class AzureStorageClient extends BaseStorageClient {
 
     @Override
     public String getName() {
+      return lastSegment(blobItem.getName());
+    }
+
+    @Override
+    public String getFilterName() {
       return blobItem.getName();
     }
 

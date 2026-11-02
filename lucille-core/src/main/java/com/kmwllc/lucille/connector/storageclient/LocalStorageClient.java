@@ -152,21 +152,13 @@ public class LocalStorageClient extends BaseStorageClient {
     }
 
     @Override
-    public InputStream getContentStream(TraversalParams params) {
-      try {
-        return Files.newInputStream(path);
-      } catch (IOException e) {
-        throw new IllegalArgumentException("Unable to get content stream of path '" + path + "'", e);
-      }
+    public InputStream getContentStream(TraversalParams params) throws IOException {
+      return Files.newInputStream(path);
     }
 
     @Override
-    protected byte[] getFileContent(TraversalParams params) {
-      try {
-        return Files.readAllBytes(path);
-      } catch (IOException e) {
-        throw new IllegalArgumentException("Unable to get file contents from '" + path + "' for document", e);
-      }
+    protected byte[] getFileContent(TraversalParams params) throws IOException {
+      return Files.readAllBytes(path);
     }
   }
 }

@@ -145,6 +145,11 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     @Override
     public String getName() {
+      return lastSegment(blob.getName());
+    }
+
+    @Override
+    public String getFilterName() {
       return blob.getName();
     }
 

@@ -217,6 +217,11 @@ public class S3StorageClient extends BaseStorageClient {
 
     @Override
     public String getName() {
+      return lastSegment(s3Obj.key());
+    }
+
+    @Override
+    public String getFilterName() {
       return s3Obj.key();
     }
 
