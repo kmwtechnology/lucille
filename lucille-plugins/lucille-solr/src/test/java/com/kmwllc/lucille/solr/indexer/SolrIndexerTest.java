@@ -1052,41 +1052,22 @@ public class SolrIndexerTest {
     assertTrue(capturedDoc.containsKey("id"));
   }
 
+  // acceptInvalidCert is applied through the client's SSLContext (see SolrUtilsTest and SolrUtilsSslIT), not through
+  // the solr.ssl.checkPeerName system property, which HttpJdkSolrClient does not read
   @Test
-  public void testAllowInvalidCertAndAuthHttp() {
-    String originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
-    System.clearProperty("solr.ssl.checkPeerName");
-
-    Config config = ConfigFactory.parseResourcesAnySyntax("SolrIndexerTest/acceptInvalidCert.conf");
-    TestMessenger messenger = new TestMessenger();
-
-    Indexer indexer = new SolrIndexer(config, messenger, false, "", null);
-    // should be set when we acceptInvalidCert w/ username/password in config
-    assertEquals("false", System.getProperty("solr.ssl.checkPeerName"));
-
-    indexer.closeConnection();
-
-    if (originalCheckPeerName != null) {
-      System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
-    }
-  }
-
-  @Test
-  public void testAllowInvalidCertCloud() {
-    String originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
-    System.clearProperty("solr.ssl.checkPeerName");
-
-    Config config = ConfigFactory.parseResourcesAnySyntax("SolrIndexerTest/acceptInvalidCertCloud.conf");
-    TestMessenger messenger = new TestMessenger();
-
-    Indexer indexer = new SolrIndexer(config, messenger, false, "", null);
-    // should be set when we acceptInvalidCert for an HTTP client
-    assertEquals("false", System.getProperty("solr.ssl.checkPeerName"));
-
-    indexer.closeConnection();
-
-    if (originalCheckPeerName != null) {
-      System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
+  public void testAllowInvalidCertSetsNoSystemProperty() {
+    for (String conf : List.of("SolrIndexerTest/acceptInvalidCert.conf", "SolrIndexerTest/acceptInvalidCertCloud.conf")) {
+      String originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
+      System.clearProperty("solr.ssl.checkPeerName");
+      try {
+        Indexer indexer = new SolrIndexer(ConfigFactory.parseResourcesAnySyntax(conf), new TestMessenger(), false, "", null);
+        indexer.closeConnection();
+        assertNull(conf, System.getProperty("solr.ssl.checkPeerName"));
+      } finally {
+        if (originalCheckPeerName != null) {
+          System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
+        }
+      }
     }
   }
 

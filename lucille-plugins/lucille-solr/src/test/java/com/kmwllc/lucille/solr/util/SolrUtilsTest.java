@@ -3,15 +3,20 @@ package com.kmwllc.lucille.solr.util;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigValueFactory;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.net.http.HttpClient;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.net.ssl.SSLContext;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
@@ -38,9 +43,9 @@ public class SolrUtilsTest {
   }
 
   @Test
-  public void getHttpClientAndSetCheckPeerNameTest() throws Exception {
+  public void getHttpClientBuilderTest() throws Exception {
     Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:SolrUtilsTest/auth.conf"));
-    HttpJdkSolrClient client = SolrUtils.getHttpClientAndSetCheckPeerName(config);
+    HttpJdkSolrClient client = SolrUtils.getHttpClientBuilder(config).build();
     // would like to inspect the solr client to confirm credentials are configured, but can’t do that so just checking it’s non-null
     assertNotNull(client);
     client.close();
@@ -68,6 +73,33 @@ public class SolrUtilsTest {
       assertEquals("http://solr1:8983/solr/products", ((HttpJdkSolrClient) client).getBaseURL());
       assertNull(client.getDefaultCollection());
     }
+  }
+
+  @Test
+  public void testAcceptInvalidCertSetsTrustAllSSLContext() throws Exception {
+    String originalCheckPeerName = System.getProperty("solr.ssl.checkPeerName");
+    System.clearProperty("solr.ssl.checkPeerName");
+    Config accept = ConfigFactory.parseMap(Map.of("solr.url", "https://solr:8983/solr", "solr.acceptInvalidCert", true));
+    Config reject = ConfigFactory.parseMap(Map.of("solr.url", "https://solr:8983/solr"));
+
+    try (HttpJdkSolrClient acceptClient = (HttpJdkSolrClient) SolrUtils.getSolrClient(accept);
+        HttpJdkSolrClient rejectClient = (HttpJdkSolrClient) SolrUtils.getSolrClient(reject)) {
+      assertNotSame(SSLContext.getDefault(), javaHttpClient(acceptClient).sslContext());
+      assertSame(SSLContext.getDefault(), javaHttpClient(rejectClient).sslContext());
+      // the option no longer has a JVM-wide side effect
+      assertNull(System.getProperty("solr.ssl.checkPeerName"));
+    } finally {
+      if (originalCheckPeerName != null) {
+        System.setProperty("solr.ssl.checkPeerName", originalCheckPeerName);
+      }
+    }
+  }
+
+  // HttpJdkSolrClient does not expose the java.net.http.HttpClient it sends through
+  private static HttpClient javaHttpClient(HttpJdkSolrClient client) throws Exception {
+    Field field = HttpJdkSolrClient.class.getDeclaredField("httpClient");
+    field.setAccessible(true);
+    return (HttpClient) field.get(client);
   }
 
   @Test
