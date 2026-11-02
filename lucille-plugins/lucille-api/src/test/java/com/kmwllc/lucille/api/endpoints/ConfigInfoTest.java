@@ -2,6 +2,7 @@ package com.kmwllc.lucille.api.endpoints;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -68,6 +69,19 @@ public class ConfigInfoTest {
       assertTrue(n.has("fields"));
       assertTrue(n.get("fields").isArray());
       assertFalse(n.has("paramsFromDescription"));
+    }
+  }
+
+  @Test
+  public void testStages_classWithoutSpecSkipped() throws Exception {
+    Response resp = resource.getStages();
+    assertEquals(200, resp.getStatus());
+
+    ArrayNode arr = mapper.valueToTree(resp.getEntity());
+    assertTrue(arr.size() > 0);
+
+    for (JsonNode n : arr) {
+      assertNotEquals(NoSpecStage.class.getName(), n.get("class").asText());
     }
   }
 

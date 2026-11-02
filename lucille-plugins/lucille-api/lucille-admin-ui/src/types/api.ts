@@ -8,6 +8,18 @@ export interface RunResult {
   runId: string
 }
 
+/**
+ * Why a run failed before producing a RunResult (e.g. a connector couldn't be
+ * constructed). The root cause fields name the innermost cause, and repeat
+ * className/message when there is none.
+ */
+export interface RunError {
+  className: string
+  message: string | null
+  rootCauseClassName: string
+  rootCauseMessage: string | null
+}
+
 export interface Run {
   runId: string
   configId: string
@@ -16,6 +28,7 @@ export interface Run {
   runResult: RunResult | null
   runType: string | null
   done: boolean
+  error: RunError | null
 }
 
 export interface SystemStats {
