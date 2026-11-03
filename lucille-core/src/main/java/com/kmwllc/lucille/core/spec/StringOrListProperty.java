@@ -12,11 +12,7 @@ import com.typesafe.config.ConfigValueType;
 public class StringOrListProperty extends Property {
 
   public StringOrListProperty(String name, boolean required) {
-    this(name, required, null);
-  }
-
-  public StringOrListProperty(String name, boolean required, String description) {
-    super(name, required, description);
+    super(name, required);
   }
 
   @Override

@@ -68,20 +68,19 @@ public class SpecTest {
 
   @Test
   public void testToJson() {
-    JsonNode messageJson = SpecBuilder.withoutDefaults().requiredStringWithDescription("message", "A message to send.").build().toJson();
+    JsonNode messageJson = SpecBuilder.withoutDefaults().requiredString("message").build().toJson();
     JsonNode messageNode = messageJson.get("fields").get(0);
 
     assertEquals("message", messageNode.get("name").asText());
     assertTrue(messageNode.get("required").asBoolean());
     assertEquals("STRING", messageNode.get("type").get("type").asText());
 
-    JsonNode withDescriptionJson = SpecBuilder.withoutDefaults().optionalStringWithDescription("message", "A message to send.").build().toJson();
-    messageNode = withDescriptionJson.get("fields").get(0);
+    JsonNode optionalJson = SpecBuilder.withoutDefaults().optionalString("message").build().toJson();
+    messageNode = optionalJson.get("fields").get(0);
 
     assertEquals("message", messageNode.get("name").asText());
     assertFalse(messageNode.get("required").asBoolean());
     assertEquals("STRING", messageNode.get("type").get("type").asText());
-    assertEquals("A message to send.", messageNode.get("description").asText());
   }
 
   @Test

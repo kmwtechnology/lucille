@@ -11,25 +11,17 @@ public class ObjectProperty extends Property {
   private final Spec parentSpec;
 
   public ObjectProperty(Spec parentSpec, boolean required) {
-    this(parentSpec, required, null);
-  }
-
-  public ObjectProperty(String name, boolean required, TypeReference<?> type) {
-    this(name, required, type, null);
-  }
-
-  public ObjectProperty(String name, boolean required, TypeReference<?> type, String description) {
-    super(name, required, description);
-
-    this.parentSpec = null;
-    this.typeReference = type;
-  }
-
-  public ObjectProperty(Spec parentSpec, boolean required, String description) {
-    super(parentSpec.getName(), required, description);
+    super(parentSpec.getName(), required);
 
     this.parentSpec = parentSpec;
     this.typeReference = null;
+  }
+
+  public ObjectProperty(String name, boolean required, TypeReference<?> type) {
+    super(name, required);
+
+    this.parentSpec = null;
+    this.typeReference = type;
   }
 
   @Override

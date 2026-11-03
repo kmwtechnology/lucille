@@ -73,7 +73,7 @@ import org.slf4j.LoggerFactory;
 public class QueryOpensearch extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredParentWithDescription(OpenSearchUtils.OPENSEARCH_PARENT_SPEC, "Configuration for your OpenSearch instance.")
+      .requiredParent(OpenSearchUtils.OPENSEARCH_PARENT_SPEC)
       .optionalString("templateName", "searchTemplate", "opensearchResponsePath", "destinationField")
       .optionalList("requiredParamNames", new TypeReference<List<String>>(){})
       .optionalList("optionalParamNames", new TypeReference<List<String>>(){}).build();

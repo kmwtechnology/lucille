@@ -12,26 +12,18 @@ public class ListProperty extends Property {
   private final Spec objectSpec;
   private final TypeReference<?> typeReference;
 
-  public ListProperty(String name, boolean required, Spec objectSpec, String description) {
-    super(name, required, description);
+  public ListProperty(String name, boolean required, Spec objectSpec) {
+    super(name, required);
 
     this.objectSpec = objectSpec;
     this.typeReference = null;
   }
 
-  public ListProperty(String name, boolean required, Spec objectSpec) {
-    this(name, required, objectSpec, null);
-  }
-
-  public ListProperty(String name, boolean required, TypeReference<?> type, String description) {
-    super(name, required, description);
+  public ListProperty(String name, boolean required, TypeReference<?> type) {
+    super(name, required);
 
     this.objectSpec = null;
     this.typeReference = type;
-  }
-
-  public ListProperty(String name, boolean required, TypeReference<?> type) {
-    this(name, required, type, null);
   }
 
   @Override

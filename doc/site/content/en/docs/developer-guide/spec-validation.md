@@ -124,12 +124,9 @@ Each factory method pre-populates the builder with default legal properties appr
 .optionalList("name", new TypeReference<List<String>>(){})
 ```
 
-### With Descriptions
+### Descriptions
 
-Every method has a `WithDescription` variant for documentation generation:
-```java
-.requiredStringWithDescription("url", "The Solr endpoint URL")
-```
+A Spec declares names, types and whether each property is required; it does not carry descriptions. Describe each property in the component's Javadoc "Config Parameters" list instead (see [Javadoc Standards]({{< relref "docs/developer-guide/javadocs" >}})). The admin UI reads those descriptions from the generated Javadoc and merges them into the Spec's JSON.
 
 ## How Validation Is Triggered
 
