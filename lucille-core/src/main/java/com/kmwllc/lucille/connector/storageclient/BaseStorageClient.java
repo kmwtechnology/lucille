@@ -130,10 +130,10 @@ public abstract class BaseStorageClient implements StorageClient {
 
   /**
    * {@inheritDoc}
-   * <p> Compares the URIs by path segment, so <code>s3://bucket/data</code> contains <code>s3://bucket/data/2024</code>.
-   * A URI with an empty path is the root of its bucket or container, and contains everything in it.
-   * <p> Object storage prefixes are raw strings rather than path segments, so overlaps that do not fall on a segment
-   * boundary are missed, implementations may override to catch them.
+   * <p> For object stores, where a path is a raw key prefix: the parent contains the child when the child's key prefix
+   * starts with the parent's. So <code>s3://bucket/data</code> contains both <code>s3://bucket/data/2024</code> and
+   * <code>s3://bucket/data2</code>, while <code>s3://bucket/data/</code> contains only the first. A URI with an empty
+   * path is the root of its bucket, and contains everything in it.
    */
   @Override
   public boolean containsPath(URI parent, URI child) {
@@ -145,24 +145,18 @@ public abstract class BaseStorageClient implements StorageClient {
       return false;
     }
 
-    return isUnder(normalizedChild.getPath(), normalizedParent.getPath());
+    return keyPrefix(normalizedChild).startsWith(keyPrefix(normalizedParent));
   }
 
-  // Returns whether the child path is the parent path, or sits underneath it, treating both as '/'-delimited.
-  private static boolean isUnder(String childPath, String parentPath) {
-    String parent = stripTrailingSlash(parentPath);
-    String child = stripTrailingSlash(childPath);
+  // The key prefix a path lists: its path without the leading '/'. Empty for the root of the bucket.
+  private static String keyPrefix(URI uri) {
+    String path = uri.getPath();
 
-    // an empty path is the root of a bucket / container, which contains everything in it
-    return parent.isEmpty() || child.equals(parent) || child.startsWith(parent + "/");
-  }
-
-  private static String stripTrailingSlash(String path) {
     if (path == null || path.isEmpty()) {
       return "";
     }
 
-    return path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+    return path.startsWith("/") ? path.substring(1) : path;
   }
 
   /**

@@ -6,6 +6,7 @@ import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -1045,5 +1046,21 @@ public class AzureStorageClientTest {
     List<Document> documents = messenger.getDocsSentForProcessing();
     assertEquals(1, documents.size());
     assertTrue(documents.get(0).getString(FILE_PATH).endsWith("/folder/good"));
+  }
+
+  @Test
+  public void testContainsPath() {
+    AzureStorageClient client = new AzureStorageClient(ConfigFactory.parseMap(Map.of("connectionString", "connectionString")));
+    String account = "https://storagename.blob.core.windows.net";
+
+    assertTrue(client.containsPath(URI.create(account + "/container/logs"), URI.create(account + "/container/logs-old")));
+    assertTrue(client.containsPath(URI.create(account + "/container"), URI.create(account + "/container/logs/")));
+    assertTrue(client.containsPath(URI.create(account + "/container/a%20b"), URI.create(account + "/container/a%20b/c")));
+
+    // the container must match exactly; it is not a key prefix
+    assertFalse(client.containsPath(URI.create(account + "/container"), URI.create(account + "/container2/logs")));
+    assertFalse(client.containsPath(URI.create(account + "/container/logs/"), URI.create(account + "/container/logs-old/")));
+    assertFalse(client.containsPath(URI.create(account + "/container/logs"),
+        URI.create("https://other.blob.core.windows.net/container/logs")));
   }
 }

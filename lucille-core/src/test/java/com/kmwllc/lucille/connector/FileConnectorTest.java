@@ -801,6 +801,22 @@ public class FileConnectorTest {
     }
   }
 
+  // Cloud paths are raw key prefixes: s3://b/logs also traverses s3://b/logs-old, so concurrent traversal of the two is
+  // rejected. With trailing slashes they are separate folders.
+  @Test
+  public void testOverlappingCloudPrefixesRejectedForConcurrentTraversal() throws Exception {
+    Config base = ConfigFactory.parseMap(Map.of(
+        "name", "file-connector", "pipeline", "pipeline1", "maxThreads", 2,
+        "s3", Map.of("region", "us-east-1")));
+
+    Config overlapping = base.withValue("paths", ConfigValueFactory.fromIterable(List.of("s3://b/logs", "s3://b/logs-old")));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(overlapping));
+    assertTrue(e.getMessage().contains("overlapping"));
+
+    Config separate = base.withValue("paths", ConfigValueFactory.fromIterable(List.of("s3://b/logs/", "s3://b/logs-old/")));
+    new FileConnector(separate).close();
+  }
+
   // A root that is missing on one run (e.g. an unmounted share) fails that run without publishing tombstones or deleting
   // state, so the next run sees the files as unchanged rather than re-publishing them.
   @Test

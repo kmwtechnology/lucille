@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,6 +103,24 @@ public class AzureStorageClient extends BaseStorageClient {
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
     return buildBlobURI(params.getURI(), getBucketOrContainerName(params), prefix);
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p> The container is the first segment of the path and must match exactly. Within it, a blob prefix is a raw
+   * prefix, so <code>.../container/data</code> contains <code>.../container/data2</code>.
+   */
+  @Override
+  public boolean containsPath(URI parent, URI child) {
+    if (!Objects.equals(parent.getScheme(), child.getScheme()) || !Objects.equals(parent.getAuthority(), child.getAuthority())) {
+      return false;
+    }
+
+    BlobLocation parentLocation = BlobLocation.fromURI(parent.normalize());
+    BlobLocation childLocation = BlobLocation.fromURI(child.normalize());
+
+    return parentLocation.containerName.equals(childLocation.containerName)
+        && childLocation.blobName.startsWith(parentLocation.blobName);
   }
 
   @Override

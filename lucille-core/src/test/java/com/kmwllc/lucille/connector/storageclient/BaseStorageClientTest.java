@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.connector.storageclient;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -225,5 +226,24 @@ public class BaseStorageClientTest {
     assertEquals("done/2024/a.csv", BaseStorageClient.destinationKey("done/2024", "a.csv"));
     // an empty folder is the root of the bucket or container
     assertEquals("data/a.csv", BaseStorageClient.destinationKey("", "data/a.csv"));
+  }
+
+  // An object-store path is a raw key prefix, so a parent contains every path whose key starts with its own.
+  @Test
+  public void testContainsPathUsesRawPrefixes() {
+    S3StorageClient client = new S3StorageClient(ConfigFactory.empty());
+
+    assertTrue(client.containsPath(URI.create("s3://b/logs"), URI.create("s3://b/logs/2024")));
+    assertTrue(client.containsPath(URI.create("s3://b/logs"), URI.create("s3://b/logs-old")));
+    assertTrue(client.containsPath(URI.create("s3://b/logs"), URI.create("s3://b/logs")));
+    assertTrue(client.containsPath(URI.create("s3://b/logs/"), URI.create("s3://b/logs/2024/")));
+    assertTrue(client.containsPath(URI.create("s3://b"), URI.create("s3://b/anything")));
+    assertTrue(client.containsPath(URI.create("s3://b/"), URI.create("s3://b/anything")));
+
+    assertFalse(client.containsPath(URI.create("s3://b/logs/"), URI.create("s3://b/logs-old/")));
+    // "logs" also lists "logs-old", which "logs/" doesn't
+    assertFalse(client.containsPath(URI.create("s3://b/logs/"), URI.create("s3://b/logs")));
+    assertFalse(client.containsPath(URI.create("s3://b/logs"), URI.create("s3://other/logs")));
+    assertFalse(client.containsPath(URI.create("s3://b/logs"), URI.create("gs://b/logs")));
   }
 }
