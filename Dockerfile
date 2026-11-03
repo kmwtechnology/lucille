@@ -29,17 +29,25 @@ RUN groupadd -r lucille \
  && useradd -r -g lucille -d /lucille -s /usr/sbin/nologin lucille \
  && chown -R lucille:lucille /lucille
 
+# Editable default logging configuration. lucille-core carries no log4j2 config; the backend and
+# a non-auto-discovered fallback (lucille-log4j2.xml) come from lucille-logging. We ship an editable copy here
+# at /lucille/conf/log4j2.xml and point log4j2 at it via the entrypoint, so operators can tune logging by
+# editing a file rather than unpacking a jar.
+COPY lucille-logging/src/main/resources/lucille-log4j2.xml /lucille/conf/log4j2.xml
+
 # Environment variables with sensible defaults
 # LUCILLE_CONF: path to the Lucille config file (required)
 # LUCILLE_ROLE: which Lucille component to run: runner, worker, indexer or worker-indexer. Defaults to runner (which is the component to use for local runs)
 # LUCILLE_PIPELINE: pipeline name to process; use only (required) when LUCILLE_ROLE is worker, indexer or worker-indexer
 # JAVA_OPTS: JVM flags such as heap size and GC settings
 # LUCILLE_OPTS: Runner CLI flags, used only when LUCILLE_ROLE=runner (e.g. -distributed, -external)
+# LUCILLE_LOG4J_CONF: path to the log4j2 configuration file; defaults to the editable /lucille/conf/log4j2.xml
 ENV LUCILLE_CONF=""
 ENV LUCILLE_ROLE="runner"
 ENV LUCILLE_PIPELINE=""
 ENV LUCILLE_OPTS=""
 ENV JAVA_OPTS=""
+ENV LUCILLE_LOG4J_CONF="/lucille/conf/log4j2.xml"
 
 # Copy the entrypoint script
 COPY docker-entrypoint.sh /lucille/docker-entrypoint.sh
