@@ -58,7 +58,7 @@ public class LucilleResource {
   /**
    * Logger for the LucilleResource.
    */
-  private static final Logger log = LoggerFactory.getLogger(RunnerManager.class);
+  private static final Logger log = LoggerFactory.getLogger(LucilleResource.class);
 
   /**
    * Runner manager instance for handling Lucille runs.
