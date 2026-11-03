@@ -333,6 +333,9 @@ public class PublisherImplTest {
       });
     } finally {
       executor.shutdownNow();
+      // let the interrupted publish() finish first: if handleEvent() signals it before it sees the interrupt, it
+      // briefly re-adds doc4, and the publish() below can wait out the full 10s retry without being signalled
+      assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
     }
 
     assertEquals(3, publisher.numPending());
