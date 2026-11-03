@@ -801,6 +801,34 @@ public class FileConnectorTest {
     }
   }
 
+  // A move folder the traversal would visit is rejected at startup, since moved files would be published again.
+  @Test
+  public void testMoveTargetInsideTraversedPathRejected() throws Exception {
+    File root = tempFolder.newFolder("incoming");
+    Config local = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of(root.getPath())));
+
+    for (String option : List.of("moveToAfterProcessing", "moveToErrorFolder")) {
+      Config inside = local.withValue("fileOptions." + option, ConfigValueFactory.fromAnyRef(new File(root, "done").getPath()));
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(inside));
+      assertTrue(e.getMessage().contains(option));
+
+      Config outside = local.withValue("fileOptions." + option,
+          ConfigValueFactory.fromAnyRef(new File(tempFolder.getRoot(), "done").getPath()));
+      new FileConnector(outside).close();
+    }
+
+    Config s3 = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of("s3://b/incoming"), "s3", Map.of("region", "us-east-1")));
+    // a raw prefix: s3://b/incoming also lists incoming-done/
+    for (String inside : List.of("s3://b/incoming/done/", "s3://b/incoming-done/")) {
+      Config config = s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef(inside));
+      assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    }
+    new FileConnector(s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://b/done/"))).close();
+    new FileConnector(s3.withValue("fileOptions.moveToAfterProcessing", ConfigValueFactory.fromAnyRef("s3://other/incoming/"))).close();
+  }
+
   // Cloud paths are raw key prefixes: s3://b/logs also traverses s3://b/logs-old, so concurrent traversal of the two is
   // rejected. With trailing slashes they are separate folders.
   @Test

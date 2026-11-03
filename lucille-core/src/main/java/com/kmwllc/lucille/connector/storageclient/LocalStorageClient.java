@@ -84,10 +84,8 @@ public class LocalStorageClient extends BaseStorageClient {
     Path pathForFile = toPath(filePath);
     Path pathForFolder = toPath(folder);
 
-    // ensure target folder exists, creating it if it doesn't
-    if (!Files.exists(pathForFolder)) {
-      Files.createDirectory(pathForFolder);
-    }
+    // ensure the target folder and any missing parents exist
+    Files.createDirectories(pathForFolder);
 
     // move the local file to the target folder
     Path targetPath = pathForFolder.resolve(pathForFile.getFileName());

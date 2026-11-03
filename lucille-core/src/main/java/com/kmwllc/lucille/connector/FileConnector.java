@@ -265,6 +265,9 @@ public class FileConnector extends AbstractConnector {
       throw new IllegalArgumentException("FileConnector does not support multiple paths and moveToAfterProcessing / moveToErrorFolder. Create individual FileConnectors.");
     }
 
+    validateMoveTargetOutsidePath(MOVE_TO_AFTER_PROCESSING);
+    validateMoveTargetOutsidePath(MOVE_TO_ERROR_FOLDER);
+
     // A collapsing Publisher is not safe for concurrent publish() calls - it would merge and drop documents silently
     if (concurrent && requiresCollapsingPublisher()) {
       throw new IllegalArgumentException("FileConnector does not support concurrent traversal and collapse. Set maxThreads to 1 or disable collapse.");
@@ -493,6 +496,37 @@ public class FileConnector extends AbstractConnector {
               + first + "' and '" + second + "'.");
         }
       }
+    }
+  }
+
+  /**
+   * Rejects a fileOptions move folder that the traversal itself would visit. Files moved there during a run would be
+   * found again by the same traversal and published twice (an S3 flat listing finds them on later pages).
+   */
+  private void validateMoveTargetOutsidePath(String option) {
+    String key = "fileOptions." + option;
+    if (!config.hasPath(key) || storageURIs.size() != 1) {
+      return;
+    }
+
+    URI path = storageURIs.get(0);
+    URI target;
+    try {
+      target = TraversalParams.parsePathOrURI(config.getString(key));
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Invalid " + key + ": " + config.getString(key), e);
+    }
+
+    StorageClient client = StorageClient.clientFor(path, storageClientMap, config);
+
+    // a folder on another provider can't sit under the path
+    if (client == null || client != StorageClient.clientFor(target, storageClientMap, config)) {
+      return;
+    }
+
+    if (client.containsPath(path, target)) {
+      throw new IllegalArgumentException(key + " (" + target + ") is inside the path being traversed (" + path
+          + "), so moved files would be traversed again. Choose a folder outside it.");
     }
   }
 

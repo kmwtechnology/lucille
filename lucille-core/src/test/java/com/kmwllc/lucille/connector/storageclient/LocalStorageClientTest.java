@@ -717,6 +717,19 @@ public class LocalStorageClientTest {
     }
   }
 
+  // A move folder whose parents don't exist yet is created, rather than failing the move after the file was published.
+  @Test
+  public void testMoveFileCreatesMissingParents() throws Exception {
+    Path source = tempFolder.newFile("a.txt").toPath();
+    Path folder = tempFolder.getRoot().toPath().resolve("processed/2024/11");
+
+    LocalStorageClient client = new LocalStorageClient();
+    client.moveFile(source.toUri(), folder.toUri());
+
+    assertFalse(Files.exists(source));
+    assertTrue(Files.exists(folder.resolve("a.txt")));
+  }
+
   // Permission tests need POSIX permissions, and root can read anything regardless of them.
   private static void assumePosixAndNotRoot() {
     Assume.assumeTrue(java.nio.file.FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
