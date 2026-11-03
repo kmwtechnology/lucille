@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 
 import com.kmwllc.lucille.connector.storageclient.LocalStorageClient;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClientTest;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -96,6 +97,7 @@ public class FileConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
     try (MockedStatic<StorageClient> mockedStaticStorageClient = mockStatic(StorageClient.class)) {
+      mockedStaticStorageClient.when(() -> StorageClient.clientFor(any(), any(), any())).thenCallRealMethod();
       StorageClient mockCloudClient = mock(StorageClient.class);
       mockedStaticStorageClient.when(() -> StorageClient.createClients(any()))
           .thenReturn(Map.of(
@@ -118,6 +120,7 @@ public class FileConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
+      mockCloudStorageClient.when(() -> StorageClient.clientFor(any(), any(), any())).thenCallRealMethod();
       StorageClient mockForGoogle = mock(StorageClient.class);
       StorageClient mockForAzure = mock(StorageClient.class);
       mockCloudStorageClient.when(() -> StorageClient.createClients(any()))
@@ -155,6 +158,7 @@ public class FileConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
     try (MockedStatic<StorageClient> mockedStaticStorageClient = mockStatic(StorageClient.class)) {
+      mockedStaticStorageClient.when(() -> StorageClient.clientFor(any(), any(), any())).thenCallRealMethod();
       StorageClient mockCloudClient = mock(StorageClient.class);
       mockedStaticStorageClient.when(() -> StorageClient.createClients(any()))
           .thenReturn(Map.of(
@@ -176,6 +180,7 @@ public class FileConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
     try (MockedStatic<StorageClient> mockCloudStorageClient = mockStatic(StorageClient.class)) {
+      mockCloudStorageClient.when(() -> StorageClient.clientFor(any(), any(), any())).thenCallRealMethod();
       StorageClient mockCloudClient = mock(StorageClient.class);
       mockCloudStorageClient.when(() -> StorageClient.createClients(any()))
           .thenReturn(Map.of(
@@ -359,6 +364,7 @@ public class FileConnectorTest {
     Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
 
     try (MockedStatic<StorageClient> mockStaticStorageClient = mockStatic(StorageClient.class)) {
+      mockStaticStorageClient.when(() -> StorageClient.clientFor(any(), any(), any())).thenCallRealMethod();
       StorageClient s3StorageClient = mock(StorageClient.class);
       StorageClient googleStorageClient = mock(StorageClient.class);
 
@@ -450,6 +456,75 @@ public class FileConnectorTest {
         .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"))
         .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"));
     new FileConnector(config);
+  }
+
+  @Test
+  public void testCustomStorageClientClasses() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("name", "connector", "paths", List.of("s3://bucket/prefix/")))
+        .withFallback(StorageClientTest.customClassesConfig())
+        .withValue("storageClients.s3.endpointOverride", ConfigValueFactory.fromAnyRef("https://s3.example.internal"));
+    connector = new FileConnector(config);
+
+    // a class that doesn't implement StorageClient is rejected when the connector is built
+    Config wrongType = config.withValue("storageClients.s3.class", ConfigValueFactory.fromAnyRef(String.class.getName()));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(wrongType));
+
+    // the built-in block can't be given for a scheme in storageClients
+    Config both = config.withValue("s3.region", ConfigValueFactory.fromAnyRef("us-east-1"));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(both));
+    assertTrue(e.getMessage().contains("storageClients.s3 and s3"));
+
+    // the built-in blocks no longer accept "class"
+    Config builtInClass = ConfigFactory.parseMap(Map.of("name", "connector", "paths", List.of("s3://bucket/prefix/")))
+        .withValue("s3.region", ConfigValueFactory.fromAnyRef("us-east-1"))
+        .withValue("s3.class", ConfigValueFactory.fromAnyRef(StorageClientTest.CustomS3StorageClient.class.getName()));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(builtInClass));
+  }
+
+  @Test
+  public void testAzureAllowedHosts() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("name", "connector",
+            "paths", List.of("https://storage.example.internal/container/")))
+        .withValue("azure.connectionString", ConfigValueFactory.fromAnyRef("connectionString"));
+
+    // an https path on a host outside azure.allowedHosts fails at startup
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage().contains("https://storage.example.internal/container/"));
+    assertTrue(e.getMessage().contains("azure.allowedHosts"));
+
+    // and is accepted once its host is allowed
+    connector = new FileConnector(config.withValue("azure.allowedHosts",
+        ConfigValueFactory.fromIterable(List.of("storage.example.internal"))));
+  }
+
+  @Test
+  public void testCustomSchemeStorageClient() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("name", "connector", "paths", List.of("mem://host/path/")))
+        .withFallback(StorageClientTest.memoryClientConfig("mem"));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    connector = new FileConnector(config);
+
+    connector.execute(publisher);
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(1, docs.size());
+    assertEquals("mem://host/path/", docs.get(0).getId());
+    assertEquals("hello", docs.get(0).getString("content"));
+
+    // the file scheme can't be configured in storageClients
+    Config fileScheme = config.withFallback(StorageClientTest.memoryClientConfig("file"));
+    assertThrows(IllegalArgumentException.class, () -> new FileConnector(fileScheme));
+
+    // a built-in cloud scheme can, replacing the built-in client
+    Config s3Config = ConfigFactory.parseMap(Map.of("name", "connector", "paths", List.of("s3://bucket/path/")))
+        .withFallback(StorageClientTest.memoryClientConfig("s3"));
+    messenger = new TestMessenger();
+    publisher = new PublisherImpl(s3Config, messenger, "run1", "pipeline1");
+    connector.close();
+    connector = new FileConnector(s3Config);
+    connector.execute(publisher);
+    assertEquals("s3://bucket/path/", messenger.getDocsSentForProcessing().get(0).getId());
   }
 
   // There is a unit test for "traversalWithState" in FileConnectorStateManagerTest.java, which already had a database for testing.
@@ -1025,6 +1100,7 @@ public class FileConnectorTest {
     CountDownLatch allStarted = new CountDownLatch(3);
 
     try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      mockedStorage.when(() -> StorageClient.clientFor(any(), any(), any())).thenCallRealMethod();
       StorageClient mockClient = mock(StorageClient.class);
 
       doAnswer(invocation -> {
@@ -1166,6 +1242,7 @@ public class FileConnectorTest {
     Set<String> threadNames = ConcurrentHashMap.newKeySet();
 
     try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      mockedStorage.when(() -> StorageClient.clientFor(any(), any(), any())).thenCallRealMethod();
       StorageClient mockClient = mock(StorageClient.class);
 
       doAnswer(invocation -> {
@@ -1208,6 +1285,7 @@ public class FileConnectorTest {
     StorageClient mockClient = publishOrFailFor(publisher, "directory2");
 
     try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      mockedStorage.when(() -> StorageClient.clientFor(any(), any(), any())).thenCallRealMethod();
       mockedStorage.when(() -> StorageClient.createClients(any())).thenReturn(Map.of("file", mockClient));
 
       connector = new FileConnector(config);
@@ -1230,6 +1308,7 @@ public class FileConnectorTest {
     StorageClient mockClient = publishOrFailFor(publisher, "directory1", "directory3");
 
     try (MockedStatic<StorageClient> mockedStorage = mockStatic(StorageClient.class)) {
+      mockedStorage.when(() -> StorageClient.clientFor(any(), any(), any())).thenCallRealMethod();
       mockedStorage.when(() -> StorageClient.createClients(any())).thenReturn(Map.of("file", mockClient));
 
       connector = new FileConnector(config);

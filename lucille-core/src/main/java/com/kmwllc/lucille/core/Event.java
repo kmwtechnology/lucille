@@ -145,7 +145,7 @@ public class Event {
     }
   }
 
-  public static Event fromJsonString(String json) throws Exception {
+  public static Event fromJsonString(String json) throws JsonProcessingException {
     return MAPPER.readValue(json, Event.class);
   }
 

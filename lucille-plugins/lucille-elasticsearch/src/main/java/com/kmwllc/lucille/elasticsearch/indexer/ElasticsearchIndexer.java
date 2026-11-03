@@ -214,7 +214,7 @@ public class ElasticsearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
     // skip indexing if there is no indexer client
     if (bypass) {
       return Set.of();
@@ -273,7 +273,7 @@ public class ElasticsearchIndexer extends Indexer {
   // Sends and clears the pending uploads and deletes by id. They never share an id, so their order between each other
   // doesn't matter.
   private Set<Pair<Document, Exception>> sendWriteSegment(Map<String, Document> documentsToUpload,
-      Map<String, Document> idsToDelete) throws Exception {
+      Map<String, Document> idsToDelete) throws IndexerException {
     Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload.values());
     deleteById(idsToDelete);
     documentsToUpload.clear();
@@ -281,12 +281,12 @@ public class ElasticsearchIndexer extends Indexer {
     return failedDocs;
   }
 
-  private void sendDeleteByQuerySegment(Map<String, List<String>> termsToDeleteByQuery) throws Exception {
+  private void sendDeleteByQuerySegment(Map<String, List<String>> termsToDeleteByQuery) throws IndexerException {
     deleteByQuery(termsToDeleteByQuery);
     termsToDeleteByQuery.clear();
   }
 
-  private void deleteById(Map<String, Document> idsToDelete) throws Exception {
+  private void deleteById(Map<String, Document> idsToDelete) throws IndexerException {
     if (idsToDelete.isEmpty()) {
       return;
     }
@@ -343,7 +343,7 @@ public class ElasticsearchIndexer extends Indexer {
     }
   }
 
-  private void deleteByQuery(Map<String, List<String>> termsToDeleteByQuery) throws Exception {
+  private void deleteByQuery(Map<String, List<String>> termsToDeleteByQuery) throws IndexerException {
     if (termsToDeleteByQuery.isEmpty()) {
       return;
     }
@@ -422,7 +422,7 @@ public class ElasticsearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, Exception>> uploadDocuments(Collection<Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Pair<Document, Exception>> uploadDocuments(Collection<Document> documentsToUpload) throws IndexerException {
     if (documentsToUpload.isEmpty()) {
       return Set.of();
     }

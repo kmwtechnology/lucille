@@ -29,6 +29,7 @@ With `setOnly: true`, the stage writes a Boolean to `dest` instead of payloads: 
 | `s3` | Object | No | S3 credentials for reading the dictionary from S3: `accessKeyId`, `secretAccessKey`, `region`, `anonymous`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `azure` | Object | No | Azure credentials for reading the dictionary from Azure: `connectionString`, `accountName`, `accountKey`, `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
 | `gcp` | Object | No | Google Cloud credentials for reading the dictionary from GCS: `pathToServiceKey` (required within `gcp`), `maxResultsPerPage`. See [Cloud Storage Configuration]({{< relref "docs/ingest-design/connectors/file_connector#cloud-storage-configuration" >}}). |
+| `storageClients` | Object | No | Custom StorageClients, keyed by URI scheme, for reading the dictionary from other storage systems, or in place of a built-in client. See [Custom Storage Clients]({{< relref "docs/ingest-design/connectors/file_connector#custom-storage-clients" >}}). |
 
 ```hocon
 {

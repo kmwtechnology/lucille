@@ -11,6 +11,7 @@ import com.kmwllc.lucille.connector.PostCompletionFileConnector;
 import com.kmwllc.lucille.connector.RunSummaryMessageConnector;
 import com.kmwllc.lucille.connector.SequenceConnector;
 import com.kmwllc.lucille.core.Runner.RunType;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.stage.StartStopCaptureStage;
 import com.kmwllc.lucille.util.LogUtils;
@@ -1415,7 +1416,7 @@ public class RunnerTest {
     // first two sends succeed, third throws
     doCallRealMethod()
         .doCallRealMethod()
-        .doThrow(new Exception("Simulated Kafka send failure"))
+        .doThrow(new MessengerException("Simulated Kafka send failure", new java.io.IOException("broker unavailable")))
         .when(messenger).sendForProcessing(any(Document.class));
 
     Connector connector = new SequenceConnector(connectorConfig);

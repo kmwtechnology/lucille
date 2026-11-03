@@ -2,9 +2,11 @@ package com.kmwllc.lucille.api.endpoints;
 
 import com.kmwllc.lucille.core.CreateConfigResult;
 import com.kmwllc.lucille.core.RunnerManagerException;
+import com.kmwllc.lucille.api.objects.RunDetailsResponse;
 import com.kmwllc.lucille.api.objects.RunRequest;
 import jakarta.ws.rs.DELETE;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,8 +139,9 @@ public class LucilleResource {
       security = @SecurityRequirement(name = "basicAuth"))
   public Response getAllConfigs() {
     Map<String, Object> ret = new HashMap<>();
-    for (String configId : runnerManager.getConfigKeys  ()) {
-      ret.put(configId, runnerManager.getConfig(configId).root().unwrapped());
+    // Grabbing a snapshot --> concurrent delete while building map does not cause issues
+    for (Map.Entry<String, Config> entry : runnerManager.getConfigs().entrySet()) {
+      ret.put(entry.getKey(), entry.getValue().root().unwrapped());
     }
     return Response.ok(ret).build();
   }
@@ -223,7 +226,7 @@ public class LucilleResource {
       RunDetails details = runnerManager.runWithConfig(runId, configId, preventConcurrentRuns);
       log.debug("Lucille run has been triggered. Run ID: {}", runId);
       log.debug("details: {}", details);
-      return Response.ok(details).build();
+      return Response.ok(RunDetailsResponse.from(details)).build();
       
     } catch (Exception e) {
       return ResponseUtils.buildErrorResponse(Response.Status.BAD_REQUEST,
@@ -241,7 +244,8 @@ public class LucilleResource {
   @Operation(summary = "Get all runs", description = "Retrieves a list of all Lucille runs.",
       security = @SecurityRequirement(name = "basicAuth"))
   public Response getAllRuns() {
-    return Response.ok(runnerManager.getRunDetails()).build();
+    List<RunDetailsResponse> runs = runnerManager.getRunDetails().stream().map(RunDetailsResponse::from).toList();
+    return Response.ok(runs).build();
   }
 
   /**
@@ -264,7 +268,7 @@ public class LucilleResource {
           "No run with the given ID was found.");
     }
 
-    return Response.ok(details).build();
+    return Response.ok(RunDetailsResponse.from(details)).build();
   }
 
   // Rejects all includes. Implements each includer interface, since Typesafe uses its default for any that are missing.
