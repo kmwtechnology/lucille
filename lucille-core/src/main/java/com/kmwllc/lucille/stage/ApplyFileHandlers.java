@@ -54,8 +54,7 @@ public class ApplyFileHandlers extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){})
-      .optionalParent(FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.S3_PARENT_SPEC)
-      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
+      .include(FileConnector.STORAGE_SPEC)
       .optionalString("filePathField", "fileContentField").build();
 
   private final Config fileHandlersConfig;
@@ -94,7 +93,7 @@ public class ApplyFileHandlers extends Stage {
     }
 
     try {
-      fileFetcher.startup();
+      fileFetcher.start();
     } catch (IOException e) {
       throw new StageException("Error starting FileContentFetcher.", e);
     }
@@ -102,7 +101,7 @@ public class ApplyFileHandlers extends Stage {
 
   @Override
   public void stop() {
-    fileFetcher.shutdown();
+    fileFetcher.stop();
   }
 
   @Override

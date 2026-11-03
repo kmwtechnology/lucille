@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.GOOGLE_SERVICE_KEY;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.GOOGLE_SERVICE_KEY;
 
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.ReadChannel;
@@ -10,7 +10,6 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.Storage.CopyRequest;
 import com.google.cloud.storage.StorageOptions;
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.FileInputStream;
@@ -56,11 +55,11 @@ public class GoogleStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
   }
 
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileStateTracker stateMgr, String prefix) {
     storage.list(getBucketOrContainerName(params),
             BlobListOption.prefix(prefix),
             BlobListOption.currentDirectory(),
@@ -146,6 +145,11 @@ public class GoogleStorageClient extends BaseStorageClient {
 
     @Override
     public String getName() {
+      return lastSegment(blob.getName());
+    }
+
+    @Override
+    public String getFilterName() {
       return blob.getName();
     }
 

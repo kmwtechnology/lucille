@@ -1,10 +1,10 @@
 package com.kmwllc.lucille.core;
 import static com.kmwllc.lucille.util.ThreadNameUtils.areLucilleThreadsRunning;
-import com.kmwllc.lucille.connector.CloseCountingConnector;
 
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Slf4jReporter;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionFileConnector;
@@ -38,15 +38,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -186,7 +183,7 @@ public class RunnerTest {
     Config config = ConfigFactory.load("RunnerTest/singleDocTimeout.conf");
     Connector connector = Connector.fromConfig(config).get(0);
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(config, messenger, "run1", connector.getPipelineName());
+    PublisherImpl publisher = new PublisherImpl(config, messenger, "run1", connector.getPipelineName());
     Instant start = Instant.now();
     ConnectorResult result = Runner.runConnector(config, "run1", connector, publisher);
     Instant end = Instant.now();
@@ -707,7 +704,7 @@ public class RunnerTest {
   public void testPublisherException() throws Exception {
     NoOpConnector connector = mock(NoOpConnector.class);
     PublisherImpl publisher = mock(PublisherImpl.class);
-    doThrow(new Exception()).when(publisher).waitForCompletion(any(), anyInt());
+    doThrow(new PublisherException("Simulated messaging failure")).when(publisher).waitForCompletion(any(), anyInt());
 
     // if the publisher throws an exception during execute(), postExecute() should not be called
     // both the publisher and connector should be closed
@@ -737,7 +734,7 @@ public class RunnerTest {
     // runConnector should return false and not propagate the exception
     connector = mock(NoOpConnector.class);
     publisher = mock(PublisherImpl.class);
-    doThrow(new Exception()).when(publisher).close();
+    doThrow(new IllegalStateException("Simulated close failure")).when(publisher).close();
     assertFalse(Runner.runConnector(ConfigFactory.empty(), "run1", connector, publisher).getStatus());
 
     verify(connector, times(1)).preExecute(any());
@@ -900,29 +897,29 @@ public class RunnerTest {
   @Test
   public void testValidateAndRenderCliFlags() throws Exception {
     // -validate runs validation, but doesn't render the config or kick off a run
-    runMainWithMockedRunner(new String[] {"-validate"}, mockedRunner -> {
-      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
+    runMainWithMockedRunner(new String[] {"-validate"}, (mockedRunner, mockedValidator) -> {
+      mockedValidator.verify(() -> ConfigValidator.validate(any(Config.class)), times(1));
       mockedRunner.verify(() -> Runner.renderConfig(any()), never());
       mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
     });
 
     // -render prints the rendered config, but doesn't validate it or kick off a run
-    runMainWithMockedRunner(new String[] {"-render"}, mockedRunner -> {
+    runMainWithMockedRunner(new String[] {"-render"}, (mockedRunner, mockedValidator) -> {
       mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
-      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedValidator.verify(() -> ConfigValidator.validate(any(Config.class)), never());
       mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
     });
 
     // the two flags can be combined; both actions run and still no actual run is kicked off
-    runMainWithMockedRunner(new String[] {"-validate", "-render"}, mockedRunner -> {
+    runMainWithMockedRunner(new String[] {"-validate", "-render"}, (mockedRunner, mockedValidator) -> {
       mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
-      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
+      mockedValidator.verify(() -> ConfigValidator.validate(any(Config.class)), times(1));
       mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
     });
 
     // case insensitivity
-    runMainWithMockedRunner(new String[] {"-VALIDATE", "-Render"}, mockedRunner -> {
-      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), times(1));
+    runMainWithMockedRunner(new String[] {"-VALIDATE", "-Render"}, (mockedRunner, mockedValidator) -> {
+      mockedValidator.verify(() -> ConfigValidator.validate(any(Config.class)), times(1));
       mockedRunner.verify(() -> Runner.renderConfig(any()), times(1));
     });
   }
@@ -932,9 +929,9 @@ public class RunnerTest {
    */
   @Test
   public void testUnrecognizedOptionFlag() throws Exception {
-    runMainWithMockedRunner(new String[] {"-badflag"}, mockedRunner -> {
+    runMainWithMockedRunner(new String[] {"-badflag"}, (mockedRunner, mockedValidator) -> {
       mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
-      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedValidator.verify(() -> ConfigValidator.validate(any(Config.class)), never());
       mockedRunner.verify(() -> Runner.renderConfig(any()), never());
     });
   }
@@ -945,9 +942,9 @@ public class RunnerTest {
    */
   @Test
   public void testMutuallyExclusiveDistributedAndExternalFlags() throws Exception {
-    runMainWithMockedRunner(new String[] {"-distributed", "-external"}, mockedRunner -> {
+    runMainWithMockedRunner(new String[] {"-distributed", "-external"}, (mockedRunner, mockedValidator) -> {
       mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
-      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedValidator.verify(() -> ConfigValidator.validate(any(Config.class)), never());
       mockedRunner.verify(() -> Runner.renderConfig(any()), never());
     });
   }
@@ -957,9 +954,9 @@ public class RunnerTest {
    */
   @Test
   public void testUnrecognizedPositionalArgument() throws Exception {
-    runMainWithMockedRunner(new String[] {"someArg"}, mockedRunner -> {
+    runMainWithMockedRunner(new String[] {"someArg"}, (mockedRunner, mockedValidator) -> {
       mockedRunner.verify(() -> Runner.runAndLogResult(any(), any(), anyBoolean()), never());
-      mockedRunner.verify(() -> Runner.runInValidationMode(any(Config.class)), never());
+      mockedValidator.verify(() -> ConfigValidator.validate(any(Config.class)), never());
       mockedRunner.verify(() -> Runner.renderConfig(any()), never());
     });
   }
@@ -969,21 +966,22 @@ public class RunnerTest {
    */
   private Runner.RunType runTypeForArgs(String... args) throws Exception {
     ArgumentCaptor<Runner.RunType> runTypeCaptor = ArgumentCaptor.forClass(Runner.RunType.class);
-    runMainWithMockedRunner(args, mockedRunner ->
+    runMainWithMockedRunner(args, (mockedRunner, mockedValidator) ->
         mockedRunner.verify(() -> Runner.runAndLogResult(any(), runTypeCaptor.capture(), anyBoolean())));
     return runTypeCaptor.getValue();
   }
 
   /**
-   * Runs Runner.main() with the given args inside a mocked context, then hands the MockedStatic for
-   * Runner to the given verifier so it can assert how the args were routed.
+   * Runs Runner.main() with the given args inside a mocked context, then hands the MockedStatics for
+   * Runner and ConfigValidator to the given verifier so it can assert how the args were routed.
    *
    * System.exit() is stubbed so it doesn't terminate the test JVM, and the methods
-   * main() can reach (runAndLogResult, renderConfig, runInValidationMode) are stubbed so main()'s
+   * main() can reach (runAndLogResult, renderConfig, ConfigValidator.validate) are stubbed so main()'s
    * real arg-parsing logic executes but no run, render, or validation actually takes place. All other
    * static Runner methods, notably getRunType(), call through to the real implementation.
    */
-  private void runMainWithMockedRunner(String[] args, Consumer<MockedStatic<Runner>> verifier) throws Exception {
+  private void runMainWithMockedRunner(String[] args, BiConsumer<MockedStatic<Runner>, MockedStatic<ConfigValidator>> verifier)
+      throws Exception {
     RunResult mockResult = mock(RunResult.class);
     when(mockResult.getStatus()).thenReturn(true);
 
@@ -992,14 +990,14 @@ public class RunnerTest {
           switch (invocation.getMethod().getName()) {
             case "runAndLogResult":
               return mockResult;
-            case "runInValidationMode":
-              return Collections.emptyMap();
             case "renderConfig":
               return null;
             default:
               return invocation.callRealMethod();
           }
-        })) {
+        });
+        MockedStatic<ConfigValidator> mockedValidator = mockStatic(ConfigValidator.class, invocation ->
+            invocation.getMethod().getName().equals("validate") ? Collections.emptyMap() : invocation.callRealMethod())) {
       assertNull(System.getProperty("config.file"));
       System.setProperty("config.file", "src/test/resources/RunnerTest/singleDocSendEnabledFalse.conf");
       try {
@@ -1007,7 +1005,7 @@ public class RunnerTest {
       } finally {
         System.clearProperty("config.file");
       }
-      verifier.accept(mockedRunner);
+      verifier.accept(mockedRunner, mockedValidator);
     }
   }
 
@@ -1067,39 +1065,6 @@ public class RunnerTest {
   public void testRenderFlag() throws Exception {
     Config config = ConfigFactory.load("RunnerTest/render.conf");
     Runner.renderConfig(config);
-  }
-
-  @Test
-  public void testStringifyValidationExceptionsMap() {
-    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
-    exceptions.put("pipeline1", List.of(new Exception("exception 1"), new Exception("exception 2")));
-    exceptions.put("pipeline2", List.of(new Exception("exception 3")));
-
-    String expected = "Pipeline Configuration is invalid. See exceptions for each element:\n"
-        + "\tpipeline1:\n"
-        + "\t\texception 1\n"
-        + "\t\texception 2\n"
-        + "\tpipeline2:\n"
-        + "\t\texception 3";
-    assertEquals(expected, Runner.stringifyValidation(exceptions, "Pipeline"));
-  }
-
-  @Test
-  public void testStringifyValidationExceptionsList() {
-    List<Exception> exceptions = List.of(new Exception("exception 1"), new Exception("exception 2"), new Exception("exception 3"));
-
-    String expected = "Pipeline Configuration is invalid. Errors:\n"
-        + "\texception 1\n"
-        + "\texception 2\n"
-        + "\texception 3";
-
-    assertEquals(expected, Runner.stringifyValidation(exceptions, "Pipeline"));
-  }
-
-  @Test
-  public void testStringifyValidationNoExceptions() {
-    Map<String, List<Exception>> exceptions = new LinkedHashMap<>();
-    assertEquals("Pipeline Configuration is valid.", Runner.stringifyValidation(exceptions, "Pipeline"));
   }
 
   /**
@@ -1192,7 +1157,7 @@ public class RunnerTest {
 
     Runner.RunnerState state = spy(new Runner.RunnerState());
 
-    Publisher publisher = mock(Publisher.class);
+    PublisherImpl publisher = mock(PublisherImpl.class);
     Connector connector = mock(Connector.class);
     WorkerPool workerPool = mock(WorkerPool.class);
     Indexer indexer = mock(Indexer.class);
@@ -1341,50 +1306,22 @@ public class RunnerTest {
   }
 
   @Test
-  public void testValidationOtherParents() throws Exception {
-    // only has optional properties. We have one present.
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode("RunnerTest/badRunnerConfig.conf");
+  public void testMetricsLoggingLevel() throws Exception {
+    assertEquals(Slf4jReporter.LoggingLevel.DEBUG, Runner.getMetricsLoggingLevel(ConfigFactory.empty()));
+    assertEquals(Slf4jReporter.LoggingLevel.INFO,
+        Runner.getMetricsLoggingLevel(ConfigFactory.parseString("runner.metricsLoggingLevel: info")));
 
-    assertEquals(1, exceptions.get("other").size());
-    String exceptionMessage = exceptions.get("other").get(0).getMessage();
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> Runner.getMetricsLoggingLevel(ConfigFactory.parseString("runner.metricsLoggingLevel: loud")));
+    assertTrue(e.getMessage().contains("\"loud\""));
+    assertTrue(e.getMessage().contains("info"));
 
-    // the message should complain about these properties...
-    assertTrue(exceptionMessage.contains("something"));
-    assertTrue(exceptionMessage.contains("somethingElse"));
-    // ...but not this property!
-    assertFalse(exceptionMessage.contains("metricsLoggingLevel"));
-
-    // Zookeeper only has one required property, "connectString".
-    exceptions = Runner.runInValidationMode("RunnerTest/badZookeeperConfig.conf");
-    assertEquals(1, exceptions.get("other").size());
-    exceptionMessage = exceptions.get("other").get(0).getMessage();
-
-    assertTrue(exceptionMessage.contains("something"));
-    assertTrue(exceptionMessage.contains("connectString"));
-
-    exceptions = Runner.runInValidationMode("RunnerTest/allBadOtherParents.conf");
-
-    // every "other" parent should have produced an "unknown property something" error - track them
-    // in a set so we can confirm each one is present (and that none are unexpectedly duplicated).
-    Set<String> expectedParents = Runner.PARENTS_AND_SPECS.stream()
-        .map(Pair::getLeft)
-        .collect(Collectors.toSet());
-
-    for (Exception e : exceptions.get("other")) {
-      // file is designed so all exceptions should be about a property named "something"
-      assertTrue(e.getMessage().contains("Config contains unknown property something"));
-
-      // the message identifies its parent as "... with <parentName> Config: ..." - find which parent it is,
-      // then remove it from the set to prove we saw an error for it exactly once.
-      String parentName = expectedParents.stream()
-          .filter(parent -> e.getMessage().contains("with " + parent + " Config"))
-          .findFirst()
-          .orElseThrow(() -> new AssertionError("Exception did not correspond to a known parent: " + e.getMessage()));
-      assertTrue("Saw more than one validation error for parent " + parentName, expectedParents.remove(parentName));
-    }
-
-    // every parent should have been accounted for.
-    assertTrue("Missing validation errors for parents: " + expectedParents, expectedParents.isEmpty());
+    // reported by validation alongside the runner block's unknown properties
+    Config config = ConfigFactory.parseResourcesAnySyntax("RunnerTest/badRunnerConfig.conf")
+        .withValue("runner.metricsLoggingLevel", ConfigValueFactory.fromAnyRef("loud"));
+    List<Exception> otherExceptions = ConfigValidator.validate(config).get("other");
+    assertEquals(2, otherExceptions.size());
+    assertTrue(otherExceptions.get(1).getMessage().contains("runner.metricsLoggingLevel"));
   }
 
   /**
@@ -1481,25 +1418,6 @@ public class RunnerTest {
   }
 
   @Test
-  public void testUndefinedPipelineFailsValidation() throws Exception {
-    // RUN-15: a connector whose pipeline is not defined is a validation error, not a late "Error starting workers"
-    Map<String, List<Exception>> errors = Runner.runInValidationMode("RunnerTest/pipelineNotFound.conf");
-    assertTrue(errors.containsKey("connector1"));
-    assertTrue(errors.get("connector1").get(0).getMessage().contains("pipeline5"));
-  }
-
-  @Test
-  public void testValidationClosesTheConnectorsItConstructs() throws Exception {
-    // RUN-06: validation constructs every connector; each one must be closed again or its clients leak on every run
-    CloseCountingConnector.reset();
-    Map<String, List<Exception>> errors = Runner.runInValidationMode("RunnerTest/closeCountingConnector.conf");
-    assertTrue(errors.isEmpty());
-    assertEquals(2, CloseCountingConnector.constructed.get());
-    assertEquals(2, CloseCountingConnector.closed.get());
-    CloseCountingConnector.reset();
-  }
-
-  @Test
   public void testMaxPendingDocsZeroMeansUnlimited() throws Exception {
     // RUN-07: a limit of zero used to block the first publish forever
     Instant start = Instant.now();
@@ -1571,8 +1489,6 @@ public class RunnerTest {
           switch (invocation.getMethod().getName()) {
             case "runAndLogResult":
               return mockResult;
-            case "runInValidationMode":
-              return Collections.emptyMap();
             default:
               return invocation.callRealMethod();
           }

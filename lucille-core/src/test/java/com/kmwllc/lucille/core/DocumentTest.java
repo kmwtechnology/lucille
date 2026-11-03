@@ -155,6 +155,23 @@ public abstract class DocumentTest {
   }
 
   @Test
+  public void testIsSupportedValueMatchesSetField() {
+    List<Object> supported = List.of("s", 1L, 1.5, true, 1, 1.5f, Instant.EPOCH, new byte[] {1},
+        JsonNodeFactory.instance.textNode("j"), new Timestamp(0), new Date(0));
+    for (Object value : supported) {
+      assertTrue(value.getClass().getName(), Document.isSupportedValue(value));
+      createDocument("doc").setField("field", value);
+    }
+    assertTrue(Document.isSupportedValue(null));
+
+    // unsupported values are rejected by both
+    for (Object value : List.of(new Object(), (short) 1, new java.math.BigDecimal("1"))) {
+      assertFalse(value.getClass().getName(), Document.isSupportedValue(value));
+      assertThrows(IllegalArgumentException.class, () -> createDocument("doc").setField("field", value));
+    }
+  }
+
+  @Test
   public void testIsValidId() {
     // valid: any id with a visible character, used exactly as given, so surrounding whitespace is not an issue
     assertTrue(Document.isValidId("a"));

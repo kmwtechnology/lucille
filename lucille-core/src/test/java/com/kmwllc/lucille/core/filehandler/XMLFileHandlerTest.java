@@ -13,6 +13,7 @@ import static org.mockito.Mockito.spy;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.PublisherException;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -346,7 +347,7 @@ public class XMLFileHandlerTest {
     TestMessenger messenger = new TestMessenger();
     Publisher publisher = spy(new PublisherImpl(config, messenger, "run1", "pipeline1"));
     doCallRealMethod()
-        .doThrow(new Exception("Simulated Kafka failure"))
+        .doThrow(new PublisherException("Simulated Kafka failure"))
         .when(publisher).publish(any(Document.class));
 
     FileHandler xmlHandler = FileHandler.create("xml", config);

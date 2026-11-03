@@ -46,7 +46,7 @@ import org.bytedeco.javacv.Java2DFrameConverter;
  */
 public class VideoFileHandler extends BaseFileHandler {
   public static final Spec SPEC = SpecBuilder.fileHandler()
-      .optionalString("docIdPrefix", "docIdFormat", "sourceField", "fileNameField", "frameIndexField", "frameTimeMsField", "frameTimecodeField", "imageWidthField", "imageHeightField", "frameImageField")
+      .optionalString("docIdFormat", "sourceField", "fileNameField", "frameIndexField", "frameTimeMsField", "frameTimecodeField", "imageWidthField", "imageHeightField", "frameImageField")
       .optionalNumber("frameStride")
       .build();
 

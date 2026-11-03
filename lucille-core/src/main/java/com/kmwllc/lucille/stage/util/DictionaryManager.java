@@ -108,7 +108,7 @@ public class DictionaryManager {
    */
   private static Map<String, List<String>> buildHashMap(String dictPath, boolean ignoreCase, boolean setOnly, Config config) throws IOException {
     FileContentFetcher fetcher = FileContentFetcher.create(config);
-    fetcher.startup();
+    fetcher.start();
 
     try (CSVReader reader = new CSVReader(fetcher.getReader(dictPath))) {
       // count file lines and create a HashMap with the correct capacity. HashMaps of course support dynamic resizing, but
@@ -162,7 +162,7 @@ public class DictionaryManager {
     } catch (CsvValidationException e) {
       throw new IOException("Error validating CSV", e);
     } finally {
-      fetcher.shutdown();
+      fetcher.stop();
     }
   }
 

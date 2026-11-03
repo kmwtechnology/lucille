@@ -18,12 +18,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.kmwllc.lucille.connector.storageclient.FileStateTracker;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.typesafe.config.Config;
 
 /**
  * <p> Holds / manages a connection to a JDBC database used to maintain state regarding FileConnector traversals and the last
- * time files were processed and published by Lucille.
+ * time files were processed and published by Lucille. StorageClients see it as a {@link FileStateTracker}.
  * <p> Build a connection to a JDBC-compatible database (can be embedded or not)
  *
  * <p> Call {@link #init()} and {@link #shutdown()} to connect / disconnect to the database.
@@ -55,7 +56,7 @@ import com.typesafe.config.Config;
  * <p> Regardless, only one FileConnectorStateManager within the same JVM may use a given <code>connectionString</code> and
  * <code>tableName</code> at a time. {@link #init()} fails if another FileConnectorStateManager is already using them.
  */
-public class FileConnectorStateManager {
+public class FileConnectorStateManager implements FileStateTracker {
 
   // connectionString:tableName keys of the state tables currently in use in this JVM.
   private static final Set<String> tablesInUse = ConcurrentHashMap.newKeySet();
@@ -306,6 +307,7 @@ public class FileConnectorStateManager {
    * Update the database to reflect that the given file was encountered during a FileConnector traversal.
    * @param fullPathStr The full path to the file you encountered during a FileConnector traversal.
    */
+  @Override
   public void markFileEncountered(String fullPathStr) {
     currentState().markFileEncountered(fullPathStr);
   }
@@ -317,6 +319,7 @@ public class FileConnectorStateManager {
    *
    * @param prefix The prefix to match against entry names (typically archivePath + ARCHIVE_FILE_SEPARATOR).
    */
+  @Override
   public void markAllEntriesEncountered(String prefix) {
     currentState().markAllEntriesEncountered(prefix);
   }
@@ -329,6 +332,7 @@ public class FileConnectorStateManager {
    * @return The instant at which this file was last known to be published by Lucille; null if there is no information
    * on this file.
    */
+  @Override
   public Instant getLastPublished(String fullPathStr) {
     return currentState().getLastPublished(fullPathStr);
   }
@@ -337,6 +341,7 @@ public class FileConnectorStateManager {
    * Updates the state database to reflect that the given file was successfully published during a FileConnector traversal.
    * @param fullPathStr The full path to the file that was successfully published.
    */
+  @Override
   public void successfullyPublishedFile(String fullPathStr) {
     currentState().successfullyPublishedFile(fullPathStr);
   }

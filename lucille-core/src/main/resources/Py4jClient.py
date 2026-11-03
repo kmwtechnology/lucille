@@ -27,11 +27,14 @@ class Py4jClient:
         Path('src/test/resources/ExternalPythonTest').resolve(),
     ]
 
-    def __init__(self, script_name, script_dir, port=25333):
+    def __init__(self, script_name, script_dir, port=25333, callback_port=None):
+        if callback_port is None:
+            callback_port = port + 1
         print(f"[Py4jClient] Initializing Py4jClient with script_dir: {script_dir}, "
-              f"script_name: {script_name}, and port: {port}")
+              f"script_name: {script_name}, port: {port}, and callback_port: {callback_port}")
         self.script_path = self.validate_and_construct_path(script_name, script_dir)
         self.port = port
+        self.callback_port = callback_port
         self.gateway = None
         self.running = False
         self.user_namespace = {}
@@ -119,6 +122,13 @@ class Py4jClient:
             raise
 
     def start(self):
+        # Tokens are handed over in the environment by Py4JRuntime. Pop them before the user script runs
+        # so user code never sees them.
+        auth_token = os.environ.pop("PY4J_AUTH_TOKEN", None)
+        callback_auth_token = os.environ.pop("PY4J_CALLBACK_AUTH_TOKEN", None)
+        if not auth_token or not callback_auth_token:
+            raise RuntimeError("Py4J auth tokens missing from environment; refusing to start unauthenticated.")
+
         # Set up tee logging to both stdout and a file
         log_file = os.path.abspath("python/py4jclient.log")
         sys.stdout = TeeLogger(log_file)
@@ -131,8 +141,11 @@ class Py4jClient:
         exec(code, self.user_namespace)
         try:
             self.gateway = JavaGateway(
-                gateway_parameters=GatewayParameters(auto_convert=True, port=self.port, auto_close=True, read_timeout=5 ),
-                callback_server_parameters=CallbackServerParameters(port=self.port + 1, daemonize_connections=True),
+                gateway_parameters=GatewayParameters(address="127.0.0.1", port=self.port, auth_token=auth_token,
+                                                     auto_convert=True, auto_close=True, read_timeout=5),
+                callback_server_parameters=CallbackServerParameters(address="127.0.0.1", port=self.callback_port,
+                                                                    auth_token=callback_auth_token,
+                                                                    daemonize_connections=True),
                 python_server_entry_point=self,
             )
             # note that on the Java side, the Py4JRuntime uses a StreamConsumer that looks for the string "JavaGateway STARTED" in
@@ -171,9 +184,10 @@ if __name__ == "__main__":
     parser.add_argument('--script-name', required=True, help='Name of the Python script file')
     parser.add_argument('--script-dir', required=True, help='Directory containing the Python script')
     parser.add_argument('--port', required=True, type=int, help='Port for Py4J Gateway')
+    parser.add_argument('--callback-port', type=int, default=None, help='Port for the Py4J callback server (default: port + 1)')
     args = parser.parse_args()
-    client = Py4jClient(args.script_name, args.script_dir, args.port)
+    client = Py4jClient(args.script_name, args.script_dir, args.port, args.callback_port)
     client.start()
     print(f"[Py4jClient] Started client successfully with script_name: {args.script_name}, "
-          f"script_dir: {args.script_dir}, port: {args.port}")
+          f"script_dir: {args.script_dir}, port: {args.port}, callback_port: {client.callback_port}")
     # client.stop()

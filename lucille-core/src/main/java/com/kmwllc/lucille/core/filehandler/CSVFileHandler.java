@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core.filehandler;
 
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;
@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
 public class CSVFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
-      .optionalString("docIdPrefix", "lineNumberField", "separatorChar", "filenameField", "filePathField", "idField", "docIdFormat")
+      .optionalString("lineNumberField", "separatorChar", "filenameField", "filePathField", "idField", "docIdFormat")
       .optionalNumber("maxRecordBytes")
       .optionalList("idFields", new TypeReference<List<String>>() {})
       .optionalList("ignoredTerms", new TypeReference<List<String>>() {})

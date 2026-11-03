@@ -163,7 +163,7 @@ Add to `lucille-core` if the component is general-purpose and has no heavy trans
 
 **How do I write a new Stage?**
 
-Implement the `Stage` interface: override `start()` for initialization, `processDocument()` for per-document logic, and `stop()` for cleanup. Declare a `public static final Spec SPEC` describing all configuration parameters. See [Developing New Components]({{< relref "docs/developer-guide/developing-new-components" >}}).
+Implement the `Stage` interface: override `start()` for initialization, `processDocument()` for per-document logic, and `stop()` for cleanup. Declare a `public static final Spec SPEC` describing all configuration parameters. See [Extending Lucille]({{< relref "docs/developer-guide/developing-new-components" >}}) and [Developing Stages]({{< relref "docs/developer-guide/developing-stages" >}}).
 
 ---
 

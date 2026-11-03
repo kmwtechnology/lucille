@@ -1,11 +1,10 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.S3_ACCESS_KEY_ID;
-import static com.kmwllc.lucille.connector.FileConnector.S3_ANONYMOUS;
-import static com.kmwllc.lucille.connector.FileConnector.S3_REGION;
-import static com.kmwllc.lucille.connector.FileConnector.S3_SECRET_ACCESS_KEY;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_ACCESS_KEY_ID;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_ANONYMOUS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_REGION;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.S3_SECRET_ACCESS_KEY;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
@@ -104,7 +103,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     String startingDirectory = getStartingDirectory(params);
     if (params.getPathsToSkip().isEmpty()) {
       // nothing to prune, so a single flat listing of every key under the prefix replaces one listing per directory
@@ -116,7 +115,7 @@ public class S3StorageClient extends BaseStorageClient {
   }
 
   // Lists one directory level at a time so that skipped directories are never listed.
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileStateTracker stateMgr, String prefix) {
     ListObjectsV2Request request = listRequest(params, prefix).delimiter("/").build();
 
     s3.listObjectsV2Paginator(request).stream().forEachOrdered(resp -> {
@@ -138,7 +137,7 @@ public class S3StorageClient extends BaseStorageClient {
         .maxKeys(maxResultsPerPage);
   }
 
-  private void publishContents(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr,
+  private void publishContents(Publisher publisher, TraversalParams params, FileStateTracker stateMgr,
       ListObjectsV2Response resp) {
     resp.contents().forEach(obj -> {
       S3FileReference fileRef = new S3FileReference(obj, params);
@@ -218,6 +217,11 @@ public class S3StorageClient extends BaseStorageClient {
 
     @Override
     public String getName() {
+      return lastSegment(s3Obj.key());
+    }
+
+    @Override
+    public String getFilterName() {
       return s3Obj.key();
     }
 

@@ -1,8 +1,8 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_KEY;
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ACCOUNT_NAME;
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_CONNECTION_STRING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_ACCOUNT_KEY;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_ACCOUNT_NAME;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_CONNECTION_STRING;
 
 import com.azure.core.util.polling.SyncPoller;
 import com.azure.storage.blob.BlobClient;
@@ -13,12 +13,12 @@ import com.azure.storage.blob.models.BlobCopyInfo;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.common.StorageSharedKeyCredential;
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,11 +76,11 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     traversePrefix(publisher, params, stateMgr, getStartingDirectory(params));
   }
 
-  private void traversePrefix(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr, String prefix) {
+  private void traversePrefix(Publisher publisher, TraversalParams params, FileStateTracker stateMgr, String prefix) {
     serviceClient.getBlobContainerClient(getBucketOrContainerName(params))
         .listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(prefix).setMaxResultsPerPage(maxResultsPerPage), Duration.ofSeconds(10))
         .stream()
@@ -99,37 +99,34 @@ public class AzureStorageClient extends BaseStorageClient {
   }
 
   private URI uriForDirectory(String prefix, TraversalParams params) {
-    URI pathURI = params.getURI();
-    String containerName = pathURI.getPath().split("/")[1];
-    return URI.create(String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(), containerName, prefix));
+    return buildBlobURI(params.getURI(), getBucketOrContainerName(params), prefix);
   }
 
   @Override
   protected InputStream getFileContentStreamFromStorage(URI uri) throws IOException {
-    String containerName = uri.getPath().split("/")[1];
-    String blobName = uri.getPath().split("/")[2];
+    BlobLocation location = BlobLocation.fromURI(uri);
 
-    BlobContainerClient containerClient = serviceClient.getBlobContainerClient(containerName);
-    return containerClient.getBlobClient(blobName).openInputStream();
+    BlobContainerClient containerClient = serviceClient.getBlobContainerClient(location.containerName);
+    return containerClient.getBlobClient(location.blobName).openInputStream();
   }
 
   @Override
   public void moveFile(URI filePath, URI folder) throws IOException {
-    String sourceContainer = filePath.getPath().split("/")[1];
-    String sourceBlob = filePath.getPath().split("/")[2];
-
-    String destContainer = folder.getPath().split("/")[1];
+    BlobLocation source = BlobLocation.fromURI(filePath);
+    BlobLocation dest = BlobLocation.fromURI(folder);
 
     // Special handling for if the "folder" we want to place the file into is just the bucket itself.
     String destBlob;
-    if (folder.getPath().split("/").length > 2) {
-      destBlob = folder.getPath().split("/")[2] + "/" + sourceBlob;
+    if (dest.blobName.isEmpty()) {
+      destBlob = source.blobName;
+    } else if (dest.blobName.endsWith("/")) {
+      destBlob = dest.blobName + source.blobName;
     } else {
-      destBlob = sourceBlob;
+      destBlob = dest.blobName + "/" + source.blobName;
     }
 
-    BlobClient sourceBlobClient = serviceClient.getBlobContainerClient(sourceContainer).getBlobClient(sourceBlob);
-    BlobClient destBlobClient = serviceClient.getBlobContainerClient(destContainer).getBlobClient(destBlob);
+    BlobClient sourceBlobClient = serviceClient.getBlobContainerClient(source.containerName).getBlobClient(source.blobName);
+    BlobClient destBlobClient = serviceClient.getBlobContainerClient(dest.containerName).getBlobClient(destBlob);
 
     // Start the copy, then we wait for it to complete
     SyncPoller<BlobCopyInfo, Void> poller = sourceBlobClient.beginCopy(destBlobClient.getBlobUrl(), null);
@@ -146,8 +143,48 @@ public class AzureStorageClient extends BaseStorageClient {
     return subPaths.length > 2 ? subPaths[2] : "";
   }
 
-  private String getBucketOrContainerName(TraversalParams params) {
-    return params.getURI().getPath().split("/")[1];
+  private static String getBucketOrContainerName(TraversalParams params) {
+    return BlobLocation.fromURI(params.getURI()).containerName;
+  }
+
+  /**
+   * Builds a URI for the given blob in the given container, using the scheme and authority of baseURI. Characters in
+   * the blob name that aren't legal in a URI path (such as spaces, '%' and '#') are percent-encoded, so the full blob
+   * name is returned by {@link URI#getPath()}.
+   */
+  private static URI buildBlobURI(URI baseURI, String containerName, String blobName) {
+    try {
+      return new URI(baseURI.getScheme(), baseURI.getAuthority(), "/" + containerName + "/" + blobName, null, null);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Unable to build Azure URI for blob: " + blobName, e);
+    }
+  }
+
+  /**
+   * The container name and full blob name referenced by an Azure URI's path, which is in the format
+   * /containerName/folder1/folder2/blobName.
+   */
+  private static class BlobLocation {
+
+    private final String containerName;
+    private final String blobName;
+
+    private BlobLocation(String containerName, String blobName) {
+      this.containerName = containerName;
+      this.blobName = blobName;
+    }
+
+    private static BlobLocation fromURI(URI uri) {
+      // getPath() has already percent-decoded the path, so it must not be decoded again.
+      String path = uri.getPath() == null ? "" : uri.getPath();
+      String[] parts = (path.startsWith("/") ? path.substring(1) : path).split("/", 2);
+
+      if (parts[0].isBlank()) {
+        throw new IllegalArgumentException("Azure URI does not contain a container name: " + uri);
+      }
+
+      return new BlobLocation(parts[0], parts.length > 1 ? parts[1] : "");
+    }
   }
 
   // Only for testing
@@ -172,6 +209,11 @@ public class AzureStorageClient extends BaseStorageClient {
 
     @Override
     public String getName() {
+      return lastSegment(blobItem.getName());
+    }
+
+    @Override
+    public String getFilterName() {
       return blobItem.getName();
     }
 
@@ -196,12 +238,7 @@ public class AzureStorageClient extends BaseStorageClient {
     }
 
     private static URI getFullPathHelper(BlobItem blobItem, TraversalParams params) {
-      URI pathURI = params.getURI();
-
-      String fullURIStr = String.format("%s://%s/%s/%s", pathURI.getScheme(), pathURI.getAuthority(),
-          pathURI.getPath().split("/")[1], blobItem.getName());
-
-      return URI.create(fullURIStr);
+      return buildBlobURI(params.getURI(), getBucketOrContainerName(params), blobItem.getName());
     }
   }
 }

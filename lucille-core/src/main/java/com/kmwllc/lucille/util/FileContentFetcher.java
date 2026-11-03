@@ -26,16 +26,17 @@ public interface FileContentFetcher {
       .build();
 
   /**
-   * Initialize the underlying resources associated with this FileContentFetcher.
+   * Starts the underlying resources associated with this FileContentFetcher. Must be called before getting any file's
+   * contents.
    *
-   * @throws IOException If an error occurs initializing this FileContentFetcher.
+   * @throws IOException If an error occurs starting this FileContentFetcher.
    */
-  public void startup() throws IOException;
+  public void start() throws IOException;
 
   /**
-   * Shutdown all the underlying resources associated with this FileContentFetcher.
+   * Stops all the underlying resources associated with this FileContentFetcher.
    */
-  public void shutdown();
+  public void stop();
 
   /**
    * Attempts to return an InputStream for the file at the given path. If the path begins with "classpath:" the prefix will be removed
@@ -140,8 +141,8 @@ public interface FileContentFetcher {
   // -- Convenience / Static Methods - For One-Time Use to Avoid Managing an Instance --
   /**
    * Returns an InputStream for the file at the given path, which could be in the classpath, a local file path, or a URI
-   * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
-   * If an InputStream is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be stopped.
+   * If an InputStream is returned successfully, its close() method will stop the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned stream!
    *
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
@@ -171,7 +172,7 @@ public interface FileContentFetcher {
     }
 
     try {
-      clientForFile.init();
+      clientForFile.start();
       InputStream result = clientForFile.getFileContentStream(pathURI);
 
       return new InputStream() {
@@ -185,21 +186,21 @@ public interface FileContentFetcher {
           try {
             result.close();
           } finally {
-            // shutdown if an IOException is thrown
-            clientForFile.shutdown();
+            // stop the client even if an IOException is thrown
+            clientForFile.stop();
           }
         }
       };
     } catch (IOException e) {
-      clientForFile.shutdown();
+      clientForFile.stop();
       throw e;
     }
   }
 
   /**
    * Returns a reader for the file at the given path using UTF-8 encoding. The file could be in the classpath, a local file path, or a URI
-   * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
-   * If a Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be stopped.
+   * If a Reader is returned successfully, its close() method will stop the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned Reader!
    *
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
@@ -216,8 +217,8 @@ public interface FileContentFetcher {
 
   /**
    * Returns a reader for the file at the given path using the given encoding. The file could be in the classpath, a local file path, or a URI
-   * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
-   * If a Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * to a supported Storage service. An exception may occur - in this case, the StorageClient(s) created will be stopped.
+   * If a Reader is returned successfully, its close() method will stop the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned Reader!
    *
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
@@ -238,8 +239,8 @@ public interface FileContentFetcher {
   // -- Extra Convenience - No CloudOptions --> Only classpath / local file paths / local file URIs --
   /**
    * Returns an InputStream for the file at the given path, which could be in the classpath, a local file path, or a URI
-   * to a local file. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
-   * If an InputStream is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * to a local file. An exception may occur - in this case, the StorageClient(s) created will be stopped.
+   * If an InputStream is returned successfully, its close() method will stop the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned stream!
    *
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
@@ -254,8 +255,8 @@ public interface FileContentFetcher {
 
   /**
    * Returns a reader for the file at the given path using UTF-8 encoding. The file could be in the classpath, a local file path, or a URI
-   * to a local file. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
-   * If a Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * to a local file. An exception may occur - in this case, the StorageClient(s) created will be stopped.
+   * If a Reader is returned successfully, its close() method will stop the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned Reader!
    *
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.
@@ -270,8 +271,8 @@ public interface FileContentFetcher {
 
   /**
    * Returns a reader for the file at the given path using the given encoding. The file could be in the classpath, a local file path, or a URI
-   * to a local file. An exception may occur - in this case, the StorageClient(s) created will be shutdown.
-   * If a Reader is returned successfully, its close() method will shutdown the StorageClient(s) this method temporarily
+   * to a local file. An exception may occur - in this case, the StorageClient(s) created will be stopped.
+   * If a Reader is returned successfully, its close() method will stop the StorageClient(s) this method temporarily
    * creates. Be sure to close the returned Reader!
    *
    * If an object is making repeated calls to this function, it should instead manage its own instance of a FileContentFetcher.

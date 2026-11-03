@@ -2,7 +2,7 @@ package com.kmwllc.lucille.elasticsearch;
 
 import static org.junit.Assert.assertTrue;
 
-import com.kmwllc.lucille.core.Runner;
+import com.kmwllc.lucille.core.ConfigValidator;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -18,12 +18,12 @@ public class ElasticsearchConfigValidationTest {
     // When validating indexers, errors in the generic "indexer" block are reported before errors in the
     // specific-implementation ("elasticsearch") block. Here the elasticsearch block is missing the required "index"
     // property and misplaces "sendEnabled" (which belongs in the "indexer" block).
-    Map<String, List<Exception>> exceptions = Runner.runInValidationMode("ElasticsearchConfigValidationTest/badIndexer.conf");
+    Map<String, List<Exception>> exceptions = ConfigValidator.validate("ElasticsearchConfigValidationTest/badIndexer.conf");
     assertTrue(exceptions.containsKey("indexer"));
     assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Config contains unknown property sendEnabled"));
     assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Config is missing required property index"));
 
-    exceptions = Runner.runInValidationMode("ElasticsearchConfigValidationTest/extraIndexerProps.conf");
+    exceptions = ConfigValidator.validate("ElasticsearchConfigValidationTest/extraIndexerProps.conf");
     assertTrue(exceptions.containsKey("indexer"));
     assertTrue(exceptions.get("indexer").get(0).getMessage().contains("Config contains unknown property blah"));
   }

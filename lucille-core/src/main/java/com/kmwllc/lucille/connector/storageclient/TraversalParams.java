@@ -1,12 +1,13 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
-import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
-import static com.kmwllc.lucille.connector.FileConnector.MAX_SIZE_BYTES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.GET_FILE_CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_ARCHIVED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.HANDLE_COMPRESSED_FILES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_SIZE_BYTES;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
 
 import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -79,8 +80,8 @@ public class TraversalParams {
     }
 
     try {
-      if (fileOptions.hasPath(FileConnector.MOVE_TO_AFTER_PROCESSING)) {
-        this.moveToAfterProcessing = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_AFTER_PROCESSING));
+      if (fileOptions.hasPath(MOVE_TO_AFTER_PROCESSING)) {
+        this.moveToAfterProcessing = parsePathOrURI(fileOptions.getString(MOVE_TO_AFTER_PROCESSING));
       } else {
         this.moveToAfterProcessing = null;
       }
@@ -89,8 +90,8 @@ public class TraversalParams {
     }
 
     try {
-      if (fileOptions.hasPath(FileConnector.MOVE_TO_ERROR_FOLDER)) {
-        this.moveToErrorFolder = parsePathOrURI(fileOptions.getString(FileConnector.MOVE_TO_ERROR_FOLDER));
+      if (fileOptions.hasPath(MOVE_TO_ERROR_FOLDER)) {
+        this.moveToErrorFolder = parsePathOrURI(fileOptions.getString(MOVE_TO_ERROR_FOLDER));
       } else {
         this.moveToErrorFolder = null;
       }
@@ -128,6 +129,12 @@ public class TraversalParams {
   /**
    * Returns whether the filterOptions allow for the publishing / processing of the file, described by its name
    * and the last time it was modified.
+   *
+   * @param fileName The name the includes / excludes patterns are matched against (see {@link FileReference#getFilterName()}).
+   * @param fileLastModified When the file was last modified. May be null, in which case the file passes lastModifiedCutoff
+   *                         and, in incremental mode, is treated as modified since it was last published.
+   * @param fileLastPublished When the file was last published, or null if it hasn't been (or state is not in use).
+   * @return Whether the file should be processed and published.
    */
   public boolean includeFile(String fileName, Instant fileLastModified, Instant fileLastPublished) {
     // file must pass include/exclude path patterns, if specified, to even be a publishing candidate
@@ -171,8 +178,8 @@ public class TraversalParams {
   }
 
   private boolean applyLastModifiedFilter(Instant fileLastModified) {
-    // If lastModifiedCutoff is specified, return false if it is violated
-    if (lastModifiedCutoff != null) {
+    // If lastModifiedCutoff is specified, return false if it is violated. A file with no last-modified time passes.
+    if (lastModifiedCutoff != null && fileLastModified != null) {
       Instant cutoffPoint = Instant.now().minus(lastModifiedCutoff);
 
       // Only want to include files modified within the given duration (for example, within the last hour)
@@ -197,8 +204,9 @@ public class TraversalParams {
     return true;
   }
 
+  // a file with no last-modified time can't be shown to be unchanged, so it is treated as modified
   private boolean modifiedSinceLastPublish(Instant fileLastModified, Instant fileLastPublished) {
-    return fileLastPublished == null || fileLastModified.isAfter(fileLastPublished);
+    return fileLastPublished == null || fileLastModified == null || fileLastModified.isAfter(fileLastPublished);
   }
 
   public URI getURI() {
@@ -306,8 +314,13 @@ public class TraversalParams {
     }
 
     public static PublishMode fromString(String name) {
-        return PublishMode.valueOf(name.toUpperCase());
-    }    
+      for (PublishMode mode : values()) {
+        if (name != null && mode.name().equalsIgnoreCase(name.trim())) {
+          return mode;
+        }
+      }
+      throw new IllegalArgumentException("Unknown filterOptions.publishMode \"" + name + "\"; expected one of incremental, full");
+    }
   }
 
 }

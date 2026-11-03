@@ -54,7 +54,7 @@ public class XMLFileHandler extends BaseFileHandler {
 
   public static final Spec SPEC = SpecBuilder.fileHandler()
       .requiredString("xmlRootPath")
-      .optionalString("xmlIdPath", "xpathIdPath", "docIdPrefix", "outputField", "encoding")
+      .optionalString("xmlIdPath", "xpathIdPath", "outputField", "encoding")
       .optionalNumber("maxRecordBytes")
       .optionalBoolean("skipEmptyId").build();
 

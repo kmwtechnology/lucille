@@ -497,13 +497,15 @@ Each per-file Document published by the `FileConnector` has an ID of `{docIdPref
 | Field | Type | Description |
 |---|---|---|
 | `file_path` | String | URI of the file (e.g. `file:///C:/data/a.json`, `s3://bucket/a.json`). Always uses `/` as the separator. |
-| `file_modification_date` | Instant | Last-modified timestamp of the file. |
+| `file_modification_date` | Instant | Last-modified timestamp of the file, where the storage provider reports one. |
 | `file_creation_date` | Instant | Creation timestamp of the file, where the storage provider reports one. Never set for S3 objects or archive entries. |
 | `file_size_bytes` | Long | File size in bytes. May be `-1` for some archive entries. For a decompressed `.gz` file, the size of the compressed file. |
 | `file_content` | byte[] | Raw file bytes. Set unless `getFileContent` is `false`. |
 | `file_expired` | Boolean | Set to `true` on tombstone Documents for deleted files. |
 
 When a File Handler (CSV, JSON, XML) processes a file, it publishes its own Documents with the fields described in its section above, instead of a per-file Document. None of the fields in this table are added to them; only the CSV and video handlers record the source file path.
+
+These field names are part of the StorageClient contract, and are available as constants on `com.kmwllc.lucille.connector.storageclient.StorageClientFields`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients#fields-your-client-emits" >}}).
 
 ---
 
@@ -549,7 +551,7 @@ public void execute(Publisher publisher) throws ConnectorException {
 public void close() {
     if (stateManager != null) stateManager.shutdown();
     for (StorageClient client : storageClientMap.values()) {
-        client.shutdown();
+        client.stop();
     }
 }
 ```
@@ -562,35 +564,32 @@ The `FileConnector` SPEC demonstrates how to declare a complex, nested configura
 public static final Spec SPEC = SpecBuilder.connector()
     .requiredList("paths", new TypeReference<List<String>>(){})
     .optionalNumber("maxThreads")
-    .optionalParent(
-        SpecBuilder.parent("filterOptions")
-            .optionalList("includes", new TypeReference<List<String>>(){})
-            .optionalList("excludes", new TypeReference<List<String>>(){})
-            .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
-            .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode")
-            .optionalBoolean("sendTombstones").build(),
-        SpecBuilder.parent("fileOptions")
-            .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
-            .optionalNumber("maxSizeBytes")
-            .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
-        SpecBuilder.parent("state")
-            .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
-            .optionalBoolean("performDeletions", "enabled")
-            .optionalNumber("pathLength", "runsBeforeExpiration").build(),
-        GCP_PARENT_SPEC,
-        AZURE_PARENT_SPEC,
-        S3_PARENT_SPEC)
+    .optionalParent("filterOptions", SpecBuilder.withoutDefaults()
+        .optionalList("includes", new TypeReference<List<String>>(){})
+        .optionalList("excludes", new TypeReference<List<String>>(){})
+        .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
+        .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode")
+        .optionalBoolean("sendTombstones").build())
+    .optionalParent("fileOptions", SpecBuilder.withoutDefaults()
+        .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+        .optionalNumber("maxSizeBytes")
+        .optionalString("moveToAfterProcessing", "moveToErrorFolder").build())
+    .optionalParent("state", SpecBuilder.withoutDefaults()
+        .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
+        .optionalBoolean("performDeletions", "enabled")
+        .optionalNumber("pathLength", "runsBeforeExpiration").build())
+    .include(STORAGE_SPEC)
     .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
 ```
 
-Key patterns: `SpecBuilder.connector()` provides base properties; nested `SpecBuilder.parent(...)` blocks define each optional config section; cloud provider specs are defined as reusable constants; `fileHandlers` uses a `TypeReference` because its structure is dynamic (keys are file extensions).
+Key patterns: `SpecBuilder.connector()` provides base properties; `optionalParent(key, spec)` defines each optional config section; the cloud provider blocks and `storageClients` come from `STORAGE_SPEC`, which the stages that read files include too; `fileHandlers` uses a `TypeReference` because its structure is dynamic (keys are file extensions).
 
 ### Reusable Patterns for Other Complex Connectors
 
 1. **StorageClient pattern** — abstract the data source behind an interface; select implementation by URI scheme or config key.
 2. **Deferred initialisation** — don't open connections in the constructor; do it in `execute()`.
 3. **Constraint validation early** — check for incompatible config combinations (e.g., multiple paths + `moveToAfterProcessing`) in the constructor so failures surface before any traversal begins.
-4. **Nested SPEC declarations** — group related config into `parent` blocks; define cloud provider specs as reusable constants shared across connectors.
+4. **Nested SPEC declarations** — group related config into parent blocks; share a group of parents across components by putting them in one Spec and adding it with `include()`.
 5. **JDBC-backed state** — make state optional; check `config.hasPath("state")` before constructing the state manager.
 6. **Filter pipeline** — layer multiple filter criteria (regex, time-based, state-based) with a clear evaluation order.
 7. **Tombstone generation** — detect deletions by comparing the current file set to the previous state snapshot; mark documents with a field the Indexer can act on.
