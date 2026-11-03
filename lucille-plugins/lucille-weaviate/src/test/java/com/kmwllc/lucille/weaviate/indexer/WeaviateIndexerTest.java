@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.Event;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
@@ -292,8 +293,8 @@ public class WeaviateIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
-      throw new Exception("Test that errors when sending to indexer are correctly handled");
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
+      throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }
 }

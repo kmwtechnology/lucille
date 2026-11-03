@@ -18,7 +18,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,7 +47,7 @@ import org.slf4j.LoggerFactory;
  *   <li>index (String, Required) : Target OpenSearch index name.</li>
  *   <li>url (String or List&lt;String&gt;, Required) : OpenSearch HTTP endpoint (e.g., https://localhost:9200), or a list of
  *   endpoints for the same cluster. With a list, the client round-robins requests across the hosts and fails over between them.</li>
- *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
+ *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace, creating the document if it does not exist. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying OpenSearch HTTP client. Defaults to false.</li>
  *   <li>connectTimeoutMs (Long, Optional) : Maximum time to establish a connection. Defaults to 5000.</li>
@@ -61,7 +60,11 @@ import org.slf4j.LoggerFactory;
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
- *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
+ *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions. With External or ExternalGte,
+ *   an upload carries the document's indexer.versionField value, or else its Kafka offset.</li>
+ *   <li>indexer.versionField (String, Optional) : Document field holding the external version. Requires
+ *   indexer.versionType. With External or ExternalGte, a delete by id carries this field's value too; a delete without it
+ *   is unversioned, and never uses the Kafka offset.</li>
  * </ul>
  */
 @AutoService(Indexer.class)
@@ -78,7 +81,8 @@ public class OpenSearchIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(OpenSearchIndexer.class);
 
-  private final OpenSearchClient client;
+  // not final: the standard constructor builds it only after validation, see there
+  private OpenSearchClient client;
   private final String index;
 
   private final String routingField;
@@ -111,7 +115,10 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   public OpenSearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
+    this(config, messenger, bypass, metricsPrefix, localRunId, null);
+    // built after super() and this class's config checks, so a constructor that throws can't leak the client's
+    // connection pool and threads; nothing after this line can throw
+    this.client = getClient(config, bypass);
   }
 
   // Convenience Constructors
@@ -168,20 +175,25 @@ public class OpenSearchIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
     // skip indexing if there is no indexer client
     if (bypass) {
       return Set.of();
     }
 
     Map<Pair<String, String>, Document> documentsToUpload = new LinkedHashMap<>();
-    Set<Pair<String, String>> idsToDelete = new LinkedHashSet<>();
+    // the document that marked each (index, id) for deletion, so deleteById can send its version
+    Map<Pair<String, String>, Document> idsToDelete = new LinkedHashMap<>();
     Map<Pair<String, String>, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
     // else if document is marked for deletion ONLY, then only add to idsToDelete
     // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
+    // A delete-by-query must not delete documents that come after it in the batch, so the batch is sent in segments, in
+    // input order: pending uploads and deletes by id are sent before a run of delete-by-query documents, and the
+    // queries are sent before the next upload or delete by id.
     for (Document doc : documents) {
       // use doc id override if specified, otherwise delete will try to delete wrong id
       String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
@@ -192,13 +204,20 @@ public class OpenSearchIndexer extends Indexer {
       Pair<String, String> indexAndId = Pair.of(indexToSend, id);
 
       if (!isMarkedForDeletion(doc)) {
+        // send any buffered delete-by-queries now, so they apply before this write rather than after it
+        sendDeleteByQuerySegment(termsToDeleteByQuery);
         idsToDelete.remove(indexAndId);
         documentsToUpload.put(indexAndId, doc);
       } else {
         documentsToUpload.remove(indexAndId);
         if (!hasDeleteByFieldValues(doc)) {
-          idsToDelete.add(indexAndId);
+          // same as above: buffered delete-by-queries go before this delete by id
+          sendDeleteByQuerySegment(termsToDeleteByQuery);
+          idsToDelete.put(indexAndId, doc);
         } else {
+          // this doc is a delete-by-query, so flush the writes buffered before it first: send the pending uploads and
+          // deletes by id, clear both maps, and collect their per-doc failures
+          failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
           // deletion, so we need to do doc.getString(deleteByFieldField).
           Pair<String, String> indexAndDeleteByField = Pair.of(indexToSend, doc.getString(deleteByFieldField));
@@ -210,25 +229,51 @@ public class OpenSearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload);
-    deleteById(new ArrayList<>(idsToDelete));
-    deleteByQuery(termsToDeleteByQuery);
+    // at most one of these has anything left to send
+    failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
+    sendDeleteByQuerySegment(termsToDeleteByQuery);
 
     return failedDocs;
   }
 
-  private void deleteById(List<Pair<String, String>> idsToDelete) throws Exception {
+  // Sends and clears the pending uploads and deletes by id. They never share an (index, id), so their order between
+  // each other doesn't matter.
+  private Set<Pair<Document, Exception>> sendWriteSegment(Map<Pair<String, String>, Document> documentsToUpload,
+      Map<Pair<String, String>, Document> idsToDelete) throws IndexerException {
+    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload);
+    deleteById(idsToDelete);
+    documentsToUpload.clear();
+    idsToDelete.clear();
+    return failedDocs;
+  }
+
+  private void sendDeleteByQuerySegment(Map<Pair<String, String>, List<String>> termsToDeleteByQuery) throws IndexerException {
+    deleteByQuery(termsToDeleteByQuery);
+    termsToDeleteByQuery.clear();
+  }
+
+  private void deleteById(Map<Pair<String, String>, Document> idsToDelete) throws IndexerException {
     if (idsToDelete.isEmpty()) {
       return;
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
-    for (Pair<String, String> indexAndId : idsToDelete) {
+    // whether each delete, in request order, was sent with a version; the response items come back in the same order
+    List<Boolean> versioned = new ArrayList<>();
+    for (Map.Entry<Pair<String, String>, Document> entry : idsToDelete.entrySet()) {
+      Pair<String, String> indexAndId = entry.getKey();
+      Long versionNum = getDeleteVersionNum(entry.getValue());
+      versioned.add(versionNum != null);
       br.operations(op -> op
-          .delete(d -> d
-              .index(indexAndId.getLeft())
-              .id(indexAndId.getRight())
-          )
+          .delete(d -> {
+            d.index(indexAndId.getLeft()).id(indexAndId.getRight());
+            // a versioned delete is rejected (409) when the index holds a newer version, and leaves a tombstone that
+            // rejects an older upload arriving after it, for as long as the index keeps tombstones (index.gc_deletes)
+            if (versionNum != null) {
+              d.versionType(versionType).version(versionNum);
+            }
+            return d;
+          })
       );
     }
 
@@ -242,16 +287,29 @@ public class OpenSearchIndexer extends Indexer {
     }
 
     if (response.errors()) {
-      for (BulkResponseItem item : response.items()) {
-        if (item.error() != null) {
-          log.debug("Error while deleting id: {} because: {}", item.id(), item.error().reason());
+      boolean failed = false;
+      List<BulkResponseItem> items = response.items();
+      for (int i = 0; i < items.size(); i++) {
+        BulkResponseItem item = items.get(i);
+        if (item.error() == null) {
+          continue;
         }
+        // a 409 on a versioned delete means the index already holds this version or a newer one: either this delete
+        // was applied on an earlier attempt of the batch (a retry resends it), or a newer document superseded it
+        if (item.status() == 409 && i < versioned.size() && versioned.get(i)) {
+          log.debug("Versioned delete of id: {} already applied or superseded: {}", item.id(), item.error().reason());
+          continue;
+        }
+        log.debug("Error while deleting id: {} because: {}", item.id(), item.error().reason());
+        failed = true;
       }
-      throw new IndexerException("encountered errors while deleting documents");
+      if (failed) {
+        throw new IndexerException("encountered errors while deleting documents");
+      }
     }
   }
 
-  private void deleteByQuery(Map<Pair<String, String>, List<String>> termsToDeleteByQuery) throws Exception {
+  private void deleteByQuery(Map<Pair<String, String>, List<String>> termsToDeleteByQuery) throws IndexerException {
     if (termsToDeleteByQuery.isEmpty()) {
       return;
     }
@@ -323,6 +381,9 @@ public class OpenSearchIndexer extends Indexer {
 
       DeleteByQueryResponse response;
       try {
+        // a delete-by-query only matches what the index has refreshed, so refresh first: otherwise it misses documents
+        // uploaded just before it, in this batch or an earlier one, and can fail on a document deleted but not yet refreshed
+        client.indices().refresh(r -> r.index(entry.getKey()));
         response = client.deleteByQuery(deleteByQueryRequest);
       } catch (OpenSearchException e) {
         throw new IndexerRetryableException(e.status(), "OpenSearch returned HTTP " + e.status(), e);
@@ -344,7 +405,7 @@ public class OpenSearchIndexer extends Indexer {
     }
   }
 
-  private Set<Pair<Document, Exception>> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IOException, IndexerException {
+  private Set<Pair<Document, Exception>> uploadDocuments(Map<Pair<String, String>, Document> documentsToUpload) throws IndexerException {
 
     if (documentsToUpload.isEmpty()) {
       return Set.of();
@@ -391,7 +452,9 @@ public class OpenSearchIndexer extends Indexer {
               if (versionNum != null) {
                 up.versionType(versionType).version(versionNum);
               }
-              return up.document(indexerDoc);
+              // doc_as_upsert: an update to an id not yet in the index creates it instead of failing with
+              // document_missing_exception
+              return up.document(indexerDoc).docAsUpsert(true);
             }));
       } else {
         br.operations(op -> op
@@ -478,6 +541,17 @@ public class OpenSearchIndexer extends Indexer {
     }
     if (doc instanceof KafkaDocument kafkaDoc) {
       return kafkaDoc.getOffset();
+    }
+    return null;
+  }
+
+  // The version to send with a delete by id, or null for an unversioned delete. Unlike getVersionNum, this never falls
+  // back to the Kafka offset: the offset of a delete is not comparable to a version taken from indexer.versionField, so
+  // only a document that carries indexer.versionField gets a versioned delete.
+  private Long getDeleteVersionNum(Document doc) {
+    if ((versionType == VersionType.External || versionType == VersionType.ExternalGte)
+        && versionField != null && doc.has(versionField)) {
+      return doc.getLong(versionField);
     }
     return null;
   }

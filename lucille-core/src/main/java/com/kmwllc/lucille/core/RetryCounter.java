@@ -27,8 +27,11 @@ public interface RetryCounter extends AutoCloseable {
   /**
    * Releases any resources held by this counter, such as a ZooKeeper client. Called once by the Worker that owns the
    * counter when that Worker stops. Does nothing by default.
+   *
+   * <p> Declares no checked exception: it runs during shutdown, where a caller can only log a failure. An
+   * implementation logs a failure to release a resource itself, or lets an unchecked exception propagate.
    */
   @Override
-  default void close() throws Exception {
+  default void close() {
   }
 }

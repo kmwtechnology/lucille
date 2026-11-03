@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.core;
 import static org.junit.Assert.assertTrue;
 
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.kmwllc.lucille.message.WorkerMessengerFactory;
 import com.typesafe.config.Config;
@@ -93,7 +94,8 @@ public class WorkerPoolTest {
   @Test
   public void testDeadWorkerIsReportedAndFailsThePool() throws Exception {
     TestMessenger messenger = Mockito.spy(new TestMessenger());
-    Mockito.doThrow(new java.io.IOException("topic authorization failed")).when(messenger).pollDocToProcess();
+    Mockito.doThrow(new MessengerException("Polling failed", new java.io.IOException("topic authorization failed")))
+        .when(messenger).pollDocToProcess();
     WorkerMessengerFactory factory = WorkerMessengerFactory.getConstantFactory(messenger);
     WorkerPool pool = new WorkerPool(ConfigFactory.load("WorkerPoolTest/onePipeline.conf"),
         "pipeline1", null, factory, "metricsPrefix");
@@ -108,7 +110,8 @@ public class WorkerPoolTest {
     try {
       assertTrue(notified.await(15, java.util.concurrent.TimeUnit.SECONDS));
       assertTrue(pool.isFailed());
-      assertTrue(String.valueOf(reported.get()), reported.get() instanceof java.io.IOException);
+      assertTrue(String.valueOf(reported.get()), reported.get() instanceof MessengerException);
+      assertTrue(reported.get().getCause() instanceof java.io.IOException);
       assertFalse(pool.isAlive());
     } finally {
       pool.stop();

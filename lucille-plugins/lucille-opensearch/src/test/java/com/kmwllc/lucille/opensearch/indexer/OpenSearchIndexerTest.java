@@ -3,6 +3,7 @@ package com.kmwllc.lucille.opensearch.indexer;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -20,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.Map;
@@ -34,6 +36,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch._types.ErrorCause;
@@ -47,9 +50,11 @@ import org.opensearch.client.opensearch.core.BulkResponse;
 import org.opensearch.client.opensearch.core.DeleteByQueryRequest;
 import org.opensearch.client.opensearch.core.DeleteByQueryResponse;
 import org.opensearch.client.opensearch.core.bulk.BulkOperation;
+import org.opensearch.client.opensearch.core.bulk.DeleteOperation;
 import org.opensearch.client.opensearch.core.bulk.BulkResponseItem;
 import org.opensearch.client.opensearch.core.bulk.IndexOperation;
 import org.opensearch.client.opensearch.core.bulk.UpdateOperation;
+import org.opensearch.client.opensearch.indices.OpenSearchIndicesClient;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.endpoints.BooleanResponse;
 
@@ -63,6 +68,7 @@ import com.kmwllc.lucille.core.IndexerException;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.message.MessengerException;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -71,6 +77,7 @@ import com.typesafe.config.ConfigValueFactory;
 public class OpenSearchIndexerTest {
 
   private OpenSearchClient mockClient;
+  private OpenSearchIndicesClient mockIndicesClient;
 
   @Before
   public void setup() throws IOException {
@@ -95,6 +102,9 @@ public class OpenSearchIndexerTest {
     DeleteByQueryResponse mockDeleteByQueryResponse = Mockito.mock(DeleteByQueryResponse.class);
     when(mockClient.deleteByQuery(any(DeleteByQueryRequest.class))).thenReturn(mockDeleteByQueryResponse);
     when(mockDeleteByQueryResponse.failures()).thenReturn(new ArrayList<>());
+
+    mockIndicesClient = Mockito.mock(OpenSearchIndicesClient.class);
+    when(mockClient.indices()).thenReturn(mockIndicesClient);
   }
 
   /**
@@ -792,6 +802,94 @@ public class OpenSearchIndexerTest {
     assertEquals("doc2value", fieldValues2.get(0).stringValue());
   }
 
+  // A delete-by-query applies only to documents before it in the batch: "delete the children of P" followed by P's new
+  // children must not delete the new children.
+  @Test
+  public void testDeleteByQueryKeepsBatchOrder() throws Exception {
+    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf"),
+        new TestMessenger(), "testing", mockClient);
+
+    Document oldChild = Document.create("oldChild");
+    oldChild.setField("parent", "P");
+    Document deleteChildren = Document.create("deleteChildren");
+    deleteChildren.setField("deleted", "true");
+    deleteChildren.setField("field", "parent");
+    deleteChildren.setField("value", "P");
+    Document newChild = Document.create("newChild");
+    newChild.setField("parent", "P");
+    assertTrue(indexer.sendToIndex(List.of(oldChild, deleteChildren, newChild)).isEmpty());
+
+    InOrder inOrder = Mockito.inOrder(mockClient, mockIndicesClient);
+    inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+    inOrder.verify(mockIndicesClient).refresh(any(Function.class));
+    inOrder.verify(mockClient).deleteByQuery(any(DeleteByQueryRequest.class));
+    inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(2)).bulk(captor.capture());
+    verify(mockClient, times(1)).deleteByQuery(any(DeleteByQueryRequest.class));
+    assertEquals("oldChild", captor.getAllValues().get(0).operations().get(0).index().id());
+    assertEquals(1, captor.getAllValues().get(1).operations().size());
+    assertEquals("newChild", captor.getAllValues().get(1).operations().get(0).index().id());
+  }
+
+  // Several delete-by-query documents, with several writes between them: each one sends the writes before it, then
+  // its query, and the writes after it go in the next bulk.
+  @Test
+  public void testMultipleDeleteByQueriesKeepBatchOrder() throws Exception {
+    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf"),
+        new TestMessenger(), "testing", mockClient);
+
+    List<Document> batch = new ArrayList<>();
+    for (String id : List.of("add1", "add2", "dbq1", "add3", "add4", "dbq2", "add5", "add6")) {
+      Document doc = Document.create(id);
+      if (id.startsWith("dbq")) {
+        doc.setField("deleted", "true");
+        doc.setField("field", "parent");
+        doc.setField("value", id);
+      }
+      batch.add(doc);
+    }
+    assertTrue(indexer.sendToIndex(batch).isEmpty());
+
+    InOrder inOrder = Mockito.inOrder(mockClient, mockIndicesClient);
+    for (int i = 0; i < 2; i++) {
+      inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+      inOrder.verify(mockIndicesClient).refresh(any(Function.class));
+      inOrder.verify(mockClient).deleteByQuery(any(DeleteByQueryRequest.class));
+    }
+    inOrder.verify(mockClient).bulk(any(BulkRequest.class));
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(3)).bulk(captor.capture());
+    verify(mockClient, times(2)).deleteByQuery(any(DeleteByQueryRequest.class));
+    List<List<String>> idsPerBulk = new ArrayList<>();
+    for (BulkRequest request : captor.getAllValues()) {
+      List<String> ids = new ArrayList<>();
+      request.operations().forEach(op -> ids.add(op.index().id()));
+      idsPerBulk.add(ids);
+    }
+    assertEquals(List.of(List.of("add1", "add2"), List.of("add3", "add4"), List.of("add5", "add6")), idsPerBulk);
+  }
+
+  // A failed refresh before a delete-by-query is retryable, like a failed delete-by-query.
+  @Test
+  public void testRefreshFailureBeforeDeleteByQueryIsRetryable() throws Exception {
+    when(mockIndicesClient.refresh(any(Function.class))).thenThrow(new IOException("Connection refused"));
+    OpenSearchIndexer indexer = new OpenSearchIndexer(ConfigFactory.load("OpenSearchIndexerTest/batching.conf"),
+        new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("deleted", "true");
+    doc.setField("field", "parent");
+    doc.setField("value", "P");
+
+    IndexerRetryableException exc =
+        assertThrows(IndexerRetryableException.class, () -> indexer.sendToIndex(List.of(doc)));
+    assertEquals(IndexerRetryableException.UNKNOWN_STATUS_CODE, exc.getStatusCode());
+    verify(mockClient, never()).deleteByQuery(any(DeleteByQueryRequest.class));
+  }
+
   @Test
   public void testDeleteUsesIdOverride() throws Exception {
     TestMessenger messenger = new TestMessenger();
@@ -1110,6 +1208,184 @@ public class OpenSearchIndexerTest {
     Long expectedVersion = Long.valueOf(100);
     assertEquals("doc1", indexRequest.id());
     assertEquals(expectedVersion, indexRequest.version());
+  }
+
+  private static Config versionedDeleteConfig() {
+    return ConfigFactory.load("OpenSearchIndexerTest/versioning.conf")
+        .withValue("indexer.versionField", ConfigValueFactory.fromAnyRef("my_version_field"))
+        .withValue("indexer.deletionMarkerField", ConfigValueFactory.fromAnyRef("deleted"))
+        .withValue("indexer.deletionMarkerFieldValue", ConfigValueFactory.fromAnyRef("true"));
+  }
+
+  // A delete by id carries the document's indexer.versionField value, with indexer.versionType.
+  @Test
+  public void testVersionedDeleteById() throws Exception {
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("deleted", "true");
+    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    DeleteOperation delete = captor.getValue().operations().get(0).delete();
+    assertEquals("doc1", delete.id());
+    assertEquals(Long.valueOf(12345L), delete.version());
+    assertEquals(VersionType.ExternalGte, delete.versionType());
+  }
+
+  // A delete without indexer.versionField is unversioned, and never takes its version from the Kafka offset, which is
+  // not comparable to a versionField value.
+  @Test
+  public void testUnversionedDeleteById() throws Exception {
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("deleted", "true");
+    KafkaDocument kafkaDoc = new KafkaDocument(
+        new ObjectMapper().createObjectNode()
+            .put("id", "doc2")
+            .put("deleted", "true"));
+    kafkaDoc.setKafkaMetadata(new ConsumerRecord<>("testing", 0, 100, null, null));
+    assertTrue(indexer.sendToIndex(List.of(doc, kafkaDoc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    List<BulkOperation> operations = captor.getValue().operations();
+    assertEquals(2, operations.size());
+    for (BulkOperation operation : operations) {
+      assertNull(operation.delete().version());
+      assertNull(operation.delete().versionType());
+    }
+  }
+
+  // Without indexer.versionType, a delete is unversioned even when the document has a version-like field.
+  @Test
+  public void testDeleteByIdWithoutVersionType() throws Exception {
+    Config config = ConfigFactory.load("OpenSearchIndexerTest/batching.conf");
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, new TestMessenger(), "testing", mockClient);
+
+    Document doc = Document.create("doc1");
+    doc.setField("my_version_field", 12345L);
+    doc.setField("deleted", "true");
+    assertTrue(indexer.sendToIndex(List.of(doc)).isEmpty());
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(mockClient, times(1)).bulk(captor.capture());
+    assertNull(captor.getValue().operations().get(0).delete().version());
+    assertNull(captor.getValue().operations().get(0).delete().versionType());
+  }
+
+  // Stubs the delete bulk to reject doc1 with the given status.
+  private void rejectDeleteWith(int status) throws Exception {
+    BulkResponse response = Mockito.mock(BulkResponse.class);
+    BulkResponseItem item = Mockito.mock(BulkResponseItem.class);
+    when(item.id()).thenReturn("doc1");
+    when(item.status()).thenReturn(status);
+    when(item.error()).thenReturn(new ErrorCause.Builder().reason("rejected").type("version_conflict_engine_exception").build());
+    when(response.errors()).thenReturn(true);
+    when(response.items()).thenReturn(List.of(item));
+    when(mockClient.bulk(any(BulkRequest.class))).thenReturn(response);
+  }
+
+  private static Document deleteDoc(Long version) {
+    Document doc = Document.create("doc1");
+    if (version != null) {
+      doc.setField("my_version_field", version);
+    }
+    doc.setField("deleted", "true");
+    return doc;
+  }
+
+  // A 409 on a versioned delete means the index already holds that version or a newer one, so the delete succeeds.
+  @Test
+  public void testStaleVersionedDeleteSucceeds() throws Exception {
+    rejectDeleteWith(409);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+
+    assertTrue(indexer.sendToIndex(List.of(deleteDoc(1L))).isEmpty());
+  }
+
+  // Any other error on a versioned delete still fails the batch.
+  @Test
+  public void testVersionedDeleteOtherErrorFails() throws Exception {
+    rejectDeleteWith(400);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(deleteDoc(1L))));
+  }
+
+  // A 409 counts as success only for a delete sent with a version.
+  @Test
+  public void testUnversionedDeleteConflictFails() throws Exception {
+    rejectDeleteWith(409);
+    OpenSearchIndexer indexer = new OpenSearchIndexer(versionedDeleteConfig(), new TestMessenger(), "testing", mockClient);
+
+    assertThrows(IndexerException.class, () -> indexer.sendToIndex(List.of(deleteDoc(null))));
+  }
+
+  // A retry resends the whole batch, including a versioned delete that already succeeded. Under External the replay
+  // has the same version as the delete it repeats, so OpenSearch rejects it (409); that must not fail the batch.
+  @Test
+  public void testReplayedVersionedDeleteSucceeds() throws Exception {
+    OpenSearchClient replayClient = Mockito.mock(OpenSearchClient.class);
+    BooleanResponse pingResponse = Mockito.mock(BooleanResponse.class);
+    Mockito.when(pingResponse.value()).thenReturn(true);
+    Mockito.when(replayClient.ping()).thenReturn(pingResponse);
+    Mockito.when(replayClient.indices()).thenReturn(Mockito.mock(OpenSearchIndicesClient.class));
+
+    BulkResponse deleted = Mockito.mock(BulkResponse.class);
+    Mockito.when(deleted.items()).thenReturn(List.of());
+    BulkResponse conflict = Mockito.mock(BulkResponse.class);
+    BulkResponseItem item = Mockito.mock(BulkResponseItem.class);
+    when(item.id()).thenReturn("doc1");
+    when(item.status()).thenReturn(409);
+    when(item.error()).thenReturn(new ErrorCause.Builder().reason("version conflict").type("version_conflict_engine_exception").build());
+    when(conflict.errors()).thenReturn(true);
+    when(conflict.items()).thenReturn(List.of(item));
+    Mockito.when(replayClient.bulk(any(BulkRequest.class))).thenReturn(deleted, conflict);
+    // fails the first attempt after the delete by id was sent, so the batch is retried
+    DeleteByQueryResponse noFailures = Mockito.mock(DeleteByQueryResponse.class);
+    Mockito.when(noFailures.failures()).thenReturn(new ArrayList<>());
+    Mockito.when(replayClient.deleteByQuery(any(DeleteByQueryRequest.class)))
+        .thenThrow(new IOException("Connection reset"))
+        .thenReturn(noFailures);
+
+    TestMessenger messenger = new TestMessenger();
+    Config config = versionedDeleteConfig()
+        .withValue("indexer.versionType", ConfigValueFactory.fromAnyRef("External"))
+        .withValue("indexer.batchSize", ConfigValueFactory.fromAnyRef(2))
+        .withValue("indexer.deleteByFieldField", ConfigValueFactory.fromAnyRef("field"))
+        .withValue("indexer.deleteByFieldValue", ConfigValueFactory.fromAnyRef("value"))
+        .withValue("indexer.maxRetries", ConfigValueFactory.fromAnyRef(1))
+        .withValue("indexer.retryWaitDurationMs", ConfigValueFactory.fromAnyRef(1));
+    OpenSearchIndexer indexer = new OpenSearchIndexer(config, messenger, "testing", replayClient);
+
+    Document delete = Document.create("doc1", "test_run");
+    delete.setField("my_version_field", 5L);
+    delete.setField("deleted", "true");
+    Document deleteByQuery = Document.create("doc2", "test_run");
+    deleteByQuery.setField("deleted", "true");
+    deleteByQuery.setField("field", "parent");
+    deleteByQuery.setField("value", "P");
+    messenger.sendForIndexing(delete);
+    messenger.sendForIndexing(deleteByQuery);
+    indexer.run(2);
+
+    ArgumentCaptor<BulkRequest> captor = ArgumentCaptor.forClass(BulkRequest.class);
+    verify(replayClient, times(2)).bulk(captor.capture());
+    for (BulkRequest request : captor.getAllValues()) {
+      assertEquals("doc1", request.operations().get(0).delete().id());
+      assertEquals(Long.valueOf(5L), request.operations().get(0).delete().version());
+    }
+    verify(replayClient, times(2)).deleteByQuery(any(DeleteByQueryRequest.class));
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(2, events.size());
+    for (Event event : events) {
+      assertEquals(Event.Type.FINISH, event.getType());
+    }
   }
 
   @Test
@@ -1985,8 +2261,8 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
-      throw new Exception("Test that errors when sending to indexer are correctly handled");
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
+      throw new IndexerException("Test that errors when sending to indexer are correctly handled");
     }
   }
 
@@ -2005,7 +2281,7 @@ public class OpenSearchIndexerTest {
     }
 
     @Override
-    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws Exception {
+    public Set<Pair<Document, Exception>> sendToIndex(List<Document> docs) throws IndexerException {
       throw new IndexerRetryableException(
           503, "Simulated 503 Service Unavailable", new IOException("backend unavailable"));
     }
@@ -2038,7 +2314,7 @@ public class OpenSearchIndexerTest {
     List<String> completedBatches = Collections.synchronizedList(new ArrayList<>());
     TestMessenger messenger = new TestMessenger() {
       @Override
-      public void batchComplete(List<Document> batch) throws Exception {
+      public void batchComplete(List<Document> batch) throws MessengerException {
         completedBatches.add(batch.get(0).getId());
         super.batchComplete(batch);
       }

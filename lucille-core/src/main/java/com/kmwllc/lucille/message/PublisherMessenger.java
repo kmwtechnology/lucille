@@ -9,14 +9,20 @@ import com.kmwllc.lucille.core.Event;
  * A Publisher needs to 1) submit Documents for processing and 2) receive Events
  * relating to Documents it has published and their children.
  *
+ * <p> Internal to Lucille: not a supported extension point, and it may change in any release. The Runner chooses the
+ * messengers for a run; there is no setting for supplying another implementation.
  */
 public interface PublisherMessenger {
 
   /**
    * Sets the Run ID and pipeline that this PublisherMessenger should use.
    * Should be called exactly once.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
+   * @throws IllegalStateException if this PublisherMessenger has already been initialized
    */
-  void initialize(String runId, String pipelineName) throws Exception;
+  void initialize(String runId, String pipelineName) throws MessengerException;
 
   /**
    * Returns the ID of the Run in which this PublisherMessenger instance is participating.
@@ -25,8 +31,11 @@ public interface PublisherMessenger {
 
   /**
    * Submits a Document for processing by a configured pipeline.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  void sendForProcessing(Document document) throws Exception;
+  void sendForProcessing(Document document) throws MessengerException;
 
   /**
    * Retrieves and removes an Event waiting to be processed.
@@ -37,17 +46,26 @@ public interface PublisherMessenger {
    *
    * Events sent via WorkerMessenger.sendEvent() and IndexMessenger.sendEvent()
    * are returned by the current method, PublisherMessenger.pollEvent()
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  Event pollEvent() throws Exception;
+  Event pollEvent() throws MessengerException;
 
   /**
    * Ensures any buffered messages have been delivered. Surfaces any asynchronous send failure.
    * Called at the end of a publishing run, after the last document has been submitted.
+   *
+   * @throws MessengerException if the messaging infrastructure failed, or the thread was interrupted while waiting
+   *     (its interrupt flag is restored)
    */
-  default void flush() throws Exception {}
+  default void flush() throws MessengerException {}
 
   /**
    * Closes any connections opened by this PublisherMessenger.
+   *
+   * <p> Declares no checked exception: it runs during shutdown, where a caller can only log a failure. An
+   * implementation logs a failure to release a resource itself, or lets an unchecked exception propagate.
    */
   void close();
 }

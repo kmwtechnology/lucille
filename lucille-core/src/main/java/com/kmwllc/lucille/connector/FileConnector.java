@@ -99,6 +99,16 @@ import com.typesafe.config.Config;
  *   <li>azure.accountName (String, Optional) : Azure account name.</li>
  *   <li>azure.accountKey (String, Optional) : Azure account key.</li>
  *   <li>azure.maxResultsPerPage (Int, Optional) : Maximum number of results returned per listing request (page size). Defaults to 100.</li>
+ *   <li>azure.allowedHosts (List&lt;String&gt;, Optional) : An https URI is only read with the azure client if its authority
+ *   contains one of these values (a substring match). Applies to traversed paths and to files fetched by stages. Only
+ *   selects the client: requests go to the endpoint in the azure credentials, such as connectionString. Replaces the default
+ *   rather than adding to it. Defaults to ["blob.core.windows.net"].</li>
+ *   <li>storageClients (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Custom StorageClients, keyed by URI scheme
+ *   (e.g. sftp, or s3). Each entry must contain "class", the fully qualified name of a StorageClient implementation with a
+ *   public constructor that takes a Config. The client receives its entry, which may contain any other settings it needs.
+ *   A client for s3, gs, or https replaces the built-in client for that scheme, so the scheme's built-in config (s3, gcp,
+ *   or azure) can't also be given, and azure.allowedHosts does not apply to a custom https client. Schemes must be at
+ *   least two characters long, and file can't be configured.</li>
  *   <li>fileHandlers (Map&lt;String, Map&lt;String, Object&gt;&gt;, Optional) : Per-type FileHandler configuration (e.g., csv, json, xml).
  *   Supply a class to override the default handler. Otherwise the built-in handler for csv/json/xml is used. Configure docIdPrefix inside
  *   each handler's config as needed.</li>
@@ -118,12 +128,16 @@ public class FileConnector extends AbstractConnector {
   public static final String AZURE_CONNECTION_STRING = "connectionString";
   public static final String AZURE_ACCOUNT_NAME = "accountName";
   public static final String AZURE_ACCOUNT_KEY = "accountKey";
+  public static final String AZURE_ALLOWED_HOSTS = "allowedHosts";
+  public static final List<String> DEFAULT_AZURE_ALLOWED_HOSTS = List.of("blob.core.windows.net");
   public static final String S3_REGION = "region";
   public static final String S3_ACCESS_KEY_ID = "accessKeyId";
   public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
   public static final String S3_ANONYMOUS = "anonymous";
   public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
   public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
+  public static final String STORAGE_CLIENT_CLASS = "class";
+  public static final String STORAGE_CLIENTS = "storageClients";
 
   // fileOption Config Options
   public static final String GET_FILE_CONTENT = "getFileContent";
@@ -143,7 +157,10 @@ public class FileConnector extends AbstractConnector {
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
   public static final Spec AZURE_PARENT_SPEC = SpecBuilder.parent("azure")
       .optionalString("connectionString", "accountName", "accountKey")
+      .optionalList(AZURE_ALLOWED_HOSTS, new TypeReference<List<String>>(){})
       .optionalNumber(MAX_RESULTS_PER_PAGE).build();
+  // custom storage clients, keyed by URI scheme. Each client's settings are not validated here.
+  public static final TypeReference<Map<String, Map<String, Object>>> STORAGE_CLIENTS_TYPE = new TypeReference<Map<String, Map<String, Object>>>(){};
 
   private static final Logger log = LoggerFactory.getLogger(FileConnector.class);
 
@@ -169,6 +186,7 @@ public class FileConnector extends AbstractConnector {
           GCP_PARENT_SPEC,
           AZURE_PARENT_SPEC,
           S3_PARENT_SPEC)
+      .optionalParent(STORAGE_CLIENTS, STORAGE_CLIENTS_TYPE)
       .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
 
   private final List<URI> storageURIs;
@@ -209,6 +227,14 @@ public class FileConnector extends AbstractConnector {
             : null;
 
     this.storageClientMap = StorageClient.createClients(config);
+
+    // an https path on a host outside azure.allowedHosts would otherwise only fail once traversal starts
+    for (URI uri : storageURIs) {
+      if (StorageClient.clientFor(uri, storageClientMap, config) == null && storageClientMap.containsKey(clientKeyFor(uri))) {
+        throw new IllegalArgumentException("No StorageClient is available for " + uri + ": its host doesn't contain any of azure."
+            + AZURE_ALLOWED_HOSTS + ".");
+      }
+    }
 
 
     // incremental mode requires state tracking in order to function correctly
@@ -439,10 +465,10 @@ public class FileConnector extends AbstractConnector {
       for (int j = i + 1; j < storageURIs.size(); j++) {
         URI first = storageURIs.get(i);
         URI second = storageURIs.get(j);
-        StorageClient client = storageClientMap.get(clientKeyFor(first));
+        StorageClient client = StorageClient.clientFor(first, storageClientMap, config);
 
         // paths handled by different storage providers cannot overlap
-        if (client == null || client != storageClientMap.get(clientKeyFor(second))) {
+        if (client == null || client != StorageClient.clientFor(second, storageClientMap, config)) {
           continue;
         }
 
@@ -459,7 +485,7 @@ public class FileConnector extends AbstractConnector {
   }
 
   private void traverseStoragePath(Publisher publisher, URI pathToTraverse) throws ConnectorException {
-    StorageClient storageClient = storageClientMap.get(clientKeyFor(pathToTraverse));
+    StorageClient storageClient = StorageClient.clientFor(pathToTraverse, storageClientMap, config);
 
     if (storageClient == null) {
       throw new ConnectorException("No StorageClient was available for (" + pathToTraverse +

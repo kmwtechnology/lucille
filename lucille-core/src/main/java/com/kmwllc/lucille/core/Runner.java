@@ -338,18 +338,16 @@ public class Runner {
 
     for (Config connectorConfig : rootConfig.getConfigList("connectors")) {
       idx++;
-      String connectorName = ConfigUtils.getStringOrDefault(connectorConfig, "name", null);
+      // the name the connector has in a run (see Connector.fromConfig)
+      String connectorName = ConfigUtils.getStringOrDefault(connectorConfig, "name", "connector_" + idx);
 
-      List<Exception> exceptionsForConnector = Connector.getConnectorConfigExceptions(connectorConfig);
-      if (connectorName != null && !connectorName.isEmpty()) {
-        if (!seenNames.add(connectorName)) {
-          exceptionMap.computeIfAbsent(connectorName, k -> new ArrayList<>()).add(new Exception("There are multiple connectors with the name " + connectorName));
-        }
+      List<Exception> exceptionsForConnector = Connector.getConnectorConfigExceptions(connectorConfig, idx);
+      if (!seenNames.add(connectorName)) {
+        exceptionMap.computeIfAbsent(connectorName, k -> new ArrayList<>()).add(new Exception("There are multiple connectors with the name " + connectorName));
       }
 
       if (!exceptionsForConnector.isEmpty()) {
-        String key = (connectorName != null && !connectorName.isEmpty()) ? connectorName : "connector[" + idx + "]";
-        exceptionMap.computeIfAbsent(key, k -> new ArrayList<>()).addAll(exceptionsForConnector);
+        exceptionMap.computeIfAbsent(connectorName, k -> new ArrayList<>()).addAll(exceptionsForConnector);
       }
     }
 
@@ -381,8 +379,8 @@ public class Runner {
       }
       String pipeline = connectorConfig.getString("pipeline");
       if (!pipelineNames.contains(pipeline)) {
-        String connectorName = ConfigUtils.getStringOrDefault(connectorConfig, "name", null);
-        String key = (connectorName != null && !connectorName.isEmpty()) ? connectorName : "connector[" + idx + "]";
+        // the name the connector has in a run (see Connector.fromConfig)
+        String key = ConfigUtils.getStringOrDefault(connectorConfig, "name", "connector_" + idx);
         exceptionMap.computeIfAbsent(key, k -> new ArrayList<>()).add(new Exception(
             "Connector " + key + " references pipeline \"" + pipeline + "\", which is not defined. Defined pipelines: "
                 + pipelineNames));

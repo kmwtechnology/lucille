@@ -193,7 +193,7 @@ public class ElasticsearchIndexerBulkBodyTest {
     populateScalars(doc);
 
     assertEquals("{\"update\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
-        + "{\"doc\":" + SCALARS_BODY + "}\n", bulkBody(config("elasticsearch.update: true"), doc));
+        + "{\"doc\":" + SCALARS_BODY + ",\"doc_as_upsert\":true}\n", bulkBody(config("elasticsearch.update: true"), doc));
   }
 
   // nullField is absent: the client's JacksonJsonpMapper leaves out null map values, at any depth, while
