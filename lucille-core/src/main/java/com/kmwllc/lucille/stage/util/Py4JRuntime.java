@@ -38,7 +38,7 @@ public final class Py4JRuntime {
    * Overall timeout for Python process startup in milliseconds. Configurable for testing.
    * Default is 30 seconds.
    */
-  public static volatile long pythonStartupTimeoutMs = 30000;
+  private volatile long pythonStartupTimeoutMs = 30000;
 
   /**
    * Defines methods that can be called on the python client via Py4J.
@@ -71,6 +71,15 @@ public final class Py4JRuntime {
     this.scriptPath = scriptPath;
     this.requirementsPath = requirementsPath;
     this.requestedPort = requestedPort;
+  }
+
+  // Same as the constructor above, but allows the python startup timeout (in milliseconds) to be configured. Used for testing.
+  public Py4JRuntime(String pythonExecutable, String scriptPath, String requirementsPath, Integer requestedPort, long pythonStartupTimeoutMs) {
+    this.pythonExecutable = pythonExecutable;
+    this.scriptPath = scriptPath;
+    this.requirementsPath = requirementsPath;
+    this.requestedPort = requestedPort;
+    this.pythonStartupTimeoutMs = pythonStartupTimeoutMs;
   }
 
   public String getPythonExecutable() {

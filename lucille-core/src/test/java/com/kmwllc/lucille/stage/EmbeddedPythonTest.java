@@ -63,18 +63,18 @@ public class EmbeddedPythonTest {
   public void testGlobalsDoNotLeakBetweenDocuments() throws StageException {
     stage = stageWithInline("""
     if "title" in doc:
-        value = doc.title.upper()
-    doc.processed = value if 'value' in dir() else "EMPTY"
+        uppercaseTitle = doc.title.upper()
+    doc.result = uppercaseTitle if 'uppercaseTitle' in dir() else "EMPTY"
     """);
 
     Document d1 = Document.create("d1");
     d1.setField("title", "hello");
     stage.processDocument(d1);
-    assertEquals("HELLO", d1.getString("processed"));
+    assertEquals("HELLO", d1.getString("result"));
 
     Document d2 = Document.create("d2");
     stage.processDocument(d2);
-    assertEquals("EMPTY", d2.getString("processed"));
+    assertEquals("EMPTY", d2.getString("result"));
   }
 
   @Test

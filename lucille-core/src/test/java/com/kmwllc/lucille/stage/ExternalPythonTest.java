@@ -4,11 +4,13 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.stage.util.Py4JRuntime;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -19,16 +21,9 @@ public class ExternalPythonTest {
 
   private final StageFactory factory = StageFactory.of(ExternalPython.class);
   private Stage stage;
-  private long originalTimeout;
-
-  @Before
-  public void setUp() {
-    originalTimeout = Py4JRuntime.pythonStartupTimeoutMs;
-  }
 
   @After
   public void tearDown() throws Exception {
-    Py4JRuntime.pythonStartupTimeoutMs = originalTimeout;
     if (stage != null) {
       stage.stop();
       stage = null;
@@ -214,14 +209,20 @@ public class ExternalPythonTest {
 
   @Test
   public void testPythonStartupTimeout() throws Exception {
-    // Set a very short timeout (1 second) to trigger timeout on slow_startup.py
-    // which sleeps for 5 seconds before reporting readiness
-    Py4JRuntime.pythonStartupTimeoutMs = 1000;
+    // slow_startup.py sleeps for 5 seconds before reporting readiness, so a 1 second timeout should fire first
+    Config config = ConfigFactory.parseResources("ExternalPythonTest/slow_startup.conf");
+    String scriptPath = config.getString("scriptPath");
 
-    String confPath = "ExternalPythonTest/slow_startup.conf";
+    // Mock ExternalPython.start() so the runtime it starts is built with a 1000ms startup timeout via the test constructor
+    ExternalPython externalPython = Mockito.spy(new ExternalPython(config));
+    Mockito.doAnswer(invocation -> {
+      Py4JRuntime runtime = new Py4JRuntime("python3", scriptPath, null, null, 1000);
+      runtime.start();
+      return null;
+    }).when(externalPython).start();
 
-    // Attempting to create the stage should throw StageException due to timeout
-    StageException ex = assertThrows(StageException.class, () -> stage = factory.get(confPath));
+    // Starting the stage should throw StageException due to timeout
+    StageException ex = assertThrows(StageException.class, externalPython::start);
 
     // The timeout message is wrapped by outer exceptions, so search the cause chain for it
     String expectedPrefix = "Python process startup exceeded timeout of 1000 ms";
