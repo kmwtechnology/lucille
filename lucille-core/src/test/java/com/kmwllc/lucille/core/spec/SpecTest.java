@@ -36,6 +36,25 @@ public class SpecTest {
   }
 
   @Test
+  public void testValidationErrorOrder() {
+    Spec spec = SpecBuilder.withoutDefaults()
+        .requiredString("second")
+        .requiredString("first")
+        .build();
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> spec.validate(ConfigFactory.parseString("zebra: 1, apple: 2"), "Test"));
+
+    // unknown properties in sorted order, then missing properties in declaration order
+    String message = e.getMessage();
+    int zebra = message.indexOf("unknown property zebra");
+    int apple = message.indexOf("unknown property apple");
+    int second = message.indexOf("second");
+    int first = message.indexOf("first");
+    assertTrue(message, apple >= 0 && zebra > apple && second > zebra && first > second);
+  }
+
+  @Test
   public void testOf() {
     assertSame(WithSpec.SPEC, Spec.of(WithSpec.class));
     assertSame(WithSpec.SPEC, Spec.of(SubclassWithRedeclaredSpec.class));

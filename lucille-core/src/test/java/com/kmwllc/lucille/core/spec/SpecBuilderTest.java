@@ -2,10 +2,12 @@ package com.kmwllc.lucille.core.spec;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.FileConnector;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
 
@@ -67,5 +69,41 @@ public class SpecBuilderTest {
     assertTrue(combinedSpec.getLegalProperties().contains("field4"));
 
     assertEquals(10, combinedSpec.getLegalProperties().size());
+  }
+
+  @Test
+  public void testDeclarationOrder() {
+    Spec spec = SpecBuilder.stage()
+        .requiredString("zeta")
+        .optionalNumber("alpha")
+        .optionalBoolean("mu")
+        .build();
+
+    assertEquals(List.of("name", "class", "enabled", "conditions", "conditionPolicy", "zeta", "alpha", "mu"),
+        List.copyOf(spec.getLegalProperties()));
+
+    List<String> jsonNames = new ArrayList<>();
+    spec.toJson().get("fields").forEach(field -> jsonNames.add(field.get("name").asText()));
+    assertEquals(List.copyOf(spec.getLegalProperties()), jsonNames);
+  }
+
+  @Test
+  public void testDuplicateNameIsRejected() {
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> SpecBuilder.withoutDefaults().optionalString("field").optionalNumber("field"));
+    assertTrue(e.getMessage().contains("\"field\""));
+
+    // redeclaring a default property is a duplicate too
+    assertThrows(IllegalArgumentException.class, () -> SpecBuilder.stage().optionalString("conditionPolicy"));
+    assertThrows(IllegalArgumentException.class, () -> SpecBuilder.fileHandler().optionalString("docIdPrefix"));
+
+    // as is a clash between an included Spec and a declared property
+    Spec included = SpecBuilder.withoutDefaults().optionalString("field").build();
+    assertThrows(IllegalArgumentException.class, () -> SpecBuilder.withoutDefaults().optionalString("field").include(included));
+
+    // the parent Spec's name is included in the message
+    e = assertThrows(IllegalArgumentException.class,
+        () -> SpecBuilder.parent("myParent").optionalString("field").optionalString("field"));
+    assertTrue(e.getMessage().contains("\"myParent\""));
   }
 }

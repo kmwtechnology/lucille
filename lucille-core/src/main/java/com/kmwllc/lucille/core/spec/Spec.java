@@ -7,9 +7,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.HashSet;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
@@ -37,31 +40,20 @@ public class Spec {
 
   private final String name;
 
-  private final Set<Property> properties;
+  // in declaration order, with unique names (SpecBuilder enforces this)
+  private final List<Property> properties;
 
-  Spec(String name, Set<Property> defaultLegalProperties) {
+  Spec(String name, Collection<Property> properties) {
     this.name = name;
-    this.properties = new HashSet<>(defaultLegalProperties);
-  }
-
-  Spec(Set<Property> defaultLegalProperties) {
-    this.name = null;
-    this.properties = new HashSet<>(defaultLegalProperties);
-  }
-
-  /**
-   * Convenience constructor to create a Spec without default legal properties.
-   */
-  Spec() {
-    this(Set.of());
+    this.properties = List.copyOf(properties);
   }
 
   /**
    * Gets the spec's properties.
-   * @return a copy of the set of properties.
+   * @return the properties, in declaration order.
    */
-  Set<Property> getProperties() {
-    return Set.copyOf(properties);
+  List<Property> getProperties() {
+    return properties;
   }
 
   /**
@@ -72,10 +64,11 @@ public class Spec {
    * a non-legal property / parent.
    */
   public void validate(Config config, String displayName) {
-    // mainly using a set to prevent repeats of any error messages
-    Set<String> errorMessages = new HashSet<>();
+    // a set prevents repeats of any error messages; insertion order keeps the output deterministic
+    Set<String> errorMessages = new LinkedHashSet<>();
 
-    Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toSet());
+    // sorted, so unknown properties are reported in a stable order
+    Set<String> keys = config.entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toCollection(TreeSet::new));
 
     // This method is responsible for making sure that there are no unknown / illegal field names found.
     // Properties are responsible for making sure a required field is present and for making sure that the
@@ -115,10 +108,10 @@ public class Spec {
    * Returns a Set of the legal properties associated with this Spec, include required/optional properties/parents
    * and any default properties associated with the Spec as well. Note that, if this Spec has an {@link ObjectProperty}, this
    * will only return that property's name - <b>not</b> its child's legal properties as well.
-   * @return a Set of the legal properties associated with this Spec.
+   * @return a Set of the legal properties associated with this Spec, in declaration order.
    */
   public Set<String> getLegalProperties() {
-    return properties.stream().map(Property::getName).collect(Collectors.toSet());
+    return properties.stream().map(Property::getName).collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
   /**

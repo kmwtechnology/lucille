@@ -3,28 +3,41 @@ package com.kmwllc.lucille.core.spec;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.Stage;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
+/**
+ * Builds a {@link Spec}. Properties keep the order in which they are added, after any default legal properties.
+ * Declaring two different properties with the same name throws an IllegalArgumentException; adding the very same
+ * Property again (for example, by including the same Spec twice) has no effect.
+ */
 public class SpecBuilder {
 
-  private final Set<Property> properties;
+  private final Map<String, Property> properties = new LinkedHashMap<>();
   private final String name;
 
   SpecBuilder(String name) {
     this.name = name;
-    this.properties = new HashSet<>();
   }
 
-  SpecBuilder(Set<Property> defaultLegalProperties) {
+  SpecBuilder(Collection<Property> defaultLegalProperties) {
     this.name = null;
-    this.properties = new HashSet<>(defaultLegalProperties);
+    defaultLegalProperties.forEach(this::add);
   }
 
   // Convenience constructor to create a Spec without default legal properties.
   SpecBuilder() {
-    this(Set.of());
+    this(List.of());
+  }
+
+  private void add(Property property) {
+    Property existing = properties.putIfAbsent(property.getName(), property);
+    if (existing != null && existing != property) {
+      throw new IllegalArgumentException("Property \"" + property.getName() + "\" is declared more than once"
+          + (name != null ? " in the \"" + name + "\" Spec." : "."));
+    }
   }
 
   // ********** "Constructors" **********
@@ -44,7 +57,7 @@ public class SpecBuilder {
    * @return a Spec with default legal properties suitable for a Connector.
    */
   public static SpecBuilder connector() {
-    return new SpecBuilder(Set.of(
+    return new SpecBuilder(List.of(
         new StringProperty("name", false),
         new StringProperty("class", false),
         new StringProperty("pipeline", false),
@@ -68,7 +81,7 @@ public class SpecBuilder {
    * @return a Spec with default legal properties suitable for a FileHandler.
    */
   public static SpecBuilder fileHandler() {
-    return new SpecBuilder(Set.of(
+    return new SpecBuilder(List.of(
         new StringProperty("class", false),
         new StringProperty("docIdPrefix", false)));
   }
@@ -94,42 +107,42 @@ public class SpecBuilder {
   // ************ Adding Basic Types ****************
 
   public SpecBuilder requiredString(String... requiredStringFieldNames) {
-    Arrays.stream(requiredStringFieldNames).forEach(fieldName -> properties.add(new StringProperty(fieldName, true)));
+    Arrays.stream(requiredStringFieldNames).forEach(fieldName -> add(new StringProperty(fieldName, true)));
     return this;
   }
 
   public SpecBuilder optionalString(String... optionalStringFieldNames) {
-    Arrays.stream(optionalStringFieldNames).forEach(fieldName -> properties.add(new StringProperty(fieldName, false)));
+    Arrays.stream(optionalStringFieldNames).forEach(fieldName -> add(new StringProperty(fieldName, false)));
     return this;
   }
 
   public SpecBuilder requiredStringOrList(String... requiredFieldNames) {
-    Arrays.stream(requiredFieldNames).forEach(fieldName -> properties.add(new StringOrListProperty(fieldName, true)));
+    Arrays.stream(requiredFieldNames).forEach(fieldName -> add(new StringOrListProperty(fieldName, true)));
     return this;
   }
 
   public SpecBuilder optionalStringOrList(String... optionalFieldNames) {
-    Arrays.stream(optionalFieldNames).forEach(fieldName -> properties.add(new StringOrListProperty(fieldName, false)));
+    Arrays.stream(optionalFieldNames).forEach(fieldName -> add(new StringOrListProperty(fieldName, false)));
     return this;
   }
 
   public SpecBuilder requiredNumber(String... requiredNumberFieldNames) {
-    Arrays.stream(requiredNumberFieldNames).forEach(fieldName -> properties.add(new NumberProperty(fieldName, true)));
+    Arrays.stream(requiredNumberFieldNames).forEach(fieldName -> add(new NumberProperty(fieldName, true)));
     return this;
   }
 
   public SpecBuilder optionalNumber(String... optionalNumberFieldNames) {
-    Arrays.stream(optionalNumberFieldNames).forEach(fieldName -> properties.add(new NumberProperty(fieldName, false)));
+    Arrays.stream(optionalNumberFieldNames).forEach(fieldName -> add(new NumberProperty(fieldName, false)));
     return this;
   }
 
   public SpecBuilder requiredBoolean(String... requiredBooleanFieldNames) {
-    Arrays.stream(requiredBooleanFieldNames).forEach(fieldName -> properties.add(new BooleanProperty(fieldName, true)));
+    Arrays.stream(requiredBooleanFieldNames).forEach(fieldName -> add(new BooleanProperty(fieldName, true)));
     return this;
   }
 
   public SpecBuilder optionalBoolean(String... optionalBooleanFieldNames) {
-    Arrays.stream(optionalBooleanFieldNames).forEach(fieldName -> properties.add(new BooleanProperty(fieldName, false)));
+    Arrays.stream(optionalBooleanFieldNames).forEach(fieldName -> add(new BooleanProperty(fieldName, false)));
     return this;
   }
 
@@ -137,75 +150,75 @@ public class SpecBuilder {
 
   public SpecBuilder requiredParent(Spec... requiredParents) {
     // TODO: assert that all specs are isParent()
-    Arrays.stream(requiredParents).forEach(requiredParentSpec -> properties.add(new ObjectProperty(requiredParentSpec, true)));
+    Arrays.stream(requiredParents).forEach(requiredParentSpec -> add(new ObjectProperty(requiredParentSpec, true)));
     return this;
   }
 
   public SpecBuilder optionalParent(Spec... optionalParents) {
     // TODO: assert that all specs are isParent()
-    Arrays.stream(optionalParents).forEach(optionalParentSpec -> properties.add(new ObjectProperty(optionalParentSpec, false)));
+    Arrays.stream(optionalParents).forEach(optionalParentSpec -> add(new ObjectProperty(optionalParentSpec, false)));
     return this;
   }
 
   public SpecBuilder requiredParent(String name, TypeReference<?> type) {
-    properties.add(new ObjectProperty(name, true, type));
+    add(new ObjectProperty(name, true, type));
     return this;
   }
 
   public SpecBuilder optionalParent(String name, TypeReference<?> type) {
-    properties.add(new ObjectProperty(name, false, type));
+    add(new ObjectProperty(name, false, type));
     return this;
   }
 
   public SpecBuilder requiredList(String name, Spec objectSpec) {
-    properties.add(new ListProperty(name, true, objectSpec));
+    add(new ListProperty(name, true, objectSpec));
     return this;
   }
 
   public SpecBuilder optionalList(String name, Spec objectSpec) {
-    properties.add(new ListProperty(name, false, objectSpec));
+    add(new ListProperty(name, false, objectSpec));
     return this;
   }
 
   public SpecBuilder requiredList(String name, TypeReference<?> listType) {
-    properties.add(new ListProperty(name, true, listType));
+    add(new ListProperty(name, true, listType));
     return this;
   }
 
   public SpecBuilder optionalList(String name, TypeReference<?> listType) {
-    properties.add(new ListProperty(name, false, listType));
+    add(new ListProperty(name, false, listType));
     return this;
   }
 
   // ************ Adding Basic Types w/ Descriptions ****************
 
   public SpecBuilder requiredStringWithDescription(String requiredStringFieldName, String description) {
-    properties.add(new StringProperty(requiredStringFieldName, true, description));
+    add(new StringProperty(requiredStringFieldName, true, description));
     return this;
   }
 
   public SpecBuilder optionalStringWithDescription(String optionalStringFieldName, String description) {
-    properties.add(new StringProperty(optionalStringFieldName, false, description));
+    add(new StringProperty(optionalStringFieldName, false, description));
     return this;
   }
 
   public SpecBuilder requiredNumberWithDescription(String requiredNumberFieldName, String description) {
-    properties.add(new NumberProperty(requiredNumberFieldName, true, description));
+    add(new NumberProperty(requiredNumberFieldName, true, description));
     return this;
   }
 
   public SpecBuilder optionalNumberWithDescription(String optionalNumberFieldName, String description) {
-    properties.add(new NumberProperty(optionalNumberFieldName, false, description));
+    add(new NumberProperty(optionalNumberFieldName, false, description));
     return this;
   }
 
   public SpecBuilder requiredBooleanWithDescription(String requiredBooleanFieldName, String description) {
-    properties.add(new BooleanProperty(requiredBooleanFieldName, true, description));
+    add(new BooleanProperty(requiredBooleanFieldName, true, description));
     return this;
   }
 
   public SpecBuilder optionalBooleanWithDescription(String optionalBooleanFieldName, String description) {
-    properties.add(new BooleanProperty(optionalBooleanFieldName, false, description));
+    add(new BooleanProperty(optionalBooleanFieldName, false, description));
     return this;
   }
 
@@ -213,43 +226,43 @@ public class SpecBuilder {
 
   public SpecBuilder requiredParentWithDescription(Spec requiredParentSpec, String description) {
     // TODO: assert that all specs are isParent()
-    properties.add(new ObjectProperty(requiredParentSpec, true, description));
+    add(new ObjectProperty(requiredParentSpec, true, description));
     return this;
   }
 
   public SpecBuilder optionalParentWithDescription(Spec optionalParentSpec, String description) {
     // TODO: assert that all specs are isParent()
-    properties.add(new ObjectProperty(optionalParentSpec, false, description));
+    add(new ObjectProperty(optionalParentSpec, false, description));
     return this;
   }
 
   public SpecBuilder requiredParentWithDescription(String requiredParentName, TypeReference<?> type, String description) {
-    properties.add(new ObjectProperty(requiredParentName, true, type, description));
+    add(new ObjectProperty(requiredParentName, true, type, description));
     return this;
   }
 
   public SpecBuilder optionalParentWithDescription(String optionalParentName, TypeReference<?> type, String description) {
-    properties.add(new ObjectProperty(optionalParentName, false, type, description));
+    add(new ObjectProperty(optionalParentName, false, type, description));
     return this;
   }
 
   public SpecBuilder requiredListWithDescription(String name, Spec objectSpec, String description) {
-    properties.add(new ListProperty(name, true, objectSpec, description));
+    add(new ListProperty(name, true, objectSpec, description));
     return this;
   }
 
   public SpecBuilder optionalListWithDescription(String name, Spec objectSpec, String description) {
-    properties.add(new ListProperty(name, false, objectSpec, description));
+    add(new ListProperty(name, false, objectSpec, description));
     return this;
   }
 
   public SpecBuilder requiredListWithDescription(String name, TypeReference<?> listType, String description) {
-    properties.add(new ListProperty(name, true, listType, description));
+    add(new ListProperty(name, true, listType, description));
     return this;
   }
 
   public SpecBuilder optionalListWithDescription(String name, TypeReference<?> listType, String description) {
-    properties.add(new ListProperty(name, false, listType, description));
+    add(new ListProperty(name, false, listType, description));
     return this;
   }
 
@@ -261,11 +274,11 @@ public class SpecBuilder {
    * @return A SpecBuilder with the given spec added.
    */
   public SpecBuilder include(Spec spec) {
-    this.properties.addAll(spec.getProperties());
+    spec.getProperties().forEach(this::add);
     return this;
   }
 
   public Spec build() {
-    return new Spec(name, properties);
+    return new Spec(name, properties.values());
   }
 }

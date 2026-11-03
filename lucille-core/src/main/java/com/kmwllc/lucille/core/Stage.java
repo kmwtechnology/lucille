@@ -69,7 +69,7 @@ public abstract class Stage {
 
   private static final Logger docLogger = LoggerFactory.getLogger("com.kmwllc.lucille.core.DocLogger");
 
-  public static final Set<Property> DEFAULT_LEGAL_PROPERTIES = Set.of(
+  public static final List<Property> DEFAULT_LEGAL_PROPERTIES = List.of(
       new StringProperty("name", false),
       new StringProperty("class", false),
       new BooleanProperty("enabled", false),
