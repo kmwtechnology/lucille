@@ -24,7 +24,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -353,6 +355,42 @@ public class FileConnectorStateManagerTest {
 
       FileUtils.deleteDirectory(stateDirectory);
     }
+  }
+
+  // LIKE wildcards in the prefix ('_', '%', '[') and the escape character match only themselves.
+  @Test
+  public void testMarkAllEntriesEncounteredEscapesWildcards() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorStateManagerTest/config.conf");
+    FileConnectorStateManager manager = new FileConnectorStateManager(config, null);
+    manager.init();
+
+    List<String> names = List.of("file:///tmp/a_b.zip!e.txt", "file:///tmp/aXb.zip!e.txt",
+        "file:///tmp/100%.zip!e.txt", "file:///tmp/100XYZ.zip!e.txt",
+        "file:///tmp/[a].zip!e.txt", "file:///tmp/a.zip!e.txt",
+        "file:///tmp/x!y.zip!e.txt", "file:///tmp/xy.zip!e.txt");
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement()) {
+      for (String name : names) {
+        stmt.executeUpdate("INSERT INTO \"FILE\" VALUES ('" + name + "', NULL, FALSE, 0)");
+      }
+    }
+
+    for (String archive : List.of("a_b.zip", "100%.zip", "[a].zip", "x!y.zip")) {
+      manager.markAllEntriesEncountered("file:///tmp/" + archive + "!");
+    }
+
+    try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:test", "", "");
+        Statement stmt = connection.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT name FROM \"FILE\" WHERE encountered = TRUE")) {
+      Set<String> encountered = new HashSet<>();
+      while (rs.next()) {
+        encountered.add(rs.getString("name"));
+      }
+      assertEquals(Set.of("file:///tmp/a_b.zip!e.txt", "file:///tmp/100%.zip!e.txt", "file:///tmp/[a].zip!e.txt",
+          "file:///tmp/x!y.zip!e.txt"), encountered);
+    }
+
+    manager.shutdown();
   }
 
   @Test
