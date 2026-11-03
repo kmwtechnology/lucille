@@ -66,14 +66,14 @@ connectors: [
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `url` | String or List\<String\> | No | Solr URL(s). Required unless `useCloudClient` is `true` and `zkHosts` is set; omitting it otherwise fails at startup. Used to build the SolrCloud client when `useCloudClient` is `true` and `zkHosts` is not set. It is not passed to the standalone client built when `useCloudClient` is `false`, which then has no base URL; use `useCloudClient: true` with this connector. |
-| `useCloudClient` | Boolean | No | Use `CloudHttp2SolrClient` (SolrCloud). Set it to `true` for this connector; see `url`. Default: `false`. |
-| `defaultCollection` | String | No | Default collection for the SolrCloud client. The query and all actions are sent to this collection, so set it. |
+| `url` | String or List\<String\> | No | Solr URL(s). Required unless `useCloudClient` is `true` and `zkHosts` is set; omitting it otherwise fails at startup. With `useCloudClient: false`, give a single URL; it is the client's base URL. With `useCloudClient: true`, used only when `zkHosts` is not set. |
+| `useCloudClient` | Boolean | No | Use `CloudHttp2SolrClient` (SolrCloud). Default: `false`. |
+| `defaultCollection` | String | No | Collection (or, on a single node, core) that the query and all actions are sent to. Set it unless `url` names the core. |
 | `zkHosts` | List\<String\> | No | ZooKeeper hosts for the SolrCloud client. When set, used instead of `url` to connect. |
 | `zkChroot` | String | No | ZooKeeper chroot path (e.g., `/solr`). Only used with `zkHosts`. |
 | `userName` | String | No | Basic auth username. Must be set together with `password`; if only one is set, an error is logged and no authentication is used. |
 | `password` | String | No | Basic auth password. |
-| `acceptInvalidCert` | Boolean | No | If `true`, sets the `solr.ssl.checkPeerName` system property to `false`. The `HttpJdkSolrClient` that Lucille builds (also used under the SolrCloud client) does not read that property, so this setting has no effect. Default: `false`. |
+| `acceptInvalidCert` | Boolean | No | If `true`, the client trusts any TLS certificate and skips the host name check. For test setups only. A client certificate in `javax.net.ssl.keyStore` is then not sent; to use one, trust the Solr certificate through `javax.net.ssl.trustStore` instead. Default: `false`. |
 | `javax.net.ssl.keyStore` | String | No | Sets the JVM system property of the same name when the client is created, unless it is already set. The same key at the top level of the connector config is also read and takes precedence, but the connector's Spec rejects it there, so set it in `solr`. |
 | `javax.net.ssl.keyStorePassword` | String | No | Same as `javax.net.ssl.keyStore`. |
 | `javax.net.ssl.trustStore` | String | No | Same as `javax.net.ssl.keyStore`. |
