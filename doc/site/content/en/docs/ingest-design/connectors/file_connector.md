@@ -476,7 +476,7 @@ indexer {
 
 Tombstone IDs match the IDs of per-file Documents, including archive entries and decompressed files. Documents created by a File Handler have their own IDs, so tombstones do not match them. A tombstone also carries `file_path`, `file_size_bytes` of `0`, and the current time as `file_modification_date` and `file_creation_date`. The archive or compressed file itself is tracked in state too, so deleting one also produces a tombstone for the container, which matches no indexed Document.
 
-Tombstones are published at the end of the traversal, and expired rows are deleted from state when the connector closes if `performDeletions` is `true`. With `performDeletions: false`, expired rows stay in the table, so their tombstones are published again on every later run.
+Tombstones are published at the end of the traversal, and expired rows are deleted from state when the connector closes if `performDeletions` is `true`. If the tombstones cannot all be published, the run fails and the expired rows are kept, so their tombstones are published on the next run. With `performDeletions: false`, expired rows stay in the table, so their tombstones are published again on every later run.
 
 By default, a file is considered expired after being absent from a single run. You can increase this threshold with `state.runsBeforeExpiration` to provide a safety margin against transient storage issues (e.g., a temporary listing failure):
 

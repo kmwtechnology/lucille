@@ -329,31 +329,38 @@ public class FileConnector extends AbstractConnector {
       return;
     }
 
-    List<URI> expiredFileUris = null;
+    List<String> expiredFiles;
     try {
-      expiredFileUris = stateManager.listExpiredFiles();
+      expiredFiles = stateManager.listExpiredFiles();
     } catch (SQLException e) {
-      log.warn("Error occurred while publishing missing document tombstones.", e);
+      // keep the expired rows, so their tombstones are published next run rather than deleted without one
+      stateManager.retainExpiredRows();
+      log.warn("Error occurred while listing expired files. Their tombstones will be published on the next run.", e);
       return;
     }
 
-    if (expiredFileUris.isEmpty()) {
+    if (expiredFiles.isEmpty()) {
       return;
     }
-    int expiredFileCount = expiredFileUris.size();
+
+    int expiredFileCount = expiredFiles.size();
     int publishedTombstoneCount = 0;
     log.info("{} previously published files now missing/expired, publishing document tombstones...", expiredFileCount);
-    for (URI uri : expiredFileUris) {
-      Document doc = buildTombstoneDoc(uri);
+
+    // tombstones only take the docIdPrefix from the params, so one set serves them all
+    TraversalParams tombstoneParams = buildTraversalParams(storageURIs.get(0));
+
+    for (String expiredFile : expiredFiles) {
+      Document doc = buildTombstoneDoc(expiredFile, tombstoneParams);
       try {
         publisher.publish(doc);
         publishedTombstoneCount++;
       } catch (Exception e) {
-        throw new ConnectorException("Error publishing document tombstone for file: " + uri, e);
+        stateManager.retainExpiredRows();
+        throw new ConnectorException("Error publishing document tombstone for file: " + expiredFile, e);
       }
     }
     log.info("Published {} of {} document tombstones for tracking and index removal", publishedTombstoneCount, expiredFileCount);
-
   }
 
   private void initialize() throws ConnectorException {
@@ -515,15 +522,16 @@ public class FileConnector extends AbstractConnector {
   }
 
   /**
-   * Builds a tombstone Document for the given URI. The document is marked as expired and skipped,
+   * Builds a tombstone Document for the given file. The document is marked as expired and skipped,
    * so it bypasses pipeline stages and signals downstream indexers to delete the corresponding entry.
    *
-   * @param uri the URI of the file that is no longer present in storage
+   * @param fullPath the full path of the file that is no longer present in storage, as stored in state
+   * @param params the parameters supplying the docIdPrefix
    * @return a Document with {@link #EXPIRED} set to {@code true} and marked as skipped
    */
-  private Document buildTombstoneDoc(URI uri) {
+  private static Document buildTombstoneDoc(String fullPath, TraversalParams params) {
     Instant now = Instant.now();
-    Document doc = BaseFileReference.buildBaseDoc(uri.toString(), now, 0L, now, buildTraversalParams(uri));
+    Document doc = BaseFileReference.buildBaseDoc(fullPath, now, 0L, now, params);
     doc.setField(EXPIRED, true);
     doc.setSkipped(true);
     return doc;

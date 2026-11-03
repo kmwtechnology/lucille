@@ -13,7 +13,6 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.net.URI;
 
 import java.io.File;
 import java.io.StringReader;
@@ -602,9 +601,9 @@ public class FileConnectorStateManagerTest {
     manager.markFileEncountered(infoFile);
     manager.incrementRunsNotEncountered();
 
-    List<URI> expired = manager.listExpiredFiles();
+    List<String> expired = manager.listExpiredFiles();
     assertEquals(1, expired.size());
-    assertTrue(expired.contains(URI.create(secretsFile)));
+    assertTrue(expired.contains(secretsFile));
 
     manager.shutdown();
   }
@@ -623,7 +622,7 @@ public class FileConnectorStateManagerTest {
     manager.incrementRunsNotEncountered();
 
     assertEquals(1, manager.listExpiredFiles().size());
-    assertTrue(manager.listExpiredFiles().contains(URI.create(secretsFile)));
+    assertTrue(manager.listExpiredFiles().contains(secretsFile));
 
     manager.shutdown();
   }

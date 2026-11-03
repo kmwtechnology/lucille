@@ -843,6 +843,97 @@ public class FileConnectorTest {
     }
   }
 
+  // An archive entry whose name is not a valid URI (here, it contains a space) is tombstoned like any other file once the
+  // archive is deleted. It used to make listing the expired files throw, and every tombstone of that run was then lost.
+  @Test
+  public void testArchiveEntryWithSpaceIsTombstoned() throws Exception {
+    File root = tempFolder.newFolder("archives");
+    File zipFile = new File(root, "a.zip");
+    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(zipFile.toPath()))) {
+      zip.putNextEntry(new ZipEntry("my file.txt"));
+      zip.write("spaced".getBytes());
+      zip.putNextEntry(new ZipEntry("100%[x]#.txt"));
+      zip.write("special".getBytes());
+    }
+    File plainFile = new File(root, "plain.txt");
+    Files.writeString(plainFile.toPath(), "plain");
+
+    try {
+      Config config = tombstoneConfig(root)
+          .withValue("fileOptions.handleArchivedFiles", ConfigValueFactory.fromAnyRef(true));
+
+      assertEquals(3, runOnce(config, new TestMessenger()).size());
+
+      Files.delete(zipFile.toPath());
+      Files.delete(plainFile.toPath());
+
+      Set<String> tombstonePaths = runOnce(config, new TestMessenger()).stream()
+          .filter(doc -> Boolean.TRUE.equals(doc.getBoolean(FileConnector.EXPIRED)))
+          .map(doc -> doc.getString(FILE_PATH))
+          .collect(Collectors.toSet());
+
+      String zipPath = zipFile.toPath().toUri().toString();
+      assertTrue(tombstonePaths.contains(zipPath + "!my file.txt"));
+      assertTrue(tombstonePaths.contains(zipPath + "!100%[x]#.txt"));
+      assertTrue(tombstonePaths.contains(plainFile.toPath().toUri().toString()));
+
+      // the expired rows were deleted after their tombstones were published
+      assertEquals(0, runOnce(config, new TestMessenger()).size());
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // If a tombstone can't be published, the expired rows are kept, and their tombstones are published on the next run
+  // rather than the rows being deleted with no tombstone sent.
+  @Test
+  public void testFailedTombstonesArePublishedNextRun() throws Exception {
+    File root = tempFolder.newFolder("tombstone-retry");
+    File file1 = new File(root, "file1.txt");
+    Files.writeString(file1.toPath(), "Content 1");
+    Files.writeString(new File(root, "file2.txt").toPath(), "Content 2");
+
+    try {
+      Config config = tombstoneConfig(root);
+      assertEquals(2, runOnce(config, new TestMessenger()).size());
+
+      Files.delete(file1.toPath());
+
+      Publisher failingPublisher = mock(Publisher.class);
+      doThrow(new RuntimeException("index unavailable")).when(failingPublisher).publish(any());
+      Connector failingConn = new FileConnector(config);
+      assertThrows(ConnectorException.class, () -> failingConn.execute(failingPublisher));
+      failingConn.close();
+
+      List<Document> retried = runOnce(config, new TestMessenger());
+      assertEquals(1, retried.size());
+      assertTrue(retried.get(0).getBoolean(FileConnector.EXPIRED));
+      assertEquals(file1.toPath().toUri().toString(), retried.get(0).getString(FILE_PATH));
+    } finally {
+      FileUtils.deleteDirectory(STATE_DIR);
+    }
+  }
+
+  // an on-disk state database, in incremental mode with tombstones
+  private static Config tombstoneConfig(File root) {
+    return ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/emptyState.conf")
+        .withValue("paths", ConfigValueFactory.fromIterable(List.of(root.toURI().toString())))
+        .withValue("state.connectionString", ConfigValueFactory.fromAnyRef(STATE_CONNECTION_STRING))
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("incremental"))
+        .withValue("filterOptions.sendTombstones", ConfigValueFactory.fromAnyRef("true"));
+  }
+
+  // runs a new FileConnector built from the config once, returning the documents it published
+  private static List<Document> runOnce(Config config, TestMessenger messenger) throws Exception {
+    Connector conn = new FileConnector(config);
+    try {
+      conn.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    } finally {
+      conn.close();
+    }
+    return messenger.getDocsSentForProcessing();
+  }
+
   // Verifies that files generate tombstones and modified files are re-published in the same incremental run (when configured). Uses
   // an empty state to trigger a database being created on disk to replicate a production environment
   @Test
