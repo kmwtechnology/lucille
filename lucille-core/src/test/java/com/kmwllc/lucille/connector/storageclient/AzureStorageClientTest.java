@@ -723,7 +723,7 @@ public class AzureStorageClientTest {
       storageClient.moveFile(fileURI, URI.create("https://storagename.blob.core.windows.net/container/processed/"));
       verify(mockBlobClient).beginCopy(eq("destUrl"), any());
 
-      storageClient.shutdown();
+      storageClient.stop();
     }
   }
 
