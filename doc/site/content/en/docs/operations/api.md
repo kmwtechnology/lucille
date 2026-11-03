@@ -35,6 +35,26 @@ The server listens on port `8080` by default. Swagger UI is available at `http:/
 
 ---
 
+## Admin UI (optional)
+
+The `lucille-api` plugin ships an optional React admin UI for browsing configs, starting runs, and
+watching run and system status in a browser. It is **off by default** and only included when the
+`admin-ui` Maven profile is active, so a standard build does not need a Node toolchain.
+
+- **Without the UI** (default): build and run the API as shown above. `/admin` is not served.
+- **With the UI**: add `-Padmin-ui` to the build. The compiled assets are bundled into the API jar
+  and served at `http://localhost:8080/admin`.
+
+```bash
+mvn clean install -Pshaded-plugin-jars -Padmin-ui
+```
+
+The released `lucille-api` Docker image is built with `-Padmin-ui`, so the UI is included out of the
+box. When building the image yourself, pass `-Padmin-ui` before `docker build` if you want `/admin`
+served; omit it for an API-only image.
+
+---
+
 ## Endpoints
 
 All endpoints are under the `/v1` prefix.
