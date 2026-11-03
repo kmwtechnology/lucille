@@ -13,6 +13,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -54,6 +55,16 @@ public class StageTest {
 
     public SubclassWithRedeclaredSpec(Config config) {
       super(config);
+    }
+  }
+
+  @Test
+  public void testEmptyConditionFieldsRejected() {
+    // an empty fields list used to make the condition pass for every document, even with must_not
+    for (String operator : List.of("must", "must_not")) {
+      Config config = ConfigFactory.parseString("conditions: [{ fields: [], operator: " + operator + " }]");
+      IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new MockStage(config));
+      assertTrue(e.getMessage().contains("fields must not be empty"));
     }
   }
 

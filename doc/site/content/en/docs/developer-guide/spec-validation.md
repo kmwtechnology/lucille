@@ -294,6 +294,7 @@ Each component type gets automatic defaults via its `SpecBuilder` factory:
 **Stages** (`SpecBuilder.stage()`):
 - `name` (optional string)
 - `class` (optional string)
+- `enabled` (optional boolean)
 - `conditions` (optional list with its own sub-spec: operator, valuesPath, values, fields)
 - `conditionPolicy` (optional string)
 
