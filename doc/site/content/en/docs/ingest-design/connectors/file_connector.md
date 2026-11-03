@@ -178,7 +178,7 @@ maxThreads: 2
 
 File Handlers process individual files and extract one or more Lucille Documents from their contents. Without a handler, the `FileConnector` publishes one Document per file with the file metadata fields (and `file_content`, unless `getFileContent` is `false`). With a handler, a CSV file becomes one Document per row, a JSON Lines file one Document per line, and an XML file one Document per matching element. The file-level Document is not published.
 
-File Handlers are configured under the `fileHandlers` block. Each key is a file extension, matched case-sensitively against the extension of each file. `csv`, `json`, `jsonl`, and `xml` use the built-in handlers unless the block sets `class`. Any other key must set `class`. If only one of `json`/`jsonl` is configured, its handler is used for both extensions. `fileHandlers`, `fileOptions`, and `filterOptions` are separate keys in the connector config block.
+File Handlers are configured under the `fileHandlers` block. Each key is a file extension, matched against the extension of each file without regard to case, so a `csv` handler also handles `DATA.CSV`. Two keys that differ only in case fail at startup. `csv`, `json`, `jsonl`, and `xml` use the built-in handlers unless the block sets `class`. Any other key must set `class`. If only one of `json`/`jsonl` is configured, its handler is used for both extensions. `fileHandlers`, `fileOptions`, and `filterOptions` are separate keys in the connector config block.
 
 ```hocon
 fileHandlers: {
@@ -353,8 +353,8 @@ File options control how the connector handles the files it finds. They go under
 |---|---|---|---|
 | `getFileContent` | Boolean | No | Read each file's bytes into the `file_content` field. On cloud storage this downloads every published file and slows traversal significantly. Default: `true`. |
 | `maxSizeBytes` | Long | No | Maximum size, in bytes, of file content read into `file_content`. Must be positive and at most 2147483638 (`Integer.MAX_VALUE - 9`), or the run fails when traversal begins (not at startup). A larger file is not published and is handled as a processing error (moved to `moveToErrorFolder`, if set); its known size is checked first, so it is not downloaded. An oversized entry in an archive is skipped, and the rest of the archive is still processed. Does not apply to files processed by a File Handler; see each handler's own `maxRecordBytes`. No limit by default. |
-| `handleArchivedFiles` | Boolean | No | Unpack `.zip` and `.tar` files and process their entries. Downloads the archive on cloud storage. Default: `false`. |
-| `handleCompressedFiles` | Boolean | No | Decompress `.gz` files before processing. Combined with `handleArchivedFiles`, this also handles `.tar.gz` (but not `.tgz`). Default: `false`. |
+| `handleArchivedFiles` | Boolean | No | Unpack `.zip` and `.tar` files (in any case) and process their entries. Downloads the archive on cloud storage. Default: `false`. |
+| `handleCompressedFiles` | Boolean | No | Decompress `.gz` files (in any case) before processing. Combined with `handleArchivedFiles`, this also handles `.tar.gz` (but not `.tgz`). Default: `false`. |
 | `moveToAfterProcessing` | String | No | Path or URI of a folder to move each file to after it is processed successfully. Only allowed with a single entry in `paths`, and must not be inside that path (checked at startup). |
 | `moveToErrorFolder` | String | No | Path or URI of a folder to move a file to if an error occurs while processing it. Only allowed with a single entry in `paths`, and must not be inside that path (checked at startup). |
 

@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -161,12 +162,20 @@ public class TraversalParams {
     return applyLastPublishedFilter(fileLastPublished);
   }
 
+  /**
+   * @param fileExtension A file extension, matched without regard to case.
+   * @return Whether a FileHandler is configured for the extension.
+   */
   public boolean supportsFileExtension(String fileExtension) {
-    return fileHandlers.containsKey(fileExtension);
+    return fileExtension != null && fileHandlers.containsKey(fileExtension.toLowerCase(Locale.ROOT));
   }
 
+  /**
+   * @param fileExtension A file extension, matched without regard to case.
+   * @return The FileHandler configured for the extension, or null if there is none.
+   */
   public FileHandler handlerForExtension(String fileExtension) {
-    return fileHandlers.get(fileExtension);
+    return fileExtension == null ? null : fileHandlers.get(fileExtension.toLowerCase(Locale.ROOT));
   }
 
   /**

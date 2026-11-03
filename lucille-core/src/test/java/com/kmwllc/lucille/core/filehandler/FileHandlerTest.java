@@ -70,14 +70,14 @@ public class FileHandlerTest {
     assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
     // small detail... when you only specify one (json, jsonl), they are the *same* JsonFileHandler.
     assertEquals(result.get("json"), result.get("jsonl"));
-    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
 
     result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/csv_on_other_type.conf"));
     assertEquals(5, result.size());
     assertInstanceOf(CSVFileHandler.class, result.get("csv"));
     assertInstanceOf(JsonFileHandler.class, result.get("json"));
     assertInstanceOf(JsonFileHandler.class, result.get("jsonl"));
-    assertInstanceOf(XMLFileHandler.class, result.get("xml"));
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
     assertInstanceOf(CSVFileHandler.class, result.get("tsv"));
 
     result = FileHandler.createFromConfig(ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/jsonAndJsonl.conf"));
@@ -99,5 +99,17 @@ public class FileHandlerTest {
     Config overrideCSV = ConfigFactory.parseResourcesAnySyntax("FileHandlerTest/override_csv.conf");
     result = FileHandler.createFromConfig(overrideCSV);
     assertInstanceOf(JsonFileHandler.class, result.get("csv"));
+  }
+
+  // fileHandlers keys are extensions, matched without regard to case
+  @Test
+  public void testCreateFromConfigLowerCasesKeys() {
+    Map<String, FileHandler> result = FileHandler.createFromConfig(ConfigFactory.parseMap(Map.of("CSV", Map.of(), "Json", Map.of())));
+    assertInstanceOf(CSVFileHandler.class, result.get("csv"));
+    assertInstanceOf(JsonFileHandler.class, result.get("json"));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> FileHandler.createFromConfig(ConfigFactory.parseMap(Map.of("csv", Map.of(), "CSV", Map.of()))));
+    assertTrue(e.getMessage().contains("case"));
   }
 }

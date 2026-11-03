@@ -801,6 +801,32 @@ public class FileConnectorTest {
     }
   }
 
+  // Extensions are matched without regard to case: DATA.CSV goes through the csv handler and backup.ZIP is unpacked.
+  @Test
+  public void testUpperCaseExtensions() throws Exception {
+    File root = tempFolder.newFolder("upper");
+    Files.writeString(new File(root, "DATA.CSV").toPath(), "id,name\n1,a\n2,b\n");
+    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(new File(root, "backup.ZIP").toPath()))) {
+      zip.putNextEntry(new ZipEntry("inner.txt"));
+      zip.write("inner".getBytes());
+    }
+
+    Config config = ConfigFactory.parseMap(Map.of("name", "file-connector", "pipeline", "pipeline1",
+        "paths", List.of(root.getPath()),
+        "fileOptions", Map.of("handleArchivedFiles", true),
+        "fileHandlers", Map.of("CSV", Map.of())));
+
+    TestMessenger messenger = new TestMessenger();
+    Connector conn = new FileConnector(config);
+    conn.execute(new PublisherImpl(config, messenger, "run", "pipeline1"));
+    conn.close();
+
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(3, docs.size());
+    assertEquals(2, docs.stream().filter(doc -> doc.has("csvLineNumber")).count());
+    assertTrue(docs.stream().anyMatch(doc -> doc.getString(FILE_PATH).endsWith("backup.ZIP!inner.txt")));
+  }
+
   // A move folder the traversal would visit is rejected at startup, since moved files would be published again.
   @Test
   public void testMoveTargetInsideTraversedPathRejected() throws Exception {

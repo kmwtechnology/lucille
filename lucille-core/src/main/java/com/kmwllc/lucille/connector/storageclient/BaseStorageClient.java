@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -564,7 +565,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
    */
   private boolean isSupportedCompressedFileType(String pathStr) {
-    return pathStr.endsWith(".gz");
+    return pathStr.toLowerCase(Locale.ROOT).endsWith(".gz");
     // string.endsWith(".bz2") ||
     // string.endsWith(".xz") ||
     // string.endsWith(".lzma") ||
@@ -579,8 +580,9 @@ public abstract class BaseStorageClient implements StorageClient {
    * note that the commented following are supported by apache-commons compress, but have yet to been tested, so commented out for now
    */
   private boolean isSupportedArchiveFileType(String pathStr) {
-    return pathStr.endsWith(".tar") ||
-        pathStr.endsWith(".zip");
+    String lowerCasePath = pathStr.toLowerCase(Locale.ROOT);
+    return lowerCasePath.endsWith(".tar") ||
+        lowerCasePath.endsWith(".zip");
     // string.endsWith(".7z") ||
     // string.endsWith(".ar") ||
     // string.endsWith(".arj") ||
