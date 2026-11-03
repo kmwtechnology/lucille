@@ -103,4 +103,52 @@ public class ApplyOpenNLPNameFindersTest {
     assertThrows(StageException.class, () -> factory.get("ApplyOpenNLPNameFindersTest/badConfigs/badModelPath.conf"));
     assertThrows(StageException.class, () -> factory.get("ApplyOpenNLPNameFindersTest/badConfigs/badModelValue.conf"));
   }
+
+  @Test
+  public void testDocumentWithoutTextFieldIsSkipped() throws StageException {
+    Stage stage = factory.get("ApplyOpenNLPNameFindersTest/default.conf");
+
+    Document doc = Document.create("doc1");
+    // Intentionally do NOT set the "text" field
+
+    // Should not throw an exception
+    stage.processDocument(doc);
+
+    // No extraction fields should be added
+    assertFalse("Document should not have PERSON field", doc.has("PERSON"));
+    assertFalse("Document should not have ORGANIZATION field", doc.has("ORGANIZATION"));
+    assertFalse("Document should not have LOCATION field", doc.has("LOCATION"));
+  }
+
+  @Test
+  public void testDocumentWithoutTextFieldMixedWithValidDocuments() throws StageException {
+    Stage stage = factory.get("ApplyOpenNLPNameFindersTest/default.conf");
+
+    // Document without text field
+    Document docNoText = Document.create("doc-no-text");
+    stage.processDocument(docNoText);
+    assertFalse("Document without text field should not have extraction fields", docNoText.has("ORGANIZATION"));
+
+    // Document with text field (valid case)
+    Document docWithText = Document.create("doc-with-text");
+    docWithText.setField("text", "Jim Cramer spoke at the NYSE in Manhattan.");
+    stage.processDocument(docWithText);
+    assertTrue("Document with text field should have extraction fields", docWithText.has("ORGANIZATION"));
+    assertEquals("Should extract NYSE as organization", List.of("NYSE"), docWithText.getStringList("ORGANIZATION"));
+  }
+
+  @Test
+  public void testDocumentWithEmptyTextField() throws StageException {
+    Stage stage = factory.get("ApplyOpenNLPNameFindersTest/default.conf");
+
+    Document doc = Document.create("doc-empty-text");
+    doc.setField("text", "");
+
+    // Should not throw an exception
+    stage.processDocument(doc);
+
+    // Empty text should not produce any extractions
+    assertFalse("Empty text field should not produce ORGANIZATION field", doc.has("ORGANIZATION"));
+    assertFalse("Empty text field should not produce LOCATION field", doc.has("LOCATION"));
+  }
 }
