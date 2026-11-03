@@ -140,7 +140,7 @@ public class AzureStorageClientIT {
    * <p>This is tharegression guard. It must make a real request through the Azure SDK, because
    * the Netty event-loop group (whose missing {@code MultiThreadIoEventLoopGroup} caused the original
    * {@code NoClassDefFoundError}) is created lazily on the first request, not at client construction /
-   * {@code init()}.
+   * {@code start()}.
    */
   @Test
   public void testTraversePublishesBlobs() throws Exception {
@@ -153,10 +153,10 @@ public class AzureStorageClientIT {
     TraversalParams params = new TraversalParams(ConfigFactory.empty(), containerUri, "it-");
 
     try {
-      client.init();
+      client.start();
       client.traverse(publisher, params);
     } finally {
-      client.shutdown();
+      client.stop();
     }
 
     List<Document> docs = messenger.getDocsSentForProcessing();
