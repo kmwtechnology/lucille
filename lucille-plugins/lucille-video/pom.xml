@@ -16,7 +16,6 @@
     <name>Lucille Plugins: Lucille Video</name>
 
     <properties>
-        <lucille.module.name>com.kmwllc.lucille.video</lucille.module.name>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 

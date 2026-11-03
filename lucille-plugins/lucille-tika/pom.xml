@@ -17,13 +17,6 @@
      <name>Lucille Plugins: Lucille Tika</name>
 
     <properties>
-      <!-- Intentionally NO Automatic-Module-Name for this module (see the maven-jar-plugin override below).
-           Tika's parser jars split the package org.apache.tika.detect across tika-core and
-           tika-parser-audiovideo-module, which is illegal on the JPMS module path. Giving this jar a module
-           name flips maven-javadoc-plugin into module mode, where that split package fails the javadoc build
-           ("reads package org.apache.tika.detect from both ..."). This module cannot be a clean JPMS module
-           while its dependencies have split packages, so we omit the module name rather than ship a misleading
-           one. -->
       <tika.version>3.3.1</tika.version>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
@@ -68,18 +61,6 @@
 
     <build>
       <plugins>
-        <!-- Suppress the inherited Automatic-Module-Name (see the properties note above): an empty
-             manifestEntries with combine.self=override drops the parent's entry so this jar has no module
-             name, keeping maven-javadoc-plugin in classpath mode. -->
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-jar-plugin</artifactId>
-          <configuration>
-            <archive>
-              <manifestEntries combine.self="override"/>
-            </archive>
-          </configuration>
-        </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>

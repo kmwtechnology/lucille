@@ -39,11 +39,12 @@
     <auto-service.version>1.1.1</auto-service.version>
     <maven-exec-plugin.version>1.6.0</maven-exec-plugin.version>
     <maven-jar-plugin.version>3.0.2</maven-jar-plugin.version>
-    <!-- JPMS Automatic-Module-Name. Each publishable module
-         overrides this with its own stable name (e.g. com.kmwllc.lucille.pinecone) so the module name a
-         downstream JPMS user sees does not change across releases. Non-publishable modules (aggregators,
-         examples) can leave the default because their jars are not consumed as libraries. -->
-    <lucille.module.name>com.kmwllc.lucille</lucille.module.name>
+    <!-- NOTE: stable JPMS Automatic-Module-Name entries are intentionally NOT shipped yet. Several component
+         plugins depend on jars that are not JPMS-clean (Tika split packages; Hadoop/jlama automatic module
+         names with invalid identifiers), so Lucille cannot yet be cleanly consumed on the module path, and
+         declaring module names would be partly misleading and also flips maven-javadoc-plugin into module mode
+         (which fails on those dependencies). Deferred to a follow-up once the dependency graph is JPMS-clean.
+         The japicmp binary-compatibility gate and PUBLIC_API.md (the rest of REL-01) are in place. -->
     <!-- API binary-compatibility check. japicmp compares each publishable jar against the
          ${lucille.api.baseline.version} release. The check lives in the "api-compat" profile and is OFF by
          default; it is ARMED AT RELEASE by setting the baseline to the 1.0 tag and activating the profile in
@@ -315,15 +316,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <version>${maven-jar-plugin.version}</version>
-        <!-- Write the JPMS Automatic-Module-Name into every jar manifest. ${lucille.module.name}
-             defaults in this parent and is overridden per publishable module. -->
-        <configuration>
-          <archive>
-            <manifestEntries>
-              <Automatic-Module-Name>${lucille.module.name}</Automatic-Module-Name>
-            </manifestEntries>
-          </archive>
-        </configuration>
       </plugin>
 
       <plugin>

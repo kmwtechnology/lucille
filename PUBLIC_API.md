@@ -16,7 +16,7 @@ Everything not listed here is internal and may change in any release without not
 
 ## Public packages
 
-### lucille-core (module `com.kmwllc.lucille`)
+### lucille-core
 
 These are the packages a pipeline/plugin author or an embedder compiles against:
 
@@ -35,26 +35,20 @@ These are the packages a pipeline/plugin author or an embedder compiles against:
 
 ### Component plugins
 
-Each component plugin exposes its indexer/stage entry points under its own module name. The public surface of
-a plugin is the set of `Indexer` / `Stage` / `Connector` classes it registers (via `@IndexerType` /
-`@AutoService` or documented `class:` references) plus their public config:
+The public surface of a component plugin is the set of `Indexer` / `Stage` / `Connector` classes it registers
+(via `@IndexerType` / `@AutoService` or documented `class:` references) plus their public config. The plugins
+are: lucille-solr, lucille-opensearch, lucille-elasticsearch, lucille-pinecone, lucille-weaviate,
+lucille-parquet, lucille-tika, lucille-ocr, lucille-jlama, lucille-entity-extraction, and lucille-video.
 
-| Module | Automatic-Module-Name |
-|---|---|
-| lucille-core | `com.kmwllc.lucille` |
-| lucille-logging | `com.kmwllc.lucille.logging` |
-| lucille-api | `com.kmwllc.lucille.api` |
-| lucille-solr | `com.kmwllc.lucille.solr` |
-| lucille-opensearch | `com.kmwllc.lucille.opensearch` |
-| lucille-elasticsearch | `com.kmwllc.lucille.elasticsearch` |
-| lucille-pinecone | `com.kmwllc.lucille.pinecone` |
-| lucille-weaviate | `com.kmwllc.lucille.weaviate` |
-| lucille-parquet | `com.kmwllc.lucille.parquet` |
-| lucille-tika | `com.kmwllc.lucille.tika` |
-| lucille-ocr | `com.kmwllc.lucille.ocr` |
-| lucille-jlama | `com.kmwllc.lucille.jlama` |
-| lucille-entity-extraction | `com.kmwllc.lucille.entityextraction` |
-| lucille-video | `com.kmwllc.lucille.video` |
+## JPMS module names (deferred)
+
+Stable `Automatic-Module-Name` manifest entries are **not shipped yet**. Several component plugins depend on
+jars that are not JPMS-clean — Tika's parser jars split the package `org.apache.tika.detect`, and
+Hadoop's/jlama's native jars derive automatic module names that are not valid Java identifiers
+(`...3.25`, `jlama.native`). Until that dependency graph is JPMS-clean, Lucille cannot be cleanly consumed on
+the module path, so declaring module names would be partly misleading (and it forces `maven-javadoc-plugin`
+into module mode, which fails on those same dependencies). Giving the jars stable module names is deferred to
+a follow-up. This does not affect classpath consumers, which is how Lucille is used today.
 
 ## Explicitly internal (not covered)
 
