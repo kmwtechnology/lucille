@@ -248,9 +248,9 @@ The entire stage config is passed to your fetcher's constructor, so you can read
 ```java
 public interface FileContentFetcher {
 
-  void startup() throws IOException;
+  void start() throws IOException;
 
-  void shutdown();
+  void stop();
 
   InputStream getInputStream(String path) throws IOException;
 
@@ -274,8 +274,8 @@ The `Document`-accepting overloads allow your fetcher to make decisions based on
 
 ### Lifecycle
 
-- `startup()` is called once when the stage's `start()` method runs (once per worker thread). Open connections here.
-- `shutdown()` is called when the stage's `stop()` method runs. Close connections here.
+- `start()` is called once when the stage's `start()` method runs (once per worker thread). Open connections here.
+- `stop()` is called when the stage's `stop()` method runs. Close connections here.
 - `getInputStream()` / `getReader()` are called per document during `processDocument()`.
 
 ### Skeleton
@@ -307,12 +307,12 @@ public class CmsFetcher implements FileContentFetcher {
   }
 
   @Override
-  public void startup() throws IOException {
+  public void start() throws IOException {
     // Validate connectivity if needed
   }
 
   @Override
-  public void shutdown() {
+  public void stop() {
     // Close any persistent connections
   }
 

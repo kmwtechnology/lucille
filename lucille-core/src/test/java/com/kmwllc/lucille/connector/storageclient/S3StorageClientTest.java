@@ -80,10 +80,10 @@ public class S3StorageClientTest {
         S3_SECRET_ACCESS_KEY, "secretKey"));
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
 
-    s3StorageClient.init();
+    s3StorageClient.start();
     S3Client mockClient = mock(S3Client.class);
     s3StorageClient.setS3ClientForTesting(mockClient);
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
 
     // verify that the s3 client is closed
     verify(mockClient, times(1)).close();
@@ -226,6 +226,35 @@ public class S3StorageClientTest {
     assertArrayEquals(new byte[]{1, 2, 3, 4}, doc1.getBytes(CONTENT));
   }
 
+  // filter patterns match the whole object key, including its folder prefix, even though getName() is the leaf name
+  @Test
+  public void testExcludesMatchObjectKey() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config connectorConfig = ConfigFactory.parseMap(Map.of(
+        "filterOptions", Map.of("excludes", List.of("files/obj[34]")),
+        "fileOptions", Map.of(GET_FILE_CONTENT, false)
+    ));
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+
+    S3StorageClient s3StorageClient = new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1")));
+    TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "prefix-");
+
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    ListObjectsV2Iterable response = mock(ListObjectsV2Iterable.class);
+    ListObjectsV2Response responseWithinStream = mock(ListObjectsV2Response.class);
+    when(responseWithinStream.contents()).thenReturn(getMockedNestedS3Objects());
+    when(responseWithinStream.commonPrefixes()).thenReturn(List.of());
+    when(response.stream()).thenReturn(Stream.of(responseWithinStream));
+    when(mockClient.listObjectsV2Paginator((ListObjectsV2Request) any())).thenReturn(response);
+
+    s3StorageClient.initializeForTesting();
+    s3StorageClient.traverse(publisher, params);
+
+    List<String> paths = messenger.getDocsSentForProcessing().stream().map(doc -> doc.getString(FILE_PATH)).toList();
+    assertEquals(List.of("s3://bucket/files/obj1", "s3://bucket/files/obj2"), paths);
+  }
+
   @Test
   public void testSkipFileContent() throws Exception {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
@@ -304,7 +333,7 @@ public class S3StorageClientTest {
       assertEquals("s3://bucket/obj2.json", fileNames.get(1));
     }
 
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
   }
 
   @Test
@@ -415,7 +444,7 @@ public class S3StorageClientTest {
     assertEquals("zipped.csv-3", doc19.getId());
     assertEquals("s3://bucket/zipped.csv.zip" + ARCHIVE_FILE_SEPARATOR + "zipped.csv", doc19.getString("source"));
 
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
   }
 
   @Test
@@ -483,7 +512,7 @@ public class S3StorageClientTest {
 
     s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
 
     verify(mockClient, times(4)).copyObject(any(CopyObjectRequest.class));
     verify(mockClient, times(4)).deleteObject(any(DeleteObjectRequest.class));
@@ -559,7 +588,7 @@ public class S3StorageClientTest {
     s3StorageClient.initializeForTesting();
     s3StorageClient.traverse(publisher, params);
 
-    s3StorageClient.shutdown();
+    s3StorageClient.stop();
 
     verify(mockClient, times(4)).copyObject(any(CopyObjectRequest.class));
     verify(mockClient, times(4)).deleteObject(any(DeleteObjectRequest.class));
@@ -667,7 +696,7 @@ public class S3StorageClientTest {
 
     try (MockedStatic<S3Client> mockedS3Client = mockStatic(S3Client.class)) {
       mockedS3Client.when(S3Client::builder).thenReturn(builder);
-      new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true))).init();
+      new S3StorageClient(ConfigFactory.parseMap(Map.of(S3_ANONYMOUS, true))).start();
     }
 
     // anonymous requests still need a region, and the default chain cannot supply one

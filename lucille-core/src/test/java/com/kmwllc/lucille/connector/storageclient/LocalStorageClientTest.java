@@ -42,7 +42,7 @@ public class LocalStorageClientTest {
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_");
-    localStorageClient.init();
+    localStorageClient.start();
     localStorageClient.traverse(publisher, params);
 
     String[] fileNames = {"a.json", "b.json", "c.json", "d.json",
@@ -66,7 +66,37 @@ public class LocalStorageClientTest {
     }
     Assert.assertEquals(8, docCount);
 
-    localStorageClient.shutdown();
+    localStorageClient.stop();
+  }
+
+  // A StorageClient can be traversed with state using any FileStateTracker, without a FileConnector or a database.
+  @Test
+  public void testTraverseWithInMemoryState() throws Exception {
+    URI root = URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault");
+    Config config = ConfigFactory.parseMap(Map.of("filterOptions.publishMode", "incremental"));
+    TraversalParams params = new TraversalParams(config, root, "file_");
+    InMemoryFileStateTracker state = new InMemoryFileStateTracker();
+
+    LocalStorageClient localStorageClient = new LocalStorageClient();
+    localStorageClient.start();
+
+    try {
+      TestMessenger firstRun = new TestMessenger();
+      localStorageClient.traverse(new PublisherImpl(ConfigFactory.empty(), firstRun, "run1", "pipeline1"), params, state);
+      long published = firstRun.getDocsSentForProcessing().stream()
+          .filter(doc -> !doc.getString(FileConnector.FILE_PATH).endsWith(".DS_Store")).count();
+      assertEquals(8, published);
+      assertEquals(firstRun.getDocsSentForProcessing().size(), state.getLastPublishedMap().size());
+
+      // nothing was modified since it was published, so the second run publishes nothing, but still encounters every file
+      state.startNewRun();
+      TestMessenger secondRun = new TestMessenger();
+      localStorageClient.traverse(new PublisherImpl(ConfigFactory.empty(), secondRun, "run2", "pipeline1"), params, state);
+      assertEquals(0, secondRun.getDocsSentForProcessing().size());
+      assertTrue(state.getEncountered().containsAll(state.getLastPublishedMap().keySet()));
+    } finally {
+      localStorageClient.stop();
+    }
   }
 
   @Test
@@ -83,7 +113,7 @@ public class LocalStorageClientTest {
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault"), "file_");
-    localStorageClient.init();
+    localStorageClient.start();
 
     localStorageClient.traverse(publisher, params);
 
@@ -105,7 +135,7 @@ public class LocalStorageClientTest {
       }
     }
 
-    localStorageClient.shutdown();
+    localStorageClient.stop();
   }
 
   @Test
@@ -121,7 +151,7 @@ public class LocalStorageClientTest {
 
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault/a.json"), "file_");
 
-    localStorageClient.init();
+    localStorageClient.start();
 
     localStorageClient.traverse(publisher, params);
 
@@ -143,7 +173,7 @@ public class LocalStorageClientTest {
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault/"), "file_");
 
-    localStorageClient.init();
+    localStorageClient.start();
     localStorageClient.traverse(publisher, params);
     List<Document> docs = messenger.getDocsSentForProcessing();
 
@@ -185,7 +215,7 @@ public class LocalStorageClientTest {
     Document doc12 = docs.stream().filter(d -> d.getId().equals("f5")).findAny().orElseThrow();
     assertEquals("Small City Mug", doc12.getString("name"));
 
-    localStorageClient.shutdown();
+    localStorageClient.stop();
   }
 
 
@@ -210,7 +240,7 @@ public class LocalStorageClientTest {
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("src/test/resources/StorageClientTest/testCompressedAndArchived"), "");
 
-    localStorageClient.init();
+    localStorageClient.start();
     localStorageClient.traverse(publisher, params);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
@@ -286,7 +316,7 @@ public class LocalStorageClientTest {
     docs.stream().filter(d ->
         d.has(FILE_PATH) && d.getString(FILE_PATH).endsWith("zippedFolder.zip!zippedFolder/foo.txt")).findAny().orElseThrow();
 
-    localStorageClient.shutdown();
+    localStorageClient.stop();
   }
 
   @Test
@@ -306,7 +336,7 @@ public class LocalStorageClientTest {
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig, URI.create(TEMP_DIR + "/defaults.csv"), "");
 
-    localStorageClient.init();
+    localStorageClient.start();
 
     localStorageClient.traverse(publisher, params);
 
@@ -324,7 +354,7 @@ public class LocalStorageClientTest {
       f.delete();
       successDir.delete();
       tempDir.delete();
-      localStorageClient.shutdown();
+      localStorageClient.stop();
     }
   }
 
@@ -347,7 +377,7 @@ public class LocalStorageClientTest {
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig, URI.create(TEMP_DIR + "/defaults.csv"), "");
 
-    localStorageClient.init();
+    localStorageClient.start();
 
     localStorageClient.traverse(publisher, params);
 
@@ -365,7 +395,7 @@ public class LocalStorageClientTest {
       f.delete();
       successDir.delete();
       tempDir.delete();
-      localStorageClient.shutdown();
+      localStorageClient.stop();
     }
   }
 
@@ -388,7 +418,7 @@ public class LocalStorageClientTest {
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig, URI.create(TEMP_DIR + "/faulty.csv"), "");
 
-    localStorageClient.init();
+    localStorageClient.start();
     localStorageClient.traverse(publisher, params);
 
     // verify error directory is made
@@ -405,7 +435,7 @@ public class LocalStorageClientTest {
       f.delete();
       errorDir.delete();
       tempDir.delete();
-      localStorageClient.shutdown();
+      localStorageClient.stop();
     }
   }
 
@@ -414,7 +444,7 @@ public class LocalStorageClientTest {
     File testFile = new File("src/test/resources/StorageClientTest/hello.txt");
 
     LocalStorageClient client = new LocalStorageClient();
-    client.init();
+    client.start();
     InputStream stream = client.getFileContentStream(testFile.toURI());
 
     assertEquals("Hello there.", new String(stream.readAllBytes()));
@@ -431,7 +461,7 @@ public class LocalStorageClientTest {
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(ConfigFactory.empty(), TraversalParams.parsePathOrURI(defaultAbsolutePath.toString()), "file_");
-    localStorageClient.init();
+    localStorageClient.start();
     localStorageClient.traverse(publisher, params);
 
     assertEquals(8, publisher.numPublished());
@@ -458,7 +488,7 @@ public class LocalStorageClientTest {
     PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     LocalStorageClient localStorageClient = new LocalStorageClient();
-    localStorageClient.init();
+    localStorageClient.start();
 
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("src/test/resources/StorageClientTest/modifiedDateFiles"), "");
     localStorageClient.traverse(publisher, params);
@@ -583,13 +613,13 @@ public class LocalStorageClientTest {
     LocalStorageClient localStorageClient = new LocalStorageClient();
     TraversalParams params = new TraversalParams(connectorConfig,
         URI.create("src/test/resources/StorageClientTest/testPublishFilesDefault"), "");
-    localStorageClient.init();
+    localStorageClient.start();
     localStorageClient.traverse(publisher, params);
 
     List<Document> docs = messenger.getDocsSentForProcessing();
     assertEquals(4, docs.size());
     assertTrue(docs.stream().noneMatch(d -> d.getString(FileConnector.FILE_PATH).contains("subdir1")));
 
-    localStorageClient.shutdown();
+    localStorageClient.stop();
   }
 }

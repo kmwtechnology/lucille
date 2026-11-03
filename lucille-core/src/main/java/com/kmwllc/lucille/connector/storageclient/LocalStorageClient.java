@@ -1,6 +1,5 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 
 import com.typesafe.config.Config;
@@ -38,7 +37,7 @@ public class LocalStorageClient extends BaseStorageClient {
   protected void shutdownStorageClient() throws IOException { }
 
   @Override
-  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  protected void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     Files.walkFileTree(toPath(params.getURI()), new LocalFileVisitor(publisher, params, stateMgr));
   }
 
@@ -86,9 +85,9 @@ public class LocalStorageClient extends BaseStorageClient {
 
     private Publisher publisher;
     private TraversalParams params;
-    private final FileConnectorStateManager stateMgr;
+    private final FileStateTracker stateMgr;
 
-    public LocalFileVisitor(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) {
+    public LocalFileVisitor(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) {
       this.publisher = publisher;
       this.params = params;
       this.stateMgr = stateMgr;
@@ -153,21 +152,13 @@ public class LocalStorageClient extends BaseStorageClient {
     }
 
     @Override
-    public InputStream getContentStream(TraversalParams params) {
-      try {
-        return Files.newInputStream(path);
-      } catch (IOException e) {
-        throw new IllegalArgumentException("Unable to get content stream of path '" + path + "'", e);
-      }
+    public InputStream getContentStream(TraversalParams params) throws IOException {
+      return Files.newInputStream(path);
     }
 
     @Override
-    protected byte[] getFileContent(TraversalParams params) {
-      try {
-        return Files.readAllBytes(path);
-      } catch (IOException e) {
-        throw new IllegalArgumentException("Unable to get file contents from '" + path + "' for document", e);
-      }
+    protected byte[] getFileContent(TraversalParams params) throws IOException {
+      return Files.readAllBytes(path);
     }
   }
 }

@@ -26,7 +26,7 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
 
   /**
    * Creates a FileContentFetcher that will fetch files from the classpath, the local file system, and any cloud file systems
-   * (Azure, S3, Google) which have the necessary options provided in the given Config. Be sure to call startup and shutdown
+   * (Azure, S3, Google) which have the necessary options provided in the given Config. Be sure to call start and stop
    * as appropriate.
    *
    * @param config Configuration for whatever is using a FileContentFetcher, and potentially has "https", "s3", and "gcp".
@@ -37,20 +37,20 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
   }
 
   /**
-   * Initialize the storage clients associated with this FileContentFetcher. Calls shutdown on all clients and throws an Exception
-   * if an error occurs while initializing any of the StorageClients.
+   * Starts the storage clients associated with this FileContentFetcher. Stops all clients and throws an Exception
+   * if an error occurs while starting any of the StorageClients.
    *
-   * @throws IOException If an error occurs initializing this FileContentFetcher and starting up the related StorageClients.
+   * @throws IOException If an error occurs starting this FileContentFetcher and the related StorageClients.
    */
   @Override
-  public void startup() throws IOException {
+  public void start() throws IOException {
     for (StorageClient client : availableClients.values()) {
       try {
-        client.init();
+        client.start();
       } catch (IOException e) {
-        shutdown();
+        stop();
 
-        throw new IOException("Unable to initialize StorageClient.", e);
+        throw new IOException("Unable to start StorageClient.", e);
       }
     }
 
@@ -58,18 +58,18 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
   }
 
   /**
-   * Shutdown each of the storage clients associated with this FileContentFetcher. If an error occurs while shutting down a
+   * Stops each of the storage clients associated with this FileContentFetcher. If an error occurs while stopping a
    * StorageClient, a warning will be logged with the error.
    */
   @Override
-  public void shutdown() {
+  public void stop() {
     started = false;
 
     for (StorageClient client : availableClients.values()) {
       try {
-        client.shutdown();
+        client.stop();
       } catch (IOException e) {
-        log.warn("Error shutting down StorageClient", e);
+        log.warn("Error stopping StorageClient", e);
       }
     }
   }
@@ -87,7 +87,7 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
   @Override
   public InputStream getInputStream(String path) throws IOException {
     if (!started) {
-      throw new IOException("FileContentFetcher has not had startup called or has been shutdown.");
+      throw new IOException("FileContentFetcher has not been started, or has been stopped.");
     }
 
     InputStream is;

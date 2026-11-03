@@ -128,6 +128,24 @@ public class TraversalParamsTest {
     assertTrue(incrementalParams().includeFile("doc.json", BASE_TIME.plusMillis(1), BASE_TIME));
   }
 
+  // a FileReference may return a null lastModified
+
+  @Test
+  public void nullModifiedIncludesInIncrementalMode() {
+    // an unchanged file can't be detected without a modification time, so it is published again
+    assertTrue(incrementalParams().includeFile("doc.json", null, LATER_TIME));
+    assertTrue(incrementalParams().includeFile("doc.json", null, null));
+  }
+
+  @Test
+  public void nullModifiedPassesLastModifiedCutoff() {
+    TraversalParams params = paramsWithFilterOptions(Map.of("lastModifiedCutoff", "1h"));
+    assertTrue(params.includeFile("doc.json", null, null));
+    // the other filters still apply
+    TraversalParams withExcludes = paramsWithFilterOptions(Map.of("lastModifiedCutoff", "1h", "excludes", List.of(".*\\.json")));
+    assertFalse(withExcludes.includeFile("doc.json", null, null));
+  }
+
   // incremental scenarios
 
   @Test

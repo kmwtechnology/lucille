@@ -75,7 +75,7 @@ public class FetchFileContent extends Stage {
   @Override
   public void start() throws StageException {
     try {
-      fileFetcher.startup();
+      fileFetcher.start();
     } catch (IOException e) {
       throw new StageException("Error starting up FileContentFetcher.", e);
     }
@@ -83,7 +83,7 @@ public class FetchFileContent extends Stage {
 
   @Override
   public void stop() throws StageException {
-    fileFetcher.shutdown();
+    fileFetcher.stop();
   }
 
   @Override

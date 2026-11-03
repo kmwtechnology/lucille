@@ -25,6 +25,8 @@ import com.kmwllc.lucille.util.ThreadNameUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.connector.storageclient.BaseFileReference;
 import com.kmwllc.lucille.connector.storageclient.StorageClient;
+import com.kmwllc.lucille.connector.storageclient.StorageClientFields;
+import com.kmwllc.lucille.connector.storageclient.StorageClientOptions;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import com.kmwllc.lucille.connector.storageclient.TraversalParams.PublishMode;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -116,36 +118,38 @@ import com.typesafe.config.Config;
  */
 public class FileConnector extends AbstractConnector {
 
-  public static final String FILE_PATH = "file_path";
-  public static final String MODIFIED = "file_modification_date";
-  public static final String CREATED = "file_creation_date";
-  public static final String SIZE = "file_size_bytes";
-  public static final String CONTENT = "file_content";
-  public static final String EXPIRED = "file_expired";
-  public static final String ARCHIVE_FILE_SEPARATOR = "!";
+  // The document field names and config keys below are aliases. They are defined on StorageClientFields and
+  // StorageClientOptions, which a StorageClient should import instead of FileConnector.
+  public static final String FILE_PATH = StorageClientFields.FILE_PATH;
+  public static final String MODIFIED = StorageClientFields.MODIFIED;
+  public static final String CREATED = StorageClientFields.CREATED;
+  public static final String SIZE = StorageClientFields.SIZE;
+  public static final String CONTENT = StorageClientFields.CONTENT;
+  public static final String EXPIRED = StorageClientFields.EXPIRED;
+  public static final String ARCHIVE_FILE_SEPARATOR = StorageClientFields.ARCHIVE_FILE_SEPARATOR;
 
   // cloudOption Keys
-  public static final String AZURE_CONNECTION_STRING = "connectionString";
-  public static final String AZURE_ACCOUNT_NAME = "accountName";
-  public static final String AZURE_ACCOUNT_KEY = "accountKey";
-  public static final String AZURE_ALLOWED_HOSTS = "allowedHosts";
-  public static final List<String> DEFAULT_AZURE_ALLOWED_HOSTS = List.of("blob.core.windows.net");
-  public static final String S3_REGION = "region";
-  public static final String S3_ACCESS_KEY_ID = "accessKeyId";
-  public static final String S3_SECRET_ACCESS_KEY = "secretAccessKey";
-  public static final String S3_ANONYMOUS = "anonymous";
-  public static final String GOOGLE_SERVICE_KEY = "pathToServiceKey";
-  public static final String MAX_RESULTS_PER_PAGE = "maxResultsPerPage";
-  public static final String STORAGE_CLIENT_CLASS = "class";
-  public static final String STORAGE_CLIENTS = "storageClients";
+  public static final String AZURE_CONNECTION_STRING = StorageClientOptions.AZURE_CONNECTION_STRING;
+  public static final String AZURE_ACCOUNT_NAME = StorageClientOptions.AZURE_ACCOUNT_NAME;
+  public static final String AZURE_ACCOUNT_KEY = StorageClientOptions.AZURE_ACCOUNT_KEY;
+  public static final String AZURE_ALLOWED_HOSTS = StorageClientOptions.AZURE_ALLOWED_HOSTS;
+  public static final List<String> DEFAULT_AZURE_ALLOWED_HOSTS = StorageClientOptions.DEFAULT_AZURE_ALLOWED_HOSTS;
+  public static final String S3_REGION = StorageClientOptions.S3_REGION;
+  public static final String S3_ACCESS_KEY_ID = StorageClientOptions.S3_ACCESS_KEY_ID;
+  public static final String S3_SECRET_ACCESS_KEY = StorageClientOptions.S3_SECRET_ACCESS_KEY;
+  public static final String S3_ANONYMOUS = StorageClientOptions.S3_ANONYMOUS;
+  public static final String GOOGLE_SERVICE_KEY = StorageClientOptions.GOOGLE_SERVICE_KEY;
+  public static final String MAX_RESULTS_PER_PAGE = StorageClientOptions.MAX_RESULTS_PER_PAGE;
+  public static final String STORAGE_CLIENT_CLASS = StorageClientOptions.STORAGE_CLIENT_CLASS;
+  public static final String STORAGE_CLIENTS = StorageClientOptions.STORAGE_CLIENTS;
 
   // fileOption Config Options
-  public static final String GET_FILE_CONTENT = "getFileContent";
-  public static final String MAX_SIZE_BYTES = "maxSizeBytes";
-  public static final String HANDLE_ARCHIVED_FILES = "handleArchivedFiles";
-  public static final String HANDLE_COMPRESSED_FILES = "handleCompressedFiles";
-  public static final String MOVE_TO_AFTER_PROCESSING = "moveToAfterProcessing";
-  public static final String MOVE_TO_ERROR_FOLDER = "moveToErrorFolder";
+  public static final String GET_FILE_CONTENT = StorageClientOptions.GET_FILE_CONTENT;
+  public static final String MAX_SIZE_BYTES = StorageClientOptions.MAX_SIZE_BYTES;
+  public static final String HANDLE_ARCHIVED_FILES = StorageClientOptions.HANDLE_ARCHIVED_FILES;
+  public static final String HANDLE_COMPRESSED_FILES = StorageClientOptions.HANDLE_COMPRESSED_FILES;
+  public static final String MOVE_TO_AFTER_PROCESSING = StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+  public static final String MOVE_TO_ERROR_FOLDER = StorageClientOptions.MOVE_TO_ERROR_FOLDER;
 
   // parent specs for cloud provider configs
   public static final Spec GCP_PARENT_SPEC = SpecBuilder.parent("gcp")
@@ -350,7 +354,7 @@ public class FileConnector extends AbstractConnector {
   private void initialize() throws ConnectorException {
     try {
       for (StorageClient client : storageClientMap.values()) {
-        client.init();
+        client.start();
       }
     } catch (IOException e) {
       throw new ConnectorException("Error initializing a StorageClient.", e);
@@ -375,7 +379,7 @@ public class FileConnector extends AbstractConnector {
     }
     for (StorageClient client : storageClientMap.values()) {
       try {
-        client.shutdown();
+        client.stop();
       } catch (IOException e) {
         log.warn("Error shutting down StorageClient.", e);
       }
