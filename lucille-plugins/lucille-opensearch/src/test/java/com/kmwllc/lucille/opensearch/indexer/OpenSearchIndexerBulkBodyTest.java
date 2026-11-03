@@ -196,7 +196,7 @@ public class OpenSearchIndexerBulkBodyTest {
     populateScalars(doc);
 
     assertEquals("{\"update\":{\"_id\":\"doc1\",\"_index\":\"lucille-default\"}}\n"
-        + "{\"doc\":" + SCALARS_BODY + "}\n", bulkBody(config("opensearch.update: true"), doc));
+        + "{\"doc_as_upsert\":true,\"doc\":" + SCALARS_BODY + "}\n", bulkBody(config("opensearch.update: true"), doc));
   }
 
   // nullField is absent: the client's JacksonJsonpMapper leaves out null map values, at any depth, while

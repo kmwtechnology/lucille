@@ -7,7 +7,7 @@ description: Performs named entity recognition using Apache OpenNLP name finder 
 
 `com.kmwllc.lucille.entityextraction.stage.ApplyOpenNLPNameFinders` *(requires `lucille-entity-extraction`)*
 
-Performs named entity recognition (NER) on `textField` using [Apache OpenNLP](https://opennlp.apache.org/) models. The text is split into tokens with the tokenizer model, then each name finder model in `models` is run over the tokens. The distinct names each model finds are added to the field named by that model's key in `models`. Only the first value of `textField` is used. Documents without `textField` fail, so use a condition to skip them.
+Performs named entity recognition (NER) on `textField` using [Apache OpenNLP](https://opennlp.apache.org/) models. The text is split into tokens with the tokenizer model, then each name finder model in `models` is run over the tokens. The distinct names each model finds are added to the field named by that model's key in `models`. Only the first value of `textField` is used. Documents where `textField` is missing or blank are passed through unchanged. Adaptive data is cleared from each name finder after every document, so context from one document does not affect the next.
 
 The tokenizer and name finder models are loaded at startup; the stage fails at startup if any of them cannot be loaded. Model paths can be local file paths or `classpath:` paths.
 

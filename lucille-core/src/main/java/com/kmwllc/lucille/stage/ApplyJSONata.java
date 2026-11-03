@@ -2,7 +2,6 @@ package com.kmwllc.lucille.stage;
 
 import com.dashjoin.jsonata.JException;
 import com.dashjoin.jsonata.Jsonata;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import java.util.Iterator;
@@ -37,7 +36,6 @@ public class ApplyJSONata extends Stage {
       .optionalString("source", "destination").build();
 
   private static final Logger log = LoggerFactory.getLogger(ApplyJSONata.class);
-  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   private final String source;
   private final String destination;

@@ -7,7 +7,6 @@ import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
-import com.kmwllc.lucille.message.KafkaDocumentDeserializer;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.Config;
 import java.time.Duration;

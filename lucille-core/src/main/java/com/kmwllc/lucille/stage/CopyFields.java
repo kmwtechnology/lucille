@@ -2,7 +2,6 @@ package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
@@ -40,7 +39,6 @@ import org.slf4j.LoggerFactory;
  */
 public class CopyFields extends Stage {
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final ObjectMapper mapper = new ObjectMapper();
 
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fieldMapping", new TypeReference<Map<String, Object>>() {})

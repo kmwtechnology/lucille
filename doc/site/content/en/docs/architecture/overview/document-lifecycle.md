@@ -87,7 +87,7 @@ Everything from the Happy Path, plus:
 
 - **Backpressure (maxPendingDocs).** If `publisher.maxPendingDocs` is configured and the pending count has reached the threshold, `publisher.publish()` blocks here — the Connector thread waits until downstream components process enough documents to bring the count below the max.
 - **Backpressure (queue capacity).** In local mode, if `publisher.queueCapacity` is reached, the `put()` call blocks until a Worker consumes a document from the queue.
-- **Pause/resume.** If `publisher.pause()` has been called (rare, used in specialized deployment patterns), `publish()` blocks until `resume()` is called.
+- **Pause/resume.** If `publisher.pause()` has been called (rare, used in specialized deployment patterns), `publish()` blocks until `resume()` is called. If the Connector thread is interrupted while blocked, `publish()` throws `PublisherException` and the thread's interrupt flag is restored.
 - **Metrics.** The Publisher's timer measures the gap between consecutive `publish()` calls — this becomes the "Mean connector latency" metric visible in periodic logs.
 - **Logging.** The DocLogger logs: `"Publishing document {id}."`
 

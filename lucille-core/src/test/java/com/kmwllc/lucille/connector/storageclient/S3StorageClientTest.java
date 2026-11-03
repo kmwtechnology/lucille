@@ -130,7 +130,7 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("s3://bucket/"), "prefix-");
@@ -192,7 +192,7 @@ public class S3StorageClientTest {
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "filterOptions", Map.of("excludes", List.of("obj3", "obj4"))
     ));
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "prefix-");
@@ -263,7 +263,7 @@ public class S3StorageClientTest {
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "fileOptions", Map.of(GET_FILE_CONTENT, false)
     ));
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "prefix-");
@@ -301,7 +301,7 @@ public class S3StorageClientTest {
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "fileHandlers", Map.of("json", Map.of())
     ));
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
@@ -351,7 +351,7 @@ public class S3StorageClientTest {
             "csv", Map.of()
         )
     ));
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     // storage client with json file handler
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
@@ -458,7 +458,7 @@ public class S3StorageClientTest {
             "moveToErrorFolder", "s3://bucket/error/"
         )
     ));
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     // simulate a proper s3StorageClient with valid files
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
@@ -525,7 +525,7 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     Config connectorConfig = ConfigFactory.parseMap(Map.of(
         "fileOptions", Map.of("moveToAfterProcessing", "s3://processed/")
@@ -639,7 +639,7 @@ public class S3StorageClientTest {
         // only files modified in the last 2 hours
         "filterOptions", Map.of("lastModifiedCutoff", "2h")
     ));
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "prefix-");
@@ -708,7 +708,7 @@ public class S3StorageClientTest {
     Config cloudOptions = ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1", S3_ACCESS_KEY_ID, "accessKey",
         S3_SECRET_ACCESS_KEY, "secretKey"));
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(connectorConfig, URI.create("s3://bucket/"), "");
@@ -790,7 +790,7 @@ public class S3StorageClientTest {
   private List<ListObjectsV2Request> captureListRequests(Config extraCloudOptions) throws Exception {
     Config cloudOptions = extraCloudOptions.withFallback(ConfigFactory.parseMap(Map.of(S3_REGION, "us-east-1")));
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
 
     S3StorageClient s3StorageClient = new S3StorageClient(cloudOptions);
     TraversalParams params = new TraversalParams(ConfigFactory.empty(), URI.create("s3://bucket/"), "");
@@ -816,7 +816,7 @@ public class S3StorageClientTest {
   // Traverses a fake bucket that applies S3's prefix and delimiter rules to the given keys.
   private Set<String> publishedPathsFromFakeBucket(List<String> keys, String start, Config connectorConfig) throws Exception {
     TestMessenger messenger = new TestMessenger();
-    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    PublisherImpl publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
     Config fullConnectorConfig = connectorConfig.withFallback(
         ConfigFactory.parseMap(Map.of("fileOptions", Map.of(GET_FILE_CONTENT, false))));
 

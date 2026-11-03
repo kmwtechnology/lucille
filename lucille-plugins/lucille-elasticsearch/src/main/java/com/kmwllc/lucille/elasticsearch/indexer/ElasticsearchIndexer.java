@@ -13,8 +13,6 @@ import co.elastic.clients.elasticsearch.core.DeleteByQueryResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.transport.endpoints.BooleanResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auto.service.AutoService;
 import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
@@ -27,13 +25,13 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.elasticsearch.util.ElasticsearchUtils;
 import com.kmwllc.lucille.indexer.IndexerType;
 import com.kmwllc.lucille.message.IndexerMessenger;
+import com.kmwllc.lucille.util.FieldFilter;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
@@ -57,7 +55,7 @@ import java.util.Optional;
  *   <li>index (String, Required) : Target Elasticsearch index name.</li>
  *   <li>url (String or List&lt;String&gt;, Required) : Elasticsearch HTTP endpoint (e.g., https://localhost:9200), or a list of
  *   endpoints for the same cluster. With a list, the client round-robins requests across the hosts and fails over between them.</li>
- *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace. Defaults to false.</li>
+ *   <li>update (Boolean, Optional) : Use partial update API instead of index/replace, creating the document if it does not exist. Defaults to false.</li>
  *   <li>acceptInvalidCert (Boolean, Optional) : Allow invalid TLS certificates. Defaults to false.</li>
  *   <li>useCompression (Boolean, Optional) : Whether to use compression in the underlying Elasticsearch HTTP client. Defaults to false.</li>
  *   <li>connectTimeoutMs (Long, Optional) : Maximum time to establish a connection. Defaults to 5000.</li>
@@ -70,7 +68,11 @@ import java.util.Optional;
  *   indexed document. If not set, child documents are not indexed. For child queries to work correctly, this field should be mapped
  *   as type "nested" in the index mapping.</li>
  *   <li>indexer.routingField (String, Optional) : Document field that supplies the routing key.</li>
- *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions.</li>
+ *   <li>indexer.versionType (String, Optional) : Versioning type when using external versions. With External or ExternalGte,
+ *   an upload carries the document's indexer.versionField value, or else its Kafka offset.</li>
+ *   <li>indexer.versionField (String, Optional) : Document field holding the external version. Requires
+ *   indexer.versionType. With External or ExternalGte, a delete by id carries this field's value too; a delete without it
+ *   is unversioned, and never uses the Kafka offset.</li>
  *   <li>elasticsearch.join.joinFieldName (String, Optional) : Name of the join field mapped in the index.</li>
  *   <li>elasticsearch.join.isChild (Boolean, Optional) : Whether documents are children in the join relation. Defaults to false.</li>
  *   <li>elasticsearch.join.childName (String, Optional) : Child relation name when isChild is true.</li>
@@ -93,7 +95,8 @@ public class ElasticsearchIndexer extends Indexer {
 
   private static final Logger log = LoggerFactory.getLogger(ElasticsearchIndexer.class);
 
-  private final ElasticsearchClient client;
+  // not final: the standard constructor builds it only after validation, see there
+  private ElasticsearchClient client;
   private final String index;
 
   //flag for using partial update API when sending documents to elastic
@@ -111,9 +114,6 @@ public class ElasticsearchIndexer extends Indexer {
     if (this.indexOverrideField != null) {
       throw new IllegalArgumentException(
           "Cannot create ElasticsearchIndexer. Config setting 'indexer.indexOverrideField' is not supported by ElasticsearchIndexer.");
-    }
-    if (this.deletionMarkerField != null || this.deleteByFieldField != null) {
-      log.warn("Deletion is not supported for this indexer. Documents marked for deletion will be indexed as regular docs");
     }
 
     this.client = client;
@@ -153,8 +153,22 @@ public class ElasticsearchIndexer extends Indexer {
     return null;
   }
 
+  // The version to send with a delete by id, or null for an unversioned delete. Unlike getVersionNum, this never falls
+  // back to the Kafka offset: the offset of a delete is not comparable to a version taken from indexer.versionField, so
+  // only a document that carries indexer.versionField gets a versioned delete.
+  private Long getDeleteVersionNum(Document doc) {
+    if ((versionType == VersionType.External || versionType == VersionType.ExternalGte)
+        && versionField != null && doc.has(versionField)) {
+      return doc.getLong(versionField);
+    }
+    return null;
+  }
+
   public ElasticsearchIndexer(Config config, IndexerMessenger messenger, boolean bypass, String metricsPrefix, String localRunId) throws IndexerException {
-    this(config, messenger, bypass, metricsPrefix, localRunId, getClient(config, bypass));
+    this(config, messenger, bypass, metricsPrefix, localRunId, null);
+    // built after super() and this class's config checks, so a constructor that throws can't leak the client's
+    // connection pool and threads; nothing after this line can throw
+    this.client = getClient(config, bypass);
   }
 
   // Convenience Constructors
@@ -207,25 +221,37 @@ public class ElasticsearchIndexer extends Indexer {
     }
 
     Map<String, Document> documentsToUpload = new LinkedHashMap<>();
-    Set<String> idsToDelete = new LinkedHashSet<>();
+    // the document that marked each id for deletion, so deleteById can send its version
+    Map<String, Document> idsToDelete = new LinkedHashMap<>();
     Map<String, List<String>> termsToDeleteByQuery = new LinkedHashMap<>();
+    Set<Pair<Document, Exception>> failedDocs = new HashSet<>();
 
     // populate which collection each document belongs to
     // upload if document is not marked for deletion
     // else if document is marked for deletion ONLY, then only add to idsToDelete
     // else document is marked for deletion AND contains deleteByFieldField and deleteByFieldValue, only add to termsToDeleteByQuery
+    // A delete-by-query must not delete documents that come after it in the batch, so the batch is sent in segments, in
+    // input order: pending uploads and deletes by id are sent before a run of delete-by-query documents, and the
+    // queries are sent before the next upload or delete by id.
     for (Document doc : documents) {
       // use doc id override if specified, otherwise delete will try to delete wrong id
       String id = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
 
       if (!isMarkedForDeletion(doc)) {
+        // send any buffered delete-by-queries now, so they apply before this write rather than after it
+        sendDeleteByQuerySegment(termsToDeleteByQuery);
         idsToDelete.remove(id);
         documentsToUpload.put(id, doc);
       } else {
         documentsToUpload.remove(id);
         if (!hasDeleteByFieldValues(doc)) {
-          idsToDelete.add(id);
+          // same as above: buffered delete-by-queries go before this delete by id
+          sendDeleteByQuerySegment(termsToDeleteByQuery);
+          idsToDelete.put(id, doc);
         } else {
+          // this doc is a delete-by-query, so flush the writes buffered before it first: send the pending uploads and
+          // deletes by id, clear both maps, and collect their per-doc failures
+          failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
           //indexer.deleteByFieldField gives you the field in the document that holds which field whose value is queried for
           // deletion, so we need to do doc.getString(deleteByFieldField).
           String deleteField = doc.getString(deleteByFieldField);
@@ -237,25 +263,51 @@ public class ElasticsearchIndexer extends Indexer {
       }
     }
 
-    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload.values());
-    deleteById(new ArrayList<>(idsToDelete));
-    deleteByQuery(termsToDeleteByQuery);
+    // at most one of these has anything left to send
+    failedDocs.addAll(sendWriteSegment(documentsToUpload, idsToDelete));
+    sendDeleteByQuerySegment(termsToDeleteByQuery);
 
     return failedDocs;
   }
 
-  private void deleteById(List<String> idsToDelete) throws IndexerException {
+  // Sends and clears the pending uploads and deletes by id. They never share an id, so their order between each other
+  // doesn't matter.
+  private Set<Pair<Document, Exception>> sendWriteSegment(Map<String, Document> documentsToUpload,
+      Map<String, Document> idsToDelete) throws IndexerException {
+    Set<Pair<Document, Exception>> failedDocs = uploadDocuments(documentsToUpload.values());
+    deleteById(idsToDelete);
+    documentsToUpload.clear();
+    idsToDelete.clear();
+    return failedDocs;
+  }
+
+  private void sendDeleteByQuerySegment(Map<String, List<String>> termsToDeleteByQuery) throws IndexerException {
+    deleteByQuery(termsToDeleteByQuery);
+    termsToDeleteByQuery.clear();
+  }
+
+  private void deleteById(Map<String, Document> idsToDelete) throws IndexerException {
     if (idsToDelete.isEmpty()) {
       return;
     }
 
     BulkRequest.Builder br = new BulkRequest.Builder();
-    for (String id : idsToDelete) {
+    // whether each delete, in request order, was sent with a version; the response items come back in the same order
+    List<Boolean> versioned = new ArrayList<>();
+    for (Map.Entry<String, Document> entry : idsToDelete.entrySet()) {
+      String id = entry.getKey();
+      Long versionNum = getDeleteVersionNum(entry.getValue());
+      versioned.add(versionNum != null);
       br.operations(op -> op
-          .delete(d -> d
-              .index(index)
-              .id(id)
-          )
+          .delete(d -> {
+            d.index(index).id(id);
+            // a versioned delete is rejected (409) when the index holds a newer version, and leaves a tombstone that
+            // rejects an older upload arriving after it, for as long as the index keeps tombstones (index.gc_deletes)
+            if (versionNum != null) {
+              d.versionType(versionType).version(versionNum);
+            }
+            return d;
+          })
       );
     }
 
@@ -269,12 +321,25 @@ public class ElasticsearchIndexer extends Indexer {
     }
 
     if (response.errors()) {
-      for (BulkResponseItem item : response.items()) {
-        if (item.error() != null) {
-          log.debug("Error while deleting id: {} because: {}", item.id(), item.error().reason());
+      boolean failed = false;
+      List<BulkResponseItem> items = response.items();
+      for (int i = 0; i < items.size(); i++) {
+        BulkResponseItem item = items.get(i);
+        if (item.error() == null) {
+          continue;
         }
+        // a 409 on a versioned delete means the index already holds this version or a newer one: either this delete
+        // was applied on an earlier attempt of the batch (a retry resends it), or a newer document superseded it
+        if (item.status() == 409 && i < versioned.size() && versioned.get(i)) {
+          log.debug("Versioned delete of id: {} already applied or superseded: {}", item.id(), item.error().reason());
+          continue;
+        }
+        log.debug("Error while deleting id: {} because: {}", item.id(), item.error().reason());
+        failed = true;
       }
-      throw new IndexerException("encountered errors while deleting documents");
+      if (failed) {
+        throw new IndexerException("encountered errors while deleting documents");
+      }
     }
   }
 
@@ -339,6 +404,9 @@ public class ElasticsearchIndexer extends Indexer {
 
     DeleteByQueryResponse response;
     try {
+      // a delete-by-query only matches what the index has refreshed, so refresh first: otherwise it misses documents
+      // uploaded just before it, in this batch or an earlier one, and can fail on a document deleted but not yet refreshed
+      client.indices().refresh(r -> r.index(index));
       response = client.deleteByQuery(deleteByQueryRequest);
     } catch (ElasticsearchException e) {
       throw new IndexerRetryableException(e.status(), "ElasticSearch returned HTTP " + e.status(), e);
@@ -364,15 +432,15 @@ public class ElasticsearchIndexer extends Indexer {
     BulkRequest.Builder br = new BulkRequest.Builder();
 
     for (Document doc : documentsToUpload) {
-      // populate join data to document
-      joinData.populateJoinData(doc);
-
       // removing fields in the blacklist or not in the whitelist in configurations
       Map<String, Object> indexerDoc = getRawIndexerDoc(doc);
 
       // if a doc id override value exists, make sure it is used instead of pre-existing doc id
       String docId = Optional.ofNullable(getDocIdOverride(doc)).orElse(doc.getId());
       documentsUploaded.put(docId, doc);
+
+      // written to the request, not the Document, so a retried batch doesn't find it already set
+      joinData.populateJoinData(doc, indexerDoc, fieldFilter);
 
       // only add id if our fieldFilter allows it (based on our blacklist and whitelist)
       // - Case 1: id and idOverride filtered out -> idOverride used by Indexer, both removed from Document (tested in testBlacklistWithOverride)
@@ -406,8 +474,11 @@ public class ElasticsearchIndexer extends Indexer {
               return updateBuilder
                   .id(docId)
                   .index(index)
+                  // doc_as_upsert: an update to an id not yet in the index creates it instead of failing with
+                  // document_missing_exception
                   .action(upx -> upx
                       .doc(indexerDoc)
+                      .docAsUpsert(true)
                   );
             }));
       } else {
@@ -496,15 +567,13 @@ public class ElasticsearchIndexer extends Indexer {
 
   public static class ElasticJoinData {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
     private String joinFieldName;
     private boolean isChild;
     private String parentName;
     private String childName;
     private String parentDocumentIdSource;
 
-    public void populateJoinData(Document doc) {
+    public void populateJoinData(Document doc, Map<String, Object> indexerDoc, FieldFilter fieldFilter) {
 
       // no need to do a join
       if (joinFieldName == null) {
@@ -516,19 +585,25 @@ public class ElasticsearchIndexer extends Indexer {
         throw new IllegalStateException("Document already has join field: " + joinFieldName);
       }
 
+      // the join field follows indexer.whitelist and indexer.blacklist like any other field
+      if (!fieldFilter.shouldInclude(joinFieldName)) {
+        return;
+      }
+
       // set a necessary join field
       if (isChild) {
         String parentId = doc.getString(parentDocumentIdSource);
-        doc.setField(joinFieldName, getChildNode(parentId));
+        indexerDoc.put(joinFieldName, getChildNode(parentId));
       } else {
-        doc.setField(joinFieldName, parentName);
+        indexerDoc.put(joinFieldName, parentName);
       }
     }
 
-    private JsonNode getChildNode(String parentId) {
-      return MAPPER.createObjectNode()
-          .put("name", childName)
-          .put("parent", parentId);
+    private Map<String, Object> getChildNode(String parentId) {
+      Map<String, Object> node = new LinkedHashMap<>();
+      node.put("name", childName);
+      node.put("parent", parentId);
+      return node;
     }
 
     private static String prefix() {
