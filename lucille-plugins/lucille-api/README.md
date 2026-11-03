@@ -97,24 +97,57 @@ Details on how can be found [here](https://www.dropwizard.io/en/stable/manual/co
 
 ### Auth Configuration
 
-Authentication is configured under the `auth` block. When `enabled: true`, every endpoint in the table above (except the Dropwizard admin port, which is separate) requires Basic Auth credentials.
+Authentication is configured under the `auth` block. When `enabled: true`, every endpoint in the table above (except the Dropwizard admin port, which is separate) requires authentication.
+
+When enabled, a request may authenticate with **either** of two schemes, interchangeably:
+
+- **HTTP Basic** — send `Authorization: Basic <base64(user:password)>`. Intended for programmatic/`curl` access. A client using Basic never needs a token.
+- **Bearer (JWT)** — obtain a short-lived token from `POST /v1/login` (with the password) and send it as `Authorization: Bearer <token>`. This is what the browser-based Admin UI uses for its login flow.
+
+In other words, `basicAndBearer` does not require a caller to use Bearer — `curl` and other clients keep using Basic exactly as before. Bearer is simply *also* accepted so the Admin UI has a usable login.
 
 | Property |            Description                |
 |----------|-------------------------------------- |
-| type     | required when `enabled` is `true`, currently only `basicAuth` is supported |
+| type     | required when `enabled` is `true`. Use `basicAndBearer` to accept both schemes. `basicAuth` is kept as a backward-compatible alias and behaves identically. |
 | enabled  | `true` to require auth, `false` to disable |
-| password | the password Basic Auth requests must match |
+| password | the password that Basic requests and the login endpoint must match. Supplied at runtime via the `LUCILLE_API_PASSWORD` environment variable (see below) — not hard-coded in the committed config. |
 
-Note: Only the password is validated, so any non-empty username works.
+Note: Only the password is validated, so any non-empty username works for Basic.
 
-#### Example
+#### Setting the password
+
+The shipped `conf/api.yml` ships with auth disabled and no password, and reads the password from an environment variable so no secret is committed:
 
 ```yaml
 auth:
-  type: basicAuth
-  enabled: true
-  password: KEYSTORE_PASSWORD
+  type: basicAndBearer
+  enabled: false
+  password: ${LUCILLE_API_PASSWORD:-}
 ```
+
+The `${LUCILLE_API_PASSWORD:-}` syntax is resolved at startup (Dropwizard's `SubstitutingSourceProvider`, wired in `APIApplication.initialize()`). If the variable is unset it resolves to an empty string rather than failing startup.
+
+**Local testing:** flip `enabled: true` in `conf/api.yml` and export the password in your shell before starting the server:
+
+```bash
+export LUCILLE_API_PASSWORD=password
+java -Dconfig.file=conf/simple-config.conf -jar target/lucille-api-plugin.jar server conf/api.yml
+```
+
+**Production:** the committed config stays `enabled: false` with no password. Enable auth at deploy time with either:
+
+- **Inject the env var** into the container. The Docker image reads `LUCILLE_API_PASSWORD` the same way; set it alongside a config whose `enabled: true`:
+  ```bash
+  docker run --env LUCILLE_API_PASSWORD=<secret> --env DROPWIZARD_CONF=conf/api.yml -p 8080:8080 lucille-api
+  ```
+- **Mount a config** that has `enabled: true` and point `DROPWIZARD_CONF` at it (it can still use `${LUCILLE_API_PASSWORD}` or an injected value):
+  ```bash
+  docker run --env LUCILLE_API_PASSWORD=<secret> \
+    --env DROPWIZARD_CONF=/mnt/conf/api.yml \
+    -v /host/conf:/mnt/conf -p 8080:8080 lucille-api
+  ```
+
+Do not commit a real password to `api.yml`.
 
 ### Local HTTPS Configuration
 

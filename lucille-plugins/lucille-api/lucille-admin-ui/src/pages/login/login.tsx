@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { Database } from "lucide-react"
 import { Button } from "@/components/ui/button/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card/card"
@@ -11,7 +11,7 @@ interface LocationState {
 }
 
 export default function Login() {
-  const { login } = useAuth()
+  const { status, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -20,6 +20,11 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false)
 
   const from = (location.state as LocationState | null)?.from?.pathname ?? "/"
+
+  // If auth isn't required (or we're already signed in), there's nothing to log into.
+  if (status === "authenticated") {
+    return <Navigate to={from} replace />
+  }
 
   const handleSubmit = async () => {
     if (submitting) return

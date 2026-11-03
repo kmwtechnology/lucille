@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 import styles from "./sidebar.module.css"
 
 export default function Sidebar() {
-  const { logout } = useAuth()
+  const { authRequired, logout } = useAuth()
 
   return (
     <aside className={styles.sidebar}>
@@ -51,12 +51,14 @@ export default function Sidebar() {
           })}
         </nav>
       </div>
-      <div className={styles.footer}>
-        <button type="button" className={styles.logout} onClick={logout}>
-          <LogOut className="h-5 w-5" />
-          Sign out
-        </button>
-      </div>
+      {authRequired && (
+        <div className={styles.footer}>
+          <button type="button" className={styles.logout} onClick={logout}>
+            <LogOut className="h-5 w-5" />
+            Sign out
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

@@ -22,6 +22,20 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
 }
 
 /**
+ * Ask the API whether it requires authentication (public endpoint).
+ *
+ * @returns true when the API requires a login, false when it is open
+ */
+async function getAuthInfo(): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/v1/auth-info`)
+  if (!res.ok) {
+    throw new Error(await errorMessageFrom(res))
+  }
+  const data: { authEnabled?: boolean } = await res.json()
+  return data.authEnabled ?? false
+}
+
+/**
  * Authenticate against POST /v1/login and return a bearer token.
  *
  * @param password the shared admin password
@@ -103,4 +117,4 @@ async function deleteConfig(configId: string): Promise<void> {
   })
 }
 
-export const api = { login, postConfig, startRun, deleteConfig }
+export const api = { getAuthInfo, login, postConfig, startRun, deleteConfig }

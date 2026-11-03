@@ -14,6 +14,7 @@ import com.kmwllc.lucille.api.auth.RequireAuthDynamicFeature;
 import com.kmwllc.lucille.api.config.AuthConfiguration.AuthType;
 import com.kmwllc.lucille.api.config.LucilleAPIConfiguration;
 import com.kmwllc.lucille.core.RunnerManager;
+import com.kmwllc.lucille.api.endpoints.AuthInfoResource;
 import com.kmwllc.lucille.api.endpoints.ConfigInfo;
 import com.kmwllc.lucille.api.endpoints.LivenessResource;
 import com.kmwllc.lucille.api.endpoints.LoginResource;
@@ -26,6 +27,8 @@ import io.dropwizard.auth.PrincipalImpl;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.chained.ChainedAuthFilter;
 import io.dropwizard.auth.oauth.OAuthCredentialAuthFilter;
+import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
+import io.dropwizard.configuration.SubstitutingSourceProvider;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
@@ -84,11 +87,20 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
   protected void bootstrapLogging() {}
 
   /**
-   * Initializes the Dropwizard application, including Swagger bundle registration.
+   * Initializes the Dropwizard application, enabling environment-variable substitution in the
+   * configuration file and registering the Swagger bundle. Substitution lets the config reference
+   * values such as {@code ${LUCILLE_API_PASSWORD}} that are injected at runtime rather than
+   * committed to the file; undefined variables resolve to their {@code :-} default (or empty)
+   * rather than failing startup.
    * @param bootstrap the Dropwizard bootstrap object
    */
   @Override
   public void initialize(Bootstrap<LucilleAPIConfiguration> bootstrap) {
+    bootstrap.setConfigurationSourceProvider(
+        new SubstitutingSourceProvider(
+            bootstrap.getConfigurationSourceProvider(),
+            new EnvironmentVariableSubstitutor(false)));
+
     bootstrap.addBundle(new SwaggerBundle<LucilleAPIConfiguration>() {
       /**
        * Returns the Swagger bundle configuration from the Lucille API configuration.
@@ -107,7 +119,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
    * Starts the Lucille API server, configures authentication, and registers resources.
    * @param config the Lucille API configuration
    * @param env the Dropwizard environment
-   * @throws IllegalArgumentException if authentication is enabled and AuthType is not basicAuth
+   * @throws IllegalArgumentException if authentication is enabled and AuthType is NO_AUTH
    * @throws Exception for other startup failures
    */
   @Override
@@ -125,7 +137,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
       AuthType authType = config.getAuthConfig().getType();
 
       if (AuthType.NO_AUTH.equals(authType)) {
-        throw new IllegalArgumentException("auth.type must be set to basicAuth when auth.enabled is true.");
+        throw new IllegalArgumentException("auth.type must be set to basicAndBearer when auth.enabled is true.");
       }
 
       env.jersey().register(new RequireAuthDynamicFeature(buildAuthFilter(config, jwtService), AUTH_EXEMPT_PACKAGES));
@@ -155,6 +167,7 @@ public class APIApplication extends Application<LucilleAPIConfiguration> {
     env.jersey().register(new ConfigInfo());
 
     env.jersey().register(new LoginResource(jwtService, config.getAuthConfig().getPassword()));
+    env.jersey().register(new AuthInfoResource(authEnabled));
   }
 
   /**

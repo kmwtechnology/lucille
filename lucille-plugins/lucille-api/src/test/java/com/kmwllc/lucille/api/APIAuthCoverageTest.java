@@ -38,7 +38,8 @@ public class APIAuthCoverageTest {
 
   // The endpoints that are intentionally reachable without credentials. Adding to this set widens the
   // anonymously reachable surface of the API, so it should not happen without a good reason.
-  private static final Set<String> PUBLIC_ENDPOINTS = Set.of("/swagger", "/openapi.json", "/v1/readyz", "/v1/livez");
+  private static final Set<String> PUBLIC_ENDPOINTS =
+      Set.of("/swagger", "/openapi.json", "/v1/readyz", "/v1/livez", "/v1/auth-info");
 
   // Endpoints this generic probe cannot classify, because their own request-body validation returns 401
   // for the empty body the probe sends. /v1/login is public (it issues tokens) but answers 401 to a
