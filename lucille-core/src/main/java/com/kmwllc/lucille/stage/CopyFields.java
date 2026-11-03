@@ -108,7 +108,8 @@ public class CopyFields extends Stage {
           continue;
         }
         try {
-          doc.setNestedJson(fieldPair.getValue(), sourceVal);
+          // copy, or a later in-place edit to either field would show up in the other
+          doc.setNestedJson(fieldPair.getValue(), sourceVal.deepCopy());
         } catch (IllegalArgumentException ex) {
           log.error("Failed to set field {} on doc {}.\n {}",
               Document.Segment.stringify(fieldPair.getValue()), doc.getId(), ex.getMessage());
@@ -119,7 +120,9 @@ public class CopyFields extends Stage {
         if (!doc.has(fieldPair.getKey())) {
           continue;
         }
-        doc.update(fieldPair.getValue(), updateMode, doc.getStringList(fieldPair.getKey()).toArray(new String[0]));
+        // copy as JSON so numbers, booleans and objects keep their types, and deep-copy so the fields stay independent
+        JsonNode[] values = doc.getJsonList(fieldPair.getKey()).stream().map(JsonNode::deepCopy).toArray(JsonNode[]::new);
+        doc.update(fieldPair.getValue(), updateMode, values);
       }
     }
     return null;

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import java.io.IOException;
@@ -212,5 +213,16 @@ public class ApplyJSoupTest {
     assertEquals("doc1", doc.getString("id"));
     assertEquals(List.of("<div>foo</div>", "<div>bar</div>"), doc.getStringList("destination"));
     assertEquals(html, doc.getString("string"));
+  }
+
+  @Test
+  public void testNullValue() throws Exception {
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"path\":null}");
+    factory.get("ApplyJSoupTest/basic.conf").processDocument(doc);
+    assertFalse(doc.has("destination"));
+
+    Document leadingNull = Document.createFromJson("{\"id\":\"2\",\"path\":[null,\"x\"]}");
+    factory.get("ApplyJSoupTest/basic.conf").processDocument(leadingNull);
+    assertFalse(leadingNull.has("destination"));
   }
 }

@@ -17,7 +17,7 @@ Removes every value of the `source` fields that exactly matches one of `values`.
 ## Behavior
 
 - Documents without a source field are not changed for that field.
-- Values are compared as strings. The remaining values are written back as a multi-valued field of strings, even if the field was single-valued or held non-string values.
+- Values are compared as strings, so `values: ["5"]` also removes the number `5`. A field with no matching value is not changed. Otherwise the remaining values are written back with their original types, as a multi-valued field.
 - If every value is removed, the field is removed.
 
 ```hocon

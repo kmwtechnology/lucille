@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.Map;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.kmwllc.lucille.core.Document;
@@ -73,5 +75,10 @@ public class AddRandomDateTest {
     assertTrue(startDate.before(doc1.getDate("randomDate")) && endDate.after(doc1.getDate("randomDate")));
     assertTrue(startDate.before(doc2.getDate("randomDate")) && endDate.after(doc2.getDate("randomDate")));
     assertTrue(startDate.before(doc3.getDate("randomDate")) && endDate.after(doc3.getDate("randomDate")));
+  }
+
+  @Test
+  public void testEqualBoundsFailAtStartup() {
+    assertThrows(StageException.class, () -> factory.get(Map.of("rangeStartDate", "2024-12-18", "rangeEndDate", "2024-12-18")));
   }
 }

@@ -112,8 +112,9 @@ public class QueryDatabase extends Stage {
       for (int i = 0; i < keyFields.size(); i++) {
         String field = keyFields.get(i);
 
-        if (!doc.has(field)) {
-          throw new StageException("document does not have field " + field);
+        // the first value is what gets bound; hasNonNull passes for [null, ...]
+        if (doc.getString(field) == null) {
+          throw new StageException("document does not have a non-null value for field " + field);
         }
 
         PreparedStatementParameterType t = inputTypes.get(i);

@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.List;
+import java.util.Map;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -43,5 +47,21 @@ public class DropValuesTest {
   public void testSpec() throws StageException {
     Stage stage = factory.get("DropValuesTest/config.conf");
     assertEquals(Set.of("values", "source"), stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testOnlyRewritesMatchedFields() throws Exception {
+    Stage stage = factory.get(Map.of("source", List.of("status", "count", "tags", "gone"), "values", List.of("x")));
+    Document doc = Document.createFromJson(
+        "{\"id\":\"1\",\"status\":\"active\",\"count\":5,\"tags\":[1,\"x\",true],\"gone\":\"x\"}");
+    stage.processDocument(doc);
+
+    assertFalse(doc.isMultiValued("status"));
+    assertEquals("active", doc.getString("status"));
+    assertEquals(Integer.valueOf(5), doc.getInt("count"));
+    assertTrue(doc.getJsonList("tags").get(0).isInt());
+    assertTrue(doc.getJsonList("tags").get(1).isBoolean());
+    assertEquals(2, doc.getJsonList("tags").size());
+    assertFalse(doc.has("gone"));
   }
 }

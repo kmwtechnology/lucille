@@ -123,7 +123,9 @@ public class ApplyJSoup extends Stage {
 
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
-    if (!doc.has(activeField)) {
+    // check the first value, which is what gets parsed; hasNonNull passes for [null, ...]
+    boolean missing = inputType == InputType.BYTE ? doc.getBytes(activeField) == null : doc.getString(activeField) == null;
+    if (missing) {
       return null;
     }
 

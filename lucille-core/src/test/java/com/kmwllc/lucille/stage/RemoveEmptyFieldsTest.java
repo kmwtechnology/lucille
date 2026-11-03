@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.Map;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -29,5 +30,16 @@ public class RemoveEmptyFieldsTest {
   public void testSpec() throws StageException {
     Stage stage = factory.get("RemoveEmptyFieldsTest/config.conf");
     assertEquals(Set.of(), stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testEmptinessRules() throws Exception {
+    Stage stage = factory.get(Map.of());
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"a\":\"\",\"b\":null,\"c\":[],\"d\":[null,\"\"],"
+        + "\"e\":[\"\",\"x\"],\"f\":{},\"g\":{\"k\":1},\"h\":\" \"}");
+    doc.addChild(Document.create("child"));
+    stage.processDocument(doc);
+
+    assertEquals(Set.of("id", "e", "f", "g", "h", Document.CHILDREN_FIELD), doc.getFieldNames());
   }
 }

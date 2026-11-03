@@ -7,7 +7,7 @@ description: Copies source fields to one or more destination fields.
 
 `com.kmwllc.lucille.stage.CopyFields`
 
-Copies the values of each source field in `fieldMapping` to its destination field or fields. Source fields missing from a Document are skipped. Values are copied as strings, unless `isNested` is `true`.
+Copies the values of each source field in `fieldMapping` to its destination field or fields. Source fields missing from a Document are skipped. Values are copied with their JSON types, so numbers, booleans and objects stay as they are. Each value of a multi-valued field is copied as one value of the destination, so a one-element list is written as a single value, and an empty list writes nothing.
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|

@@ -846,4 +846,24 @@ public abstract class ExtractEntitiesTest {
 
     assertEquals(List.of("Hit"), doc.getStringList("output"));
   }
+
+  @Test
+  public void testNullValues() throws Exception {
+    String config = """
+        {
+          source = ["input1"]
+          dest = ["output"]
+          dictionaries = ["classpath:ExtractEntitiesTest/startOfString.dict"]
+        }
+        """;
+    Stage stage = newStage(config);
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"input1\":null}");
+    stage.processDocument(doc);
+    assertFalse(doc.has("output"));
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"input1\":[null,\"United States is large\"]}");
+    stage.processDocument(mixed);
+    assertEquals(List.of("North America"), mixed.getStringList("output"));
+  }
 }

@@ -130,11 +130,12 @@ public class DictionaryLookup extends Stage {
         }
 
         boolean currentValue = false;
-        if (!doc.has(sourceField)) {
+        List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+        if (values.isEmpty()) {
           // if ignoreMissingSource is true, set the destination field to true if the source field is missing
           currentValue = ignoreMissingSource;
         } else {
-          Stream<String> sourceStream = doc.getStringList(sourceField).stream()
+          Stream<String> sourceStream = values.stream()
               .map(ignoreCase ? String::toLowerCase : String::toString);
 
           if (useAnyMatch) {
@@ -151,12 +152,13 @@ public class DictionaryLookup extends Stage {
         doc.update(destField, updateMode, defaultValue && currentValue);
       } else {
 
-        if (!doc.has(sourceField)) {
+        List<String> values = StageUtils.getNonNullStrings(doc, sourceField);
+        if (values.isEmpty()) {
           continue;
         }
 
         List<String> outputValues = new ArrayList<>();
-        for (String value : doc.getStringList(sourceField)) {
+        for (String value : values) {
           if (ignoreCase) {
             value = value.toLowerCase();
           }

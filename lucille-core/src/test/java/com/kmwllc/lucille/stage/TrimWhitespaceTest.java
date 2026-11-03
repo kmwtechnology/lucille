@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.stage;
 
+import java.util.List;
+import java.util.Map;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
@@ -9,6 +11,7 @@ import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class TrimWhitespaceTest {
 
@@ -46,5 +49,18 @@ public class TrimWhitespaceTest {
   public void testSpec() throws StageException {
     Stage stage = factory.get("TrimWhitespaceTest/config.conf");
     assertEquals(Set.of("fields"), stage.getNonDefaultLegalProperties());
+  }
+
+  @Test
+  public void testNullValues() throws Exception {
+    Stage stage = factory.get(Map.of("fields", List.of("f")));
+
+    Document doc = Document.createFromJson("{\"id\":\"1\",\"f\":null}");
+    stage.processDocument(doc);
+    assertTrue(doc.getJson("f").isNull());
+
+    Document mixed = Document.createFromJson("{\"id\":\"1\",\"f\":[null,\"Hi There\"]}");
+    stage.processDocument(mixed);
+    assertEquals(List.of("Hi There"), mixed.getStringList("f"));
   }
 }

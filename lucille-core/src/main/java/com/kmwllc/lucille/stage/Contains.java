@@ -5,6 +5,7 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.util.StageUtils;
 import com.kmwllc.lucille.core.StageException;
 import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
@@ -87,11 +88,7 @@ public class Contains extends Stage {
   @Override
   public Iterator<Document> processDocument(Document doc) throws StageException {
     for (String field : fields) {
-      if (!doc.has(field)) {
-        continue;
-      }
-
-      List<String> values = doc.getStringList(field);
+      List<String> values = StageUtils.getNonNullStrings(doc, field);
       for (String value : values) {
         if (trie.containsMatch(value)) {
           doc.update(output, UpdateMode.DEFAULT, this.value);

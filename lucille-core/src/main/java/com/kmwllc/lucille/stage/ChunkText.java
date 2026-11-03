@@ -244,6 +244,12 @@ public class ChunkText extends Stage {
     }
 
     int chunkLength = chunks.length;
+    // every window would start inside the overlap, so the size formula below gives zero or a negative result; the whole
+    // text is one chunk
+    if (chunkLength <= chunksToOverlap) {
+      return new String[] {String.join(" ", chunks).trim()};
+    }
+
     int stepSize = chunksToMerge - chunksToOverlap;;
     int endIndex = chunkLength - chunksToOverlap;
     int resultSize = (endIndex - 1) / stepSize + 1;

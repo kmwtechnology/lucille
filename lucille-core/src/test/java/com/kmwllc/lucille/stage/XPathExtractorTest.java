@@ -1,5 +1,9 @@
 package com.kmwllc.lucille.stage;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import static org.junit.Assert.assertFalse;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
@@ -146,6 +150,33 @@ public class XPathExtractorTest {
   @Test
   public void testSpec() throws StageException {
     Stage stage = factory.get("XPathExtractorTest/config.conf");
-    assertEquals(Set.of("xmlField", "fieldMapping"), stage.getNonDefaultLegalProperties());
+    assertEquals(Set.of("xmlField", "fieldMapping", "allowDoctype"), stage.getNonDefaultLegalProperties());
+  }
+
+  private Document extract(boolean allowDoctype, String xml) throws Exception {
+    Map<String, Object> config = new HashMap<>();
+    config.put("fieldMapping", Map.of("\"/r/v\"", List.of("out")));
+    config.put("allowDoctype", allowDoctype);
+    Document doc = Document.create("doc");
+    doc.setField("xml", xml);
+    factory.get(config).processDocument(doc);
+    return doc;
+  }
+
+  @Test
+  public void testDoctypeAndExternalEntities() throws Exception {
+    Path secret = Files.createTempFile("xpath-xxe", ".txt");
+    secret.toFile().deleteOnExit();
+    Files.writeString(secret, "secret-contents");
+    String external = "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x SYSTEM \"" + secret.toUri() + "\">]><r><v>&x;</v></r>";
+    String internal = "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY c \"internal\">]><r><v>&c;</v></r>";
+
+    // a DOCTYPE is rejected by default
+    assertFalse(extract(false, external).has("out"));
+    assertFalse(extract(false, internal).has("out"));
+
+    // allowDoctype accepts internal entities but never loads external ones
+    assertEquals(List.of(""), extract(true, external).getStringList("out"));
+    assertEquals(List.of("internal"), extract(true, internal).getStringList("out"));
   }
 }
