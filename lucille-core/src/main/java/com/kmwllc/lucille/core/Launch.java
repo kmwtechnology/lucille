@@ -88,7 +88,7 @@ public final class Launch {
         Runner.renderConfig(config);
       }
       if (cli.hasOption("validate")) {
-        Runner.runInValidationMode(config);
+        ConfigValidator.validate(config);
       }
       return;
     }

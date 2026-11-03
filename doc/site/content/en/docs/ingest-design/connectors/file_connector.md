@@ -564,35 +564,32 @@ The `FileConnector` SPEC demonstrates how to declare a complex, nested configura
 public static final Spec SPEC = SpecBuilder.connector()
     .requiredList("paths", new TypeReference<List<String>>(){})
     .optionalNumber("maxThreads")
-    .optionalParent(
-        SpecBuilder.parent("filterOptions")
-            .optionalList("includes", new TypeReference<List<String>>(){})
-            .optionalList("excludes", new TypeReference<List<String>>(){})
-            .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
-            .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode")
-            .optionalBoolean("sendTombstones").build(),
-        SpecBuilder.parent("fileOptions")
-            .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
-            .optionalNumber("maxSizeBytes")
-            .optionalString("moveToAfterProcessing", "moveToErrorFolder").build(),
-        SpecBuilder.parent("state")
-            .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
-            .optionalBoolean("performDeletions", "enabled")
-            .optionalNumber("pathLength", "runsBeforeExpiration").build(),
-        GCP_PARENT_SPEC,
-        AZURE_PARENT_SPEC,
-        S3_PARENT_SPEC)
+    .optionalParent("filterOptions", SpecBuilder.withoutDefaults()
+        .optionalList("includes", new TypeReference<List<String>>(){})
+        .optionalList("excludes", new TypeReference<List<String>>(){})
+        .optionalList("pathsToSkip", new TypeReference<List<String>>(){})
+        .optionalString("lastModifiedCutoff", "lastPublishedCutoff", "publishMode")
+        .optionalBoolean("sendTombstones").build())
+    .optionalParent("fileOptions", SpecBuilder.withoutDefaults()
+        .optionalBoolean("getFileContent", "handleArchivedFiles", "handleCompressedFiles")
+        .optionalNumber("maxSizeBytes")
+        .optionalString("moveToAfterProcessing", "moveToErrorFolder").build())
+    .optionalParent("state", SpecBuilder.withoutDefaults()
+        .optionalString("driver", "connectionString", "jdbcUser", "jdbcPassword", "tableName")
+        .optionalBoolean("performDeletions", "enabled")
+        .optionalNumber("pathLength", "runsBeforeExpiration").build())
+    .include(STORAGE_SPEC)
     .optionalParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){}).build();
 ```
 
-Key patterns: `SpecBuilder.connector()` provides base properties; nested `SpecBuilder.parent(...)` blocks define each optional config section; cloud provider specs are defined as reusable constants; `fileHandlers` uses a `TypeReference` because its structure is dynamic (keys are file extensions).
+Key patterns: `SpecBuilder.connector()` provides base properties; `optionalParent(key, spec)` defines each optional config section; the cloud provider blocks and `storageClients` come from `STORAGE_SPEC`, which the stages that read files include too; `fileHandlers` uses a `TypeReference` because its structure is dynamic (keys are file extensions).
 
 ### Reusable Patterns for Other Complex Connectors
 
 1. **StorageClient pattern** — abstract the data source behind an interface; select implementation by URI scheme or config key.
 2. **Deferred initialisation** — don't open connections in the constructor; do it in `execute()`.
 3. **Constraint validation early** — check for incompatible config combinations (e.g., multiple paths + `moveToAfterProcessing`) in the constructor so failures surface before any traversal begins.
-4. **Nested SPEC declarations** — group related config into `parent` blocks; define cloud provider specs as reusable constants shared across connectors.
+4. **Nested SPEC declarations** — group related config into parent blocks; share a group of parents across components by putting them in one Spec and adding it with `include()`.
 5. **JDBC-backed state** — make state optional; check `config.hasPath("state")` before constructing the state manager.
 6. **Filter pipeline** — layer multiple filter criteria (regex, time-based, state-based) with a clear evaluation order.
 7. **Tombstone generation** — detect deletions by comparing the current file set to the previous state snapshot; mark documents with a field the Indexer can act on.

@@ -8,18 +8,16 @@ import com.typesafe.config.Config;
 /**
  * A property in a Config. Properties have a certain type, a name, and are either required or optional.
  */
-public abstract class Property {
+abstract class Property {
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
 
   protected final String name;
   protected final boolean required;
-  protected final String description;
 
-  public Property(String name, boolean required, String description) {
+  public Property(String name, boolean required) {
     this.name = name;
     this.required = required;
-    this.description = description;
   }
 
   public String getName() { return name; }
@@ -43,25 +41,14 @@ public abstract class Property {
   }
 
   /**
-   * @return A description describing the purpose of this property. Will be null if no description was provided.
-   */
-  public String getDescription() {
-    return description;
-  }
-
-  /**
    * Return a JsonNode describing this property. Includes <code>name</code>, the name of the field, <code>required</code>, whether it
-   * is required, <code>description</code>, if it has one, and <code>type</code>, the type of the field.
+   * is required, and <code>type</code>, the type of the field.
    */
   public JsonNode json() {
     ObjectNode node = MAPPER.createObjectNode();
 
     node.put("name", name);
     node.put("required", required);
-
-    if (description != null) {
-      node.put("description", description);
-    }
 
     node.set("type", typeJson());
 

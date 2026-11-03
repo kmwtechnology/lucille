@@ -15,12 +15,12 @@ public class ObjectPropertyTest {
 
   @Test
   public void testParentValidation() {
-    Spec filterOptionsSpec = SpecBuilder.parent("filterOptions")
+    Spec filterOptionsSpec = SpecBuilder.withoutDefaults()
         .optionalList("includes", new TypeReference<List<String>>(){})
         .optionalList("excludes", new TypeReference<List<String>>(){})
         .optionalString("lastModifiedCutoff").build();
 
-    Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
+    Property parentProperty = new ObjectProperty("filterOptions", true, filterOptionsSpec);
 
     Config filterOptions = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ObjectProperty/filterOptions.conf");
     parentProperty.validate(filterOptions);
@@ -28,7 +28,7 @@ public class ObjectPropertyTest {
     Config badFilterOptions = ConfigFactory.parseResourcesAnySyntax("PropertyTest/ObjectProperty/badFilterOptions.conf");
     assertThrows(IllegalArgumentException.class, () -> parentProperty.validate(badFilterOptions));
 
-    Property fieldParentProperty = new ObjectProperty(filterOptionsSpec, true);
+    Property fieldParentProperty = new ObjectProperty("filterOptions", true, filterOptionsSpec);
     Config badType = ConfigFactory.parseResourcesAnySyntax("PropertyTest/boolean.conf");
     assertThrows(IllegalArgumentException.class, () -> fieldParentProperty.validate(badType));
   }
@@ -58,12 +58,12 @@ public class ObjectPropertyTest {
   @Test
   public void testTypeJson() {
     // 1. an ObjectProperty w/ a ParentSpec
-    Spec filterOptionsSpec = SpecBuilder.parent("filterOptions")
+    Spec filterOptionsSpec = SpecBuilder.withoutDefaults()
         .optionalList("includes", new TypeReference<List<String>>(){})
         .optionalList("excludes", new TypeReference<List<String>>(){})
         .optionalString("lastModifiedCutoff").build();
 
-    Property parentProperty = new ObjectProperty(filterOptionsSpec, true);
+    Property parentProperty = new ObjectProperty("filterOptions", true, filterOptionsSpec);
 
     JsonNode typeNode = parentProperty.typeJson();
     assertEquals("OBJECT", typeNode.get("type").asText());

@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.test;
 
-import com.kmwllc.lucille.core.Runner;
+import com.kmwllc.lucille.core.ConfigValidator;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.nio.file.Files;
@@ -32,7 +32,7 @@ public class ConfigValidationUtils {
         }
         // run the config and gather exceptions
         Config config = ConfigFactory.parseFile(configPath.toFile());
-        Map<String, List<Exception>> exceptions = Runner.runInValidationMode(config);
+        Map<String, List<Exception>> exceptions = ConfigValidator.validate(config);
 
         for (Map.Entry<String, List<Exception>> entry : exceptions.entrySet()) {
           if (!entry.getValue().isEmpty()) {
