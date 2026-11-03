@@ -17,7 +17,11 @@
   <name>Lucille Plugins: Lucille Parquet</name>
 
   <properties>
-    <lucille.module.name>com.kmwllc.lucille.parquet</lucille.module.name>
+    <!-- Intentionally NO Automatic-Module-Name for this module (see the maven-jar-plugin override below).
+         Hadoop pulls hadoop-shaded-protobuf_3_25, whose derived automatic module name contains "3.25" ("3" is
+         not a valid Java identifier). Giving this jar a module name flips maven-javadoc-plugin into module mode,
+         where that dependency fails the javadoc build ("Invalid module name: '3' is not a Java identifier").
+         Omit the module name rather than ship one that can't form a valid module graph. -->
   </properties>
 
   <dependencies>
@@ -72,6 +76,18 @@
 
   <build>
     <plugins>
+      <!-- Suppress the inherited Automatic-Module-Name (see the properties note above): an empty
+           manifestEntries with combine.self=override drops the parent's entry so this jar has no module name,
+           keeping maven-javadoc-plugin in classpath mode. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifestEntries combine.self="override"/>
+          </archive>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
