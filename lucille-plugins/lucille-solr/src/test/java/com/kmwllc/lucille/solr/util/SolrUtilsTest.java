@@ -1,0 +1,228 @@
+package com.kmwllc.lucille.solr.util;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+
+import com.typesafe.config.ConfigValueFactory;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.CloudSolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
+import org.apache.solr.client.solrj.io.Tuple;
+import org.junit.Test;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.DocumentException;
+import com.kmwllc.lucille.core.spec.Spec;
+import com.kmwllc.lucille.solr.indexer.SolrIndexer;
+import com.kmwllc.lucille.util.FileContentFetcher;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SolrUtilsTest {
+
+  private static final Logger log = LoggerFactory.getLogger(SolrUtilsTest.class);
+
+  @Test
+  public void requireAuthTest() throws Exception {
+    Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:SolrUtilsTest/auth.conf"));
+    assertTrue(SolrUtils.requiresAuth(config));
+  }
+
+  @Test
+  public void getHttpClientAndSetCheckPeerNameTest() throws Exception {
+    Config config = ConfigFactory.parseReader(FileContentFetcher.getOneTimeReader("classpath:SolrUtilsTest/auth.conf"));
+    HttpJdkSolrClient client = SolrUtils.getHttpClientAndSetCheckPeerName(config);
+    // would like to inspect the solr client to confirm credentials are configured, but can’t do that so just checking it’s non-null
+    assertNotNull(client);
+    client.close();
+  }
+
+  @Test
+  public void testToDocumentNullIdIsDocumentException() {
+    // the id comes from data, so a null one is a DocumentException, as for a missing id, not the factory's
+    // IllegalArgumentException
+    Tuple nullId = new Tuple();
+    nullId.put(Document.ID_FIELD, null);
+    assertThrows(DocumentException.class, () -> SolrUtils.toDocument(nullId));
+
+    Tuple blankId = new Tuple();
+    blankId.put(Document.ID_FIELD, "   ");
+    assertThrows(DocumentException.class, () -> SolrUtils.toDocument(blankId));
+  }
+
+  @Test
+  public void testToDocument() throws DocumentException {
+    Tuple noId = new Tuple();
+
+    assertThrows(DocumentException.class, () -> {
+      SolrUtils.toDocument(noId);
+    });
+
+    Tuple justId = new Tuple(Document.ID_FIELD, "foo");
+    Tuple longTuple = new Tuple(Document.ID_FIELD, "foo1", "long", 1L);
+    Tuple doubleTuple = new Tuple(Document.ID_FIELD, "foo2", "double", 2.0);
+    Tuple booleanTuple = new Tuple(Document.ID_FIELD, "foo3", "boolean", true);
+    Tuple stringTuple = new Tuple(Document.ID_FIELD, "foo4", "string", "bar");
+    Tuple longListTuple = new Tuple(Document.ID_FIELD, "foo5", "longList", List.of(1L, 2L));
+    Tuple doubleListTuple = new Tuple(Document.ID_FIELD, "foo6", "doubleList", List.of(3.0, 4.0));
+    Tuple booleanListTuple = new Tuple(Document.ID_FIELD, "foo7", "booleanList", List.of(false, true));
+    Tuple stringListTuple = new Tuple(Document.ID_FIELD, "foo8", "stringList", List.of("foo", "bar"));
+    Tuple mapTuple = new Tuple(Document.ID_FIELD, "foo9", "map", new HashMap<>());
+    Tuple mixedTuple = new Tuple(Document.ID_FIELD, "foo9", "mixed", List.of(1, "string"));
+    Tuple unsupportedList = new Tuple(Document.ID_FIELD, "foo9", "bad", List.of(new HashMap<>()));
+    Tuple emptyList = new Tuple(Document.ID_FIELD, "foo9", "empty", List.of());
+    Tuple stringArray = new Tuple(Document.ID_FIELD, "foo10", "stringArray", new String[] {"one", "two"});
+
+    Document justIdDoc = SolrUtils.toDocument(justId);
+    Document longTupleDoc = SolrUtils.toDocument(longTuple);
+    Document doubleTupleDoc = SolrUtils.toDocument(doubleTuple);
+    Document booleanTupleDoc = SolrUtils.toDocument(booleanTuple);
+    Document stringTupleDoc = SolrUtils.toDocument(stringTuple);
+    Document longListTupleDoc = SolrUtils.toDocument(longListTuple);
+    Document doubleListTupleDoc = SolrUtils.toDocument(doubleListTuple);
+    Document booleanListTupleDoc = SolrUtils.toDocument(booleanListTuple);
+    Document stringListTupleDoc = SolrUtils.toDocument(stringListTuple);
+    Document emptyListDoc = SolrUtils.toDocument(emptyList);
+    Document stringArrayDoc = SolrUtils.toDocument(stringArray);
+    Document mixedListDoc = SolrUtils.toDocument(mixedTuple);
+
+    assertThrows(DocumentException.class, () -> {
+      SolrUtils.toDocument(mapTuple);
+    });
+    assertThrows(DocumentException.class, () -> {
+      SolrUtils.toDocument(unsupportedList);
+    });
+
+    assertEquals(1, justIdDoc.getFieldNames().size());
+    assertEquals("foo", justIdDoc.getString(Document.ID_FIELD));
+
+    assertEquals(2, longTupleDoc.getFieldNames().size());
+    assertEquals("foo1", longTupleDoc.getString(Document.ID_FIELD));
+    assertEquals((Long) 1L, longTupleDoc.getLong("long"));
+
+    assertEquals(2, doubleTupleDoc.getFieldNames().size());
+    assertEquals("foo2", doubleTupleDoc.getString(Document.ID_FIELD));
+    assertEquals((Double) 2.0, doubleTupleDoc.getDouble("double"));
+
+    assertEquals(2, booleanTupleDoc.getFieldNames().size());
+    assertEquals("foo3", booleanTupleDoc.getString(Document.ID_FIELD));
+    assertEquals(true, booleanTupleDoc.getBoolean("boolean"));
+
+    assertEquals(2, stringTupleDoc.getFieldNames().size());
+    assertEquals("foo4", stringTupleDoc.getString(Document.ID_FIELD));
+    assertEquals("bar", stringTupleDoc.getString("string"));
+
+    assertEquals(2, longListTupleDoc.getFieldNames().size());
+    assertEquals("foo5", longListTupleDoc.getString(Document.ID_FIELD));
+    assertEquals(List.of(1L, 2L), longListTupleDoc.getLongList("longList"));
+
+    assertEquals(2, doubleListTupleDoc.getFieldNames().size());
+    assertEquals("foo6", doubleListTupleDoc.getString(Document.ID_FIELD));
+    assertEquals(List.of(3.0, 4.0), doubleListTupleDoc.getDoubleList("doubleList"));
+
+    assertEquals(2, booleanListTupleDoc.getFieldNames().size());
+    assertEquals("foo7", booleanListTupleDoc.getString(Document.ID_FIELD));
+    assertEquals(List.of(false, true), booleanListTupleDoc.getBooleanList("booleanList"));
+
+    assertEquals(2, stringListTupleDoc.getFieldNames().size());
+    assertEquals("foo8", stringListTupleDoc.getString(Document.ID_FIELD));
+    assertEquals(List.of("foo", "bar"), stringListTupleDoc.getStringList("stringList"));
+
+    assertEquals(1, emptyListDoc.getFieldNames().size());
+    assertEquals("foo9", emptyListDoc.getString(Document.ID_FIELD));
+
+    assertEquals(2, stringArrayDoc.getFieldNames().size());
+    assertEquals("foo10", stringArrayDoc.getString(Document.ID_FIELD));
+    assertEquals(List.of("one", "two"), stringArrayDoc.getStringList("stringArray"));
+
+    assertEquals(2, mixedListDoc.getFieldNames().size());
+    assertEquals("foo9", mixedListDoc.getString(Document.ID_FIELD));
+    assertEquals(List.of("1", "string"), mixedListDoc.getStringList("mixed"));
+  }
+
+  @Test
+  public void testClientInstance() throws IOException {
+    Config httpConfig = ConfigFactory.empty()
+        .withValue("solr.url", ConfigValueFactory.fromAnyRef("localhost:8983/solr"));
+
+    Config httpConfigWithFalseCloud = ConfigFactory.empty()
+        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(false))
+        .withValue("solr.url", ConfigValueFactory.fromAnyRef("localhost:8983/solr"));
+
+    Config cloudConfig = ConfigFactory.empty()
+        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
+        .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")));
+
+    Config cloudConfigWithZkChroot = ConfigFactory.empty()
+        .withValue("solr.useCloudClient", ConfigValueFactory.fromAnyRef(true))
+        .withValue("solr.zkHosts", ConfigValueFactory.fromAnyRef(List.of("localhost:2181")))
+        .withValue("solr.zkChroot", ConfigValueFactory.fromAnyRef("/solr_chroot"));
+
+    try (
+        SolrClient httpClient = SolrUtils.getSolrClient(httpConfig);
+        SolrClient httpClientWithFalseCloud = SolrUtils.getSolrClient(httpConfigWithFalseCloud);
+        SolrClient cloudClient = SolrUtils.getSolrClient(cloudConfig);
+        SolrClient cloudClientWithChroot = SolrUtils.getSolrClient(cloudConfigWithZkChroot)
+    ) {
+      assertTrue(httpClient instanceof HttpJdkSolrClient);
+      assertTrue(httpClientWithFalseCloud instanceof HttpJdkSolrClient);
+      assertTrue(cloudClient instanceof CloudSolrClient);
+      assertTrue(cloudClientWithChroot instanceof CloudSolrClient);
+    }
+  }
+
+  @Test
+  public void testUrlMayBeStringOrList() {
+    Config single = ConfigFactory.parseString("solr { url: \"http://a:8983/solr\" }");
+    Config multiple = ConfigFactory.parseString("solr { url: [\"http://a:8983/solr\", \"http://b:8983/solr\"] }");
+    Config empty = ConfigFactory.parseString("solr { url: [] }");
+
+    for (Spec spec : List.of(SolrUtils.SOLR_PARENT_SPEC, SolrIndexer.SPEC)) {
+      spec.validate(single.getConfig("solr"), "solr");
+      spec.validate(multiple.getConfig("solr"), "solr");
+      assertThrows(IllegalArgumentException.class, () -> spec.validate(empty.getConfig("solr"), "solr"));
+    }
+  }
+
+  @Test
+  public void testCloudClientFromSingleUrl() throws IOException {
+    Config config = ConfigFactory.parseString("solr { useCloudClient: true, url: \"http://localhost:8983/solr\" }");
+
+    try (SolrClient client = SolrUtils.getSolrClient(config)) {
+      assertTrue(client instanceof CloudSolrClient);
+    }
+  }
+
+  @Test
+  public void testRequiresAuth() {
+    Config hasBoth = ConfigFactory.parseMap(Map.of(
+        "solr", Map.of(
+            "userName", "jake",
+            "password", "jake12345"
+        )
+    ));
+
+    Config hasUser = ConfigFactory.parseMap(Map.of(
+        "solr", Map.of("userName", "jake")
+    ));
+
+    Config hasPass = ConfigFactory.parseMap(Map.of(
+        "solr", Map.of("password", "jake12345")
+    ));
+
+    Config hasNone = ConfigFactory.parseMap(Map.of("solr", Map.of()));
+
+    assertTrue(SolrUtils.requiresAuth(hasBoth));
+    assertFalse(SolrUtils.requiresAuth(hasUser));
+    assertFalse(SolrUtils.requiresAuth(hasPass));
+    assertFalse(SolrUtils.requiresAuth(hasNone));
+  }
+}

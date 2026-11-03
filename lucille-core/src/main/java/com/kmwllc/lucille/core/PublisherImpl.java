@@ -52,11 +52,11 @@ public class PublisherImpl implements Publisher {
   private final int logSeconds;
 
   // the number of times a call to publish() was completed across all publishing threads
-  private AtomicLong numReceived = new AtomicLong(0);
+  private final AtomicLong numReceived = new AtomicLong(0);
 
   // the actual number of documents sent for processing, which may be smaller
   // than the number of calls to publish() if isCollapsing==true
-  private AtomicLong numPublished = new AtomicLong(0);
+  private final AtomicLong numPublished = new AtomicLong(0);
 
   private long numCreated = 0;
   private long numFailed = 0;
@@ -224,7 +224,7 @@ public class PublisherImpl implements Publisher {
       synchronized (this) {
         if (firstDocStopWatch != null) {
           firstDocStopWatch.stop();
-          log.info("First doc published after " + firstDocStopWatch.getTime(TimeUnit.MILLISECONDS) + " ms");
+          log.info("First doc published after {} ms", firstDocStopWatch.getTime(TimeUnit.MILLISECONDS));
           firstDocStopWatch = null;
         }
       }
@@ -417,14 +417,14 @@ public class PublisherImpl implements Publisher {
       }
 
       if (timeout > 0 && ChronoUnit.MILLIS.between(start, Instant.now()) > timeout) {
-        log.error("Exiting run with " + numPending() + " pending documents; connector timed out (" + timeout + "ms)");
+        log.error("Exiting run with {} pending documents; connector timed out ({}ms)", numPending(), timeout);
         return new PublisherResult(false, "Connector timeout.");
       }
 
       // stop waiting if the connector threw an exception, or another component aborted it (for example a worker died)
       if (thread.isFailed()) {
         String message = thread.getFailureMessage() != null ? thread.getFailureMessage() : "Connector exception.";
-        log.error("Exiting run with " + numPending() + " pending documents; " + message, thread.getThrowable());
+        log.error("Exiting run with {} pending documents; {}", numPending(), message, thread.getThrowable());
         return new PublisherResult(false, message);
       }
 
@@ -454,7 +454,7 @@ public class PublisherImpl implements Publisher {
           log.info("All documents SUCCEEDED.");
         }
         if (numFailed > 0) {
-          log.error(numFailed + " documents FAILED, but run will continue.");
+          log.error("{} documents FAILED, but run will continue.", numFailed);
         }
         return new PublisherResult(!thread.isFailed(), null);
       }

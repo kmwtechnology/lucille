@@ -15,6 +15,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.zone.ZoneRulesException;
+import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
@@ -83,7 +84,7 @@ public class ParseDateTest {
   public void testParseDateWithTimeZone() throws StageException {
 
     // create a test config without a time zone
-    HashMap<String,Object> configValues = new HashMap<>();
+    Map<String,Object> configValues = new HashMap<>();
     configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
     configValues.put("source", List.of("date"));
     configValues.put("dest", List.of("output"));
@@ -120,7 +121,7 @@ public class ParseDateTest {
 
   @Test
   public void testParseDateWithTime() throws StageException {
-    HashMap<String,Object> configValues = new HashMap<>();
+    Map<String,Object> configValues = new HashMap<>();
     configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
     configValues.put("source", List.of("date"));
     configValues.put("dest", List.of("output"));
@@ -144,7 +145,7 @@ public class ParseDateTest {
     for (String zoneIdStr: ZoneId.getAvailableZoneIds()) {
 
       // create a ParseDate stage with the given timeZoneId specified in the config
-      HashMap<String, Object> configValues = new HashMap<>();
+      Map<String, Object> configValues = new HashMap<>();
       configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
       configValues.put("source", List.of("date"));
       configValues.put("dest", List.of("output"));
@@ -184,7 +185,7 @@ public class ParseDateTest {
 
   @Test
   public void testFormatStringOrder() throws StageException {
-    HashMap<String,Object> configValues = new HashMap<>();
+    Map<String,Object> configValues = new HashMap<>();
     configValues.put("class", "com.kmwllc.lucille.stage.ParseDate");
     configValues.put("source", List.of("date1", "date2"));
     configValues.put("dest", List.of("output1", "output2"));

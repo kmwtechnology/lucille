@@ -3,7 +3,9 @@ package com.kmwllc.lucille.core;
 import static com.kmwllc.lucille.core.Document.ID_FIELD;
 import static com.kmwllc.lucille.core.Document.RUNID_FIELD;
 
-import com.codahale.metrics.*;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.message.HybridWorkerMessenger;
@@ -18,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.lang.reflect.InvocationTargetException;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicReference;
@@ -48,7 +51,8 @@ class Worker implements Runnable {
   public static final Spec SPEC = SpecBuilder.withoutDefaults()
       .optionalString("pipeline")
       .optionalNumber("threads", "maxProcessingSecs", "maxRetries")
-      .optionalBoolean("exitOnTimeout", "enableHeartbeat").build();
+      .optionalBoolean("exitOnTimeout", "enableHeartbeat")
+      .optionalParent(SpecBuilder.parent("retryCounter").optionalString("class").build()).build();
 
   public static final String METRICS_SUFFIX = ".worker.docProcessingTme";
 
@@ -86,9 +90,10 @@ class Worker implements Runnable {
       // retries are redeliveries of a Kafka record; a local messenger never redelivers, so a counter would only cost a
       // ZooKeeper connection per worker thread
       if (messenger instanceof KafkaWorkerMessenger || messenger instanceof HybridWorkerMessenger) {
-        log.info("Retries will be tracked in Zookeeper with a configured maximum of: " + config.getInt("worker.maxRetries"));
+        this.counter = createRetryCounter(config);
+        log.info("Retries will be tracked by {} with a configured maximum of: {}",
+            counter.getClass().getName(), config.getInt("worker.maxRetries"));
         this.trackRetries = true;
-        this.counter = new ZKRetryCounter(config);
       } else {
         log.warn("worker.maxRetries is set but retries are only tracked for Kafka messengers; ignoring it.");
       }
@@ -107,6 +112,45 @@ class Worker implements Runnable {
     this(config, messenger, localRunId, pipelineName, metricsPrefix);
     this.counter = counter;
     this.trackRetries = counter != null;
+  }
+
+  /**
+   * Creates the RetryCounter named by worker.retryCounter.class, or a ZKRetryCounter when that setting is absent.
+   * The named class must implement RetryCounter and have a public constructor that takes a Config; it is
+   * given the full config.
+   *
+   * @param config The full Lucille config.
+   * @return The RetryCounter to use for tracking retries.
+   * @throws IllegalArgumentException If the class can't be found, doesn't implement RetryCounter, or has no Config constructor.
+   */
+  static RetryCounter createRetryCounter(Config config) {
+    if (!config.hasPath("worker.retryCounter.class")) {
+      return new ZKRetryCounter(config);
+    }
+
+    String className = config.getString("worker.retryCounter.class");
+    Class<?> clazz;
+    try {
+      clazz = Class.forName(className);
+    } catch (ClassNotFoundException e) {
+      throw new IllegalArgumentException("worker.retryCounter.class: could not find class " + className, e);
+    }
+
+    if (!RetryCounter.class.isAssignableFrom(clazz)) {
+      throw new IllegalArgumentException("worker.retryCounter.class: " + className + " does not implement "
+          + RetryCounter.class.getName());
+    }
+
+    try {
+      return (RetryCounter) clazz.getConstructor(Config.class).newInstance(config);
+    } catch (NoSuchMethodException e) {
+      throw new IllegalArgumentException("worker.retryCounter.class: " + className
+          + " must have a public constructor that takes a Config", e);
+    } catch (InvocationTargetException e) {
+      throw new IllegalStateException("Could not create RetryCounter of type " + className, e.getCause());
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("Could not create RetryCounter of type " + className, e);
+    }
   }
 
   @Override
@@ -180,8 +224,8 @@ class Worker implements Runnable {
       failure = t;
       commitOnExit = false;
       log.error("Worker stopping after a fatal error", t);
-      if (t instanceof Error) {
-        rethrow = (Error) t;
+      if (t instanceof Error error) {
+        rethrow = error;
       }
     } finally {
       // This thread is about to end, so an interrupt (for example from the pool's exitOnTimeout watcher) has done its
@@ -245,7 +289,7 @@ class Worker implements Runnable {
       }
       docLogger.error("Document {} could not be sent to the dead letter queue.", doc.getId(), e);
     }
-    messenger.sendEvent(doc, "SENT_TO_DLQ", Event.Type.FAIL);
+    messenger.sendEvent(doc, Event.WORKER_MAX_RETRIES_EXCEEDED, Event.Type.FAIL);
   }
 
   /**
@@ -314,13 +358,14 @@ class Worker implements Runnable {
   private void failDocument(Document doc, Document announcedChild, Throwable cause) throws MessengerException {
     docLogger.error("Document FAILED during pipeline processing: {}", doc.getId(), cause);
     failedDocLogger.atError().setMessage(() -> doc.toString()).log();
+    String reason = Event.failureMessage(cause);
     if (announcedChild != null) {
       Document child = announcedChild;
       docLogger.error("Child document {} of {} FAILED: its parent failed after the child was announced.", child.getId(),
           doc.getId());
-      messenger.sendEvent(child, null, Event.Type.FAIL);
+      messenger.sendEvent(child, "parent " + doc.getId() + " failed: " + reason, Event.Type.FAIL);
     }
-    messenger.sendEvent(doc, null, Event.Type.FAIL);
+    messenger.sendEvent(doc, reason, Event.Type.FAIL);
   }
 
   public void logMetrics() {

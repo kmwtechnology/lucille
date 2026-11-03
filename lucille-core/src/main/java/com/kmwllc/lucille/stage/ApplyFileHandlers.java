@@ -8,8 +8,8 @@ import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
-import com.kmwllc.lucille.core.fileHandler.FileHandlerException;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandlerException;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.typesafe.config.Config;
 import java.io.ByteArrayInputStream;
@@ -46,6 +46,8 @@ import org.apache.commons.io.FilenameUtils;
  *   See FileConnector for necessary arguments.</li>
  *   <li>azure (Map, Optional) : options for handling Azure files. Include if you are going to process documents with the filePathField set to an Azure URI.
  *   See FileConnector for necessary arguments.</li>
+ *   <li>storageClients (Map, Optional) : custom StorageClients, keyed by URI scheme. Include if you are going to process documents with
+ *   the filePathField set to a URI with one of those schemes. See FileConnector for necessary arguments.</li>
  * </ul>
  */
 public class ApplyFileHandlers extends Stage {
@@ -53,6 +55,7 @@ public class ApplyFileHandlers extends Stage {
   public static final Spec SPEC = SpecBuilder.stage()
       .requiredParent("fileHandlers", new TypeReference<Map<String, Map<String, Object>>>(){})
       .optionalParent(FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC, FileConnector.S3_PARENT_SPEC)
+      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
       .optionalString("filePathField", "fileContentField").build();
 
   private final Config fileHandlersConfig;

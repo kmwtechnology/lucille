@@ -245,28 +245,28 @@ public interface Document {
     if (value == null) {
       // stored as a JSON null, as the typed overloads do for a null argument
       setField(name, (String) value);
-    } else if (value instanceof String) {
-      setField(name, (String) value);
-    } else if (value instanceof Long) {
-      setField(name, (Long) value);
-    } else if (value instanceof Double) {
-      setField(name, (Double) value);
-    } else if (value instanceof Boolean) {
-      setField(name, (Boolean) value);
-    } else if (value instanceof Integer) {
-      setField(name, (Integer) value);
-    } else if (value instanceof Float) {
-      setField(name, (Float) value);
-    } else if (value instanceof Instant) {
-      setField(name, (Instant) value);
-    } else if (value instanceof byte[]) {
-      setField(name, (byte[]) value);
-    } else if (value instanceof JsonNode) {
-      setField(name, (JsonNode) value);
-    } else if (value instanceof Timestamp) {
-      setField(name, (Timestamp) value);
-    } else if (value instanceof Date) {
-      setField(name, (Date) value);
+    } else if (value instanceof String stringValue) {
+      setField(name, stringValue);
+    } else if (value instanceof Long longValue) {
+      setField(name, longValue);
+    } else if (value instanceof Double doubleValue) {
+      setField(name, doubleValue);
+    } else if (value instanceof Boolean booleanValue) {
+      setField(name, booleanValue);
+    } else if (value instanceof Integer intValue) {
+      setField(name, intValue);
+    } else if (value instanceof Float floatValue) {
+      setField(name, floatValue);
+    } else if (value instanceof Instant instant) {
+      setField(name, instant);
+    } else if (value instanceof byte[] bytes) {
+      setField(name, bytes);
+    } else if (value instanceof JsonNode node) {
+      setField(name, node);
+    } else if (value instanceof Timestamp timestamp) {
+      setField(name, timestamp);
+    } else if (value instanceof Date date) {
+      setField(name, date);
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -317,28 +317,28 @@ public interface Document {
     if (value == null) {
       // stored as a JSON null, as the typed overloads do for a null argument
       addToField(name, (String) value);
-    } else if (value instanceof String) {
-      addToField(name, (String) value);
-    } else if (value instanceof Long) {
-      addToField(name, (Long) value);
-    } else if (value instanceof Double) {
-      addToField(name, (Double) value);
-    } else if (value instanceof Boolean) {
-      addToField(name, (Boolean) value);
-    } else if (value instanceof Integer) {
-      addToField(name, (Integer) value);
-    } else if (value instanceof Float) {
-      addToField(name, (Float) value);
-    } else if (value instanceof Instant) {
-      addToField(name, (Instant) value);
-    } else if (value instanceof byte[]) {
-      addToField(name, (byte[]) value);
-    } else if (value instanceof JsonNode) {
-      addToField(name, (JsonNode) value);
-    } else if (value instanceof Timestamp) {
-      addToField(name, (Timestamp) value);
-    } else if (value instanceof Date) {
-      addToField(name, (Date) value);
+    } else if (value instanceof String stringValue) {
+      addToField(name, stringValue);
+    } else if (value instanceof Long longValue) {
+      addToField(name, longValue);
+    } else if (value instanceof Double doubleValue) {
+      addToField(name, doubleValue);
+    } else if (value instanceof Boolean booleanValue) {
+      addToField(name, booleanValue);
+    } else if (value instanceof Integer intValue) {
+      addToField(name, intValue);
+    } else if (value instanceof Float floatValue) {
+      addToField(name, floatValue);
+    } else if (value instanceof Instant instant) {
+      addToField(name, instant);
+    } else if (value instanceof byte[] bytes) {
+      addToField(name, bytes);
+    } else if (value instanceof JsonNode node) {
+      addToField(name, node);
+    } else if (value instanceof Timestamp timestamp) {
+      addToField(name, timestamp);
+    } else if (value instanceof Date date) {
+      addToField(name, date);
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -396,28 +396,28 @@ public interface Document {
     if (value == null) {
       // stored as a JSON null, as the typed overloads do for a null argument
       setOrAdd(name, (String) value);
-    } else if (value instanceof String) {
-      setOrAdd(name, (String) value);
-    } else if (value instanceof Long) {
-      setOrAdd(name, (Long) value);
-    } else if (value instanceof Double) {
-      setOrAdd(name, (Double) value);
-    } else if (value instanceof Boolean) {
-      setOrAdd(name, (Boolean) value);
-    } else if (value instanceof Integer) {
-      setOrAdd(name, (Integer) value);
-    } else if (value instanceof Float) {
-      setOrAdd(name, (Float) value);
-    } else if (value instanceof Instant) {
-      setOrAdd(name, (Instant) value);
-    } else if (value instanceof byte[]) {
-      setOrAdd(name, (byte[]) value);
-    } else if (value instanceof JsonNode) {
-      setOrAdd(name, (JsonNode) value);
-    } else if (value instanceof Timestamp) {
-      setOrAdd(name, (Timestamp) value);
-    } else if (value instanceof Date) {
-      setOrAdd(name, (Date) value);
+    } else if (value instanceof String stringValue) {
+      setOrAdd(name, stringValue);
+    } else if (value instanceof Long longValue) {
+      setOrAdd(name, longValue);
+    } else if (value instanceof Double doubleValue) {
+      setOrAdd(name, doubleValue);
+    } else if (value instanceof Boolean booleanValue) {
+      setOrAdd(name, booleanValue);
+    } else if (value instanceof Integer intValue) {
+      setOrAdd(name, intValue);
+    } else if (value instanceof Float floatValue) {
+      setOrAdd(name, floatValue);
+    } else if (value instanceof Instant instant) {
+      setOrAdd(name, instant);
+    } else if (value instanceof byte[] bytes) {
+      setOrAdd(name, bytes);
+    } else if (value instanceof JsonNode node) {
+      setOrAdd(name, node);
+    } else if (value instanceof Timestamp timestamp) {
+      setOrAdd(name, timestamp);
+    } else if (value instanceof Date date) {
+      setOrAdd(name, date);
     } else {
       throw new IllegalArgumentException(String.format("Type %s is not supported", value.getClass().getName()));
     }
@@ -791,7 +791,7 @@ public interface Document {
     }
 
     public static List<Segment> parse(String name) {
-      List<Segment> segments = new ArrayList();
+      List<Segment> segments = new ArrayList<>();
       StringBuffer current = new StringBuffer();
       boolean insideBrackets = false;
       for (int i = 0; i < name.length(); i++) {

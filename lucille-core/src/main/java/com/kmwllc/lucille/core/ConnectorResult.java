@@ -12,7 +12,7 @@ public class ConnectorResult {
   private final long numFailed;
   private final long numSucceeded;
 
-  private String message;
+  private final String message;
 
   public ConnectorResult(Connector connector, Publisher publisher,
       boolean status, String errorMsg) {

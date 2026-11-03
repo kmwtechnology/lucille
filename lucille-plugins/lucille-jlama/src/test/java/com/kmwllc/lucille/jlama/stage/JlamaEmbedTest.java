@@ -25,6 +25,7 @@ import java.io.File;
 import com.kmwllc.lucille.stage.StageFactory;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -42,7 +43,7 @@ public class JlamaEmbedTest {
 
   @Before
   public void setUp() throws Exception {
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
     configValues.put("pathToStoreModel", "./model");
     configValues.put("model", "owner/name");
@@ -52,7 +53,7 @@ public class JlamaEmbedTest {
   @Test
   public void testGettingDType() throws StageException {
     // create the test config, here DTypes is set to F16 and I16
-    HashMap<String, Object> configValues2 = new HashMap<>();
+    Map<String, Object> configValues2 = new HashMap<>();
     configValues2.put("source", "source");
     configValues2.put("pathToStoreModel", "./model");
     configValues2.put("model", "owner/name");
@@ -61,7 +62,7 @@ public class JlamaEmbedTest {
     Config otherConfig = ConfigFactory.parseMap(configValues2);
 
     // create the test config, here DTypes is set to U16 and Q5
-    HashMap<String, Object> configValues3 = new HashMap<>();
+    Map<String, Object> configValues3 = new HashMap<>();
     configValues3.put("source", "source");
     configValues3.put("pathToStoreModel", "./model");
     configValues3.put("model", "owner/name");
@@ -103,7 +104,7 @@ public class JlamaEmbedTest {
 
   @Test
   public void testInvalidStart() throws StageException {
-    HashMap<String, Object> configValues2 = new HashMap<>();
+    Map<String, Object> configValues2 = new HashMap<>();
     configValues2.put("source", "source");
     configValues2.put("pathToStoreModel", "./model");
     configValues2.put("model", "ownerName");
@@ -184,7 +185,7 @@ public class JlamaEmbedTest {
     File testModelModelSafeTensors = new File("src/test/resources/owner_name/model.safetensors");
     FileUtils.writeStringToFile(testModelModelSafeTensors, "{}", StandardCharsets.UTF_8);
 
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
     configValues.put("pathToStoreModel", "src/test/resources");
     configValues.put("model", "owner/name");
@@ -233,7 +234,7 @@ public class JlamaEmbedTest {
     File testModelModelSafeTensors = new File("src/test/resources/na_NoOwnerOnlyName/model.safetensors");
     FileUtils.writeStringToFile(testModelModelSafeTensors, "{}", StandardCharsets.UTF_8);
 
-    HashMap<String, Object> configValues = new HashMap<>();
+    Map<String, Object> configValues = new HashMap<>();
     configValues.put("source", "source");
     configValues.put("pathToStoreModel", "src/test/resources");
     configValues.put("model", "NoOwnerOnlyName");

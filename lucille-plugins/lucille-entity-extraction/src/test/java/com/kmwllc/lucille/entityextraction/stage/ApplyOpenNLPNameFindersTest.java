@@ -8,7 +8,6 @@ import static org.junit.Assert.assertTrue;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
 import com.kmwllc.lucille.core.StageException;
-import com.kmwllc.lucille.stage.ApplyOpenNLPNameFinders;
 import com.kmwllc.lucille.stage.StageFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;

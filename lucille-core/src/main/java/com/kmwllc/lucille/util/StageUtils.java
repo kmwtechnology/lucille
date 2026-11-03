@@ -10,6 +10,9 @@ import java.util.List;
  */
 public class StageUtils {
 
+  private StageUtils() {
+  }
+
   /**
    * Validate that the given field list contains at least 1 field name.
    *

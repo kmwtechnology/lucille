@@ -4,10 +4,7 @@ import com.typesafe.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,7 +16,7 @@ public class Pipeline {
 
   private static final Logger log = LoggerFactory.getLogger(Pipeline.class);
 
-  private final ArrayList<Stage> stages = new ArrayList<>();
+  private final List<Stage> stages = new ArrayList<>();
 
   public List<Stage> getStages() {
     return stages;
@@ -64,8 +61,8 @@ public class Pipeline {
         }
       }
     }
-    if (first instanceof StageException) {
-      throw (StageException) first;
+    if (first instanceof StageException stageException) {
+      throw stageException;
     } else if (first != null) {
       throw new StageException("Error stopping stage", first);
     }

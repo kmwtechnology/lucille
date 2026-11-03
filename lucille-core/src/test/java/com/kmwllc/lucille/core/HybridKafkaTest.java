@@ -249,7 +249,7 @@ public class HybridKafkaTest {
     KafkaConsumer<String, KafkaDocument> consumer = KafkaUtils.createDocumentConsumer(config, "test-client");
     TopicPartition p0 = new TopicPartition(topicName, 0);
     TopicPartition p1 = new TopicPartition(topicName, 1);
-    ArrayList partitions = new ArrayList<>();
+    List<TopicPartition> partitions = new ArrayList<>();
     partitions.add(p0);
     partitions.add(p1);
     consumer.assign(partitions);
@@ -274,8 +274,8 @@ public class HybridKafkaTest {
     long worker2MaxP0Offset = 0;
     long worker2MaxP1Offset = 0;
 
-    ArrayList<Map<TopicPartition, OffsetAndMetadata>> offsets1History = offsets1.getHistory();
-    ArrayList<Map<TopicPartition, OffsetAndMetadata>> offsets2History = offsets2.getHistory();
+    List<Map<TopicPartition, OffsetAndMetadata>> offsets1History = offsets1.getHistory();
+    List<Map<TopicPartition, OffsetAndMetadata>> offsets2History = offsets2.getHistory();
 
     for (Map<TopicPartition, OffsetAndMetadata> map : offsets1History) {
       for (TopicPartition tp : map.keySet()) {
@@ -337,7 +337,7 @@ public class HybridKafkaTest {
 
     // make sure each doc we generated is present in at least one of the destination queues,
     // and there are no others
-    HashSet<String> idsProcessed = new HashSet<>();
+    Set<String> idsProcessed = new HashSet<>();
     for (Document d : pipelineDest1.getHistory()) {
       idsProcessed.add(d.getId());
     }

@@ -49,7 +49,7 @@ services:
       api:
         condition: service_healthy
     # the classpath is set in verifier/Dockerfile
-    entrypoint: ["sh", "-c", "java com.kmwllc.lucille.api.IngestDriver && exec java org.junit.runner.JUnitCore com.kmwllc.lucille.api.VerifyApiEndpoints com.kmwllc.lucille.api.VerifyIngestResult"]
+    entrypoint: ["sh", "-c", "java com.kmwllc.lucille.examples.api.IngestDriver && exec java org.junit.runner.JUnitCore com.kmwllc.lucille.examples.api.VerifyApiEndpoints com.kmwllc.lucille.examples.api.VerifyIngestResult"]
     volumes:
       - ./conf:/conf:ro
       - output:/output:ro

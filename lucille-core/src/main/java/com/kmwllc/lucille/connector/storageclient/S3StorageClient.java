@@ -39,10 +39,10 @@ public class S3StorageClient extends BaseStorageClient {
   private static final Logger log = LoggerFactory.getLogger(S3StorageClient.class);
 
   // us-east-1 acts as S3's global endpoint and redirects to the bucket's real region.
-  static final Region ANONYMOUS_DEFAULT_REGION = Region.US_EAST_1;
+  private static final Region ANONYMOUS_DEFAULT_REGION = Region.US_EAST_1;
 
   // S3 returns at most 1000 keys per LIST request, whatever larger value is asked for.
-  static final int DEFAULT_MAX_RESULTS_PER_PAGE = 1000;
+  private static final int DEFAULT_MAX_RESULTS_PER_PAGE = 1000;
 
   protected S3Client s3;
 

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.stage;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.stage.util.ChunkingMethod;
@@ -125,20 +126,20 @@ public class ChunkText extends Stage {
   public ChunkText(Config config) throws StageException {
     super(config);
     this.source = config.getString("source");
-    this.dest = config.hasPath("dest") ? config.getString("dest") : "text";
+    this.dest = ConfigUtils.getStringOrDefault(config, "dest", "text");
     this.method = ChunkingMethod.fromConfig(config);
-    this.regEx = config.hasPath("regex") ? config.getString("regex") : "";
+    this.regEx = ConfigUtils.getStringOrDefault(config, "regex", "");
     this.lengthToSplit = config.hasPath("lengthToSplit") && config.getInt("lengthToSplit") > 0
         ? config.getInt("lengthToSplit") : null;
-    this.cleanChunks = config.hasPath("cleanChunks") ? config.getBoolean("cleanChunks") : false;
+    this.cleanChunks = ConfigUtils.getBooleanOrDefault(config, "cleanChunks", false);
     this.preMergeMinChunkLen = config.hasPath("preMergeMinChunkLen") && config.getInt("preMergeMinChunkLen") > 0
         ? config.getInt("preMergeMinChunkLen") : -1;
     this.preMergeMaxChunkLen = config.hasPath("preMergeMaxChunkLen") && config.getInt("preMergeMaxChunkLen") > 0
         ? config.getInt("preMergeMaxChunkLen") : -1;
-    this.chunksToMerge = config.hasPath("chunksToMerge") ? config.getInt("chunksToMerge") : 1;
-    this.chunksToOverlap = config.hasPath("chunksToOverlap") ? config.getInt("chunksToOverlap") : null;
-    this.overlapPercentage = config.hasPath("overlapPercentage") ? config.getInt("overlapPercentage") : 0;
-    this.characterLimit = config.hasPath("characterLimit") ? config.getInt("characterLimit") : -1;
+    this.chunksToMerge = ConfigUtils.getIntOrDefault(config, "chunksToMerge", 1);
+    this.chunksToOverlap = ConfigUtils.getIntOrDefault(config, "chunksToOverlap", null);
+    this.overlapPercentage = ConfigUtils.getIntOrDefault(config, "overlapPercentage", 0);
+    this.characterLimit = ConfigUtils.getIntOrDefault(config, "characterLimit", -1);
     if (chunksToMerge < 1) {
       throw new StageException("Chunks to merge configuration must be greater than 1 if merging chunks is desired or equal to 1 if undesired.");
     }

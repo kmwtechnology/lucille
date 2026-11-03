@@ -25,8 +25,8 @@ public class StageUtilsTest {
   @Test
   public void testValidateFieldNumsEqual() {
     Exception exception = assertThrows(StageException.class, () -> {
-      StageUtils.validateFieldNumsEqual(new ArrayList<String>(Arrays.asList("a", "b")),
-          new ArrayList<String>(Arrays.asList("c", "d", "e")), "TestStage");
+      StageUtils.validateFieldNumsEqual(new ArrayList<>(Arrays.asList("a", "b")),
+          new ArrayList<>(Arrays.asList("c", "d", "e")), "TestStage");
     });
 
     String expectedMessage = "Unequal length field lists supplied to TestStage";
@@ -38,14 +38,14 @@ public class StageUtilsTest {
   @Test
   public void testValidateFieldNumsSeveralToOne() {
     Exception firstException = assertThrows(StageException.class, () -> {
-      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
-          new ArrayList<String>(Arrays.asList("c", "d", "e")), "TestStage");
+      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<>(Arrays.asList("a", "b")),
+          new ArrayList<>(Arrays.asList("c", "d", "e")), "TestStage");
     });
     String actualMessageFirst = firstException.getMessage();
 
     Exception secondException = assertThrows(StageException.class, () -> {
-      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b", "c")),
-          new ArrayList<String>(Arrays.asList()), "TestStage");
+      StageUtils.validateFieldNumsSeveralToOne(new ArrayList<>(Arrays.asList("a", "b", "c")),
+          new ArrayList<>(Arrays.asList()), "TestStage");
     });
     String actualMessageSecond = secondException.getMessage();
 
@@ -57,21 +57,21 @@ public class StageUtilsTest {
 
   @Test
   public void testValidateFieldNumNotZeroNoException() throws StageException {
-    StageUtils.validateFieldNumNotZero(new ArrayList<String>(Arrays.asList("a", "b")), "TestStage");
+    StageUtils.validateFieldNumNotZero(new ArrayList<>(Arrays.asList("a", "b")), "TestStage");
   }
 
   @Test
   public void testValidateFieldNumsEqualNoException() throws StageException {
-    StageUtils.validateFieldNumsEqual(new ArrayList<String>(Arrays.asList("a", "b")),
-        new ArrayList<String>(Arrays.asList("c", "d")), "TestStage");
+    StageUtils.validateFieldNumsEqual(new ArrayList<>(Arrays.asList("a", "b")),
+        new ArrayList<>(Arrays.asList("c", "d")), "TestStage");
   }
 
   @Test
   public void testValidateFieldNumsSeveralToOneNoException() throws StageException {
-    StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
-        new ArrayList<String>(Arrays.asList("c")), "TestStage");
-    StageUtils.validateFieldNumsSeveralToOne(new ArrayList<String>(Arrays.asList("a", "b")),
-        new ArrayList<String>(Arrays.asList("c", "d")), "TestStage");
+    StageUtils.validateFieldNumsSeveralToOne(new ArrayList<>(Arrays.asList("a", "b")),
+        new ArrayList<>(Arrays.asList("c")), "TestStage");
+    StageUtils.validateFieldNumsSeveralToOne(new ArrayList<>(Arrays.asList("a", "b")),
+        new ArrayList<>(Arrays.asList("c", "d")), "TestStage");
   }
 
 }

@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.Indexer;
 import com.typesafe.config.Config;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
@@ -25,6 +26,9 @@ public class AsyncConnectionPoolUtils {
   // The httpclient5 PoolingAsyncClientConnectionManagerBuilder defaults, kept so that unset config behaves as before.
   public static final int DEFAULT_MAX_CONNECTIONS_PER_ROUTE = 5;
   public static final int DEFAULT_MAX_CONNECTIONS_TOTAL = 25;
+
+  private AsyncConnectionPoolUtils() {
+  }
 
   /**
    * Builds a connection manager for the given client config block, sized for concurrent sends and carrying the client's
@@ -56,7 +60,7 @@ public class AsyncConnectionPoolUtils {
 
   // getInt, unlike ConfigUtils.getOrDefault, converts a string value such as an environment substitution.
   private static int getInt(Config config, String path, int fallback) {
-    return config.hasPath(path) ? config.getInt(path) : fallback;
+    return ConfigUtils.getIntOrDefault(config, path, fallback);
   }
 
   private static int positive(int value, String path) {

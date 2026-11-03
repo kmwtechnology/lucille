@@ -20,6 +20,9 @@
     <module>lucille-api</module>
     <module>lucille-pinecone</module>
     <module>lucille-weaviate</module>
+    <module>lucille-elasticsearch</module>
+    <module>lucille-opensearch</module>
+    <module>lucille-solr</module>
     <module>lucille-parquet</module>
     <module>lucille-tika</module>
     <module>lucille-ocr</module>

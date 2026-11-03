@@ -59,6 +59,7 @@ import org.slf4j.LoggerFactory;
  *   <li>s3 (Map, Optional) : If your dictionary files are held in S3. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>azure (Map, Optional) : If your dictionary files are held in Azure. See FileConnector for the appropriate arguments to provide.</li>
  *   <li>gcp (Map, Optional) : If your dictionary files are held in Google Cloud. See FileConnector for the appropriate arguments to provide.</li>
+ *   <li>storageClients (Map, Optional) : If your dictionary files are held in storage with a custom StorageClient. See FileConnector for the appropriate arguments to provide.</li>
  * </ul>
  */
 public class ExtractEntitiesFST extends Stage {
@@ -70,6 +71,7 @@ public class ExtractEntitiesFST extends Stage {
       .optionalBoolean("usePayloads", "onlyWholeWords", "ignoreOverlaps", "stopOnHit", "ignoreCase", "dictsSorted")
       .optionalString("updateMode", "entityField")
       .optionalParent(FileConnector.S3_PARENT_SPEC, FileConnector.GCP_PARENT_SPEC, FileConnector.AZURE_PARENT_SPEC)
+      .optionalParent(FileConnector.STORAGE_CLIENTS, FileConnector.STORAGE_CLIENTS_TYPE)
       .build();
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());

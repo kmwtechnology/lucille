@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -53,7 +54,7 @@ public class Contains extends Stage {
     this.contains = config.getStringList("contains");
     this.output = config.getString("output");
     this.value = config.getString("value");
-    this.ignoreCase = config.hasPath("ignoreCase") ? config.getBoolean("ignoreCase") : true;
+    this.ignoreCase = ConfigUtils.getBooleanOrDefault(config, "ignoreCase", true);
     this.fields = config.getStringList("fields");
   }
 

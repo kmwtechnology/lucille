@@ -475,17 +475,17 @@ public class PoisonRecordKafkaTest {
     }
 
     @Override
-    public Document pollDocToProcess() throws Exception {
+    public Document pollDocToProcess() throws MessengerException {
       try {
         return delegate.pollDocToProcess();
-      } catch (Exception e) {
+      } catch (MessengerException | RuntimeException e) {
         lastPollFailure = e;
         throw e;
       }
     }
 
     @Override
-    public void commitPendingDocOffsets() throws Exception {
+    public void commitPendingDocOffsets() throws MessengerException {
       delegate.commitPendingDocOffsets();
     }
 
@@ -510,7 +510,7 @@ public class PoisonRecordKafkaTest {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
       closed = true;
       delegate.close();
     }

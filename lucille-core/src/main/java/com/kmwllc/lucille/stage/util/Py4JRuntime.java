@@ -133,7 +133,7 @@ public final class Py4JRuntime {
 
     try {
       Object res = pythonClient.exec(requestJson);
-      return (res instanceof String) ? (String) res : (res == null ? null : String.valueOf(res));
+      return (res instanceof String str) ? str : (res == null ? null : String.valueOf(res));
     } catch (Exception e) {
       throw new StageException("Error calling Python via Py4J", e);
     }
@@ -167,10 +167,10 @@ public final class Py4JRuntime {
 
       synchronized (Py4JRuntime.class) {
         if (!Files.exists(clientPath)) {
-          log.info("Copying python client script to: " + clientPath);
+          log.info("Copying python client script to: {}", clientPath);
           Files.copy(in, clientPath, StandardCopyOption.REPLACE_EXISTING);
         } else {
-          log.warn("Found python client script at " + clientPath + ". Keeping current version.");
+          log.warn("Found python client script at {}. Keeping current version.", clientPath);
         }
       }
 
@@ -221,7 +221,8 @@ public final class Py4JRuntime {
         try {
           Thread.sleep(100);
         } catch (InterruptedException e) {
-          e.printStackTrace();
+          Thread.currentThread().interrupt();
+          throw new StageException("Interrupted while waiting for the Python process to start", e);
         }
       }
     } catch (Exception e) {

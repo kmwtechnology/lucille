@@ -18,7 +18,7 @@ import java.util.Map;
  */
 public class StageFactory {
 
-  private Class<? extends Stage> stageClass;
+  private final Class<? extends Stage> stageClass;
 
   private StageFactory(Class<? extends Stage> stageClass) {
     this.stageClass = stageClass;
@@ -48,7 +48,7 @@ public class StageFactory {
   /**
    * Creates a new instance of the stage with a Config built from the provided Map, starts it, and returns it.
    */
-  public Stage get(Map map) throws StageException {
+  public Stage get(Map<String, ?> map) throws StageException {
     return get(ConfigFactory.parseMap(map));
   }
 

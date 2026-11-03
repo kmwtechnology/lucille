@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -9,7 +10,12 @@ import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.JDBCUtils;
 import com.typesafe.config.Config;
 import java.util.concurrent.TimeUnit;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -46,18 +52,18 @@ public class QueryDatabase extends Stage {
       .optionalNumber("connectionRetries", "connectionRetryPause")
       .requiredParent("fieldMapping", new TypeReference<Map<String, String>>(){}).build();
 
-  private String driver;
-  private String connectionString;
-  private String jdbcUser;
-  private String jdbcPassword;
-  private String sql;
-  private List<String> keyFields;
-  private List<PreparedStatementParameterType> inputTypes;
-  private Map<String, Object> fieldMapping;
+  private final String driver;
+  private final String connectionString;
+  private final String jdbcUser;
+  private final String jdbcPassword;
+  private final String sql;
+  private final List<String> keyFields;
+  private final List<PreparedStatementParameterType> inputTypes;
+  private final Map<String, Object> fieldMapping;
   protected Connection connection = null;
   private PreparedStatement preparedStatement;
-  private Integer connectionRetries;
-  private Integer connectionRetryPause;
+  private final Integer connectionRetries;
+  private final Integer connectionRetryPause;
   private static final Logger log = LoggerFactory.getLogger(QueryDatabase.class);
 
   public QueryDatabase(Config config) {
@@ -68,7 +74,7 @@ public class QueryDatabase extends Stage {
     jdbcUser = config.getString("jdbcUser");
     jdbcPassword = config.getString("jdbcPassword");
     keyFields = config.getStringList("keyFields");
-    sql = config.hasPath("sql") ? config.getString("sql") : null;
+    sql = ConfigUtils.getStringOrDefault(config, "sql", null);
     fieldMapping = config.getConfig("fieldMapping").root().unwrapped();
     List<String> inputTypeList = config.getStringList("inputTypes");
     inputTypes = new ArrayList<>();

@@ -1,6 +1,7 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Stage;
@@ -14,7 +15,11 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.*;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -39,10 +44,10 @@ public class XPathExtractor extends Stage {
 
   protected Map<String, Object> xpaths;
   private DocumentBuilder builder;
-  private DocumentBuilderFactory factory;
-  private XPath xpath;
+  private final DocumentBuilderFactory factory;
+  private final XPath xpath;
   private final String xmlField;
-  private Map<XPathExpression, List<String>> expressionMapping;
+  private final Map<XPathExpression, List<String>> expressionMapping;
   private static final Logger log = LoggerFactory.getLogger(XPathExtractor.class);
 
   /**
@@ -57,7 +62,7 @@ public class XPathExtractor extends Stage {
     factory = DocumentBuilderFactory.newInstance();
     XPathFactory xpathFactory = XPathFactory.newInstance();
     xpath = xpathFactory.newXPath();
-    xmlField = config.hasPath("xmlField") ? config.getString("xmlField") : "xml";
+    xmlField = ConfigUtils.getStringOrDefault(config, "xmlField", "xml");
     expressionMapping = new HashMap<>();
   }
 

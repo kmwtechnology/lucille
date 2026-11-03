@@ -66,9 +66,8 @@ public class WeaviateIndexer extends Indexer {
       throw new IllegalArgumentException("indexer.indexOverrideField is not supported by WeaviateIndexer.");
     }
 
-    this.weaviateClassName = config.hasPath("weaviate.className") ? config.getString("weaviate.className") : "Document";
-    this.idDestinationName = config.hasPath("weaviate.idDestinationName") ? config.getString("weaviate.idDestinationName") :
-        "id_original";
+    this.weaviateClassName = ConfigUtils.getStringOrDefault(config, "weaviate.className", "Document");
+    this.idDestinationName = ConfigUtils.getStringOrDefault(config, "weaviate.idDestinationName", "id_original");
 
     this.vectorField = ConfigUtils.getStringOrDefault(config, "weaviate.vectorField", null);
     this.client = client;
@@ -126,7 +125,7 @@ public class WeaviateIndexer extends Indexer {
   }
 
   @Override
-  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws Exception {
+  protected Set<Pair<Document, Exception>> sendToIndex(List<Document> documents) throws IndexerException {
     if (bypass) {
       // no client in bypass mode
       return Set.of();

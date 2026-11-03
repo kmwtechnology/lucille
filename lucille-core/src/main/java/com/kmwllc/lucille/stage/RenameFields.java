@@ -55,7 +55,7 @@ public class RenameFields extends Stage {
    */
   @Override
   public void start() throws StageException {
-    if (fieldMap.size() == 0) {
+    if (fieldMap.isEmpty()) {
       throw new StageException("fieldMapping must have at least one source-dest pair for Rename Fields");
     }
   }

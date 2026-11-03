@@ -12,6 +12,9 @@ public class FileUtils {
 
   private static final Logger log = LoggerFactory.getLogger(FileUtils.class);
 
+  private FileUtils() {
+  }
+
   // TODO : Potentially support setting home dir in config
   public static String getLucilleHomeDirectory() {
     String homeDir = System.getProperty("LUCILLE_HOME");

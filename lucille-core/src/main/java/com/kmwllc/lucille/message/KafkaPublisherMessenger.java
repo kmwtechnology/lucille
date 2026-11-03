@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.message;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
 import com.typesafe.config.Config;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class KafkaPublisherMessenger implements PublisherMessenger {
@@ -32,15 +34,22 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
     this.pollInterval = KafkaUtils.getPollInterval(config);
   }
 
-  public void initialize(String runId, String pipelineName) throws Exception {
+  public void initialize(String runId, String pipelineName) throws MessengerException {
     if (this.runId != null) {
-      throw new Exception("Already initialized.");
+      throw new IllegalStateException("Already initialized.");
     }
     this.runId = runId;
     this.pipelineName = pipelineName;
 
     // create event topic explicitly with one partition
-    KafkaUtils.createEventTopic(config, pipelineName, runId);
+    try {
+      KafkaUtils.createEventTopic(config, pipelineName, runId);
+    } catch (ExecutionException e) {
+      throw KafkaUtils.toMessengerException("Creating the event topic for run " + runId, e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while creating the event topic for run " + runId, e);
+    }
 
     String kafkaClientId = "com.kmwllc.lucille-publisher-" + pipelineName;
     String eventTopicName = KafkaUtils.getEventTopicName(config, pipelineName, runId);
@@ -54,7 +63,7 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
     return runId;
   }
 
-  public void sendForProcessing(Document document) throws Exception {
+  public void sendForProcessing(Document document) throws MessengerException {
     checkException();
     kafkaProducer.send(
         new ProducerRecord<>(KafkaUtils.getSourceTopicName(pipelineName, config), document.getId(), document),
@@ -67,15 +76,15 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
   }
 
   @Override
-  public void flush() throws Exception {
+  public void flush() throws MessengerException {
     kafkaProducer.flush();
     checkException();
   }
 
-  private void checkException() throws Exception {
+  private void checkException() throws MessengerException {
     Exception e = sendException.get();
     if (e != null) {
-      throw new Exception("Kafka send failed", e);
+      throw new MessengerException("Kafka send failed", e);
     }
   }
 
@@ -83,7 +92,7 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
    * Polls for an Event that is waiting to be consumed.
    */
   @Override
-  public Event pollEvent() throws Exception {
+  public Event pollEvent() throws MessengerException {
     ConsumerRecords<String, String> consumerRecords = eventConsumer.poll(pollInterval);
     KafkaUtils.validateAtMostOneRecord(consumerRecords);
     if (consumerRecords.count() > 0) {
@@ -92,7 +101,12 @@ public class KafkaPublisherMessenger implements PublisherMessenger {
       // achieving good throughput when the Publisher has a large backlog of events to process.
 
       ConsumerRecord<String, String> record = consumerRecords.iterator().next();
-      return Event.fromJsonString(record.value());
+      try {
+        return Event.fromJsonString(record.value());
+      } catch (JsonProcessingException e) {
+        throw new MessengerException("Could not parse event " + record.topic() + "-" + record.partition() + "@"
+            + record.offset(), e);
+      }
     }
     return null;
   }

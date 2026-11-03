@@ -5,8 +5,9 @@ import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.MAX_SIZE_BYTES;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.kmwllc.lucille.connector.FileConnector;
-import com.kmwllc.lucille.core.fileHandler.FileHandler;
+import com.kmwllc.lucille.core.filehandler.FileHandler;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.net.URI;
@@ -69,7 +70,7 @@ public class TraversalParams {
     this.getFileContent = !fileOptions.hasPath(GET_FILE_CONTENT) || fileOptions.getBoolean(GET_FILE_CONTENT);
     this.handleArchivedFiles = fileOptions.hasPath(HANDLE_ARCHIVED_FILES) && fileOptions.getBoolean(HANDLE_ARCHIVED_FILES);
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
-    this.maxSizeBytes = fileOptions.hasPath(MAX_SIZE_BYTES) ? fileOptions.getLong(MAX_SIZE_BYTES) : null;
+    this.maxSizeBytes = ConfigUtils.getLongOrDefault(fileOptions, MAX_SIZE_BYTES, null);
     if (maxSizeBytes != null && maxSizeBytes <= 0) {
       throw new IllegalArgumentException("fileOptions.maxSizeBytes must be positive, but was " + maxSizeBytes);
     }

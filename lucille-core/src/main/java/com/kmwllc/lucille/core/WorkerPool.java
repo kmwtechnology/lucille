@@ -56,16 +56,16 @@ public class WorkerPool {
   public static final String HEARTBEAT_LOG_NAME = "com.kmwllc.lucille.core.Heartbeat";
   private static final Logger heartbeatLog = LoggerFactory.getLogger(HEARTBEAT_LOG_NAME);
 
-  private boolean enableHeartbeat;
-  private int maxProcessingSecs;
-  private boolean exitOnTimeout;
+  private final boolean enableHeartbeat;
+  private final int maxProcessingSecs;
+  private final boolean exitOnTimeout;
 
   private final Config config;
   private final String pipelineName;
   // The current runId, if in a local mode.
   private final String localRunId;
   private Integer numWorkers = null;
-  private WorkerMessengerFactory workerMessengerFactory;
+  private final WorkerMessengerFactory workerMessengerFactory;
   private boolean started = false;
   private final int logSeconds;
   private final String metricsPrefix;
@@ -82,14 +82,13 @@ public class WorkerPool {
       log.error("Error reading pipeline config", e);
     }
     if (this.numWorkers == null) {
-      this.numWorkers = config.hasPath("worker.threads") ? config.getInt("worker.threads") : DEFAULT_POOL_SIZE;
+      this.numWorkers = ConfigUtils.getIntOrDefault(config, "worker.threads", DEFAULT_POOL_SIZE);
     }
     this.logSeconds = ConfigUtils.getOrDefault(config, "log.seconds", LogUtils.DEFAULT_LOG_SECONDS);
-    this.enableHeartbeat = config.hasPath("worker.enableHeartbeat") ? config.getBoolean("worker.enableHeartbeat") : false;
+    this.enableHeartbeat = ConfigUtils.getBooleanOrDefault(config, "worker.enableHeartbeat", false);
     // maxProcessingSecs default should be at least 10 minutes
-    this.maxProcessingSecs =
-        config.hasPath("worker.maxProcessingSecs") ? config.getInt("worker.maxProcessingSecs") : 10 * 60;
-    this.exitOnTimeout = config.hasPath("worker.exitOnTimeout") ? config.getBoolean("worker.exitOnTimeout") : false;
+    this.maxProcessingSecs = ConfigUtils.getIntOrDefault(config, "worker.maxProcessingSecs", 10 * 60);
+    this.exitOnTimeout = ConfigUtils.getBooleanOrDefault(config, "worker.exitOnTimeout", false);
   }
 
   public void start() throws Exception {
@@ -97,7 +96,7 @@ public class WorkerPool {
       throw new IllegalStateException("WorkerPool can be started at most once");
     }
     started = true;
-    log.info("Starting " + numWorkers + " worker threads for pipeline " + pipelineName);
+    log.info("Starting {} worker threads for pipeline {}", numWorkers, pipelineName);
     List<Worker> workers = new ArrayList<>();
 
     try {
@@ -125,7 +124,7 @@ public class WorkerPool {
   }
 
   public void stop() {
-    log.debug("Stopping " + threads.size() + " worker threads");
+    log.debug("Stopping {} worker threads", threads.size());
     stopRequested = true;
     for (WorkerThread workerThread : threads) {
       workerThread.terminate();
@@ -138,7 +137,7 @@ public class WorkerPool {
     // the output should be the same for any thread;
     // all threads get their metrics via a shared registry using the same naming scheme,
     // so the metrics are collected across all the threads
-    if (threads.size() > 0) {
+    if (!threads.isEmpty()) {
       threads.get(0).logMetrics();
     }
   }

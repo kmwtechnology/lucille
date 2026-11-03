@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.message;
 
+import com.kmwllc.lucille.core.ConfigUtils;
 import com.typesafe.config.Config;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -40,10 +41,10 @@ class DeserializationErrorHandler {
 
   private static final Logger log = LoggerFactory.getLogger(DeserializationErrorHandler.class);
 
-  static final String MODE_FAIL = "fail";
-  static final String MODE_SKIP = "skip";
-  static final int DEFAULT_MAX_CONSECUTIVE = 10;
-  static final int UNLIMITED = -1;
+  private static final String MODE_FAIL = "fail";
+  private static final String MODE_SKIP = "skip";
+  private static final int DEFAULT_MAX_CONSECUTIVE = 10;
+  private static final int UNLIMITED = -1;
 
   private final Consumer<?, ?> consumer;
   private final boolean skip;
@@ -53,16 +54,14 @@ class DeserializationErrorHandler {
   DeserializationErrorHandler(Config config, Consumer<?, ?> consumer) {
     this.consumer = consumer;
 
-    String mode = config.hasPath("kafka.onDeserializationError")
-        ? config.getString("kafka.onDeserializationError") : MODE_FAIL;
+    String mode = ConfigUtils.getStringOrDefault(config, "kafka.onDeserializationError", MODE_FAIL);
     if (!MODE_FAIL.equals(mode) && !MODE_SKIP.equals(mode)) {
       throw new IllegalArgumentException("kafka.onDeserializationError must be \"" + MODE_FAIL + "\" or \""
           + MODE_SKIP + "\" but was \"" + mode + "\"");
     }
     this.skip = MODE_SKIP.equals(mode);
 
-    this.maxConsecutive = config.hasPath("kafka.maxConsecutiveDeserializationErrors")
-        ? config.getInt("kafka.maxConsecutiveDeserializationErrors") : DEFAULT_MAX_CONSECUTIVE;
+    this.maxConsecutive = ConfigUtils.getIntOrDefault(config, "kafka.maxConsecutiveDeserializationErrors", DEFAULT_MAX_CONSECUTIVE);
     if (maxConsecutive < 1 && maxConsecutive != UNLIMITED) {
       throw new IllegalArgumentException("kafka.maxConsecutiveDeserializationErrors must be at least 1, or "
           + UNLIMITED + " for unlimited, but was " + maxConsecutive);

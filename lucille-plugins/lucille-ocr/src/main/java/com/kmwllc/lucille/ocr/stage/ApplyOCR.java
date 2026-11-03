@@ -212,7 +212,7 @@ public class ApplyOCR extends Stage {
     return results;
   }
 
-  private void extractPagesToDoc(Map<Integer, String> pages, ArrayList<BufferedImage> images, Document doc) {
+  private void extractPagesToDoc(Map<Integer, String> pages, List<BufferedImage> images, Document doc) {
 
     for (Map.Entry<Integer, String> entry : pages.entrySet()) {
       Map<String, List<String>> extractedText;
@@ -248,7 +248,7 @@ public class ApplyOCR extends Stage {
 
 
     // doing pdf extraction
-    ArrayList<BufferedImage> images = new ArrayList<>();
+    List<BufferedImage> images = new ArrayList<>();
     try {
       if (type.equals("pdf")) {
         images = FormUtils.loadPdf(path);

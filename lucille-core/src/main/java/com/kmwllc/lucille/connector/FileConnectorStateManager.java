@@ -11,6 +11,9 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,8 +52,13 @@ import com.typesafe.config.Config;
  *   {@link TraversalState}.</li>
  *   <li>The paths a FileConnector traverses do not overlap.</li>
  * </ol>
+ * <p> Regardless, only one FileConnectorStateManager within the same JVM may use a given <code>connectionString</code> and
+ * <code>tableName</code> at a time. {@link #init()} fails if another FileConnectorStateManager is already using them.
  */
 public class FileConnectorStateManager {
+
+  // connectionString:tableName keys of the state tables currently in use in this JVM.
+  private static final Set<String> tablesInUse = ConcurrentHashMap.newKeySet();
 
   private static final Logger log = LoggerFactory.getLogger(FileConnectorStateManager.class);
 
@@ -77,6 +85,14 @@ public class FileConnectorStateManager {
   // init() binds one for the thread that calls it, and each additional traversal thread binds its own with openStateForThread().
   private final ThreadLocal<TraversalState> threadState = new ThreadLocal<>();
 
+  private final String tableKey;
+
+  // Whether this instance has claimed tableKey in tablesInUse. shutdown() is also called when init() never ran or was
+  // rejected, and must not release a table another instance is using. Atomic because init() and shutdown() can run
+  // on different threads (Runner calls execute() on a ConnectorThread but close() on its own thread), and so the table
+  // is released at most once.
+  private final AtomicBoolean claimedTable = new AtomicBoolean(false);
+
   /**
    * Creates a FileConnectorStateManager from the given config.
    * @param config Configuration for the FileConnectorStateManager.
@@ -95,13 +111,22 @@ public class FileConnectorStateManager {
       throw new IllegalArgumentException("state.runsBeforeExpiration must be >= 1");
     }
     this.pathLength = ConfigUtils.getOrDefault(config, "pathLength", DEFAULT_PATH_LENGTH);
+
+    this.tableKey = connectionString + ":" + tableName;
   }
 
   /**
    * Connects to the database specified by your Config, and ensure a table with tableName exists, building it with the
    * appropriate schema if it doesn't. After connecting to the table, sets encountered=FALSE for all rows.
+   * @throws IllegalStateException If another FileConnectorStateManager in this JVM is using the same table.
    */
   public void init() throws ClassNotFoundException, SQLException {
+    if (!tablesInUse.add(tableKey)) {
+      throw new IllegalStateException("State table " + tableKey + " is in use by another run in this JVM.");
+    }
+    // released in shutdown(), which is still called if the rest of init() fails
+    claimedTable.set(true);
+
     traversalInstant = Instant.now();
 
     jdbcConnection = openConnection();
@@ -236,13 +261,22 @@ public class FileConnectorStateManager {
    * Throws an exception if an error occurs.
    */
   public void shutdown() throws SQLException {
-    closeStateForThread();
+    try {
+      closeStateForThread();
 
-    if (performDeletions) {
-      deleteExpiredFilesAndResetTable();
+      // jdbcConnection is null if init() never ran or failed before connecting - e.g. FileConnector.close() is
+      // still called when preExecute fails
+      if (performDeletions && jdbcConnection != null) {
+        deleteExpiredFilesAndResetTable();
+      }
+    } finally {
+      // close even if the deletion failed, so the connection isn't leaked
+      closeConnection(jdbcConnection);
+
+      if (claimedTable.getAndSet(false)) {
+        tablesInUse.remove(tableKey);
+      }
     }
-
-    closeConnection(jdbcConnection);
   }
   
   public List<URI> listExpiredFiles() throws SQLException {

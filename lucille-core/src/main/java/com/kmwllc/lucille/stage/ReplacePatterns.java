@@ -1,7 +1,11 @@
 package com.kmwllc.lucille.stage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.kmwllc.lucille.core.*;
+import com.kmwllc.lucille.core.ConfigUtils;
+import com.kmwllc.lucille.core.Document;
+import com.kmwllc.lucille.core.Stage;
+import com.kmwllc.lucille.core.StageException;
+import com.kmwllc.lucille.core.UpdateMode;
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.spec.SpecBuilder;
 import com.kmwllc.lucille.util.StageUtils;
@@ -56,7 +60,7 @@ public class ReplacePatterns extends Stage {
   private final boolean dotall;
   private final boolean literal;
 
-  private List<Pattern> patterns;
+  private final List<Pattern> patterns;
 
   public ReplacePatterns(Config config) throws StageException {
     super(config);
