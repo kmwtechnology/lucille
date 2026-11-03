@@ -48,13 +48,17 @@ Secondary reasons:
 - **Immutability.** A `static final` field is initialized once at class-load time and cannot change. An instance method could theoretically return different values depending on constructor arguments, which would be confusing for a validation contract.
 - **Minimal boilerplate.** Declaring a single field is simpler than overriding an abstract method with `@Override public Spec getSpec() { return SPEC; }` in every subclass.
 
-**The tradeoff: no compile-time enforcement.** The compiler does not force you to declare a `SPEC` field. If you forget it, you won't get a compile error — you'll get a `RuntimeException` the first time the component is instantiated. This happens because the `Stage` base class constructor calls `getSpec().validate(config, ...)`, and the default `getSpec()` implementation uses reflection to look up the `SPEC` field on your class. If the field is missing, the reflective lookup fails immediately with a clear error message:
+**The tradeoff: no compile-time enforcement.** The compiler does not force you to declare a `SPEC` field. If you forget it, you won't get a compile error — you'll get an `IllegalStateException` the first time the component is instantiated. This happens because the `Stage` base class constructor calls `getSpec().validate(config, ...)`, and the default `getSpec()` implementation uses reflection to look up the `SPEC` field on your class. If the field is missing, the reflective lookup fails immediately with a clear error message:
 
 ```
-RuntimeException: Error accessing com.example.MyStage Spec. Is it publicly and statically available under "SPEC"?
+IllegalStateException: Error accessing the Spec for com.example.MyStage. Lucille looks for a public static final Spec SPEC declared on the component class itself, not on its superclasses; a class extending another component must declare one, for example: public static final Spec SPEC = Parent.SPEC;
 ```
 
 In practice, this is not a significant source of errors. Any unit test that instantiates your component — even the most trivial one — will trigger this failure immediately. You will never get as far as running a pipeline with a missing SPEC; the error is loud and obvious at the earliest possible moment.
+
+**Declare SPEC on each class.** Java lets a subclass see its parent's static `SPEC`, but Lucille's reflective lookup (`Spec.of(Class)`) checks only the component's own class, not its superclasses. So a class that extends another concrete component (for example, `MyCopyFields extends CopyFields`) must declare its own `SPEC`, even if it accepts exactly the same properties: `public static final Spec SPEC = CopyFields.SPEC;`. Redeclaring it makes the choice of accepted properties explicit; if the parent later adds a property, the subclass doesn't silently start accepting a property it may not handle.
+
+Subclassing a built-in component is possible but not recommended. The extension points are the base classes (`Stage`, `AbstractConnector`, `Indexer`, `BaseFileHandler`); a built-in component's internals and properties may change between releases.
 
 ## How SpecBuilder Works
 
@@ -144,18 +148,15 @@ public Stage(Config config) {
 }
 ```
 
-The `getSpec()` method uses reflection to access the subclass's static `SPEC` field:
+The `getSpec()` method uses `Spec.of()`, which reflectively reads the static `SPEC` field declared on the subclass:
 
 ```java
 public Spec getSpec() {
-    try {
-        return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
-    } catch (Exception e) {
-        throw new RuntimeException(
-            "Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
-    }
+    return Spec.of(getClass());
 }
 ```
+
+`Spec.of(Class)` is public, so tooling can read any component's Spec without instantiating it.
 
 This means validation happens automatically when any Stage is constructed — including during the Runner's validation pass.
 

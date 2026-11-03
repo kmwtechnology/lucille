@@ -41,6 +41,34 @@ public class StageTest {
     }
   }
 
+  public static class SubclassWithoutSpec extends MockStage {
+
+    public SubclassWithoutSpec(Config config) {
+      super(config);
+    }
+  }
+
+  public static class SubclassWithRedeclaredSpec extends MockStage {
+
+    public static final Spec SPEC = MockStage.SPEC;
+
+    public SubclassWithRedeclaredSpec(Config config) {
+      super(config);
+    }
+  }
+
+  @Test
+  public void testSpecIsNotInherited() throws Exception {
+    Config config = ConfigFactory.empty();
+
+    RuntimeException e = assertThrows(RuntimeException.class, () -> new SubclassWithoutSpec(config));
+    assertTrue(e.getMessage().contains(SubclassWithoutSpec.class.getName()));
+    assertTrue(e.getMessage().contains("not on its superclasses"));
+
+    Stage stage = new SubclassWithRedeclaredSpec(config);
+    assertProcessed(stage, Document.create("doc"), true);
+  }
+
   private static void assertProcessed(Stage stage, Document doc, boolean processed) throws StageException {
     // remove if present
     doc.removeField("processed");

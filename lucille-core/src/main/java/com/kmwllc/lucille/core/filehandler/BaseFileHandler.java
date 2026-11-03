@@ -83,10 +83,6 @@ public abstract class BaseFileHandler implements FileHandler {
 
   @Override
   public Spec getSpec() {
-    try {
-      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
-    } catch (Exception e) {
-      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
-    }
+    return Spec.of(getClass());
   }
 }

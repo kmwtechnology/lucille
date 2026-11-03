@@ -38,7 +38,7 @@ public class ListProperty extends Property {
   protected ObjectNode typeJson() {
     ObjectNode node = MAPPER.createObjectNode();
 
-    node.put("type", "OBJECT");
+    node.put("type", "LIST");
 
     if (objectSpec != null) {
       node.set("child", objectSpec.toJson());

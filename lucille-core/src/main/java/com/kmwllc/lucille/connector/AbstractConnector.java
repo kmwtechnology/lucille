@@ -15,6 +15,7 @@ import com.typesafe.config.Config;
  * <p> All implementations must declare a <code>public static Spec SPEC</code> defining the Connector's properties. This Spec will be accessed
  * reflectively in the super constructor, so the Connector will not function without declaring a Spec. The Config provided
  * to <code>super()</code> will be validated against the Spec. Validation errors will reference the Connector's <code>name</code>.
+ * SPEC is looked up on the implementation class itself, not on its superclasses, so a class extending another Connector must declare its own.
  *
  * <p> A {@link SpecBuilder#connector()} always has "name", "class", "pipeline", "docIdPrefix", and "collapse" as legal properties.
  *
@@ -114,10 +115,6 @@ public abstract class AbstractConnector implements Connector {
 
   @Override
   public Spec getSpec() {
-    try {
-      return (Spec) this.getClass().getDeclaredField("SPEC").get(null);
-    } catch (Exception e) {
-      throw new RuntimeException("Error accessing " + getClass() + " Spec. Is it publicly and statically available under \"SPEC\"?", e);
-    }
+    return Spec.of(getClass());
   }
 }

@@ -2,6 +2,7 @@ package com.kmwllc.lucille.core.spec;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -10,6 +11,41 @@ import com.typesafe.config.ConfigFactory;
 import org.junit.Test;
 
 public class SpecTest {
+
+  public static class WithSpec {
+    public static final Spec SPEC = SpecBuilder.withoutDefaults().requiredString("message").build();
+  }
+
+  public static class SubclassWithoutSpec extends WithSpec {
+  }
+
+  public static class SubclassWithRedeclaredSpec extends WithSpec {
+    public static final Spec SPEC = WithSpec.SPEC;
+  }
+
+  public static class WithNullSpec {
+    public static final Spec SPEC = null;
+  }
+
+  public static class WithPrivateSpec {
+    private static final Spec SPEC = SpecBuilder.withoutDefaults().build();
+  }
+
+  public static class WithNonSpecField {
+    public static final String SPEC = "not a spec";
+  }
+
+  @Test
+  public void testOf() {
+    assertSame(WithSpec.SPEC, Spec.of(WithSpec.class));
+    assertSame(WithSpec.SPEC, Spec.of(SubclassWithRedeclaredSpec.class));
+
+    for (Class<?> c : new Class<?>[] {SubclassWithoutSpec.class, WithNullSpec.class, WithPrivateSpec.class, WithNonSpecField.class}) {
+      IllegalStateException e = assertThrows(IllegalStateException.class, () -> Spec.of(c));
+      assertTrue(e.getMessage().contains(c.getName()));
+      assertTrue(e.getMessage().contains("not on its superclasses"));
+    }
+  }
 
   @Test
   public void testToJson() {

@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -157,5 +159,48 @@ public class Spec {
    */
   public String getName() {
     return name;
+  }
+
+  /**
+   * Returns the Spec declared as <code>public static final Spec SPEC</code> on the given component class (a Stage, Connector,
+   * Indexer, FileHandler, etc.). SPEC is looked up on that class itself, not on its superclasses, so a class extending
+   * another component must declare its own, for example <code>public static final Spec SPEC = ParentStage.SPEC;</code>.
+   *
+   * @param componentClass The component class whose SPEC you want to get.
+   * @return The Spec declared on the given class.
+   * @throws IllegalStateException If the given class does not declare an accessible, non-null <code>public static Spec SPEC</code>.
+   */
+  public static Spec of(Class<?> componentClass) {
+    Field field;
+    try {
+      field = componentClass.getDeclaredField("SPEC");
+    } catch (NoSuchFieldException e) {
+      throw new IllegalStateException(missingSpecMessage(componentClass), e);
+    }
+
+    int modifiers = field.getModifiers();
+    if (!Modifier.isPublic(modifiers) || !Modifier.isStatic(modifiers) || !Spec.class.isAssignableFrom(field.getType())) {
+      throw new IllegalStateException(missingSpecMessage(componentClass));
+    }
+
+    Spec spec;
+    try {
+      // the field is public, but the component class itself may not be (e.g. a package-private nested class)
+      field.setAccessible(true);
+      spec = (Spec) field.get(null);
+    } catch (ReflectiveOperationException | RuntimeException e) {
+      throw new IllegalStateException(missingSpecMessage(componentClass), e);
+    }
+
+    if (spec == null) {
+      throw new IllegalStateException(missingSpecMessage(componentClass));
+    }
+    return spec;
+  }
+
+  private static String missingSpecMessage(Class<?> componentClass) {
+    return "Error accessing the Spec for " + componentClass.getName() + ". Lucille looks for a public static final Spec SPEC "
+        + "declared on the component class itself, not on its superclasses; a class extending another component must declare one, "
+        + "for example: public static final Spec SPEC = Parent.SPEC;";
   }
 }
