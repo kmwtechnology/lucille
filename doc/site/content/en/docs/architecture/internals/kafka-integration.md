@@ -459,11 +459,11 @@ Because the publisher send path is asynchronous, a failure can occur after `send
 
 2. **In `PublisherMessenger.flush()`, called at the end of the publishing run.** This drains the producer's buffer (`kafkaProducer.flush()`) and then checks for any latched async failure. If the last document's send failed, this is where it surfaces.
 
-In both cases, the thrown exception propagates up through `Publisher.publish()` or `Publisher.flush()` into the connector's `execute()` method, which terminates the run.
+In the first case the failure reaches the connector's `execute()` method as a `PublisherException` thrown by `Publisher.publish()`; in the second it is thrown as a `PublisherException` by `Publisher.flush()`, either when the connector calls it or when the framework flushes after `execute()` returns. Either way the run terminates.
 
 ### The `Publisher.publish()` Contract
 
-Exceptions thrown by `Publisher.publish()` represent framework-level failures — the messaging infrastructure is unavailable or has rejected a record after exhausting retries. These exceptions are **non-recoverable** and **must not be caught or swallowed** by connectors.
+A `PublisherException` thrown by `Publisher.publish()` represents a framework-level failure — the messaging infrastructure is unavailable or has rejected a record after exhausting retries. It is **non-recoverable** and **must not be caught or swallowed** by connectors.
 
 Connectors that need to handle per-document errors (e.g., a malformed source record that cannot be converted into a Document) should do so *before* calling `publish()`. Once `publish()` is called, any exception means the run should terminate. Catching and continuing past such an exception leaves the run in an inconsistent state: the Publisher's document-tracking accounting assumes every published document will eventually receive a terminal event, and a silently dropped document can never satisfy that assumption.
 
