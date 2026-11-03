@@ -66,14 +66,14 @@ connectors: [
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `url` | String or List\<String\> | No | Solr URL(s). Required unless `useCloudClient` is `true` and `zkHosts` is set; omitting it otherwise fails at startup. Used to build the SolrCloud client when `useCloudClient` is `true` and `zkHosts` is not set. It is not passed to the standalone client built when `useCloudClient` is `false`, which then has no base URL; use `useCloudClient: true` with this connector. |
-| `useCloudClient` | Boolean | No | Use `CloudHttp2SolrClient` (SolrCloud). Set it to `true` for this connector; see `url`. Default: `false`. |
-| `defaultCollection` | String | No | Default collection for the SolrCloud client. The query and all actions are sent to this collection, so set it. |
+| `url` | String or List\<String\> | No | Solr URL(s). Required unless `useCloudClient` is `true` and `zkHosts` is set; omitting it otherwise fails at startup. With `useCloudClient: false`, give a single URL; it is the client's base URL. With `useCloudClient: true`, used only when `zkHosts` is not set. |
+| `useCloudClient` | Boolean | No | Use `CloudHttp2SolrClient` (SolrCloud). Default: `false`. |
+| `defaultCollection` | String | No | Collection (or, on a single node, core) that the query and all actions are sent to. Set it unless `url` names the core. |
 | `zkHosts` | List\<String\> | No | ZooKeeper hosts for the SolrCloud client. When set, used instead of `url` to connect. |
 | `zkChroot` | String | No | ZooKeeper chroot path (e.g., `/solr`). Only used with `zkHosts`. |
 | `userName` | String | No | Basic auth username. Must be set together with `password`; if only one is set, an error is logged and no authentication is used. |
 | `password` | String | No | Basic auth password. |
-| `acceptInvalidCert` | Boolean | No | If `true`, sets the `solr.ssl.checkPeerName` system property to `false`. The `HttpJdkSolrClient` that Lucille builds (also used under the SolrCloud client) does not read that property, so this setting has no effect. Default: `false`. |
+| `acceptInvalidCert` | Boolean | No | If `true`, the client trusts any TLS certificate and skips the host name check. For test setups only. A client certificate in `javax.net.ssl.keyStore` is then not sent; to use one, trust the Solr certificate through `javax.net.ssl.trustStore` instead. Default: `false`. |
 | `javax.net.ssl.keyStore` | String | No | Sets the JVM system property of the same name when the client is created, unless it is already set. The same key at the top level of the connector config is also read and takes precedence, but the connector's Spec rejects it there, so set it in `solr`. |
 | `javax.net.ssl.keyStorePassword` | String | No | Same as `javax.net.ssl.keyStore`. |
 | `javax.net.ssl.trustStore` | String | No | Same as `javax.net.ssl.keyStore`. |
@@ -81,7 +81,9 @@ connectors: [
 
 ## Document Fields
 
-Each Solr result becomes a Document whose ID is `docIdPrefix` (if set) followed by the value of `idField`. Every other returned field is copied to the Document, with its name lowercased. A result whose `idField` value is missing or blank is skipped and logged, and the number of skipped results is logged at the end. The `idField` and `id` fields are not copied. Field values are copied as strings, so `idField` and every returned field must hold string values; a field with a non-string value (for example a number or date), or a field whose name contains uppercase letters, fails the run. Solr also returns its numeric `_version_` field unless `fl` excludes it, so always set `fl` to the string fields you need. Nested child documents are not read.
+Each Solr result becomes a Document whose ID is `docIdPrefix` (if set) followed by the value of `idField`. Every other returned field is copied with its type, under its name lowercased; fields whose names differ only in case overwrite each other. A result whose `idField` value is missing or blank is skipped and logged, and the number of skipped results is logged at the end. The `idField` and `id` fields are not copied. Nested child documents are not read.
+
+Solr returns `_version_` with every document. Remove it with a `DeleteFields` stage before indexing the documents into Solr, or Solr rejects each one with a 409 version conflict.
 
 ## Query Parameters (`solrParams`)
 
@@ -156,6 +158,6 @@ connectors: [
 The connector iterates through results using Solr's `cursorMark` mechanism, which avoids deep pagination performance issues. This requires:
 
 1. Documents to be sorted by the collection's `uniqueKey` field, so `idField` must be that field.
-2. The `idField` to hold a single string value in each document.
+2. The `idField` to hold a single value in each document.
 
 For large collections, tune `rows` in `solrParams` to balance memory use and round-trip count.

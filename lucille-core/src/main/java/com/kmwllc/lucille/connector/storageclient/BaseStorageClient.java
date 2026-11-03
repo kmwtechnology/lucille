@@ -1,14 +1,15 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.CONTENT;
-import static com.kmwllc.lucille.connector.FileConnector.FILE_PATH;
-import static com.kmwllc.lucille.connector.FileConnector.MAX_RESULTS_PER_PAGE;
-import static com.kmwllc.lucille.connector.FileConnector.MODIFIED;
-import static com.kmwllc.lucille.connector.FileConnector.SIZE;
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.CONTENT;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.FILE_PATH;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.MODIFIED;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.SIZE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MAX_RESULTS_PER_PAGE;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_AFTER_PROCESSING;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.MOVE_TO_ERROR_FOLDER;
 
 import com.kmwllc.lucille.core.ConfigUtils;
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.connector.StatePathTooLongException;
 import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
@@ -38,8 +39,8 @@ import org.slf4j.MDC;
 import org.slf4j.MDC.MDCCloseable;
 
 /**
- * The base implementation for StorageClients. Must be initialized before traversal / getting a file's contents using
- * {@link BaseStorageClient#init()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
+ * The base implementation for StorageClients. Must be started before traversal / getting a file's contents using
+ * {@link BaseStorageClient#start()}. Call {@link BaseStorageClient#traverse(Publisher, TraversalParams)} to process and publish
  * Documents. Call {@link BaseStorageClient#getFileContentStream(URI)} to get the contents of a single file at the given URI.
  */
 public abstract class BaseStorageClient implements StorageClient {
@@ -80,29 +81,29 @@ public abstract class BaseStorageClient implements StorageClient {
    */
   protected void validateOptions(Config config) { }
 
-  // Wrapping around init, shutdown, and traverse to manage "initialized" before / after doing the actual operations in a
+  // Wrapping around start, stop, and traverse to manage "initialized" before / after doing the actual operations in a
   // StorageClient-specific way.
 
   @Override
-  public final void init() throws IOException {
+  public final void start() throws IOException {
     if (!initialized) {
       initializeStorageClient();
       initialized = true;
     }
   }
 
-  // StorageClient-specific initialization operations
+  // StorageClient-specific operations for start()
   protected abstract void initializeStorageClient() throws IOException;
 
   @Override
-  public final void shutdown() throws IOException {
+  public final void stop() throws IOException {
     if (initialized) {
       initialized = false;
       shutdownStorageClient();
     }
   }
 
-  // StorageClient-specific shutdown operations
+  // StorageClient-specific operations for stop()
   protected abstract void shutdownStorageClient() throws IOException;
 
   public boolean isInitialized() {
@@ -116,15 +117,15 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   @Override
-  public final void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception {
+  public final void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception {
     if (!isInitialized()) {
-      throw new IllegalStateException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
     traverseStorageClient(publisher, params, stateMgr);
   }
 
-  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
+  protected abstract void traverseStorageClient(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception;
 
   /**
    * {@inheritDoc}
@@ -183,7 +184,7 @@ public abstract class BaseStorageClient implements StorageClient {
   @Override
   public final InputStream getFileContentStream(URI uri) throws IOException {
     if (!isInitialized()) {
-      throw new IllegalStateException("This StorageClient has not been initialized.");
+      throw new IllegalStateException("This StorageClient has not been started. Call start() first.");
     }
 
     return getFileContentStreamFromStorage(uri);
@@ -195,7 +196,7 @@ public abstract class BaseStorageClient implements StorageClient {
   /**
    * If the file is valid, it will be processed and published. Also, perform any preprocessing, error handling, and post-processing.
    */
-  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileConnectorStateManager stateMgr) {
+  protected void processAndPublishFileIfValid(Publisher publisher, FileReference fileReference, TraversalParams params, FileStateTracker stateMgr) {
     URI fullPath = fileReference.getFullPath();
     String fileExtension = fileReference.getFileExtension();
 
@@ -213,7 +214,7 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       // Skip files that don't pass the filter options
-      if (!params.includeFile(fileReference.getName(), fileReference.getLastModified(), lastPublished)) {
+      if (!params.includeFile(fileReference.getFilterName(), fileReference.getLastModified(), lastPublished)) {
         // If this is a previously-published archive or compressed file, its entries won't be traversed
         // this run. Mark all entries as encountered so they are not incorrectly marked as tombstones
         if (stateMgr != null && lastPublished != null) {
@@ -322,8 +323,10 @@ public abstract class BaseStorageClient implements StorageClient {
       }
 
       afterProcessingFile(fullPath, params);
-    } catch (UnsupportedOperationException e) {
-      throw new UnsupportedOperationException("Encountered unsupported operation", e);
+    } catch (MoveNotSupportedException e) {
+      // every file would fail the same way, so stop the traversal. Any other UnsupportedOperationException is
+      // handled like other errors processing a single file, below.
+      throw e;
     } catch (StatePathTooLongException e) {
       throw e;
     } catch (Exception e) {
@@ -352,7 +355,7 @@ public abstract class BaseStorageClient implements StorageClient {
    * @throws IOException If an error regarding file I/O occurs
    * @throws ConnectorException If an error occurs handling subsequent archive entries.
    */
-  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params, FileConnectorStateManager stateMgr) throws ArchiveException, IOException, ConnectorException {
+  private void handleArchiveFiles(Publisher publisher, InputStream inputStream, URI fullPathURI, TraversalParams params, FileStateTracker stateMgr) throws ArchiveException, IOException, ConnectorException {
     try (BufferedInputStream bis = new BufferedInputStream(inputStream);
         ArchiveInputStream<? extends ArchiveEntry> in = new ArchiveStreamFactory().createArchiveInputStream(bis)) {
       ArchiveEntry entry = null;
@@ -370,8 +373,10 @@ public abstract class BaseStorageClient implements StorageClient {
         }
 
         Instant archiveLastPublished = stateMgr == null ? null : stateMgr.getLastPublished(entryFullPathStr);
+        // some archive formats and entries have no modification date
+        Instant entryLastModified = entry.getLastModifiedDate() == null ? null : entry.getLastModifiedDate().toInstant();
         // checking validity only for the entries
-        if (!entry.isDirectory() && params.includeFile(entry.getName(), entry.getLastModifiedDate().toInstant(), archiveLastPublished)) {
+        if (!entry.isDirectory() && params.includeFile(entry.getName(), entryLastModified, archiveLastPublished)) {
           String entryExtension = FilenameUtils.getExtension(entry.getName());
           if (params.supportsFileExtension(entryExtension)) {
             handleStreamExtensionFiles(publisher, entryExtension, params, in, entryFullPathStr);
@@ -380,7 +385,9 @@ public abstract class BaseStorageClient implements StorageClient {
             // note that if there exists a file within the same parent directory with the same name as the entries, it will have the same id
             Document doc = Document.create(StorageClient.createDocId(DigestUtils.md5Hex(entryFullPathStr), params));
             doc.setField(FILE_PATH, entryFullPathStr);
-            doc.setField(MODIFIED, entry.getLastModifiedDate().toInstant());
+            if (entryLastModified != null) {
+              doc.setField(MODIFIED, entryLastModified);
+            }
             // entry does not have creation date
             // note that some ArchiveEntry implementations may not have a size so will return -1
             doc.setField(SIZE, entry.getSize());
@@ -489,7 +496,7 @@ public abstract class BaseStorageClient implements StorageClient {
   private void afterProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToAfterProcessing() != null) {
       // move to processed folder
-      moveFile(filePath, params.getMoveToAfterProcessing());
+      moveFileOrFail(filePath, params.getMoveToAfterProcessing(), MOVE_TO_AFTER_PROCESSING);
     }
   }
 
@@ -501,7 +508,28 @@ public abstract class BaseStorageClient implements StorageClient {
   private void errorProcessingFile(URI filePath, TraversalParams params) throws IOException {
     if (params.getMoveToErrorFolder() != null) {
       // move to error folder
-      moveFile(filePath, params.getMoveToErrorFolder());
+      moveFileOrFail(filePath, params.getMoveToErrorFolder(), MOVE_TO_ERROR_FOLDER);
+    }
+  }
+
+  // Moves the file, throwing a MoveNotSupportedException, which stops the traversal, if this client doesn't support
+  // moving files.
+  private void moveFileOrFail(URI filePath, URI folder, String option) throws IOException {
+    try {
+      moveFile(filePath, folder);
+    } catch (UnsupportedOperationException e) {
+      throw new MoveNotSupportedException(getClass().getName() + " does not support moving files, which fileOptions."
+          + option + " requires.", e);
+    }
+  }
+
+  /**
+   * Thrown when fileOptions.moveToAfterProcessing or fileOptions.moveToErrorFolder is set but this client's
+   * {@link #moveFile(URI, URI)} throws an UnsupportedOperationException. Stops the traversal.
+   */
+  private static class MoveNotSupportedException extends UnsupportedOperationException {
+    MoveNotSupportedException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 
@@ -548,9 +576,10 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
-   * Should only be used for testing. Sets this storage client to be initialized.
+   * Should only be used for testing. Marks this storage client as initialized without calling
+   * {@link #initializeStorageClient()}, for a test that supplies its own mock of the provider's SDK client.
    */
-  void initializeForTesting() {
+  protected void initializeForTesting() {
     this.initialized = true;
   }
 }

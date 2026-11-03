@@ -107,9 +107,9 @@ public class FileConnectorTest {
       Connector conn = new FileConnector(config);
       conn.execute(publisher);
       conn.close();
-      verify(mockCloudClient, times(1)).init();
+      verify(mockCloudClient, times(1)).start();
       verify(mockCloudClient, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
-      verify(mockCloudClient, times(1)).shutdown();
+      verify(mockCloudClient, times(1)).stop();
     }
   }
 
@@ -132,14 +132,14 @@ public class FileConnectorTest {
       Connector conn = new FileConnector(config);
       conn.execute(publisher);
       conn.close();
-      verify(mockForGoogle, times(1)).init();
+      verify(mockForGoogle, times(1)).start();
       verify(mockForGoogle, times(1)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
-      verify(mockForGoogle, times(1)).shutdown();
+      verify(mockForGoogle, times(1)).stop();
 
       // Azure will get started / shutdown, but not traversed
-      verify(mockForAzure, times(1)).init();
+      verify(mockForAzure, times(1)).start();
       verify(mockForAzure, times(0)).traverse(any(Publisher.class), any(TraversalParams.class), eq(null));
-      verify(mockForAzure, times(1)).shutdown();
+      verify(mockForAzure, times(1)).stop();
     }
   }
 
@@ -168,7 +168,7 @@ public class FileConnectorTest {
       connector = new FileConnector(config);
 
       // nothing takes place if a client fails to initialize
-      doThrow(new IOException("Failed to initialize client")).when(mockCloudClient).init();
+      doThrow(new IOException("Failed to initialize client")).when(mockCloudClient).start();
       assertThrows(ConnectorException.class, () -> connector.execute(publisher));
     }
   }
@@ -193,7 +193,7 @@ public class FileConnectorTest {
       assertThrows(ConnectorException.class, () -> conn.execute(publisher));
       conn.close();
       // verify that shutdown is called, even after a traversal fails
-      verify(mockCloudClient, times(1)).shutdown();
+      verify(mockCloudClient, times(1)).stop();
     }
   }
 

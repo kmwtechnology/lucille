@@ -93,7 +93,7 @@ public class ApplyFileHandlers extends Stage {
     }
 
     try {
-      fileFetcher.startup();
+      fileFetcher.start();
     } catch (IOException e) {
       throw new StageException("Error starting FileContentFetcher.", e);
     }
@@ -101,7 +101,7 @@ public class ApplyFileHandlers extends Stage {
 
   @Override
   public void stop() {
-    fileFetcher.shutdown();
+    fileFetcher.stop();
   }
 
   @Override

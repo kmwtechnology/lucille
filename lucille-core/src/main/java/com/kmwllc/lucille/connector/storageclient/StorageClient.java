@@ -1,11 +1,10 @@
 package com.kmwllc.lucille.connector.storageclient;
 
-import static com.kmwllc.lucille.connector.FileConnector.AZURE_ALLOWED_HOSTS;
-import static com.kmwllc.lucille.connector.FileConnector.DEFAULT_AZURE_ALLOWED_HOSTS;
-import static com.kmwllc.lucille.connector.FileConnector.STORAGE_CLIENTS;
-import static com.kmwllc.lucille.connector.FileConnector.STORAGE_CLIENT_CLASS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.AZURE_ALLOWED_HOSTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.DEFAULT_AZURE_ALLOWED_HOSTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.STORAGE_CLIENTS;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientOptions.STORAGE_CLIENT_CLASS;
 
-import com.kmwllc.lucille.connector.FileConnectorStateManager;
 import com.kmwllc.lucille.core.Publisher;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
@@ -26,16 +25,18 @@ import java.util.Map;
 public interface StorageClient {
 
   /**
-   * Initialize the client and creates necessary connections and/or resources.
-   * @throws IOException If an error occurs during initialization.
+   * Starts the client, creating any necessary connections and/or resources. Must be called before traversing or getting
+   * a file's contents. Calling it again on a started client has no effect.
+   * @throws IOException If an error occurs while starting.
    */
-  void init() throws IOException;
+  void start() throws IOException;
 
   /**
-   * Shutdown the client, closes any open connections and/or resources.
-   * @throws IOException If an error occurs during shutdown.
+   * Stops the client, closing any open connections and/or resources. Calling it on a client that isn't started has
+   * no effect.
+   * @throws IOException If an error occurs while stopping.
    */
-  void shutdown() throws IOException;
+  void stop() throws IOException;
 
   /**
    * Traverses through the storage client and publish files to Lucille pipeline. Does not update or use state, and
@@ -47,13 +48,15 @@ public interface StorageClient {
   void traverse(Publisher publisher, TraversalParams params) throws Exception;
 
   /**
-   * Traverses through the storage client and publish files to Lucille pipeline. Updates the given stateManager as files are encountered
-   * and published. Uses the {@link FileConnectorStateManager#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
+   * Traverses through the storage client and publish files to Lucille pipeline. Updates the given state as files are encountered
+   * and published. Uses the {@link FileStateTracker#getLastPublished(String)} method to enforce lastPublishedCutoff, if specified.
    * @param publisher The Publisher you want to publish documents to.
    * @param params Parameters / options regarding the traversal of the client's file system.
+   * @param stateMgr The state to read and update for each file, keyed by its full path. May be null, in which case state is
+   *                 not used.
    * @throws Exception If an error occurs during traversal.
    */
-  void traverse(Publisher publisher, TraversalParams params, FileConnectorStateManager stateMgr) throws Exception;
+  void traverse(Publisher publisher, TraversalParams params, FileStateTracker stateMgr) throws Exception;
 
   /**
    * Returns whether a traversal of the given parent would also visit the files under the given child, based on this

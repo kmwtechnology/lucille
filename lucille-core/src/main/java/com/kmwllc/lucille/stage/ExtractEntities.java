@@ -108,7 +108,7 @@ public class ExtractEntities extends Stage {
     StageUtils.validateFieldNumsSeveralToOne(sourceFields, destFields, "Extract Entities");
 
     try {
-      fileFetcher.startup();
+      fileFetcher.start();
     } catch (IOException e) {
       throw new StageException("Error occurred initializing FileContentFetcher.", e);
     }
@@ -117,7 +117,7 @@ public class ExtractEntities extends Stage {
 
   @Override
   public void stop() throws StageException {
-    fileFetcher.shutdown();
+    fileFetcher.stop();
   }
 
   /**

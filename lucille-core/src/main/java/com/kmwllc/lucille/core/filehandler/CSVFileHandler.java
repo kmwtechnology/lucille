@@ -1,6 +1,6 @@
 package com.kmwllc.lucille.core.filehandler;
 
-import static com.kmwllc.lucille.connector.FileConnector.ARCHIVE_FILE_SEPARATOR;
+import static com.kmwllc.lucille.connector.storageclient.StorageClientFields.ARCHIVE_FILE_SEPARATOR;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.kmwllc.lucille.core.ConfigUtils;

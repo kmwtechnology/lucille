@@ -79,9 +79,9 @@ public class ArchiveEntryStreamTest {
         "fileHandlers", Map.of("dat", Map.of("class", RecordingFileHandler.class.getName())),
         "fileOptions", Map.of("handleArchivedFiles", true, "handleCompressedFiles", true)));
     LocalStorageClient client = new LocalStorageClient();
-    client.init();
+    client.start();
     client.traverse(publisher, new TraversalParams(config, dir.toUri(), ""));
-    client.shutdown();
+    client.stop();
   }
 
   @Test

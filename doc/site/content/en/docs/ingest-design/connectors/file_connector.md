@@ -497,13 +497,15 @@ Each per-file Document published by the `FileConnector` has an ID of `{docIdPref
 | Field | Type | Description |
 |---|---|---|
 | `file_path` | String | URI of the file (e.g. `file:///C:/data/a.json`, `s3://bucket/a.json`). Always uses `/` as the separator. |
-| `file_modification_date` | Instant | Last-modified timestamp of the file. |
+| `file_modification_date` | Instant | Last-modified timestamp of the file, where the storage provider reports one. |
 | `file_creation_date` | Instant | Creation timestamp of the file, where the storage provider reports one. Never set for S3 objects or archive entries. |
 | `file_size_bytes` | Long | File size in bytes. May be `-1` for some archive entries. For a decompressed `.gz` file, the size of the compressed file. |
 | `file_content` | byte[] | Raw file bytes. Set unless `getFileContent` is `false`. |
 | `file_expired` | Boolean | Set to `true` on tombstone Documents for deleted files. |
 
 When a File Handler (CSV, JSON, XML) processes a file, it publishes its own Documents with the fields described in its section above, instead of a per-file Document. None of the fields in this table are added to them; only the CSV and video handlers record the source file path.
+
+These field names are part of the StorageClient contract, and are available as constants on `com.kmwllc.lucille.connector.storageclient.StorageClientFields`. See [Developing Storage Clients]({{< relref "docs/developer-guide/developing-storage-clients#fields-your-client-emits" >}}).
 
 ---
 
@@ -549,7 +551,7 @@ public void execute(Publisher publisher) throws ConnectorException {
 public void close() {
     if (stateManager != null) stateManager.shutdown();
     for (StorageClient client : storageClientMap.values()) {
-        client.shutdown();
+        client.stop();
     }
 }
 ```

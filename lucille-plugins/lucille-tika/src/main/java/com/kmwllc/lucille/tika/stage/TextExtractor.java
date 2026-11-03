@@ -277,7 +277,7 @@ public class TextExtractor extends Stage {
     // Only try to initialize storage clients for later use if a file path is specified
     if (filePathField != null) {
       try {
-        fileFetcher.startup();
+        fileFetcher.start();
       } catch (IOException e) {
         throw new StageException("Error occurred initializing FileContentFetcher.", e);
       }
@@ -420,7 +420,7 @@ public class TextExtractor extends Stage {
   @Override
   public void stop() throws StageException {
     // Shutdown each storage client
-    fileFetcher.shutdown();
+    fileFetcher.stop();
 
     if (executorService != null) {
       executorService.shutdownNow();

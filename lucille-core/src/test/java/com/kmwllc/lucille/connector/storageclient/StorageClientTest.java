@@ -53,7 +53,7 @@ public class StorageClientTest {
     assertThrows(IllegalArgumentException.class, () -> StorageClient.create(new URI("s3://bucket/"),
         s3CloudOptionsBad));
 
-    client.shutdown();
+    client.stop();
   }
 
   @Test
