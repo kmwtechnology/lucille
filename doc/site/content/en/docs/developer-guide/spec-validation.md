@@ -41,14 +41,15 @@ public class Spec {
 
 ## Why SPEC Is a `public static final` Field
 
-You might wonder why Lucille uses a `public static final Spec SPEC` field rather than an abstract method like `abstract Spec getSpec()`. The primary reason is **validation without full instantiation**. A Spec describes what configuration a class accepts — this is a property of the class itself, not of any particular instance. Making it a static field communicates this clearly and allows tooling or documentation generators to inspect a component's legal properties without constructing it.
+You might wonder why Lucille uses a `public static final Spec SPEC` field rather than an abstract method that returns a Spec. The primary reason is **validation without full instantiation**. A Spec describes what configuration a class accepts — this is a property of the class itself, not of any particular instance. Making it a static field communicates this clearly and allows tooling or documentation generators to inspect a component's legal properties without constructing it.
 
 Secondary reasons:
 
 - **Immutability.** A `static final` field is initialized once at class-load time and cannot change. An instance method could theoretically return different values depending on constructor arguments, which would be confusing for a validation contract.
-- **Minimal boilerplate.** Declaring a single field is simpler than overriding an abstract method with `@Override public Spec getSpec() { return SPEC; }` in every subclass.
+- **Minimal boilerplate.** Declaring a single field is simpler than implementing an accessor method in every subclass.
+- **One source of truth.** Validation, the admin UI and documentation tooling all read the same field through `Spec.of(Class)`, so there is no overridable method that could make them disagree.
 
-**The tradeoff: no compile-time enforcement.** The compiler does not force you to declare a `SPEC` field. If you forget it, you won't get a compile error — you'll get an `IllegalStateException` the first time the component is instantiated. This happens because the `Stage` base class constructor calls `getSpec().validate(config, ...)`, and the default `getSpec()` implementation uses reflection to look up the `SPEC` field on your class. If the field is missing, the reflective lookup fails immediately with a clear error message:
+**The tradeoff: no compile-time enforcement.** The compiler does not force you to declare a `SPEC` field. If you forget it, you won't get a compile error — you'll get an `IllegalStateException` the first time the component is instantiated. This happens because the `Stage` base class constructor calls `Spec.of(getClass()).validate(config, ...)`, and `Spec.of` uses reflection to look up the `SPEC` field on your class. If the field is missing, the reflective lookup fails immediately with a clear error message:
 
 ```
 IllegalStateException: Error accessing the Spec for com.example.MyStage. Lucille looks for a public static final Spec SPEC declared on the component class itself, not on its superclasses; a class extending another component must declare one, for example: public static final Spec SPEC = Parent.SPEC;
@@ -142,21 +143,13 @@ public Stage(Config config) {
     this.config = config;
 
     // Validate using the subclass's SPEC
-    getSpec().validate(config, getDisplayName());
+    Spec.of(getClass()).validate(config, getDisplayName());
 
     this.condition = getMergedConditions();
 }
 ```
 
-The `getSpec()` method uses `Spec.of()`, which reflectively reads the static `SPEC` field declared on the subclass:
-
-```java
-public Spec getSpec() {
-    return Spec.of(getClass());
-}
-```
-
-`Spec.of(Class)` is public, so tooling can read any component's Spec without instantiating it.
+`Spec.of(Class)` reflectively reads the static `SPEC` field declared on the subclass. It is public, so tooling can read any component's Spec without instantiating it. The `SPEC` field is the only way for a component to declare its Spec.
 
 This means validation happens automatically when any Stage is constructed — including during the Runner's validation pass.
 
@@ -178,7 +171,7 @@ private void validateIndexerConfigs(Config config) {
     String indexerConfigKey = getIndexerConfigKey();
     if (indexerConfigKey != null && config.hasPath(indexerConfigKey)) {
         Config specificImplConfig = config.getConfig(indexerConfigKey);
-        getImplementationSpec().validate(specificImplConfig, indexerConfigKey);
+        Spec.of(getClass()).validate(specificImplConfig, indexerConfigKey);
     }
 }
 ```

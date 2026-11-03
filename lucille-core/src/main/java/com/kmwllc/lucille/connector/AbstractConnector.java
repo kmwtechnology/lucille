@@ -46,7 +46,7 @@ public abstract class AbstractConnector implements Connector {
     this.docIdPrefix = ConfigUtils.getStringOrDefault(config, "docIdPrefix", "");
     this.collapse = ConfigUtils.getBooleanOrDefault(config, "collapse", false);
 
-    getSpec().validate(config, name);
+    Spec.of(getClass()).validate(config, name);
   }
 
   @Override
@@ -113,8 +113,4 @@ public abstract class AbstractConnector implements Connector {
     this.message = message;
   }
 
-  @Override
-  public Spec getSpec() {
-    return Spec.of(getClass());
-  }
 }

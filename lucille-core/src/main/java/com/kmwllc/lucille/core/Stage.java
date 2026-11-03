@@ -104,7 +104,7 @@ public abstract class Stage {
     this.config = config;
 
     // A spec.stage() validates the stage config AND the conditions as well
-    getSpec().validate(config, getDisplayName());
+    Spec.of(getClass()).validate(config, getDisplayName());
 
     this.condition = getMergedConditions();
   }
@@ -130,10 +130,6 @@ public abstract class Stage {
     } else {
       throw new IllegalArgumentException("Unsupported condition policy: " + conditionPolicy);
     }
-  }
-
-  public Spec getSpec() {
-    return Spec.of(getClass());
   }
 
   /**
@@ -391,7 +387,7 @@ public abstract class Stage {
    * for a Stage (such as "name" and "conditions").
    */
   public final Set<String> getNonDefaultLegalProperties() {
-    Set<String> propNames = getSpec().getLegalProperties();
+    Set<String> propNames = Spec.of(getClass()).getLegalProperties();
 
     Set<String> defaultPropNames = DEFAULT_LEGAL_PROPERTIES.stream().map(Property::getName).collect(Collectors.toSet());
     propNames.removeAll(defaultPropNames);

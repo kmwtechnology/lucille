@@ -14,7 +14,7 @@ By contrast, `Stage` and `Indexer` are abstract classes because the framework ma
 
 **What `AbstractConnector` does for you:**
 
-- **Config validation** — The constructor calls `getSpec().validate(config)` using your class's `SPEC` field. Missing or unrecognized properties fail at startup.
+- **Config validation** — The constructor validates `config` against your class's `SPEC` field. Missing or unrecognized properties fail at startup.
 - **Common config parsing** — Reads `name`, `pipeline`, `docIdPrefix`, and `collapse` from the config automatically.
 - **Document ID prefixing** — Provides `createDocId(id)` which prepends the configured `docIdPrefix` to your raw IDs.
 - **No-op lifecycle defaults** — `preExecute()`, `postExecute()`, and `close()` are provided as no-ops so you only override what you need.

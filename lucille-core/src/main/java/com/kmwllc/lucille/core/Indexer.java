@@ -818,10 +818,6 @@ public abstract class Indexer implements Runnable, BatchProcessor {
     Launch.indexer(args);
   }
 
-  public Spec getImplementationSpec() {
-    return Spec.of(getClass());
-  }
-
   private void validateIndexerConfigs(Config config) {
     // Validate the general "indexer" entry in the Config. (This Spec is same for all indexers.)
     Config indexerConfig = config.getConfig("indexer");
@@ -842,7 +838,7 @@ public abstract class Indexer implements Runnable, BatchProcessor {
 
     if (indexerConfigKey != null && config.hasPath(indexerConfigKey)) {
       Config specificImplConfig = config.getConfig(indexerConfigKey);
-      getImplementationSpec().validate(specificImplConfig, indexerConfigKey);
+      Spec.of(getClass()).validate(specificImplConfig, indexerConfigKey);
     }
   }
 

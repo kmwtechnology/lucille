@@ -25,7 +25,7 @@ public abstract class BaseFileHandler implements FileHandler {
   protected final String docIdPrefix;
 
   public BaseFileHandler(Config config) {
-    getSpec().validate(config, this.getClass().getName());
+    Spec.of(getClass()).validate(config, getClass().getName());
 
     this.docIdPrefix = ConfigUtils.getStringOrDefault(config, "docIdPrefix", "");
   }
@@ -81,8 +81,4 @@ public abstract class BaseFileHandler implements FileHandler {
     }
   }
 
-  @Override
-  public Spec getSpec() {
-    return Spec.of(getClass());
-  }
 }
