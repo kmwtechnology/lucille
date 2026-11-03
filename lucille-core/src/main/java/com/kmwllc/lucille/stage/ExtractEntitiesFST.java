@@ -102,7 +102,7 @@ public class ExtractEntitiesFST extends Stage {
     this.stopOnHit = ConfigUtils.getOrDefault(config, "stopOnHit", false);
     this.ignoreCase = ConfigUtils.getOrDefault(config, "ignoreCase", false);
     this.dictsSorted = ConfigUtils.getOrDefault(config, "dictsSorted", false);
-    this.entityField = ConfigUtils.getOrDefault(config, "entityField", null);
+    this.entityField = ConfigUtils.getStringOrDefault(config, "entityField", null);
     this.updateMode = UpdateMode.fromConfig(config);
   }
 

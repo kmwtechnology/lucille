@@ -13,6 +13,8 @@ import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.util.FileUtils;
+import com.kmwllc.lucille.util.FileUtils.ContentTooLargeException;
 import com.typesafe.config.Config;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -382,7 +384,18 @@ public abstract class BaseStorageClient implements StorageClient {
             // note that some ArchiveEntry implementations may not have a size so will return -1
             doc.setField(SIZE, entry.getSize());
             if (params.shouldGetFileContent()) {
-              doc.setField(CONTENT, in.readAllBytes());
+              Long maxSizeBytes = params.getMaxSizeBytes();
+              try {
+                if (maxSizeBytes != null && entry.getSize() > maxSizeBytes) {
+                  throw new ContentTooLargeException(
+                      String.format("Entry of %d bytes exceeds maxSizeBytes of %d.", entry.getSize(), maxSizeBytes));
+                }
+                doc.setField(CONTENT, FileUtils.readAllBytes(in, maxSizeBytes));
+              } catch (ContentTooLargeException e) {
+                // skip just this entry rather than failing the whole archive
+                log.error("Skipping entry '{}' in '{}'. {}", entry.getName(), fullPathURI, e.getMessage());
+                continue;
+              }
             }
             try {
               if (docLogger.isInfoEnabled()) {

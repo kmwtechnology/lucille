@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.connector;
 
+import static org.junit.Assert.assertThrows;
+
 import com.kmwllc.lucille.core.spec.Spec;
 import com.kmwllc.lucille.core.Connector;
 import com.kmwllc.lucille.core.ConnectorException;
@@ -44,6 +46,22 @@ public class AbstractConnectorTest {
     MyConnector connector = new MyConnector(config);
     assertEquals("myprefix_", connector.getDocIdPrefix());
     assertEquals("myprefix_id1", connector.createDocId("id1"));
+  }
+
+  @Test
+  public void testCreateDocIdRejectsNullAndBlank() throws Exception {
+    // a null source id would otherwise become the text "null", shared by every such record
+    Map<String, String> map = new HashMap();
+    map.put("name", "connector1");
+    map.put("pipeline", "pipeline1");
+    map.put("docIdPrefix", "myprefix_");
+    MyConnector connector = new MyConnector(ConfigFactory.parseMap(map));
+
+    assertThrows(IllegalArgumentException.class, () -> connector.createDocId(null));
+    assertThrows(IllegalArgumentException.class, () -> connector.createDocId(""));
+    assertThrows(IllegalArgumentException.class, () -> connector.createDocId("   "));
+    // a usable id is used exactly as given, without trimming
+    assertEquals("myprefix_ id1 ", connector.createDocId(" id1 "));
   }
 
   @Test

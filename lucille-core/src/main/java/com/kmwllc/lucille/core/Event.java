@@ -32,6 +32,11 @@ public class Event {
   private Long offset;
   private String key;
 
+  // Optional, config-driven subset of the source document's fields. Null (and therefore omitted from the
+  // serialized JSON) unless event field enrichment is enabled and at least one requested field is present.
+  // Stored as an ObjectNode so the fields serialize with the exact JSON shape they have in the document itself.
+  private ObjectNode documentFields;
+
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   static {
@@ -42,6 +47,15 @@ public class Event {
   }
 
   public Event(Document document, String message, Type type) {
+    this(document, message, type, null);
+  }
+
+  /**
+   * Creates an Event for the given document, optionally embedding a subset of the document's fields as
+   * described by {@code fieldConfig}. When {@code fieldConfig} is null or disabled, this behaves identically
+   * to {@link #Event(Document, String, Type)} and no {@code documentFields} are included.
+   */
+  public Event(Document document, String message, Type type, EventFieldConfig fieldConfig) {
     this.documentId = document.getId();
     this.runId = document.getRunId();
     this.message = message;
@@ -52,6 +66,9 @@ public class Event {
       this.partition = kafkaDocument.getPartition();
       this.offset = kafkaDocument.getOffset();
       this.key = kafkaDocument.getKey();
+    }
+    if (fieldConfig != null) {
+      this.documentFields = fieldConfig.extract(document);
     }
   }
 
@@ -67,6 +84,9 @@ public class Event {
     this.message = node.get("message").asText();
     this.runId = node.get("runId").asText();
     this.type = Type.valueOf(node.get("type").asText());
+    if (node.get("documentFields") instanceof ObjectNode) {
+      this.documentFields = (ObjectNode) node.get("documentFields");
+    }
   }
 
   public String getDocumentId() {
@@ -105,6 +125,10 @@ public class Event {
     return key;
   }
 
+  public ObjectNode getDocumentFields() {
+    return documentFields;
+  }
+
   @JsonIgnore
   public boolean isCreate() {
     return Type.CREATE.equals(type);
@@ -140,11 +164,12 @@ public class Event {
         Objects.equals(topic, e.topic) &&
         Objects.equals(partition, e.partition) &&
         Objects.equals(offset, e.offset) &&
-        Objects.equals(key, e.key);
+        Objects.equals(key, e.key) &&
+        Objects.equals(documentFields, e.documentFields);
   }
 
   public int hashCode() {
-    return Objects.hash(documentId, runId, message, type, instant, topic, partition, offset, key);
+    return Objects.hash(documentId, runId, message, type, instant, topic, partition, offset, key, documentFields);
   }
 
 }

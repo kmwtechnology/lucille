@@ -12,8 +12,18 @@ import com.kmwllc.lucille.core.RunDetails;
 import com.kmwllc.lucille.core.Runner;
 import com.kmwllc.lucille.core.RunnerManager;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigIncludeContext;
+import com.typesafe.config.ConfigIncluder;
+import com.typesafe.config.ConfigIncluderClasspath;
+import com.typesafe.config.ConfigIncluderFile;
+import com.typesafe.config.ConfigIncluderURL;
+import com.typesafe.config.ConfigObject;
+import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigResolveOptions;
+import java.io.File;
+import java.net.URL;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -81,8 +91,8 @@ public class LucilleResource {
         runnerManager.createConfigWithKey(entry.getValue(), entry.getKey());
       }
     } catch (RunnerManagerException e) {
-      // if we breach the config limit just from presets, warn the user
-      throw new IllegalStateException("Config limit has been reached while loading presets.", e);
+      // a preset that is invalid, or more presets than the config limit, is a deployment error: fail startup
+      throw new IllegalStateException("Could not load preset configs: " + e.getMessage(), e);
     }
   }
 
@@ -103,10 +113,8 @@ public class LucilleResource {
               example = "{\"connectors\":[{\"class\":\"com.kmwllc.lucille.connector.CSVConnector\",\"path\":\"conf/dummy2.csv\",\"name\":\"connector1\",\"pipeline\":\"pipeline1\"}],\"pipelines\":[{\"name\":\"pipeline1\",\"stages\":[]}],\"indexer\":{\"type\":\"CSV\"},\"csv\":{\"columns\":[\"Name\",\"Age\",\"City\"],\"path\":\"conf/dummy.csv\",\"includeHeader\":false}}"))) String configBody) {
 
     try {
-      // Resolve substitutions before storing the config, since an unresolved config can't be returned by the
-      // GET /config endpoints. Environment variables are not available to POSTed configs, as API callers
-      // could read the host's environment back out of GET /config, so a ${ENV_VAR} reference returns a 400.
-      Config config = ConfigFactory.parseString(configBody)
+      // no includes or env vars, so a POSTed config can't read data off the host
+      Config config = ConfigFactory.parseString(configBody, ConfigParseOptions.defaults().setIncluder(new RejectingIncluder()))
           .resolve(ConfigResolveOptions.defaults().setUseSystemEnvironment(false));
       CreateConfigResult result = runnerManager.createConfig(config);
       log.info("a lucille config has been created. Config ID: " + result.getConfigId());
@@ -257,5 +265,39 @@ public class LucilleResource {
     }
 
     return Response.ok(details).build();
+  }
+
+  // Rejects all includes. Implements each includer interface, since Typesafe uses its default for any that are missing.
+  private static final class RejectingIncluder
+      implements ConfigIncluder, ConfigIncluderFile, ConfigIncluderURL, ConfigIncluderClasspath {
+
+    @Override
+    public ConfigIncluder withFallback(ConfigIncluder fallback) {
+      return this;
+    }
+
+    @Override
+    public ConfigObject include(ConfigIncludeContext context, String what) {
+      throw includesDisabledException();
+    }
+
+    @Override
+    public ConfigObject includeFile(ConfigIncludeContext context, File what) {
+      throw includesDisabledException();
+    }
+
+    @Override
+    public ConfigObject includeURL(ConfigIncludeContext context, URL what) {
+      throw includesDisabledException();
+    }
+
+    @Override
+    public ConfigObject includeResources(ConfigIncludeContext context, String what) {
+      throw includesDisabledException();
+    }
+
+    private static ConfigException includesDisabledException() {
+      return new ConfigException.Generic("Includes are not allowed in configs POSTed to the API.");
+    }
   }
 }

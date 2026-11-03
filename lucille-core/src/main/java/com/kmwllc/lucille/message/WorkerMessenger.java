@@ -33,25 +33,33 @@ public interface WorkerMessenger {
   /**
    * Submit a given Document so that it can be received by an Indexer component that
    * would call IndexerMessenger.pollCompleted()
+   *
+   * @throws MessengerException if the Document could not be sent; see {@link MessengerException#isDocumentSpecific()}
    */
-  void sendForIndexing(Document document) throws Exception;
+  void sendForIndexing(Document document) throws MessengerException;
 
   /**
    * Submit a given Document to a "Dead Letter Queue" for Documents that cannot be processed.
+   *
+   * @throws MessengerException if the Document could not be sent; see {@link MessengerException#isDocumentSpecific()}
    */
-  void sendFailed(Document document) throws Exception;
+  void sendFailed(Document document) throws MessengerException;
 
   /**
    * Create an Event from the given parameters and make it available to the Publisher or
    * any other component that is listening for Document-related Events.
+   *
+   * @throws MessengerException if the Event could not be sent; see {@link MessengerException#isDocumentSpecific()}
    */
-  void sendEvent(Document document, String message, Event.Type type) throws Exception;
+  void sendEvent(Document document, String message, Event.Type type) throws MessengerException;
 
   /**
    * Make the designated Event available to the Publisher or any other component that is listening for
    * Document-related Events.
+   *
+   * @throws MessengerException if the Event could not be sent; see {@link MessengerException#isDocumentSpecific()}
    */
-  void sendEvent(Event event) throws Exception;
+  void sendEvent(Event event) throws MessengerException;
 
   /**
    * Close any connections opened by this WorkerMessenger.

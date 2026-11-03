@@ -28,7 +28,6 @@ public class ElasticsearchUtils {
       .requiredStringOrList("url")
       .optionalBoolean("update", "acceptInvalidCert", "useCompression")
       .optionalNumber("connectTimeoutMs", "socketTimeoutMs", "connectionTimeToLiveMs")
-      .optionalString("parentName")
       .optionalNumber("maxConnectionsPerRoute", "maxConnectionsTotal")
       .optionalParent("join", new TypeReference<Map<String, String>>(){}).build();
 

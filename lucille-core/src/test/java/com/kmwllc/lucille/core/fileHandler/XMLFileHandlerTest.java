@@ -1,5 +1,8 @@
 package com.kmwllc.lucille.core.fileHandler;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -14,8 +17,12 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,6 +44,34 @@ public class XMLFileHandlerTest {
     File file = new File(filePath);
 
     assertThrows(FileHandlerException.class, () -> xmlHandler.processFile(new FileInputStream(file), filePath));
+  }
+
+  private static List<Document> publishXml(Map<String, Object> xmlConfig, String xml) throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("xml", xmlConfig));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+    xmlHandler.processFileAndPublish(publisher, new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "inline.xml");
+    return messenger.getDocsSentForProcessing();
+  }
+
+  @Test
+  public void testBlankIdIsTreatedAsEmpty() throws Exception {
+    String xml = "<Company><staff><id>1</id></staff><staff><id>   </id></staff><staff><id>3</id></staff></Company>";
+    Map<String, Object> base = Map.of("xmlRootPath", "/Company/staff", "xmlIdPath", "/Company/staff/id", "outputField", "xml");
+
+    // with skipEmptyId, an element whose id is only whitespace is skipped, as one with an empty id is
+    Map<String, Object> skipping = new java.util.HashMap<>(base);
+    skipping.put("skipEmptyId", true);
+    List<Document> skipped = publishXml(skipping, xml);
+    assertEquals(List.of("1", "3"), skipped.stream().map(Document::getId).toList());
+
+    // without it, such an element gets a generated UUID instead of the whitespace as its id
+    List<Document> generated = publishXml(base, xml);
+    assertEquals(3, generated.size());
+    assertEquals("1", generated.get(0).getId());
+    assertEquals(UUID.randomUUID().toString().length(), generated.get(1).getId().length());
+    assertEquals("3", generated.get(2).getId());
   }
 
   @Test
@@ -323,5 +358,73 @@ public class XMLFileHandlerTest {
 
     // first document was published successfully before the failure on the second
     assertEquals(1, messenger.getDocsSentForProcessing().size());
+  }
+
+  // three records, the second of which is ~1MB
+  private static InputStream xmlWithLargeRecord() {
+    String xml = "<Records>"
+        + "<record><id>1</id></record>"
+        + "<record><id>2</id><data>" + "a".repeat(1024 * 1024) + "</data></record>"
+        + "<record><id>3</id></record>"
+        + "</Records>";
+    return new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static Config recordConfig(String rootPath, Integer maxRecordBytes) {
+    Map<String, Object> handlerConfig = new HashMap<>(Map.of(
+        "xmlRootPath", rootPath,
+        "xmlIdPath", rootPath + "/id"
+    ));
+    if (maxRecordBytes != null) {
+      handlerConfig.put("maxRecordBytes", maxRecordBytes);
+    }
+    return ConfigFactory.parseMap(Map.of("xml", handlerConfig));
+  }
+
+  @Test
+  public void testNoMaxRecordBytes() throws Exception {
+    Config config = recordConfig("/Records/record", null);
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+
+    FileHandler.create("xml", config).processFileAndPublish(publisher, xmlWithLargeRecord(), "test.xml");
+
+    assertEquals(3, messenger.getDocsSentForProcessing().size());
+  }
+
+  @Test
+  public void testMaxRecordBytes() throws Exception {
+    Config config = recordConfig("/Records/record", 64 * 1024);
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+
+    FileHandlerException e = assertThrows(FileHandlerException.class,
+        () -> xmlHandler.processFileAndPublish(publisher, xmlWithLargeRecord(), "test.xml"));
+    assertTrue(e.getMessage().contains("maxRecordBytes"));
+    assertTrue(e.getMessage().contains("test.xml"));
+
+    // the record before the oversized one was still published
+    List<Document> docs = messenger.getDocsSentForProcessing();
+    assertEquals(1, docs.size());
+    assertEquals("1", docs.get(0).getId());
+  }
+
+  @Test
+  public void testMaxRecordBytesWhenRootPathNeverMatches() throws Exception {
+    Config config = recordConfig("/Records/missing", 64 * 1024);
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    FileHandler xmlHandler = FileHandler.create("xml", config);
+
+    // without a record start, nothing is ever cleared from the buffer
+    assertThrows(FileHandlerException.class, () -> xmlHandler.processFileAndPublish(publisher, xmlWithLargeRecord(), "test.xml"));
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
+  }
+
+  @Test
+  public void testInvalidMaxRecordBytes() {
+    Config config = recordConfig("/Records/record", 0);
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("xml", config));
   }
 }

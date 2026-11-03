@@ -83,7 +83,7 @@ public abstract class Stage {
       throw new IllegalArgumentException("Config cannot be null");
     }
 
-    this.name = ConfigUtils.getOrDefault(config, "name", null);
+    this.name = ConfigUtils.getStringOrDefault(config, "name", null);
 
     this.config = config;
 

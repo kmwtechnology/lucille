@@ -15,7 +15,7 @@ import com.typesafe.config.Config;
  * Config Parameters -
  * <ul>
  *   <li>source (String) : The field containing the byte array.</li>
- *   <li>destination (String) : The name of the field which will be added to store the size. Will overwrite value if field already exists.</li>
+ *   <li>dest (String) : The name of the field which will be added to store the size. Will overwrite value if field already exists.</li>
  * </ul>
  */
 public class ComputeFieldSize extends Stage {

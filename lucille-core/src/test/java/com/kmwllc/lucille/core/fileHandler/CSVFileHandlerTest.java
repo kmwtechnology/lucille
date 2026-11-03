@@ -18,14 +18,127 @@ import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 
 public class CSVFileHandlerTest {
+  private static List<String> idsOf(FileHandler handler, String csv) throws Exception {
+    Iterator<Document> docs = handler.processFile(new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8)), "inline.csv");
+    List<String> ids = new ArrayList<>();
+    while (docs.hasNext()) {
+      Document doc = docs.next();
+      if (doc != null) {
+        ids.add(doc.getId());
+      }
+    }
+    return ids;
+  }
+
+  @Test
+  public void testRowsWithBlankIdsAreSkipped() throws Exception {
+    // a row whose id is blank cannot be told apart from others like it, so it is skipped; the rows around it are read
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id", "docIdPrefix", "p-"))));
+
+    String csv = "id,name\n1,a\n,b\n   ,c\n4,d\n5\n6,f\n";   // the row "5" also has the wrong number of columns
+
+    assertEquals(List.of("p-1", "p-4", "p-6"), idsOf(handler, csv));
+  }
+
+  @Test
+  public void testBlankIdRowsAtTheEndDoNotCauseAnError() throws Exception {
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id"))));
+
+    assertEquals(List.of("1"), idsOf(handler, "id,name\n1,a\n,b\n,c\n"));
+  }
+
+  @Test
+  public void testBlankIdRowsDoNotStopThePublishingOfTheRest() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id"))));
+
+    handler.processFileAndPublish(publisher, new ByteArrayInputStream("id,name\n1,a\n,b\n3,c\n".getBytes(StandardCharsets.UTF_8)), "inline.csv");
+
+    List<String> published = messenger.getDocsSentForProcessing().stream().map(Document::getId).toList();
+    assertEquals(List.of("1", "3"), published);
+  }
+
+  @Test
+  public void testIdFieldNotInHeaderFailsTheFile() throws Exception {
+    // an idField that matches no column is a configuration error: every row would be unusable, so the file fails up front
+    // with a message naming the column, instead of every row being skipped (or, before, dropped by a NullPointerException)
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "ID"))));
+
+    FileHandlerException e = assertThrows(FileHandlerException.class, () -> idsOf(handler, "id,name\n1,a\n2,b\n"));
+    assertTrue(e.getMessage(), e.getMessage().contains("idField 'ID'"));
+    assertTrue(e.getMessage(), e.getMessage().contains("lowercaseFields"));
+
+    // the same column name is found once the header is lower-cased
+    FileHandler lowercasing = FileHandler.create("csv",
+        ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "ID", "lowercaseFields", true))));
+    assertEquals(List.of("1", "2"), idsOf(lowercasing, "id,name\n1,a\n2,b\n"));
+
+    // one missing column out of several is reported by name
+    FileHandler composite = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idFields", List.of("id", "nam")))));
+    e = assertThrows(FileHandlerException.class, () -> idsOf(composite, "id,name\n1,a\n"));
+    assertTrue(e.getMessage(), e.getMessage().contains("idField 'nam'"));
+
+    // an empty file has no header to check against, and no rows, so it is not an error
+    assertEquals(List.of(), idsOf(handler, ""));
+  }
+
+  @Test
+  public void testRowsWithWrongColumnCountCountAsBadRecords() throws Exception {
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id"))));
+    int limit = BadRecordTracker.MAX_CONSECUTIVE;
+
+    // a few short or long rows are skipped and the rest of the file is read
+    assertEquals(List.of("1", "3"), idsOf(handler, "id,name\n1,a\n2\n3,c\n4,d,extra\n"));
+
+    // a header with a trailing empty cell makes every row mismatch; the file fails instead of yielding no documents
+    String trailingCell = "id,name,\n" + "1,a\n".repeat(limit) + "2,b\n";
+    assertThrows(BadRecordTracker.TooManyBadRecordsException.class, () -> idsOf(handler, trailingCell));
+
+    // mismatches and blank ids count toward the same limit, and a good row resets it
+    String mixed = "id,name\n" + "x\n,y\n".repeat((limit - 1) / 2) + "1,a\n" + "x\n".repeat(limit - 1) + "2,b\n";
+    assertEquals(List.of("1", "2"), idsOf(handler, mixed));
+  }
+
+  @Test
+  public void testCompositeIdWithSomeBlankPartsIsUsable() throws Exception {
+    // only an id that is blank as a whole is unusable; one with a blank part, like "_3", is kept
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idFields", List.of("a", "b")))));
+
+    assertEquals(List.of("1_2", "_3", "_"), idsOf(handler, "a,b,c\n1,2,x\n,3,y\n,,z\n"));
+  }
+
+  @Test
+  public void testTooManyConsecutiveBlankIdRowsFailsTheFile() throws Exception {
+    FileHandler handler = FileHandler.create("csv", ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id"))));
+    int limit = BadRecordTracker.MAX_CONSECUTIVE;
+
+    // one fewer than the limit, repeatedly, is fine because a good row resets the count
+    String ok = "id,name\n" + ",x\n".repeat(limit - 1) + "1,a\n" + ",x\n".repeat(limit - 1) + "2,b\n";
+    assertEquals(List.of("1", "2"), idsOf(handler, ok));
+
+    String tooMany = "id,name\n" + ",x\n".repeat(limit) + "1,a\n";
+    assertThrows(BadRecordTracker.TooManyBadRecordsException.class, () -> idsOf(handler, tooMany));
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    assertThrows(FileHandlerException.class, () -> handler.processFileAndPublish(
+        publisher, new ByteArrayInputStream(tooMany.getBytes(StandardCharsets.UTF_8)), "inline.csv"));
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
+  }
+
   @Test
   public void testSemicolonSeparator() throws Exception {
     Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("separatorChar",  ";")));
@@ -523,5 +636,75 @@ public class CSVFileHandlerTest {
     assertEquals(2, published.size());
     assertEquals("doc1", published.get(0).getId());
     assertEquals("doc3", published.get(1).getId());
+  }
+
+  private static InputStream toStream(String csv) {
+    return new ByteArrayInputStream(csv.getBytes(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  public void testMaxRecordBytes() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 10)));
+    FileHandler handler = FileHandler.create("csv", config);
+
+    Iterator<Document> docs = handler.processFile(toStream("id,value\n1,short\n2,this is too long\n3,short\n"), "test.csv");
+
+    // the row before the oversized one is still returned
+    assertTrue(docs.hasNext());
+    assertEquals("short", docs.next().getString("value"));
+
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::hasNext);
+    assertTrue(e.getMessage().contains("Logical row 2"));
+    assertTrue(e.getMessage().contains("test.csv"));
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testMaxRecordBytesOnHeader() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 5)));
+    FileHandler handler = FileHandler.create("csv", config);
+
+    assertThrows(FileHandlerException.class, () -> handler.processFile(toStream("id,value\n1,a\n"), "test.csv"));
+  }
+
+  @Test
+  public void testMaxRecordBytesAcrossLines() throws Exception {
+    // the second row spans three physical lines of 7, 4 and 5 bytes: each is under the limit, but the row is 16 bytes
+    String csv = "id,value\n1,a\n2,\"xxxx\nyyyy\nzzzz\"\n3,b\n";
+
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 10)));
+    Iterator<Document> docs = FileHandler.create("csv", config).processFile(toStream(csv), "test.csv");
+    assertEquals("a", docs.next().getString("value"));
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::hasNext);
+    assertTrue(e.getMessage().contains("Logical row 2"));
+
+    // the count starts over for each row, so a limit that fits the largest row lets every row through
+    config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 16)));
+    docs = FileHandler.create("csv", config).processFile(toStream(csv), "test.csv");
+    assertEquals("a", docs.next().getString("value"));
+    assertEquals("xxxx\nyyyy\nzzzz", docs.next().getString("value"));
+    assertEquals("b", docs.next().getString("value"));
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testMaxRecordBytesStillAppliesWhileSkippingBadRows() throws Exception {
+    // rows 2 and 3 are bad (blank id, wrong column count) and are skipped; row 4 is over the limit and fails the file
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("idField", "id", "maxRecordBytes", 12)));
+    FileHandler handler = FileHandler.create("csv", config);
+
+    Iterator<Document> docs = handler.processFile(toStream("id,value\n1,a\n,b\n2\n3,this value is too long\n4,c\n"), "test.csv");
+    assertEquals("1", docs.next().getId());
+
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::next);
+    assertFalse(e instanceof BadRecordTracker.TooManyBadRecordsException);
+    assertTrue(e.getMessage(), e.getMessage().contains("Logical row 4"));
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testInvalidMaxRecordBytes() {
+    Config config = ConfigFactory.parseMap(Map.of("csv", Map.of("maxRecordBytes", 0)));
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("csv", config));
   }
 }

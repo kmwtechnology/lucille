@@ -72,6 +72,7 @@ If your external system *wants* to stamp a `run_id` on documents (e.g., to corre
 |---|---|---|
 | No event tracking needed | `kafka.events: false` | Most common for streaming. No Publisher is listening, so events would go unread. |
 | Events needed for external monitoring | `kafka.eventTopic: "lucille_events"` | Sends all events to a fixed topic name. An external system can consume this topic to track document success/failure. |
+| Events must say more about the document than its id (e.g. whether a `FINISH` was a delete) | `kafka.event.includeFields: ["deleted", ...]` | Copies the listed document fields onto each event as `documentFields`. Only small, flat values are copied; see [Enriching Events with Document Fields]({{< relref "docs/architecture/internals/kafka-integration#enriching-events-with-document-fields" >}}). |
 | Events needed with per-document run_ids | `kafka.events: true` (default) | Only works if the external producer stamps `run_id` on documents. Events route to `{pipeline}_event_{runId}`. |
 
 **Recommendation:** Set `kafka.events: false` unless you have a specific consumer for the event topic. If you do need events, set `kafka.eventTopic` to a fixed name to avoid the `_event_null` topic naming issue.
@@ -86,6 +87,11 @@ kafka {
   # Option B: Send events to a fixed topic for external monitoring
   # events: true
   # eventTopic: "lucille_events"
+
+  # Optionally copy selected document fields onto each event (requires events: true)
+  # event {
+  #   includeFields: ["source", "deleted"]
+  # }
 }
 
 pipelines: [

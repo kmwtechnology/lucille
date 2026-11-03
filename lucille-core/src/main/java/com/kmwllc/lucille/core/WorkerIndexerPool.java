@@ -107,4 +107,19 @@ public class WorkerIndexerPool {
     return numWorkers;
   }
 
+  /**
+   * @return Whether every WorkerIndexer pair started by this pool still has both of its threads running.
+   */
+  public boolean isAlive() {
+    if (workerIndexers.isEmpty()) {
+      return false;
+    }
+    for (WorkerIndexer workerIndexer : workerIndexers) {
+      if (!workerIndexer.isAlive()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
 }

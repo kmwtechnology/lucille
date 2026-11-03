@@ -19,11 +19,11 @@ That is the same idea as a sort-merge join in a database engine: once both input
 
 The merge only works if **every** query is ordered by the same join key, in the same direction.
 
-- The primary `sql` must `ORDER BY` the parent key (`idField` on the primary result set).
+- The primary `sql` must `ORDER BY` the parent key (`idField` on the primary result set), and that key must be unique.
 - Each statement in `otherSQLs` must `ORDER BY` its corresponding join column from `otherJoinFields`.
-- The join columns must be comparable (typically integer keys). Null join keys are not supported.
+- The join columns must be mutually comparable (integers, strings or dates). A child row whose join key is `NULL` matches no parent and is skipped.
 
-If the result sets are not ordered, the connector will skip or mis-associate child rows: it only looks forward, never rewinds.
+The connector only looks forward, never rewinds. If a result set turns out not to be ordered by its join key, or the primary key repeats, the connector fails the run with a message naming the key, rather than silently dropping or mis-associating child rows.
 
 In this example the parent key is `animal.id` and the child key is `meal.animal_id`:
 
@@ -39,7 +39,7 @@ Those statements are wired together in `conf/joining-db-connector-example.conf` 
 
 ## Collapsing one-to-many rows into multi-valued fields
 
-Because the child result set is ordered by the join key, all meals for a given animal arrive as a contiguous run of rows. The connector attaches each of those rows as a child document on the parent.
+Because the child result set is ordered by the join key, all meals for a given animal arrive as a contiguous run of rows. The connector attaches each of those rows as a child document on the parent, with ids of the form `<parentId>_<n>` (`1_0`, `1_1`, ...), numbered across all `otherSQLs`.
 
 The pipeline then uses `CollapseChildrenDocuments` to copy selected child fields onto the parent as **multi-valued** fields and drop the children:
 

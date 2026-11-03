@@ -34,7 +34,7 @@ public class RemoveDiacritics extends Stage {
   public RemoveDiacritics(Config config) throws StageException {
     super(config);
     this.source = config.getString("source");
-    this.destination = ConfigUtils.getOrDefault(config, "destination", null);
+    this.destination = ConfigUtils.getStringOrDefault(config, "destination", null);
   }
 
   @Override

@@ -193,7 +193,8 @@ public class TraversalParamsTest {
 
   @Test
   public void fullModeIgnoresLastPublishedCutoff() {
-    // full mode should ignore lastPublishedCutoff and always include
+    // at the params level, full mode does not consult lastPublishedCutoff; FileConnector rejects this combination at
+    // construction so a configured cutoff is never silently ignored
     Instant now = Instant.now();
     TraversalParams params = paramsWithFilterOptions(Map.of("publishMode", "full", "lastPublishedCutoff", "24h"));
     assertTrue(params.includeFile("doc.json", now, now.minus(Duration.ofHours(1))));

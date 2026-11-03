@@ -165,6 +165,27 @@ public class WeaviateIndexerTest {
   }
 
   @Test
+  public void testBypass() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");
+
+    // in bypass mode there is no client, so nothing must be sent, and every document must still finish
+    WeaviateIndexer indexer = new WeaviateIndexer(config, messenger, true, "testing");
+    assertTrue(indexer.validateConnection());
+
+    messenger.sendForIndexing(Document.create("doc1", "test_run"));
+    messenger.sendForIndexing(Document.create("doc2", "test_run"));
+    indexer.run(2);
+
+    List<Event> events = messenger.getSentEvents();
+    assertEquals(2, events.size());
+    for (int i = 1; i <= events.size(); i++) {
+      assertEquals("doc" + i, events.get(i - 1).getDocumentId());
+      assertEquals(Event.Type.FINISH, events.get(i - 1).getType());
+    }
+  }
+
+  @Test
   public void testWeaviateIndexerException() throws Exception {
     TestMessenger messenger = new TestMessenger();
     Config config = ConfigFactory.load("WeaviateIndexerTest/config.conf");

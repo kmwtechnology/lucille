@@ -17,9 +17,12 @@ import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.NoSuchElementException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -166,22 +169,105 @@ public class JsonFileHandlerTest {
     assertFalse(docs.hasNext());
   }
 
-  @Test
-  public void testNonObjectLineIsReportedClearly() throws Exception {
-    // on both the idFields path and the plain path, a line that is a JSON array fails with a DocumentException that
-    // says so, wrapped in the handler's RuntimeException, rather than a ClassCastException
-    for (Map<String, Object> jsonConfig : List.<Map<String, Object>>of(Map.of("idField", "field1", "docIdPrefix", ""), Map.of())) {
-      FileHandler handler = FileHandler.create("json", ConfigFactory.parseMap(Map.of("json", jsonConfig)));
-      String content = "{\"id\":\"1\", \"field1\":\"one\"}\n[\"not\", \"an\", \"object\"]\n";
-      Iterator<Document> docs = handler.processFile(
-          new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)), "inline.jsonl");
+  private static InputStream stream(String content) {
+    return new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
+  }
 
-      docs.next();
-      RuntimeException e = assertThrows(RuntimeException.class, docs::next);
-      assertTrue(String.valueOf(e.getCause()), e.getCause() instanceof DocumentException);
-      assertTrue(e.getCause().getMessage(), e.getCause().getMessage().contains("must be a JSON object")
-          || e.getCause().getMessage().contains("must be an object"));
+  private static List<String> idsOf(Iterator<Document> docs) {
+    List<String> ids = new ArrayList<>();
+    while (docs.hasNext()) {
+      ids.add(docs.next().getId());
     }
+    return ids;
+  }
+
+  @Test
+  public void testBadLinesAreSkippedAndTheRestAreRead() throws Exception {
+    // a line whose data cannot be turned into a Document is skipped; it does not end the file
+    FileHandler handler = FileHandler.create("json", ConfigFactory.parseMap(Map.of("json", Map.of("docIdPrefix", "p-"))));
+    String content = String.join("\n",
+        "{\"id\":\"a\"}",
+        "{\"x\":1}",                // no id
+        "{\"id\":null}",
+        "{\"id\":\"\"}",
+        "{\"id\":\"   \"}",         // blank
+        "{\"id\":5}",               // not a string
+        "[\"not\", \"an\", \"object\"]",
+        "{not json",
+        "{\"id\":\"c\"}") + "\n";
+
+    assertEquals(List.of("p-a", "p-c"), idsOf(handler.processFile(stream(content), "inline.jsonl")));
+  }
+
+  @Test
+  public void testBadLinesAreSkippedWithIdFields() throws Exception {
+    FileHandler handler = FileHandler.create("json",
+        ConfigFactory.parseMap(Map.of("json", Map.of("idField", "field1", "docIdPrefix", "p-"))));
+    String content = String.join("\n",
+        "{\"field1\":\"a\"}",
+        "{\"other\":1}",            // id field missing
+        "{\"field1\":null}",
+        "{\"field1\":\"\"}",
+        "{\"field1\":\"  \"}",      // blank
+        "[1]",
+        "{not json",
+        "{\"field1\":\"c\"}") + "\n";
+
+    assertEquals(List.of("p-a", "p-c"), idsOf(handler.processFile(stream(content), "inline.jsonl")));
+  }
+
+  @Test
+  public void testBadLinesDoNotStopThePublishingOfTheRest() throws Exception {
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    FileHandler handler = FileHandler.create("json", ConfigFactory.parseMap(Map.of("json", Map.of())));
+
+    handler.processFileAndPublish(publisher, stream("{\"id\":\"a\"}\n{\"x\":1}\n{\"id\":\"c\"}\n{\"id\":\"d\"}\n"), "inline.jsonl");
+
+    List<String> published = messenger.getDocsSentForProcessing().stream().map(Document::getId).toList();
+    assertEquals(List.of("a", "c", "d"), published);
+  }
+
+  @Test
+  public void testBadLastLine() throws Exception {
+    // skipping a bad line at the end leaves nothing more to read, without an error
+    FileHandler handler = FileHandler.create("json", ConfigFactory.parseMap(Map.of("json", Map.of())));
+    Iterator<Document> docs = handler.processFile(stream("{\"id\":\"a\"}\n{\"x\":1}\n"), "inline.jsonl");
+
+    assertEquals("a", docs.next().getId());
+    assertFalse(docs.hasNext());
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testNextWithoutHasNext() throws Exception {
+    FileHandler handler = FileHandler.create("json", ConfigFactory.parseMap(Map.of("json", Map.of())));
+    Iterator<Document> docs = handler.processFile(stream("{\"x\":1}\n{\"id\":\"a\"}\n"), "inline.jsonl");
+
+    assertEquals("a", docs.next().getId());
+    assertThrows(NoSuchElementException.class, docs::next);
+  }
+
+  @Test
+  public void testTooManyConsecutiveBadLinesFailsTheFile() throws Exception {
+    FileHandler handler = FileHandler.create("json", ConfigFactory.parseMap(Map.of("json", Map.of())));
+    String bad = "{\"x\":1}\n";
+    String good = "{\"id\":\"ok\"}\n";
+    int limit = BadRecordTracker.MAX_CONSECUTIVE;
+
+    // one fewer than the limit, repeatedly, is fine because a good line resets the count
+    String content = bad.repeat(limit - 1) + good + bad.repeat(limit - 1) + good;
+    assertEquals(List.of("ok", "ok"), idsOf(handler.processFile(stream(content), "inline.jsonl")));
+
+    // the limit reached: the iterator fails, and so does publishing the file, rather than reading on
+    String tooMany = bad.repeat(limit) + good;
+    Iterator<Document> docs = handler.processFile(stream(tooMany), "inline.jsonl");
+    assertThrows(BadRecordTracker.TooManyBadRecordsException.class, docs::hasNext);
+
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(ConfigFactory.empty(), messenger, "run1", "pipeline1");
+    assertThrows(FileHandlerException.class, () -> handler.processFileAndPublish(publisher, stream(tooMany), "inline.jsonl"));
+    assertEquals(0, messenger.getDocsSentForProcessing().size());
   }
 
   @Test
@@ -412,5 +498,50 @@ public class JsonFileHandlerTest {
     assertEquals("PREFIX-two_2", docs.next().getId());
     assertEquals("PREFIX-three_3", docs.next().getId());
     assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testMaxRecordBytes() throws Exception {
+    Config config = ConfigFactory.parseMap(Map.of("json", Map.of("maxRecordBytes", 30)));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String input = "{\"id\": \"1\", \"a\": \"short\"}\n"
+        + "{\"id\": \"2\", \"a\": \"this line is longer than the limit\"}\n"
+        + "{\"id\": \"3\", \"a\": \"short\"}\n";
+
+    Iterator<Document> docs = handler.processFile(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), "test.jsonl");
+    assertEquals("1", docs.next().getId());
+
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::hasNext);
+    assertTrue(e.getMessage().contains("line 2"));
+    assertTrue(e.getMessage().contains("test.jsonl"));
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testMaxRecordBytesStillAppliesWhileSkippingBadLines() throws Exception {
+    // lines 2 and 3 have no id and are skipped; line 4 is over the limit and fails the file
+    Config config = ConfigFactory.parseMap(Map.of("json", Map.of("maxRecordBytes", 30)));
+    FileHandler handler = FileHandler.create("json", config);
+
+    String input = "{\"id\": \"1\"}\n"
+        + "{\"x\": 1}\n"
+        + "{\"x\": 2}\n"
+        + "{\"id\": \"2\", \"a\": \"this line is longer than the limit\"}\n"
+        + "{\"id\": \"3\"}\n";
+
+    Iterator<Document> docs = handler.processFile(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), "test.jsonl");
+    assertEquals("1", docs.next().getId());
+
+    IllegalStateException e = assertThrows(IllegalStateException.class, docs::hasNext);
+    assertFalse(e instanceof BadRecordTracker.TooManyBadRecordsException);
+    assertTrue(e.getMessage(), e.getMessage().contains("line 4"));
+    assertFalse(docs.hasNext());
+  }
+
+  @Test
+  public void testInvalidMaxRecordBytes() {
+    Config config = ConfigFactory.parseMap(Map.of("json", Map.of("maxRecordBytes", 0)));
+    assertThrows(IllegalArgumentException.class, () -> FileHandler.create("json", config));
   }
 }

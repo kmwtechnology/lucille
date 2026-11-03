@@ -27,6 +27,7 @@ import java.util.List;
  *  <li>urlFiles (List&lt;String&gt;): The list of URL file paths to parse. If specified along with filePaths, urlFiles takes precedence.</li>
  *  <li>encoding (String): The encoding of the XML document to parse: defaults to utf-8.</li>
  *  <li>outputField (String): The field to place the XML into: defaults to "xml".</li>
+ *  <li>maxRecordBytes (Integer, Optional): Maximum number of bytes held in memory for a single record; see XMLFileHandler.</li>
  * </ul>
  *
  * The XMLConnector has been deprecated. Use {@link FileConnector} with an {@link XMLFileHandler}.
@@ -43,6 +44,7 @@ public class XMLConnector extends AbstractConnector {
 
   public static final Spec SPEC = SpecBuilder.connector()
       .requiredString("xmlRootPath", "xmlIdPath", "encoding", "outputField")
+      .optionalNumber("maxRecordBytes")
       .optionalList("filePaths", new TypeReference<List<String>>(){})
       .optionalList("urlFiles", new TypeReference<List<String>>(){}).build();
 

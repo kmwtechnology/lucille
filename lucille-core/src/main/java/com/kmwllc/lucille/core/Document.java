@@ -75,19 +75,20 @@ import org.slf4j.LoggerFactory;
  *   <li>asMap() builds a new Map with new Lists and byte[] values; modifying it never modifies the Document.</li>
  * </ul>
  *
- * <p><b>Invalid ids.</b> Every Document has a non-empty String id. Which exception reports an invalid one depends on
- * where the id came from, not on what is wrong with it:
+ * <p><b>Invalid ids.</b> Every Document has a valid String id, one that is not null, empty or only whitespace (see
+ * {@link #isValidId(String)}). Which exception reports an invalid one depends on where the id came from, not on what is
+ * wrong with it:
  * <ul>
  *   <li>An id read from <i>data</i>, meaning JSON text, an ObjectNode or a Kafka record, is checked: a missing, null,
- *   empty or non-string id is a DocumentException, as is JSON that is not an object, or an id updater that returns a
- *   null or empty id. A bad record is an expected possibility with external data, so callers can catch this to skip the
+ *   empty, blank or non-string id is a DocumentException, as is JSON that is not an object, or an id updater that
+ *   returns an invalid id. A bad record is an expected possibility with external data, so callers can catch this to skip the
  *   record and continue. Malformed JSON text is a JsonProcessingException, and a Kafka deserializer wraps either in the
  *   SerializationException that Kafka requires, with the original as its cause.</li>
  *   <li>An id passed as a Java <i>argument</i>, as in create(String), is reported with an unchecked
  *   IllegalArgumentException, as an invalid field name is. These factories assume a valid id. Code that obtains ids
- *   from external data is responsible for validating them first and deciding whether to skip the record or fail; it
- *   should not rely on the exception. (An empty String id is not currently rejected here, although the ObjectNode and
- *   JSON paths do reject it.)</li>
+ *   from external data is responsible for validating them first, with {@link #isValidId(String)}, and deciding
+ *   whether to skip the record or fail; it should not rely on the exception. Null, empty and blank ids are all
+ *   rejected, in line with the ObjectNode and JSON paths.</li>
  *   <li>Changing the id of an existing Document is never allowed. Every mutator, including the nested JSON and rename
  *   methods and the update methods, throws IllegalArgumentException for a reserved field name.</li>
  * </ul>
@@ -689,6 +690,27 @@ public interface Document {
   void removeChildren();
 
 
+  /* --- ID VALIDATION --- */
+
+  /**
+   * Returns whether the given String is a valid Document id: not null, not empty, and not only whitespace.
+   *
+   * <p>Every Document must have a valid id, and the factories and constructors enforce this. Connectors and file
+   * handlers that build ids from values read from a source system should apply it to the value as read, before any
+   * docIdPrefix is added, and skip and report the record when it fails, so that one bad record does not stop the rest of
+   * the data from being ingested. Records with a bad id would otherwise either abort the run or share an id with every
+   * other such record, silently overwriting one another in the destination.
+   *
+   * <p>The id is not trimmed: a valid id is used exactly as given. An id assembled from several source values is
+   * checked as a whole, so an id with only some blank parts, such as "2_", is valid.
+   *
+   * <p>Whitespace is as defined by {@link Character#isWhitespace(int)}, so, for example, a non-breaking space does not
+   * make an id blank.
+   */
+  static boolean isValidId(String id) {
+    return id != null && !id.isBlank();
+  }
+
   /* --- CREATORS --- */
 
   // These factories are the designated way to construct a Document outside this package. They are the single
@@ -697,7 +719,7 @@ public interface Document {
   /**
    * Creates a Document backed by the given node, which is not copied.
    *
-   * @throws DocumentException if the node's id is missing, null, empty, or not a string (see "Invalid ids" above)
+   * @throws DocumentException if the node's id is missing, null, empty, blank, or not a string (see "Invalid ids" above)
    */
   static Document create(ObjectNode node) throws DocumentException {
     return new JsonDocument(node);
@@ -706,7 +728,7 @@ public interface Document {
   /**
    * Creates a Document with the given id.
    *
-   * @throws IllegalArgumentException if the id is null (see "Invalid ids" above)
+   * @throws IllegalArgumentException if the id is null, empty or blank (see "Invalid ids" above)
    */
   static Document create(String id) {
     return new JsonDocument(id);
@@ -715,7 +737,7 @@ public interface Document {
   /**
    * Creates a Document with the given id and run id.
    *
-   * @throws IllegalArgumentException if the id is null (see "Invalid ids" above)
+   * @throws IllegalArgumentException if the id is null, empty or blank (see "Invalid ids" above)
    */
   static Document create(String id, String runId) {
     return new JsonDocument(id, runId);
@@ -735,7 +757,7 @@ public interface Document {
    * Creates a Document from JSON text, replacing its id with the result of the updater when one is given.
    *
    * @throws JsonProcessingException if the text is not well-formed JSON
-   * @throws DocumentException if the JSON is not an object, its id is invalid, or the updater returns a null or empty
+   * @throws DocumentException if the JSON is not an object, its id is invalid, or the updater returns an invalid
    * id (see "Invalid ids" above)
    */
   static Document createFromJson(String json, UnaryOperator<String> idUpdater) throws DocumentException, JsonProcessingException {

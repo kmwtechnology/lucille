@@ -45,7 +45,7 @@ public class TruncateField extends Stage {
 
     this.source = config.getString("source");
     this.maxSize = config.getInt("maxSize");
-    this.destination = ConfigUtils.getOrDefault(config, "destination", null);
+    this.destination = ConfigUtils.getStringOrDefault(config, "destination", null);
   }
 
   @Override

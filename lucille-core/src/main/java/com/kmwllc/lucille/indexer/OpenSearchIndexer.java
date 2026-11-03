@@ -96,8 +96,8 @@ public class OpenSearchIndexer extends Indexer {
     this.routingField = config.hasPath("indexer.routingField") ? config.getString("indexer.routingField") : null;
     this.update = config.hasPath("opensearch.update") ? config.getBoolean("opensearch.update") : false;
     this.versionType =
-        config.hasPath("indexer.versionType") ? VersionType.valueOf(config.getString("indexer.versionType")) : null;
-    this.childDocumentsField = ConfigUtils.getOrDefault(config, "opensearch.childDocumentsField", null);
+        config.hasPath("indexer.versionType") ? parseVersionType(config.getString("indexer.versionType")) : null;
+    this.childDocumentsField = ConfigUtils.getStringOrDefault(config, "opensearch.childDocumentsField", null);
     this.versionField = config.hasPath("indexer.versionField") ? config.getString("indexer.versionField") : null;
 
     // validate config indexer.versionType that must be set if config indexer.versionField is set
@@ -455,6 +455,17 @@ public class OpenSearchIndexer extends Indexer {
       childDocMaps.add(getRawIndexerDoc(child));
     }
     indexerDoc.put(childDocumentsField, childDocMaps);
+  }
+
+  // Accepts both the enum constant name (External, ExternalGte) and the JSON spelling (external, external_gte).
+  private static VersionType parseVersionType(String name) {
+    for (VersionType type : VersionType.values()) {
+      if (type.name().equalsIgnoreCase(name) || type.jsonValue().equalsIgnoreCase(name)) {
+        return type;
+      }
+    }
+    throw new IllegalArgumentException("Unknown indexer.versionType \"" + name + "\"; expected one of "
+        + java.util.Arrays.toString(VersionType.values()));
   }
 
   private Long getVersionNum(Document doc) {

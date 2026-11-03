@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
  * Config Parameters -
  * <ul>
  *   <li>jsonPath (String, Required) : Path to the JSON or JSONL file to read.</li>
+ *   <li>maxRecordBytes (Integer, Optional) : Maximum size, in bytes, of a line; see JsonFileHandler.</li>
  * </ul>
  */
 @Deprecated
@@ -26,7 +27,10 @@ public class JSONConnector extends AbstractConnector {
   private final String pathStr;
   private final JsonFileHandler jsonFileHandler;
 
-  public static final Spec SPEC = SpecBuilder.connector().requiredString("jsonPath").build();
+  public static final Spec SPEC = SpecBuilder.connector()
+      .requiredString("jsonPath")
+      // passed through to JsonFileHandler
+      .optionalNumber("maxRecordBytes").build();
 
   public JSONConnector(Config config) {
     super(config);

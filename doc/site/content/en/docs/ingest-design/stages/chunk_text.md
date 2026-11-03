@@ -31,7 +31,7 @@ Documents where `source` is missing, null, or blank are skipped. If `source` is 
 |---|---|---|---|
 | `source` | String | Yes | Field containing the text to chunk. |
 | `dest` | String | No | Field name for chunk content in child docs. Default: `text`. |
-| `chunkingMethod` | String | No | Chunking strategy: `sentence`, `paragraph`, `fixed`, or `custom` (case-insensitive). Any other value silently falls back to `sentence`. Default: `sentence`. See below. |
+| `chunkingMethod` | String | No | Chunking strategy: `sentence`, `paragraph`, `fixed`, or `custom` (case-insensitive). Any other value fails at startup. Default: `sentence`. See below. |
 | `regex` | String | No | Java regex to split on. Required when `chunkingMethod` is `custom`. Compiled when the stage is created, so a missing or invalid pattern fails at startup. |
 | `lengthToSplit` | Integer | No | Number of characters per initial chunk. Required, and must be positive, when `chunkingMethod` is `fixed`. |
 | `chunksToMerge` | Integer | No | How many initial chunks to merge into one final chunk, joined with a space. Must be at least `1`. Default: `1` (no merging). |

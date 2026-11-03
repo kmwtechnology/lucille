@@ -1,5 +1,6 @@
 package com.kmwllc.lucille.core;
 
+import com.kmwllc.lucille.util.EmbeddedKafkaUtils;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -19,7 +20,6 @@ import org.junit.Test;
 import java.util.List;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
-import org.springframework.kafka.test.EmbeddedKafkaKraftBroker;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 
 import static org.junit.Assert.assertEquals;
@@ -33,8 +33,8 @@ public class KafkaTest {
 
   @BeforeClass
   public static void startKafka() throws Exception {
-    embeddedKafka = new EmbeddedKafkaKraftBroker(1, 1);
-    embeddedKafka.afterPropertiesSet();
+    // a warmed-up broker, so the one-time creation of __consumer_offsets does not land inside a test's time budget
+    embeddedKafka = EmbeddedKafkaUtils.startBroker();
   }
 
 

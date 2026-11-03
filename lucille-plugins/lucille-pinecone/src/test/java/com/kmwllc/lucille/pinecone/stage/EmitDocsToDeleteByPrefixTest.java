@@ -160,6 +160,36 @@ public class EmitDocsToDeleteByPrefixTest {
   }
 
   @Test
+  public void testBlankIdsAreNotEmitted() throws StageException {
+    Index mockIndex = Mockito.mock(Index.class);
+    when(goodClient.getIndexConnection(anyString())).thenReturn(mockIndex);
+    ListResponse mockResponse = Mockito.mock(ListResponse.class);
+    when(mockResponse.hasPagination()).thenReturn(false);
+    when(mockIndex.list(anyString(), anyString())).thenReturn(mockResponse);
+    ListItem item = Mockito.mock(ListItem.class);
+    ListItem item2 = Mockito.mock(ListItem.class);
+    ListItem item3 = Mockito.mock(ListItem.class);
+    when(item.getId()).thenReturn("id1-1");
+    when(item2.getId()).thenReturn("  ");
+    when(item3.getId()).thenReturn("id1-3");
+    when(mockResponse.getVectorsList()).thenReturn(Arrays.asList(item, item2, item3));
+
+    try(MockedConstruction<Builder> builder = Mockito.mockConstruction(Pinecone.Builder.class,(mock,context)-> {
+      when(mock.build()).thenReturn(goodClient);
+    })) {
+      Stage stage = factory.get("EmitDocsToDeleteByPrefixTest/goodConfig.conf");
+      Document doc1 = Document.create("id1");
+      doc1.setField("to_delete", "true");
+
+      // the vector with a blank id is skipped, not a failure of the whole document
+      Iterator<Document> iterator = stage.processDocument(doc1);
+      assertEquals("id1-1", iterator.next().getId());
+      assertEquals("id1-3", iterator.next().getId());
+      assertFalse(iterator.hasNext());
+    }
+  }
+
+  @Test
   public void testEmitPrefixDocuments() throws StageException {
     // mocking
     Index mockIndex = Mockito.mock(Index.class);

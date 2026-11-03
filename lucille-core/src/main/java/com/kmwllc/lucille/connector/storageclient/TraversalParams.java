@@ -3,6 +3,7 @@ package com.kmwllc.lucille.connector.storageclient;
 import static com.kmwllc.lucille.connector.FileConnector.GET_FILE_CONTENT;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_ARCHIVED_FILES;
 import static com.kmwllc.lucille.connector.FileConnector.HANDLE_COMPRESSED_FILES;
+import static com.kmwllc.lucille.connector.FileConnector.MAX_SIZE_BYTES;
 
 import com.kmwllc.lucille.connector.FileConnector;
 import com.kmwllc.lucille.core.fileHandler.FileHandler;
@@ -29,6 +30,9 @@ public class TraversalParams {
 
   private static final Logger log = LoggerFactory.getLogger(TraversalParams.class);
 
+  // a larger limit couldn't be read into a byte[]
+  private static final long MAX_ALLOWED_SIZE_BYTES = Integer.MAX_VALUE - 9L;
+
   // provided argument
   private final String docIdPrefix;
 
@@ -39,6 +43,8 @@ public class TraversalParams {
   private final boolean getFileContent;
   private final boolean handleArchivedFiles;
   private final boolean handleCompressedFiles;
+  // null means no limit
+  private final Long maxSizeBytes;
 
   private final URI moveToAfterProcessing;
   private final URI moveToErrorFolder;
@@ -63,6 +69,13 @@ public class TraversalParams {
     this.getFileContent = !fileOptions.hasPath(GET_FILE_CONTENT) || fileOptions.getBoolean(GET_FILE_CONTENT);
     this.handleArchivedFiles = fileOptions.hasPath(HANDLE_ARCHIVED_FILES) && fileOptions.getBoolean(HANDLE_ARCHIVED_FILES);
     this.handleCompressedFiles = fileOptions.hasPath(HANDLE_COMPRESSED_FILES) && fileOptions.getBoolean(HANDLE_COMPRESSED_FILES);
+    this.maxSizeBytes = fileOptions.hasPath(MAX_SIZE_BYTES) ? fileOptions.getLong(MAX_SIZE_BYTES) : null;
+    if (maxSizeBytes != null && maxSizeBytes <= 0) {
+      throw new IllegalArgumentException("fileOptions.maxSizeBytes must be positive, but was " + maxSizeBytes);
+    }
+    if (maxSizeBytes != null && maxSizeBytes > MAX_ALLOWED_SIZE_BYTES) {
+      throw new IllegalArgumentException("fileOptions.maxSizeBytes must be at most " + MAX_ALLOWED_SIZE_BYTES + ", but was " + maxSizeBytes);
+    }
 
     try {
       if (fileOptions.hasPath(FileConnector.MOVE_TO_AFTER_PROCESSING)) {
@@ -197,6 +210,13 @@ public class TraversalParams {
 
   public boolean shouldGetFileContent() {
     return getFileContent;
+  }
+
+  /**
+   * @return The maximum size, in bytes, of file content to read into a Document, or null if there is no limit.
+   */
+  public Long getMaxSizeBytes() {
+    return maxSizeBytes;
   }
 
   public boolean getHandleArchivedFiles() {

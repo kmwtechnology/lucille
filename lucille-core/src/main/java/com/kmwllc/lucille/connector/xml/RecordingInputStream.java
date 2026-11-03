@@ -11,20 +11,42 @@ public class RecordingInputStream extends FilterInputStream {
 
   protected ByteArrayOutputStream sink;
   private String encoding;
+  // 0 means no limit
+  private final int maxBufferSize;
 
   public RecordingInputStream(InputStream in) {
-    this(in, new ByteArrayOutputStream());
+    this(in, new ByteArrayOutputStream(), 0);
+  }
+
+  /**
+   * @param in The InputStream to read from.
+   * @param maxBufferSize The maximum number of bytes that may be recorded before an IOException is thrown. Recorded bytes
+   *                      are discarded by {@link #clearUpTo(String)} and {@link #returnUpTo(String)}.
+   */
+  public RecordingInputStream(InputStream in, int maxBufferSize) {
+    this(in, new ByteArrayOutputStream(), maxBufferSize);
   }
 
   RecordingInputStream(InputStream in, ByteArrayOutputStream sink) {
+    this(in, sink, 0);
+  }
+
+  private RecordingInputStream(InputStream in, ByteArrayOutputStream sink, int maxBufferSize) {
     super(in);
+
+    if (maxBufferSize < 0) {
+      throw new IllegalArgumentException("maxBufferSize cannot be negative, got " + maxBufferSize);
+    }
+
     this.sink = sink;
+    this.maxBufferSize = maxBufferSize;
   }
 
   @Override
   public synchronized int read() throws IOException {
     int i = in.read();
     sink.write(i);
+    checkBufferSize();
     return i;
   }
 
@@ -35,7 +57,14 @@ public class RecordingInputStream extends FilterInputStream {
       return -1;
     }
     sink.write(buf, off, l);
+    checkBufferSize();
     return l;
+  }
+
+  private void checkBufferSize() throws IOException {
+    if (maxBufferSize > 0 && sink.size() > maxBufferSize) {
+      throw new BufferLimitExceededException(maxBufferSize);
+    }
   }
 
   @Override
@@ -82,5 +111,15 @@ public class RecordingInputStream extends FilterInputStream {
 
   public void setEncoding(String encoding) {
     this.encoding = encoding;
+  }
+
+  /**
+   * Thrown when more bytes have been recorded than the maximum buffer size allows.
+   */
+  public static class BufferLimitExceededException extends IOException {
+
+    public BufferLimitExceededException(int maxBufferSize) {
+      super("Recorded XML exceeds the maximum size of " + maxBufferSize + " bytes.");
+    }
   }
 }

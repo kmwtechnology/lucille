@@ -11,11 +11,15 @@ import com.kmwllc.lucille.message.KafkaDocumentDeserializer;
 import com.kmwllc.lucille.message.KafkaUtils;
 import com.typesafe.config.Config;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -47,6 +51,10 @@ public class KafkaConnector extends AbstractConnector {
       .requiredString("kafka.bootstrapServers", "kafka.topic", "kafka.consumerGroupId", "kafka.clientId",
           "kafka.maxPollIntervalSecs")
       .optionalString("idField", "kafka.documentDeserializer")
+      // the kafka block may also carry any of the keys KafkaUtils.createConsumerProps reads from this connector's
+      // config (securityProtocol, consumerPropertyFile, consumer.*, metadataMaxAgeMs, pollIntervalMs, ...)
+      .optionalParent("kafka", new TypeReference<Map<String, Object>>() {
+      })
       .optionalParent("offsets", new TypeReference<Map<Integer, Long>>() {
       })
       .optionalNumber("maxMessages", "messageTimeout")
@@ -70,8 +78,8 @@ public class KafkaConnector extends AbstractConnector {
     super(config);
     this.topic = config.getString("kafka.topic");
     this.clientId = config.getString("kafka.clientId");
-    this.idField = ConfigUtils.getOrDefault(config, "idField", null);
-    this.maxMessages = ConfigUtils.getOrDefault(config, "maxMessages", null);
+    this.idField = ConfigUtils.getStringOrDefault(config, "idField", null);
+    this.maxMessages = ConfigUtils.getLongOrDefault(config, "maxMessages", null);
     this.messageTimeout = ConfigUtils.getOrDefault(config, "messageTimeout", 100L);
     this.continueOnTimeout = ConfigUtils.getOrDefault(config, "continueOnTimeout", true);
     this.offsets = parseOffsets(config);
@@ -99,18 +107,30 @@ public class KafkaConnector extends AbstractConnector {
     consumer = createConsumer(props);
 
     try {
-      consumer.subscribe(Collections.singletonList(topic));
-
-      if (offsets != null) {
-        log.info("Seeking to specified offsets: {}", offsets);
-        consumer.poll(Duration.ZERO);
-        for (TopicPartition partition : consumer.assignment()) {
-          if (offsets.containsKey(partition.partition())) {
-            Long offset = offsets.get(partition.partition());
-            log.info("Seeking partition {} to offset {}", partition.partition(), offset);
-            consumer.seek(partition, offset);
+      if (offsets == null) {
+        consumer.subscribe(Collections.singletonList(topic));
+      } else {
+        // Partitions are assigned asynchronously after subscribe(), so the configured starting offsets are applied
+        // from the assignment callback; a poll(Duration.ZERO) right after subscribing would see no assignment yet.
+        // Each partition is positioned once: after a later rebalance the consumer continues from its committed offset.
+        log.info("Will seek to specified offsets on assignment: {}", offsets);
+        Set<Integer> positioned = new HashSet<>();
+        consumer.subscribe(Collections.singletonList(topic), new ConsumerRebalanceListener() {
+          @Override
+          public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
           }
-        }
+
+          @Override
+          public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
+            for (TopicPartition partition : partitions) {
+              Long offset = offsets.get(partition.partition());
+              if (offset != null && positioned.add(partition.partition())) {
+                log.info("Seeking partition {} to offset {}", partition.partition(), offset);
+                consumer.seek(partition, offset);
+              }
+            }
+          }
+        });
       }
 
       startPollingLoop(publisher);

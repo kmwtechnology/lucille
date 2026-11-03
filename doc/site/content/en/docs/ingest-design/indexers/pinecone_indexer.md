@@ -22,8 +22,12 @@ Indexes vector embeddings into [Pinecone](https://www.pinecone.io/). Config bloc
 |---|---|---|---|
 | `apiKey` | String | Yes | Pinecone API key. Use `${PINECONE_API_KEY}` for environment variable substitution. |
 | `index` | String | Yes | Name of the Pinecone index to write to. |
-| `vectorField` | String | Yes | Document field containing the vector embedding. |
-| `namespace` | String | No | Pinecone namespace. Default: `"default"`. |
+| `defaultEmbeddingField` | String | No* | Document field containing the vector embedding, written to the default namespace. Required unless `namespaces` is set. |
+| `namespaces` | Map\<String, String\> | No* | Map of Pinecone namespace to the document field holding the vector for that namespace. |
+| `metadataFields` | List\<String\> | No | Document fields sent as metadata alongside the vector. `indexer.whitelist` and `indexer.blacklist` are applied first. |
+| `mode` | String | No | `upsert` or `update` (case-insensitive). Any other value fails at startup. Default: `upsert`. |
+
+The generic `indexer.idOverrideField` supplies the vector ID when set and present on the document. `indexer.indexOverrideField` is not supported and fails at startup; use `namespaces` instead.
 
 ```hocon
 indexer {
@@ -35,8 +39,8 @@ indexer {
 pinecone {
   apiKey: ${PINECONE_API_KEY}
   index: "my-index"
-  vectorField: "content_vector"
-  namespace: "default"
+  defaultEmbeddingField: "content_vector"
+  metadataFields: ["title", "category"]
 }
 ```
 

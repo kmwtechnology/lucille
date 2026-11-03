@@ -40,7 +40,9 @@ weaviate {
 }
 ```
 
-**Note on IDs:** Weaviate requires UUIDs for its internal `id` field. The WeaviateIndexer generates a UUID from the document's Lucille ID and stores the original ID under `idDestinationName` so it can be retrieved later.
+**Note on IDs:** Weaviate requires UUIDs for its internal `id` field. The WeaviateIndexer generates a UUID from the document's Lucille ID (or from `indexer.idOverrideField` when it is set and present) and stores that ID under `idDestinationName` so it can be retrieved later.
+
+The generic `indexer.whitelist` and `indexer.blacklist` options control which fields are sent as object properties. `indexer.indexOverrideField` is not supported and fails at startup.
 
 ---
 

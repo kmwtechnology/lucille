@@ -2,6 +2,7 @@ package com.kmwllc.lucille.message;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Event;
+import com.kmwllc.lucille.core.EventFieldConfig;
 import com.kmwllc.lucille.core.KafkaDocument;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -11,6 +12,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordDeserializationException;
+import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +33,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
   private final Config config;
   private final Duration pollInterval;
   private final String pipelineName;
+  private final EventFieldConfig eventFieldConfig;
   private final DeserializationErrorHandler deserializationErrorHandler;
 
   public HybridWorkerMessenger(Config config, String pipelineName,
@@ -44,6 +47,7 @@ public class HybridWorkerMessenger implements WorkerMessenger {
     this.offsets = offsets;
     this.sourceConsumer = sourceConsumer;
     this.kafkaEventProducer = KafkaUtils.createEventProducer(config);
+    this.eventFieldConfig = EventFieldConfig.fromConfig(config);
     this.deserializationErrorHandler =
         new DeserializationErrorHandler(config, sourceConsumer);
   }
@@ -148,30 +152,42 @@ public class HybridWorkerMessenger implements WorkerMessenger {
    *
    */
   @Override
-  public void sendForIndexing(Document document) throws Exception {
-    pipelineDest.put(document);
+  public void sendForIndexing(Document document) throws MessengerException {
+    try {
+      pipelineDest.put(document);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Interrupted while queueing document " + document.getId() + " for indexing", e);
+    }
   }
 
   @Override
-  public void sendFailed(Document document) throws Exception {
+  public void sendFailed(Document document) {
   }
 
   @Override
-  public void sendEvent(Event event) throws Exception {
+  public void sendEvent(Event event) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
     String confirmationTopicName = KafkaUtils.getEventTopicName(config, pipelineName, event.getRunId());
-    RecordMetadata result = kafkaEventProducer.send(
-        new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    try {
+      kafkaEventProducer.send(
+          new ProducerRecord<>(confirmationTopicName, event.getDocumentId(), event.toString())).get();
+    } catch (ExecutionException e) {
+      throw KafkaUtils.toMessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId(), e);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new MessengerException("Sending " + event.getType() + " event for document " + event.getDocumentId() + " was interrupted", e);
+    }
   }
 
   @Override
-  public void sendEvent(Document document, String message, Event.Type type) throws Exception {
+  public void sendEvent(Document document, String message, Event.Type type) throws MessengerException {
     if (kafkaEventProducer == null) {
       return;
     }
-    Event event = new Event(document, message, type);
+    Event event = new Event(document, message, type, eventFieldConfig);
     sendEvent(event);
   }
 

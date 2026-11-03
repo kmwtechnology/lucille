@@ -25,8 +25,9 @@ import org.slf4j.LoggerFactory;
  */
 public class SolrUtils {
 
+  // url is required for the standalone client and for the cloud client without zkHosts; getSolrClient enforces that
   public static final Spec SOLR_PARENT_SPEC = SpecBuilder.parent("solr")
-      .requiredStringOrList("url")
+      .optionalStringOrList("url")
       .optionalString("zkChroot", "defaultCollection", "userName", "password")
       .optionalBoolean("useCloudClient", "acceptInvalidCert")
       .optionalString(SSLUtils.SSL_CONFIG_OPTIONAL_PROPERTIES)
@@ -44,9 +45,18 @@ public class SolrUtils {
    * @return A SolrClient suitable for the given configuration.
    */
   public static SolrClient getSolrClient(Config config) {
+    // the SSL keys may be given at the root of the config or inside the solr block (the Solr Specs declare them there)
     SSLUtils.setSSLSystemProperties(config);
-    
-    if (config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient")) {
+    if (config.hasPath("solr")) {
+      SSLUtils.setSSLSystemProperties(config.getConfig("solr"));
+    }
+
+    boolean cloud = config.hasPath("solr.useCloudClient") && config.getBoolean("solr.useCloudClient");
+    if (!config.hasPath("solr.url") && !(cloud && config.hasPath("solr.zkHosts"))) {
+      throw new IllegalArgumentException("solr.url is required (or solr.zkHosts with solr.useCloudClient: true).");
+    }
+
+    if (cloud) {
       return getCloudClient(config);
     } else {
       return getHttpClientAndSetCheckPeerName(config);
@@ -140,7 +150,7 @@ public class SolrUtils {
    * are not included in the created document. Array and List types become multivalued fields.
    *
    * @param tuple a Tuple from Solr
-   * @throws DocumentException if tuple does not have a key called Document.ID_FIELD, or its value is null
+   * @throws DocumentException if tuple does not have a key called Document.ID_FIELD, or its value is null or blank
    * @return a Document whose id is the stringified version of the contents of Document.ID_FIELD in the tuple.
    */
   public static Document toDocument(Tuple tuple) throws DocumentException {
@@ -148,9 +158,10 @@ public class SolrUtils {
 
     if (tuple.getFields().containsKey(Document.ID_FIELD)) {
       // test the raw value: Tuple.getString() turns a null value into the text "null", which would become the id
-      if (tuple.getFields().get(Document.ID_FIELD) == null) {
+      Object rawId = tuple.getFields().get(Document.ID_FIELD);
+      if (rawId == null || !Document.isValidId(rawId.toString())) {
         // the id comes from data, so a bad one is a DocumentException rather than the factory's IllegalArgumentException
-        throw new DocumentException("Unable to create Document from Tuple. The id is null.");
+        throw new DocumentException("Unable to create Document from Tuple. The id is null or blank.");
       }
       d = Document.create(tuple.getString(Document.ID_FIELD));
     } else {

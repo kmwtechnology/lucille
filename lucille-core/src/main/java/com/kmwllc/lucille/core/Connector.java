@@ -8,6 +8,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.LoggerFactory;
 
 /**
  * Connects to a data source, reads data, and generates Documents to be processed.
@@ -138,13 +139,23 @@ public interface Connector extends AutoCloseable {
       Constructor<?> constructor = clazz.getConstructor(Config.class);
 
       // Creates the connector, AbstractConnector will run validation and throw an exception as needed.
+      Connector connector = null;
       try {
-        constructor.newInstance(connectorConfig);
+        connector = (Connector) constructor.newInstance(connectorConfig);
       } catch (InvocationTargetException e) {
         if (e.getTargetException() instanceof Exception) {
           throw (Exception) e.getCause();
         } else {
           throw e;
+        }
+      } finally {
+        // the connector was constructed only to validate its config; release any client its constructor opened
+        if (connector != null) {
+          try {
+            connector.close();
+          } catch (Exception e) {
+            LoggerFactory.getLogger(Connector.class).debug("Error closing connector constructed for validation", e);
+          }
         }
       }
     } catch (ReflectiveOperationException e) {

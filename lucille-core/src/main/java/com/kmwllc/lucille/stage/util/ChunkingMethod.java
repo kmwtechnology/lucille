@@ -18,20 +18,20 @@ public enum ChunkingMethod {
   }
 
   /**
-   * Returns a chunking method from the given String. If it does not match one of the existing values, it returns the
-   * default method. This method is case-insensitive.
+   * Returns the chunking method named by the given String, matched case-insensitively.
    *
    * @param modeStr A String representing a chunking method.
-   * @return A ChunkingMethod associated with the given String, or the default method if one cannot be extracted.
+   * @return The ChunkingMethod associated with the given String.
+   * @throws IllegalArgumentException if the String names no chunking method.
    */
   public static ChunkingMethod fromString(String modeStr) {
     for (ChunkingMethod mode : ChunkingMethod.values()) {
-      if (modeStr.toLowerCase().equals(mode.text)) {
+      if (modeStr != null && modeStr.trim().equalsIgnoreCase(mode.text)) {
         return mode;
       }
     }
-
-    return DEFAULT;
+    throw new IllegalArgumentException(
+        "Unknown " + CONFIG_PATH + " \"" + modeStr + "\"; expected one of fixed, custom, paragraph, sentence");
   }
 
   /**

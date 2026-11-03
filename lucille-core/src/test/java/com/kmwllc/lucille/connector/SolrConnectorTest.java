@@ -1,5 +1,7 @@
 package com.kmwllc.lucille.connector;
 
+import java.util.List;
+
 import com.kmwllc.lucille.core.*;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -66,6 +68,35 @@ public class SolrConnectorTest {
     for (Document doc : messenger.getDocsSentForProcessing()) {
       assertEquals(testDoc, doc);
     }
+  }
+
+  @Test
+  public void testDocumentsWithNullOrBlankIdsAreSkipped() throws Exception {
+    Config config = ConfigFactory.parseResourcesAnySyntax("SolrConnectorTest/execute.conf");
+    SolrClient mockClient = mock(SolrClient.class);
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run", "pipeline1");
+
+    when(mockClient.query(any(SolrQuery.class))).then(invocation -> {
+      MockQueryResponse resp = new MockQueryResponse();
+      for (String id : new String[] {"ok1", null, "   ", "ok2"}) {
+        SolrDocument doc = new SolrDocument();
+        if (id != null) {
+          doc.setField(Document.ID_FIELD, id);
+        }
+        doc.setField("name", "name-" + id);
+        resp.addToResults(doc);
+      }
+      return resp;
+    });
+
+    Connector connector = new SolrConnector(config, mockClient);
+    // does not throw: the documents without a usable id are skipped, not treated as a failure of the connector
+    connector.execute(publisher);
+
+    // the mock serves the same page twice, so each usable document arrives twice
+    List<String> ids = messenger.getDocsSentForProcessing().stream().map(Document::getId).toList();
+    assertEquals(List.of("ok1", "ok2", "ok1", "ok2"), ids);
   }
 
   @Test(expected = ConnectorException.class)

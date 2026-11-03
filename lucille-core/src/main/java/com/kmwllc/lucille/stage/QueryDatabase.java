@@ -40,10 +40,9 @@ import org.slf4j.LoggerFactory;
 public class QueryDatabase extends Stage {
 
   public static final Spec SPEC = SpecBuilder.stage()
-      .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword")
+      .requiredString("driver", "connectionString", "jdbcUser", "jdbcPassword", "sql")
       .requiredList("keyFields", new TypeReference<List<String>>(){})
       .requiredList("inputTypes", new TypeReference<List<String>>(){})
-      .optionalString("sql")
       .optionalNumber("connectionRetries", "connectionRetryPause")
       .requiredParent("fieldMapping", new TypeReference<Map<String, String>>(){}).build();
 

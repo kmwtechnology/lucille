@@ -143,7 +143,11 @@ public class JlamaEmbed extends Stage {
     }
   }
 
+  // An unset type uses the default; a set but unrecognized type is a configuration error (it used to fall back silently).
   private DType getDType(String type, DType defaultType) {
+    if (type == null || type.isBlank()) {
+      return defaultType;
+    }
     return switch (type.trim().toUpperCase()) {
       case "BOOL" -> DType.BOOL;
       case "U8" -> DType.U8;
@@ -160,7 +164,8 @@ public class JlamaEmbed extends Stage {
       case "U64" -> DType.U64;
       case "Q4" -> DType.Q4;
       case "Q5" -> DType.Q5;
-      default -> defaultType;
+      default -> throw new IllegalArgumentException("Unknown data type \"" + type
+          + "\"; expected one of BOOL, U8, I8, I16, U16, F16, BF16, I32, U32, F32, F64, I64, U64, Q4, Q5");
     };
   }
 

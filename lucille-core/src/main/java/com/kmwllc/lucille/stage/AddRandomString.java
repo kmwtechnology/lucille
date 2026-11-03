@@ -65,13 +65,13 @@ public class AddRandomString extends Stage {
   public AddRandomString(Config config) throws StageException {
     super(config);
 
-    this.inputDataPath = ConfigUtils.getOrDefault(config, "inputDataPath", null);
+    this.inputDataPath = ConfigUtils.getStringOrDefault(config, "inputDataPath", null);
     this.fieldName = ConfigUtils.getOrDefault(config, "fieldName", "data");
-    this.minNumOfTerms = ConfigUtils.getOrDefault(config, "minNumOfTerms", null);
-    this.maxNumOfTerms = ConfigUtils.getOrDefault(config, "maxNumOfTerms", null);
+    this.minNumOfTerms = ConfigUtils.getIntOrDefault(config, "minNumOfTerms", null);
+    this.maxNumOfTerms = ConfigUtils.getIntOrDefault(config, "maxNumOfTerms", null);
     this.isNested = ConfigUtils.getOrDefault(config, "isNested", false);
     this.concatenate = ConfigUtils.getOrDefault(config, "concatenate", false);
-    this.rangeSize = ConfigUtils.getOrDefault(config, "rangeSize", null);
+    this.rangeSize = ConfigUtils.getIntOrDefault(config, "rangeSize", null);
     this.fileData = null;
 
     if (this.minNumOfTerms == null ^ this.maxNumOfTerms == null) {

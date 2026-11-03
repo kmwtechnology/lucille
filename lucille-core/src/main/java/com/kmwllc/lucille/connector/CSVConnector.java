@@ -38,6 +38,7 @@ import java.nio.file.Path;
  *   <li>ignoreEscapeChar (Boolean, Optional) : Ignore the escape character during parsing.</li>
  *   <li>lowercaseFields (Boolean, Optional) : Lowercase header names before mapping to fields.</li>
  *   <li>ignoredTerms (List&lt;String&gt;, Optional) : Terms that cause rows to be skipped when matched.</li>
+ *   <li>maxRecordBytes (Integer, Optional) : Maximum size, in bytes, of a row; see CSVFileHandler.</li>
  * </ul>
  */
 
@@ -55,6 +56,7 @@ public class CSVConnector extends AbstractConnector {
       .optionalString("moveToAfterProcessing", "moveToErrorFolder", "lineNumberField", "filenameField", "filePathField",
           "idField", "docIdFormat", "separatorChar")
       .optionalBoolean("useTabs", "interpretQuotes", "ignoreEscapeChar", "lowercaseFields")
+      .optionalNumber("maxRecordBytes")
       .optionalList("ignoredTerms", new TypeReference<List<String>>(){}).build();
 
   public CSVConnector(Config config) {

@@ -16,7 +16,7 @@ Generates vector embeddings for the `source` field of a Document, its children, 
 | `embedDocument` | Boolean | Yes | Whether to embed the Document itself. |
 | `embedChildren` | Boolean | Yes | Whether to embed the Document's children. At least one of `embedDocument` and `embedChildren` must be `true`. |
 | `dest` | String | No | Field to write the embedding to. Each vector component is added as a separate Float value, so the field holds a list of floats. If `dest` already has values, the vector is appended to them. Default: `embeddings`. |
-| `modelName` | String | No | `text-embedding-3-small`, `text-embedding-3-large`, or `text-embedding-ada-002`. An unrecognized name falls back to `text-embedding-3-small`. Default: `text-embedding-3-small`. |
+| `modelName` | String | No | `text-embedding-3-small`, `text-embedding-3-large`, or `text-embedding-ada-002`. Any other name fails at startup. Default: `text-embedding-3-small`. |
 | `dimensions` | Integer | No | Output vector dimensions, passed to the OpenAI API (only `text-embedding-3-*` models support it). If omitted, the model's default is used. |
 
 Text is truncated to 8,191 tokens before embedding (the OpenAI API limit). Lucille uses [jtokkit](https://github.com/knuddelsgmbh/jtokkit) to count tokens with the encoding for the configured model.

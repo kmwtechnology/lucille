@@ -21,7 +21,7 @@ Exactly one of `filePathField`, `stringField`, or `byteArrayField` must be set, 
 
 Each selector map in `destinationFields` has:
 - `selector`: CSS selector. Required.
-- `type`: `text` (element text), `attribute` (attribute value), `html` (inner HTML), or `outerHtml` (outer HTML). Required. Other values are not rejected and extract nothing.
+- `type`: `text` (element text), `attribute` (attribute value), `html` (inner HTML), or `outerHtml` (outer HTML). Required. Any other value fails at startup.
 - `attribute`: the attribute name to extract. Required when `type` is `attribute`.
 
 Missing `selector` or `type`, or a missing `attribute` for `attribute` extraction, fails at startup.

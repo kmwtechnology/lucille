@@ -100,7 +100,6 @@ public class ApplyFileHandlers extends Stage {
   @Override
   public void stop() {
     fileFetcher.shutdown();
-    fileHandlers.clear();
   }
 
   @Override

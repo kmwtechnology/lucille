@@ -12,7 +12,7 @@ Renames fields by mapping old names to new names. A source field that is missing
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `fieldMapping` | Map\<String, String\> | Yes | Map of old field name to new field name. Must contain at least one entry, or the stage fails at startup. |
-| `updateMode` | String | No | How to handle a destination field that already exists: `overwrite`, `append`, or `skip`. With `skip`, the destination is left unchanged and the source field is still removed. An unrecognized value is treated as `overwrite`. Default: `overwrite`. |
+| `updateMode` | String | No | How to handle a destination field that already exists: `overwrite`, `append`, or `skip`. With `skip`, the destination is left unchanged and the source field is still removed. Any other value fails at startup. Default: `overwrite`. |
 | `applyToChildren` | Boolean | No | When `true`, renaming is also applied recursively to all attached child documents (including children of children). Stage conditions control whether the stage runs but are not re-evaluated per child. Default: `false`. |
 
 ```hocon

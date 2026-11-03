@@ -1,0 +1,63 @@
+name: lucille-api-example
+
+services:
+  # One-shot init container: a fresh named volume is owned by root, but the API image runs as the
+  # non-root "lucille" user, so open up the output volume before the API writes to it.
+  output-init:
+    image: alpine:3.20
+    command: ["chmod", "777", "/output"]
+    volumes:
+      - output:/output
+
+  # Built from the same Dockerfile that release-to-docker.yml publishes as kmwtechnology/lucille-api.
+  # Requires target/lucille-api-plugin.jar, built with `mvn clean install -Pshaded-plugin-jars`.
+  api:
+    build:
+      context: ../../lucille-plugins/lucille-api
+      dockerfile: Dockerfile
+    image: lucille-api:api-example
+    depends_on:
+      output-init:
+        condition: service_completed_successfully
+    environment:
+      DROPWIZARD_CONF: /conf/api.yml
+    volumes:
+      - ./conf:/conf:ro
+      - output:/output
+    ports:
+      - 8080:8080
+    networks:
+      - lucille-net
+    # The container starts well before Dropwizard is serving requests, so the verifier waits on this.
+    # Requires exactly 200 from the readiness probe, the same as VerifyApiEndpoints does, rather than any
+    # non-error status. The image is based on eclipse-temurin, which includes curl. ($$ escapes $ for compose.)
+    healthcheck:
+      test: ["CMD-SHELL", "[ \"$$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/readyz)\" = 200 ]"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+  # Runs IngestDriver, which uploads ./conf/run_a.conf (as HOCON) and ./conf/run_b.json (as JSON) to the API and
+  # runs both at once. If that succeeds, runs VerifyApiEndpoints against the API, and VerifyIngestResult against
+  # the CSVs the runs wrote to the shared output volume. Exits non-zero if any of that fails. Needs the example's
+  # target/ (test classes and verifier-lib), built by `mvn package`.
+  verifier:
+    build:
+      context: .
+      dockerfile: ./verifier/Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    # the classpath is set in verifier/Dockerfile
+    entrypoint: ["sh", "-c", "java com.kmwllc.lucille.api.IngestDriver && exec java org.junit.runner.JUnitCore com.kmwllc.lucille.api.VerifyApiEndpoints com.kmwllc.lucille.api.VerifyIngestResult"]
+    volumes:
+      - ./conf:/conf:ro
+      - output:/output:ro
+    networks:
+      - lucille-net
+
+networks:
+  lucille-net:
+
+volumes:
+  output:

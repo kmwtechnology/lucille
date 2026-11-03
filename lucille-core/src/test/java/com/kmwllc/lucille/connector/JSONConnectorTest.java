@@ -1,19 +1,29 @@
 package com.kmwllc.lucille.connector;
 
 import com.kmwllc.lucille.core.Connector;
+import com.kmwllc.lucille.core.ConnectorException;
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 public class JSONConnectorTest {
+
+  @Rule
+  public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   @Test
   public void testExecute() throws Exception {
@@ -42,4 +52,18 @@ public class JSONConnectorTest {
     assertEquals(doc3, docs.get(2));
   }
 
+  @Test
+  public void testMaxRecordBytes() throws Exception {
+    File file = tempFolder.newFile("test.jsonl");
+    Files.writeString(file.toPath(), "{\"id\": \"1\"}\n{\"id\": \"2\", \"a\": \"this line is too long\"}\n");
+
+    Config config = ConfigFactory.parseMap(Map.of(
+        "name", "connector1", "pipeline", "pipeline1", "jsonPath", file.getAbsolutePath(), "maxRecordBytes", 20));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Connector connector = new JSONConnector(config);
+
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
+  }
 }

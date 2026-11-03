@@ -74,7 +74,7 @@ Use `preSQL` and `postSQL` to run setup and teardown logic that must happen befo
 
 ## Multi-Query Joins
 
-`otherSQLs` allows you to enrich primary rows with data from additional queries at read time, without a SQL JOIN. Each secondary query must be ordered by its join key (which must be an integer column matching a column in the primary query).
+`otherSQLs` allows you to enrich primary rows with data from additional queries at read time, without a SQL JOIN. Each secondary query must be ordered by its join key, a column whose values are comparable with the primary query's `idField` values (integers, strings or dates); the primary query must be ordered by `idField` too, with unique values. Out-of-order or duplicate keys fail the run rather than silently dropping child rows, and child rows with a `NULL` join key are skipped.
 
 ```hocon
 {

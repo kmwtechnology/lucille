@@ -7,10 +7,14 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
@@ -22,6 +26,9 @@ public class CSVConnectorTest {
   private static final String TEMP_DIR = "csvConnectorTest-temp";
   private static final String ERROR_DIR = "csvConnectorTest-error";
   private static final String SUCCESS_DIR = "csvConnectorTest-success";
+
+  @Rule
+  public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   @Before
   public void setUp() {
@@ -194,5 +201,20 @@ public class CSVConnectorTest {
   public void tearDown() {
     File tempDir = new File(TEMP_DIR);
     tempDir.delete();
+  }
+
+  @Test
+  public void testMaxRecordBytes() throws Exception {
+    File file = tempFolder.newFile("test.csv");
+    Files.writeString(file.toPath(), "id,value\n1,a\n2,this line is too long\n");
+
+    Config config = ConfigFactory.parseMap(Map.of(
+        "name", "connector1", "pipeline", "pipeline1", "path", file.getAbsolutePath(), "maxRecordBytes", 20));
+    TestMessenger messenger = new TestMessenger();
+    Publisher publisher = new PublisherImpl(config, messenger, "run1", "pipeline1");
+    Connector connector = new CSVConnector(config);
+
+    assertThrows(ConnectorException.class, () -> connector.execute(publisher));
+    assertEquals(1, messenger.getDocsSentForProcessing().size());
   }
 }
