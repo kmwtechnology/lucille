@@ -1361,6 +1361,23 @@ public class RunnerTest {
   }
 
   @Test
+  public void testMisspelledTopLevelKeys() {
+    Config config = ConfigFactory.parseString(
+        "connectors: [], pipelines: [], publisher {}, solr {}, "
+            // misspellings of known keys, including a case difference
+            + "publsher { maxPendingDocs: 10 }, wrker {}, Indexer {}, logs {}, "
+            // the user's own keys, e.g. for HOCON substitution, are not near any known key
+            + "csv_connector { class: x }, basePath: \"/data\", loader {}");
+
+    assertEquals(List.of(
+            "Unrecognized top-level config key \"Indexer\" will be ignored; did you mean \"indexer\"?",
+            "Unrecognized top-level config key \"logs\" will be ignored; did you mean \"log\"?",
+            "Unrecognized top-level config key \"publsher\" will be ignored; did you mean \"publisher\"?",
+            "Unrecognized top-level config key \"wrker\" will be ignored; did you mean \"worker\"?"),
+        Runner.findMisspelledTopLevelKeys(config));
+  }
+
+  @Test
   public void testValidationOtherParents() throws Exception {
     // only has optional properties. We have one present.
     Map<String, List<Exception>> exceptions = Runner.runInValidationMode("RunnerTest/badRunnerConfig.conf");

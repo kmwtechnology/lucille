@@ -358,6 +358,10 @@ During the `-validate` pass (and the validation that runs before every run), `va
 
 A Spec cannot restrict a property to a fixed set of values, so closed-set values in these blocks are checked separately in `validateOtherParents`. For example, an unknown `runner.metricsLoggingLevel` is reported there with the allowed values.
 
+### Unknown top-level keys
+
+Lucille does not reject top-level keys it doesn't read, because users can define their own top-level keys, for example to reuse a block through HOCON substitution (`csv_connector { ... }` referenced as `${csv_connector}`). Instead, validation logs a warning for an unknown top-level key that is within one or two edits of a key Lucille reads, such as `publsher` for `publisher` or `Indexer` for `indexer`, because that block's settings would otherwise be silently ignored. `Runner.KNOWN_TOP_LEVEL_KEYS` lists the keys it compares against.
+
 ### When to add a block
 
-If you add a new top-level config block to Lucille core that is read directly by the framework (not by a component constructor), declare a `SPEC` for it on the class that reads it and add a pair to `Runner.PARENTS_AND_SPECS`, so the `-validate` pass can catch configuration errors in it. If the block belongs to a component that has a SPEC, no entry is needed — the SPEC handles it.
+If you add a new top-level config block to Lucille core that is read directly by the framework (not by a component constructor), declare a `SPEC` for it on the class that reads it and add a pair to `Runner.PARENTS_AND_SPECS`, so the `-validate` pass can catch configuration errors in it and recognizes the block's name. A new backend block read by an indexer goes in `Runner.KNOWN_TOP_LEVEL_KEYS` instead. If the block belongs to a component that has a SPEC, no entry is needed — the SPEC handles it.

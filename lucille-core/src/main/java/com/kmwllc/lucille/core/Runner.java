@@ -29,6 +29,7 @@ import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 import org.apache.commons.lang3.time.StopWatch;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.text.similarity.LevenshteinDistance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,11 +43,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.slf4j.MDC;
 
 /**
@@ -98,6 +102,15 @@ public class Runner {
       Pair.of("zookeeper", ZKRetryCounter.SPEC),
       Pair.of("worker", Worker.SPEC)
   );
+
+  /**
+   * Every top-level key Lucille reads: the components, the framework blocks above, and the backend blocks indexers read.
+   * Users may add top-level keys of their own (for example, to reuse a block through HOCON substitution), so an unknown
+   * top-level key is only reported when it looks like a misspelling of one of these.
+   */
+  static final Set<String> KNOWN_TOP_LEVEL_KEYS = Stream.concat(
+      Stream.of("connectors", "pipelines", "indexer", "solr", "opensearch", "elasticsearch", "csv", "pinecone", "weaviate"),
+      PARENTS_AND_SPECS.stream().map(Pair::getLeft)).collect(Collectors.toUnmodifiableSet());
 
   public static final int DEFAULT_CONNECTOR_TIMEOUT = 1000 * 60 * 60 * 24;
 
@@ -301,6 +314,8 @@ public class Runner {
     List<Exception> otherParentExceptions = validateOtherParents(config);
     log.info(stringifyValidation(otherParentExceptions, "Other (Publisher, Runner, etc.)"));
 
+    findMisspelledTopLevelKeys(config).forEach(log::warn);
+
     allExceptionsMap.putAll(pipelineExceptions);
     allExceptionsMap.putAll(connectorExceptions);
 
@@ -463,6 +478,38 @@ public class Runner {
     }
 
     return exceptions;
+  }
+
+  /**
+   * Returns a warning for each top-level key that is not one Lucille reads but is within a small edit distance of one
+   * (ignoring case), such as "publsher" for "publisher". Other unknown top-level keys are assumed to be the user's own.
+   */
+  static List<String> findMisspelledTopLevelKeys(Config config) {
+    List<String> warnings = new ArrayList<>();
+
+    for (String key : new TreeSet<>(config.root().keySet())) {
+      if (KNOWN_TOP_LEVEL_KEYS.contains(key)) {
+        continue;
+      }
+
+      String closest = null;
+      int closestDistance = Integer.MAX_VALUE;
+      for (String known : KNOWN_TOP_LEVEL_KEYS) {
+        // allow one edit for short names like "log" and "csv", so short keys of the user's own aren't flagged
+        int maxDistance = known.length() <= 4 ? 1 : 2;
+        int distance = new LevenshteinDistance(maxDistance).apply(key.toLowerCase(Locale.ROOT), known);
+        if (distance >= 0 && (distance < closestDistance || (distance == closestDistance && known.compareTo(closest) < 0))) {
+          closest = known;
+          closestDistance = distance;
+        }
+      }
+
+      if (closest != null) {
+        warnings.add("Unrecognized top-level config key \"" + key + "\" will be ignored; did you mean \"" + closest + "\"?");
+      }
+    }
+
+    return warnings;
   }
 
   public static void renderConfig(Config config) {
