@@ -171,7 +171,7 @@ public class S3StorageClient extends BaseStorageClient {
     String sourceKey = filePath.getPath().substring(1);
 
     String destBucket = folder.getAuthority();
-    String destKey = folder.getPath().substring(1) + sourceKey;
+    String destKey = destinationKey(folderKey(folder), sourceKey);
 
     CopyObjectRequest copyRequest = CopyObjectRequest.builder()
         .sourceBucket(sourceBucket).sourceKey(sourceKey)
@@ -184,6 +184,12 @@ public class S3StorageClient extends BaseStorageClient {
 
     s3.copyObject(copyRequest);
     s3.deleteObject(deleteRequest);
+  }
+
+  // the folder's key: its path without the leading '/'. Empty for the bucket itself, with or without a trailing '/'.
+  private static String folderKey(URI folder) {
+    String path = folder.getPath();
+    return path == null || path.length() <= 1 ? "" : path.substring(1);
   }
 
   private String getStartingDirectory(TraversalParams params) {

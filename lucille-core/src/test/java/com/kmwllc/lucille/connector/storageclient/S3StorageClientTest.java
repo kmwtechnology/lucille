@@ -928,4 +928,25 @@ public class S3StorageClientTest {
 
     return mockedStreams;
   }
+
+  // A moveToAfterProcessing folder without a trailing '/' used to be joined to the key with no separator
+  // (processeddata/a.csv).
+  @Test
+  public void testMoveFileFolderWithoutTrailingSlash() throws Exception {
+    S3StorageClient s3StorageClient = new S3StorageClient(ConfigFactory.empty());
+    S3Client mockClient = mock(S3Client.class, RETURNS_DEEP_STUBS);
+    s3StorageClient.setS3ClientForTesting(mockClient);
+    s3StorageClient.initializeForTesting();
+
+    for (String folder : List.of("s3://bucket/processed", "s3://bucket/processed/")) {
+      s3StorageClient.moveFile(URI.create("s3://bucket/data/a.csv"), URI.create(folder));
+    }
+    s3StorageClient.moveFile(URI.create("s3://bucket/data/a.csv"), URI.create("s3://other"));
+
+    org.mockito.ArgumentCaptor<CopyObjectRequest> captor = org.mockito.ArgumentCaptor.forClass(CopyObjectRequest.class);
+    verify(mockClient, org.mockito.Mockito.times(3)).copyObject(captor.capture());
+    assertEquals(List.of("processed/data/a.csv", "processed/data/a.csv", "data/a.csv"),
+        captor.getAllValues().stream().map(CopyObjectRequest::destinationKey).toList());
+    assertEquals("other", captor.getAllValues().get(2).destinationBucket());
+  }
 }

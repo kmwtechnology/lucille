@@ -117,15 +117,7 @@ public class AzureStorageClient extends BaseStorageClient {
     BlobLocation source = BlobLocation.fromURI(filePath);
     BlobLocation dest = BlobLocation.fromURI(folder);
 
-    // Special handling for if the "folder" we want to place the file into is just the bucket itself.
-    String destBlob;
-    if (dest.blobName.isEmpty()) {
-      destBlob = source.blobName;
-    } else if (dest.blobName.endsWith("/")) {
-      destBlob = dest.blobName + source.blobName;
-    } else {
-      destBlob = dest.blobName + "/" + source.blobName;
-    }
+    String destBlob = destinationKey(dest.blobName, source.blobName);
 
     BlobClient sourceBlobClient = serviceClient.getBlobContainerClient(source.containerName).getBlobClient(source.blobName);
     BlobClient destBlobClient = serviceClient.getBlobContainerClient(dest.containerName).getBlobClient(destBlob);

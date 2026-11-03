@@ -341,6 +341,23 @@ public abstract class BaseStorageClient implements StorageClient {
   }
 
   /**
+   * Returns the key an object moves to under the given folder key, for object stores: the folder, a '/', then the
+   * object's full key. An empty folder key is the root of the bucket or container. A folder key ending in '/' gets no
+   * second one.
+   *
+   * @param folderKey The destination folder's key, without a leading '/'. May be empty.
+   * @param sourceKey The full key of the object being moved.
+   * @return The destination key.
+   */
+  static String destinationKey(String folderKey, String sourceKey) {
+    if (folderKey.isEmpty()) {
+      return sourceKey;
+    }
+
+    return folderKey.endsWith("/") ? folderKey + sourceKey : folderKey + "/" + sourceKey;
+  }
+
+  /**
    * Builds the FileReference for one listed object, or returns null, logging the error, if it can't be built (e.g. the
    * object's name can't form a URI). The caller skips that object, so one bad object doesn't fail the whole traversal.
    * It is never published or recorded in state, because it has no full path to record it under.

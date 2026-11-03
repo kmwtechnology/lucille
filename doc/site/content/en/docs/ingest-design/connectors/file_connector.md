@@ -358,11 +358,10 @@ File options control how the connector handles the files it finds. They go under
 | `moveToAfterProcessing` | String | No | Path or URI of a folder to move each file to after it is processed successfully. Only allowed with a single entry in `paths`. |
 | `moveToErrorFolder` | String | No | Path or URI of a folder to move a file to if an error occurs while processing it. Only allowed with a single entry in `paths`. |
 
-Setting `moveToAfterProcessing` or `moveToErrorFolder` with more than one path fails at startup. The folder must be on the same storage provider as the path. Archive and compressed files are moved as a whole. Where a moved file lands depends on the provider:
+Setting `moveToAfterProcessing` or `moveToErrorFolder` with more than one path fails at startup. The folder must be on the same storage provider as the path. Archive and compressed files are moved as a whole. A moved file keeps the name its provider identifies it by:
 
-- Local: directly inside the folder, overwriting any file with the same name. The folder is created if missing, but its parent must exist.
-- S3 and GCS: the file's full object key is appended to the folder's path, so moving `data/a.csv` to `s3://bucket/done/` creates `done/data/a.csv`. Include the trailing `/` on the folder, or the key is joined without one.
-- Azure: only blobs at the top level of the container are moved correctly; moving a blob under a virtual folder fails.
+- S3, GCS and Azure: the folder, then the object's full key or blob name. Moving `data/a.csv` to `s3://bucket/done` or `s3://bucket/done/` creates `done/data/a.csv`; moving it to `s3://other-bucket` creates `data/a.csv` in that bucket.
+- Local: the file's name directly inside the folder, overwriting any file with the same name. The folder is created if missing, but its parent must exist.
 
 If processing a file fails (reading it, a File Handler error it cannot recover from, publishing, or moving it after processing), the error is logged, the file is moved to `moveToErrorFolder` if set, and traversal continues with the next file. With state, a file that fails before its processing finishes is not marked as published, so `incremental` mode retries it on the next run (a failed move after processing does not trigger a retry). A local file or directory that cannot be read during the directory walk is logged and skipped; with state, it and everything under it stay in state, so they are not tombstoned. A cloud object whose listing entry cannot be turned into a reference is logged and skipped. A local path in `paths` that does not exist or cannot be read, failures listing cloud storage, and a path longer than `state.pathLength` fail the run instead. A failed run publishes no tombstones and deletes nothing from state.
 

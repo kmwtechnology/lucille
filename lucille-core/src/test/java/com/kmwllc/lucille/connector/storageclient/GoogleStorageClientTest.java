@@ -614,4 +614,18 @@ public class GoogleStorageClientTest {
       assertEquals(objects.get(name), new String(googleStorageClient.getFileContentStream(published).readAllBytes()));
     }
   }
+
+  @Test
+  public void testMoveFileFolderWithoutTrailingSlash() throws Exception {
+    GoogleStorageClient googleStorageClient = new GoogleStorageClient(ConfigFactory.parseMap(Map.of(GOOGLE_SERVICE_KEY, "validPath")));
+    storage.create(BlobInfo.newBuilder(BlobId.of("moves", "data/a.csv")).build(), "a".getBytes());
+    googleStorageClient.setStorageForTesting(storage);
+    googleStorageClient.initializeForTesting();
+
+    googleStorageClient.moveFile(URI.create("gs://moves/data/a.csv"), URI.create("gs://moves/processed"));
+
+    assertNull(storage.get(BlobId.of("moves", "data/a.csv")));
+    assertNull(storage.get(BlobId.of("moves", "processeddata/a.csv")));
+    assertEquals("a", new String(storage.get(BlobId.of("moves", "processed/data/a.csv")).getContent()));
+  }
 }

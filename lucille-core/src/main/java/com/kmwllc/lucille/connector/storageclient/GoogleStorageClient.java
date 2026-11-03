@@ -106,6 +106,12 @@ public class GoogleStorageClient extends BaseStorageClient {
     return Channels.newInputStream(blobReadChannel);
   }
 
+  // the folder's key: its path without the leading '/'. Empty for the bucket itself, with or without a trailing '/'.
+  private static String folderKey(URI folder) {
+    String path = folder.getPath();
+    return path == null || path.length() <= 1 ? "" : path.substring(1);
+  }
+
   private String getStartingDirectory(TraversalParams params) {
     URI pathURI = params.getURI();
     String startingDirectory = Objects.equals(pathURI.getPath(), "/") ? "" : pathURI.getPath();
@@ -130,7 +136,7 @@ public class GoogleStorageClient extends BaseStorageClient {
     String sourceKey = filePath.getPath().substring(1);
 
     String destBucket = folder.getAuthority();
-    String destKey = folder.getPath().substring(1) + sourceKey;
+    String destKey = destinationKey(folderKey(folder), sourceKey);
 
     BlobId source = BlobId.of(sourceBucket, sourceKey);
     BlobId target = BlobId.of(destBucket, destKey);

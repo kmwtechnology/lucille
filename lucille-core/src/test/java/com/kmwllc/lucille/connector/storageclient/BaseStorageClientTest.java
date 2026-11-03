@@ -216,4 +216,14 @@ public class BaseStorageClientTest {
       return super.asDoc(params);
     }
   }
+
+  @Test
+  public void testDestinationKey() {
+    // the folder's trailing '/' is optional, and never doubled
+    assertEquals("processed/data/a.csv", BaseStorageClient.destinationKey("processed", "data/a.csv"));
+    assertEquals("processed/data/a.csv", BaseStorageClient.destinationKey("processed/", "data/a.csv"));
+    assertEquals("done/2024/a.csv", BaseStorageClient.destinationKey("done/2024", "a.csv"));
+    // an empty folder is the root of the bucket or container
+    assertEquals("data/a.csv", BaseStorageClient.destinationKey("", "data/a.csv"));
+  }
 }
