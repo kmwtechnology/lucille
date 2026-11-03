@@ -110,7 +110,7 @@ public class Runner {
    * cleanly close or stop them when the process is told to shut down (SIGINT or SIGTERM)
    */
   static class RunnerState {
-    private Publisher publisher;
+    private PublisherImpl publisher;
     private Connector connector;
     private WorkerPool workerPool;
     private Indexer indexer;
@@ -119,7 +119,7 @@ public class Runner {
     public RunnerState() {
     }
 
-    public void set(Publisher publisher, Connector connector, WorkerPool workerPool, Indexer indexer, Thread thread) {
+    public void set(PublisherImpl publisher, Connector connector, WorkerPool workerPool, Indexer indexer, Thread thread) {
       this.publisher = publisher;
       this.connector = connector;
       this.workerPool = workerPool;
@@ -457,15 +457,15 @@ public class Runner {
    * an end state in the workflow: either being indexed or erroring-out. Returns a failing ConnectorResult
    * if any connector lifecycle method throws an exception or the publisher itself fails
    */
-  public static ConnectorResult runConnector(Config config, String runId, Connector connector, Publisher publisher) {
+  public static ConnectorResult runConnector(Config config, String runId, Connector connector, PublisherImpl publisher) {
     return runConnector(config, runId, connector, publisher, null);
   }
 
   /**
-   * As {@link #runConnector(Config, String, Connector, Publisher)}, additionally failing the connector as soon as a
+   * As {@link #runConnector(Config, String, Connector, PublisherImpl)}, additionally failing the connector as soon as a
    * worker in the given pool (if any) dies, instead of waiting for the connector timeout.
    */
-  static ConnectorResult runConnector(Config config, String runId, Connector connector, Publisher publisher,
+  static ConnectorResult runConnector(Config config, String runId, Connector connector, PublisherImpl publisher,
       WorkerPool workerPool) {
     try {
       return runConnectorInternal(config, runId, connector, publisher, workerPool);
@@ -505,7 +505,7 @@ public class Runner {
    * 3) call publisher.waitForCompletion()
    * 4) call connector.postExecute()
    */
-  private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, Publisher publisher,
+  private static ConnectorResult runConnectorInternal(Config config, String runId, Connector connector, PublisherImpl publisher,
       WorkerPool workerPool) {
     log.info("Running connector {} feeding to pipeline {}",
         connector.getName(), (connector.getPipelineName() == null ? "NOT CONFIGURED" : connector.getPipelineName()));
@@ -616,7 +616,7 @@ public class Runner {
     WorkerPool workerPool = null;
     Indexer indexer = null;
     Thread indexerThread = null;
-    Publisher publisher = null;
+    PublisherImpl publisher = null;
 
     try {
       // If local/test we want to give WorkerPool/Indexer the run_id directly.

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.kmwllc.lucille.core.Document;
 import com.kmwllc.lucille.core.Publisher;
+import com.kmwllc.lucille.core.PublisherException;
 import com.kmwllc.lucille.core.PublisherImpl;
 import com.kmwllc.lucille.message.TestMessenger;
 import com.typesafe.config.Config;
@@ -621,7 +622,7 @@ public class CSVFileHandlerTest {
     Publisher spyPublisher = spy(publisher);
     doCallRealMethod()
         .doCallRealMethod()
-        .doThrow(new Exception("Simulated Kafka failure"))
+        .doThrow(new PublisherException("Simulated Kafka failure"))
         .when(spyPublisher).publish(any(Document.class));
 
     // processFileAndPublish should throw FileHandlerException due to the publish failure

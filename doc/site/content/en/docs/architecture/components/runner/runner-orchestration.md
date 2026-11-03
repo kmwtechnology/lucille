@@ -70,7 +70,7 @@ For each connector, the Runner:
 2. **Calls `runConnectorWithComponents()`** which:
    - Starts a `WorkerPool` (if local mode)
    - Creates and starts an `Indexer` thread (if local mode)
-   - Creates a `Publisher`
+   - Creates a `PublisherImpl` (the connector sees it only through the `Publisher` interface)
    - Calls `runConnector()` which:
      - Calls `connector.preExecute(runId)`
      - Launches a `ConnectorThread` that calls `connector.execute(publisher)` then `publisher.flush()`

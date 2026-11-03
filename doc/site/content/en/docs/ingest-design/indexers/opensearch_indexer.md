@@ -24,7 +24,7 @@ Selecting the indexer with `indexer.type: "OpenSearch"` works once `lucille-open
 |---|---|---|---|
 | `url` | String or List\<String\> | Yes | OpenSearch endpoint URL, or a list of endpoints for the same cluster; with a list, requests are spread across the hosts. Credentials in the URL (e.g., `https://admin:password@localhost:9200`) are used for basic auth for that host. Only the scheme, host, and port are used; a path in the URL is ignored. |
 | `index` | String | Yes | Target index name. |
-| `update` | Boolean | No | Send partial update operations instead of full index operations. Default: `false`. |
+| `update` | Boolean | No | Send partial update operations instead of full index operations; a document missing from the index is created. Default: `false`. |
 | `acceptInvalidCert` | Boolean | No | Accept invalid TLS certificates and skip hostname verification. Default: `false`. |
 | `useCompression` | Boolean | No | Enable request compression in the HTTP client. Default: `false`. |
 | `childDocumentsField` | String | No | Field in the indexed document that holds attached child documents. If not set, attached children are not indexed. |
@@ -77,6 +77,8 @@ indexer {
 
 Setting `indexer.versionField` without `indexer.versionType` fails at startup.
 
+Deletes by ID with `External` or `ExternalGte` use only step 1: a delete document with `indexer.versionField` is sent with that version, and one without it is sent without a version. The Kafka offset is never used for a delete, because it is not comparable to a `versionField` value. OpenSearch checks a delete's version the same way as a write's. A delete it rejects (409) is reported as succeeded, because the index already holds that version or a newer one: either a newer document superseded the delete, or a retry of the batch resent a delete that was already applied. For as long as the index keeps deleted versions (`index.gc_deletes`, 60 seconds by default), OpenSearch also rejects an upload with an older version than the delete. Delete-by-query is never versioned.
+
 ---
 
 ## Partial Update Mode
@@ -84,7 +86,7 @@ Setting `indexer.versionField` without `indexer.versionType` fails at startup.
 When `update: true`, each document is sent as a bulk `update` operation instead of an `index` operation:
 
 - **Full index** (default): Replaces the entire document in the index. Fields not present in the new document are removed.
-- **Partial update**: Merges fields into the existing document. Fields not present in the update are left unchanged. No upsert is set, so an update to an ID that does not exist in the index fails for that document.
+- **Partial update**: Merges fields into the existing document. Fields not present in the update are left unchanged. The update is sent with `doc_as_upsert`, so a document whose ID is not in the index is created from its fields.
 
 ```hocon
 opensearch {
@@ -109,7 +111,7 @@ Retries follow the generic `indexer.maxRetries` settings (see [Retries]({{< relr
 - A request that fails with an HTTP error carries that status code; a transport failure (connection refused, socket timeout) carries `-1`. The batch is retried if the code is in `indexer.retryableStatusCodes`, and otherwise fails as a whole.
 - A document rejected in the bulk response carries the item's HTTP status code. If any rejected document's status is retryable (for example 429 but not 400), the whole batch is resent; once retries run out, or if none is retryable, only the rejected documents fail.
 - A bulk response error whose ID does not match a document in the batch fails the whole batch and is not retried.
-- An error on any delete-by-ID item, or any failure reported by delete-by-query, fails the whole batch and is not retried. Documents uploaded earlier in the same send were already indexed but still get FAIL events.
+- An error on any delete-by-ID item, or any failure reported by delete-by-query, fails the whole batch and is not retried. A 409 on a versioned delete is not an error (see [Version Type](#version-type)). Documents uploaded earlier in the same send were already indexed but still get FAIL events.
 
 ---
 
@@ -125,7 +127,7 @@ If a document has children and `childDocumentsField` is not set, the children ar
 
 Supports delete by ID and delete by query using the generic `deletionMarkerField`, `deletionMarkerFieldValue`, `deleteByFieldField`, and `deleteByFieldValue` settings (see [Deletion Mechanics]({{< relref "docs/ingest-design/indexers#deletion-mechanics" >}})). Delete-by-query documents in a batch are combined into one `terms` bool/should query per target index, so a document matching any of them is deleted. The value to match is the first value of the `deleteByFieldValue` field, if it is multi-valued.
 
-Within a batch, only the last document for a given index and ID is acted on: if the same ID appears in both an upload and a delete by ID, the last occurrence wins, and earlier documents with that ID are not sent but are still reported as succeeded. A document marked for delete-by-query also cancels an earlier upload with the same ID in the batch, but its query is not cancelled by a later upload with that ID, because delete-by-query requests are grouped by field rather than by ID. Each send then runs, in order, one bulk request for uploads, one bulk request for deletes by ID, and one delete-by-query per index. Because delete-by-query runs last, it deletes matching documents uploaded earlier in the same batch, whatever their order in the batch.
+Delete-by-query documents are sent in batch order: the uploads and deletes by ID before a delete-by-query document are sent before its query, and the ones after it are sent after. Consecutive delete-by-query documents are combined into one delete-by-query per index. Between two delete-by-query documents, only the last document for a given index and ID is acted on: if the same ID appears in both an upload and a delete by ID, the last occurrence wins, and earlier documents with that ID are not sent but are still reported as succeeded. A document marked for delete-by-query also cancels an earlier upload with the same ID since the previous delete-by-query document. Each run of uploads and deletes by ID is sent as one bulk request for uploads and one for deletes by ID. Before each delete-by-query, the indexer refreshes the target index, because delete-by-query only matches refreshed documents. So a delete-by-query deletes matching documents uploaded before it, in the same batch or an earlier one, but not documents after it in the batch, such as new children sent after a delete of their parent's old children. Each delete-by-query adds a refresh and more bulk requests to the send, so frequent delete-by-query documents on a large index are slow.
 
 ---
 
