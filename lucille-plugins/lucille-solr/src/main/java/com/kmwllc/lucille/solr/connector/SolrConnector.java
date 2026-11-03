@@ -36,8 +36,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-// TODO : Honor and return children documents
-
 /**
  * Issues requests to Solr and optionally publishes query results as Documents. Requests should be formatted as JSON strings
  * and may include the <code>{runId}</code> wildcard, which is substituted with the current runId at execution time. To send XML instead of JSON,
@@ -52,6 +50,8 @@ import java.util.stream.Collectors;
  *   <li>useXml (Boolean, Optional) : Send XML requests instead of JSON. Defaults to false.</li>
  *   <li>idField (String, Optional) : Field to use for document IDs when publishing. Defaults to "id".</li>
  * </ul>
+ * <p> <b>Limitations:</b> Child / nested (block-join) documents are not read. Each Solr result is published as a
+ * single flat Document; a parent's children are not returned.
  */
 public class SolrConnector extends AbstractConnector {
 
