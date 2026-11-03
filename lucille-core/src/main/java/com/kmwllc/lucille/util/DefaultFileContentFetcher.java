@@ -92,11 +92,11 @@ public class DefaultFileContentFetcher implements FileContentFetcher {
 
     InputStream is;
 
+    URI pathURI = path.startsWith("classpath:") ? null : FileUtils.storageURIFor(path);
+
     if (path.startsWith("classpath:")) {
       is = DefaultFileContentFetcher.class.getClassLoader().getResourceAsStream(path.substring(path.indexOf(":") + 1));
-    } else if (FileUtils.isValidURI(path)) {
-      URI pathURI = URI.create(path);
-
+    } else if (pathURI != null) {
       // applies azure.allowedHosts to https URIs
       StorageClient storageClient = StorageClient.clientFor(pathURI, availableClients, config);
 

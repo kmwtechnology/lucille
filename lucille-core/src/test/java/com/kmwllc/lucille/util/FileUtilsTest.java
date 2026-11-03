@@ -7,6 +7,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -71,5 +72,22 @@ public class FileUtilsTest {
     assertEquals(100, FileUtils.readAllBytes(new ByteArrayInputStream(content), 100L).length);
     assertEquals(100, FileUtils.readAllBytes(new ByteArrayInputStream(content), 1000L).length);
     assertThrows(FileUtils.ContentTooLargeException.class, () -> FileUtils.readAllBytes(new ByteArrayInputStream(content), 99L));
+  }
+
+  // A Windows drive path is a local file, not a URI with a one-letter scheme. Holds on any OS.
+  @Test
+  public void testStorageURIFor() {
+    for (String drivePath : java.util.List.of("C:/data/report.csv", "C:\\data\\report.csv")) {
+      java.net.URI uri = FileUtils.storageURIFor(drivePath);
+      assertEquals("file", uri.getScheme());
+      assertTrue(uri.getPath().endsWith("report.csv"));
+    }
+
+    assertEquals("s3", FileUtils.storageURIFor("s3://bucket/key.csv").getScheme());
+    assertEquals("file", FileUtils.storageURIFor("file:///tmp/a.csv").getScheme());
+
+    // plain local paths are opened directly
+    assertNull(FileUtils.storageURIFor("relative/a.csv"));
+    assertNull(FileUtils.storageURIFor("/absolute/a.csv"));
   }
 }

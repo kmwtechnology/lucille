@@ -1,8 +1,10 @@
 package com.kmwllc.lucille.util;
 
+import com.kmwllc.lucille.connector.storageclient.TraversalParams;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -36,6 +38,21 @@ public class FileUtils {
       return rawURI.getScheme() != null;
     } catch (Exception e) {
       return false;
+    }
+  }
+
+  /**
+   * Returns the URI a storage client should fetch the given path from, or null if it should be opened as a local file
+   * path. Parsed like FileConnector's paths (see {@link TraversalParams#parsePathOrURI(String)}), so a Windows drive
+   * path such as <code>C:/data/a.csv</code> is a local file, not a URI with the scheme "C".
+   */
+  static URI storageURIFor(String path) {
+    try {
+      URI uri = TraversalParams.parsePathOrURI(path);
+      return uri.getScheme() == null ? null : uri;
+    } catch (URISyntaxException e) {
+      // neither a URI nor a valid local path: opening it as a local path reports the error
+      return null;
     }
   }
 
