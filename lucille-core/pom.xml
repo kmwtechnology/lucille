@@ -402,12 +402,18 @@
        <version>25.0.4</version>
     </dependency>
 
-    <!-- GraalVM JavaScript -->
+    <!-- GraalVM JavaScript. -->
     <dependency>
        <groupId>org.graalvm.js</groupId>
-       <artifactId>js</artifactId>
+       <artifactId>js-language</artifactId>
        <version>25.0.4</version>
-       <type>pom</type>
+       <scope>runtime</scope>
+    </dependency>
+    <dependency>
+       <groupId>org.graalvm.truffle</groupId>
+       <artifactId>truffle-runtime</artifactId>
+       <version>25.0.4</version>
+       <scope>runtime</scope>
     </dependency>
 
     <!-- GraalVM Python -->
