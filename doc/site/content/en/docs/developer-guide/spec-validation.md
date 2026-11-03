@@ -283,7 +283,7 @@ public static Map<String, List<Exception>> runInValidationMode(Config config) th
 }
 ```
 
-This instantiates every Stage, Connector, and Indexer (triggering their SPEC validation) without actually running any connectors. It also validates top-level config blocks (publisher, runner, kafka, etc.) using a `validConfigProperties.conf` resource file.
+This instantiates every Stage, Connector, and Indexer (triggering their SPEC validation) without actually running any connectors. It also validates the top-level framework blocks (publisher, runner, kafka, etc.) against their Specs; see [Validating Top-Level Framework Blocks](#validating-top-level-framework-blocks).
 
 ---
 
@@ -337,37 +337,27 @@ Error with CopyFields Config: [Config contains unknown parent feildMapping, Requ
 
 ---
 
-## Validating without a SPEC
+## Validating Top-Level Framework Blocks
 
 Connectors, Stages, and Indexers all declare a `SPEC` in code. When the `-validate` pass instantiates each component, the constructor triggers SPEC validation automatically — the code is the source of truth for what those components accept.
 
-However, a Lucille config contains more than just component definitions. Top-level blocks like `publisher`, `runner`, `worker`, `kafka`, and `zookeeper` are infrastructure settings read directly by the framework at runtime. They don't correspond to any Connector, Stage, or Indexer, so there is nowhere in code to put a SPEC that would cover them. Without some mechanism to validate these blocks, typos and unrecognized properties in them would pass through the `-validate` pass silently.
+A Lucille config also contains top-level blocks like `publisher`, `runner`, `worker`, `kafka`, `zookeeper`, and `log` that the framework reads directly at runtime. Each of these also has a Spec, declared as a `SPEC` constant on the class that reads the block (`PublisherImpl.SPEC`, `Runner.SPEC`, `Worker.SPEC`, `KafkaUtils.SPEC`, `ZKRetryCounter.SPEC`, `LogUtils.SPEC`). `Runner.PARENTS_AND_SPECS` pairs each block name with its Spec:
 
-For this purpose, Lucille has a `resources/validConfigProperties.conf` file. It declares the legal properties for each of these framework-level config blocks, giving the `-validate` pass the same typo-catching coverage for infrastructure settings that SPECs provide for components.
-
-### Structure
-
-Each top-level key in the file corresponds to a config block name. Under each key, declare `requiredProperties` and/or `optionalProperties` as lists of property names:
-
-```hocon
-kafka {
-  requiredProperties: ["bootstrapServers", "consumerGroupId", "maxPollIntervalSecs", "maxRequestSize"]
-  optionalProperties: ["documentSerializer", "documentDeserializer", "sourceTopic", "eventTopic"]
-}
-
-worker {
-  optionalProperties: ["pipeline", "threads", "exitOnTimeout", "maxProcessingSecs", "maxRetries"]
-}
+```java
+static final List<Pair<String, Spec>> PARENTS_AND_SPECS = List.of(
+    Pair.of("publisher", PublisherImpl.SPEC),
+    Pair.of("log", LogUtils.SPEC),
+    Pair.of("runner", Runner.SPEC),
+    Pair.of("kafka", KafkaUtils.SPEC),
+    Pair.of("zookeeper", ZKRetryCounter.SPEC),
+    Pair.of("worker", Worker.SPEC)
+);
 ```
 
-During the `-validate` pass, the Runner loads this file and iterates its top-level keys. For each key that is present in the user's config, it builds a `Spec` from the declared properties and validates that config block — catching unknown properties and missing required ones, the same way component SPECs do.
+During the `-validate` pass (and the validation that runs before every run), `validateOtherParents` validates each of these blocks that is present in the config against its Spec, catching unknown properties, missing required ones, and wrong types, the same way component SPECs do. A block that is absent is skipped: all of these blocks are optional at the top level. Because they are ordinary Specs, they can describe nested objects with parent Specs, like any component Spec.
 
-Blocks listed in `validConfigProperties.conf` are all optional at the top level: if a block (e.g., `zookeeper`) is absent from the user's config, it is simply skipped. Validation only runs for blocks that are actually present.
+A Spec cannot restrict a property to a fixed set of values, so closed-set values in these blocks are checked separately in `validateOtherParents`. For example, an unknown `runner.metricsLoggingLevel` is reported there with the allowed values.
 
-### Limitation
+### When to add a block
 
-The file only supports flat property lists. It cannot describe nested config objects within a block — for example, it cannot validate the structure of `kafka.ssl` or `worker.someNestedBlock`. If a top-level block requires nested validation, that logic must be implemented in the relevant constructor or startup code.
-
-### When to update this file
-
-If you add a new top-level config block to Lucille core that is read directly by the framework (not by a component constructor), add an entry here so the `-validate` pass can catch configuration errors in it. If the block belongs to a component that has a SPEC, no entry is needed — the SPEC handles it.
+If you add a new top-level config block to Lucille core that is read directly by the framework (not by a component constructor), declare a `SPEC` for it on the class that reads it and add a pair to `Runner.PARENTS_AND_SPECS`, so the `-validate` pass can catch configuration errors in it. If the block belongs to a component that has a SPEC, no entry is needed — the SPEC handles it.

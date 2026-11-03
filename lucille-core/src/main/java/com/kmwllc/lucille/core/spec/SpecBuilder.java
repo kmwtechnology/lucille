@@ -1,7 +1,6 @@
 package com.kmwllc.lucille.core.spec;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.kmwllc.lucille.core.Stage;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -33,6 +32,10 @@ public class SpecBuilder {
   }
 
   private void add(Property property) {
+    if (property.getName() == null) {
+      throw new IllegalArgumentException("A property name must not be null.");
+    }
+
     Property existing = properties.putIfAbsent(property.getName(), property);
     if (existing != null && existing != property) {
       throw new IllegalArgumentException("Property \"" + property.getName() + "\" is declared more than once"
@@ -48,7 +51,16 @@ public class SpecBuilder {
    * @return a Spec with default legal properties suitable for a Stage.
    */
   public static SpecBuilder stage() {
-    return new SpecBuilder(Stage.DEFAULT_LEGAL_PROPERTIES);
+    return new SpecBuilder(List.of(
+        new StringProperty("name", false),
+        new StringProperty("class", false),
+        new BooleanProperty("enabled", false),
+        new ListProperty("conditions", false, SpecBuilder.withoutDefaults()
+            .optionalString("operator")
+            .optionalString("valuesPath")
+            .optionalList("values", new TypeReference<List<String>>(){})
+            .requiredList("fields", new TypeReference<List<String>>(){}).build()),
+        new StringProperty("conditionPolicy", false)));
   }
 
   /**
@@ -149,13 +161,11 @@ public class SpecBuilder {
   // ************ Adding Objects (Parents) and Lists ************
 
   public SpecBuilder requiredParent(Spec... requiredParents) {
-    // TODO: assert that all specs are isParent()
     Arrays.stream(requiredParents).forEach(requiredParentSpec -> add(new ObjectProperty(requiredParentSpec, true)));
     return this;
   }
 
   public SpecBuilder optionalParent(Spec... optionalParents) {
-    // TODO: assert that all specs are isParent()
     Arrays.stream(optionalParents).forEach(optionalParentSpec -> add(new ObjectProperty(optionalParentSpec, false)));
     return this;
   }

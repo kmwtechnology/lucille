@@ -5,13 +5,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 
-public class ObjectProperty extends Property {
+class ObjectProperty extends Property {
 
   private final TypeReference<?> typeReference;
   private final Spec parentSpec;
 
   public ObjectProperty(Spec parentSpec, boolean required) {
-    super(parentSpec.getName(), required);
+    super(requireParentName(parentSpec), required);
 
     this.parentSpec = parentSpec;
     this.typeReference = null;
@@ -22,6 +22,14 @@ public class ObjectProperty extends Property {
 
     this.parentSpec = null;
     this.typeReference = type;
+  }
+
+  private static String requireParentName(Spec parentSpec) {
+    if (parentSpec.getName() == null) {
+      throw new IllegalArgumentException("A parent property needs a Spec created with SpecBuilder.parent(name), which gives "
+          + "the parent its name; this Spec has no name.");
+    }
+    return parentSpec.getName();
   }
 
   @Override

@@ -306,8 +306,13 @@ public class TraversalParams {
     }
 
     public static PublishMode fromString(String name) {
-        return PublishMode.valueOf(name.toUpperCase());
-    }    
+      for (PublishMode mode : values()) {
+        if (name != null && mode.name().equalsIgnoreCase(name.trim())) {
+          return mode;
+        }
+      }
+      throw new IllegalArgumentException("Unknown filterOptions.publishMode \"" + name + "\"; expected one of incremental, full");
+    }
   }
 
 }

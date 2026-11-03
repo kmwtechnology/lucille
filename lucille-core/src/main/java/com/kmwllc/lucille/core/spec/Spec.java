@@ -112,7 +112,7 @@ public class Spec {
 
   /**
    * Returns a Set of the legal properties associated with this Spec, include required/optional properties/parents
-   * and any default properties associated with the Spec as well. Note that, if this Spec has an {@link ObjectProperty}, this
+   * and any default properties associated with the Spec as well. Note that, if this Spec has a parent (object) property, this
    * will only return that property's name - <b>not</b> its child's legal properties as well.
    * @return a Set of the legal properties associated with this Spec, in declaration order.
    */
@@ -154,8 +154,11 @@ public class Spec {
 
   /**
    * Returns this Spec as a JsonNode describing the properties it declares. The returned node will contain one entry, <code>fields</code>,
-   * which will be a list of JsonNode(s) describing the associated properties. See {@link Property#json()} for information on what these
-   * objects will contain.
+   * which will be a list of JsonNode(s) describing the associated properties, in declaration order. Each has <code>name</code>,
+   * <code>required</code>, and <code>type</code>, an object whose <code>type</code> is one of <code>STRING</code>, <code>NUMBER</code>,
+   * <code>BOOLEAN</code>, <code>LIST</code>, <code>STRING_OR_LIST</code> or <code>OBJECT</code>. For a list or an object, <code>type</code>
+   * also has either <code>typeReference</code>, the Java type the value should convert to, or <code>child</code>, the JSON of the Spec
+   * that the object (or each list element) must satisfy.
    * @return A JsonNode describing this Spec and the properties it declares.
    */
   public JsonNode toJson() {

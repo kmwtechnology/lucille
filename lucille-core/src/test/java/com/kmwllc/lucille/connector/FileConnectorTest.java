@@ -426,6 +426,15 @@ public class FileConnectorTest {
   }
 
   @Test
+  public void testUnknownPublishModeFailsFast() {
+    Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
+        .withValue("filterOptions.publishMode", ConfigValueFactory.fromAnyRef("partial"));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> new FileConnector(config));
+    assertTrue(e.getMessage().contains("\"partial\""));
+    assertTrue(e.getMessage().contains("incremental, full"));
+  }
+
+  @Test
   public void testLastPublishedCutoffWithoutStateFailsFast() {
     Config config = ConfigFactory.parseResourcesAnySyntax("FileConnectorTest/example.conf")
         .withValue("filterOptions.lastPublishedCutoff", ConfigValueFactory.fromAnyRef("1h"));

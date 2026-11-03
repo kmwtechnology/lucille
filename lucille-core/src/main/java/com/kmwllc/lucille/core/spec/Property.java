@@ -8,7 +8,7 @@ import com.typesafe.config.Config;
 /**
  * A property in a Config. Properties have a certain type, a name, and are either required or optional.
  */
-public abstract class Property {
+abstract class Property {
 
   protected static final ObjectMapper MAPPER = new ObjectMapper();
 

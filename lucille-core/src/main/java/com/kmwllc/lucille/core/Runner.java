@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,6 +46,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.slf4j.MDC;
 
 /**
@@ -453,6 +455,13 @@ public class Runner {
       }
     }
 
+    // closed-set values the Specs above cannot check
+    try {
+      getMetricsLoggingLevel(rootConfig);
+    } catch (IllegalArgumentException e) {
+      exceptions.add(e);
+    }
+
     return exceptions;
   }
 
@@ -607,6 +616,9 @@ public class Runner {
     }
 
     log.info("Starting run with id {}", runId);
+
+    // fail now rather than when the metrics are logged after the run
+    getMetricsLoggingLevel(config);
 
     List<Connector> connectors = Connector.fromConfig(config);
     List<ConnectorResult> connectorResults = new ArrayList<>();
@@ -942,15 +954,24 @@ public class Runner {
     }
   }
 
-  private static Slf4jReporter.LoggingLevel getMetricsLoggingLevel(Config config) {
-    try {
-      return config.hasPath("runner.metricsLoggingLevel") ?
-          Slf4jReporter.LoggingLevel.valueOf(config.getString("runner.metricsLoggingLevel")) :
-          Slf4jReporter.LoggingLevel.DEBUG;
-    } catch (Exception e) {
-      log.error("Error obtaining metrics logging level", e);
+  /**
+   * Returns the level at which run metrics are logged: runner.metricsLoggingLevel (case-insensitive), or DEBUG if unset.
+   * @throws IllegalArgumentException If runner.metricsLoggingLevel is not one of the levels Slf4jReporter supports.
+   */
+  static Slf4jReporter.LoggingLevel getMetricsLoggingLevel(Config config) {
+    if (!config.hasPath("runner.metricsLoggingLevel")) {
+      return Slf4jReporter.LoggingLevel.DEBUG;
     }
-    return Slf4jReporter.LoggingLevel.DEBUG;
+
+    String value = config.getString("runner.metricsLoggingLevel");
+    for (Slf4jReporter.LoggingLevel level : Slf4jReporter.LoggingLevel.values()) {
+      if (level.name().equalsIgnoreCase(value.trim())) {
+        return level;
+      }
+    }
+
+    throw new IllegalArgumentException("Unknown runner.metricsLoggingLevel \"" + value + "\"; expected one of "
+        + Arrays.stream(Slf4jReporter.LoggingLevel.values()).map(l -> l.name().toLowerCase()).collect(Collectors.joining(", ")));
   }
 
   /**

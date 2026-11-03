@@ -88,6 +88,20 @@ public class SpecBuilderTest {
   }
 
   @Test
+  public void testParentSpecMustBeNamed() {
+    Spec unnamed = SpecBuilder.withoutDefaults().optionalString("inner").build();
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> SpecBuilder.withoutDefaults().optionalParent(unnamed));
+    assertTrue(e.getMessage().contains("SpecBuilder.parent"));
+    assertThrows(IllegalArgumentException.class, () -> SpecBuilder.withoutDefaults().requiredParent(unnamed));
+
+    Spec named = SpecBuilder.parent("outer").optionalString("inner").build();
+    assertTrue(SpecBuilder.withoutDefaults().optionalParent(named).build().getLegalProperties().contains("outer"));
+
+    assertThrows(IllegalArgumentException.class, () -> SpecBuilder.withoutDefaults().optionalString((String) null));
+  }
+
+  @Test
   public void testDuplicateNameIsRejected() {
     IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
         () -> SpecBuilder.withoutDefaults().optionalString("field").optionalNumber("field"));

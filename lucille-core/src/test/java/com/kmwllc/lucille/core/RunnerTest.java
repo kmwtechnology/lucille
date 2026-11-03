@@ -5,6 +5,7 @@ import com.kmwllc.lucille.connector.CloseCountingConnector;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.SharedMetricRegistries;
+import com.codahale.metrics.Slf4jReporter;
 import com.codahale.metrics.Timer;
 import com.kmwllc.lucille.connector.NoOpConnector;
 import com.kmwllc.lucille.connector.PostCompletionFileConnector;
@@ -1338,6 +1339,25 @@ public class RunnerTest {
   public void testBadIdRunAndLogResult() throws Exception {
     Config config = ConfigFactory.load("RunnerTest/noop.conf");
     assertThrows(IllegalArgumentException.class, () -> Runner.runAndLogResult(config, RunType.LOCAL, null, false));
+  }
+
+  @Test
+  public void testMetricsLoggingLevel() throws Exception {
+    assertEquals(Slf4jReporter.LoggingLevel.DEBUG, Runner.getMetricsLoggingLevel(ConfigFactory.empty()));
+    assertEquals(Slf4jReporter.LoggingLevel.INFO,
+        Runner.getMetricsLoggingLevel(ConfigFactory.parseString("runner.metricsLoggingLevel: info")));
+
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> Runner.getMetricsLoggingLevel(ConfigFactory.parseString("runner.metricsLoggingLevel: loud")));
+    assertTrue(e.getMessage().contains("\"loud\""));
+    assertTrue(e.getMessage().contains("info"));
+
+    // reported by validation alongside the runner block's unknown properties
+    Config config = ConfigFactory.parseResourcesAnySyntax("RunnerTest/badRunnerConfig.conf")
+        .withValue("runner.metricsLoggingLevel", ConfigValueFactory.fromAnyRef("loud"));
+    List<Exception> otherExceptions = Runner.runInValidationMode(config).get("other");
+    assertEquals(2, otherExceptions.size());
+    assertTrue(otherExceptions.get(1).getMessage().contains("runner.metricsLoggingLevel"));
   }
 
   @Test

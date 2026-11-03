@@ -281,8 +281,7 @@ lucille-core/
 │   │   │   ├── stage/         # built-in Stages
 │   │   │   └── util/          # utilities (ConfigUtils, LogUtils, etc.)
 │   │   └── resources/
-│   │       ├── reference.conf           # default config values
-│   │       └── validConfigProperties.conf  # config validation rules
+│   │       └── log4j2.xml               # default logging configuration
 │   └── test/
 │       ├── java/com/kmwllc/lucille/     # test classes
 │       └── resources/                    # test config files
